@@ -10,6 +10,13 @@
 [[plugins]]
   package = "@netlify/plugin-nextjs"
 
+[functions]
+  external_node_modules = ["@supabase/supabase-js"]
+  node_bundler = "esbuild"
+
+[functions."api/trending/scrape"]
+  timeout = 26
+
 # Headers de sécurité
 [[headers]]
   for = "/*"
