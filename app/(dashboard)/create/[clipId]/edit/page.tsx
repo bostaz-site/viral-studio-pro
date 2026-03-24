@@ -9,14 +9,13 @@ import {
   Sparkles,
   Download,
   Share2,
-  Eye,
   Type,
   Zap,
   Copy,
   Wand2,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Slider } from '@/components/ui/slider'
 import { Switch } from '@/components/ui/switch'
@@ -25,10 +24,9 @@ import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { VideoPlayer, type VideoPlayerHandle } from '@/components/video/video-player'
-import { TimelineEditor, type TimelineSegment } from '@/components/video/timeline-editor'
-import { CaptionEditor, type CaptionConfig } from '@/components/captions/caption-editor'
+import { TimelineEditor } from '@/components/video/timeline-editor'
+import type { CaptionConfig } from '@/components/captions/caption-editor'
 import { RemakeModal } from '@/components/clips/remake-modal'
-import { cn } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/client'
 import type { Database } from '@/lib/supabase/types'
 
@@ -73,39 +71,6 @@ interface EditorSettings {
 }
 
 // ─── UI Components ──────────────────────────────────────────────────────
-
-function TimelineHandle({
-  value,
-  min,
-  max,
-  onChange,
-  label,
-}: {
-  value: number
-  min: number
-  max: number
-  onChange: (value: number) => void
-  label: string
-}) {
-  return (
-    <div className="flex flex-col items-center gap-1.5">
-      <span className="text-xs font-medium text-muted-foreground">{label}</span>
-      <div className="flex gap-2 items-center">
-        <Slider
-          value={[value]}
-          onValueChange={(v: number[]) => onChange(v[0])}
-          min={min}
-          max={max}
-          step={0.1}
-          className="w-32"
-        />
-        <span className="text-xs text-muted-foreground font-mono w-12">
-          {value.toFixed(1)}s
-        </span>
-      </div>
-    </div>
-  )
-}
 
 function ViralScoreBadge({ score }: { score: number | null }) {
   if (!score) return null
@@ -693,7 +658,7 @@ export default function ClipEditorPage() {
               <div className="space-y-3">
                 {/* Aspect ratio */}
                 <div className="space-y-2">
-                  <Label className="text-sm">Format d'écran</Label>
+                  <Label className="text-sm">Format d&apos;écran</Label>
                   <Select
                     value={editorSettings.aspectRatio}
                     onValueChange={(val: string) => {

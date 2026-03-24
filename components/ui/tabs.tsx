@@ -23,7 +23,7 @@ const Tabs = React.forwardRef<HTMLDivElement, TabsProps>(
       <div ref={ref} {...props}>
         {React.Children.map(children, (child) =>
           React.isValidElement(child)
-            ? React.cloneElement(child as React.ReactElement<any>, {
+            ? React.cloneElement(child as React.ReactElement<Record<string, unknown>>, {
                 value,
                 onValueChange: handleValueChange,
               })
@@ -123,7 +123,7 @@ const TabsWithState = React.forwardRef<
     <div ref={ref} {...props}>
       {React.Children.map(children, (child) =>
         React.isValidElement(child)
-          ? React.cloneElement(child as React.ReactElement<any>, {
+          ? React.cloneElement(child as React.ReactElement<Record<string, unknown>>, {
               value,
               activeValue: value,
               onValueChange: handleValueChange,
