@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { checkVideoLimit } from '@/lib/plans'
 import { downloadVideo, cleanupTempFile } from '@/lib/ytdlp'
 import { transcribeAudio } from '@/lib/whisper'
 import { runHookHunter } from '@/lib/claude/hook-hunter'
@@ -36,6 +37,21 @@ export async function POST(req: NextRequest) {
 
   const { trending_clip_id } = parsed.data
   const admin = createAdminClient()
+
+  // ── Plan enforcement: check video limit ─────────────────────────────────
+  const { data: profile } = await admin
+    .from('profiles')
+    .select('plan, monthly_videos_used')
+    .eq('id', user.id)
+    .single()
+
+  const usageCheck = checkVideoLimit(profile?.plan, profile?.monthly_videos_used)
+  if (!usageCheck.allowed) {
+    return NextResponse.json(
+      { data: null, error: 'Plan limit reached', message: usageCheck.reason },
+      { status: 403 }
+    )
+  }
 
   // Fetch trending clip
   const { data: trendingClip, error: trendingError } = await admin
@@ -88,6 +104,15 @@ export async function POST(req: NextRequest) {
 
     if (videoError || !video) throw new Error(`Video insert failed: ${videoError?.message}`)
     const videoId = video.id
+
+    // Increment monthly usage
+    await admin
+      .from('profiles')
+      .update({
+        monthly_videos_used: (profile?.monthly_videos_used ?? 0) + 1,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', user.id)
 
     // ── Step 4: Transcribe ────────────────────────────────────────────────────
     const filename = storagePath.split('/').pop() ?? 'video.mp4'

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { getPlanConfig } from '@/lib/plans'
 
 const inputSchema = z.object({
   clip_id: z.string().uuid(),
@@ -108,13 +109,21 @@ export async function POST(request: NextRequest) {
     .limit(1)
     .single()
 
-  // Get user plan for watermark
+  // Get user plan for feature gating
   const { data: profile } = await admin
     .from('profiles')
     .select('plan')
     .eq('id', user.id)
     .single()
-  const plan = profile?.plan ?? 'free'
+  const planConfig = getPlanConfig(profile?.plan)
+
+  // Gate split-screen to Studio plan
+  if (settings?.splitScreen?.enabled && !planConfig.limits.splitScreen) {
+    return NextResponse.json(
+      { data: null, error: 'Feature not available', message: `Le split-screen nécessite le plan Studio (${planConfig.name} actuel)` },
+      { status: 403 }
+    )
+  }
 
   // Mark clip as rendering
   await admin.from('clips').update({ status: 'rendering' }).eq('id', clip_id)
@@ -154,7 +163,7 @@ export async function POST(request: NextRequest) {
           backgroundBlur: settings?.format?.backgroundBlur ?? false,
         },
         branding: {
-          watermark: plan === 'free' ? true : (settings?.branding?.watermark ?? false),
+          watermark: planConfig.limits.watermarkForced ? true : (settings?.branding?.watermark ?? false),
           watermarkPosition: settings?.branding?.watermarkPosition ?? 'bottom-right',
           creditText: settings?.branding?.creditText ?? null,
         },

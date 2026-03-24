@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { checkVideoLimit, getPlanConfig } from '@/lib/plans'
 
 const ALLOWED_MIME_TYPES = [
   'video/mp4',
@@ -8,7 +9,6 @@ const ALLOWED_MIME_TYPES = [
   'video/x-matroska',
   'video/x-msvideo',
 ]
-const MAX_SIZE_BYTES = 500 * 1024 * 1024 // 500MB
 
 export async function POST(request: NextRequest) {
   try {
@@ -24,6 +24,27 @@ export async function POST(request: NextRequest) {
         { status: 401 }
       )
     }
+
+    const admin = createAdminClient()
+
+    // ── Plan enforcement: check video limit ─────────────────────────────────
+    const { data: profile } = await admin
+      .from('profiles')
+      .select('plan, monthly_videos_used')
+      .eq('id', user.id)
+      .single()
+
+    const usageCheck = checkVideoLimit(profile?.plan, profile?.monthly_videos_used)
+    if (!usageCheck.allowed) {
+      return NextResponse.json(
+        { data: null, error: 'Plan limit reached', message: usageCheck.reason },
+        { status: 403 }
+      )
+    }
+
+    // ── Plan enforcement: check file size limit ─────────────────────────────
+    const planConfig = getPlanConfig(profile?.plan)
+    const maxSizeBytes = planConfig.limits.maxUploadSizeMB * 1024 * 1024
 
     const formData = await request.formData()
     const file = formData.get('file') as File | null
@@ -46,14 +67,12 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    if (file.size > MAX_SIZE_BYTES) {
+    if (file.size > maxSizeBytes) {
       return NextResponse.json(
-        { data: null, error: 'File too large', message: 'File size must be under 500MB' },
+        { data: null, error: 'File too large', message: `La taille max est ${planConfig.limits.maxUploadSizeMB}MB pour le plan ${planConfig.name}` },
         { status: 400 }
       )
     }
-
-    const admin = createAdminClient()
     const videoId = crypto.randomUUID()
     const ext = file.name.split('.').pop() ?? 'mp4'
     const storagePath = `${user.id}/${videoId}/source.${ext}`
@@ -93,8 +112,25 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // ── Increment monthly usage counter ────────────────────────────────────
+    await admin
+      .from('profiles')
+      .update({
+        monthly_videos_used: (profile?.monthly_videos_used ?? 0) + 1,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', user.id)
+
     return NextResponse.json({
-      data: { video_id: video.id, storage_path: storagePath },
+      data: {
+        video_id: video.id,
+        storage_path: storagePath,
+        usage: {
+          used: (profile?.monthly_videos_used ?? 0) + 1,
+          limit: usageCheck.limit,
+          plan: usageCheck.plan,
+        },
+      },
       error: null,
       message: 'Video uploaded successfully',
     })
