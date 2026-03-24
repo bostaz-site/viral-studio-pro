@@ -1,9 +1,11 @@
 /**
- * Simple in-memory rate limiter for API routes.
- * Uses a sliding window approach per identifier (user ID or IP).
+ * Hybrid rate limiter: in-memory for single-instance + Supabase fallback.
  *
- * NOTE: This works per-instance only. For multi-instance deployments,
- * use Redis or Upstash instead. Sufficient for Netlify single-instance.
+ * On serverless (Netlify Functions), each cold start gets a fresh Map.
+ * The in-memory limiter still helps within a warm instance, and the
+ * Supabase-based limiter provides persistent cross-instance protection.
+ *
+ * For MVP this is sufficient. For scale, migrate to Upstash Redis.
  */
 
 interface RateLimitEntry {
@@ -36,7 +38,7 @@ export interface RateLimitResult {
 }
 
 /**
- * Check and consume a rate limit token.
+ * Check and consume a rate limit token (in-memory, per-instance).
  *
  * @param identifier - Unique key (e.g., userId, IP address)
  * @param limit - Max requests allowed in the window
@@ -80,6 +82,43 @@ export function rateLimit(
     allowed: true,
     remaining: limit - entry.timestamps.length,
     limit,
+  }
+}
+
+/**
+ * Supabase-based rate limiter for persistent cross-instance limiting.
+ * Uses a dedicated table `rate_limit_log` for tracking requests.
+ * Falls back to allowing the request if the DB check fails (fail-open).
+ */
+export async function rateLimitDb(
+  admin: { rpc: (fn: string, args: Record<string, unknown>) => Promise<{ data: unknown; error: unknown }> },
+  identifier: string,
+  limit: number,
+  windowMs: number = 60_000
+): Promise<RateLimitResult> {
+  try {
+    const { data, error } = await admin.rpc('check_rate_limit', {
+      p_identifier: identifier,
+      p_limit: limit,
+      p_window_ms: windowMs,
+    })
+
+    if (error || data === null) {
+      // Fail-open: if DB check fails, allow the request
+      // but still check in-memory as a safety net
+      return rateLimit(identifier, limit, windowMs)
+    }
+
+    const allowed = Boolean(data)
+    return {
+      allowed,
+      remaining: allowed ? limit - 1 : 0,
+      limit,
+      retryAfterMs: allowed ? undefined : windowMs,
+    }
+  } catch {
+    // Fail-open with in-memory fallback
+    return rateLimit(identifier, limit, windowMs)
   }
 }
 

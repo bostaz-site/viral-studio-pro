@@ -219,6 +219,18 @@ export interface Database {
         Args: { p_user_id: string; p_max_videos: number }
         Returns: boolean
       }
+      decrement_video_usage: {
+        Args: { p_user_id: string }
+        Returns: boolean
+      }
+      check_rate_limit: {
+        Args: { p_identifier: string; p_limit: number; p_window_ms: number }
+        Returns: boolean
+      }
+      cleanup_rate_limit_log: {
+        Args: Record<string, never>
+        Returns: void
+      }
     }
     Enums: {
       [_ in never]: never

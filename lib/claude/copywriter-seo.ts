@@ -1,6 +1,4 @@
-import Anthropic from '@anthropic-ai/sdk'
-
-const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
+import { createAnthropicClient, CLAUDE_MODEL, parseClaudeJson } from './client'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -43,8 +41,10 @@ export async function runCopywriterSeo(
   clipTranscript: string,
   niche?: string
 ): Promise<CopywriterSeoResult> {
+  const anthropic = createAnthropicClient()
+
   const message = await anthropic.messages.create({
-    model: 'claude-sonnet-4-6',
+    model: CLAUDE_MODEL,
     max_tokens: 2048,
     system: SYSTEM_PROMPT,
     messages: [
@@ -82,8 +82,5 @@ ${clipTranscript}`,
   const content = message.content[0]
   if (content.type !== 'text') throw new Error('Unexpected response type from Copywriter SEO')
 
-  const jsonMatch = content.text.match(/\{[\s\S]*\}/)
-  if (!jsonMatch) throw new Error('No JSON found in Copywriter SEO response')
-
-  return JSON.parse(jsonMatch[0]) as CopywriterSeoResult
+  return parseClaudeJson<CopywriterSeoResult>(content.text, 'Copywriter SEO')
 }

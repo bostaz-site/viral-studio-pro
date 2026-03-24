@@ -46,21 +46,9 @@ export async function POST(request: NextRequest) {
 
     const planConfig = getPlanConfig(profile?.plan)
     const maxSizeBytes = planConfig.limits.maxUploadSizeMB * 1024 * 1024
-
-    // ── Atomic quota check + increment (prevents race conditions) ──────────
     const maxVideos = planConfig.limits.maxVideosPerMonth
-    const { data: quotaAllowed, error: rpcError } = await admin.rpc('increment_video_usage', {
-      p_user_id: user.id,
-      p_max_videos: maxVideos,
-    })
 
-    if (rpcError || !quotaAllowed) {
-      return NextResponse.json(
-        { data: null, error: 'Plan limit reached', message: `Limite atteinte : ${maxVideos === -1 ? '∞' : maxVideos} vidéos/mois sur le plan ${planConfig.name}. Passez au plan supérieur.` },
-        { status: 403 }
-      )
-    }
-
+    // ── Validate file BEFORE consuming quota ────────────────────────────────
     const formData = await request.formData()
     const file = formData.get('file') as File | null
 
@@ -88,6 +76,21 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       )
     }
+
+    // ── NOW increment quota (after all validations pass) ────────────────────
+    const { data: quotaAllowed, error: rpcError } = await admin.rpc('increment_video_usage', {
+      p_user_id: user.id,
+      p_max_videos: maxVideos,
+    })
+
+    if (rpcError || !quotaAllowed) {
+      return NextResponse.json(
+        { data: null, error: 'Plan limit reached', message: `Limite atteinte : ${maxVideos === -1 ? '∞' : maxVideos} vidéos/mois sur le plan ${planConfig.name}. Passez au plan supérieur.` },
+        { status: 403 }
+      )
+    }
+
+    // From here on, if anything fails we should rollback the quota
     const videoId = crypto.randomUUID()
     const ext = file.name.split('.').pop() ?? 'mp4'
     const storagePath = `${user.id}/${videoId}/source.${ext}`
@@ -97,6 +100,8 @@ export async function POST(request: NextRequest) {
       .upload(storagePath, file, { contentType: file.type, upsert: false })
 
     if (storageError) {
+      // Rollback quota
+      await admin.rpc('decrement_video_usage', { p_user_id: user.id })
       return NextResponse.json(
         { data: null, error: storageError.message, message: 'Failed to upload video to storage' },
         { status: 500 }
@@ -119,15 +124,14 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (dbError) {
-      // Cleanup storage if DB insert fails
+      // Cleanup storage + rollback quota if DB insert fails
       await admin.storage.from('videos').remove([storagePath])
+      await admin.rpc('decrement_video_usage', { p_user_id: user.id })
       return NextResponse.json(
         { data: null, error: dbError.message, message: 'Failed to save video metadata' },
         { status: 500 }
       )
     }
-
-    // Usage already incremented atomically via increment_video_usage RPC above
 
     return NextResponse.json({
       data: {
