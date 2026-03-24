@@ -1,0 +1,225 @@
+{
+  "name": "The Hunter — Viral Trends Detector",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 3
+            }
+          ]
+        }
+      },
+      "id": "f1a2b3c4-0001-0001-0001-000000000001",
+      "name": "Every 3 Hours",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "url": "https://www.googleapis.com/youtube/v3/videos",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpQueryAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            { "name": "part", "value": "snippet,statistics" },
+            { "name": "chart", "value": "mostPopular" },
+            { "name": "regionCode", "value": "FR" },
+            { "name": "videoCategoryId", "value": "0" },
+            { "name": "maxResults", "value": "25" },
+            { "name": "videoDuration", "value": "short" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "f1a2b3c4-0002-0002-0002-000000000002",
+      "name": "YouTube Shorts Trending",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [460, 180]
+    },
+    {
+      "parameters": {
+        "url": "https://open.tiktokapis.com/v2/video/list/",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "filters",
+              "value": "={\"video_ids\":[]}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "f1a2b3c4-0003-0003-0003-000000000003",
+      "name": "TikTok Trending (Research API)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "url": "https://graph.instagram.com/v18.0/media",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpQueryAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            { "name": "fields", "value": "id,caption,media_type,thumbnail_url,permalink,timestamp,like_count,comments_count" },
+            { "name": "limit", "value": "20" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "f1a2b3c4-0004-0004-0004-000000000004",
+      "name": "Instagram Reels Trending",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [460, 420]
+    },
+    {
+      "parameters": {
+        "jsCode": "// ── Velocity Score Calculator ──────────────────────────────\n// velocity = views / hours_since_publication\n// Normalized to 0-100 scale\n\nconst items = $input.all();\nconst MAX_VELOCITY = 500000; // views/hour for score 100\n\nconst processed = [];\n\nfor (const item of items) {\n  const data = item.json;\n  \n  // Parse input from any platform\n  let clip = {\n    external_url: data.external_url || data.permalink || data.shortUrl || '',\n    platform: data.platform || 'unknown',\n    title: data.title || data.snippet?.title || data.caption?.slice(0, 120) || null,\n    description: data.description || data.snippet?.description || null,\n    author_name: data.author_name || data.snippet?.channelTitle || data.username || null,\n    author_handle: data.author_handle || data.snippet?.channelId || null,\n    niche: data.niche || detectNiche(data.title || data.snippet?.title || data.caption || ''),\n    view_count: parseInt(data.statistics?.viewCount || data.play_count || data.views || '0'),\n    like_count: parseInt(data.statistics?.likeCount || data.like_count || data.likes || '0'),\n    thumbnail_url: data.thumbnail_url || data.snippet?.thumbnails?.high?.url || null,\n    published_at: data.published_at || data.snippet?.publishedAt || data.timestamp || null,\n  };\n  \n  // Calculate hours since publication\n  const publishedAt = clip.published_at ? new Date(clip.published_at) : new Date();\n  const hoursAgo = Math.max(0.5, (Date.now() - publishedAt.getTime()) / 3600000);\n  \n  // Velocity score: views per hour, normalized 0-100\n  const rawVelocity = clip.view_count / hoursAgo;\n  const velocityScore = Math.min(100, Math.round((rawVelocity / MAX_VELOCITY) * 100 * 10) / 10);\n  \n  clip.velocity_score = velocityScore;\n  \n  // Only include clips with valid URLs\n  if (clip.external_url && clip.external_url.startsWith('http')) {\n    processed.push({ json: clip });\n  }\n}\n\nreturn processed;\n\n// ── Niche detector ─────────────────────────────────────────\nfunction detectNiche(text) {\n  const t = text.toLowerCase();\n  if (/science|physique|chimie|biologie|espace|nasa|trou.noir|quantum/.test(t)) return 'science';\n  if (/business|entrepreneur|argent|revenu|invest|startup|e-commerce/.test(t)) return 'business';\n  if (/fitness|sport|musculation|regime|perte.de.poids|running|gym/.test(t)) return 'fitness';\n  if (/humour|drole|rire|blague|prank|comedie/.test(t)) return 'comedy';\n  if (/tech|ia|chatgpt|code|programmation|intelligence.artificielle|app/.test(t)) return 'tech';\n  if (/lifestyle|voyage|nourriture|mode|beaute|maison/.test(t)) return 'lifestyle';\n  if (/gaming|jeu.video|playstation|xbox|nintendo|streamer/.test(t)) return 'gaming';\n  if (/education|apprendre|tutoriel|cours|astuces|conseils/.test(t)) return 'education';\n  return null;\n}"
+      },
+      "id": "f1a2b3c4-0005-0005-0005-000000000005",
+      "name": "Calculate Velocity Score",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [700, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.APP_URL }}/api/trending/scrape",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ clips: $input.all().map(item => item.json) }) }}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "f1a2b3c4-0006-0006-0006-000000000006",
+      "name": "Save to Supabase (via API)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [940, 300],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "n8n-api-key-cred",
+          "name": "Viral Studio API Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "viral-check",
+              "leftValue": "={{ $json.data.viral_count }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "f1a2b3c4-0007-0007-0007-000000000007",
+      "name": "Viral Clips Found?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1160, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.SLACK_WEBHOOK_URL }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ text: `🔥 *${$json.data.viral_count} clip(s) VIRAL détectés !*\\n` + $json.data.viral_clips.map(c => `• Velocity: ${c.velocity} — ${c.url}`).join('\\n') }) }}",
+        "options": {}
+      },
+      "id": "f1a2b3c4-0008-0008-0008-000000000008",
+      "name": "Slack Notification",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1380, 220]
+    },
+    {
+      "parameters": {
+        "message": "={{ `✅ Scan terminé — ${$json.data.upserted} clips traités, ${$json.data.viral_count} viraux` }}",
+        "additionalFields": {}
+      },
+      "id": "f1a2b3c4-0009-0009-0009-000000000009",
+      "name": "Log — No Viral",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [1380, 380]
+    }
+  ],
+  "connections": {
+    "Every 3 Hours": {
+      "main": [
+        [
+          { "node": "YouTube Shorts Trending", "type": "main", "index": 0 },
+          { "node": "TikTok Trending (Research API)", "type": "main", "index": 0 },
+          { "node": "Instagram Reels Trending", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "YouTube Shorts Trending": {
+      "main": [[{ "node": "Calculate Velocity Score", "type": "main", "index": 0 }]]
+    },
+    "TikTok Trending (Research API)": {
+      "main": [[{ "node": "Calculate Velocity Score", "type": "main", "index": 0 }]]
+    },
+    "Instagram Reels Trending": {
+      "main": [[{ "node": "Calculate Velocity Score", "type": "main", "index": 0 }]]
+    },
+    "Calculate Velocity Score": {
+      "main": [[{ "node": "Save to Supabase (via API)", "type": "main", "index": 0 }]]
+    },
+    "Save to Supabase (via API)": {
+      "main": [[{ "node": "Viral Clips Found?", "type": "main", "index": 0 }]]
+    },
+    "Viral Clips Found?": {
+      "main": [
+        [{ "node": "Slack Notification", "type": "main", "index": 0 }],
+        [{ "node": "Log — No Viral", "type": "main", "index": 0 }]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner",
+    "errorWorkflow": ""
+  },
+  "staticData": null,
+  "tags": [
+    { "createdAt": "2026-03-23T00:00:00.000Z", "updatedAt": "2026-03-23T00:00:00.000Z", "id": "tag-001", "name": "viral-studio" },
+    { "createdAt": "2026-03-23T00:00:00.000Z", "updatedAt": "2026-03-23T00:00:00.000Z", "id": "tag-002", "name": "trending" }
+  ],
+  "triggerCount": 0,
+  "updatedAt": "2026-03-23T00:00:00.000Z",
+  "versionId": "sprint3-v1"
+}
