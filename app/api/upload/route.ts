@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { checkVideoLimit, getPlanConfig } from '@/lib/plans'
+import { getPlanConfig } from '@/lib/plans'
+import { rateLimit, RATE_LIMITS } from '@/lib/rate-limit'
 
 const ALLOWED_MIME_TYPES = [
   'video/mp4',
@@ -25,26 +26,40 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // ── Rate limiting ───────────────────────────────────────────────────────
+    const rl = rateLimit(user.id, RATE_LIMITS.upload.limit, RATE_LIMITS.upload.windowMs)
+    if (!rl.allowed) {
+      return NextResponse.json(
+        { data: null, error: 'Rate limited', message: `Trop de requêtes. Réessayez dans ${Math.ceil((rl.retryAfterMs ?? 0) / 1000)}s` },
+        { status: 429 }
+      )
+    }
+
     const admin = createAdminClient()
 
-    // ── Plan enforcement: check video limit ─────────────────────────────────
+    // ── Plan enforcement: get plan config ────────────────────────────────────
     const { data: profile } = await admin
       .from('profiles')
       .select('plan, monthly_videos_used')
       .eq('id', user.id)
       .single()
 
-    const usageCheck = checkVideoLimit(profile?.plan, profile?.monthly_videos_used)
-    if (!usageCheck.allowed) {
+    const planConfig = getPlanConfig(profile?.plan)
+    const maxSizeBytes = planConfig.limits.maxUploadSizeMB * 1024 * 1024
+
+    // ── Atomic quota check + increment (prevents race conditions) ──────────
+    const maxVideos = planConfig.limits.maxVideosPerMonth
+    const { data: quotaAllowed, error: rpcError } = await admin.rpc('increment_video_usage', {
+      p_user_id: user.id,
+      p_max_videos: maxVideos,
+    })
+
+    if (rpcError || !quotaAllowed) {
       return NextResponse.json(
-        { data: null, error: 'Plan limit reached', message: usageCheck.reason },
+        { data: null, error: 'Plan limit reached', message: `Limite atteinte : ${maxVideos === -1 ? '∞' : maxVideos} vidéos/mois sur le plan ${planConfig.name}. Passez au plan supérieur.` },
         { status: 403 }
       )
     }
-
-    // ── Plan enforcement: check file size limit ─────────────────────────────
-    const planConfig = getPlanConfig(profile?.plan)
-    const maxSizeBytes = planConfig.limits.maxUploadSizeMB * 1024 * 1024
 
     const formData = await request.formData()
     const file = formData.get('file') as File | null
@@ -112,14 +127,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // ── Increment monthly usage counter ────────────────────────────────────
-    await admin
-      .from('profiles')
-      .update({
-        monthly_videos_used: (profile?.monthly_videos_used ?? 0) + 1,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', user.id)
+    // Usage already incremented atomically via increment_video_usage RPC above
 
     return NextResponse.json({
       data: {
@@ -127,8 +135,8 @@ export async function POST(request: NextRequest) {
         storage_path: storagePath,
         usage: {
           used: (profile?.monthly_videos_used ?? 0) + 1,
-          limit: usageCheck.limit,
-          plan: usageCheck.plan,
+          limit: maxVideos,
+          plan: planConfig.id,
         },
       },
       error: null,

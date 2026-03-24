@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { checkVideoLimit } from '@/lib/plans'
+import { getPlanConfig } from '@/lib/plans'
+import { rateLimit, RATE_LIMITS } from '@/lib/rate-limit'
 import { downloadVideo, cleanupTempFile } from '@/lib/ytdlp'
 import { transcribeAudio } from '@/lib/whisper'
 import { runHookHunter } from '@/lib/claude/hook-hunter'
@@ -36,19 +37,36 @@ export async function POST(req: NextRequest) {
   }
 
   const { trending_clip_id } = parsed.data
+
+  // ── Rate limiting ───────────────────────────────────────────────────────
+  const rl = rateLimit(user.id, RATE_LIMITS.ai.limit, RATE_LIMITS.ai.windowMs)
+  if (!rl.allowed) {
+    return NextResponse.json(
+      { data: null, error: 'Rate limited', message: `Trop de requêtes. Réessayez dans ${Math.ceil((rl.retryAfterMs ?? 0) / 1000)}s` },
+      { status: 429 }
+    )
+  }
+
   const admin = createAdminClient()
 
-  // ── Plan enforcement: check video limit ─────────────────────────────────
+  // ── Atomic plan enforcement: check + increment video quota ──────────────
   const { data: profile } = await admin
     .from('profiles')
     .select('plan, monthly_videos_used')
     .eq('id', user.id)
     .single()
 
-  const usageCheck = checkVideoLimit(profile?.plan, profile?.monthly_videos_used)
-  if (!usageCheck.allowed) {
+  const planConfig = getPlanConfig(profile?.plan)
+  const maxVideos = planConfig.limits.maxVideosPerMonth
+
+  const { data: quotaAllowed, error: rpcError } = await admin.rpc('increment_video_usage', {
+    p_user_id: user.id,
+    p_max_videos: maxVideos,
+  })
+
+  if (rpcError || !quotaAllowed) {
     return NextResponse.json(
-      { data: null, error: 'Plan limit reached', message: usageCheck.reason },
+      { data: null, error: 'Plan limit reached', message: `Limite atteinte : ${maxVideos === -1 ? '∞' : maxVideos} vidéos/mois sur le plan ${planConfig.name}.` },
       { status: 403 }
     )
   }
@@ -105,14 +123,7 @@ export async function POST(req: NextRequest) {
     if (videoError || !video) throw new Error(`Video insert failed: ${videoError?.message}`)
     const videoId = video.id
 
-    // Increment monthly usage
-    await admin
-      .from('profiles')
-      .update({
-        monthly_videos_used: (profile?.monthly_videos_used ?? 0) + 1,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', user.id)
+    // Usage already incremented atomically via increment_video_usage RPC above
 
     // ── Step 4: Transcribe ────────────────────────────────────────────────────
     const filename = storagePath.split('/').pop() ?? 'video.mp4'

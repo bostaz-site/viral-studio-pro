@@ -1,12 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server'
 import Stripe from 'stripe'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { rateLimit, RATE_LIMITS } from '@/lib/rate-limit'
 
 function getStripe() {
   return new Stripe(process.env.STRIPE_SECRET_KEY ?? 'sk_test_placeholder_build')
 }
 
 export async function POST(req: NextRequest) {
+  // ── Rate limiting (webhook: 100 req/min) ────────────────────────────────
+  const clientIp = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'stripe-webhook'
+  const rl = rateLimit(clientIp, RATE_LIMITS.webhook.limit, RATE_LIMITS.webhook.windowMs)
+  if (!rl.allowed) {
+    return NextResponse.json({ error: 'Rate limited' }, { status: 429 })
+  }
+
   const stripe = getStripe()
   const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET ?? ''
   const PLAN_BY_PRICE: Record<string, string> = {
@@ -26,6 +34,18 @@ export async function POST(req: NextRequest) {
   }
 
   const admin = createAdminClient()
+
+  // ── Idempotency: skip already-processed events ──────────────────────────
+  const { data: existingEvent } = await admin
+    .from('stripe_events')
+    .select('event_id')
+    .eq('event_id', event.id)
+    .single()
+
+  if (existingEvent) {
+    // Already processed — return 200 so Stripe doesn't retry
+    return NextResponse.json({ received: true, duplicate: true })
+  }
 
   try {
     switch (event.type) {
@@ -80,6 +100,12 @@ export async function POST(req: NextRequest) {
         // Unhandled event type — ignore silently
         break
     }
+
+    // ── Record event as processed (idempotency) ─────────────────────────────
+    await admin.from('stripe_events').insert({
+      event_id: event.id,
+      event_type: event.type,
+    })
 
     return NextResponse.json({ received: true })
   } catch (err) {

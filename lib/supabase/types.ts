@@ -141,6 +141,12 @@ type BrandTemplateRow = {
   created_at: string | null
 }
 
+type StripeEventRow = {
+  event_id: string
+  event_type: string
+  processed_at: string | null
+}
+
 export interface Database {
   public: {
     Tables: {
@@ -198,12 +204,21 @@ export interface Database {
         Update: Partial<BrandTemplateRow>
         Relationships: []
       }
+      stripe_events: {
+        Row: StripeEventRow
+        Insert: Partial<StripeEventRow> & { event_id: string; event_type: string }
+        Update: Partial<StripeEventRow>
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      increment_video_usage: {
+        Args: { p_user_id: string; p_max_videos: number }
+        Returns: boolean
+      }
     }
     Enums: {
       [_ in never]: never
