@@ -2,12 +2,13 @@
 
 import { useState, useEffect, useCallback, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
-import { Share2, Users, Send, CalendarDays, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react'
+import { Share2, Users, Send, CalendarDays, CheckCircle2, AlertCircle, Loader2, Download } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardTitle } from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator'
 import { SocialConnect } from '@/components/publish/social-connect'
 import { PublishForm } from '@/components/publish/publish-form'
 import { ScheduleCalendar } from '@/components/publish/schedule-calendar'
+import { ExportPanel } from '@/components/publish/export-panel'
 
 interface SocialAccount {
   id: string
@@ -19,6 +20,7 @@ interface SocialAccount {
 // ── Tab nav ────────────────────────────────────────────────────────────────────
 
 const TABS = [
+  { id: 'export', label: 'Exporter', icon: Download },
   { id: 'connect', label: 'Comptes connectés', icon: Users },
   { id: 'publish', label: 'Publier', icon: Send },
   { id: 'calendar', label: 'Calendrier', icon: CalendarDays },
@@ -33,7 +35,7 @@ function PublishPageInner() {
   const connectedParam = searchParams.get('connected')
   const errorParam = searchParams.get('error')
 
-  const [activeTab, setActiveTab] = useState<Tab>('connect')
+  const [activeTab, setActiveTab] = useState<Tab>('export')
   const [accounts, setAccounts] = useState<SocialAccount[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -70,9 +72,9 @@ function PublishPageInner() {
           <Share2 className="h-8 w-8 text-indigo-400" />
         </div>
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Distribution</h1>
+          <h1 className="text-3xl font-bold tracking-tight">Exporter &amp; Publier</h1>
           <p className="text-muted-foreground mt-0.5">
-            Publiez vos clips sur TikTok, Instagram et YouTube en un clic.
+            Exportez vos clips avec captions IA, ou publiez directement sur vos réseaux.
           </p>
         </div>
       </div>
@@ -119,6 +121,22 @@ function PublishPageInner() {
       </div>
 
       {/* Tab content */}
+      {activeTab === 'export' && (
+        <section className="space-y-4">
+          <div>
+            <h2 className="text-lg font-semibold">Exporter un clip</h2>
+            <p className="text-sm text-muted-foreground">
+              Téléchargez votre vidéo et copiez les captions optimisées pour poster manuellement.
+            </p>
+          </div>
+          <Card className="bg-card/50 border-border">
+            <CardContent className="p-6">
+              <ExportPanel />
+            </CardContent>
+          </Card>
+        </section>
+      )}
+
       {activeTab === 'connect' && (
         <section className="space-y-4">
           <div>
