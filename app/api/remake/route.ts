@@ -1,67 +1,74 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { z } from 'zod'
 import { createClient } from '@/lib/supabase/server'
-import { createAdminClient } from '@/lib/supabase/admin'
 import { runRemakeScript } from '@/lib/claude/remake-script'
 
-const bodySchema = z.object({
-  clip_id: z.string().uuid(),
-})
-
 export async function POST(req: NextRequest) {
-  const supabase = createClient()
-  const { data: { user }, error: authError } = await supabase.auth.getUser()
-  if (authError || !user) {
-    return NextResponse.json({ data: null, error: 'Unauthorized', message: 'Non autorisé' }, { status: 401 })
-  }
-
-  let body: unknown
   try {
-    body = await req.json()
-  } catch {
-    return NextResponse.json({ data: null, error: 'Invalid JSON', message: 'Corps de requête invalide' }, { status: 400 })
-  }
+    const supabase = await createClient()
 
-  const parsed = bodySchema.safeParse(body)
-  if (!parsed.success) {
-    return NextResponse.json({ data: null, error: parsed.error.message, message: 'Paramètres invalides' }, { status: 400 })
-  }
+    // Check auth
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser()
 
-  const { clip_id } = parsed.data
-  const admin = createAdminClient()
+    if (authError || !user) {
+      return NextResponse.json(
+        { data: null, error: 'unauthorized', message: 'Non authentifié' },
+        { status: 401 }
+      )
+    }
 
-  // Fetch clip + verify ownership
-  const { data: clip, error: clipError } = await admin
-    .from('clips')
-    .select('id, video_id, user_id, transcript_segment, title')
-    .eq('id', clip_id)
-    .single()
+    const body = (await req.json()) as { clip_id?: string }
 
-  if (clipError || !clip) {
-    return NextResponse.json({ data: null, error: 'Not found', message: 'Clip introuvable' }, { status: 404 })
-  }
-  if (clip.user_id !== user.id) {
-    return NextResponse.json({ data: null, error: 'Forbidden', message: 'Accès refusé' }, { status: 403 })
-  }
+    if (!body.clip_id) {
+      return NextResponse.json(
+        { data: null, error: 'missing_clip_id', message: 'clip_id requis' },
+        { status: 400 }
+      )
+    }
 
-  // Fetch viral score for current hook/score
-  const { data: viralScore } = await admin
-    .from('viral_scores')
-    .select('score, hook_type')
-    .eq('clip_id', clip_id)
-    .order('created_at', { ascending: false })
-    .limit(1)
-    .single()
+    // Fetch clip
+    const { data: clip, error: clipError } = await supabase
+      .from('clips')
+      .select('*')
+      .eq('id', body.clip_id)
+      .eq('user_id', user.id)
+      .single()
 
-  const transcript = clip.transcript_segment ?? ''
-  const currentHook = viralScore?.hook_type ?? null
-  const currentScore = viralScore?.score ?? null
+    if (clipError || !clip) {
+      return NextResponse.json(
+        { data: null, error: 'clip_not_found', message: 'Clip introuvable' },
+        { status: 404 }
+      )
+    }
 
-  try {
+    // Fetch viral score for current hook info
+    const { data: viralScore } = await supabase
+      .from('viral_scores')
+      .select('*')
+      .eq('clip_id', clip.id)
+      .single()
+
+    // Get transcript
+    const transcript = clip.transcript_segment || 'Pas de transcription disponible'
+    const currentHook = viralScore?.hook_type ?? null
+    const currentScore = viralScore?.score ?? null
+
+    // Run Claude remake
     const result = await runRemakeScript(transcript, currentHook, currentScore)
-    return NextResponse.json({ data: result, error: null, message: 'Remake généré avec succès' })
+
+    return NextResponse.json({
+      data: result,
+      error: null,
+      message: 'Remake généré avec succès',
+    })
   } catch (err) {
-    const message = err instanceof Error ? err.message : 'Erreur lors du remake'
-    return NextResponse.json({ data: null, error: message, message }, { status: 500 })
+    console.error('[/api/remake] Error:', err)
+    const message = err instanceof Error ? err.message : 'Erreur interne'
+    return NextResponse.json(
+      { data: null, error: 'internal', message },
+      { status: 500 }
+    )
   }
 }

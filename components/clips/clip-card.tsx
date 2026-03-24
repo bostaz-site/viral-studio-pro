@@ -1,7 +1,8 @@
 "use client"
 
 import { useState } from 'react'
-import { Download, Wand2, Clock, Play, CheckSquare, Square, ChevronDown, Film, Loader2, CheckCircle2 } from 'lucide-react'
+import Link from 'next/link'
+import { Download, Wand2, Clock, Play, CheckSquare, Square, ChevronDown, Film, Loader2, CheckCircle2, Edit } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
@@ -166,24 +167,37 @@ export function ClipCard({ clip, onDownload, onRemake, onPreview, batchMode, sel
         {/* Actions — hidden in batch mode */}
         {!batchMode && (
           <div className="flex gap-2 pt-1" onClick={(e) => e.stopPropagation()}>
+            {/* Edit button */}
+            <Link href={`/create/${clip.id}/edit`} className="flex-1">
+              <Button
+                size="sm"
+                variant="default"
+                className="w-full h-8 text-xs gap-1.5"
+                disabled={!canDownload}
+                title={!canDownload ? 'Clip en cours de traitement' : 'Éditer le clip'}
+              >
+                <Edit className="h-3.5 w-3.5" />
+                Éditer
+              </Button>
+            </Link>
+
             {/* Download with format selector */}
-            <div className="flex-1 relative">
+            <div className="relative">
               <div className="flex">
                 <Button
                   size="sm"
                   variant="secondary"
-                  className="flex-1 h-8 text-xs gap-1.5 rounded-r-none"
+                  className="h-8 text-xs gap-1 rounded-r-none px-2"
                   disabled={!canDownload}
                   onClick={() => onDownload?.(clip, selectedFormat)}
                   title={!canDownload ? 'Clip en cours de traitement' : `Télécharger en ${selectedFormat}`}
                 >
                   <Download className="h-3.5 w-3.5" />
-                  {canDownload ? selectedFormat : 'En cours…'}
                 </Button>
                 <Button
                   size="sm"
                   variant="secondary"
-                  className="h-8 w-7 px-0 rounded-l-none border-l border-border/40"
+                  className="h-8 w-6 px-0 rounded-l-none border-l border-border/40"
                   disabled={!canDownload}
                   onClick={() => setFormatOpen(!formatOpen)}
                   title="Choisir le format"
@@ -215,12 +229,12 @@ export function ClipCard({ clip, onDownload, onRemake, onPreview, batchMode, sel
             <Button
               size="sm"
               variant="outline"
-              className="flex-1 h-8 text-xs gap-1.5 border-border"
+              className="h-8 text-xs gap-1 px-2"
               onClick={() => { onRemake?.(clip); setRemakeOpen(true) }}
               title="Réécrire ce clip avec l'IA"
             >
               <Wand2 className="h-3.5 w-3.5" />
-              Remake
+              <span className="hidden sm:inline">Remake</span>
             </Button>
 
             <Button

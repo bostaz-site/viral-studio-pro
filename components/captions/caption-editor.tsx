@@ -30,23 +30,42 @@ interface CaptionEditorProps {
   onSegmentEdit?: (segment: SubtitleSegment) => void
 }
 
-const DEMO_WORDS = [
-  { word: 'La', active: false },
-  { word: 'vérité', active: false },
-  { word: 'sur', active: true },
-  { word: 'les', active: false },
-  { word: 'réseaux', active: false },
-]
-
 function CaptionPreview({
   style,
   textColor,
   position,
+  words,
+  currentTime,
 }: {
   style: CaptionStyle
   textColor: string
   position: 'top' | 'middle' | 'bottom'
+  words?: { word: string; start: number; end: number }[]
+  currentTime?: number
 }) {
+  const [animIndex, setAnimIndex] = useState(0)
+  const demoWords = ['La', 'vérité', 'sur', 'les', 'réseaux', 'sociaux']
+
+  // Karaoke animation loop for demo mode
+  useEffect(() => {
+    if (words && currentTime !== undefined) return // Skip demo if real data
+    const interval = setInterval(() => {
+      setAnimIndex((prev) => (prev + 1) % demoWords.length)
+    }, 400)
+    return () => clearInterval(interval)
+  }, [words, currentTime, demoWords.length])
+
+  // Determine which word is active
+  const getActiveIndex = () => {
+    if (words && currentTime !== undefined) {
+      return words.findIndex((w) => currentTime >= w.start && currentTime < w.end)
+    }
+    return animIndex
+  }
+
+  const activeIdx = getActiveIndex()
+  const displayWords = words ? words.map((w) => w.word) : demoWords
+
   const posClass =
     position === 'top'
       ? 'top-4'
@@ -61,26 +80,35 @@ function CaptionPreview({
 
       <div className={cn('absolute left-0 right-0 text-center px-3', posClass)}>
         <span style={{ ...style.previewStyle, color: textColor } as React.CSSProperties}>
-          {DEMO_WORDS.map((w, i) => (
+          {displayWords.map((word, i) => (
             <span
               key={i}
               style={
-                w.active
-                  ? (style.activeWordStyle as React.CSSProperties)
-                  : undefined
+                i === activeIdx
+                  ? { ...(style.activeWordStyle as React.CSSProperties), transition: 'all 0.15s ease-out', transform: 'scale(1.1)', display: 'inline-block' }
+                  : { transition: 'all 0.15s ease-out' }
               }
               className="transition-all duration-150"
             >
-              {w.word}
-              {i < DEMO_WORDS.length - 1 ? ' ' : ''}
+              {word}
+              {i < displayWords.length - 1 ? ' ' : ''}
             </span>
           ))}
         </span>
       </div>
 
-      <p className="absolute bottom-2 left-0 right-0 text-center text-xs text-white/40">
-        Aperçu
-      </p>
+      {/* Karaoke indicator */}
+      <div className="absolute bottom-2 left-0 right-0 flex justify-center gap-1">
+        {displayWords.map((_, i) => (
+          <div
+            key={i}
+            className={cn(
+              'h-1 rounded-full transition-all duration-300',
+              i === activeIdx ? 'w-4 bg-primary' : i < activeIdx ? 'w-2 bg-primary/40' : 'w-2 bg-white/20'
+            )}
+          />
+        ))}
+      </div>
     </div>
   )
 }
@@ -218,7 +246,7 @@ export function CaptionEditor({ onConfigChange, onApply, segments, currentTime, 
           <Type className="h-4 w-4 text-muted-foreground" />
           Aperçu
         </p>
-        <CaptionPreview style={currentStyle} textColor={textColor} position={position} />
+        <CaptionPreview style={currentStyle} textColor={textColor} position={position} words={undefined} currentTime={currentTime} />
       </div>
 
       {/* Controls */}
@@ -325,7 +353,7 @@ export function CaptionEditor({ onConfigChange, onApply, segments, currentTime, 
         <Card className="bg-muted/30 border-border">
           <CardContent className="p-3 flex items-start gap-2">
             <p className="text-xs text-muted-foreground flex-1">
-              Les sous-titres karaoké seront générés lors du rendu FFmpeg (Sprint 2 — bientôt).
+              Les sous-titres karaoké s&apos;animent mot par mot lors du rendu. Choisissez un style ci-dessus pour voir l&apos;aperçu en temps réel.
             </p>
           </CardContent>
         </Card>

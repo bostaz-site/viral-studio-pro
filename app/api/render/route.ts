@@ -1,152 +1,40 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
-import { exec } from 'child_process'
-import { promisify } from 'util'
-import { writeFile, readFile, unlink, mkdir } from 'fs/promises'
-import { tmpdir } from 'os'
-import { join } from 'path'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { buildSmartZoomFilters, detectEmphasisTimestamps, type ZoomPoint } from '@/lib/ffmpeg/speaker-track'
-
-const execAsync = promisify(exec)
 
 const inputSchema = z.object({
   clip_id: z.string().uuid(),
-  smart_zoom: z.boolean().optional().default(false),
+  settings: z.object({
+    captions: z.object({
+      enabled: z.boolean().optional(),
+      style: z.string().optional(),
+      fontSize: z.number().optional(),
+      color: z.string().optional(),
+      position: z.string().optional(),
+      wordsPerLine: z.number().optional(),
+      animation: z.string().optional(),
+    }).optional(),
+    splitScreen: z.object({
+      enabled: z.boolean().optional(),
+      layout: z.string().optional(),
+      brollCategory: z.string().optional(),
+      ratio: z.number().optional(),
+    }).optional(),
+    format: z.object({
+      aspectRatio: z.string().optional(),
+      smartZoom: z.boolean().optional(),
+      backgroundBlur: z.boolean().optional(),
+    }).optional(),
+    branding: z.object({
+      watermark: z.boolean().optional(),
+      watermarkPosition: z.string().optional(),
+      creditText: z.string().optional(),
+    }).optional(),
+  }).optional(),
 })
 
-// ── ASS subtitle generation ───────────────────────────────────────────────────
-
-interface WordTS {
-  word: string
-  start: number
-  end: number
-}
-
-function toASSTime(sec: number): string {
-  const h = Math.floor(sec / 3600)
-  const m = Math.floor((sec % 3600) / 60)
-  const s = Math.floor(sec % 60)
-  const cs = Math.round((sec % 1) * 100)
-  return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}.${String(cs).padStart(2, '0')}`
-}
-
-function buildASSContent(
-  words: WordTS[],
-  clipStart: number,
-  primaryColor = '&H00FFFFFF',
-  activeColor = '&H0000FFFF',
-  wordsPerGroup = 4
-): string {
-  const header = `[Script Info]
-ScriptType: v4.00+
-PlayResX: 1080
-PlayResY: 1920
-ScaledBorderAndShadow: yes
-
-[V4+ Styles]
-Format: Name,Fontname,Fontsize,PrimaryColour,SecondaryColour,OutlineColour,BackColour,Bold,Italic,Underline,StrikeOut,ScaleX,ScaleY,Spacing,Angle,BorderStyle,Outline,Shadow,Alignment,MarginL,MarginR,MarginV,Encoding
-Style: Default,Arial,72,${primaryColor},${activeColor},&H00000000,&H80000000,-1,0,0,0,100,100,0,0,1,3,1,2,10,10,60,1
-
-[Events]
-Format: Layer,Start,End,Style,Name,MarginL,MarginR,MarginV,Effect,Text`
-
-  const lines: string[] = [header]
-
-  // Group words into chunks
-  for (let i = 0; i < words.length; i += wordsPerGroup) {
-    const group = words.slice(i, i + wordsPerGroup)
-    const groupStart = group[0].start - clipStart
-    const groupEnd = group[group.length - 1].end - clipStart
-    if (groupEnd <= 0) continue
-
-    // Build karaoke text: each word highlighted in turn
-    const parts = group.map((w) => {
-      const dur = Math.round((w.end - w.start) * 100) // centiseconds
-      return `{\\k${dur}}${w.word}`
-    })
-
-    const text = parts.join(' ')
-    lines.push(
-      `Dialogue: 0,${toASSTime(Math.max(0, groupStart))},${toASSTime(Math.max(0, groupEnd))},Default,,0,0,0,,${text}`
-    )
-  }
-
-  return lines.join('\n')
-}
-
-// ── FFmpeg command builder ────────────────────────────────────────────────────
-
-function buildRenderCommand(opts: {
-  inputPath: string
-  outputPath: string
-  assPath: string | null
-  startTime: number
-  duration: number
-  plan: string
-  hasAudio: boolean
-  logoPath?: string | null
-  smartZoom?: boolean
-  zoomPoints?: ZoomPoint[]
-}): string {
-  const { inputPath, outputPath, assPath, startTime, duration, plan } = opts
-
-  // Escape paths for FFmpeg filter (forward slashes + escape colons on Windows)
-  const escapePath = (p: string) =>
-    p.replace(/\\/g, '/').replace(/:/g, '\\:').replace(/'/g, "\\'")
-
-  // Video filter chain
-  const filters: string[] = []
-
-  if (opts.smartZoom) {
-    // Smart zoom replaces the plain scale+crop with a zoompan-based pipeline
-    const smartFilters = buildSmartZoomFilters({
-      inputWidth: 1920,   // assume wide source; zoompan prescales first
-      inputHeight: 1080,
-      duration,
-      zoomPoints: opts.zoomPoints,
-    })
-    filters.push(...smartFilters.split(','))
-  } else {
-    // Standard reframe to 9:16
-    filters.push(`scale=1080:1920:force_original_aspect_ratio=increase`)
-    filters.push(`crop=1080:1920`)
-  }
-
-  // Karaoke subtitles
-  if (assPath) {
-    filters.push(`ass='${escapePath(assPath)}'`)
-  }
-
-  // Watermark
-  if (plan === 'free') {
-    filters.push(
-      `drawtext=text='Viral Studio Pro':fontsize=26:fontcolor=white@0.70:shadowcolor=black@0.5:shadowx=1:shadowy=1:x=w-tw-20:y=h-th-20`
-    )
-  } else if ((plan === 'pro' || plan === 'studio') && opts.logoPath) {
-    // Logo watermark handled via separate input
-  }
-
-  const vf = filters.join(',')
-
-  const parts = [
-    'ffmpeg -y',
-    `-ss ${startTime.toFixed(3)}`,
-    `-i "${inputPath}"`,
-    `-t ${duration.toFixed(3)}`,
-    `-vf "${vf}"`,
-    '-c:v libx264 -preset fast -crf 23',
-    opts.hasAudio ? '-c:a aac -b:a 128k' : '-an',
-    '-movflags +faststart',
-    '-pix_fmt yuv420p',
-    `"${outputPath}"`,
-  ]
-
-  return parts.join(' ')
-}
-
-// ── Route handler ─────────────────────────────────────────────────────────────
+// ── Route handler — Proxy to VPS Render API ──────────────────────────────────
 
 export async function POST(request: NextRequest) {
   const supabase = createClient()
@@ -180,26 +68,10 @@ export async function POST(request: NextRequest) {
     )
   }
 
-  const { clip_id, smart_zoom } = parsed.data
+  const { clip_id, settings } = parsed.data
   const admin = createAdminClient()
 
-  // Check ffmpeg availability
-  try {
-    await execAsync('ffmpeg -version', { timeout: 5000 })
-  } catch {
-    // ffmpeg not available — mark clip as done without rendering (graceful degradation)
-    await admin
-      .from('clips')
-      .update({ status: 'done', storage_path: null })
-      .eq('id', clip_id)
-    return NextResponse.json({
-      data: { clip_id, rendered: false },
-      error: null,
-      message: 'FFmpeg non disponible — clip marqué sans rendu vidéo',
-    })
-  }
-
-  // Fetch clip + video + transcription + user plan
+  // Fetch clip + video + transcription
   const { data: clip } = await admin
     .from('clips')
     .select('*, videos(storage_path, duration_seconds, title)')
@@ -214,21 +86,18 @@ export async function POST(request: NextRequest) {
     )
   }
 
-  const video = (clip.videos as unknown) as { storage_path: string; duration_seconds: number | null; title: string | null } | null
+  const video = (clip.videos as unknown) as {
+    storage_path: string
+    duration_seconds: number | null
+    title: string | null
+  } | null
+
   if (!video?.storage_path) {
     return NextResponse.json(
       { data: null, error: 'Video not found', message: 'Vidéo source introuvable' },
       { status: 404 }
     )
   }
-
-  // Get user plan
-  const { data: profile } = await admin
-    .from('profiles')
-    .select('plan')
-    .eq('id', user.id)
-    .single()
-  const plan = profile?.plan ?? 'free'
 
   // Get word timestamps for subtitles
   const { data: transcription } = await admin
@@ -239,100 +108,96 @@ export async function POST(request: NextRequest) {
     .limit(1)
     .single()
 
+  // Get user plan for watermark
+  const { data: profile } = await admin
+    .from('profiles')
+    .select('plan')
+    .eq('id', user.id)
+    .single()
+  const plan = profile?.plan ?? 'free'
+
   // Mark clip as rendering
   await admin.from('clips').update({ status: 'rendering' }).eq('id', clip_id)
 
-  // Create temp directory
-  const tmpDir = join(tmpdir(), `vsp_render_${clip_id}`)
-  await mkdir(tmpDir, { recursive: true })
+  // ── Send render job to VPS ──────────────────────────────────────────────────
 
-  const tmpInput = join(tmpDir, 'input.mp4')
-  const tmpOutput = join(tmpDir, 'output.mp4')
-  const tmpAss = join(tmpDir, 'subs.ass')
+  const vpsUrl = process.env.VPS_RENDER_URL
+  const vpsKey = process.env.VPS_RENDER_API_KEY
 
-  try {
-    // Download source video from Supabase Storage
-    const { data: signedUrl } = await admin.storage
-      .from('videos')
-      .createSignedUrl(video.storage_path, 600)
-
-    if (!signedUrl?.signedUrl) {
-      throw new Error('Impossible de générer l\'URL signée pour la vidéo source')
-    }
-
-    const videoRes = await fetch(signedUrl.signedUrl)
-    if (!videoRes.ok) throw new Error(`Download failed: ${videoRes.status}`)
-    const videoBuffer = await videoRes.arrayBuffer()
-    await writeFile(tmpInput, Buffer.from(videoBuffer))
-
-    // Generate ASS subtitles from word timestamps
-    let assPath: string | null = null
-    const wordTs = transcription?.word_timestamps as WordTS[] | null
-    if (wordTs && Array.isArray(wordTs) && wordTs.length > 0) {
-      const relevantWords = wordTs.filter(
-        (w) => w.start >= clip.start_time && w.start < clip.end_time
-      )
-      if (relevantWords.length > 0) {
-        const assContent = buildASSContent(relevantWords, clip.start_time)
-        await writeFile(tmpAss, assContent, 'utf-8')
-        assPath = tmpAss
-      }
-    }
-
-    // Build and run FFmpeg
-    const duration = clip.end_time - clip.start_time
-
-    // Detect emphasis timestamps for Smart Zoom (uses word timestamps if available)
-    const zoomPoints =
-      smart_zoom && wordTs && Array.isArray(wordTs)
-        ? detectEmphasisTimestamps(wordTs, clip.start_time, clip.end_time)
-        : []
-
-    const cmd = buildRenderCommand({
-      inputPath: tmpInput,
-      outputPath: tmpOutput,
-      assPath,
-      startTime: clip.start_time,
-      duration,
-      plan,
-      hasAudio: true,
-      smartZoom: smart_zoom,
-      zoomPoints,
-    })
-
-    await execAsync(cmd, { timeout: 300_000 }) // 5 min max
-
-    // Upload rendered clip to Supabase Storage
-    const outputBuffer = await readFile(tmpOutput)
-    const storagePath = `${user.id}/${clip_id}.mp4`
-
-    const { error: uploadError } = await admin.storage
-      .from('clips')
-      .upload(storagePath, outputBuffer, {
-        contentType: 'video/mp4',
-        upsert: true,
-      })
-
-    if (uploadError) throw new Error(`Upload to Storage failed: ${uploadError.message}`)
-
-    // Generate thumbnail path (if we have a thumbnail, use it)
-    // For now, set thumbnail_path to null — can be added later with ffmpeg -vframes 1
+  if (!vpsUrl || !vpsKey) {
+    // Fallback: mark as done without rendering (no VPS configured)
     await admin
       .from('clips')
-      .update({
-        storage_path: storagePath,
-        status: 'done',
-        duration_seconds: duration,
-      })
+      .update({ status: 'done', storage_path: null })
       .eq('id', clip_id)
+    return NextResponse.json({
+      data: { clip_id, rendered: false },
+      error: null,
+      message: 'VPS de rendu non configuré — clip marqué sans rendu vidéo',
+    })
+  }
+
+  try {
+    // Build render request for VPS
+    const renderPayload = {
+      videoStoragePath: video.storage_path,
+      clipStartTime: clip.start_time,
+      clipEndTime: clip.end_time,
+      clipId: clip_id,
+      wordTimestamps: transcription?.word_timestamps ?? [],
+      settings: {
+        captions: settings?.captions ?? { enabled: false },
+        splitScreen: settings?.splitScreen ?? { enabled: false },
+        format: {
+          aspectRatio: settings?.format?.aspectRatio ?? '9:16',
+          smartZoom: settings?.format?.smartZoom ?? false,
+          backgroundBlur: settings?.format?.backgroundBlur ?? false,
+        },
+        branding: {
+          watermark: plan === 'free' ? true : (settings?.branding?.watermark ?? false),
+          watermarkPosition: settings?.branding?.watermarkPosition ?? 'bottom-right',
+          creditText: settings?.branding?.creditText ?? null,
+        },
+      },
+    }
+
+    const vpsResponse = await fetch(`${vpsUrl}/api/render`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': vpsKey,
+      },
+      body: JSON.stringify(renderPayload),
+      signal: AbortSignal.timeout(300_000), // 5 min timeout
+    })
+
+    if (!vpsResponse.ok) {
+      const errorData = await vpsResponse.json().catch(() => ({}))
+      throw new Error(
+        (errorData as Record<string, string>).error || `VPS responded with ${vpsResponse.status}`
+      )
+    }
+
+    const result = await vpsResponse.json() as {
+      success: boolean
+      clipUrl: string
+      storagePath: string
+      renderTime: string
+    }
 
     return NextResponse.json({
-      data: { clip_id, storage_path: storagePath, duration },
+      data: {
+        clip_id,
+        storage_path: result.storagePath,
+        clip_url: result.clipUrl,
+        render_time: result.renderTime,
+        rendered: true,
+      },
       error: null,
-      message: 'Rendu terminé',
+      message: `Rendu terminé en ${result.renderTime}`,
     })
   } catch (err) {
-    const msg = err instanceof Error ? err.message : 'Erreur FFmpeg'
+    const msg = err instanceof Error ? err.message : 'Erreur de rendu VPS'
     await admin
       .from('clips')
       .update({ status: 'error' })
@@ -342,13 +207,6 @@ export async function POST(request: NextRequest) {
       { data: null, error: msg, message: `Rendu échoué : ${msg}` },
       { status: 500 }
     )
-  } finally {
-    // Clean up temp files
-    await Promise.allSettled([
-      unlink(tmpInput).catch(() => null),
-      unlink(tmpOutput).catch(() => null),
-      unlink(tmpAss).catch(() => null),
-    ])
   }
 }
 
@@ -356,6 +214,8 @@ export async function POST(request: NextRequest) {
 export type RenderResult = {
   clip_id: string
   storage_path?: string
+  clip_url?: string
+  render_time?: string
   duration?: number
   rendered: boolean
 }
