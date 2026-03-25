@@ -39,10 +39,14 @@ export async function POST() {
 
     return NextResponse.json({ data: { url: session.url }, error: null, message: 'Portal créé' })
   } catch (err) {
-    const message = err instanceof Error ? err.message : 'Erreur Stripe Portal'
-    return NextResponse.json({ data: null, error: message, message }, { status: 500 })
+    // Don't leak Stripe internal error details to the client
+    const isStripeError = err instanceof Error && err.message.includes('Stripe')
+    return NextResponse.json(
+      { data: null, error: 'Stripe error', message: isStripeError ? 'Erreur lors de la création du portail' : 'Erreur interne' },
+      { status: 500 }
+    )
   }
 }
 
-export { POST as GET }
+// NOTE: No GET export — portal creation must be POST-only to prevent CSRF
 

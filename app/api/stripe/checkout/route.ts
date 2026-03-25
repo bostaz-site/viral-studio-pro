@@ -80,7 +80,11 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ data: { url: session.url }, error: null, message: 'Session créée' })
   } catch (err) {
-    const message = err instanceof Error ? err.message : 'Erreur Stripe'
-    return NextResponse.json({ data: null, error: message, message }, { status: 500 })
+    // Don't leak Stripe internal error details to the client
+    console.error('[stripe/checkout] Error:', err instanceof Error ? err.message : err)
+    return NextResponse.json(
+      { data: null, error: 'Stripe error', message: 'Erreur lors de la création de la session de paiement' },
+      { status: 500 }
+    )
   }
 }

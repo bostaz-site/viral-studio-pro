@@ -53,12 +53,27 @@ app.use((req, res, next) => {
   next();
 });
 
-// API Key authentication middleware
+// API Key authentication middleware (timing-safe comparison)
+import crypto from 'crypto';
+
 const authenticateApiKey = (req, res, next) => {
   const apiKey = req.headers['x-api-key'];
   const expectedKey = process.env.API_SECRET;
 
-  if (!apiKey || apiKey !== expectedKey) {
+  if (!apiKey || !expectedKey) {
+    return res.status(401).json({
+      success: false,
+      error: 'Unauthorized',
+      message: 'Invalid or missing API key',
+    });
+  }
+
+  // Timing-safe comparison to prevent timing attacks
+  const bufA = Buffer.from(apiKey, 'utf8');
+  const bufB = Buffer.from(expectedKey, 'utf8');
+  const isValid = bufA.length === bufB.length && crypto.timingSafeEqual(bufA, bufB);
+
+  if (!isValid) {
     return res.status(401).json({
       success: false,
       error: 'Unauthorized',

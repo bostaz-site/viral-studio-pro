@@ -4,7 +4,8 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { uploadVideoToTikTok } from '@/lib/social/tiktok'
 import { uploadReelToInstagram } from '@/lib/social/instagram'
-import { uploadVideoToYouTube } from '@/lib/social/youtube'
+import { uploadVideoToYouTube, refreshYouTubeToken } from '@/lib/social/youtube'
+import { safeDecrypt, safeEncrypt } from '@/lib/crypto'
 
 const platformCaptionSchema = z.object({
   caption: z.string(),
@@ -80,7 +81,7 @@ export async function POST(req: NextRequest) {
   // Fetch connected social accounts for this user
   const { data: accounts } = await admin
     .from('social_accounts')
-    .select('id, platform, access_token, platform_user_id')
+    .select('id, platform, access_token, refresh_token, token_expires_at, platform_user_id')
     .eq('user_id', user.id)
     .in('platform', platforms)
 
@@ -94,6 +95,13 @@ export async function POST(req: NextRequest) {
       continue
     }
 
+    // Decrypt token before use (tokens are encrypted in DB)
+    const decryptedToken = safeDecrypt(account.access_token)
+    if (!decryptedToken) {
+      results.push({ platform, status: 'error', error: 'Token de connexion invalide — reconnectez votre compte' })
+      continue
+    }
+
     const copy = captions[platform]
     if (!copy) {
       results.push({ platform, status: 'error', error: 'Caption manquante' })
@@ -102,11 +110,35 @@ export async function POST(req: NextRequest) {
 
     try {
       let platformPostId = ''
+      let activeToken = decryptedToken
+
+      // Refresh YouTube token if expired
+      if (platform === 'youtube' && account.token_expires_at) {
+        const expiresAt = new Date(account.token_expires_at)
+        const now = new Date()
+        // Refresh if token expires within 5 minutes
+        if (expiresAt.getTime() - now.getTime() < 5 * 60 * 1000) {
+          const rawRefresh = safeDecrypt(account.refresh_token)
+          if (rawRefresh) {
+            const refreshed = await refreshYouTubeToken(
+              rawRefresh,
+              process.env.YOUTUBE_CLIENT_ID ?? '',
+              process.env.YOUTUBE_CLIENT_SECRET ?? ''
+            )
+            activeToken = refreshed.access_token
+            // Persist new token + expiry
+            await admin.from('social_accounts').update({
+              access_token: safeEncrypt(refreshed.access_token),
+              token_expires_at: new Date(Date.now() + refreshed.expires_in * 1000).toISOString(),
+            }).eq('id', account.id)
+          }
+        }
+      }
 
       switch (platform) {
         case 'tiktok': {
           const res = await uploadVideoToTikTok(
-            account.access_token,
+            activeToken,
             videoUrl,
             copy.caption,
             copy.hashtags
@@ -116,7 +148,7 @@ export async function POST(req: NextRequest) {
         }
         case 'instagram': {
           const res = await uploadReelToInstagram(
-            account.access_token,
+            activeToken,
             account.platform_user_id ?? '',
             videoUrl,
             copy.caption,
@@ -127,7 +159,7 @@ export async function POST(req: NextRequest) {
         }
         case 'youtube': {
           const res = await uploadVideoToYouTube(
-            account.access_token,
+            activeToken,
             videoUrl,
             clip.title ?? copy.caption.slice(0, 100),
             copy.caption,

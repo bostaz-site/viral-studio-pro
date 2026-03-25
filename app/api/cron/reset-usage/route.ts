@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { timingSafeCompare } from '@/lib/crypto'
 
 /**
  * POST /api/cron/reset-usage
@@ -10,13 +11,21 @@ import { createAdminClient } from '@/lib/supabase/admin'
  *   - Netlify scheduled function, OR
  *   - External cron (cron-job.org, GitHub Actions, etc.)
  *
- * Auth: x-api-key header = CRON_SECRET env var
+ * Auth: x-api-key header = CRON_SECRET env var (dedicated, NOT shared with N8N_API_KEY)
  */
 export async function POST(req: NextRequest) {
   const apiKey = req.headers.get('x-api-key')
-  const cronSecret = process.env.CRON_SECRET ?? process.env.N8N_API_KEY
+  const cronSecret = process.env.CRON_SECRET
 
-  if (!apiKey || !cronSecret || apiKey !== cronSecret) {
+  if (!apiKey || !cronSecret) {
+    return NextResponse.json(
+      { data: null, error: 'Unauthorized', message: 'Clé API manquante' },
+      { status: 401 }
+    )
+  }
+
+  // Timing-safe comparison to prevent timing attacks
+  if (!timingSafeCompare(apiKey, cronSecret)) {
     return NextResponse.json(
       { data: null, error: 'Unauthorized', message: 'Clé API invalide' },
       { status: 401 }

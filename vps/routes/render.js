@@ -176,6 +176,38 @@ router.post('/', async (req, res) => {
       }
     }
 
+    // Prepare split-screen if enabled
+    let splitScreenConfig = null;
+    if (settings.splitScreen?.enabled) {
+      const BROLL_DIR = '/opt/viral-studio/broll';
+      const category = settings.splitScreen.brollCategory || 'minecraft';
+      const brollDir = path.join(BROLL_DIR, category);
+
+      try {
+        await fs.mkdir(brollDir, { recursive: true });
+        const files = await fs.readdir(brollDir);
+        const videoFiles = files.filter(f =>
+          /\.(mp4|mov|mkv|webm)$/i.test(f)
+        );
+
+        if (videoFiles.length > 0) {
+          // Pick a random B-roll from the category folder
+          const picked = videoFiles[Math.floor(Math.random() * videoFiles.length)];
+          splitScreenConfig = {
+            enabled: true,
+            layout: settings.splitScreen.layout || 'top-bottom',
+            ratio: settings.splitScreen.ratio || 50,
+            brollPath: path.join(brollDir, picked),
+          };
+          console.log(`[Render ${renderSessionId}] Split-screen: layout=${splitScreenConfig.layout}, broll=${picked}`);
+        } else {
+          console.warn(`[Render ${renderSessionId}] No B-roll files in ${brollDir} — rendering without split-screen`);
+        }
+      } catch (err) {
+        console.warn(`[Render ${renderSessionId}] B-roll directory not ready: ${err.message} — rendering without split-screen`);
+      }
+    }
+
     // Render clip
     const outputPath = path.join(tempDir, 'output.mp4');
     console.log(`[Render ${renderSessionId}] Starting FFmpeg render...`);
@@ -189,6 +221,7 @@ router.post('/', async (req, res) => {
       captions: assFilePath ? { assFilePath, ...settings.captions } : null,
       watermark: watermarkConfig,
       plan: userPlan,
+      splitScreen: splitScreenConfig,
       cropAnchor: settings.format?.cropAnchor || 'center',
       backgroundBlur: settings.format?.backgroundBlur || false,
       crf: settings.format?.crf || 23,

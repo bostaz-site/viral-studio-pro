@@ -4,6 +4,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { exchangeTikTokCode, getTikTokUserInfo } from '@/lib/social/tiktok'
 import { exchangeInstagramCode, getInstagramUserInfo } from '@/lib/social/instagram'
 import { exchangeYouTubeCode, getYouTubeChannelInfo } from '@/lib/social/youtube'
+import { safeEncrypt } from '@/lib/crypto'
 
 export async function GET(req: NextRequest) {
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'
@@ -25,8 +26,14 @@ export async function GET(req: NextRequest) {
     return NextResponse.redirect(`${redirectBase}?error=missing_params`)
   }
 
-  // Validate CSRF state
-  if (storedState && returnedState && storedState !== returnedState) {
+  // Validate platform against allowed list
+  const allowedPlatforms = ['tiktok', 'instagram', 'youtube']
+  if (!allowedPlatforms.includes(platform)) {
+    return NextResponse.redirect(`${redirectBase}?error=unknown_platform`)
+  }
+
+  // Validate CSRF state — REQUIRE both values to prevent bypass
+  if (!storedState || !returnedState || storedState !== returnedState) {
     return NextResponse.redirect(`${redirectBase}?error=invalid_state`)
   }
 
@@ -97,14 +104,14 @@ export async function GET(req: NextRequest) {
         return NextResponse.redirect(`${redirectBase}?error=unknown_platform`)
     }
 
-    // Upsert social_account
+    // Upsert social_account — encrypt tokens before storage
     await admin.from('social_accounts').upsert(
       {
         user_id: user.id,
         platform,
         platform_user_id: platformUserId,
-        access_token: accessToken,
-        refresh_token: refreshToken,
+        access_token: safeEncrypt(accessToken),
+        refresh_token: safeEncrypt(refreshToken),
         token_expires_at: expiresAt,
         username,
         connected_at: new Date().toISOString(),
@@ -120,7 +127,9 @@ export async function GET(req: NextRequest) {
     response.cookies.delete('oauth_state')
     return response
   } catch (err) {
-    const msg = err instanceof Error ? err.message : 'OAuth error'
-    return NextResponse.redirect(`${redirectBase}?error=${encodeURIComponent(msg)}`)
+    const errorMsg = err instanceof Error ? err.message : 'OAuth callback failed'
+    return NextResponse.redirect(
+      `${redirectBase}?error=${encodeURIComponent(errorMsg)}`
+    )
   }
 }

@@ -66,6 +66,36 @@ export async function getYouTubeChannelInfo(
   return { username: channel.snippet.title, channel_id: channel.id }
 }
 
+// ── Token Refresh ─────────────────────────────────────────────────────────────
+
+export interface YouTubeRefreshResult {
+  access_token: string
+  expires_in: number
+}
+
+/**
+ * Refresh an expired YouTube access token using the stored refresh_token.
+ * Returns the new access_token and expires_in (seconds).
+ */
+export async function refreshYouTubeToken(
+  refreshToken: string,
+  clientId: string,
+  clientSecret: string
+): Promise<YouTubeRefreshResult> {
+  const res = await fetch('https://oauth2.googleapis.com/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      client_id: clientId,
+      client_secret: clientSecret,
+      refresh_token: refreshToken,
+      grant_type: 'refresh_token',
+    }),
+  })
+  if (!res.ok) throw new Error(`YouTube token refresh failed: ${await res.text()}`)
+  return res.json() as Promise<YouTubeRefreshResult>
+}
+
 // ── Publishing ─────────────────────────────────────────────────────────────────
 
 export async function uploadVideoToYouTube(

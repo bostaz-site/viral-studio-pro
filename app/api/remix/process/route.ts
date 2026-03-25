@@ -34,13 +34,13 @@ export async function POST(req: NextRequest) {
   const authHeader = req.headers.get('authorization')
   const apiKey = process.env.N8N_API_KEY ?? process.env.VPS_API_KEY
   if (!apiKey || authHeader !== `Bearer ${apiKey}`) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    return NextResponse.json({ data: null, error: 'Unauthorized', message: 'Authentication required' }, { status: 401 })
   }
 
   const body = await req.json()
   const parsed = bodySchema.safeParse(body)
   if (!parsed.success) {
-    return NextResponse.json({ error: parsed.error.message }, { status: 400 })
+    return NextResponse.json({ data: null, error: parsed.error.message, message: 'Paramètres invalides' }, { status: 400 })
   }
 
   const { video_id, user_id, external_url, platform, author_name } = parsed.data
@@ -159,10 +159,13 @@ export async function POST(req: NextRequest) {
     )
 
     return NextResponse.json({
-      success: true,
-      video_id,
-      clips_count: insertedClips.length,
-      ffmpeg_commands: ffmpegCommands,
+      data: {
+        video_id,
+        clips_count: insertedClips.length,
+        ffmpeg_commands: ffmpegCommands,
+      },
+      error: null,
+      message: 'Remix processing complete',
     })
   } catch (err) {
     // Mark video as error
@@ -175,10 +178,13 @@ export async function POST(req: NextRequest) {
     await admin.rpc('decrement_video_usage', { p_user_id: user_id })
 
     return NextResponse.json({
-      success: false,
+      data: null,
       error: err instanceof Error ? err.message : 'Processing failed',
+      message: 'Remix processing failed',
     }, { status: 500 })
   } finally {
-    if (localPath) cleanupTempFile(localPath)
+    if (localPath) {
+      try { cleanupTempFile(localPath) } catch { /* ignore cleanup errors */ }
+    }
   }
 }
