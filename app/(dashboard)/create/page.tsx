@@ -1,6 +1,7 @@
 "use client"
 
-import { useState, useCallback, useRef } from 'react'
+import { useState, useCallback, useRef, useEffect } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { Sparkles, CheckCircle2, Circle, Loader2, AlertCircle, RotateCcw, Scissors, Download, Trash2, CheckSquare, FileText } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -147,6 +148,11 @@ function StepRow({
 // ─── Main page ───────────────────────────────────────────────────────────────
 
 export default function CreatePage() {
+  const searchParams = useSearchParams()
+  const remixVideoId = searchParams.get('video_id')
+  const isRemixMode = searchParams.get('mode') === 'remix'
+  const remixStartedRef = useRef(false)
+
   const [pendingFile, setPendingFile] = useState<File | null>(null)
   const [url, setUrl] = useState('')
   const [srtFile, setSrtFile] = useState<File | null>(null)
@@ -308,6 +314,94 @@ export default function CreatePage() {
     clearClips,
     setGeneratedClips,
   ])
+
+  // ── Auto-start remix pipeline when arriving from Streams page ──────────
+  const runRemixPipeline = useCallback(async (videoId: string) => {
+    setErrorMessage(null)
+    clearClips()
+    setCurrentVideoId(videoId)
+
+    try {
+      // Step 1 — Wait for VPS download to complete
+      setProcessingStep('uploading')
+      setUploadProgress(30)
+      await waitForVideoReady(videoId)
+      setUploadProgress(100)
+
+      // Fetch signed URL for video player
+      fetch(`/api/videos/url?video_id=${videoId}`)
+        .then((r) => r.json())
+        .then((d: { data: { url: string } | null }) => { if (d.data?.url) setVideoUrl(d.data.url) })
+        .catch(() => null)
+
+      // Step 2 — Transcription
+      setProcessingStep('transcribing')
+      const transcribeRes = await fetch('/api/transcribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ video_id: videoId }),
+      })
+      const transcribeData = await transcribeRes.json() as { error: string | null; message: string }
+      if (!transcribeRes.ok) throw new Error(transcribeData.message ?? 'Transcription failed')
+
+      // Step 3 — Analyse IA
+      setProcessingStep('analyzing')
+      const analyzeRes = await fetch('/api/analyze', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ video_id: videoId }),
+      })
+      const analyzeData = await analyzeRes.json() as { error: string | null; message: string }
+      if (!analyzeRes.ok) throw new Error(analyzeData.message ?? 'Analysis failed')
+
+      // Step 4 — Fetch clips + fire render
+      const clipsRes = await fetch(`/api/clips?video_id=${videoId}`)
+      const clipsData = await clipsRes.json() as { data: GeneratedClip[] | null; error: string | null }
+      if (!clipsRes.ok || !clipsData.data) throw new Error(clipsData.error ?? 'Failed to load clips')
+
+      setGeneratedClips(clipsData.data)
+      setProcessingStep('rendering')
+
+      await Promise.allSettled(
+        clipsData.data.map((clip) =>
+          fetch('/api/render', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ clip_id: clip.id }),
+          })
+        )
+      )
+
+      // Poll until all clips are terminal
+      const clipIds = clipsData.data.map((c) => c.id)
+      const maxPollMs = 300_000
+      const pollStart = Date.now()
+      while (Date.now() - pollStart < maxPollMs) {
+        await new Promise((r) => setTimeout(r, 3_000))
+        const pollRes = await fetch(`/api/clips?video_id=${videoId}`)
+        const pollData = await pollRes.json() as { data: GeneratedClip[] | null }
+        if (!pollData.data) continue
+        setGeneratedClips(pollData.data)
+        const allDone = pollData.data
+          .filter((c) => clipIds.includes(c.id))
+          .every((c) => c.status === 'done' || c.status === 'error')
+        if (allDone) break
+      }
+
+      setProcessingStep('done')
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Une erreur est survenue'
+      setErrorMessage(msg)
+      setProcessingStep('error')
+    }
+  }, [setCurrentVideoId, setProcessingStep, setUploadProgress, setErrorMessage, clearClips, setGeneratedClips])
+
+  useEffect(() => {
+    if (isRemixMode && remixVideoId && !remixStartedRef.current) {
+      remixStartedRef.current = true
+      runRemixPipeline(remixVideoId)
+    }
+  }, [isRemixMode, remixVideoId, runRemixPipeline])
 
   const handleUrlImport = useCallback((importedUrl: string) => {
     runPipeline(importedUrl)

@@ -10,15 +10,16 @@ const bodySchema = z.object({
 })
 
 /**
- * POST /api/remix — Initiate a remix job.
+ * POST /api/remix — Initiate a remix from a trending/stream clip.
  *
  * This is a FAST endpoint (~1-2s) that:
  * 1. Validates auth + rate limit + quota
  * 2. Creates a video record with status 'processing'
- * 3. Returns immediately with the video ID
+ * 3. Fires off VPS download/import (same pipeline as URL import)
+ * 4. Returns immediately with the video ID
  *
- * The heavy work (download, transcribe, analyze) happens on the VPS
- * via n8n webhook trigger or direct VPS call from the frontend.
+ * The VPS downloads the clip, uploads to Supabase Storage, and updates the DB.
+ * The user is then redirected to /create where they can transcribe + analyze.
  */
 export async function POST(req: NextRequest) {
   const supabase = createClient()
@@ -47,6 +48,17 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(
       { data: null, error: 'Rate limited', message: `Trop de requêtes. Réessayez dans ${Math.ceil((rl.retryAfterMs ?? 0) / 1000)}s` },
       { status: 429 }
+    )
+  }
+
+  // ── VPS configuration ───────────────────────────────────────────────────
+  const vpsUrl = process.env.VPS_RENDER_URL
+  const vpsKey = process.env.VPS_RENDER_API_KEY
+
+  if (!vpsUrl || !vpsKey) {
+    return NextResponse.json(
+      { data: null, error: 'VPS not configured', message: 'Le serveur de traitement n\'est pas configuré' },
+      { status: 503 }
     )
   }
 
@@ -88,61 +100,46 @@ export async function POST(req: NextRequest) {
 
   try {
     // ── Create video record (status: processing) ──────────────────────────
+    const clipTitle = trendingClip.title ?? 'Remix en cours...'
     const { data: video, error: videoError } = await admin
       .from('videos')
       .insert({
         user_id: user.id,
-        title: trendingClip.title ?? 'Remix en cours...',
+        title: clipTitle,
         source_url: trendingClip.external_url,
         source_platform: trendingClip.platform,
-        storage_path: `${user.id}/remix_pending_${Date.now()}.mp4`, // Placeholder, updated by VPS
+        storage_path: 'pending',
         status: 'processing' as const,
       })
       .select('id')
       .single()
 
     if (videoError || !video) {
-      // Rollback quota
       await admin.rpc('decrement_video_usage', { p_user_id: user.id })
       throw new Error(`Video insert failed: ${videoError?.message}`)
     }
 
-    // ── Trigger VPS processing (fire-and-forget) ────────────────────────────
-    const vpsUrl = process.env.VPS_RENDER_URL ?? 'http://37.27.190.229:3100'
-    const n8nUrl = process.env.N8N_BASE_URL
-
-    // Try n8n first (preferred), fallback to direct VPS call
-    const webhookPayload = {
-      video_id: video.id,
-      user_id: user.id,
-      trending_clip_id: trendingClip.id,
-      external_url: trendingClip.external_url,
-      platform: trendingClip.platform,
-      author_name: trendingClip.author_name ?? trendingClip.author_handle ?? 'Unknown',
-    }
-
-    // Fire-and-forget: don't await the VPS response
-    const triggerUrl = n8nUrl
-      ? `${n8nUrl}/webhook/remix-process`
-      : `${vpsUrl}/api/remix/process`
-
-    fetch(triggerUrl, {
+    // ── Fire-and-forget: VPS download/import (same pipeline as URL import) ──
+    fetch(`${vpsUrl}/api/download/import`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${process.env.N8N_API_KEY ?? process.env.VPS_API_KEY ?? ''}`,
+        'x-api-key': vpsKey,
       },
-      body: JSON.stringify(webhookPayload),
-    }).catch(() => {
-      // Log failure but don't block the response
-      // The video status will stay 'processing' and can be retried
+      body: JSON.stringify({
+        url: trendingClip.external_url,
+        userId: user.id,
+        videoId: video.id,
+      }),
+    }).catch((err) => {
+      console.error('[remix] VPS fire-and-forget error:', err)
     })
 
     return NextResponse.json({
       data: {
         video_id: video.id,
         status: 'processing',
-        message: 'Le remix est en cours de traitement. Suivez la progression dans le dashboard.',
+        message: 'Le clip est en cours de téléchargement. Vous allez être redirigé.',
         trending_clip: {
           title: trendingClip.title,
           platform: trendingClip.platform,
@@ -150,10 +147,9 @@ export async function POST(req: NextRequest) {
         },
       },
       error: null,
-      message: 'Remix initié — traitement en arrière-plan',
+      message: 'Remix initié — téléchargement en arrière-plan',
     })
   } catch (err) {
-    // Rollback quota on failure
     try {
       await admin.rpc('decrement_video_usage', { p_user_id: user.id })
     } catch {

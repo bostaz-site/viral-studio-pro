@@ -172,7 +172,7 @@ export function TrendingCard({ clip, onRemix, remixing = false }: TrendingCardPr
         <Button
           size="sm"
           className="w-full h-8 text-xs gap-1.5 mt-1"
-          onClick={() => onRemix?.(clip)}
+          onClick={(e) => { e.stopPropagation(); onRemix?.(clip) }}
           disabled={remixing}
         >
           <Clapperboard className="h-3.5 w-3.5" />
