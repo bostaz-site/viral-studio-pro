@@ -21,14 +21,8 @@ interface TrendingFiltersProps {
   filteredCount: number
 }
 
-const GAMES = [
-  { id: 'irl', label: 'IRL' },
-  { id: 'fortnite', label: 'Fortnite' },
-  { id: 'valorant', label: 'Valorant' },
-  { id: 'league_of_legends', label: 'League of Legends' },
-  { id: 'minecraft', label: 'Minecraft' },
-  { id: 'gta', label: 'GTA' },
-  { id: 'apex_legends', label: 'Apex Legends' },
+const GAMES: { id: string; label: string }[] = [
+  // IRL-only — no gaming categories
 ]
 
 const PLATFORMS = [
@@ -128,26 +122,29 @@ export function TrendingFilters({ filters, onChange, totalCount, filteredCount }
           )
         })}
 
-        <div className="w-px h-5 bg-border self-center mx-1" />
-
-        {/* Game pills */}
-        {GAMES.map((game) => {
-          const active = filters.games.includes(game.id)
-          return (
-            <button
-              key={game.id}
-              onClick={() => onChange({ ...filters, games: toggle(filters.games, game.id) })}
-              className={cn(
-                'px-3 py-1 rounded-full text-xs font-medium border transition-all',
-                active
-                  ? 'bg-indigo-500/15 text-indigo-400 border-indigo-500/30'
-                  : 'bg-muted/30 text-muted-foreground border-border hover:border-indigo-500/30 hover:text-foreground'
-              )}
-            >
-              {game.label}
-            </button>
-          )
-        })}
+        {/* Game pills — hidden when no categories configured */}
+        {GAMES.length > 0 && (
+          <>
+            <div className="w-px h-5 bg-border self-center mx-1" />
+            {GAMES.map((game) => {
+              const active = filters.games.includes(game.id)
+              return (
+                <button
+                  key={game.id}
+                  onClick={() => onChange({ ...filters, games: toggle(filters.games, game.id) })}
+                  className={cn(
+                    'px-3 py-1 rounded-full text-xs font-medium border transition-all',
+                    active
+                      ? 'bg-indigo-500/15 text-indigo-400 border-indigo-500/30'
+                      : 'bg-muted/30 text-muted-foreground border-border hover:border-indigo-500/30 hover:text-foreground'
+                  )}
+                >
+                  {game.label}
+                </button>
+              )
+            })}
+          </>
+        )}
       </div>
     </div>
   )

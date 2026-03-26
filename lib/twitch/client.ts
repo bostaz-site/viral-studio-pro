@@ -212,13 +212,7 @@ export async function getGameByName(name: string): Promise<TwitchGame | null> {
  * These are stable and won't change.
  */
 export const TRACKED_GAMES: Record<string, { gameId: string; niche: string }> = {
-  'Fortnite':          { gameId: '33214',  niche: 'fortnite' },
-  'VALORANT':          { gameId: '516575', niche: 'valorant' },
-  'League of Legends': { gameId: '21779',  niche: 'league_of_legends' },
-  'Minecraft':         { gameId: '27471',  niche: 'minecraft' },
-  'Grand Theft Auto V':{ gameId: '32982',  niche: 'gta' },
   'Just Chatting':     { gameId: '509658', niche: 'irl' },
-  'Apex Legends':      { gameId: '511224', niche: 'apex_legends' },
 }
 
 /**

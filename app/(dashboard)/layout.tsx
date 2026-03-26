@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { Scissors, Gamepad2, Share, Settings, Menu, X, LogOut, Plus, Zap, LayoutDashboard } from 'lucide-react'
+import { Scissors, TrendingUp, Share, Settings, Menu, X, LogOut, Plus, Zap, LayoutDashboard } from 'lucide-react'
 import { useUiStore } from '@/stores/ui-store'
 import { Button } from '@/components/ui/button'
 import { NotificationBell } from '@/components/trending/notification-bell'
@@ -50,7 +50,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const navigation = [
     { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
     { name: 'Créer', href: '/create', icon: Scissors },
-    { name: 'Streams', href: '/trending', icon: Gamepad2 },
+    { name: 'Trending', href: '/trending', icon: TrendingUp },
     { name: 'Publier', href: '/publish', icon: Share },
     { name: 'Paramètres', href: '/settings', icon: Settings },
   ]

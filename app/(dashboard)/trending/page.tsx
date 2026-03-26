@@ -2,7 +2,7 @@
 
 import { useEffect, useCallback, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Gamepad2, RefreshCw, AlertCircle, Loader2, Sparkles, Wifi, WifiOff, Download } from 'lucide-react'
+import { TrendingUp, RefreshCw, AlertCircle, Loader2, Sparkles, Wifi, WifiOff, Download } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { TrendingCard } from '@/components/trending/trending-card'
@@ -128,11 +128,11 @@ export default function TrendingPage() {
       <div className="flex items-start justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight flex items-center gap-2">
-            <Gamepad2 className="h-7 w-7 text-primary" />
-            Clips de Streams
+            <Sparkles className="h-7 w-7 text-primary" />
+            Clips Trending
           </h1>
           <p className="text-muted-foreground mt-1">
-            Les meilleurs moments de streams — clippez-les en 1 clic avec l&apos;IA
+            Les clips les plus viraux du moment — clippez-les en 1 clic avec l&apos;IA
           </p>
         </div>
         <div className="flex items-center gap-2 shrink-0 mt-1">
@@ -185,7 +185,7 @@ export default function TrendingPage() {
       {twitchMessage && (
         <Card className="border-purple-500/20 bg-purple-500/5">
           <CardContent className="p-3 flex items-center gap-3 text-sm">
-            <Gamepad2 className="h-4 w-4 text-purple-400 shrink-0" />
+            <TrendingUp className="h-4 w-4 text-purple-400 shrink-0" />
             <p className="text-muted-foreground">{twitchMessage}</p>
           </CardContent>
         </Card>
@@ -234,7 +234,7 @@ export default function TrendingPage() {
       ) : filteredClips.length === 0 ? (
         <Card className="border-border bg-card/50">
           <CardContent className="p-12 text-center">
-            <Gamepad2 className="h-12 w-12 text-muted-foreground/30 mx-auto mb-3" />
+            <TrendingUp className="h-12 w-12 text-muted-foreground/30 mx-auto mb-3" />
             <p className="text-muted-foreground">Aucun clip trouvé pour ces filtres.</p>
             <Button
               variant="ghost"

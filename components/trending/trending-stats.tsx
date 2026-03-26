@@ -22,13 +22,7 @@ const PLATFORM_COLORS: Record<string, string> = {
 }
 
 const GAME_LABELS: Record<string, string> = {
-  fortnite: 'Fortnite',
-  valorant: 'Valorant',
-  league_of_legends: 'LoL',
-  minecraft: 'Minecraft',
-  gta: 'GTA',
   irl: 'IRL',
-  apex_legends: 'Apex',
 }
 
 function formatTimeAgo(dateStr: string | null): string {

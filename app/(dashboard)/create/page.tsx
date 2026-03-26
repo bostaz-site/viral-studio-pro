@@ -476,6 +476,50 @@ function CreatePage() {
     }
   }, [isRemixMode, remixVideoId, runRemixPipeline, loadExistingVideo])
 
+  // ── Resume polling if page remounts while clips are still rendering ─────
+  // This handles the case where the user navigates away and comes back —
+  // the previous polling loop dies on unmount, so we restart it here.
+  const resumeRef = useRef(false)
+  useEffect(() => {
+    if (resumeRef.current) return
+    if (processingStep !== 'rendering') return
+    if (generatedClips.length === 0) return
+    // Some clips may still be rendering — check fresh status
+    const hasNonTerminal = generatedClips.some((c) => c.status !== 'done' && c.status !== 'error')
+    if (!hasNonTerminal) {
+      // All clips are actually done, just update the step
+      setProcessingStep('done')
+      return
+    }
+    // Need to poll again
+    resumeRef.current = true
+    const videoId = generatedClips[0]?.video_id
+    if (!videoId) return
+
+    let cancelled = false
+    const poll = async () => {
+      const maxPollMs = 600_000
+      const pollStart = Date.now()
+      while (!cancelled && Date.now() - pollStart < maxPollMs) {
+        await new Promise((r) => setTimeout(r, 4_000))
+        if (cancelled) break
+        try {
+          const pollRes = await fetch(`/api/clips?video_id=${videoId}`)
+          const pollData = await pollRes.json() as { data: GeneratedClip[] | null }
+          if (!pollData.data) continue
+          setGeneratedClips(pollData.data)
+          const allDone = pollData.data.every((c) => c.status === 'done' || c.status === 'error')
+          if (allDone) break
+        } catch {
+          // network error, keep trying
+        }
+      }
+      if (!cancelled) setProcessingStep('done')
+    }
+    poll()
+    return () => { cancelled = true }
+  }, [processingStep, generatedClips, setGeneratedClips, setProcessingStep])
+
   const handleUrlImport = useCallback((importedUrl: string) => {
     runPipeline(importedUrl)
   }, [runPipeline])
