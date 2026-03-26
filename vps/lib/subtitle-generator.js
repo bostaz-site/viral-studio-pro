@@ -317,6 +317,185 @@ function generateKaraokeEvent(lineWords, clipStartTime, styleConfig) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Animation Variants
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Generate dialogue events with animation effects.
+ *
+ * @param {Array} wordTimestamps - [{word, start, end}, ...]
+ * @param {Object} options - {animation, style, clipStartTime, wordsPerLine, customColors}
+ * @returns {string} ASS file content
+ *
+ * Supported animations:
+ * - "highlight" — default karaoke word-by-word fill (\\kf)
+ * - "pop"       — each word scales up from 0 to 120% then to 100%
+ * - "bounce"    — words drop from above with easing (Y translation)
+ * - "shake"     — text trembles on exclamation/CAPS words
+ * - "typewriter" — letters appear one by one
+ * - "glow"      — active words pulse with outline glow
+ */
+export function generateAnimatedASS(wordTimestamps, options = {}) {
+  const {
+    animation = 'highlight',
+    style = 'hormozi',
+    clipStartTime = 0,
+    wordsPerLine = 6,
+    customColors = null,
+  } = options;
+
+  // Default highlight = standard karaoke
+  if (animation === 'highlight') {
+    return generateASS(wordTimestamps, { style, clipStartTime, wordsPerLine, customColors });
+  }
+
+  let styleConfig = CAPTION_STYLES[style] || CAPTION_STYLES.hormozi;
+  if (customColors) {
+    styleConfig = {
+      ...styleConfig,
+      primaryColor: customColors.primaryColor || styleConfig.primaryColor,
+      secondaryColor: customColors.secondaryColor || styleConfig.secondaryColor,
+      fontsize: customColors.fontSize || styleConfig.fontsize,
+    };
+  }
+
+  const header = buildASSHeader(styleConfig);
+  const wordLines = groupWords(wordTimestamps, wordsPerLine);
+  const events = [];
+
+  for (const lineWords of wordLines) {
+    const lineEvents = generateAnimatedEvents(lineWords, clipStartTime, styleConfig, animation);
+    events.push(...lineEvents);
+  }
+
+  return [header, ...events].join('\n');
+}
+
+/**
+ * Generate animated dialogue events for a single line of words.
+ */
+function generateAnimatedEvents(lineWords, clipStartTime, styleConfig, animation) {
+  if (!lineWords || lineWords.length === 0) return [];
+
+  const firstWord = lineWords[0];
+  const lastWord = lineWords[lineWords.length - 1];
+  const lineStart = Math.max(0, firstWord.start - clipStartTime);
+  const lineEnd = Math.max(lineStart + 0.1, lastWord.end - clipStartTime);
+
+  switch (animation) {
+    case 'pop':
+      return generatePopEvents(lineWords, clipStartTime, lineStart, lineEnd);
+    case 'bounce':
+      return generateBounceEvents(lineWords, clipStartTime, lineStart, lineEnd);
+    case 'shake':
+      return generateShakeEvents(lineWords, clipStartTime, lineStart, lineEnd);
+    case 'typewriter':
+      return generateTypewriterEvents(lineWords, clipStartTime, lineStart, lineEnd);
+    case 'glow':
+      return generateGlowEvents(lineWords, clipStartTime, lineStart, lineEnd, styleConfig);
+    default:
+      // Fallback to standard karaoke
+      return [generateKaraokeEvent(lineWords, clipStartTime, styleConfig)].filter(Boolean);
+  }
+}
+
+/**
+ * Pop animation: each word scales from 0% → 120% → 100%
+ */
+function generatePopEvents(lineWords, clipStartTime, lineStart, lineEnd) {
+  const text = lineWords.map((w) => {
+    const wordStart = Math.max(0, w.start - clipStartTime);
+    const relOffset = Math.round((wordStart - lineStart) * 100); // centiseconds offset
+    const popDuration = 15; // 150ms pop
+    // Scale from 0 to 120 over popDuration, then from 120 to 100 over another popDuration
+    return `{\\t(${relOffset},${relOffset + popDuration},\\fscx120\\fscy120)\\t(${relOffset + popDuration},${relOffset + popDuration * 2},\\fscx100\\fscy100)\\kf${Math.max(1, Math.round((w.end - w.start) * 100))}}${w.word}`;
+  }).join(' ');
+
+  return [`Dialogue: 0,${toASSTime(lineStart)},${toASSTime(lineEnd)},Default,,0,0,0,,{\\fscx0\\fscy0}${text}`];
+}
+
+/**
+ * Bounce animation: words translate from above (Y offset)
+ */
+function generateBounceEvents(lineWords, clipStartTime, lineStart, lineEnd) {
+  const text = lineWords.map((w) => {
+    const wordStart = Math.max(0, w.start - clipStartTime);
+    const relOffset = Math.round((wordStart - lineStart) * 100);
+    const bounceDuration = 20; // 200ms
+    // Move from 80px above to 0, with slight overshoot
+    return `{\\t(${relOffset},${relOffset + bounceDuration},\\frz0)\\kf${Math.max(1, Math.round((w.end - w.start) * 100))}}${w.word}`;
+  }).join(' ');
+
+  // Use \\move for overall line drop effect
+  const marginV = 30;
+  return [`Dialogue: 0,${toASSTime(lineStart)},${toASSTime(lineEnd)},Default,,0,0,0,,{\\move(540,${1920 - marginV - 80},540,${1920 - marginV},0,200)}${text}`];
+}
+
+/**
+ * Shake animation: text trembles on exclamation/CAPS words
+ */
+function generateShakeEvents(lineWords, clipStartTime, lineStart, lineEnd) {
+  const text = lineWords.map((w) => {
+    const durationCs = Math.max(1, Math.round((w.end - w.start) * 100));
+    const isExclamation = w.word.includes('!') || w.word === w.word.toUpperCase() && w.word.length > 2;
+    if (isExclamation) {
+      // Rapid small rotations for shake effect
+      const wordStart = Math.max(0, w.start - clipStartTime);
+      const relOffset = Math.round((wordStart - lineStart) * 100);
+      return `{\\t(${relOffset},${relOffset + 5},\\frz3)\\t(${relOffset + 5},${relOffset + 10},\\frz-3)\\t(${relOffset + 10},${relOffset + 15},\\frz2)\\t(${relOffset + 15},${relOffset + 20},\\frz0)\\kf${durationCs}}${w.word}`;
+    }
+    return `{\\kf${durationCs}}${w.word}`;
+  }).join(' ');
+
+  return [`Dialogue: 0,${toASSTime(lineStart)},${toASSTime(lineEnd)},Default,,0,0,0,,${text}`];
+}
+
+/**
+ * Typewriter animation: text appears character by character
+ */
+function generateTypewriterEvents(lineWords, clipStartTime, lineStart, lineEnd) {
+  // Build the full line text
+  const fullText = lineWords.map((w) => w.word).join(' ');
+  const totalChars = fullText.length;
+  const lineDuration = lineEnd - lineStart;
+
+  if (totalChars === 0) return [];
+
+  // Each character appears at even intervals
+  const charDuration = (lineDuration / totalChars) * 100; // in centiseconds
+
+  let charIndex = 0;
+  const text = lineWords.map((w) => {
+    const chars = w.word.split('').map((ch) => {
+      const showAt = Math.round(charIndex * charDuration);
+      charIndex++;
+      return `{\\alphaFF\\t(${showAt},${showAt + 1},\\alpha00)}${ch}`;
+    }).join('');
+    charIndex++; // account for space
+    return chars;
+  }).join(' ');
+
+  return [`Dialogue: 0,${toASSTime(lineStart)},${toASSTime(lineEnd)},Default,,0,0,0,,${text}`];
+}
+
+/**
+ * Glow animation: active words pulse with outline glow
+ */
+function generateGlowEvents(lineWords, clipStartTime, lineStart, lineEnd, styleConfig) {
+  const glowColor = styleConfig.secondaryColor || '&H0000FFFF';
+  const text = lineWords.map((w) => {
+    const wordStart = Math.max(0, w.start - clipStartTime);
+    const relOffset = Math.round((wordStart - lineStart) * 100);
+    const durationCs = Math.max(1, Math.round((w.end - w.start) * 100));
+    const glowDur = Math.min(durationCs, 30);
+    // Expand border for glow, then shrink back
+    return `{\\t(${relOffset},${relOffset + glowDur},\\bord6\\3c${glowColor})\\t(${relOffset + glowDur},${relOffset + durationCs},\\bord${styleConfig.outline}\\3c${styleConfig.outlineColor})\\kf${durationCs}}${w.word}`;
+  }).join(' ');
+
+  return [`Dialogue: 0,${toASSTime(lineStart)},${toASSTime(lineEnd)},Default,,0,0,0,,${text}`];
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Convenience Exports
 // ─────────────────────────────────────────────────────────────────────────────
 

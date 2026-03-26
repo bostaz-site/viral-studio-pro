@@ -35,6 +35,8 @@ const inputSchema = z.object({
       watermark: z.boolean().optional(),
       watermarkPosition: z.string().optional(),
       creditText: z.string().optional(),
+      brandTemplateId: z.string().uuid().nullable().optional(),
+      brandLogoPath: z.string().nullable().optional(),
     }).optional(),
   }).optional(),
 })
@@ -180,6 +182,8 @@ export async function POST(request: NextRequest) {
         watermark: planConfig.limits.watermarkForced ? true : (settings?.branding?.watermark ?? false),
         watermarkPosition: settings?.branding?.watermarkPosition ?? 'bottom-right',
         creditText: settings?.branding?.creditText ?? null,
+        brandTemplateId: settings?.branding?.brandTemplateId ?? null,
+        brandLogoPath: (!planConfig.limits.watermarkForced && settings?.branding?.brandLogoPath) ? settings.branding.brandLogoPath : null,
       },
     },
   }

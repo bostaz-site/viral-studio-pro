@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useCallback, useRef } from 'react'
-import { Sparkles, CheckCircle2, Circle, Loader2, AlertCircle, RotateCcw, Scissors, Download, Trash2, CheckSquare } from 'lucide-react'
+import { Sparkles, CheckCircle2, Circle, Loader2, AlertCircle, RotateCcw, Scissors, Download, Trash2, CheckSquare, FileText } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { UploadZone } from '@/components/video/upload-zone'
@@ -11,6 +11,7 @@ import { useVideoStore } from '@/stores/video-store'
 import { useClipsStore, type GeneratedClip } from '@/stores/clips-store'
 import { cn } from '@/lib/utils'
 import type { AspectRatio } from '@/lib/ffmpeg/reframe'
+import { parseSrtToWordTimestamps, parseSrt, srtToFullText, srtToTranscriptionSegments } from '@/lib/captions/srt-parser'
 
 // ─── Import by URL ───────────────────────────────────────────────────────────
 
@@ -148,6 +149,7 @@ function StepRow({
 export default function CreatePage() {
   const [pendingFile, setPendingFile] = useState<File | null>(null)
   const [url, setUrl] = useState('')
+  const [srtFile, setSrtFile] = useState<File | null>(null)
   const [removeFiller, setRemoveFiller] = useState(false)
   const [batchMode, setBatchMode] = useState(false)
   const [selectedClips, setSelectedClips] = useState<Set<string>>(new Set())
@@ -205,16 +207,36 @@ export default function CreatePage() {
         .then((d: { data: { url: string } | null }) => { if (d.data?.url) setVideoUrl(d.data.url) })
         .catch(() => null)
 
-      // Step 2 — Transcription
+      // Step 2 — Transcription (skip Whisper if SRT provided)
       setProcessingStep('transcribing')
 
-      const transcribeRes = await fetch('/api/transcribe', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ video_id: videoId }),
-      })
-      const transcribeData = await transcribeRes.json() as { error: string | null; message: string }
-      if (!transcribeRes.ok) throw new Error(transcribeData.message ?? 'Transcription failed')
+      if (srtFile) {
+        // Parse SRT client-side and send pre-parsed data to skip Whisper
+        const srtContent = await srtFile.text()
+        const srtSegments = parseSrt(srtContent)
+        const wordTimestamps = parseSrtToWordTimestamps(srtContent)
+        const fullText = srtToFullText(srtSegments)
+        const segments = srtToTranscriptionSegments(srtSegments)
+
+        const transcribeRes = await fetch('/api/transcribe', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            video_id: videoId,
+            srt_data: { full_text: fullText, segments, word_timestamps: wordTimestamps },
+          }),
+        })
+        const transcribeData = await transcribeRes.json() as { error: string | null; message: string }
+        if (!transcribeRes.ok) throw new Error(transcribeData.message ?? 'SRT import failed')
+      } else {
+        const transcribeRes = await fetch('/api/transcribe', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ video_id: videoId }),
+        })
+        const transcribeData = await transcribeRes.json() as { error: string | null; message: string }
+        if (!transcribeRes.ok) throw new Error(transcribeData.message ?? 'Transcription failed')
+      }
 
       // Step 3 — Analyse IA
       setProcessingStep('analyzing')
@@ -278,6 +300,7 @@ export default function CreatePage() {
   }, [
     pendingFile,
     url,
+    srtFile,
     setCurrentVideoId,
     setProcessingStep,
     setUploadProgress,
@@ -295,6 +318,7 @@ export default function CreatePage() {
   const handleReset = useCallback(() => {
     setPendingFile(null)
     setUrl('')
+    setSrtFile(null)
     setVideoUrl(null)
     resetVideo()
     clearClips()
@@ -460,6 +484,45 @@ export default function CreatePage() {
       {/* ── Options + Generate button ── */}
       {!isProcessing && !isDone && (
         <div className="space-y-3">
+          {/* SRT import (optional) */}
+          <div className="flex items-center gap-3 p-3 rounded-xl border border-border bg-card/40">
+            <FileText className={cn('h-4 w-4 shrink-0', srtFile ? 'text-primary' : 'text-muted-foreground')} />
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-foreground">Importer vos sous-titres (.srt)</p>
+              <p className="text-xs text-muted-foreground">
+                {srtFile
+                  ? srtFile.name
+                  : 'Optionnel — skip la transcription Whisper'}
+              </p>
+            </div>
+            {srtFile ? (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 text-xs text-muted-foreground hover:text-foreground"
+                onClick={() => setSrtFile(null)}
+              >
+                Retirer
+              </Button>
+            ) : (
+              <label className="cursor-pointer">
+                <Button variant="outline" size="sm" className="h-7 text-xs pointer-events-none">
+                  Choisir .srt
+                </Button>
+                <input
+                  type="file"
+                  accept=".srt,text/srt,application/x-subrip"
+                  className="hidden"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0]
+                    if (f) setSrtFile(f)
+                    e.target.value = ''
+                  }}
+                />
+              </label>
+            )}
+          </div>
+
           {/* Filler removal toggle */}
           <label className="flex items-center gap-3 p-3 rounded-xl border border-border bg-card/40 cursor-pointer hover:border-primary/30 transition-colors">
             <div

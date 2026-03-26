@@ -6,8 +6,15 @@ import { transcribeAudio } from '@/lib/whisper'
 import { rateLimit, RATE_LIMITS } from '@/lib/rate-limit'
 import type { Json } from '@/lib/supabase/types'
 
+const srtDataSchema = z.object({
+  full_text: z.string().min(1),
+  segments: z.array(z.object({ start: z.number(), end: z.number(), text: z.string() })),
+  word_timestamps: z.array(z.object({ word: z.string(), start: z.number(), end: z.number() })),
+})
+
 const inputSchema = z.object({
   video_id: z.string().uuid(),
+  srt_data: srtDataSchema.optional(),
 })
 
 export async function POST(request: NextRequest) {
@@ -43,7 +50,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const { video_id } = parsed.data
+    const { video_id, srt_data } = parsed.data
     const admin = createAdminClient()
 
     const { data: video, error: videoError } = await admin
@@ -62,37 +69,54 @@ export async function POST(request: NextRequest) {
 
     await admin.from('videos').update({ status: 'transcribing' }).eq('id', video_id)
 
-    const { data: fileData, error: downloadError } = await admin.storage
-      .from('videos')
-      .download(video.storage_path)
-
-    if (downloadError || !fileData) {
-      await admin
-        .from('videos')
-        .update({ status: 'error', error_message: 'Failed to download video for transcription' })
-        .eq('id', video_id)
-      return NextResponse.json(
-        { data: null, error: downloadError?.message ?? 'Download failed', message: 'Failed to download video' },
-        { status: 500 }
-      )
+    let transcription: {
+      language: string
+      full_text: string
+      segments: Array<{ start: number; end: number; text: string }>
+      word_timestamps: Array<{ word: string; start: number; end: number }>
     }
 
-    const arrayBuffer = await fileData.arrayBuffer()
-    const buffer = Buffer.from(arrayBuffer)
-    const filename = video.storage_path.split('/').pop() ?? 'video.mp4'
-
-    let transcription
-    try {
-      transcription = await transcribeAudio(buffer, filename)
-    } catch (whisperError) {
-      await admin
+    if (srt_data) {
+      // SRT path — use pre-parsed data, skip Whisper
+      transcription = {
+        language: 'unknown',
+        full_text: srt_data.full_text,
+        segments: srt_data.segments,
+        word_timestamps: srt_data.word_timestamps,
+      }
+    } else {
+      // Whisper path — download video and transcribe
+      const { data: fileData, error: downloadError } = await admin.storage
         .from('videos')
-        .update({ status: 'error', error_message: String(whisperError) })
-        .eq('id', video_id)
-      return NextResponse.json(
-        { data: null, error: String(whisperError), message: 'Transcription failed' },
-        { status: 500 }
-      )
+        .download(video.storage_path)
+
+      if (downloadError || !fileData) {
+        await admin
+          .from('videos')
+          .update({ status: 'error', error_message: 'Failed to download video for transcription' })
+          .eq('id', video_id)
+        return NextResponse.json(
+          { data: null, error: downloadError?.message ?? 'Download failed', message: 'Failed to download video' },
+          { status: 500 }
+        )
+      }
+
+      const arrayBuffer = await fileData.arrayBuffer()
+      const buffer = Buffer.from(arrayBuffer)
+      const filename = video.storage_path.split('/').pop() ?? 'video.mp4'
+
+      try {
+        transcription = await transcribeAudio(buffer, filename)
+      } catch (whisperError) {
+        await admin
+          .from('videos')
+          .update({ status: 'error', error_message: String(whisperError) })
+          .eq('id', video_id)
+        return NextResponse.json(
+          { data: null, error: String(whisperError), message: 'Transcription failed' },
+          { status: 500 }
+        )
+      }
     }
 
     // Use intermediate variable to avoid TypeScript excess property checking on intersection types

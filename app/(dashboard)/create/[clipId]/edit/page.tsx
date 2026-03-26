@@ -28,6 +28,7 @@ import { TimelineEditor } from '@/components/video/timeline-editor'
 import type { CaptionConfig } from '@/components/captions/caption-editor'
 import { RemakeModal } from '@/components/clips/remake-modal'
 import { createClient } from '@/lib/supabase/client'
+import { cn } from '@/lib/utils'
 import type { Database } from '@/lib/supabase/types'
 
 type ClipRow = Database['public']['Tables']['clips']['Row']
@@ -52,6 +53,7 @@ interface EditorSettings {
   captionsEnabled: boolean
   captionConfig: CaptionConfig
   autoEmojis: boolean
+  captionAnimation: 'highlight' | 'pop' | 'bounce' | 'shake' | 'typewriter' | 'glow'
 
   // Split Screen
   splitScreenEnabled: boolean
@@ -71,6 +73,21 @@ interface EditorSettings {
   watermarkPosition: 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right'
   introOutroEnabled: boolean
   creditText: string
+  brandTemplateId: string | null
+  brandLogoPath: string | null
+}
+
+interface BrandTemplate {
+  id: string
+  name: string
+  primary_color: string | null
+  secondary_color: string | null
+  font_family: string | null
+  logo_path: string | null
+  watermark_path: string | null
+  intro_video_path: string | null
+  outro_video_path: string | null
+  is_default: boolean | null
 }
 
 // ─── UI Components ──────────────────────────────────────────────────────
@@ -116,6 +133,7 @@ export default function ClipEditorPage() {
       wordsPerLine: 4,
     },
     autoEmojis: true,
+    captionAnimation: 'highlight',
     splitScreenEnabled: false,
     splitScreenLayout: 'top-bottom',
     brollCategory: 'parkour',
@@ -129,12 +147,25 @@ export default function ClipEditorPage() {
     watermarkPosition: 'bottom-right',
     introOutroEnabled: false,
     creditText: '',
+    brandTemplateId: null,
+    brandLogoPath: null,
   })
 
   const [rendering, setRendering] = useState(false)
   const [renderError, setRenderError] = useState<string | null>(null)
   const [remakeOpen, setRemakeOpen] = useState(false)
+  const [brandTemplates, setBrandTemplates] = useState<BrandTemplate[]>([])
   const playerRef = useRef<VideoPlayerHandle>(null)
+
+  // Fetch brand templates
+  useEffect(() => {
+    fetch('/api/brand-templates')
+      .then((r) => r.json())
+      .then((d: { data: BrandTemplate[] | null }) => {
+        if (d.data) setBrandTemplates(d.data)
+      })
+      .catch(() => null)
+  }, [])
 
   // ── Fetch clip data ──────────────────────────────────────────────────
 
@@ -239,6 +270,7 @@ export default function ClipEditorPage() {
             position: editorSettings.captionConfig.position,
             wordsPerLine: editorSettings.captionConfig.wordsPerLine,
             autoEmojis: editorSettings.autoEmojis,
+            animation: editorSettings.captionAnimation,
           },
           splitScreen: {
             enabled: editorSettings.splitScreenEnabled,
@@ -257,6 +289,8 @@ export default function ClipEditorPage() {
             watermark: editorSettings.watermarkEnabled,
             watermarkPosition: editorSettings.watermarkPosition,
             creditText: editorSettings.creditText || null,
+            brandTemplateId: editorSettings.brandTemplateId || null,
+            brandLogoPath: editorSettings.brandLogoPath || null,
           },
         }
 
@@ -532,6 +566,32 @@ export default function ClipEditorPage() {
                           <SelectItem value="impact">Impact — Classique</SelectItem>
                           <SelectItem value="minimal">Minimal — Subtil</SelectItem>
                           <SelectItem value="default">Default — Standard</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {/* Animation */}
+                    <div className="space-y-2">
+                      <Label className="text-sm">Animation</Label>
+                      <Select
+                        value={editorSettings.captionAnimation}
+                        onValueChange={(val: string) => {
+                          setEditorSettings((s) => ({
+                            ...s,
+                            captionAnimation: val as EditorSettings['captionAnimation'],
+                          }))
+                        }}
+                      >
+                        <SelectTrigger className="h-8 text-sm">
+                          <SelectValue placeholder="Animation" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="highlight">Highlight (karaoké)</SelectItem>
+                          <SelectItem value="pop">Pop (scale)</SelectItem>
+                          <SelectItem value="bounce">Bounce (rebond)</SelectItem>
+                          <SelectItem value="shake">Shake (tremblement)</SelectItem>
+                          <SelectItem value="typewriter">Typewriter (machine à écrire)</SelectItem>
+                          <SelectItem value="glow">Glow (halo lumineux)</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
@@ -822,6 +882,66 @@ export default function ClipEditorPage() {
             {/* TAB 4: Branding */}
             <TabsContent value="branding" className="space-y-4 mt-4">
               <div className="space-y-3">
+                {/* Brand Kit */}
+                {brandTemplates.length > 0 && (
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium">Brand Kit</Label>
+                    <div className="space-y-1.5">
+                      {brandTemplates.map((tmpl) => (
+                        <button
+                          key={tmpl.id}
+                          type="button"
+                          onClick={() => {
+                            setEditorSettings((s) => ({
+                              ...s,
+                              brandTemplateId: tmpl.id,
+                              brandLogoPath: tmpl.logo_path ?? tmpl.watermark_path ?? null,
+                              watermarkEnabled: !!(tmpl.logo_path || tmpl.watermark_path),
+                              introOutroEnabled: !!(tmpl.intro_video_path || tmpl.outro_video_path),
+                            }))
+                          }}
+                          className={cn(
+                            'w-full flex items-center gap-2.5 p-2.5 rounded-lg border transition-all text-left',
+                            editorSettings.brandTemplateId === tmpl.id
+                              ? 'border-primary/50 bg-primary/5'
+                              : 'border-border hover:border-primary/30 bg-card/30'
+                          )}
+                        >
+                          <div className="flex gap-1 shrink-0">
+                            {tmpl.primary_color && (
+                              <div className="w-4 h-4 rounded-full border border-border/50" style={{ backgroundColor: tmpl.primary_color }} />
+                            )}
+                            {tmpl.secondary_color && (
+                              <div className="w-4 h-4 rounded-full border border-border/50" style={{ backgroundColor: tmpl.secondary_color }} />
+                            )}
+                          </div>
+                          <span className="text-xs font-medium text-foreground flex-1 truncate">{tmpl.name}</span>
+                          {tmpl.is_default && (
+                            <span className="text-[10px] text-yellow-400 font-medium">Défaut</span>
+                          )}
+                          {tmpl.logo_path && (
+                            <span className="text-[10px] text-muted-foreground">Logo</span>
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                    {editorSettings.brandTemplateId && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 text-xs text-muted-foreground"
+                        onClick={() => setEditorSettings((s) => ({
+                          ...s,
+                          brandTemplateId: null,
+                          brandLogoPath: null,
+                        }))}
+                      >
+                        Retirer le brand kit
+                      </Button>
+                    )}
+                  </div>
+                )}
+
                 {/* Watermark */}
                 <div className="flex items-center justify-between">
                   <Label htmlFor="watermark-toggle" className="text-sm font-medium">
