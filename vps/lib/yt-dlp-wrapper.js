@@ -133,8 +133,8 @@ export async function downloadVideo(videoUrl, outputPath, options = {}) {
     // Format selection
     args.push('-f', format);
 
-    // Extract metadata
-    args.push('--dump-json');
+    // Extract metadata (--print-json downloads AND prints JSON; --dump-json only simulates)
+    args.push('--print-json');
     args.push('--no-warnings');
 
     // Video processing options

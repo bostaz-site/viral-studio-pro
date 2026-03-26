@@ -28,7 +28,7 @@ const GAME_LABELS: Record<string, string> = {
   minecraft: 'Minecraft',
   gta: 'GTA',
   just_chatting: 'Just Chatting',
-  irl: 'IRL',
+  apex_legends: 'Apex',
 }
 
 function formatTimeAgo(dateStr: string | null): string {

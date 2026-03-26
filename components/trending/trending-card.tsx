@@ -42,7 +42,7 @@ const GAME_COLORS: Record<string, string> = {
   minecraft:         'text-green-400 bg-green-500/10',
   gta:               'text-orange-400 bg-orange-500/10',
   just_chatting:     'text-blue-400 bg-blue-500/10',
-  irl:               'text-pink-400 bg-pink-500/10',
+  apex_legends:      'text-pink-400 bg-pink-500/10',
 }
 
 const GAME_LABELS: Record<string, string> = {
@@ -52,7 +52,7 @@ const GAME_LABELS: Record<string, string> = {
   minecraft: 'Minecraft',
   gta: 'GTA',
   just_chatting: 'Just Chatting',
-  irl: 'IRL',
+  apex_legends: 'Apex Legends',
 }
 
 function formatCount(n: number | null): string {

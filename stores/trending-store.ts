@@ -165,7 +165,7 @@ const SEED_CLIPS: TrendingClip[] = [
     author_handle: 'zevent',
     title: 'MOMENT LÉGENDAIRE DU ZEVENT — TOUT LE MONDE PLEURE',
     description: null,
-    niche: 'irl',
+    niche: 'apex_legends',
     view_count: 8_100_000,
     like_count: 924_000,
     velocity_score: 97.1,

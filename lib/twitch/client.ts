@@ -218,5 +218,5 @@ export const TRACKED_GAMES: Record<string, { gameId: string; niche: string }> = 
   'Minecraft':         { gameId: '27471',  niche: 'minecraft' },
   'Grand Theft Auto V':{ gameId: '32982',  niche: 'gta' },
   'Just Chatting':     { gameId: '509658', niche: 'just_chatting' },
-  'IRL':               { gameId: '494717', niche: 'irl' },
+  'Apex Legends':      { gameId: '511224', niche: 'apex_legends' },
 }

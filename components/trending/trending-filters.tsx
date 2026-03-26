@@ -28,7 +28,7 @@ const GAMES = [
   { id: 'minecraft', label: 'Minecraft' },
   { id: 'gta', label: 'GTA' },
   { id: 'just_chatting', label: 'Just Chatting' },
-  { id: 'irl', label: 'IRL' },
+  { id: 'apex_legends', label: 'Apex Legends' },
 ]
 
 const PLATFORMS = [
