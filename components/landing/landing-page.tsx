@@ -1,7 +1,7 @@
 "use client"
 
 import Link from 'next/link'
-import { Scissors, Zap, Sparkles, TrendingUp, Check, Subtitles, MonitorPlay, ArrowRight, Play, Star, Users, Film } from 'lucide-react'
+import { Scissors, Sparkles, TrendingUp, Check, Subtitles, MonitorPlay, ArrowRight, Play, Star, Users, Film } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
@@ -194,21 +194,21 @@ export function LandingPage() {
         <div className="absolute inset-0 bg-[linear-gradient(rgba(99,102,241,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(99,102,241,0.02)_1px,transparent_1px)] bg-[size:60px_60px]" />
 
         <div className="relative z-10 max-w-4xl mx-auto text-center">
-          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-primary/20 bg-primary/5 text-sm text-primary mb-8">
-            <Zap className="h-3.5 w-3.5" />
-            Propulsé par l&apos;IA Claude
+          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-emerald-500/20 bg-emerald-500/5 text-sm text-emerald-400 mb-8">
+            <MonitorPlay className="h-3.5 w-3.5" />
+            Le seul outil avec split-screen automatique
           </div>
 
           <h1 className="text-4xl sm:text-5xl md:text-6xl font-black tracking-tight leading-[1.1]">
-            Transforme les meilleurs{' '}
+            Clips viraux en{' '}
             <span className="bg-gradient-to-r from-blue-400 via-indigo-400 to-purple-400 bg-clip-text text-transparent">
-              moments de streams
+              split-screen
             </span>{' '}
-            en clips viraux
+            depuis tes streams
           </h1>
 
           <p className="text-lg sm:text-xl text-muted-foreground mt-6 max-w-2xl mx-auto leading-relaxed">
-            Sélectionne un clip Twitch ou YouTube Gaming, ajoute des sous-titres karaoké et une vidéo satisfaisante, exporte en 1 clic pour TikTok, Reels et Shorts.
+            Stream + Subway Surfers/Minecraft en bas + sous-titres karaoké = la formule qui explose sur TikTok. Le seul outil qui fait ça automatiquement à partir de Twitch et YouTube Gaming.
           </p>
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mt-10">
