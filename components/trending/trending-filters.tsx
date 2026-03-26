@@ -22,12 +22,12 @@ interface TrendingFiltersProps {
 }
 
 const GAMES = [
+  { id: 'irl', label: 'IRL' },
   { id: 'fortnite', label: 'Fortnite' },
   { id: 'valorant', label: 'Valorant' },
   { id: 'league_of_legends', label: 'League of Legends' },
   { id: 'minecraft', label: 'Minecraft' },
   { id: 'gta', label: 'GTA' },
-  { id: 'just_chatting', label: 'Just Chatting' },
   { id: 'apex_legends', label: 'Apex Legends' },
 ]
 

@@ -81,10 +81,10 @@ function SettingsPageInner() {
   const [profileSaved, setProfileSaved] = useState(false)
 
   // Notification preferences (stored in localStorage)
-  const NOTIF_GAMES = ['fortnite', 'valorant', 'league_of_legends', 'minecraft', 'gta', 'just_chatting', 'apex_legends'] as const
+  const NOTIF_GAMES = ['irl', 'fortnite', 'valorant', 'league_of_legends', 'minecraft', 'gta', 'apex_legends'] as const
   const NOTIF_GAME_LABELS: Record<string, string> = {
-    fortnite: 'Fortnite', valorant: 'Valorant', league_of_legends: 'League of Legends',
-    minecraft: 'Minecraft', gta: 'GTA', just_chatting: 'Just Chatting', apex_legends: 'Apex Legends',
+    irl: 'IRL', fortnite: 'Fortnite', valorant: 'Valorant', league_of_legends: 'League of Legends',
+    minecraft: 'Minecraft', gta: 'GTA', apex_legends: 'Apex Legends',
   }
   const [notifEnabled, setNotifEnabled] = useState(true)
   const [notifGames, setNotifGames] = useState<Record<string, boolean>>(() => {

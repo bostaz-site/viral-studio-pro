@@ -289,9 +289,10 @@ function CreatePage() {
 
       // Poll until all clips are done or errored (VPS renders in background)
       const clipIds = clipsData.data.map((c) => c.id)
-      const maxPollMs = 300_000 // 5 minutes max
-      const pollInterval = 3_000 // every 3 seconds
+      const maxPollMs = 600_000 // 10 minutes max
+      const pollInterval = 4_000
       const pollStart = Date.now()
+      let allFinished = false
 
       while (Date.now() - pollStart < maxPollMs) {
         await new Promise((r) => setTimeout(r, pollInterval))
@@ -307,9 +308,13 @@ function CreatePage() {
           .filter((c) => clipIds.includes(c.id))
           .every((c) => c.status === 'done' || c.status === 'error')
 
-        if (allDone) break
+        if (allDone) { allFinished = true; break }
       }
 
+      if (!allFinished) {
+        // Some clips still rendering but timeout reached — mark done anyway, user can refresh
+        console.warn('[create] Render polling timed out — some clips may still be processing')
+      }
       setProcessingStep('done')
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Une erreur est survenue'
@@ -391,10 +396,10 @@ function CreatePage() {
 
       // Poll until all clips are terminal
       const clipIds = clipsData.data.map((c) => c.id)
-      const maxPollMs = 300_000
+      const maxPollMs = 600_000 // 10 minutes
       const pollStart = Date.now()
       while (Date.now() - pollStart < maxPollMs) {
-        await new Promise((r) => setTimeout(r, 3_000))
+        await new Promise((r) => setTimeout(r, 4_000))
         const pollRes = await fetch(`/api/clips?video_id=${videoId}`)
         const pollData = await pollRes.json() as { data: GeneratedClip[] | null }
         if (!pollData.data) continue
@@ -437,10 +442,10 @@ function CreatePage() {
           // Some clips are still rendering — poll until all terminal
           setProcessingStep('rendering')
           const clipIds = clipsData.data.map((c) => c.id)
-          const maxPollMs = 300_000
+          const maxPollMs = 600_000
           const pollStart = Date.now()
           while (Date.now() - pollStart < maxPollMs) {
-            await new Promise((r) => setTimeout(r, 3_000))
+            await new Promise((r) => setTimeout(r, 4_000))
             const pollRes = await fetch(`/api/clips?video_id=${videoId}`)
             const pollData = await pollRes.json() as { data: GeneratedClip[] | null }
             if (!pollData.data) continue

@@ -27,7 +27,7 @@ const GAME_LABELS: Record<string, string> = {
   league_of_legends: 'LoL',
   minecraft: 'Minecraft',
   gta: 'GTA',
-  just_chatting: 'Just Chatting',
+  irl: 'IRL',
   apex_legends: 'Apex',
 }
 

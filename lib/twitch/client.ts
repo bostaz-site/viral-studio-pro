@@ -217,6 +217,47 @@ export const TRACKED_GAMES: Record<string, { gameId: string; niche: string }> = 
   'League of Legends': { gameId: '21779',  niche: 'league_of_legends' },
   'Minecraft':         { gameId: '27471',  niche: 'minecraft' },
   'Grand Theft Auto V':{ gameId: '32982',  niche: 'gta' },
-  'Just Chatting':     { gameId: '509658', niche: 'just_chatting' },
+  'Just Chatting':     { gameId: '509658', niche: 'irl' },
   'Apex Legends':      { gameId: '511224', niche: 'apex_legends' },
+}
+
+/**
+ * Popular IRL / Just Chatting broadcasters to track by login name.
+ * We resolve their IDs at runtime and fetch their clips for better IRL coverage.
+ */
+export const TRACKED_IRL_LOGINS: string[] = [
+  'kaicenat',
+  'ishowspeed',
+  'xqc',
+  'adinross',
+  'hasanabi',
+  'amouranth',
+  'marlon',
+  'jynxzi',
+  'sketch',
+]
+
+/**
+ * Get Twitch user IDs by login names.
+ */
+export async function getUsersByLogin(logins: string[]): Promise<{ id: string; login: string; display_name: string }[]> {
+  if (logins.length === 0) return []
+  // Build query string manually since we need multiple 'login' params
+  const token = await getAccessToken()
+  const clientId = process.env.TWITCH_CLIENT_ID!
+  const url = new URL('https://api.twitch.tv/helix/users')
+  for (const login of logins.slice(0, 100)) {
+    url.searchParams.append('login', login)
+  }
+
+  const res = await fetch(url.toString(), {
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Client-Id': clientId,
+    },
+  })
+
+  if (!res.ok) return []
+  const data = await res.json() as { data: { id: string; login: string; display_name: string }[] }
+  return data.data ?? []
 }

@@ -149,7 +149,7 @@ const SEED_CLIPS: TrendingClip[] = [
     author_handle: 'sardoche',
     title: 'LE RAGE QUIT LE PLUS ÉPIQUE DE L\'ANNÉE',
     description: null,
-    niche: 'just_chatting',
+    niche: 'irl',
     view_count: 3_500_000,
     like_count: 421_000,
     velocity_score: 88.5,
