@@ -20,6 +20,7 @@ export interface GeneratedClip {
   duration_seconds: number | null
   storage_path: string | null
   thumbnail_path: string | null
+  thumbnail_url: string | null
   transcript_segment: string | null
   aspect_ratio: string | null
   status: string | null

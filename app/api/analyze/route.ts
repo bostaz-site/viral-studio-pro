@@ -121,27 +121,45 @@ export async function POST(request: NextRequest) {
     }
 
     // Determine clip segments from Retention Editor, fallback to full video
-    const segments =
+    const MIN_CLIP_DURATION = 15 // seconds — clips shorter than this are dropped
+    const rawSegments =
       skills.retentionEditor?.segments_to_keep && skills.retentionEditor.segments_to_keep.length > 0
         ? skills.retentionEditor.segments_to_keep
         : [{ start: 0, end: Math.min(videoDuration, 60), reason: 'Clip complet' }]
 
-    const bestHook = skills.hookHunter?.hooks?.[0] ?? null
-    const retentionScore = skills.retentionEditor?.estimated_retention_score ?? 70
+    // Filter out segments shorter than minimum duration
+    const segments = rawSegments.filter((seg) => (seg.end - seg.start) >= MIN_CLIP_DURATION)
 
-    // Create clip records
-    const clipsToInsert = segments.map((seg) => ({
-      video_id,
-      user_id: user.id,
-      title: bestHook ? bestHook.text : video.title,
-      start_time: seg.start,
-      end_time: seg.end,
-      duration_seconds: seg.end - seg.start,
-      transcript_segment: seg.reason,
-      aspect_ratio: '9:16',
-      status: 'pending' as const,
-      is_remake: isRemake,
-    }))
+    // If all segments were filtered out, use fallback
+    if (segments.length === 0) {
+      segments.push({ start: 0, end: Math.min(videoDuration, 60), reason: 'Clip complet (fallback)' })
+    }
+
+    const hooks = skills.hookHunter?.hooks ?? []
+    const bestHook = hooks[0] ?? null
+    const globalRetentionScore = skills.retentionEditor?.estimated_retention_score ?? 70
+
+    // Create clip records — each clip gets its own title from Retention Editor
+    const clipsToInsert = segments.map((seg, idx) => {
+      // Use segment-specific title if available, fallback to hooks, then video title
+      const segTitle = ('title' in seg && typeof (seg as Record<string, unknown>).title === 'string')
+        ? (seg as Record<string, unknown>).title as string
+        : null
+      const clipTitle = segTitle ?? hooks[idx % hooks.length]?.text ?? video.title ?? `Clip ${idx + 1}`
+
+      return {
+        video_id,
+        user_id: user.id,
+        title: clipTitle,
+        start_time: seg.start,
+        end_time: seg.end,
+        duration_seconds: seg.end - seg.start,
+        transcript_segment: seg.reason,
+        aspect_ratio: '9:16',
+        status: 'pending' as const,
+        is_remake: isRemake,
+      }
+    })
 
     const { data: insertedClips, error: clipsError } = await admin
       .from('clips')
@@ -159,21 +177,45 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Create viral scores for each clip
-    const hookStrength = bestHook?.score ?? 60
-    const overallScore = Math.round((hookStrength * 0.4 + retentionScore * 0.4 + 60 * 0.2))
+    // Create UNIQUE viral scores per clip — based on segment intensity + hook quality
+    const viralScoresToInsert = insertedClips.map((clip, idx) => {
+      const seg = segments[idx]
+      // Get segment-specific retention score if available, fallback to global
+      const segRetention = ('retention_score' in seg && typeof (seg as Record<string, unknown>).retention_score === 'number')
+        ? (seg as Record<string, unknown>).retention_score as number
+        : globalRetentionScore
+      const segIntensity = ('intensity' in seg && typeof (seg as Record<string, unknown>).intensity === 'number')
+        ? (seg as Record<string, unknown>).intensity as number
+        : 5
 
-    const viralScoresToInsert = insertedClips.map((clip) => ({
-      clip_id: clip.id,
-      score: overallScore,
-      hook_strength: hookStrength,
-      emotional_flow: retentionScore,
-      perceived_value: 65,
-      trend_alignment: 55,
-      hook_type: bestHook?.type ?? null,
-      explanation: bestHook?.explanation ?? 'Clip généré automatiquement par IA',
-      suggested_hooks: (skills.hookHunter?.hooks ?? []) as unknown as Json,
-    }))
+      // Assign different hooks to different clips for variety
+      const hookForClip = hooks[idx % Math.max(hooks.length, 1)] ?? bestHook
+      const hookStrength = hookForClip?.score ?? 60
+      const hookType = hookForClip?.type ?? null
+      const hookExplanation = hookForClip?.explanation ?? seg.reason
+
+      // Intensity (1-10) maps to perceived value (30-95)
+      const perceivedValue = Math.min(95, Math.max(30, Math.round(segIntensity * 10 + 5)))
+      // Clip duration sweet spot: 30-60s is best
+      const durationBonus = (clip.duration_seconds ?? 0) >= 30 && (clip.duration_seconds ?? 0) <= 60 ? 10 : 0
+      const trendAlignment = Math.min(100, 50 + durationBonus + Math.round(segIntensity * 2))
+
+      const overallScore = Math.round(
+        hookStrength * 0.3 + segRetention * 0.3 + perceivedValue * 0.2 + trendAlignment * 0.2
+      )
+
+      return {
+        clip_id: clip.id,
+        score: Math.min(100, overallScore),
+        hook_strength: hookStrength,
+        emotional_flow: segRetention,
+        perceived_value: perceivedValue,
+        trend_alignment: trendAlignment,
+        hook_type: hookType,
+        explanation: hookExplanation,
+        suggested_hooks: (hooks) as unknown as Json,
+      }
+    })
 
     await admin.from('viral_scores').insert(viralScoresToInsert)
 
@@ -196,8 +238,9 @@ export async function POST(request: NextRequest) {
       message: `${insertedClips.length} clip(s) generated successfully`,
     })
   } catch (error) {
+    console.error('[analyze] Error:', error)
     return NextResponse.json(
-      { data: null, error: String(error), message: 'Internal server error' },
+      { data: null, error: 'Internal server error', message: 'Erreur interne du serveur' },
       { status: 500 }
     )
   }

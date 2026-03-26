@@ -50,7 +50,7 @@ export async function GET(req: NextRequest) {
   // Sanitize and validate filter inputs
   if (niche) {
     const safeNiche = sanitizeSearch(niche)
-    if (safeNiche) query = query.ilike('niche', safeNiche)
+    if (safeNiche) query = query.ilike('niche', `%${safeNiche}%`)
   }
   if (platform) {
     // Platform must be one of the allowed values

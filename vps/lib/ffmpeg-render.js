@@ -33,12 +33,11 @@ export function escapeDrawtext(text) {
 }
 
 /**
- * Builds a simple FFmpeg command string from args array
+ * Builds a simple FFmpeg command string from args array (for logging)
  */
 function buildCommand(args) {
   const ffmpegPath = process.env.FFMPEG_PATH || 'ffmpeg';
   return [ffmpegPath, ...args].map(arg => {
-    // Quote args with spaces but not filter specs
     if (arg.includes(' ') && !arg.startsWith('"') && !arg.includes(',')) {
       return `"${arg}"`;
     }
@@ -63,23 +62,22 @@ function buildReframeFilters(aspectRatio, options = {}) {
   };
 
   const { w: targetW, h: targetH } = ratios[aspectRatio] || ratios['9:16'];
-  const targetRatio = (targetW / targetH).toFixed(4);
 
-  // Smart zoom/scale logic
-  const scaleFilter = `scale=iw*${targetRatio}>iw?iw:iw*${targetRatio},iw*${targetRatio}<iw?iw*${targetRatio}:iw:-1`;
+  const scaleFilter = `scale=${targetW}:${targetH}:force_original_aspect_ratio=increase`;
 
-  // Crop position
-  let cropY = '(ih-oh)/2'; // center (default)
+  let cropX = '(iw-ow)/2';
+  let cropY = '(ih-oh)/2';
   if (cropAnchor === 'top') cropY = '0';
   if (cropAnchor === 'bottom') cropY = 'ih-oh';
 
-  const cropFilter = `crop=${targetW}:${targetH}:(iw-${targetW})/2:${cropY}`;
+  const cropFilter = `crop=${targetW}:${targetH}:${cropX}:${cropY}`;
 
   return `${scaleFilter},${cropFilter}`;
 }
 
 /**
- * Main render function: cuts, reframes, and applies filters to a video
+ * Main render function: cuts, reframes, and applies filters to a video.
+ * Supports split-screen compositing with a B-roll video.
  */
 export async function renderClip(inputPath, outputPath, options = {}) {
   const {
@@ -94,12 +92,11 @@ export async function renderClip(inputPath, outputPath, options = {}) {
     splitScreen = null,
     cropAnchor = 'center',
     backgroundBlur = false,
-    maxDuration = 300, // 5 minutes max
-    crf = 23, // Quality (lower = better)
-    timeout = 300000, // 5 minutes
+    maxDuration = 300,
+    crf = 23,
+    timeout = 300000,
   } = options;
 
-  // Validate inputs
   if (!inputPath || !outputPath) {
     throw new Error('inputPath and outputPath are required');
   }
@@ -109,7 +106,24 @@ export async function renderClip(inputPath, outputPath, options = {}) {
     throw new Error(`Clip duration ${clipDuration}s exceeds max ${maxDuration}s`);
   }
 
-  // Build filter chain
+  // ── Split-screen render path ────────────────────────────────────────────
+  if (splitScreen && splitScreen.enabled && splitScreen.brollPath) {
+    return renderSplitScreen(inputPath, outputPath, {
+      startTime,
+      clipDuration,
+      aspectRatio,
+      captions,
+      watermark,
+      watermarkPosition,
+      plan,
+      splitScreen,
+      cropAnchor,
+      crf,
+      timeout,
+    });
+  }
+
+  // ── Standard (single video) render path ─────────────────────────────────
   const filters = [];
 
   // 1. Reframe to target aspect ratio
@@ -117,7 +131,6 @@ export async function renderClip(inputPath, outputPath, options = {}) {
 
   // 2. Background blur for letterbox (optional)
   if (backgroundBlur) {
-    // Add blur effect - scale input smaller, blur it, then overlay main content
     const blurFilter = `split=2[main][blur];[blur]scale=iw/2:-1,boxblur=10:1[blurred];[blurred]scale=iw*2:-1,format=rgb24[scaled];[scaled][main]overlay=0:0`;
     filters.push(blurFilter);
   }
@@ -135,19 +148,15 @@ export async function renderClip(inputPath, outputPath, options = {}) {
   }
 
   // Build FFmpeg command
-  const args = ['-y']; // Overwrite output
-
-  // Input specification
+  const args = ['-y'];
   args.push('-ss', String(startTime));
   args.push('-i', inputPath);
   args.push('-t', String(clipDuration));
 
-  // Filter chain
   if (filters.length > 0) {
     args.push('-vf', filters.join(','));
   }
 
-  // Video codec options
   args.push('-c:v', 'libx264');
   args.push('-preset', 'fast');
   args.push('-crf', String(crf));
@@ -155,21 +164,157 @@ export async function renderClip(inputPath, outputPath, options = {}) {
   args.push('-b:a', '192k');
   args.push('-movflags', '+faststart');
   args.push('-pix_fmt', 'yuv420p');
-
-  // Output
   args.push(outputPath);
 
-  // Execute FFmpeg
+  return execRender(args, outputPath, timeout);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Split-Screen Compositing
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Renders a split-screen clip with the main video + B-roll.
+ * Supports 3 layouts:
+ *   - top-bottom:  main on top, B-roll on bottom (default)
+ *   - side-by-side: main on left, B-roll on right
+ *   - pip:          main fullscreen, B-roll in picture-in-picture corner
+ *
+ * @param {string} inputPath  - Path to main video
+ * @param {string} outputPath - Output path
+ * @param {object} opts       - Render options
+ */
+async function renderSplitScreen(inputPath, outputPath, opts) {
+  const {
+    startTime,
+    clipDuration,
+    aspectRatio,
+    captions,
+    watermark,
+    watermarkPosition,
+    plan,
+    splitScreen,
+    cropAnchor,
+    crf,
+    timeout,
+  } = opts;
+
+  const layout = splitScreen.layout || 'top-bottom';
+  const ratio = Math.max(30, Math.min(70, splitScreen.ratio || 50)) / 100; // 0.3–0.7
+  const brollPath = splitScreen.brollPath;
+
+  const ratios = {
+    '9:16': { w: 1080, h: 1920 },
+    '1:1': { w: 1080, h: 1080 },
+    '16:9': { w: 1920, h: 1080 },
+  };
+  const { w: canvasW, h: canvasH } = ratios[aspectRatio] || ratios['9:16'];
+
+  // Build the complex filter graph
+  let filterComplex = '';
+  let mapVideo = '';
+
+  if (layout === 'top-bottom') {
+    // ── Top-Bottom split ──────────────────────────────────────────────────
+    const topH = Math.round(canvasH * ratio);
+    const botH = canvasH - topH;
+
+    filterComplex = [
+      // Scale + crop main video to top region
+      `[0:v]scale=${canvasW}:${topH}:force_original_aspect_ratio=increase,crop=${canvasW}:${topH}:(iw-${canvasW})/2:(ih-${topH})/2,setsar=1[main]`,
+      // Scale + crop B-roll to bottom region, loop if shorter
+      `[1:v]loop=loop=-1:size=32767:start=0,scale=${canvasW}:${botH}:force_original_aspect_ratio=increase,crop=${canvasW}:${botH}:(iw-${canvasW})/2:(ih-${botH})/2,setsar=1[broll]`,
+      // Stack vertically
+      `[main][broll]vstack=inputs=2[composed]`,
+    ].join(';');
+    mapVideo = '[composed]';
+
+  } else if (layout === 'side-by-side') {
+    // ── Side-by-Side split ────────────────────────────────────────────────
+    const leftW = Math.round(canvasW * ratio);
+    const rightW = canvasW - leftW;
+
+    filterComplex = [
+      `[0:v]scale=${leftW}:${canvasH}:force_original_aspect_ratio=increase,crop=${leftW}:${canvasH}:(iw-${leftW})/2:(ih-${canvasH})/2,setsar=1[main]`,
+      `[1:v]loop=loop=-1:size=32767:start=0,scale=${rightW}:${canvasH}:force_original_aspect_ratio=increase,crop=${rightW}:${canvasH}:(iw-${rightW})/2:(ih-${canvasH})/2,setsar=1[broll]`,
+      `[main][broll]hstack=inputs=2[composed]`,
+    ].join(';');
+    mapVideo = '[composed]';
+
+  } else if (layout === 'pip') {
+    // ── Picture-in-Picture ────────────────────────────────────────────────
+    const pipW = Math.round(canvasW * 0.35);
+    const pipH = Math.round(canvasH * 0.35);
+    const pipX = canvasW - pipW - 20; // 20px margin right
+    const pipY = canvasH - pipH - 20; // 20px margin bottom
+
+    filterComplex = [
+      `[0:v]scale=${canvasW}:${canvasH}:force_original_aspect_ratio=increase,crop=${canvasW}:${canvasH}:(iw-${canvasW})/2:(ih-${canvasH})/2,setsar=1[main]`,
+      `[1:v]loop=loop=-1:size=32767:start=0,scale=${pipW}:${pipH}:force_original_aspect_ratio=increase,crop=${pipW}:${pipH}:(iw-${pipW})/2:(ih-${pipH})/2,setsar=1[broll]`,
+      `[main][broll]overlay=${pipX}:${pipY}[composed]`,
+    ].join(';');
+    mapVideo = '[composed]';
+
+  } else {
+    // Fallback: treat unknown layout as top-bottom
+    return renderSplitScreen(inputPath, outputPath, {
+      ...opts,
+      splitScreen: { ...splitScreen, layout: 'top-bottom' },
+    });
+  }
+
+  // Apply captions on the composed output
+  if (captions && captions.assFilePath) {
+    filterComplex += `;${mapVideo}ass='${escapePath(captions.assFilePath)}'[captioned]`;
+    mapVideo = '[captioned]';
+  }
+
+  // Apply watermark on composed output
+  if (watermark && (plan === 'free' || (plan !== 'free' && watermark.logoPath))) {
+    const wmFilter = buildWatermarkFilter(watermark, watermarkPosition, plan);
+    if (wmFilter) {
+      filterComplex += `;${mapVideo}${wmFilter}[watermarked]`;
+      mapVideo = '[watermarked]';
+    }
+  }
+
+  // Build args
+  const args = ['-y'];
+  args.push('-ss', String(startTime));
+  args.push('-i', inputPath);           // Input 0: main video
+  args.push('-i', brollPath);           // Input 1: B-roll video
+  args.push('-t', String(clipDuration));
+  args.push('-filter_complex', filterComplex);
+  args.push('-map', mapVideo);
+  args.push('-map', '0:a?');             // Keep audio from main video (if exists)
+  args.push('-c:v', 'libx264');
+  args.push('-preset', 'fast');
+  args.push('-crf', String(crf));
+  args.push('-c:a', 'aac');
+  args.push('-b:a', '192k');
+  args.push('-movflags', '+faststart');
+  args.push('-pix_fmt', 'yuv420p');
+  args.push('-shortest');                // End when shortest input ends
+  args.push(outputPath);
+
+  console.log(`[FFmpeg] Split-screen render: layout=${layout}, ratio=${ratio}, broll=${brollPath}`);
+  return execRender(args, outputPath, timeout);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Shared FFmpeg execution
+// ─────────────────────────────────────────────────────────────────────────────
+
+async function execRender(args, outputPath, timeout = 300000) {
   const cmd = buildCommand(args);
-  console.log(`[FFmpeg] Running: ${cmd.substring(0, 200)}...`);
+  console.log(`[FFmpeg] Running: ${cmd.substring(0, 300)}...`);
 
   try {
     const { stderr } = await execFileAsync(process.env.FFMPEG_PATH || 'ffmpeg', args, {
       timeout,
-      maxBuffer: 1024 * 1024 * 100, // 100MB
+      maxBuffer: 1024 * 1024 * 100,
     });
 
-    // Log progress if available
     if (stderr && stderr.includes('frame=')) {
       const frameMatch = stderr.match(/frame=\s*(\d+)/);
       if (frameMatch) {
@@ -185,27 +330,23 @@ export async function renderClip(inputPath, outputPath, options = {}) {
   }
 }
 
-/**
- * Build watermark filter for drawtext
- */
+// ─────────────────────────────────────────────────────────────────────────────
+// Watermark
+// ─────────────────────────────────────────────────────────────────────────────
+
 function buildWatermarkFilter(watermark, position, plan) {
   if (plan !== 'free' && !watermark.logoPath) {
-    return null; // Pro/Studio without custom logo = no watermark
+    return null;
   }
 
   if (plan === 'free') {
-    // Text watermark for free plan
     const posCoords = getWatermarkCoordinates(position);
     return `drawtext=text='Viral Studio Pro':fontsize=28:fontcolor=white@0.75:shadowcolor=black@0.5:shadowx=1:shadowy=1:x=${posCoords.x}:y=${posCoords.y}`;
   }
 
-  // Logo watermark for Pro/Studio (handled separately in renderClip with multiple inputs)
   return null;
 }
 
-/**
- * Get FFmpeg coordinates for watermark position
- */
 function getWatermarkCoordinates(position = 'bottom-right') {
   const coords = {
     'top-left': { x: 'W*0.03', y: 'H*0.03' },
@@ -216,9 +357,10 @@ function getWatermarkCoordinates(position = 'bottom-right') {
   return coords[position] || coords['bottom-right'];
 }
 
-/**
- * Extract thumbnail from video at given timestamp
- */
+// ─────────────────────────────────────────────────────────────────────────────
+// Thumbnail & Metadata
+// ─────────────────────────────────────────────────────────────────────────────
+
 export async function extractThumbnail(inputPath, outputPath, atSecond = 0) {
   const args = [
     '-y',
@@ -229,7 +371,6 @@ export async function extractThumbnail(inputPath, outputPath, atSecond = 0) {
     outputPath,
   ];
 
-  const cmd = buildCommand(args);
   console.log(`[FFmpeg] Extracting thumbnail at ${atSecond}s`);
 
   try {
@@ -242,9 +383,6 @@ export async function extractThumbnail(inputPath, outputPath, atSecond = 0) {
   }
 }
 
-/**
- * Get video metadata (duration, dimensions, etc)
- */
 export async function getVideoMetadata(inputPath) {
   const args = [
     '-v', 'error',
@@ -268,9 +406,6 @@ export async function getVideoMetadata(inputPath) {
   }
 }
 
-/**
- * Verify FFmpeg and FFprobe are available
- */
 export async function checkFfmpegAvailability() {
   const ffmpegPath = process.env.FFMPEG_PATH || 'ffmpeg';
   const ffprobePath = 'ffprobe';

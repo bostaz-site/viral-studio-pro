@@ -134,8 +134,9 @@ export async function POST(request: NextRequest) {
       message: 'Transcription completed successfully',
     })
   } catch (error) {
+    console.error('[transcribe] Error:', error)
     return NextResponse.json(
-      { data: null, error: String(error), message: 'Internal server error' },
+      { data: null, error: 'Internal server error', message: 'Erreur interne du serveur' },
       { status: 500 }
     )
   }

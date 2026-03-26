@@ -6,7 +6,9 @@
     "dev": "next dev",
     "build": "npx rimraf .next && next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.80.0",
@@ -32,6 +34,7 @@
     "zustand": "^5.0.12"
   },
   "devDependencies": {
+    "vitest": "^3.0.0",
     "@netlify/plugin-nextjs": "^5.15.9",
     "@types/node": "^20",
     "@types/react": "^18",

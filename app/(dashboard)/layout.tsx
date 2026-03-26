@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { Scissors, TrendingUp, Share, Settings, Menu, X, LogOut } from 'lucide-react'
+import { Scissors, TrendingUp, Share, Settings, Menu, X, LogOut, Plus, Zap, LayoutDashboard } from 'lucide-react'
 import { useUiStore } from '@/stores/ui-store'
 import { Button } from '@/components/ui/button'
 import { NotificationBell } from '@/components/trending/notification-bell'
@@ -10,15 +10,31 @@ import { createClient } from '@/lib/supabase/client'
 import { useEffect, useState } from 'react'
 import type { User } from '@supabase/supabase-js'
 
+interface UserProfile {
+  plan: string | null
+  monthly_videos_used: number | null
+}
+
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
   const router = useRouter()
   const { sidebarOpen, setSidebarOpen } = useUiStore()
   const [user, setUser] = useState<User | null>(null)
+  const [profile, setProfile] = useState<UserProfile | null>(null)
 
   useEffect(() => {
     const supabase = createClient()
-    supabase.auth.getUser().then(({ data }) => setUser(data.user))
+    supabase.auth.getUser().then(({ data }) => {
+      setUser(data.user)
+      if (data.user) {
+        supabase
+          .from('profiles')
+          .select('plan, monthly_videos_used')
+          .eq('id', data.user.id)
+          .single()
+          .then(({ data: p }) => { if (p) setProfile(p) })
+      }
+    })
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null)
     })
@@ -32,11 +48,18 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   }
 
   const navigation = [
+    { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
     { name: 'Créer', href: '/create', icon: Scissors },
     { name: 'Trending', href: '/trending', icon: TrendingUp },
     { name: 'Publier', href: '/publish', icon: Share },
     { name: 'Paramètres', href: '/settings', icon: Settings },
   ]
+
+  const planLimits: Record<string, number> = { free: 3, pro: 50, studio: 999 }
+  const planLabel: Record<string, string> = { free: 'Free', pro: 'Pro', studio: 'Studio' }
+  const currentPlan = profile?.plan || 'free'
+  const videosUsed = profile?.monthly_videos_used ?? 0
+  const videosLimit = planLimits[currentPlan] ?? 3
 
   const userInitials = user?.user_metadata?.full_name
     ? (user.user_metadata.full_name as string).split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase()
@@ -52,9 +75,16 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       {/* Sidebar */}
       <aside className={`fixed md:static inset-y-0 left-0 z-40 w-64 bg-card border-r border-border transform transition-transform duration-200 ease-in-out flex flex-col ${sidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}>
         <div className="flex items-center justify-between h-16 px-6 border-b border-border shrink-0">
-          <h1 className="text-xl font-black tracking-tight bg-gradient-to-r from-blue-500 to-indigo-600 bg-clip-text text-transparent">
-            VIRAL STUDIO
-          </h1>
+          <Link href="/dashboard" className="flex items-center gap-2">
+            <h1 className="text-xl font-black tracking-tight bg-gradient-to-r from-blue-500 to-indigo-600 bg-clip-text text-transparent">
+              VIRAL STUDIO
+            </h1>
+            {currentPlan !== 'free' && (
+              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-gradient-to-r from-amber-500 to-orange-500 text-white uppercase">
+                {planLabel[currentPlan]}
+              </span>
+            )}
+          </Link>
           <div className="flex items-center gap-1">
             <NotificationBell />
             <Button variant="ghost" size="icon" className="md:hidden" onClick={() => setSidebarOpen(false)}>
@@ -63,12 +93,24 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           </div>
         </div>
 
-        <nav className="p-4 space-y-2 flex-1">
+        {/* Quick action */}
+        <div className="px-4 pt-4">
+          <Link href="/create">
+            <Button className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-md font-semibold gap-2 h-10">
+              <Plus className="h-4 w-4" />
+              Nouvelle vidéo
+            </Button>
+          </Link>
+        </div>
+
+        <nav className="p-4 space-y-1 flex-1">
           {navigation.map((item) => {
-            const isActive = pathname?.startsWith(item.href)
+            const isActive = item.href === '/dashboard'
+              ? pathname === '/dashboard'
+              : pathname?.startsWith(item.href) && item.href !== '/dashboard'
             return (
               <Link key={item.name} href={item.href}>
-                <span className={`flex items-center px-4 py-3 text-sm font-medium rounded-xl transition-all duration-200 ${isActive ? 'bg-primary/10 text-primary shadow-sm' : 'text-muted-foreground hover:bg-muted hover:text-foreground'}`}>
+                <span className={`flex items-center px-4 py-2.5 text-sm font-medium rounded-xl transition-all duration-200 ${isActive ? 'bg-primary/10 text-primary shadow-sm' : 'text-muted-foreground hover:bg-muted hover:text-foreground'}`}>
                   <item.icon className={`h-5 w-5 mr-3 ${isActive ? 'text-primary' : 'text-muted-foreground'}`} />
                   {item.name}
                 </span>
@@ -76,6 +118,28 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             )
           })}
         </nav>
+
+        {/* Usage + Plan */}
+        <div className="px-4 pb-2">
+          <div className="rounded-xl border border-border bg-muted/30 p-3 space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-muted-foreground">Vidéos ce mois</span>
+              <span className="text-xs font-semibold text-foreground">{videosUsed}/{videosLimit === 999 ? '∞' : videosLimit}</span>
+            </div>
+            <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+              <div
+                className="h-full bg-gradient-to-r from-blue-500 to-indigo-500 rounded-full transition-all duration-300"
+                style={{ width: `${Math.min(100, (videosUsed / videosLimit) * 100)}%` }}
+              />
+            </div>
+            {currentPlan === 'free' && (
+              <Link href="/settings" className="flex items-center gap-1.5 text-xs text-amber-400 hover:text-amber-300 transition-colors font-medium">
+                <Zap className="h-3 w-3" />
+                Passer à Pro — vidéos illimitées
+              </Link>
+            )}
+          </div>
+        </div>
 
         {/* User footer */}
         {user && (

@@ -7,8 +7,10 @@ import { getYouTubeAuthUrl } from '@/lib/social/youtube'
 const PLATFORMS = ['tiktok', 'instagram', 'youtube'] as const
 type Platform = (typeof PLATFORMS)[number]
 
+import { randomBytes } from 'crypto'
+
 function randomState(): string {
-  return Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2)
+  return randomBytes(32).toString('hex')
 }
 
 export async function GET(req: NextRequest) {

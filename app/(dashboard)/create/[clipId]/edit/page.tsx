@@ -107,10 +107,10 @@ export default function ClipEditorPage() {
   const [editorSettings, setEditorSettings] = useState<EditorSettings>({
     captionsEnabled: true,
     captionConfig: {
-      templateId: 'default',
+      templateId: 'hormozi',
       textColor: '#ffffff',
       position: 'bottom',
-      wordsPerLine: 6,
+      wordsPerLine: 4,
     },
     splitScreenEnabled: false,
     splitScreenLayout: 'top-bottom',
@@ -224,13 +224,39 @@ export default function ClipEditorPage() {
       setRenderError(null)
 
       try {
+        // Map editor settings to API format
+        const apiSettings = {
+          captions: {
+            enabled: editorSettings.captionsEnabled,
+            style: editorSettings.captionConfig.templateId,
+            color: editorSettings.captionConfig.textColor,
+            position: editorSettings.captionConfig.position,
+            wordsPerLine: editorSettings.captionConfig.wordsPerLine,
+          },
+          splitScreen: {
+            enabled: editorSettings.splitScreenEnabled,
+            layout: editorSettings.splitScreenLayout,
+            brollCategory: editorSettings.brollCategory,
+            ratio: editorSettings.splitScreenRatio,
+          },
+          format: {
+            aspectRatio: editorSettings.aspectRatio,
+            smartZoom: editorSettings.smartZoom,
+            backgroundBlur: editorSettings.backgroundBlur,
+          },
+          branding: {
+            watermark: editorSettings.watermarkEnabled,
+            watermarkPosition: editorSettings.watermarkPosition,
+            creditText: editorSettings.creditText || null,
+          },
+        }
+
         const res = await fetch('/api/render', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             clip_id: state.clip.id,
-            settings: editorSettings,
-            publish: publishAfter,
+            settings: apiSettings,
           }),
         })
 
@@ -488,11 +514,15 @@ export default function ClipEditorPage() {
                           <SelectValue placeholder="Select style" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="default">Default</SelectItem>
-                          <SelectItem value="bold">Bold</SelectItem>
-                          <SelectItem value="neon">Neon</SelectItem>
-                          <SelectItem value="minimal">Minimal</SelectItem>
-                          <SelectItem value="impact">Impact</SelectItem>
+                          <SelectItem value="hormozi">Hormozi (recommandé)</SelectItem>
+                          <SelectItem value="aliabdaal">Ali Abdaal — Clean</SelectItem>
+                          <SelectItem value="imangadzhi">Iman Gadzhi — Bold Gold</SelectItem>
+                          <SelectItem value="mrbeast">MrBeast — Contrasté</SelectItem>
+                          <SelectItem value="neon">Neon — Lumineux</SelectItem>
+                          <SelectItem value="bold">Bold — Épais</SelectItem>
+                          <SelectItem value="impact">Impact — Classique</SelectItem>
+                          <SelectItem value="minimal">Minimal — Subtil</SelectItem>
+                          <SelectItem value="default">Default — Standard</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
@@ -869,6 +899,7 @@ export default function ClipEditorPage() {
             duration_seconds: state.clip.duration_seconds,
             storage_path: state.clip.storage_path,
             thumbnail_path: state.clip.thumbnail_path,
+            thumbnail_url: null,
             transcript_segment: state.clip.transcript_segment,
             aspect_ratio: state.clip.aspect_ratio,
             status: state.clip.status as 'pending' | 'rendering' | 'done' | 'error',

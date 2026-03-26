@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getPlanConfig } from '@/lib/plans'
+import { rateLimit, RATE_LIMITS } from '@/lib/rate-limit'
 
 const inputSchema = z.object({
   clip_id: z.string().uuid(),
@@ -48,6 +49,15 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       { data: null, error: 'Unauthorized', message: 'Non autorisé' },
       { status: 401 }
+    )
+  }
+
+  // Rate limiting (AI/render operation: 5 req/min)
+  const rl = rateLimit(user.id, RATE_LIMITS.ai.limit, RATE_LIMITS.ai.windowMs)
+  if (!rl.allowed) {
+    return NextResponse.json(
+      { data: null, error: 'Rate limited', message: `Trop de requêtes. Réessayez dans ${Math.ceil((rl.retryAfterMs ?? 0) / 1000)}s` },
+      { status: 429 }
     )
   }
 
@@ -146,77 +156,51 @@ export async function POST(request: NextRequest) {
     })
   }
 
-  try {
-    // Build render request for VPS
-    const renderPayload = {
-      videoStoragePath: video.storage_path,
-      clipStartTime: clip.start_time,
-      clipEndTime: clip.end_time,
-      clipId: clip_id,
-      wordTimestamps: transcription?.word_timestamps ?? [],
-      settings: {
-        captions: settings?.captions ?? { enabled: false },
-        splitScreen: settings?.splitScreen ?? { enabled: false },
-        format: {
-          aspectRatio: settings?.format?.aspectRatio ?? '9:16',
-          smartZoom: settings?.format?.smartZoom ?? false,
-          backgroundBlur: settings?.format?.backgroundBlur ?? false,
-        },
-        branding: {
-          watermark: planConfig.limits.watermarkForced ? true : (settings?.branding?.watermark ?? false),
-          watermarkPosition: settings?.branding?.watermarkPosition ?? 'bottom-right',
-          creditText: settings?.branding?.creditText ?? null,
-        },
+  // Build render request for VPS
+  const renderPayload = {
+    videoStoragePath: video.storage_path,
+    clipStartTime: clip.start_time,
+    clipEndTime: clip.end_time,
+    clipId: clip_id,
+    wordTimestamps: transcription?.word_timestamps ?? [],
+    settings: {
+      captions: settings?.captions ?? { enabled: true, style: 'hormozi', wordsPerLine: 4 },
+      splitScreen: settings?.splitScreen ?? { enabled: false },
+      format: {
+        aspectRatio: settings?.format?.aspectRatio ?? '9:16',
+        smartZoom: settings?.format?.smartZoom ?? false,
+        backgroundBlur: settings?.format?.backgroundBlur ?? false,
       },
-    }
-
-    const vpsResponse = await fetch(`${vpsUrl}/api/render`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': vpsKey,
+      branding: {
+        watermark: planConfig.limits.watermarkForced ? true : (settings?.branding?.watermark ?? false),
+        watermarkPosition: settings?.branding?.watermarkPosition ?? 'bottom-right',
+        creditText: settings?.branding?.creditText ?? null,
       },
-      body: JSON.stringify(renderPayload),
-      signal: AbortSignal.timeout(300_000), // 5 min timeout
-    })
-
-    if (!vpsResponse.ok) {
-      const errorData = await vpsResponse.json().catch(() => ({}))
-      throw new Error(
-        (errorData as Record<string, string>).error || `VPS responded with ${vpsResponse.status}`
-      )
-    }
-
-    const result = await vpsResponse.json() as {
-      success: boolean
-      clipUrl: string
-      storagePath: string
-      renderTime: string
-    }
-
-    return NextResponse.json({
-      data: {
-        clip_id,
-        storage_path: result.storagePath,
-        clip_url: result.clipUrl,
-        render_time: result.renderTime,
-        rendered: true,
-      },
-      error: null,
-      message: `Rendu terminé en ${result.renderTime}`,
-    })
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : 'Erreur de rendu VPS'
-    await admin
-      .from('clips')
-      .update({ status: 'error' })
-      .eq('id', clip_id)
-
-    return NextResponse.json(
-      { data: null, error: msg, message: `Rendu échoué : ${msg}` },
-      { status: 500 }
-    )
+    },
   }
+
+  // ── Fire-and-forget: send to VPS, don't wait (Netlify timeout is 10-26s) ──
+  // VPS will update clip status in DB when done via markClipError / updateClipAfterRender
+  fetch(`${vpsUrl}/api/render`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': vpsKey,
+    },
+    body: JSON.stringify(renderPayload),
+  }).catch((err) => {
+    console.error('[render] VPS fire-and-forget error:', err)
+  })
+
+  return NextResponse.json({
+    data: {
+      clip_id,
+      rendered: false,
+      message: 'Rendu lancé en arrière-plan',
+    },
+    error: null,
+    message: 'Rendu lancé — le clip sera prêt dans quelques secondes',
+  })
 }
 
 // Expose types for use in create page

@@ -3,6 +3,8 @@ import { z } from 'zod'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
 const createSchema = z.object({
   name: z.string().min(1).max(100),
   primary_color: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(),
@@ -131,8 +133,8 @@ export async function DELETE(req: NextRequest) {
   }
 
   const id = new URL(req.url).searchParams.get('id')
-  if (!id) {
-    return NextResponse.json({ data: null, error: 'Missing id', message: 'ID manquant' }, { status: 400 })
+  if (!id || !UUID_REGEX.test(id)) {
+    return NextResponse.json({ data: null, error: 'Missing or invalid id', message: 'ID UUID manquant ou invalide' }, { status: 400 })
   }
 
   const admin = createAdminClient()
@@ -179,8 +181,8 @@ export async function PUT(req: NextRequest) {
   }
 
   const id = new URL(req.url).searchParams.get('id')
-  if (!id) {
-    return NextResponse.json({ data: null, error: 'Missing id', message: 'ID manquant' }, { status: 400 })
+  if (!id || !UUID_REGEX.test(id)) {
+    return NextResponse.json({ data: null, error: 'Missing or invalid id', message: 'ID UUID manquant ou invalide' }, { status: 400 })
   }
 
   const admin = createAdminClient()

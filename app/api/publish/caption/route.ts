@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createClient } from '@/lib/supabase/server'
 import { runCopywriterSeo } from '@/lib/claude/copywriter-seo'
+import { rateLimit, RATE_LIMITS } from '@/lib/rate-limit'
 
 const bodySchema = z.object({
   clip_id: z.string().uuid(),
@@ -18,6 +19,15 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(
       { data: null, error: 'Unauthorized', message: 'Non autorisé' },
       { status: 401 }
+    )
+  }
+
+  // Rate limiting (AI operation: 5 req/min)
+  const rl = rateLimit(user.id, RATE_LIMITS.ai.limit, RATE_LIMITS.ai.windowMs)
+  if (!rl.allowed) {
+    return NextResponse.json(
+      { data: null, error: 'Rate limited', message: `Trop de requêtes. Réessayez dans ${Math.ceil((rl.retryAfterMs ?? 0) / 1000)}s` },
+      { status: 429 }
     )
   }
 

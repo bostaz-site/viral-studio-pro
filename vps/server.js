@@ -1,11 +1,10 @@
+// Load environment variables FIRST (must be before any imports that read process.env)
+import 'dotenv/config';
+
 import express from 'express';
 import cors from 'cors';
-import dotenv from 'dotenv';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
-
-// Load environment variables
-dotenv.config();
 
 // Import route handlers
 import renderRouter from './routes/render.js';

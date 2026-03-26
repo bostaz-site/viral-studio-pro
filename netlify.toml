@@ -14,8 +14,9 @@
   external_node_modules = ["@supabase/supabase-js"]
   node_bundler = "esbuild"
 
-[functions."api/trending/scrape"]
-  timeout = 26
+# Next.js uses a single handler function — set timeout here
+[functions."___netlify-server-handler"]
+  timeout = 60
 
 # Headers de sécurité
 [[headers]]

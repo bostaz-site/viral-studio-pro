@@ -66,14 +66,33 @@ export async function GET(request: NextRequest) {
       )
     }
 
+    // Resolve thumbnail signed URLs for clips that have thumbnails
+    const clipsWithUrls = await Promise.all(
+      (clips ?? []).map(async (clip) => {
+        let thumbnail_url: string | null = null
+        if (clip.thumbnail_path) {
+          try {
+            const { data: signedData } = await admin.storage
+              .from('thumbnails')
+              .createSignedUrl(clip.thumbnail_path, 3600) // 1 hour
+            thumbnail_url = signedData?.signedUrl ?? null
+          } catch {
+            // Ignore thumbnail URL errors
+          }
+        }
+        return { ...clip, thumbnail_url }
+      })
+    )
+
     return NextResponse.json({
-      data: clips,
+      data: clipsWithUrls,
       error: null,
-      message: `${clips?.length ?? 0} clip(s) found`,
+      message: `${clipsWithUrls.length} clip(s) found`,
     })
   } catch (error) {
+    console.error('[clips] Error:', error)
     return NextResponse.json(
-      { data: null, error: String(error), message: 'Internal server error' },
+      { data: null, error: 'Internal server error', message: 'Erreur interne du serveur' },
       { status: 500 }
     )
   }
@@ -162,8 +181,9 @@ export async function POST(request: NextRequest) {
       { status: 201 }
     )
   } catch (error) {
+    console.error('[clips] Error:', error)
     return NextResponse.json(
-      { data: null, error: String(error), message: 'Internal server error' },
+      { data: null, error: 'Internal server error', message: 'Erreur interne du serveur' },
       { status: 500 }
     )
   }
@@ -239,8 +259,9 @@ export async function DELETE(request: NextRequest) {
       message: 'Clip deleted successfully',
     })
   } catch (error) {
+    console.error('[clips] Error:', error)
     return NextResponse.json(
-      { data: null, error: String(error), message: 'Internal server error' },
+      { data: null, error: 'Internal server error', message: 'Erreur interne du serveur' },
       { status: 500 }
     )
   }

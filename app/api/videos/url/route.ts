@@ -13,8 +13,9 @@ export async function GET(req: NextRequest) {
   }
 
   const videoId = req.nextUrl.searchParams.get('video_id')
-  if (!videoId) {
-    return NextResponse.json({ data: null, error: 'Missing video_id', message: 'video_id requis' }, { status: 400 })
+  const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+  if (!videoId || !UUID_RE.test(videoId)) {
+    return NextResponse.json({ data: null, error: 'Missing or invalid video_id', message: 'video_id UUID requis' }, { status: 400 })
   }
 
   const admin = createAdminClient()

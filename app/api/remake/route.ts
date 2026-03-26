@@ -1,12 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { z } from 'zod'
 import { createClient } from '@/lib/supabase/server'
 import { runRemakeScript } from '@/lib/claude/remake-script'
+import { rateLimit, RATE_LIMITS } from '@/lib/rate-limit'
+
+const bodySchema = z.object({
+  clip_id: z.string().uuid(),
+})
 
 export async function POST(req: NextRequest) {
   try {
-    const supabase = await createClient()
+    const supabase = createClient()
 
-    // Check auth
     const {
       data: { user },
       error: authError,
@@ -19,20 +24,40 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    const body = (await req.json()) as { clip_id?: string }
-
-    if (!body.clip_id) {
+    // Rate limiting (AI operation)
+    const rl = rateLimit(user.id, RATE_LIMITS.ai.limit, RATE_LIMITS.ai.windowMs)
+    if (!rl.allowed) {
       return NextResponse.json(
-        { data: null, error: 'missing_clip_id', message: 'clip_id requis' },
+        { data: null, error: 'Rate limited', message: `Trop de requêtes. Réessayez dans ${Math.ceil((rl.retryAfterMs ?? 0) / 1000)}s` },
+        { status: 429 }
+      )
+    }
+
+    let rawBody: unknown
+    try {
+      rawBody = await req.json()
+    } catch {
+      return NextResponse.json(
+        { data: null, error: 'invalid_json', message: 'Corps invalide' },
         { status: 400 }
       )
     }
+
+    const parsed = bodySchema.safeParse(rawBody)
+    if (!parsed.success) {
+      return NextResponse.json(
+        { data: null, error: parsed.error.message, message: 'clip_id UUID requis' },
+        { status: 400 }
+      )
+    }
+
+    const { clip_id } = parsed.data
 
     // Fetch clip
     const { data: clip, error: clipError } = await supabase
       .from('clips')
       .select('*')
-      .eq('id', body.clip_id)
+      .eq('id', clip_id)
       .eq('user_id', user.id)
       .single()
 

@@ -25,6 +25,33 @@ async function importUrl(url: string): Promise<string> {
   return data.data.video_id
 }
 
+// ─── Poll video status until VPS finishes downloading ────────────────────────
+
+async function waitForVideoReady(videoId: string, maxWaitMs = 180_000): Promise<void> {
+  const start = Date.now()
+  const interval = 3_000 // poll every 3 seconds
+
+  while (Date.now() - start < maxWaitMs) {
+    await new Promise((r) => setTimeout(r, interval))
+
+    const res = await fetch(`/api/videos/status?video_id=${videoId}`)
+    if (!res.ok) continue
+
+    const { data } = await res.json() as { data: { status: string; error_message?: string } | null }
+    if (!data) continue
+
+    if (data.status === 'uploaded' || data.status === 'transcribing' || data.status === 'analyzing' || data.status === 'done') {
+      return // video is ready
+    }
+    if (data.status === 'error') {
+      throw new Error(data.error_message || 'Le téléchargement de la vidéo a échoué sur le serveur')
+    }
+    // still 'processing' — keep polling
+  }
+
+  throw new Error('Le téléchargement prend trop de temps (> 3 min). Réessayez plus tard.')
+}
+
 // ─── Upload with XHR progress ───────────────────────────────────────────────
 
 function uploadFile(file: File, onProgress: (pct: number) => void): Promise<string> {
@@ -162,6 +189,9 @@ export default function CreatePage() {
       let videoId: string
       if (effectiveUrl) {
         videoId = await importUrl(effectiveUrl)
+        setUploadProgress(30)
+        // Wait for VPS to finish downloading + uploading the video
+        await waitForVideoReady(videoId)
         setUploadProgress(100)
       } else {
         videoId = await uploadFile(pendingFile!, (pct) => setUploadProgress(pct))
@@ -204,7 +234,7 @@ export default function CreatePage() {
 
       setGeneratedClips(clipsData.data)
 
-      // Step 5 — Render each clip via FFmpeg
+      // Step 5 — Fire render jobs (fire-and-forget, VPS updates DB when done)
       setProcessingStep('rendering')
       await Promise.allSettled(
         clipsData.data.map((clip) =>
@@ -216,10 +246,28 @@ export default function CreatePage() {
         )
       )
 
-      // Refresh clips to get storage_path after render
-      const clipsAfterRender = await fetch(`/api/clips?video_id=${videoId}`)
-      const clipsAfterData = await clipsAfterRender.json() as { data: GeneratedClip[] | null; error: string | null }
-      if (clipsAfterData.data) setGeneratedClips(clipsAfterData.data)
+      // Poll until all clips are done or errored (VPS renders in background)
+      const clipIds = clipsData.data.map((c) => c.id)
+      const maxPollMs = 300_000 // 5 minutes max
+      const pollInterval = 3_000 // every 3 seconds
+      const pollStart = Date.now()
+
+      while (Date.now() - pollStart < maxPollMs) {
+        await new Promise((r) => setTimeout(r, pollInterval))
+
+        const pollRes = await fetch(`/api/clips?video_id=${videoId}`)
+        const pollData = await pollRes.json() as { data: GeneratedClip[] | null }
+        if (!pollData.data) continue
+
+        setGeneratedClips(pollData.data)
+
+        // Check if all clips are terminal (done or error)
+        const allDone = pollData.data
+          .filter((c) => clipIds.includes(c.id))
+          .every((c) => c.status === 'done' || c.status === 'error')
+
+        if (allDone) break
+      }
 
       setProcessingStep('done')
     } catch (err) {
@@ -490,16 +538,23 @@ export default function CreatePage() {
         </div>
       )}
 
-      {/* ── Clips grid ── */}
-      {isDone && generatedClips.length > 0 && (
+      {/* ── Clips grid — show during rendering AND when done ── */}
+      {(isDone || processingStep === 'rendering') && generatedClips.length > 0 && (
         <div>
           <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
             <div>
               <h2 className="text-xl font-bold tracking-tight">
-                {generatedClips.length} clip{generatedClips.length > 1 ? 's' : ''} générés
+                {generatedClips.length} clip{generatedClips.length > 1 ? 's' : ''} {isDone ? 'générés' : 'en cours de rendu'}
               </h2>
               <p className="text-sm text-muted-foreground mt-0.5">
-                Triés par Virality Score — du plus viral au moins viral
+                {isDone ? (
+                  'Triés par Virality Score — du plus viral au moins viral'
+                ) : (
+                  <>
+                    <Loader2 className="inline h-3 w-3 animate-spin mr-1" />
+                    {generatedClips.filter((c) => c.status === 'done').length}/{generatedClips.length} clips rendus — sous-titres karaoke appliqués automatiquement
+                  </>
+                )}
               </p>
             </div>
 
@@ -578,7 +633,7 @@ export default function CreatePage() {
         </div>
       )}
 
-      {isDone && generatedClips.length === 0 && (
+      {(isDone || processingStep === 'rendering') && generatedClips.length === 0 && (
         <Card className="border-border bg-card/50">
           <CardContent className="p-8 text-center">
             <p className="text-muted-foreground">Aucun clip généré. Essayez avec une vidéo plus longue.</p>

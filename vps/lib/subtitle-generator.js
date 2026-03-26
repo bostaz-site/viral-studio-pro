@@ -87,6 +87,74 @@ const CAPTION_STYLES = {
     alignment: 2,
     marginV: 30,
   },
+
+  // Ali Abdaal style — clean white on dark, modern
+  aliabdaal: {
+    fontname: 'Montserrat',
+    fontsize: 65,
+    fontweight: true,
+    primaryColor: '&H00FFFFFF', // White
+    secondaryColor: '&H0068D8FF', // Orange highlight
+    outlineColor: '&H00000000', // Black
+    backColor: '&H80000000', // Semi-transparent black bg
+    bold: -1,
+    italic: 0,
+    outline: 0,
+    shadow: 0,
+    alignment: 2,
+    marginV: 35,
+  },
+
+  // Iman Gadzhi style — bold yellow/white, high contrast
+  imangadzhi: {
+    fontname: 'Arial Black',
+    fontsize: 85,
+    fontweight: true,
+    primaryColor: '&H0000D4FF', // Gold/Yellow
+    secondaryColor: '&H00FFFFFF', // White
+    outlineColor: '&H00000000', // Black
+    backColor: '&H00000000', // Transparent
+    bold: -1,
+    italic: 0,
+    outline: 4,
+    shadow: 2,
+    alignment: 2,
+    marginV: 25,
+  },
+
+  // Default / clean — simple white
+  default: {
+    fontname: 'Arial',
+    fontsize: 65,
+    fontweight: true,
+    primaryColor: '&H00FFFFFF', // White
+    secondaryColor: '&H0000FFFF', // Yellow
+    outlineColor: '&H00000000', // Black
+    backColor: '&H00000000', // Transparent
+    bold: -1,
+    italic: 0,
+    outline: 2,
+    shadow: 1,
+    alignment: 2,
+    marginV: 30,
+  },
+
+  // Bold — thick outline
+  bold: {
+    fontname: 'Arial Black',
+    fontsize: 78,
+    fontweight: true,
+    primaryColor: '&H00FFFFFF', // White
+    secondaryColor: '&H000088FF', // Orange
+    outlineColor: '&H00000000', // Black
+    backColor: '&H00000000', // Transparent
+    bold: -1,
+    italic: 0,
+    outline: 4,
+    shadow: 2,
+    alignment: 2,
+    marginV: 30,
+  },
 };
 
 // ─────────────────────────────────────────────────────────────────────────────

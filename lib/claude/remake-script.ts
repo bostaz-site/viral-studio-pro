@@ -1,6 +1,4 @@
-import Anthropic from '@anthropic-ai/sdk'
-
-const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
+import { createAnthropicClient, CLAUDE_MODEL, parseClaudeJson } from './client'
 
 export interface AlternativeHook {
   text: string
@@ -21,8 +19,9 @@ export async function runRemakeScript(
   currentHook: string | null,
   currentScore: number | null
 ): Promise<RemakeScriptResult> {
+  const anthropic = createAnthropicClient()
   const message = await anthropic.messages.create({
-    model: 'claude-sonnet-4-6',
+    model: CLAUDE_MODEL,
     max_tokens: 2048,
     messages: [
       {
@@ -61,8 +60,5 @@ Réponds en JSON strict :
   const content = message.content[0]
   if (content.type !== 'text') throw new Error('Unexpected response from Remake Script')
 
-  const jsonMatch = content.text.match(/\{[\s\S]*\}/)
-  if (!jsonMatch) throw new Error('No JSON in Remake Script response')
-
-  return JSON.parse(jsonMatch[0]) as RemakeScriptResult
+  return parseClaudeJson<RemakeScriptResult>(content.text, 'RemakeScript')
 }

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { timingSafeCompare } from '@/lib/crypto'
 
 /**
  * POST /api/trending/scrape
@@ -33,7 +34,8 @@ const bodySchema = z.object({
 
 export async function POST(req: NextRequest) {
   const apiKey = req.headers.get('x-api-key')
-  if (!apiKey || apiKey !== process.env.N8N_API_KEY) {
+  const expectedKey = process.env.N8N_API_KEY
+  if (!apiKey || !expectedKey || !timingSafeCompare(apiKey, expectedKey)) {
     return NextResponse.json(
       { data: null, error: 'Unauthorized', message: 'Clé API invalide' },
       { status: 401 }

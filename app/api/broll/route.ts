@@ -1,10 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
-import Anthropic from '@anthropic-ai/sdk'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-
-const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
+import { createAnthropicClient, CLAUDE_MODEL } from '@/lib/claude/client'
 
 const inputSchema = z.object({
   clip_id: z.string().uuid(),
@@ -114,8 +112,9 @@ export async function POST(req: NextRequest) {
 
   // Claude analysis
   try {
+    const anthropic = createAnthropicClient()
     const message = await anthropic.messages.create({
-      model: 'claude-sonnet-4-6',
+      model: CLAUDE_MODEL,
       max_tokens: 1024,
       system: `Tu es un directeur artistique vidéo expert en montage B-roll pour les vidéos courtes virales.
 Identifie les moments dans le clip où un B-roll augmenterait l'engagement et la rétention.

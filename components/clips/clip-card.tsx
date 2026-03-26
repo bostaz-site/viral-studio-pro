@@ -94,13 +94,32 @@ export function ClipCard({ clip, onDownload, onRemake, onPreview, batchMode, sel
     >
       {/* Thumbnail */}
       <div className="aspect-[9/16] max-h-48 bg-gradient-to-br from-blue-900/40 to-indigo-900/40 flex items-center justify-center relative overflow-hidden">
-        {clip.thumbnail_path ? (
+        {(clip.thumbnail_url || clip.thumbnail_path) ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={clip.thumbnail_path} alt={clip.title ?? 'Clip'} className="w-full h-full object-cover" />
+          <img src={clip.thumbnail_url ?? clip.thumbnail_path ?? ''} alt={clip.title ?? 'Clip'} className="w-full h-full object-cover" />
         ) : (
           <div className="flex flex-col items-center gap-2 text-muted-foreground/50">
-            <Play className="h-8 w-8" />
-            <span className="text-xs">{clip.status === 'pending' ? 'En préparation' : 'Aperçu'}</span>
+            {clip.status === 'rendering' ? (
+              <>
+                <Loader2 className="h-8 w-8 animate-spin text-primary/60" />
+                <span className="text-xs text-primary/80">Rendu en cours…</span>
+              </>
+            ) : clip.status === 'pending' ? (
+              <>
+                <Clock className="h-8 w-8" />
+                <span className="text-xs">En file d&apos;attente</span>
+              </>
+            ) : clip.status === 'error' ? (
+              <>
+                <span className="text-red-400 text-2xl">!</span>
+                <span className="text-xs text-red-400">Erreur de rendu</span>
+              </>
+            ) : (
+              <>
+                <Play className="h-8 w-8" />
+                <span className="text-xs">Aperçu</span>
+              </>
+            )}
           </div>
         )}
 

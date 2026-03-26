@@ -45,9 +45,10 @@ export async function DELETE(req: NextRequest) {
   }
 
   const accountId = req.nextUrl.searchParams.get('id')
-  if (!accountId) {
+  const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+  if (!accountId || !UUID_RE.test(accountId)) {
     return NextResponse.json(
-      { data: null, error: 'Missing id', message: 'ID manquant' },
+      { data: null, error: 'Missing or invalid id', message: 'ID UUID manquant ou invalide' },
       { status: 400 }
     )
   }
