@@ -302,6 +302,52 @@ export async function updateClipAfterRender(clipId, durationSeconds, storagePath
 }
 
 /**
+ * Check if all clips for a video are in a terminal state (done or error).
+ * If so, update the video status to 'done'.
+ * Called after each clip render completes (success or error).
+ */
+export async function maybeMarkVideoComplete(videoId) {
+  try {
+    // Fetch all clips for this video
+    const { data: clips, error: fetchError } = await supabase
+      .from('clips')
+      .select('id, status')
+      .eq('video_id', videoId);
+
+    if (fetchError || !clips || clips.length === 0) {
+      return; // Can't determine — skip
+    }
+
+    const allTerminal = clips.every(c => c.status === 'done' || c.status === 'error');
+    if (!allTerminal) {
+      return; // Still rendering some clips
+    }
+
+    // All clips are terminal — mark video as done
+    const { error: updateError } = await supabase
+      .from('videos')
+      .update({
+        status: 'done',
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', videoId)
+      .in('status', ['clipping', 'processing']); // Only update if still in a non-terminal state
+
+    if (updateError) {
+      console.error(`[Supabase] Failed to mark video ${videoId} as done:`, updateError.message);
+      return;
+    }
+
+    const doneCount = clips.filter(c => c.status === 'done').length;
+    const errorCount = clips.filter(c => c.status === 'error').length;
+    console.log(`[Supabase] Video ${videoId} marked as done (${doneCount} rendered, ${errorCount} errored out of ${clips.length})`);
+  } catch (err) {
+    // Non-critical — log but don't throw
+    console.error(`[Supabase] Error checking video completion for ${videoId}:`, err.message);
+  }
+}
+
+/**
  * Mark clip as error with error message
  */
 export async function markClipError(clipId, errorMessage) {
@@ -405,6 +451,30 @@ export async function checkSupabaseHealth() {
   } catch (err) {
     return { connected: false, error: err.message };
   }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Video Record Updates (used by download/import route)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Update a video record in the database (used by async import flow)
+ */
+export async function updateVideoRecord(videoId, updates) {
+  const { error } = await supabase
+    .from('videos')
+    .update({
+      ...updates,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', videoId);
+
+  if (error) {
+    console.error(`[Supabase] Failed to update video ${videoId}:`, error.message);
+    throw new Error(`Failed to update video record: ${error.message}`);
+  }
+
+  console.log(`[Supabase] Video ${videoId} updated:`, Object.keys(updates).join(', '));
 }
 
 export { supabase };

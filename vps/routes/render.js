@@ -15,6 +15,7 @@ import {
   updateClipStatus,
   updateClipAfterRender,
   markClipError,
+  maybeMarkVideoComplete,
   getDefaultBrandTemplate,
   checkSupabaseHealth,
 } from '../lib/supabase-client.js';
@@ -251,6 +252,9 @@ router.post('/', async (req, res) => {
     // Update clip in database with success
     await updateClipAfterRender(clipId, duration, clipStoragePath, thumbnailPath);
 
+    // Check if all clips for this video are now done → update video status
+    await maybeMarkVideoComplete(clip.video_id);
+
     const elapsedSeconds = (Date.now() - startTime) / 1000;
     console.log(`[Render ${renderSessionId}] Render completed in ${elapsedSeconds.toFixed(1)}s`);
 
@@ -273,6 +277,11 @@ router.post('/', async (req, res) => {
     if (clipId) {
       try {
         await markClipError(clipId, err.message);
+        // Even on error, check if all sibling clips are now terminal
+        const clipData = await getClip(clipId).catch(() => null);
+        if (clipData?.video_id) {
+          await maybeMarkVideoComplete(clipData.video_id);
+        }
       } catch (dbErr) {
         console.error(`Failed to mark clip as error:`, dbErr.message);
       }
