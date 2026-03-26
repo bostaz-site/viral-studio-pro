@@ -1,4 +1,9 @@
 import { Scissors, Sparkles, TrendingUp, Zap } from 'lucide-react'
+import type { Metadata } from 'next'
+
+export const metadata: Metadata = {
+  robots: { index: false },
+}
 
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
   return (
