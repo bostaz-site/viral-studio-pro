@@ -29,9 +29,9 @@ async function importUrl(url: string): Promise<string> {
 
 // ─── Poll video status until VPS finishes downloading ────────────────────────
 
-async function waitForVideoReady(videoId: string, maxWaitMs = 180_000): Promise<void> {
+async function waitForVideoReady(videoId: string, maxWaitMs = 600_000): Promise<void> {
   const start = Date.now()
-  const interval = 3_000 // poll every 3 seconds
+  const interval = 4_000 // poll every 4 seconds
 
   while (Date.now() - start < maxWaitMs) {
     await new Promise((r) => setTimeout(r, interval))
@@ -51,7 +51,7 @@ async function waitForVideoReady(videoId: string, maxWaitMs = 180_000): Promise<
     // still 'processing' — keep polling
   }
 
-  throw new Error('Le téléchargement prend trop de temps (> 3 min). Réessayez plus tard.')
+  throw new Error('Le téléchargement prend trop de temps (> 10 min). Réessayez plus tard.')
 }
 
 // ─── Upload with XHR progress ───────────────────────────────────────────────
