@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useCallback, useRef, useEffect } from 'react'
+import { useState, useCallback, useRef, useEffect, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { Sparkles, CheckCircle2, Circle, Loader2, AlertCircle, RotateCcw, Scissors, Download, Trash2, CheckSquare, FileText } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -147,7 +147,20 @@ function StepRow({
 
 // ─── Main page ───────────────────────────────────────────────────────────────
 
-export default function CreatePage() {
+export default function CreatePageWrapper() {
+  return (
+    <Suspense fallback={
+      <div className="flex items-center justify-center py-24 gap-3">
+        <Loader2 className="h-6 w-6 animate-spin text-primary" />
+        <p className="text-muted-foreground">Chargement…</p>
+      </div>
+    }>
+      <CreatePage />
+    </Suspense>
+  )
+}
+
+function CreatePage() {
   const searchParams = useSearchParams()
   const remixVideoId = searchParams.get('video_id')
   const isRemixMode = searchParams.get('mode') === 'remix'
