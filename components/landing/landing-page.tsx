@@ -1,7 +1,7 @@
 "use client"
 
 import Link from 'next/link'
-import { Scissors, Zap, Sparkles, TrendingUp, Check, Clapperboard, Subtitles, MonitorPlay, ArrowRight, Play, Star, Users, Film } from 'lucide-react'
+import { Scissors, Zap, Sparkles, TrendingUp, Check, Subtitles, MonitorPlay, ArrowRight, Play, Star, Users, Film } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
@@ -39,26 +39,6 @@ function InstagramLogo({ className }: { className?: string }) {
   )
 }
 
-const STEPS = [
-  {
-    icon: Clapperboard,
-    title: 'Choisis un clip de stream',
-    description: 'Parcours les meilleurs moments Twitch et YouTube Gaming triés par score viral.',
-    color: 'from-purple-500 to-indigo-600',
-  },
-  {
-    icon: Subtitles,
-    title: 'Ajoute sous-titres + réaction + vidéo satisfaisante',
-    description: 'Sous-titres karaoké, split-screen et analyse IA pour maximiser la rétention.',
-    color: 'from-blue-500 to-cyan-500',
-  },
-  {
-    icon: MonitorPlay,
-    title: 'Exporte et publie',
-    description: 'Télécharge en 9:16 optimisé TikTok/Reels/Shorts ou publie directement.',
-    color: 'from-cyan-500 to-emerald-500',
-  },
-]
 
 const FEATURES = [
   {
@@ -401,7 +381,7 @@ export function LandingPage() {
         </div>
       </section>
 
-      {/* How it works */}
+      {/* How it works — with mockups */}
       <section className="py-20 px-6 border-t border-border/30">
         <div className="max-w-5xl mx-auto">
           <div className="text-center mb-14">
@@ -409,22 +389,163 @@ export function LandingPage() {
             <p className="text-muted-foreground mt-3 text-lg">3 étapes pour créer un clip viral</p>
           </div>
 
-          <div className="grid md:grid-cols-3 gap-8">
-            {STEPS.map((step, i) => (
-              <div key={step.title} className="relative text-center">
-                {/* Step number */}
-                <div className="flex items-center justify-center mb-6">
-                  <div className={cn('w-16 h-16 rounded-2xl bg-gradient-to-br flex items-center justify-center shadow-lg', step.color)}>
-                    <step.icon className="h-7 w-7 text-white" />
+          <div className="space-y-16">
+            {/* Step 1 — Browse clips */}
+            <div className="grid md:grid-cols-2 gap-8 items-center">
+              <div>
+                <span className="inline-block text-xs font-bold text-purple-400 uppercase tracking-wider mb-2">Étape 1</span>
+                <h3 className="text-2xl font-bold text-foreground mb-3">Choisis un clip de stream</h3>
+                <p className="text-muted-foreground leading-relaxed">Parcours les meilleurs moments Twitch et YouTube Gaming triés par score viral. L&apos;IA identifie automatiquement les moments les plus engageants.</p>
+              </div>
+              {/* Mockup: trending dashboard */}
+              <div className="rounded-xl border border-border/50 bg-card/60 overflow-hidden shadow-lg">
+                <div className="flex items-center gap-1.5 px-3 py-2 border-b border-border/50 bg-card/80">
+                  <div className="w-2.5 h-2.5 rounded-full bg-red-500/60" />
+                  <div className="w-2.5 h-2.5 rounded-full bg-yellow-500/60" />
+                  <div className="w-2.5 h-2.5 rounded-full bg-green-500/60" />
+                  <span className="text-[10px] text-muted-foreground/50 ml-2">Streams — Viral Studio Pro</span>
+                </div>
+                <div className="p-3 space-y-2">
+                  {/* Search bar mockup */}
+                  <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-muted/50 border border-border/30">
+                    <div className="w-3 h-3 rounded-full border border-muted-foreground/30" />
+                    <span className="text-[10px] text-muted-foreground/50">Rechercher un streamer ou un jeu...</span>
+                  </div>
+                  {/* Clip cards */}
+                  {[
+                    { name: 'xQc', game: 'Just Chatting', score: 92, color: 'from-purple-500/20 to-purple-600/10' },
+                    { name: 'Sardoche', game: 'League of Legends', score: 87, color: 'from-blue-500/20 to-blue-600/10' },
+                    { name: 'Kamet0', game: 'Valorant', score: 78, color: 'from-emerald-500/20 to-emerald-600/10' },
+                  ].map((clip) => (
+                    <div key={clip.name} className={cn('flex items-center gap-3 p-2 rounded-lg bg-gradient-to-r', clip.color)}>
+                      <div className="w-14 h-9 rounded bg-gray-800 shrink-0 flex items-center justify-center">
+                        <Play className="h-3 w-3 text-gray-500" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[10px] font-medium text-foreground truncate">{clip.name} — {clip.game}</p>
+                        <p className="text-[8px] text-muted-foreground">il y a 2h · 45s</p>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <div className="h-1 w-8 rounded-full bg-gray-700 overflow-hidden">
+                          <div className="h-full rounded-full bg-emerald-500" style={{ width: `${clip.score}%` }} />
+                        </div>
+                        <span className="text-[9px] font-bold text-emerald-400">{clip.score}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Step 2 — Edit */}
+            <div className="grid md:grid-cols-2 gap-8 items-center">
+              {/* Mockup: editor */}
+              <div className="rounded-xl border border-border/50 bg-card/60 overflow-hidden shadow-lg md:order-1 order-2">
+                <div className="flex items-center gap-1.5 px-3 py-2 border-b border-border/50 bg-card/80">
+                  <div className="w-2.5 h-2.5 rounded-full bg-red-500/60" />
+                  <div className="w-2.5 h-2.5 rounded-full bg-yellow-500/60" />
+                  <div className="w-2.5 h-2.5 rounded-full bg-green-500/60" />
+                  <span className="text-[10px] text-muted-foreground/50 ml-2">Éditeur — Viral Studio Pro</span>
+                </div>
+                <div className="p-3 flex gap-3">
+                  {/* Preview */}
+                  <div className="w-24 shrink-0">
+                    <div className="aspect-[9/16] rounded-lg bg-gradient-to-b from-indigo-900/30 to-gray-900 border border-border/30 relative overflow-hidden">
+                      <div className="absolute inset-x-0 top-0 h-[60%] bg-gradient-to-br from-purple-900/40 to-indigo-900/40 flex items-center justify-center">
+                        <span className="text-[7px] text-blue-300/60">Stream</span>
+                      </div>
+                      <div className="absolute inset-x-0 bottom-0 h-[40%] bg-gradient-to-br from-emerald-900/30 to-teal-900/30 flex items-center justify-center border-t border-blue-500/20">
+                        <span className="text-[7px] text-emerald-400/60">Subway Surfers</span>
+                      </div>
+                      <div className="absolute bottom-[42%] left-1/2 -translate-x-1/2 bg-black/70 rounded px-1.5 py-0.5">
+                        <span className="text-[6px] font-bold text-yellow-400">Incroyable!</span>
+                      </div>
+                    </div>
+                  </div>
+                  {/* Controls */}
+                  <div className="flex-1 space-y-2">
+                    <div className="space-y-1">
+                      <span className="text-[8px] text-muted-foreground/60 uppercase tracking-wider">Style sous-titres</span>
+                      <div className="grid grid-cols-3 gap-1">
+                        {['Hormozi', 'MrBeast', 'Gaming'].map((s) => (
+                          <div key={s} className={cn('text-[7px] text-center py-1 rounded border', s === 'MrBeast' ? 'border-primary/40 bg-primary/10 text-primary' : 'border-border/30 text-muted-foreground/50')}>
+                            {s}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="space-y-1">
+                      <span className="text-[8px] text-muted-foreground/60 uppercase tracking-wider">Split-screen</span>
+                      <div className="grid grid-cols-2 gap-1">
+                        {['Subway Surfers', 'Minecraft'].map((s) => (
+                          <div key={s} className={cn('text-[7px] text-center py-1 rounded border', s === 'Subway Surfers' ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-400' : 'border-border/30 text-muted-foreground/50')}>
+                            {s}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                    {/* Timeline mockup */}
+                    <div className="pt-1">
+                      <div className="h-3 rounded bg-muted/30 relative overflow-hidden">
+                        <div className="absolute left-[10%] right-[30%] top-0 bottom-0 bg-blue-500/20 border-x-2 border-blue-500/50 rounded" />
+                        <div className="absolute left-[35%] top-0 bottom-0 w-0.5 bg-white/60" />
+                      </div>
+                    </div>
                   </div>
                 </div>
-                <span className="inline-block text-xs font-bold text-muted-foreground/50 uppercase tracking-wider mb-2">
-                  Étape {i + 1}
-                </span>
-                <h3 className="text-lg font-semibold text-foreground mb-2">{step.title}</h3>
-                <p className="text-sm text-muted-foreground leading-relaxed">{step.description}</p>
               </div>
-            ))}
+              <div className="md:order-2 order-1">
+                <span className="inline-block text-xs font-bold text-blue-400 uppercase tracking-wider mb-2">Étape 2</span>
+                <h3 className="text-2xl font-bold text-foreground mb-3">Personnalise ton clip</h3>
+                <p className="text-muted-foreground leading-relaxed">Sous-titres karaoké (9 styles), split-screen avec vidéo satisfaisante, et analyse IA du score viral. Tout se configure en quelques clics.</p>
+              </div>
+            </div>
+
+            {/* Step 3 — Export */}
+            <div className="grid md:grid-cols-2 gap-8 items-center">
+              <div>
+                <span className="inline-block text-xs font-bold text-emerald-400 uppercase tracking-wider mb-2">Étape 3</span>
+                <h3 className="text-2xl font-bold text-foreground mb-3">Exporte et publie</h3>
+                <p className="text-muted-foreground leading-relaxed">Télécharge en 9:16 optimisé TikTok/Reels/Shorts ou publie directement sur tes plateformes. Ton clip est prêt en moins de 5 minutes.</p>
+              </div>
+              {/* Mockup: export */}
+              <div className="rounded-xl border border-border/50 bg-card/60 overflow-hidden shadow-lg">
+                <div className="flex items-center gap-1.5 px-3 py-2 border-b border-border/50 bg-card/80">
+                  <div className="w-2.5 h-2.5 rounded-full bg-red-500/60" />
+                  <div className="w-2.5 h-2.5 rounded-full bg-yellow-500/60" />
+                  <div className="w-2.5 h-2.5 rounded-full bg-green-500/60" />
+                  <span className="text-[10px] text-muted-foreground/50 ml-2">Export — Viral Studio Pro</span>
+                </div>
+                <div className="p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-medium text-foreground">clip_xqc_viral_87.mp4</span>
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">Prêt</span>
+                  </div>
+                  <div className="h-2 rounded-full bg-muted/30 overflow-hidden">
+                    <div className="h-full w-full rounded-full bg-gradient-to-r from-emerald-500 to-green-400" />
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    {[
+                      { platform: 'TikTok', color: 'border-foreground/20 text-foreground/70' },
+                      { platform: 'Reels', color: 'border-pink-500/30 text-pink-400' },
+                      { platform: 'Shorts', color: 'border-red-500/30 text-red-400' },
+                    ].map((p) => (
+                      <div key={p.platform} className={cn('text-center py-2 rounded-lg border text-[10px] font-medium', p.color)}>
+                        {p.platform}
+                      </div>
+                    ))}
+                  </div>
+                  <div className="flex gap-2">
+                    <div className="flex-1 py-1.5 rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-[10px] font-medium text-center">
+                      Télécharger MP4
+                    </div>
+                    <div className="flex-1 py-1.5 rounded-lg border border-border/30 text-[10px] font-medium text-center text-muted-foreground">
+                      Publier
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </section>
