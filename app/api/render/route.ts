@@ -16,6 +16,7 @@ const inputSchema = z.object({
       position: z.string().optional(),
       wordsPerLine: z.number().optional(),
       animation: z.string().optional(),
+      autoEmojis: z.boolean().optional(),
     }).optional(),
     splitScreen: z.object({
       enabled: z.boolean().optional(),
@@ -26,6 +27,8 @@ const inputSchema = z.object({
     format: z.object({
       aspectRatio: z.string().optional(),
       smartZoom: z.boolean().optional(),
+      smartReframe: z.boolean().optional(),
+      facecamPosition: z.enum(['bottom-left', 'bottom-right', 'top-left', 'top-right', 'none']).optional(),
       backgroundBlur: z.boolean().optional(),
     }).optional(),
     branding: z.object({
@@ -164,11 +167,13 @@ export async function POST(request: NextRequest) {
     clipId: clip_id,
     wordTimestamps: transcription?.word_timestamps ?? [],
     settings: {
-      captions: settings?.captions ?? { enabled: true, style: 'hormozi', wordsPerLine: 4 },
+      captions: settings?.captions ?? { enabled: true, style: 'hormozi', wordsPerLine: 4, autoEmojis: true },
       splitScreen: settings?.splitScreen ?? { enabled: false },
       format: {
         aspectRatio: settings?.format?.aspectRatio ?? '9:16',
         smartZoom: settings?.format?.smartZoom ?? false,
+        smartReframe: settings?.format?.smartReframe ?? false,
+        facecamPosition: settings?.format?.facecamPosition ?? 'bottom-left',
         backgroundBlur: settings?.format?.backgroundBlur ?? false,
       },
       branding: {

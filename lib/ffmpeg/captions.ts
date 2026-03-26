@@ -1,4 +1,5 @@
 import type { CaptionStyle } from '@/components/captions/caption-templates'
+import { insertAutoEmojisWithPhrases } from '@/lib/captions/auto-emojis'
 
 export interface WordTimestamp {
   word: string
@@ -22,13 +23,18 @@ function toAssTime(seconds: number): string {
 /**
  * Generates an ASS subtitle file content with karaoke word-by-word highlighting.
  * Uses the \kf (fill) tag for smooth karaoke progression.
+ *
+ * @param autoEmojis - When true, inserts contextual emojis into the subtitle text.
  */
 export function generateKaraokeAss(
   words: WordTimestamp[],
   style: CaptionStyle,
   clipStartTime = 0,
-  wordsPerLine = 6
+  wordsPerLine = 6,
+  autoEmojis = true
 ): string {
+  // Apply auto-emoji insertion if enabled
+  const processedWords = autoEmojis ? insertAutoEmojisWithPhrases(words) : words
   const { ffmpegStyle } = style
 
   const header = `[Script Info]
@@ -46,8 +52,8 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text`
 
   // Group words into lines
   const lines: WordTimestamp[][] = []
-  for (let i = 0; i < words.length; i += wordsPerLine) {
-    lines.push(words.slice(i, i + wordsPerLine))
+  for (let i = 0; i < processedWords.length; i += wordsPerLine) {
+    lines.push(processedWords.slice(i, i + wordsPerLine))
   }
 
   const events = lines.map((lineWords) => {

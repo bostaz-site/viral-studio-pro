@@ -51,6 +51,7 @@ interface EditorSettings {
   // Captions
   captionsEnabled: boolean
   captionConfig: CaptionConfig
+  autoEmojis: boolean
 
   // Split Screen
   splitScreenEnabled: boolean
@@ -61,6 +62,8 @@ interface EditorSettings {
   // Format
   aspectRatio: '9:16' | '1:1' | '16:9'
   smartZoom: boolean
+  smartReframe: boolean
+  facecamPosition: 'bottom-left' | 'bottom-right' | 'top-left' | 'top-right' | 'none'
   backgroundBlur: boolean
 
   // Branding
@@ -112,12 +115,15 @@ export default function ClipEditorPage() {
       position: 'bottom',
       wordsPerLine: 4,
     },
+    autoEmojis: true,
     splitScreenEnabled: false,
     splitScreenLayout: 'top-bottom',
     brollCategory: 'parkour',
     splitScreenRatio: 50,
     aspectRatio: '9:16',
     smartZoom: false,
+    smartReframe: false,
+    facecamPosition: 'bottom-left',
     backgroundBlur: false,
     watermarkEnabled: true,
     watermarkPosition: 'bottom-right',
@@ -232,6 +238,7 @@ export default function ClipEditorPage() {
             color: editorSettings.captionConfig.textColor,
             position: editorSettings.captionConfig.position,
             wordsPerLine: editorSettings.captionConfig.wordsPerLine,
+            autoEmojis: editorSettings.autoEmojis,
           },
           splitScreen: {
             enabled: editorSettings.splitScreenEnabled,
@@ -242,6 +249,8 @@ export default function ClipEditorPage() {
           format: {
             aspectRatio: editorSettings.aspectRatio,
             smartZoom: editorSettings.smartZoom,
+            smartReframe: editorSettings.smartReframe,
+            facecamPosition: editorSettings.facecamPosition,
             backgroundBlur: editorSettings.backgroundBlur,
           },
           branding: {
@@ -595,6 +604,25 @@ export default function ClipEditorPage() {
                         step={1}
                       />
                     </div>
+
+                    {/* Auto emojis */}
+                    <div className="flex items-center justify-between py-2">
+                      <div>
+                        <Label htmlFor="auto-emojis" className="text-sm">
+                          Auto emojis
+                        </Label>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          Insère des emojis contextuels dans les sous-titres
+                        </p>
+                      </div>
+                      <Switch
+                        id="auto-emojis"
+                        checked={editorSettings.autoEmojis}
+                        onCheckedChange={(checked: boolean) => {
+                          setEditorSettings((s) => ({ ...s, autoEmojis: checked }))
+                        }}
+                      />
+                    </div>
                   </>
                 )}
               </div>
@@ -726,6 +754,51 @@ export default function ClipEditorPage() {
                 <p className="text-xs text-muted-foreground">
                   Zoom automatiquement sur le visage du locuteur
                 </p>
+
+                {/* Smart Reframe */}
+                <div className="flex items-center justify-between py-2">
+                  <div>
+                    <Label htmlFor="smart-reframe" className="text-sm">
+                      Smart Reframe
+                    </Label>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Alterne le crop entre facecam et gameplay (streams)
+                    </p>
+                  </div>
+                  <Switch
+                    id="smart-reframe"
+                    checked={editorSettings.smartReframe}
+                    onCheckedChange={(checked: boolean) => {
+                      setEditorSettings((s) => ({ ...s, smartReframe: checked }))
+                    }}
+                  />
+                </div>
+
+                {editorSettings.smartReframe && (
+                  <div className="space-y-2">
+                    <Label className="text-sm">Position de la facecam</Label>
+                    <Select
+                      value={editorSettings.facecamPosition}
+                      onValueChange={(val: string) => {
+                        setEditorSettings((s) => ({
+                          ...s,
+                          facecamPosition: val as EditorSettings['facecamPosition'],
+                        }))
+                      }}
+                    >
+                      <SelectTrigger className="h-8 text-sm">
+                        <SelectValue placeholder="Position facecam" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="bottom-left">Bas-gauche (défaut OBS)</SelectItem>
+                        <SelectItem value="bottom-right">Bas-droit</SelectItem>
+                        <SelectItem value="top-left">Haut-gauche</SelectItem>
+                        <SelectItem value="top-right">Haut-droit</SelectItem>
+                        <SelectItem value="none">Pas de facecam</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
 
                 {/* Background blur */}
                 <div className="flex items-center justify-between py-2">
