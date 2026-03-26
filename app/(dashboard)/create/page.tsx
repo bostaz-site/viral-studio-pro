@@ -375,15 +375,19 @@ function CreatePage() {
       setGeneratedClips(clipsData.data)
       setProcessingStep('rendering')
 
-      await Promise.allSettled(
-        clipsData.data.map((clip) =>
-          fetch('/api/render', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ clip_id: clip.id }),
-          })
+      // Only render clips that aren't already done (avoid re-rendering)
+      const clipsToRender = clipsData.data.filter((c) => c.status !== 'done')
+      if (clipsToRender.length > 0) {
+        await Promise.allSettled(
+          clipsToRender.map((clip) =>
+            fetch('/api/render', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ clip_id: clip.id }),
+            })
+          )
         )
-      )
+      }
 
       // Poll until all clips are terminal
       const clipIds = clipsData.data.map((c) => c.id)
@@ -409,12 +413,63 @@ function CreatePage() {
     }
   }, [setCurrentVideoId, setProcessingStep, setUploadProgress, setErrorMessage, clearClips, setGeneratedClips])
 
+  // ── Load existing video (when navigating back to /create?video_id=xxx) ────
+  const loadExistingVideo = useCallback(async (videoId: string) => {
+    try {
+      setCurrentVideoId(videoId)
+
+      // Fetch signed URL for video player
+      fetch(`/api/videos/url?video_id=${videoId}`)
+        .then((r) => r.json())
+        .then((d: { data: { url: string } | null }) => { if (d.data?.url) setVideoUrl(d.data.url) })
+        .catch(() => null)
+
+      // Fetch existing clips
+      const clipsRes = await fetch(`/api/clips?video_id=${videoId}`)
+      const clipsData = await clipsRes.json() as { data: GeneratedClip[] | null; error: string | null }
+
+      if (clipsData.data && clipsData.data.length > 0) {
+        setGeneratedClips(clipsData.data)
+        const allTerminal = clipsData.data.every((c) => c.status === 'done' || c.status === 'error')
+        if (allTerminal) {
+          setProcessingStep('done')
+        } else {
+          // Some clips are still rendering — poll until all terminal
+          setProcessingStep('rendering')
+          const clipIds = clipsData.data.map((c) => c.id)
+          const maxPollMs = 300_000
+          const pollStart = Date.now()
+          while (Date.now() - pollStart < maxPollMs) {
+            await new Promise((r) => setTimeout(r, 3_000))
+            const pollRes = await fetch(`/api/clips?video_id=${videoId}`)
+            const pollData = await pollRes.json() as { data: GeneratedClip[] | null }
+            if (!pollData.data) continue
+            setGeneratedClips(pollData.data)
+            const allDone = pollData.data
+              .filter((c) => clipIds.includes(c.id))
+              .every((c) => c.status === 'done' || c.status === 'error')
+            if (allDone) break
+          }
+          setProcessingStep('done')
+        }
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Erreur lors du chargement'
+      setErrorMessage(msg)
+      setProcessingStep('error')
+    }
+  }, [setCurrentVideoId, setProcessingStep, setErrorMessage, setGeneratedClips, setVideoUrl])
+
   useEffect(() => {
     if (isRemixMode && remixVideoId && !remixStartedRef.current) {
       remixStartedRef.current = true
       runRemixPipeline(remixVideoId)
+    } else if (!isRemixMode && remixVideoId && !remixStartedRef.current) {
+      // Load existing video without re-running the pipeline
+      remixStartedRef.current = true
+      loadExistingVideo(remixVideoId)
     }
-  }, [isRemixMode, remixVideoId, runRemixPipeline])
+  }, [isRemixMode, remixVideoId, runRemixPipeline, loadExistingVideo])
 
   const handleUrlImport = useCallback((importedUrl: string) => {
     runPipeline(importedUrl)
