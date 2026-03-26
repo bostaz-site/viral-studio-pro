@@ -680,22 +680,51 @@ export function LandingPage() {
 
       {/* Footer */}
       <footer className="border-t border-border/30 py-12 px-6">
-        <div className="max-w-5xl mx-auto flex flex-col md:flex-row items-center justify-between gap-6">
-          <div className="flex items-center gap-2">
-            <div className="w-6 h-6 rounded-md bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center">
-              <Scissors className="h-3 w-3 text-white" />
+        <div className="max-w-5xl mx-auto">
+          <div className="grid md:grid-cols-4 gap-8 mb-8">
+            {/* Brand */}
+            <div className="md:col-span-2">
+              <div className="flex items-center gap-2 mb-3">
+                <div className="w-6 h-6 rounded-md bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center">
+                  <Scissors className="h-3 w-3 text-white" />
+                </div>
+                <span className="text-sm font-bold bg-gradient-to-r from-blue-400 to-indigo-500 bg-clip-text text-transparent">
+                  VIRAL STUDIO
+                </span>
+              </div>
+              <p className="text-xs text-muted-foreground/70 leading-relaxed max-w-sm">
+                Crée des clips viraux à partir de streams Twitch et YouTube Gaming. Sous-titres karaoké, split-screen et score viral IA.
+              </p>
             </div>
-            <span className="text-sm font-bold bg-gradient-to-r from-blue-400 to-indigo-500 bg-clip-text text-transparent">
-              VIRAL STUDIO
-            </span>
+
+            {/* Product */}
+            <div>
+              <p className="text-xs font-semibold text-foreground uppercase tracking-wider mb-3">Produit</p>
+              <div className="space-y-2 text-xs text-muted-foreground">
+                <Link href="/signup" className="block hover:text-foreground transition-colors">Créer un compte</Link>
+                <Link href="/login" className="block hover:text-foreground transition-colors">Se connecter</Link>
+                <Link href="/pricing" className="block hover:text-foreground transition-colors">Tarifs</Link>
+              </div>
+            </div>
+
+            {/* Legal */}
+            <div>
+              <p className="text-xs font-semibold text-foreground uppercase tracking-wider mb-3">Légal</p>
+              <div className="space-y-2 text-xs text-muted-foreground">
+                <Link href="/privacy" className="block hover:text-foreground transition-colors">Confidentialité</Link>
+                <Link href="/terms" className="block hover:text-foreground transition-colors">Conditions d&apos;utilisation</Link>
+              </div>
+            </div>
           </div>
-          <div className="flex items-center gap-6 text-xs text-muted-foreground">
-            <Link href="/login" className="hover:text-foreground transition-colors">Se connecter</Link>
-            <Link href="/signup" className="hover:text-foreground transition-colors">Créer un compte</Link>
+
+          <div className="pt-6 border-t border-border/20 flex flex-col sm:flex-row items-center justify-between gap-3">
+            <p className="text-xs text-muted-foreground/50">
+              &copy; {new Date().getFullYear()} Viral Studio Pro — Fait avec passion par Samy
+            </p>
+            <p className="text-xs text-muted-foreground/40">
+              Propulsé par Claude IA, Supabase et FFmpeg
+            </p>
           </div>
-          <p className="text-xs text-muted-foreground/50">
-            &copy; {new Date().getFullYear()} Viral Studio Pro
-          </p>
         </div>
       </footer>
     </div>
