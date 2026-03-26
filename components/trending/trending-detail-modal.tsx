@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from 'react'
-import { X, ExternalLink, Eye, Heart, Shuffle, Clock, Globe, Flame, Copy, Check } from 'lucide-react'
+import { X, ExternalLink, Eye, Heart, Clapperboard, Clock, Globe, Flame, Copy, Check } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { VelocityBadge } from '@/components/trending/velocity-badge'
@@ -17,20 +17,28 @@ interface TrendingDetailModalProps {
 }
 
 const PLATFORM_STYLES: Record<string, { label: string; colorClass: string }> = {
-  tiktok:    { label: 'TikTok',           colorClass: 'text-pink-400' },
-  instagram: { label: 'Instagram Reels',  colorClass: 'text-purple-400' },
-  youtube:   { label: 'YouTube Shorts',   colorClass: 'text-red-400' },
+  twitch:         { label: 'Twitch',         colorClass: 'text-purple-400' },
+  youtube_gaming: { label: 'YouTube Gaming', colorClass: 'text-red-400' },
 }
 
-const NICHE_COLORS: Record<string, string> = {
-  science:   'text-cyan-400 bg-cyan-500/10 border-cyan-500/30',
-  business:  'text-green-400 bg-green-500/10 border-green-500/30',
-  fitness:   'text-orange-400 bg-orange-500/10 border-orange-500/30',
-  comedy:    'text-yellow-400 bg-yellow-500/10 border-yellow-500/30',
-  tech:      'text-blue-400 bg-blue-500/10 border-blue-500/30',
-  lifestyle: 'text-pink-400 bg-pink-500/10 border-pink-500/30',
-  gaming:    'text-violet-400 bg-violet-500/10 border-violet-500/30',
-  education: 'text-teal-400 bg-teal-500/10 border-teal-500/30',
+const GAME_COLORS: Record<string, string> = {
+  fortnite:          'text-cyan-400 bg-cyan-500/10 border-cyan-500/30',
+  valorant:          'text-red-400 bg-red-500/10 border-red-500/30',
+  league_of_legends: 'text-yellow-400 bg-yellow-500/10 border-yellow-500/30',
+  minecraft:         'text-green-400 bg-green-500/10 border-green-500/30',
+  gta:               'text-orange-400 bg-orange-500/10 border-orange-500/30',
+  just_chatting:     'text-blue-400 bg-blue-500/10 border-blue-500/30',
+  irl:               'text-pink-400 bg-pink-500/10 border-pink-500/30',
+}
+
+const GAME_LABELS: Record<string, string> = {
+  fortnite: 'Fortnite',
+  valorant: 'Valorant',
+  league_of_legends: 'League of Legends',
+  minecraft: 'Minecraft',
+  gta: 'GTA',
+  just_chatting: 'Just Chatting',
+  irl: 'IRL',
 }
 
 function formatCount(n: number | null): string {
@@ -57,7 +65,9 @@ export function TrendingDetailModal({ clip, open, onClose, onRemix, remixing }: 
   if (!open || !clip) return null
 
   const platform = PLATFORM_STYLES[clip.platform.toLowerCase()] ?? { label: clip.platform, colorClass: 'text-muted-foreground' }
-  const nicheColor = clip.niche ? (NICHE_COLORS[clip.niche.toLowerCase()] ?? 'text-muted-foreground bg-muted border-border') : null
+  const gameKey = clip.niche?.toLowerCase() ?? ''
+  const gameColor = GAME_COLORS[gameKey] ?? 'text-muted-foreground bg-muted border-border'
+  const gameLabel = GAME_LABELS[gameKey] ?? clip.niche
 
   const handleCopyUrl = async () => {
     try {
@@ -84,15 +94,15 @@ export function TrendingDetailModal({ clip, open, onClose, onRemix, remixing }: 
                 <span className={cn('text-sm font-semibold', platform.colorClass)}>
                   {platform.label}
                 </span>
-                {clip.niche && nicheColor && (
-                  <span className={cn('px-2 py-0.5 rounded-full text-[10px] font-medium capitalize border', nicheColor)}>
-                    {clip.niche}
+                {clip.niche && (
+                  <span className={cn('px-2 py-0.5 rounded-full text-[10px] font-medium border', gameColor)}>
+                    {gameLabel}
                   </span>
                 )}
                 <VelocityBadge score={clip.velocity_score} showLabel />
               </div>
               <h2 className="text-lg font-bold text-foreground leading-tight">
-                {clip.title ?? 'Clip tendance'}
+                {clip.title ?? 'Clip de stream'}
               </h2>
             </div>
             <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={onClose}>
@@ -100,7 +110,7 @@ export function TrendingDetailModal({ clip, open, onClose, onRemix, remixing }: 
             </Button>
           </div>
 
-          {/* Author */}
+          {/* Streamer */}
           <div className="px-5 mt-3">
             {clip.author_handle && (
               <p className="text-sm text-muted-foreground">
@@ -182,8 +192,8 @@ export function TrendingDetailModal({ clip, open, onClose, onRemix, remixing }: 
               onClick={() => onRemix(clip)}
               disabled={remixing || clip.id.startsWith('seed-')}
             >
-              <Shuffle className="h-4 w-4" />
-              {remixing ? 'Remix en cours…' : 'Remixer ce clip'}
+              <Clapperboard className="h-4 w-4" />
+              {remixing ? 'Création en cours…' : 'Clipper'}
             </Button>
           </div>
         </CardContent>

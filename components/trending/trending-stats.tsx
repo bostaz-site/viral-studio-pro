@@ -1,6 +1,6 @@
 "use client"
 
-import { Flame, TrendingUp, BarChart3, Globe, Clock, Zap } from 'lucide-react'
+import { Flame, TrendingUp, BarChart3, Gamepad2, Clock, Zap } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import type { TrendingStats } from '@/stores/trending-store'
 import { cn } from '@/lib/utils'
@@ -12,15 +12,23 @@ interface TrendingStatsProps {
 }
 
 const PLATFORM_LABELS: Record<string, string> = {
-  tiktok: 'TikTok',
-  instagram: 'Reels',
-  youtube: 'Shorts',
+  twitch: 'Twitch',
+  youtube_gaming: 'YouTube Gaming',
 }
 
 const PLATFORM_COLORS: Record<string, string> = {
-  tiktok: 'bg-pink-500',
-  instagram: 'bg-purple-500',
-  youtube: 'bg-red-500',
+  twitch: 'bg-purple-500',
+  youtube_gaming: 'bg-red-500',
+}
+
+const GAME_LABELS: Record<string, string> = {
+  fortnite: 'Fortnite',
+  valorant: 'Valorant',
+  league_of_legends: 'LoL',
+  minecraft: 'Minecraft',
+  gta: 'GTA',
+  just_chatting: 'Just Chatting',
+  irl: 'IRL',
 }
 
 function formatTimeAgo(dateStr: string | null): string {
@@ -73,6 +81,10 @@ export function TrendingStatsPanel({ stats, lastRefreshed, loading }: TrendingSt
   // Platform breakdown bar
   const totalPlatforms = Object.values(stats.platforms).reduce((a, b) => a + b, 0)
 
+  const topGameLabel = stats.topGame
+    ? (GAME_LABELS[stats.topGame] ?? stats.topGame.charAt(0).toUpperCase() + stats.topGame.slice(1))
+    : '--'
+
   return (
     <div className="space-y-4">
       {/* Stats cards */}
@@ -108,10 +120,10 @@ export function TrendingStatsPanel({ stats, lastRefreshed, loading }: TrendingSt
           loading={loading}
         />
         <StatCard
-          icon={Globe}
-          label="Top niche"
-          value={stats.topNiche ? stats.topNiche.charAt(0).toUpperCase() + stats.topNiche.slice(1) : '--'}
-          sub={stats.topNiche ? `${stats.niches[stats.topNiche] ?? 0} clips` : undefined}
+          icon={Gamepad2}
+          label="Top jeu"
+          value={topGameLabel}
+          sub={stats.topGame ? `${stats.games[stats.topGame] ?? 0} clips` : undefined}
           accent="bg-emerald-500/15 text-emerald-400"
           loading={loading}
         />

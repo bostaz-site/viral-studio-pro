@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { Scissors, TrendingUp, Share, Settings, Menu, X, LogOut, Plus, Zap, LayoutDashboard } from 'lucide-react'
+import { Scissors, Gamepad2, Share, Settings, Menu, X, LogOut, Plus, Zap, LayoutDashboard } from 'lucide-react'
 import { useUiStore } from '@/stores/ui-store'
 import { Button } from '@/components/ui/button'
 import { NotificationBell } from '@/components/trending/notification-bell'
@@ -50,7 +50,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const navigation = [
     { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
     { name: 'Créer', href: '/create', icon: Scissors },
-    { name: 'Trending', href: '/trending', icon: TrendingUp },
+    { name: 'Streams', href: '/trending', icon: Gamepad2 },
     { name: 'Publier', href: '/publish', icon: Share },
     { name: 'Paramètres', href: '/settings', icon: Settings },
   ]
@@ -75,7 +75,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       {/* Sidebar */}
       <aside className={`fixed md:static inset-y-0 left-0 z-40 w-64 bg-card border-r border-border transform transition-transform duration-200 ease-in-out flex flex-col ${sidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}>
         <div className="flex items-center justify-between h-16 px-6 border-b border-border shrink-0">
-          <Link href="/dashboard" className="flex items-center gap-2">
+          <Link href="/" className="flex items-center gap-2">
             <h1 className="text-xl font-black tracking-tight bg-gradient-to-r from-blue-500 to-indigo-600 bg-clip-text text-transparent">
               VIRAL STUDIO
             </h1>

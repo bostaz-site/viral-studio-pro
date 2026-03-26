@@ -9,7 +9,7 @@ export type SortOption = 'velocity' | 'views' | 'date'
 
 export interface TrendingFiltersState {
   search: string
-  niches: string[]
+  games: string[]
   platforms: string[]
   sort: SortOption
 }
@@ -21,12 +21,19 @@ interface TrendingFiltersProps {
   filteredCount: number
 }
 
-const NICHES = ['Science', 'Business', 'Fitness', 'Comedy', 'Tech', 'Lifestyle', 'Gaming', 'Education']
+const GAMES = [
+  { id: 'fortnite', label: 'Fortnite' },
+  { id: 'valorant', label: 'Valorant' },
+  { id: 'league_of_legends', label: 'League of Legends' },
+  { id: 'minecraft', label: 'Minecraft' },
+  { id: 'gta', label: 'GTA' },
+  { id: 'just_chatting', label: 'Just Chatting' },
+  { id: 'irl', label: 'IRL' },
+]
 
 const PLATFORMS = [
-  { id: 'tiktok',    label: 'TikTok' },
-  { id: 'instagram', label: 'Instagram Reels' },
-  { id: 'youtube',   label: 'YouTube Shorts' },
+  { id: 'twitch',         label: 'Twitch' },
+  { id: 'youtube_gaming', label: 'YouTube Gaming' },
 ]
 
 const SORT_OPTIONS: { value: SortOption; label: string }[] = [
@@ -40,7 +47,7 @@ export function TrendingFilters({ filters, onChange, totalCount, filteredCount }
     arr.includes(item) ? arr.filter((x) => x !== item) : [...arr, item]
 
   const hasActiveFilters =
-    filters.search !== '' || filters.niches.length > 0 || filters.platforms.length > 0
+    filters.search !== '' || filters.games.length > 0 || filters.platforms.length > 0
 
   return (
     <div className="space-y-3">
@@ -49,7 +56,7 @@ export function TrendingFilters({ filters, onChange, totalCount, filteredCount }
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Rechercher un titre, auteur…"
+            placeholder="Rechercher un streamer, un clip…"
             value={filters.search}
             onChange={(e) => onChange({ ...filters, search: e.target.value })}
             className="pl-9 h-9 bg-background/50"
@@ -88,7 +95,7 @@ export function TrendingFilters({ filters, onChange, totalCount, filteredCount }
             variant="ghost"
             size="sm"
             className="h-9 gap-1.5 text-muted-foreground hover:text-foreground"
-            onClick={() => onChange({ search: '', niches: [], platforms: [], sort: filters.sort })}
+            onClick={() => onChange({ search: '', games: [], platforms: [], sort: filters.sort })}
           >
             <X className="h-3.5 w-3.5" />
             Effacer
@@ -123,13 +130,13 @@ export function TrendingFilters({ filters, onChange, totalCount, filteredCount }
 
         <div className="w-px h-5 bg-border self-center mx-1" />
 
-        {/* Niche pills */}
-        {NICHES.map((niche) => {
-          const active = filters.niches.includes(niche.toLowerCase())
+        {/* Game pills */}
+        {GAMES.map((game) => {
+          const active = filters.games.includes(game.id)
           return (
             <button
-              key={niche}
-              onClick={() => onChange({ ...filters, niches: toggle(filters.niches, niche.toLowerCase()) })}
+              key={game.id}
+              onClick={() => onChange({ ...filters, games: toggle(filters.games, game.id) })}
               className={cn(
                 'px-3 py-1 rounded-full text-xs font-medium border transition-all',
                 active
@@ -137,7 +144,7 @@ export function TrendingFilters({ filters, onChange, totalCount, filteredCount }
                   : 'bg-muted/30 text-muted-foreground border-border hover:border-indigo-500/30 hover:text-foreground'
               )}
             >
-              {niche}
+              {game.label}
             </button>
           )
         })}

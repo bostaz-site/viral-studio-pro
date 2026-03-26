@@ -6,7 +6,7 @@ import { timingSafeCompare } from '@/lib/crypto'
 
 const postSchema = z.object({
   external_url: z.string().url(),
-  platform: z.enum(['tiktok', 'instagram', 'youtube']),
+  platform: z.enum(['twitch', 'youtube_gaming']),
   title: z.string().max(500).optional(),
   description: z.string().max(2000).optional(),
   author_name: z.string().max(200).optional(),
@@ -54,7 +54,7 @@ export async function GET(req: NextRequest) {
   }
   if (platform) {
     // Platform must be one of the allowed values
-    if (['tiktok', 'instagram', 'youtube'].includes(platform)) {
+    if (['twitch', 'youtube_gaming'].includes(platform)) {
       query = query.eq('platform', platform)
     }
   }

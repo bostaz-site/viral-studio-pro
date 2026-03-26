@@ -8,7 +8,7 @@ export interface TrendingClip {
   author_handle: string | null
   title: string | null
   description: string | null
-  niche: string | null
+  niche: string | null          // Now used as game category
   view_count: number | null
   like_count: number | null
   velocity_score: number | null
@@ -21,11 +21,11 @@ export interface TrendingStats {
   total: number
   viral: number        // velocity >= 80
   hot: number          // velocity >= 50
-  topNiche: string | null
+  topGame: string | null
   topPlatform: string | null
   avgVelocity: number
   platforms: Record<string, number>
-  niches: Record<string, number>
+  games: Record<string, number>
   lastScrapedAt: string | null
 }
 
@@ -33,7 +33,7 @@ export type SortOption = 'velocity' | 'views' | 'date'
 
 export interface TrendingFiltersState {
   search: string
-  niches: string[]
+  games: string[]
   platforms: string[]
   sort: SortOption
 }
@@ -74,7 +74,7 @@ export interface ViralNotification {
 
 const DEFAULT_FILTERS: TrendingFiltersState = {
   search: '',
-  niches: [],
+  games: [],
   platforms: [],
   sort: 'velocity',
 }
@@ -83,25 +83,25 @@ const EMPTY_STATS: TrendingStats = {
   total: 0,
   viral: 0,
   hot: 0,
-  topNiche: null,
+  topGame: null,
   topPlatform: null,
   avgVelocity: 0,
   platforms: {},
-  niches: {},
+  games: {},
   lastScrapedAt: null,
 }
 
-// Seed data for development
+// Seed data for development — stream clips
 const SEED_CLIPS: TrendingClip[] = [
   {
     id: 'seed-1',
-    external_url: 'https://www.tiktok.com/',
-    platform: 'tiktok',
-    author_name: 'ScienceFact',
-    author_handle: 'sciencefact',
-    title: 'La vérité sur les trous noirs que personne ne vous dit',
+    external_url: 'https://clips.twitch.tv/example1',
+    platform: 'twitch',
+    author_name: 'Squeezie',
+    author_handle: 'squeezie',
+    title: 'IL CLUTCH LE 1V5 EN RANKED VALORANT',
     description: null,
-    niche: 'science',
+    niche: 'valorant',
     view_count: 4_200_000,
     like_count: 312_000,
     velocity_score: 94.2,
@@ -111,13 +111,13 @@ const SEED_CLIPS: TrendingClip[] = [
   },
   {
     id: 'seed-2',
-    external_url: 'https://www.youtube.com/shorts/',
-    platform: 'youtube',
-    author_name: 'TechInsider',
-    author_handle: 'techinsider',
-    title: "Ce bug ChatGPT va changer tout ce que tu sais sur l'IA",
+    external_url: 'https://www.youtube.com/watch?v=example2',
+    platform: 'youtube_gaming',
+    author_name: 'Gotaga',
+    author_handle: 'gotaga',
+    title: 'CE SNIPE À 300M SUR FORTNITE EST INCROYABLE',
     description: null,
-    niche: 'tech',
+    niche: 'fortnite',
     view_count: 2_800_000,
     like_count: 198_000,
     velocity_score: 81.7,
@@ -127,13 +127,13 @@ const SEED_CLIPS: TrendingClip[] = [
   },
   {
     id: 'seed-3',
-    external_url: 'https://www.instagram.com/reels/',
-    platform: 'instagram',
-    author_name: 'BusinessMindset',
-    author_handle: 'businessmindset',
-    title: "J'ai fait 10k€ en 30 jours avec cette méthode",
+    external_url: 'https://clips.twitch.tv/example3',
+    platform: 'twitch',
+    author_name: 'Kamet0',
+    author_handle: 'kamet0',
+    title: 'PENTAKILL AVEC YASUO EN RANKED CHALLENGER',
     description: null,
-    niche: 'business',
+    niche: 'league_of_legends',
     view_count: 1_900_000,
     like_count: 145_000,
     velocity_score: 76.3,
@@ -143,13 +143,13 @@ const SEED_CLIPS: TrendingClip[] = [
   },
   {
     id: 'seed-4',
-    external_url: 'https://www.tiktok.com/',
-    platform: 'tiktok',
-    author_name: 'FitLife',
-    author_handle: 'fitlife',
-    title: '5 minutes par jour = transformation en 30 jours',
+    external_url: 'https://clips.twitch.tv/example4',
+    platform: 'twitch',
+    author_name: 'Sardoche',
+    author_handle: 'sardoche',
+    title: 'LE RAGE QUIT LE PLUS ÉPIQUE DE L\'ANNÉE',
     description: null,
-    niche: 'fitness',
+    niche: 'just_chatting',
     view_count: 3_500_000,
     like_count: 421_000,
     velocity_score: 88.5,
@@ -159,13 +159,13 @@ const SEED_CLIPS: TrendingClip[] = [
   },
   {
     id: 'seed-5',
-    external_url: 'https://www.tiktok.com/',
-    platform: 'tiktok',
-    author_name: 'ComedyClub',
-    author_handle: 'comedyclub',
-    title: 'Quand ton chef arrive le vendredi à 17h58',
+    external_url: 'https://clips.twitch.tv/example5',
+    platform: 'twitch',
+    author_name: 'ZEvent',
+    author_handle: 'zevent',
+    title: 'MOMENT LÉGENDAIRE DU ZEVENT — TOUT LE MONDE PLEURE',
     description: null,
-    niche: 'comedy',
+    niche: 'irl',
     view_count: 8_100_000,
     like_count: 924_000,
     velocity_score: 97.1,
@@ -175,13 +175,13 @@ const SEED_CLIPS: TrendingClip[] = [
   },
   {
     id: 'seed-6',
-    external_url: 'https://www.youtube.com/shorts/',
-    platform: 'youtube',
-    author_name: 'EduContent',
-    author_handle: 'educontent',
-    title: 'Apprendre Python en 60 secondes — vraiment',
+    external_url: 'https://www.youtube.com/watch?v=example6',
+    platform: 'youtube_gaming',
+    author_name: 'Michou',
+    author_handle: 'michou',
+    title: 'JE SURVIS 100 JOURS SUR MINECRAFT HARDCORE',
     description: null,
-    niche: 'education',
+    niche: 'minecraft',
     view_count: 1_200_000,
     like_count: 89_000,
     velocity_score: 62.4,
@@ -195,7 +195,7 @@ function computeStatsFromClips(clips: TrendingClip[]): TrendingStats {
   if (clips.length === 0) return EMPTY_STATS
 
   const platforms: Record<string, number> = {}
-  const niches: Record<string, number> = {}
+  const games: Record<string, number> = {}
   let totalVelocity = 0
   let viral = 0
   let hot = 0
@@ -211,8 +211,8 @@ function computeStatsFromClips(clips: TrendingClip[]): TrendingStats {
     platforms[p] = (platforms[p] ?? 0) + 1
 
     if (clip.niche) {
-      const n = clip.niche.toLowerCase()
-      niches[n] = (niches[n] ?? 0) + 1
+      const g = clip.niche.toLowerCase()
+      games[g] = (games[g] ?? 0) + 1
     }
 
     if (clip.scraped_at && (!lastScrapedAt || clip.scraped_at > lastScrapedAt)) {
@@ -220,18 +220,18 @@ function computeStatsFromClips(clips: TrendingClip[]): TrendingStats {
     }
   }
 
-  const topNiche = Object.entries(niches).sort((a, b) => b[1] - a[1])[0]?.[0] ?? null
+  const topGame = Object.entries(games).sort((a, b) => b[1] - a[1])[0]?.[0] ?? null
   const topPlatform = Object.entries(platforms).sort((a, b) => b[1] - a[1])[0]?.[0] ?? null
 
   return {
     total: clips.length,
     viral,
     hot,
-    topNiche,
+    topGame,
     topPlatform,
     avgVelocity: Math.round(totalVelocity / clips.length),
     platforms,
-    niches,
+    games,
     lastScrapedAt,
   }
 }
@@ -253,8 +253,8 @@ function filterAndSortClips(clips: TrendingClip[], filters: TrendingFiltersState
     result = result.filter((c) => filters.platforms.includes(c.platform.toLowerCase()))
   }
 
-  if (filters.niches.length > 0) {
-    result = result.filter((c) => c.niche && filters.niches.includes(c.niche.toLowerCase()))
+  if (filters.games.length > 0) {
+    result = result.filter((c) => c.niche && filters.games.includes(c.niche.toLowerCase()))
   }
 
   if (filters.sort === 'velocity') {

@@ -2,7 +2,7 @@
 
 import { useEffect, useCallback, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { TrendingUp, RefreshCw, AlertCircle, Loader2, Sparkles, Wifi, WifiOff } from 'lucide-react'
+import { Gamepad2, RefreshCw, AlertCircle, Loader2, Sparkles, Wifi, WifiOff } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { TrendingCard } from '@/components/trending/trending-card'
@@ -103,11 +103,11 @@ export default function TrendingPage() {
       <div className="flex items-start justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight flex items-center gap-2">
-            <TrendingUp className="h-7 w-7 text-primary" />
-            Tendances Virales
+            <Gamepad2 className="h-7 w-7 text-primary" />
+            Clips de Streams
           </h1>
           <p className="text-muted-foreground mt-1">
-            Clips en explosion de vues — remixez-les en 1 clic avec l&apos;IA
+            Les meilleurs moments de streams — clippez-les en 1 clic avec l&apos;IA
           </p>
         </div>
         <div className="flex items-center gap-2 shrink-0 mt-1">
@@ -183,13 +183,13 @@ export default function TrendingPage() {
       ) : filteredClips.length === 0 ? (
         <Card className="border-border bg-card/50">
           <CardContent className="p-12 text-center">
-            <TrendingUp className="h-12 w-12 text-muted-foreground/30 mx-auto mb-3" />
+            <Gamepad2 className="h-12 w-12 text-muted-foreground/30 mx-auto mb-3" />
             <p className="text-muted-foreground">Aucun clip trouvé pour ces filtres.</p>
             <Button
               variant="ghost"
               size="sm"
               className="mt-3"
-              onClick={() => setFilters({ search: '', niches: [], platforms: [], sort: 'velocity' })}
+              onClick={() => setFilters({ search: '', games: [], platforms: [], sort: 'velocity' })}
             >
               Effacer les filtres
             </Button>

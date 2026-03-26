@@ -8,9 +8,8 @@ import { useTrendingStore } from '@/stores/trending-store'
 import { cn } from '@/lib/utils'
 
 const PLATFORM_COLORS: Record<string, string> = {
-  tiktok: 'text-pink-400',
-  instagram: 'text-purple-400',
-  youtube: 'text-red-400',
+  twitch: 'text-purple-400',
+  youtube_gaming: 'text-red-400',
 }
 
 function timeAgo(dateStr: string): string {

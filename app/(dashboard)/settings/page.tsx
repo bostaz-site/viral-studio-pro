@@ -2,12 +2,13 @@
 
 import { useState, useEffect, useCallback, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { User, Palette, CreditCard, Plus, Trash2, Star, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react'
+import { User, Palette, CreditCard, Plus, Trash2, Star, CheckCircle2, AlertCircle, Loader2, Bell } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator'
+import { Switch } from '@/components/ui/switch'
 import { BrandEditor } from '@/components/settings/brand-editor'
 import { PricingCard } from '@/components/settings/pricing-card'
 import { createClient } from '@/lib/supabase/client'
@@ -79,6 +80,21 @@ function SettingsPageInner() {
   const [savingProfile, setSavingProfile] = useState(false)
   const [profileSaved, setProfileSaved] = useState(false)
 
+  // Notification preferences (stored in localStorage)
+  const NOTIF_GAMES = ['fortnite', 'valorant', 'league_of_legends', 'minecraft', 'gta', 'just_chatting', 'irl'] as const
+  const NOTIF_GAME_LABELS: Record<string, string> = {
+    fortnite: 'Fortnite', valorant: 'Valorant', league_of_legends: 'League of Legends',
+    minecraft: 'Minecraft', gta: 'GTA', just_chatting: 'Just Chatting', irl: 'IRL',
+  }
+  const [notifEnabled, setNotifEnabled] = useState(true)
+  const [notifGames, setNotifGames] = useState<Record<string, boolean>>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('viral_studio_notif_games')
+      if (saved) return JSON.parse(saved) as Record<string, boolean>
+    }
+    return Object.fromEntries(NOTIF_GAMES.map((g) => [g, true]))
+  })
+
   const fetchData = useCallback(async () => {
     const supabase = createClient()
     const { data: { user: currentUser } } = await supabase.auth.getUser()
@@ -101,6 +117,23 @@ function SettingsPageInner() {
   }, [router])
 
   useEffect(() => { fetchData() }, [fetchData])
+
+  useEffect(() => {
+    localStorage.setItem('viral_studio_notif_games', JSON.stringify(notifGames))
+  }, [notifGames])
+
+  useEffect(() => {
+    localStorage.setItem('viral_studio_notif_enabled', JSON.stringify(notifEnabled))
+  }, [notifEnabled])
+
+  useEffect(() => {
+    const saved = localStorage.getItem('viral_studio_notif_enabled')
+    if (saved !== null) setNotifEnabled(JSON.parse(saved) as boolean)
+  }, [])
+
+  const toggleNotifGame = (game: string) => {
+    setNotifGames((prev) => ({ ...prev, [game]: !prev[game] }))
+  }
 
   const handleSaveProfile = async () => {
     setSavingProfile(true)
@@ -304,6 +337,49 @@ function SettingsPageInner() {
             <span className="text-blue-400 font-medium">Pro</span>.
           </p>
         )}
+      </Section>
+
+      <Separator />
+
+      {/* ── Stream Notifications ── */}
+      <Section
+        icon={Bell}
+        title="Notifications Streams"
+        description="Recevez des alertes quand de nouveaux clips viraux apparaissent"
+      >
+        <Card className="bg-card/50 border-border">
+          <CardContent className="p-5 space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-foreground">Activer les notifications</p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Alertes pour les clips avec un velocity score &ge; 80
+                </p>
+              </div>
+              <Switch checked={notifEnabled} onCheckedChange={setNotifEnabled} />
+            </div>
+
+            {notifEnabled && (
+              <>
+                <Separator />
+                <div>
+                  <p className="text-sm font-medium text-foreground mb-3">Par jeu</p>
+                  <div className="space-y-2">
+                    {NOTIF_GAMES.map((game) => (
+                      <div key={game} className="flex items-center justify-between py-1">
+                        <span className="text-sm text-muted-foreground">{NOTIF_GAME_LABELS[game]}</span>
+                        <Switch
+                          checked={notifGames[game] ?? true}
+                          onCheckedChange={() => toggleNotifGame(game)}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </>
+            )}
+          </CardContent>
+        </Card>
       </Section>
 
       <Separator />

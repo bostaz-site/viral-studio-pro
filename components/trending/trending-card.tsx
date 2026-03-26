@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from 'react'
-import { Eye, Heart, ExternalLink, Shuffle, Play } from 'lucide-react'
+import { Eye, Heart, ExternalLink, Clapperboard, Play } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { VelocityBadge } from '@/components/trending/velocity-badge'
@@ -31,20 +31,28 @@ interface TrendingCardProps {
 }
 
 const PLATFORM_STYLES: Record<string, { label: string; colorClass: string }> = {
-  tiktok:    { label: 'TikTok',           colorClass: 'text-pink-400 bg-pink-500/15 border-pink-500/30' },
-  instagram: { label: 'Instagram Reels',  colorClass: 'text-purple-400 bg-purple-500/15 border-purple-500/30' },
-  youtube:   { label: 'YouTube Shorts',   colorClass: 'text-red-400 bg-red-500/15 border-red-500/30' },
+  twitch:         { label: 'Twitch',         colorClass: 'text-purple-400 bg-purple-500/15 border-purple-500/30' },
+  youtube_gaming: { label: 'YouTube Gaming', colorClass: 'text-red-400 bg-red-500/15 border-red-500/30' },
 }
 
-const NICHE_COLORS: Record<string, string> = {
-  science:   'text-cyan-400 bg-cyan-500/10',
-  business:  'text-green-400 bg-green-500/10',
-  fitness:   'text-orange-400 bg-orange-500/10',
-  comedy:    'text-yellow-400 bg-yellow-500/10',
-  tech:      'text-blue-400 bg-blue-500/10',
-  lifestyle: 'text-pink-400 bg-pink-500/10',
-  gaming:    'text-violet-400 bg-violet-500/10',
-  education: 'text-teal-400 bg-teal-500/10',
+const GAME_COLORS: Record<string, string> = {
+  fortnite:          'text-cyan-400 bg-cyan-500/10',
+  valorant:          'text-red-400 bg-red-500/10',
+  league_of_legends: 'text-yellow-400 bg-yellow-500/10',
+  minecraft:         'text-green-400 bg-green-500/10',
+  gta:               'text-orange-400 bg-orange-500/10',
+  just_chatting:     'text-blue-400 bg-blue-500/10',
+  irl:               'text-pink-400 bg-pink-500/10',
+}
+
+const GAME_LABELS: Record<string, string> = {
+  fortnite: 'Fortnite',
+  valorant: 'Valorant',
+  league_of_legends: 'League of Legends',
+  minecraft: 'Minecraft',
+  gta: 'GTA',
+  just_chatting: 'Just Chatting',
+  irl: 'IRL',
 }
 
 function formatCount(n: number | null): string {
@@ -70,9 +78,9 @@ export function TrendingCard({ clip, onRemix, remixing = false }: TrendingCardPr
     colorClass: 'text-muted-foreground bg-muted border-border',
   }
 
-  const nicheColor = clip.niche
-    ? (NICHE_COLORS[clip.niche.toLowerCase()] ?? 'text-muted-foreground bg-muted')
-    : null
+  const gameKey = clip.niche?.toLowerCase() ?? ''
+  const gameColor = GAME_COLORS[gameKey] ?? 'text-muted-foreground bg-muted'
+  const gameLabel = GAME_LABELS[gameKey] ?? clip.niche
 
   return (
     <Card className="bg-card/60 border-border overflow-hidden group hover:border-primary/40 transition-all duration-200 hover:shadow-lg hover:shadow-primary/5">
@@ -82,7 +90,7 @@ export function TrendingCard({ clip, onRemix, remixing = false }: TrendingCardPr
           // eslint-disable-next-line @next/next/no-img-element
           <img
             src={clip.thumbnail_url}
-            alt={clip.title ?? 'Trending clip'}
+            alt={clip.title ?? 'Clip de stream'}
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
             onError={() => setImgError(true)}
           />
@@ -128,10 +136,10 @@ export function TrendingCard({ clip, onRemix, remixing = false }: TrendingCardPr
       <CardContent className="p-3 space-y-2">
         {/* Title */}
         <p className="text-sm font-medium leading-tight line-clamp-2 text-foreground">
-          {clip.title ?? clip.author_name ?? 'Clip tendance'}
+          {clip.title ?? clip.author_name ?? 'Clip de stream'}
         </p>
 
-        {/* Author */}
+        {/* Streamer */}
         {clip.author_handle && (
           <p className="text-xs text-muted-foreground truncate">
             @{clip.author_handle}
@@ -153,22 +161,22 @@ export function TrendingCard({ clip, onRemix, remixing = false }: TrendingCardPr
               {formatCount(clip.like_count)}
             </span>
           )}
-          {clip.niche && nicheColor && (
-            <span className={cn('ml-auto px-2 py-0.5 rounded-full text-[10px] font-medium capitalize', nicheColor)}>
-              {clip.niche}
+          {clip.niche && (
+            <span className={cn('ml-auto px-2 py-0.5 rounded-full text-[10px] font-medium', gameColor)}>
+              {gameLabel}
             </span>
           )}
         </div>
 
-        {/* Remix button */}
+        {/* Clip button */}
         <Button
           size="sm"
           className="w-full h-8 text-xs gap-1.5 mt-1"
           onClick={() => onRemix?.(clip)}
           disabled={remixing}
         >
-          <Shuffle className="h-3.5 w-3.5" />
-          {remixing ? 'Remontage…' : 'Remixer ce clip'}
+          <Clapperboard className="h-3.5 w-3.5" />
+          {remixing ? 'Création…' : 'Clipper'}
         </Button>
       </CardContent>
     </Card>
