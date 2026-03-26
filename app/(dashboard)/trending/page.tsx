@@ -2,7 +2,7 @@
 
 import { useEffect, useCallback, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Gamepad2, RefreshCw, AlertCircle, Loader2, Sparkles, Wifi, WifiOff } from 'lucide-react'
+import { Gamepad2, RefreshCw, AlertCircle, Loader2, Sparkles, Wifi, WifiOff, Download } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { TrendingCard } from '@/components/trending/trending-card'
@@ -20,6 +20,8 @@ export default function TrendingPage() {
   const [detailOpen, setDetailOpen] = useState(false)
   const [remixError, setRemixError] = useState<string | null>(null)
   const [remixClipTitle, setRemixClipTitle] = useState('')
+  const [twitchRefreshing, setTwitchRefreshing] = useState(false)
+  const [twitchMessage, setTwitchMessage] = useState<string | null>(null)
 
   const {
     filteredClips,
@@ -60,6 +62,29 @@ export default function TrendingPage() {
       }
     }
   }, [autoRefreshEnabled, autoRefreshInterval, fetchClips])
+
+  // Twitch refresh
+  const handleTwitchRefresh = useCallback(async () => {
+    setTwitchRefreshing(true)
+    setTwitchMessage(null)
+    try {
+      const res = await fetch('/api/streams/refresh', { method: 'POST' })
+      const data = await res.json() as { data: { upserted: number } | null; error: string | null; message: string }
+      if (!res.ok || data.error) {
+        setTwitchMessage(data.message ?? 'Erreur')
+      } else {
+        setTwitchMessage(`${data.data?.upserted ?? 0} clips importés depuis Twitch`)
+        // Refresh the clip list from DB
+        fetchClips(true)
+      }
+    } catch {
+      setTwitchMessage('Erreur réseau')
+    } finally {
+      setTwitchRefreshing(false)
+      // Clear message after 5s
+      setTimeout(() => setTwitchMessage(null), 5000)
+    }
+  }, [fetchClips])
 
   const handleRemix = useCallback(async (clip: TrendingClip) => {
     if (clip.id.startsWith('seed-')) {
@@ -126,6 +151,22 @@ export default function TrendingPage() {
             Live
           </Button>
 
+          {/* Fetch from Twitch */}
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-2 h-8 border-purple-500/30 text-purple-400 hover:bg-purple-500/10"
+            onClick={handleTwitchRefresh}
+            disabled={twitchRefreshing}
+          >
+            {twitchRefreshing ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Download className="h-3.5 w-3.5" />
+            )}
+            {twitchRefreshing ? 'Import…' : 'Twitch'}
+          </Button>
+
           {/* Manual refresh */}
           <Button
             variant="outline"
@@ -139,6 +180,16 @@ export default function TrendingPage() {
           </Button>
         </div>
       </div>
+
+      {/* Twitch refresh toast */}
+      {twitchMessage && (
+        <Card className="border-purple-500/20 bg-purple-500/5">
+          <CardContent className="p-3 flex items-center gap-3 text-sm">
+            <Gamepad2 className="h-4 w-4 text-purple-400 shrink-0" />
+            <p className="text-muted-foreground">{twitchMessage}</p>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Seed data notice */}
       {usingSeed && !loading && (
