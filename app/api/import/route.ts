@@ -1,20 +1,15 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextResponse } from 'next/server'
 import { z } from 'zod'
-import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getPlanConfig } from '@/lib/plans'
 import { rateLimit, RATE_LIMITS } from '@/lib/rate-limit'
+import { withAuth } from '@/lib/api/withAuth'
 
 const bodySchema = z.object({
   url: z.string().url(),
 })
 
-export async function POST(req: NextRequest) {
-  const supabase = createClient()
-  const { data: { user }, error: authError } = await supabase.auth.getUser()
-  if (authError || !user) {
-    return NextResponse.json({ data: null, error: 'Unauthorized', message: 'Non autorisé' }, { status: 401 })
-  }
+export const POST = withAuth(async (req, user) => {
 
   // ── Rate limiting ─────────────────────────────────────────────────────────
   const rl = rateLimit(user.id, RATE_LIMITS.upload.limit, RATE_LIMITS.upload.windowMs)
@@ -132,4 +127,4 @@ export async function POST(req: NextRequest) {
       { status: 500 }
     )
   }
-}
+})

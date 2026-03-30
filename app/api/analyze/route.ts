@@ -1,12 +1,12 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextResponse } from 'next/server'
 import { z } from 'zod'
-import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { runHookHunter, type HookHunterResult } from '@/lib/claude/hook-hunter'
 import { runRetentionEditor, type RetentionEditorResult } from '@/lib/claude/retention-editor'
 import { runCopywriterSeo, type CopywriterSeoResult } from '@/lib/claude/copywriter-seo'
 import { runCreditManager, type CreditManagerResult } from '@/lib/claude/credit-manager'
 import { rateLimit, RATE_LIMITS } from '@/lib/rate-limit'
+import { withAuth } from '@/lib/api/withAuth'
 import type { Json } from '@/lib/supabase/types'
 
 const inputSchema = z.object({
@@ -20,20 +20,8 @@ interface SkillResults {
   creditManager: CreditManagerResult | null
 }
 
-export async function POST(request: NextRequest) {
+export const POST = withAuth(async (request, user) => {
   try {
-    const supabase = createClient()
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser()
-
-    if (authError || !user) {
-      return NextResponse.json(
-        { data: null, error: 'Unauthorized', message: 'Authentication required' },
-        { status: 401 }
-      )
-    }
 
     // ── Rate limiting (AI operation: 5 req/min) ─────────────────────────────
     const rl = rateLimit(user.id, RATE_LIMITS.ai.limit, RATE_LIMITS.ai.windowMs)
@@ -244,4 +232,4 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     )
   }
-}
+})

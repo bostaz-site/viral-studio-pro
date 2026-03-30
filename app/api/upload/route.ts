@@ -1,8 +1,8 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getPlanConfig } from '@/lib/plans'
 import { rateLimit, RATE_LIMITS } from '@/lib/rate-limit'
+import { withAuth } from '@/lib/api/withAuth'
 
 const ALLOWED_MIME_TYPES = [
   'video/mp4',
@@ -11,21 +11,8 @@ const ALLOWED_MIME_TYPES = [
   'video/x-msvideo',
 ]
 
-export async function POST(request: NextRequest) {
+export const POST = withAuth(async (request, user) => {
   try {
-    const supabase = createClient()
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser()
-
-    if (authError || !user) {
-      return NextResponse.json(
-        { data: null, error: 'Unauthorized', message: 'Authentication required' },
-        { status: 401 }
-      )
-    }
-
     // ── Rate limiting ───────────────────────────────────────────────────────
     const rl = rateLimit(user.id, RATE_LIMITS.upload.limit, RATE_LIMITS.upload.windowMs)
     if (!rl.allowed) {
@@ -153,4 +140,4 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     )
   }
-}
+})
