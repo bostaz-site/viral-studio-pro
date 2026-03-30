@@ -420,6 +420,11 @@ export function LandingPage() {
             </div>
           </div>
 
+          {/* Pain point */}
+          <p className="text-sm text-muted-foreground/70 mt-10 italic max-w-lg mx-auto">
+            Tu passes des heures à streamer. Tes meilleurs moments restent enterrés sur Twitch à 12 viewers. C&apos;est terminé.
+          </p>
+
           {/* Stats counter — animated */}
           <StatsCounter />
 
