@@ -45,6 +45,26 @@ export const metadata: Metadata = {
   },
 }
 
+const orgJsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'Organization',
+  name: 'Viral Studio Pro',
+  url: siteUrl,
+  logo: `${siteUrl}/favicon.ico`,
+  founder: {
+    '@type': 'Person',
+    name: 'Samy',
+  },
+  sameAs: [
+    'https://twitter.com/viralstudiopro',
+  ],
+  contactPoint: {
+    '@type': 'ContactPoint',
+    email: 'support@viralstudio.pro',
+    contactType: 'customer service',
+  },
+}
+
 const jsonLd = {
   '@context': 'https://schema.org',
   '@type': 'SoftwareApplication',
@@ -95,6 +115,10 @@ export default function RootLayout({
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(orgJsonLd) }}
         />
       </head>
       <body className={`bg-background text-foreground antialiased dark`}>

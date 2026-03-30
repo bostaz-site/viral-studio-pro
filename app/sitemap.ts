@@ -30,7 +30,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     },
     {
       url: `${baseUrl}/privacy`,
-      lastModified: new Date(),
+      lastModified: new Date('2026-03-26'),
       changeFrequency: 'yearly',
       priority: 0.3,
     },
@@ -49,6 +49,18 @@ export default function sitemap(): MetadataRoute.Sitemap {
     {
       url: `${baseUrl}/blog/creer-clips-viraux-twitch-guide-2026`,
       lastModified: new Date('2026-03-28'),
+      changeFrequency: 'monthly',
+      priority: 0.7,
+    },
+    {
+      url: `${baseUrl}/blog/split-screen-subway-surfers-pourquoi-ca-marche`,
+      lastModified: new Date('2026-03-29'),
+      changeFrequency: 'monthly',
+      priority: 0.7,
+    },
+    {
+      url: `${baseUrl}/blog/alternative-opusclip-eklipse-2026`,
+      lastModified: new Date('2026-03-30'),
       changeFrequency: 'monthly',
       priority: 0.7,
     },

@@ -16,6 +16,22 @@ const ARTICLES = [
     readTime: '8 min',
     author: 'Samy',
   },
+  {
+    slug: 'split-screen-subway-surfers-pourquoi-ca-marche',
+    title: 'Split-screen Subway Surfers : pourquoi ça explose sur TikTok',
+    excerpt: 'La science du dual-stimulus, les chiffres de rétention, et comment automatiser le format split-screen pour tes clips de stream.',
+    date: '29 mars 2026',
+    readTime: '6 min',
+    author: 'Samy',
+  },
+  {
+    slug: 'alternative-opusclip-eklipse-2026',
+    title: 'Alternative à OpusClip et Eklipse en 2026 — Comparatif complet',
+    excerpt: 'Comparatif détaillé des 3 outils de clips automatiques. Split-screen, sous-titres, score viral, prix — on compare tout.',
+    date: '30 mars 2026',
+    readTime: '7 min',
+    author: 'Samy',
+  },
 ]
 
 export default function BlogPage() {

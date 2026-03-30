@@ -344,24 +344,24 @@ const PLANS: PlanConfig[] = [
 
 const FAQ_ITEMS = [
   {
-    q: 'Comment fonctionnent les crédits ?',
-    a: 'Chaque clip consommé coûte environ 3 crédits. Avec les 90 crédits offerts sur le plan Free, vous pouvez créer environ 30 clips complets. Les crédits n\'expirent pas tant que votre compte est actif.',
+    q: 'Est-ce que mes crédits vont expirer si je n\'utilise pas l\'outil ?',
+    a: 'Non. Tes 90 crédits (= ~30 clips complets) n\'expirent jamais tant que ton compte est actif. Chaque clip coûte environ 3 crédits. Pas de pression, tu clips à ton rythme.',
   },
   {
-    q: 'Quels formats de clips puis-je exporter ?',
-    a: 'Vous pouvez exporter en 9:16 (TikTok, Reels, Shorts), 1:1 (feed Instagram) et 16:9 (YouTube). Le plan Free est limité au 9:16, les plans Pro et Studio supportent les 3 formats.',
+    q: 'C\'est vraiment différent d\'OpusClip et Eklipse ?',
+    a: 'Oui. On est le seul outil avec le split-screen automatique (Subway Surfers, Minecraft en bas). OpusClip et Eklipse ne le proposent pas. On a aussi le "Remake This" pour s\'inspirer des clips trending et le score viral IA par Claude.',
   },
   {
-    q: 'Comment fonctionne le split-screen automatique ?',
-    a: 'Vous choisissez une vidéo satisfaisante (Subway Surfers, Minecraft parkour, etc.) et l\'outil combine automatiquement votre clip de stream en haut avec la vidéo en bas, au format 9:16 vertical. C\'est le format qui génère le plus de rétention sur TikTok.',
+    q: 'Le split-screen c\'est quoi exactement ? Ça marche vraiment ?',
+    a: 'C\'est le format où ton clip de stream est en haut et une vidéo satisfaisante (Subway Surfers, Minecraft parkour) en bas. Ce format fait x3 sur la rétention TikTok car il crée une double stimulation visuelle. C\'est la formule utilisée par les plus gros clip channels.',
   },
   {
-    q: 'Twitch et YouTube Gaming sont-ils les seules plateformes supportées ?',
-    a: 'Pour l\'instant, nous supportons les clips Twitch et YouTube Gaming. Vous pouvez aussi uploader directement vos propres vidéos (MP4, MOV, WebM). Le support Kick et d\'autres plateformes arrive bientôt.',
+    q: 'Je peux utiliser mes VODs Twitch ou il faut uploader ?',
+    a: 'Les deux. Tu peux parcourir les clips Twitch et YouTube Gaming directement dans l\'app, ou uploader tes propres vidéos (MP4, MOV, WebM). Le support Kick arrive bientôt.',
   },
   {
-    q: 'Faut-il installer un logiciel ?',
-    a: 'Non. Viral Studio Pro fonctionne entièrement dans votre navigateur. Aucune installation requise, aucun logiciel à télécharger. Il vous suffit de créer un compte et de commencer à clipper.',
+    q: 'Faut-il installer un logiciel ou c\'est dans le navigateur ?',
+    a: 'Tout se passe dans ton navigateur. Zéro installation, zéro logiciel. Tu crées un compte, tu clips, tu exportes. C\'est aussi simple que ça.',
   },
 ]
 
@@ -589,8 +589,8 @@ export function LandingPage() {
       <section className="py-20 px-6 border-t border-border/30">
         <AnimatedSection className="max-w-5xl mx-auto">
           <div className="text-center mb-14">
-            <h2 className="text-3xl sm:text-4xl font-bold tracking-tight">Avant / Après</h2>
-            <p className="text-muted-foreground mt-3 text-lg">Un moment de stream brut devient un clip viral optimisé</p>
+            <h2 className="text-3xl sm:text-4xl font-bold tracking-tight">Ton stream mérite mieux que 12 viewers</h2>
+            <p className="text-muted-foreground mt-3 text-lg">Le problème c&apos;est pas ton contenu — c&apos;est le format. Voilà ce qu&apos;on change.</p>
           </div>
 
           <div className="flex flex-col md:flex-row items-center justify-center gap-8 md:gap-12">
@@ -688,8 +688,8 @@ export function LandingPage() {
       <section className="py-20 px-6 border-t border-border/30">
         <div className="max-w-5xl mx-auto">
           <div className="text-center mb-14">
-            <h2 className="text-3xl sm:text-4xl font-bold tracking-tight">Comment ça marche</h2>
-            <p className="text-muted-foreground mt-3 text-lg">3 étapes pour créer un clip viral</p>
+            <h2 className="text-3xl sm:text-4xl font-bold tracking-tight">Crée ton premier clip viral en 3 étapes</h2>
+            <p className="text-muted-foreground mt-3 text-lg">De ton stream Twitch à TikTok — en moins de 5 minutes</p>
           </div>
 
           <div className="space-y-16">
@@ -869,8 +869,8 @@ export function LandingPage() {
       <section className="py-20 px-6 bg-card/30 border-t border-border/30">
         <AnimatedSection className="max-w-5xl mx-auto">
           <div className="text-center mb-14">
-            <h2 className="text-3xl sm:text-4xl font-bold tracking-tight">Fonctionnalités</h2>
-            <p className="text-muted-foreground mt-3 text-lg">Tout ce qu&apos;il faut pour créer des clips qui explosent</p>
+            <h2 className="text-3xl sm:text-4xl font-bold tracking-tight">Tout ce qu&apos;il te faut pour exploser sur TikTok</h2>
+            <p className="text-muted-foreground mt-3 text-lg">Split-screen, sous-titres, score viral — le combo gagnant des créateurs qui scalent</p>
           </div>
 
           <div className="grid sm:grid-cols-2 gap-6">
@@ -895,8 +895,8 @@ export function LandingPage() {
       <section className="py-20 px-6 border-t border-border/30">
         <AnimatedSection className="max-w-5xl mx-auto">
           <div className="text-center mb-14">
-            <h2 className="text-3xl sm:text-4xl font-bold tracking-tight">Ils créent des clips viraux avec nous</h2>
-            <p className="text-muted-foreground mt-3 text-lg">Rejoins +2,340 créateurs qui explosent sur les réseaux</p>
+            <h2 className="text-3xl sm:text-4xl font-bold tracking-tight">Des créateurs comme toi, qui cartonnent</h2>
+            <p className="text-muted-foreground mt-3 text-lg">+2,340 streamers utilisent Viral Studio pour clipper et poster</p>
           </div>
 
           <div className="grid sm:grid-cols-2 gap-6">
@@ -952,8 +952,8 @@ export function LandingPage() {
       <section className="py-20 px-6 border-t border-border/30">
         <AnimatedSection className="max-w-3xl mx-auto">
           <div className="text-center mb-10">
-            <h2 className="text-3xl sm:text-4xl font-bold tracking-tight">Pourquoi pas OpusClip ?</h2>
-            <p className="text-muted-foreground mt-3 text-lg">Ce qu&apos;on fait que personne d&apos;autre ne propose</p>
+            <h2 className="text-3xl sm:text-4xl font-bold tracking-tight">Déjà testé OpusClip ou Eklipse ?</h2>
+            <p className="text-muted-foreground mt-3 text-lg">Voilà pourquoi les créateurs qui les ont testés switchent chez nous</p>
           </div>
 
           <div className="rounded-xl border border-border overflow-hidden">
@@ -1023,8 +1023,9 @@ export function LandingPage() {
       <section className="py-20 px-6 border-t border-border/30">
         <div className="max-w-5xl mx-auto">
           <div className="text-center mb-14">
-            <h2 className="text-3xl sm:text-4xl font-bold tracking-tight">Tarifs simples</h2>
-            <p className="text-muted-foreground mt-3 text-lg">Commencez gratuitement, upgradez quand vous voulez</p>
+            <p className="text-sm text-muted-foreground/50 mb-6 italic">Ils ont tous commencé avec le plan gratuit. À toi de jouer.</p>
+            <h2 className="text-3xl sm:text-4xl font-bold tracking-tight">Choisis ton plan, commence à clipper</h2>
+            <p className="text-muted-foreground mt-3 text-lg">Gratuit pour toujours · Upgrade quand tu veux · <Link href="/pricing" className="text-primary hover:underline">Voir la comparaison complète</Link></p>
           </div>
 
           <div className="grid md:grid-cols-3 gap-6">
