@@ -268,7 +268,7 @@ export function LandingPage() {
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mt-10">
             <Link href="/signup">
               <Button size="lg" className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-lg shadow-blue-500/25 h-12 px-8 text-base font-semibold gap-2">
-                Essayer gratuitement — 90 crédits offerts
+                Essayer gratuitement — 30 clips offerts
                 <ArrowRight className="h-4 w-4" />
               </Button>
             </Link>
