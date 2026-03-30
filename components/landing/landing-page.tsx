@@ -258,6 +258,38 @@ const FAQ_ITEMS = [
   },
 ]
 
+function StickyBar() {
+  const [visible, setVisible] = useState(false)
+
+  useEffect(() => {
+    const onScroll = () => {
+      const scrollPercent = window.scrollY / (document.documentElement.scrollHeight - window.innerHeight)
+      // Show after 25% scroll, hide near pricing (bottom 20%)
+      setVisible(scrollPercent > 0.25 && scrollPercent < 0.8)
+    }
+    window.addEventListener('scroll', onScroll, { passive: true })
+    return () => window.removeEventListener('scroll', onScroll)
+  }, [])
+
+  if (!visible) return null
+
+  return (
+    <div className="fixed bottom-0 left-0 right-0 z-50 bg-background/95 backdrop-blur-md border-t border-border/50 py-2.5 px-4">
+      <div className="max-w-4xl mx-auto flex items-center justify-between gap-4">
+        <p className="text-sm text-muted-foreground hidden sm:block">
+          <span className="font-semibold text-foreground">30 clips offerts</span> · Sans carte bancaire
+        </p>
+        <Link href="/signup">
+          <Button size="sm" className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-semibold gap-1.5 h-9 px-6">
+            Commencer gratuitement
+            <ArrowRight className="h-3.5 w-3.5" />
+          </Button>
+        </Link>
+      </div>
+    </div>
+  )
+}
+
 export function LandingPage() {
   // Inject FAQ structured data
   useEffect(() => {
@@ -283,6 +315,7 @@ export function LandingPage() {
 
   return (
     <div className="min-h-screen bg-background text-foreground">
+      <StickyBar />
       {/* Nav */}
       <nav className="fixed top-0 left-0 right-0 z-50 border-b border-border/50 bg-background/80 backdrop-blur-md">
         <div className="max-w-6xl mx-auto flex items-center justify-between h-16 px-6">
