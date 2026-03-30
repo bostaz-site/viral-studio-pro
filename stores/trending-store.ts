@@ -1,76 +1,11 @@
 import { create } from 'zustand'
+import type { TrendingClip, TrendingStats, TrendingFiltersState, ViralNotification } from '@/types/trending'
+import { SEED_CLIPS } from '@/lib/trending/seed-data'
 
-export interface TrendingClip {
-  id: string
-  external_url: string
-  platform: string
-  author_name: string | null
-  author_handle: string | null
-  title: string | null
-  description: string | null
-  niche: string | null          // Now used as game category
-  view_count: number | null
-  like_count: number | null
-  velocity_score: number | null
-  thumbnail_url: string | null
-  scraped_at: string | null
-  created_at: string | null
-}
+// Re-export types for backward compatibility
+export type { TrendingClip, TrendingStats, TrendingFiltersState, ViralNotification, SortOption } from '@/types/trending'
 
-export interface TrendingStats {
-  total: number
-  viral: number        // velocity >= 80
-  hot: number          // velocity >= 50
-  topGame: string | null
-  topPlatform: string | null
-  avgVelocity: number
-  platforms: Record<string, number>
-  games: Record<string, number>
-  lastScrapedAt: string | null
-}
-
-export type SortOption = 'velocity' | 'views' | 'date'
-
-export interface TrendingFiltersState {
-  search: string
-  games: string[]
-  platforms: string[]
-  sort: SortOption
-}
-
-interface TrendingState {
-  clips: TrendingClip[]
-  filteredClips: TrendingClip[]
-  stats: TrendingStats
-  filters: TrendingFiltersState
-  loading: boolean
-  refreshing: boolean
-  error: string | null
-  usingSeed: boolean
-  remixingId: string | null
-  autoRefreshEnabled: boolean
-  autoRefreshInterval: number // ms
-  lastRefreshed: string | null
-  notifications: ViralNotification[]
-  notificationsRead: boolean
-
-  // Actions
-  setFilters: (filters: TrendingFiltersState) => void
-  setRemixingId: (id: string | null) => void
-  setAutoRefresh: (enabled: boolean) => void
-  markNotificationsRead: () => void
-  fetchClips: (silent?: boolean) => Promise<void>
-  computeStats: () => void
-  applyFilters: () => void
-}
-
-export interface ViralNotification {
-  id: string
-  clipTitle: string
-  platform: string
-  velocityScore: number
-  timestamp: string
-}
+// ─── Constants ──────────────────────────────────────────────────────────────
 
 const DEFAULT_FILTERS: TrendingFiltersState = {
   search: '',
@@ -80,84 +15,13 @@ const DEFAULT_FILTERS: TrendingFiltersState = {
 }
 
 const EMPTY_STATS: TrendingStats = {
-  total: 0,
-  viral: 0,
-  hot: 0,
-  topGame: null,
-  topPlatform: null,
-  avgVelocity: 0,
-  platforms: {},
-  games: {},
+  total: 0, viral: 0, hot: 0,
+  topGame: null, topPlatform: null,
+  avgVelocity: 0, platforms: {}, games: {},
   lastScrapedAt: null,
 }
 
-// Seed data for development — stream clips
-const SEED_CLIPS: TrendingClip[] = [
-  {
-    id: 'seed-1',
-    external_url: 'https://clips.twitch.tv/example1',
-    platform: 'twitch',
-    author_name: 'Kai Cenat',
-    author_handle: 'kaicenat',
-    title: 'KAI REACTS TO THE CRAZIEST FAN ENCOUNTER',
-    description: null,
-    niche: 'irl',
-    view_count: 4_200_000,
-    like_count: 312_000,
-    velocity_score: 94.2,
-    thumbnail_url: null,
-    scraped_at: new Date(Date.now() - 3 * 3600 * 1000).toISOString(),
-    created_at: new Date(Date.now() - 3 * 3600 * 1000).toISOString(),
-  },
-  {
-    id: 'seed-2',
-    external_url: 'https://clips.twitch.tv/example2',
-    platform: 'twitch',
-    author_name: 'IShowSpeed',
-    author_handle: 'ishowspeed',
-    title: 'SPEED DOES THE MOST UNEXPECTED THING ON STREAM',
-    description: null,
-    niche: 'irl',
-    view_count: 2_800_000,
-    like_count: 198_000,
-    velocity_score: 81.7,
-    thumbnail_url: null,
-    scraped_at: new Date(Date.now() - 5 * 3600 * 1000).toISOString(),
-    created_at: new Date(Date.now() - 5 * 3600 * 1000).toISOString(),
-  },
-  {
-    id: 'seed-3',
-    external_url: 'https://clips.twitch.tv/example3',
-    platform: 'twitch',
-    author_name: 'xQc',
-    author_handle: 'xqc',
-    title: 'XQC LOSES IT OVER THE DUMBEST TAKE EVER',
-    description: null,
-    niche: 'irl',
-    view_count: 1_900_000,
-    like_count: 145_000,
-    velocity_score: 76.3,
-    thumbnail_url: null,
-    scraped_at: new Date(Date.now() - 8 * 3600 * 1000).toISOString(),
-    created_at: new Date(Date.now() - 8 * 3600 * 1000).toISOString(),
-  },
-  {
-    id: 'seed-4',
-    external_url: 'https://clips.twitch.tv/example4',
-    platform: 'twitch',
-    author_name: 'HasanAbi',
-    author_handle: 'hasanabi',
-    title: 'HASAN HAS THE BEST REACTION TO VIRAL CLIP',
-    description: null,
-    niche: 'irl',
-    view_count: 3_500_000,
-    like_count: 421_000,
-    velocity_score: 88.5,
-    thumbnail_url: null,
-    scraped_at: new Date(Date.now() - 2 * 3600 * 1000).toISOString(),
-    created_at: new Date(Date.now() - 2 * 3600 * 1000).toISOString(),
-  },
-]
+// ─── Pure utility functions ─────────────────────────────────────────────────
 
 function computeStatsFromClips(clips: TrendingClip[]): TrendingStats {
   if (clips.length === 0) return EMPTY_STATS
@@ -192,15 +56,9 @@ function computeStatsFromClips(clips: TrendingClip[]): TrendingStats {
   const topPlatform = Object.entries(platforms).sort((a, b) => b[1] - a[1])[0]?.[0] ?? null
 
   return {
-    total: clips.length,
-    viral,
-    hot,
-    topGame,
-    topPlatform,
+    total: clips.length, viral, hot, topGame, topPlatform,
     avgVelocity: Math.round(totalVelocity / clips.length),
-    platforms,
-    games,
-    lastScrapedAt,
+    platforms, games, lastScrapedAt,
   }
 }
 
@@ -236,6 +94,41 @@ function filterAndSortClips(clips: TrendingClip[], filters: TrendingFiltersState
   return result
 }
 
+// ─── Store ──────────────────────────────────────────────────────────────────
+
+interface TrendingState {
+  // Data
+  clips: TrendingClip[]
+  filteredClips: TrendingClip[]
+  stats: TrendingStats
+
+  // Filters
+  filters: TrendingFiltersState
+
+  // UI
+  loading: boolean
+  refreshing: boolean
+  error: string | null
+  usingSeed: boolean
+  remixingId: string | null
+  autoRefreshEnabled: boolean
+  autoRefreshInterval: number
+  lastRefreshed: string | null
+
+  // Notifications
+  notifications: ViralNotification[]
+  notificationsRead: boolean
+
+  // Actions
+  setFilters: (filters: TrendingFiltersState) => void
+  setRemixingId: (id: string | null) => void
+  setAutoRefresh: (enabled: boolean) => void
+  markNotificationsRead: () => void
+  fetchClips: (silent?: boolean) => Promise<void>
+  computeStats: () => void
+  applyFilters: () => void
+}
+
 export const useTrendingStore = create<TrendingState>((set, get) => ({
   clips: [],
   filteredClips: [],
@@ -247,7 +140,7 @@ export const useTrendingStore = create<TrendingState>((set, get) => ({
   usingSeed: false,
   remixingId: null,
   autoRefreshEnabled: true,
-  autoRefreshInterval: 60_000, // 60s
+  autoRefreshInterval: 60_000,
   lastRefreshed: null,
   notifications: [],
   notificationsRead: true,
@@ -258,9 +151,7 @@ export const useTrendingStore = create<TrendingState>((set, get) => ({
   },
 
   setRemixingId: (id) => set({ remixingId: id }),
-
   setAutoRefresh: (enabled) => set({ autoRefreshEnabled: enabled }),
-
   markNotificationsRead: () => set({ notificationsRead: true }),
 
   fetchClips: async (silent = false) => {
@@ -315,7 +206,6 @@ export const useTrendingStore = create<TrendingState>((set, get) => ({
         } : {}),
       })
 
-      // Recompute derived state
       get().computeStats()
       get().applyFilters()
     } catch (err) {
