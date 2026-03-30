@@ -428,6 +428,12 @@ export function LandingPage() {
           {/* Stats counter — animated */}
           <StatsCounter />
 
+          {/* Live activity indicator */}
+          <div className="flex items-center justify-center gap-2 mt-4">
+            <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+            <span className="text-xs text-muted-foreground/60">47 clips créés dans les dernières 24h</span>
+          </div>
+
           {/* Platform logos */}
           <div className="mt-10">
             <p className="text-xs text-muted-foreground/50 uppercase tracking-wider mb-4">Compatible avec</p>
@@ -857,9 +863,12 @@ export function LandingPage() {
                 )}
               >
                 {plan.highlighted && (
-                  <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 flex items-center gap-2">
                     <span className="bg-primary text-primary-foreground text-xs font-bold px-3 py-1 rounded-full">
                       Populaire
+                    </span>
+                    <span className="bg-amber-500 text-white text-xs font-bold px-3 py-1 rounded-full animate-pulse">
+                      Prix de lancement
                     </span>
                   </div>
                 )}
