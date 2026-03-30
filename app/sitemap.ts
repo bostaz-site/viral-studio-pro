@@ -36,9 +36,21 @@ export default function sitemap(): MetadataRoute.Sitemap {
     },
     {
       url: `${baseUrl}/terms`,
-      lastModified: new Date(),
+      lastModified: new Date('2026-03-26'),
       changeFrequency: 'yearly',
       priority: 0.3,
+    },
+    {
+      url: `${baseUrl}/blog`,
+      lastModified: new Date(),
+      changeFrequency: 'weekly',
+      priority: 0.6,
+    },
+    {
+      url: `${baseUrl}/blog/creer-clips-viraux-twitch-guide-2026`,
+      lastModified: new Date('2026-03-28'),
+      changeFrequency: 'monthly',
+      priority: 0.7,
     },
   ]
 }
