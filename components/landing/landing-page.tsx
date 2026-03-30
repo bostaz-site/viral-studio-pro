@@ -400,20 +400,20 @@ export function LandingPage() {
                 </div>
               </div>
 
-              {/* Floating labels */}
-              <div className="absolute -left-20 sm:-left-28 top-[15%] flex items-center gap-2 opacity-60">
+              {/* Floating labels — hidden below lg */}
+              <div className="absolute -left-28 top-[15%] hidden lg:flex items-center gap-2 opacity-60">
                 <span className="text-[10px] text-muted-foreground whitespace-nowrap">Stream Twitch</span>
                 <div className="w-6 h-px bg-border" />
               </div>
-              <div className="absolute -left-24 sm:-left-32 top-[55%] flex items-center gap-2 opacity-60">
+              <div className="absolute -left-32 top-[55%] hidden lg:flex items-center gap-2 opacity-60">
                 <span className="text-[10px] text-muted-foreground whitespace-nowrap">Sous-titres karaoké</span>
                 <div className="w-6 h-px bg-border" />
               </div>
-              <div className="absolute -right-24 sm:-right-32 top-[75%] flex items-center gap-2 opacity-60">
+              <div className="absolute -right-32 top-[75%] hidden lg:flex items-center gap-2 opacity-60">
                 <div className="w-6 h-px bg-border" />
                 <span className="text-[10px] text-muted-foreground whitespace-nowrap">Vidéo satisfaisante</span>
               </div>
-              <div className="absolute -right-16 sm:-right-20 top-[92%] flex items-center gap-2 opacity-60">
+              <div className="absolute -right-20 top-[92%] hidden lg:flex items-center gap-2 opacity-60">
                 <div className="w-4 h-px bg-border" />
                 <span className="text-[10px] text-emerald-400 font-medium">Score 92</span>
               </div>
@@ -498,7 +498,7 @@ export function LandingPage() {
             {/* After — 9:16 vertical phone mockup */}
             <div className="relative">
               <div className="absolute -top-3 left-4 z-10">
-                <span className="bg-emerald-500/90 text-white text-xs font-bold px-3 py-1 rounded-full">APRES</span>
+                <span className="bg-emerald-500/90 text-white text-xs font-bold px-3 py-1 rounded-full">APRÈS</span>
               </div>
               <div className="w-[180px] sm:w-[200px] rounded-[2rem] border-2 border-emerald-500/30 bg-gray-900 p-2 shadow-2xl shadow-emerald-500/10">
                 <div className="rounded-[1.5rem] overflow-hidden bg-black relative" style={{ aspectRatio: '9/16' }}>
@@ -764,7 +764,7 @@ export function LandingPage() {
         <AnimatedSection className="max-w-5xl mx-auto">
           <div className="text-center mb-14">
             <h2 className="text-3xl sm:text-4xl font-bold tracking-tight">Ils créent des clips viraux avec nous</h2>
-            <p className="text-muted-foreground mt-3 text-lg">Rejoins +2,300 créateurs qui explosent sur les réseaux</p>
+            <p className="text-muted-foreground mt-3 text-lg">Rejoins +2,340 créateurs qui explosent sur les réseaux</p>
           </div>
 
           <div className="grid sm:grid-cols-2 gap-6">
@@ -782,14 +782,9 @@ export function LandingPage() {
                     />
                     <div>
                       <p className="font-semibold text-foreground text-sm">{t.name}</p>
-                      <a
-                        href={t.handleUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-xs text-primary hover:underline"
-                      >
+                      <span className="text-xs text-primary">
                         {t.handle}
-                      </a>
+                      </span>
                       <span className="text-xs text-muted-foreground"> · {t.platform}</span>
                     </div>
                   </div>
@@ -811,8 +806,8 @@ export function LandingPage() {
           {/* Post-testimonials CTA */}
           <div className="text-center mt-12">
             <Link href="/signup">
-              <Button variant="outline" size="lg" className="h-11 px-8 font-semibold gap-2 border-primary/30 text-primary hover:bg-primary/5">
-                Rejoindre +2,300 créateurs
+              <Button size="lg" className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-lg shadow-blue-500/20 h-11 px-8 font-semibold gap-2">
+                Rejoindre +2,340 créateurs
                 <ArrowRight className="h-4 w-4" />
               </Button>
             </Link>
