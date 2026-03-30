@@ -1,13 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import type { User } from '@supabase/supabase-js'
-
-// Standard API response format
-interface ApiResponse<T = unknown> {
-  data: T | null
-  error: string | null
-  message: string
-}
+import type { ApiResponse } from '@/types/api'
 
 export function jsonResponse<T>(data: T, status = 200) {
   return NextResponse.json({ data, error: null, message: 'ok' } satisfies ApiResponse<T>, { status })

@@ -1,6 +1,8 @@
 import { create } from 'zustand'
+import type { ProcessingStep } from '@/types/video'
 
-export type ProcessingStep = 'idle' | 'uploading' | 'transcribing' | 'analyzing' | 'rendering' | 'done' | 'error'
+// Re-export for backward compatibility
+export type { ProcessingStep } from '@/types/video'
 
 export interface VideoState {
   currentVideoId: string | null
