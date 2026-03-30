@@ -224,6 +224,80 @@ export function LandingPage() {
             Pas de carte bancaire requise · Prêt en 30 secondes
           </p>
 
+          {/* Animated phone demo */}
+          <div className="mt-12 flex justify-center">
+            <div className="relative w-[200px] sm:w-[240px]">
+              {/* Phone frame */}
+              <div className="rounded-[2rem] border-2 border-border/60 bg-gray-900 p-2 shadow-2xl shadow-blue-500/10">
+                <div className="rounded-[1.5rem] overflow-hidden bg-black relative" style={{ aspectRatio: '9/16' }}>
+                  {/* Top: stream clip area */}
+                  <div className="absolute inset-x-0 top-0 h-[60%] bg-gradient-to-br from-indigo-900/60 to-purple-900/50 flex items-center justify-center">
+                    <div className="absolute top-3 left-3 flex items-center gap-1.5">
+                      <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+                      <span className="text-[9px] font-bold text-white/80">LIVE</span>
+                    </div>
+                    <div className="absolute top-3 right-3 flex items-center gap-1">
+                      <span className="text-[8px] text-white/40">xQc</span>
+                    </div>
+                    <div className="w-12 h-12 rounded-full bg-white/5 border border-white/10 flex items-center justify-center">
+                      <Play className="h-5 w-5 text-white/30 ml-0.5" />
+                    </div>
+                  </div>
+
+                  {/* Karaoke subtitles — animated */}
+                  <div className="absolute top-[52%] left-1/2 -translate-x-1/2 z-10 bg-black/80 rounded-xl px-3 py-1.5 backdrop-blur-sm">
+                    <p className="text-[11px] sm:text-xs font-black text-center whitespace-nowrap">
+                      <span className="text-yellow-400 animate-pulse" style={{ animationDelay: '0s', animationDuration: '2s' }}>C&apos;est</span>{' '}
+                      <span className="text-yellow-400 animate-pulse" style={{ animationDelay: '0.3s', animationDuration: '2s' }}>tellement</span>{' '}
+                      <span className="text-white animate-pulse" style={{ animationDelay: '0.6s', animationDuration: '2s' }}>INCROYABLE</span>
+                    </p>
+                  </div>
+
+                  {/* Divider line */}
+                  <div className="absolute top-[60%] inset-x-0 h-0.5 bg-gradient-to-r from-transparent via-blue-500/50 to-transparent" />
+
+                  {/* Bottom: satisfying video */}
+                  <div className="absolute inset-x-0 bottom-0 h-[40%] bg-gradient-to-br from-emerald-900/40 to-teal-900/30 flex items-center justify-center">
+                    <div className="text-center">
+                      <div className="flex items-center gap-1 justify-center mb-1">
+                        <div className="w-1.5 h-1.5 rounded-full bg-emerald-400/60 animate-bounce" style={{ animationDelay: '0s' }} />
+                        <div className="w-1.5 h-1.5 rounded-full bg-emerald-400/60 animate-bounce" style={{ animationDelay: '0.15s' }} />
+                        <div className="w-1.5 h-1.5 rounded-full bg-emerald-400/60 animate-bounce" style={{ animationDelay: '0.3s' }} />
+                      </div>
+                      <span className="text-[9px] text-emerald-400/70 font-medium">Subway Surfers</span>
+                    </div>
+                  </div>
+
+                  {/* Score overlay */}
+                  <div className="absolute bottom-3 right-3 bg-black/70 rounded-lg px-2 py-1 backdrop-blur-sm border border-emerald-500/30">
+                    <div className="flex items-center gap-1">
+                      <TrendingUp className="h-2.5 w-2.5 text-emerald-400" />
+                      <span className="text-[10px] font-bold text-emerald-400">92</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Floating labels */}
+              <div className="absolute -left-20 sm:-left-28 top-[15%] flex items-center gap-2 opacity-60">
+                <span className="text-[10px] text-muted-foreground whitespace-nowrap">Stream Twitch</span>
+                <div className="w-6 h-px bg-border" />
+              </div>
+              <div className="absolute -left-24 sm:-left-32 top-[55%] flex items-center gap-2 opacity-60">
+                <span className="text-[10px] text-muted-foreground whitespace-nowrap">Sous-titres karaoké</span>
+                <div className="w-6 h-px bg-border" />
+              </div>
+              <div className="absolute -right-24 sm:-right-32 top-[75%] flex items-center gap-2 opacity-60">
+                <div className="w-6 h-px bg-border" />
+                <span className="text-[10px] text-muted-foreground whitespace-nowrap">Vidéo satisfaisante</span>
+              </div>
+              <div className="absolute -right-16 sm:-right-20 top-[92%] flex items-center gap-2 opacity-60">
+                <div className="w-4 h-px bg-border" />
+                <span className="text-[10px] text-emerald-400 font-medium">Score 92</span>
+              </div>
+            </div>
+          </div>
+
           {/* Stats counter */}
           <div className="flex flex-wrap items-center justify-center gap-8 mt-12 pt-8 border-t border-border/20">
             <div className="flex items-center gap-2">
