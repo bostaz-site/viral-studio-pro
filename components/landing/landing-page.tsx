@@ -113,22 +113,22 @@ const FEATURES = [
   {
     icon: Subtitles,
     title: 'Sous-titres karaoké',
-    description: '9 styles de captions animés (Hormozi, MrBeast, Gaming, etc.)',
+    description: '9 styles de captions animés mot par mot — Hormozi, MrBeast, Gaming, Minimal et plus. Le format qui fait x3 sur la rétention TikTok.',
   },
   {
     icon: MonitorPlay,
     title: 'Split-screen automatique',
-    description: 'Combine le clip du stream avec une vidéo satisfaisante (Subway Surfers, Minecraft, etc.)',
+    description: 'Combine ton clip de stream en haut avec Subway Surfers, Minecraft parkour ou autre vidéo satisfaisante en bas. Le format signature qui n\'existe nulle part ailleurs.',
   },
   {
     icon: TrendingUp,
     title: 'Score viral IA',
-    description: 'Chaque clip reçoit un score 0-100 avec explication détaillée par Claude IA.',
+    description: 'Claude IA analyse chaque clip et attribue un score 0-100 avec une explication détaillée : hook, rétention, émotion. Tu sais exactement quel clip va performer.',
   },
   {
     icon: Sparkles,
-    title: '9 styles de captions',
-    description: 'Templates pro prêts à l\'emploi pour des sous-titres qui captent l\'attention.',
+    title: 'Remake This',
+    description: 'Tu vois un clip trending ? Clique "Remake" et l\'IA adapte le format, les sous-titres et le style à ton propre contenu. Inspire-toi des meilleurs sans copier.',
   },
 ]
 
