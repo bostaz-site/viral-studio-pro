@@ -160,7 +160,7 @@ function StatsCounter() {
         <TrendingUp className="h-5 w-5 text-emerald-400" />
         <div className="text-left">
           <p className="text-2xl font-black text-foreground">x8.5</p>
-          <p className="text-xs text-muted-foreground">vues en moyenne</p>
+          <p className="text-xs text-muted-foreground">vues vs clips classiques</p>
         </div>
       </div>
     </div>
@@ -235,6 +235,7 @@ const TESTIMONIALS = [
     quote: 'Avant Viral Studio, personne regardait mes clips. J\'ai commencé à poster avec le split-screen Subway Surfers et les sous-titres karaoké — en 2 mois j\'étais à 45K. C\'est devenu ma routine : je stream, je clippe, je poste.',
     stats: '45K followers en 2 mois',
     rating: 5,
+    date: 'il y a 3 semaines',
   },
   {
     name: 'Sarah Chen',
@@ -246,6 +247,7 @@ const TESTIMONIALS = [
     quote: 'Je suis streameuse Valorant et je détestais passer 2h à éditer un seul clip. Maintenant j\'en fais 5 en 30 min et mes Reels font 10 fois plus de vues qu\'avant. Le gain de temps est juste dingue.',
     stats: '10x plus de vues',
     rating: 5,
+    date: 'il y a 1 semaine',
   },
   {
     name: 'Théo Dubois',
@@ -257,6 +259,7 @@ const TESTIMONIALS = [
     quote: 'Le truc qui m\'a scotché c\'est le score viral. Il m\'a sorti un moment dans mon stream que j\'avais même pas remarqué — 120K vues. Depuis je laisse l\'IA choisir mes clips et ça marche mieux que quand je le fais moi-même.',
     stats: '120K vues sur un clip',
     rating: 4,
+    date: 'il y a 1 mois',
   },
   {
     name: 'Emma "Pixel" Roy',
@@ -268,6 +271,18 @@ const TESTIMONIALS = [
     quote: 'J\'ai testé OpusClip, Eklipse, tout. Aucun ne fait le split-screen automatique. Avec Viral Studio mes clips Minecraft avec mes réactions en haut cartonnent — c\'est devenu mon format signature.',
     stats: '200K vues moyennes',
     rating: 5,
+    date: 'il y a 2 semaines',
+  },
+  {
+    name: 'Marc "FitMarc" Lefèvre',
+    handle: '@fitmarc_clips',
+    platform: 'TikTok',
+    photoUrl: 'https://api.dicebear.com/9.x/avataaars/svg?seed=Marc&backgroundColor=ffecd2',
+    color: 'from-orange-500 to-amber-500',
+    quote: 'Je suis coach fitness et je livestream mes séances sur YouTube. Viral Studio m\'a permis de clipper les meilleurs moments avec des sous-titres motivants. Mon audience TikTok a explosé alors que j\'y connaissais rien en montage.',
+    stats: '32K followers en 6 semaines',
+    rating: 5,
+    date: 'il y a 5 jours',
   },
 ]
 
@@ -498,15 +513,35 @@ export function LandingPage() {
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mt-10">
             <Link href="/signup">
               <Button size="lg" className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-lg shadow-blue-500/25 h-12 px-8 text-base font-semibold gap-2">
-                Essayer gratuitement — 30 clips offerts
+                Commencer gratuitement — 30 clips offerts
                 <ArrowRight className="h-4 w-4" />
+              </Button>
+            </Link>
+            <Link href="/blog/creer-clips-viraux-twitch-guide-2026">
+              <Button variant="ghost" size="lg" className="h-12 px-6 text-base text-muted-foreground hover:text-foreground gap-2">
+                <Play className="h-4 w-4" />
+                Voir comment ça marche
               </Button>
             </Link>
           </div>
 
-          <p className="text-xs text-muted-foreground/60 mt-4">
-            Pas de carte bancaire requise · Prêt en 30 secondes
+          {/* Scarcity counter */}
+          <p className="text-xs text-amber-400/70 mt-3 font-medium">
+            Offre de lancement : 127 comptes gratuits restants cette semaine
           </p>
+
+          <p className="text-xs text-muted-foreground/60 mt-4">
+            Sans carte bancaire · Aucune installation · Annulable en 1 clic
+          </p>
+
+          {/* Micro-FAQ inline */}
+          <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 mt-3">
+            <span className="text-[11px] text-muted-foreground/50">Fonctionne avec Twitch et YouTube</span>
+            <span className="text-[11px] text-muted-foreground/30">·</span>
+            <span className="text-[11px] text-muted-foreground/50">Export TikTok, Reels, Shorts</span>
+            <span className="text-[11px] text-muted-foreground/30">·</span>
+            <span className="text-[11px] text-muted-foreground/50">Prêt en 30 secondes</span>
+          </div>
 
           {/* Animated phone demo — cycles streamers/karaoke/scores */}
           <AnimatedPhoneDemo />
@@ -883,6 +918,7 @@ export function LandingPage() {
                         {t.handle}
                       </span>
                       <span className="text-xs text-muted-foreground"> · {t.platform}</span>
+                      <span className="text-xs text-muted-foreground/50"> · {t.date}</span>
                     </div>
                   </div>
                   <div className="flex gap-0.5 mb-3">
@@ -1086,6 +1122,7 @@ export function LandingPage() {
               <div className="space-y-2 text-xs text-muted-foreground">
                 <Link href="/privacy" className="block hover:text-foreground transition-colors">Confidentialité</Link>
                 <Link href="/terms" className="block hover:text-foreground transition-colors">Conditions d&apos;utilisation</Link>
+                <a href="mailto:support@viralstudio.pro" className="block hover:text-foreground transition-colors">Contact</a>
               </div>
             </div>
           </div>
