@@ -305,12 +305,49 @@ export function LandingPage() {
         },
       })),
     }
+    const howToJsonLd = {
+      '@context': 'https://schema.org',
+      '@type': 'HowTo',
+      name: 'Comment créer un clip viral split-screen depuis un stream',
+      description: 'Transforme tes meilleurs moments de stream Twitch ou YouTube Gaming en clips viraux 9:16 avec sous-titres karaoké et split-screen automatique.',
+      step: [
+        {
+          '@type': 'HowToStep',
+          name: 'Choisis un clip de stream',
+          text: 'Parcours les meilleurs moments Twitch et YouTube Gaming triés par score viral. L\'IA identifie automatiquement les moments les plus engageants.',
+          position: 1,
+        },
+        {
+          '@type': 'HowToStep',
+          name: 'Personnalise ton clip',
+          text: 'Ajoute des sous-titres karaoké (9 styles), choisis une vidéo satisfaisante pour le split-screen et vérifie le score viral IA.',
+          position: 2,
+        },
+        {
+          '@type': 'HowToStep',
+          name: 'Exporte et publie',
+          text: 'Télécharge en 9:16 optimisé pour TikTok, Reels et Shorts ou publie directement. Ton clip est prêt en moins de 5 minutes.',
+          position: 3,
+        },
+      ],
+    }
+
     const script = document.createElement('script')
     script.type = 'application/ld+json'
     script.textContent = JSON.stringify(faqJsonLd)
     script.id = 'faq-jsonld'
     document.head.appendChild(script)
-    return () => { document.getElementById('faq-jsonld')?.remove() }
+
+    const script2 = document.createElement('script')
+    script2.type = 'application/ld+json'
+    script2.textContent = JSON.stringify(howToJsonLd)
+    script2.id = 'howto-jsonld'
+    document.head.appendChild(script2)
+
+    return () => {
+      document.getElementById('faq-jsonld')?.remove()
+      document.getElementById('howto-jsonld')?.remove()
+    }
   }, [])
 
   return (
