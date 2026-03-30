@@ -629,6 +629,18 @@ export function LandingPage() {
               </div>
             </div>
           </div>
+
+          {/* Mid-page CTA */}
+          <div className="text-center mt-16 pt-10 border-t border-border/20">
+            <p className="text-muted-foreground mb-4">Prêt à créer ton premier clip split-screen ?</p>
+            <Link href="/signup">
+              <Button size="lg" className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-lg shadow-blue-500/20 h-11 px-8 font-semibold gap-2">
+                Créer mon compte gratuit
+                <ArrowRight className="h-4 w-4" />
+              </Button>
+            </Link>
+            <p className="text-xs text-muted-foreground/50 mt-3">90 crédits offerts = ~30 clips complets</p>
+          </div>
         </div>
       </section>
 
@@ -705,6 +717,16 @@ export function LandingPage() {
                 </CardContent>
               </Card>
             ))}
+          </div>
+
+          {/* Post-testimonials CTA */}
+          <div className="text-center mt-12">
+            <Link href="/signup">
+              <Button variant="outline" size="lg" className="h-11 px-8 font-semibold gap-2 border-primary/30 text-primary hover:bg-primary/5">
+                Rejoindre +2,300 créateurs
+                <ArrowRight className="h-4 w-4" />
+              </Button>
+            </Link>
           </div>
         </div>
       </section>
