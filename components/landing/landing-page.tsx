@@ -1,11 +1,79 @@
 "use client"
 
-import { useEffect } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
+import { motion, useInView } from 'framer-motion'
 import { Scissors, Sparkles, TrendingUp, Check, Subtitles, MonitorPlay, ArrowRight, Play, Star, Users, Film, ChevronDown } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
+
+// Animated section wrapper
+function AnimatedSection({ children, className, delay = 0 }: { children: React.ReactNode; className?: string; delay?: number }) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 30 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, margin: '-80px' }}
+      transition={{ duration: 0.6, delay, ease: 'easeOut' }}
+      className={className}
+    >
+      {children}
+    </motion.div>
+  )
+}
+
+// Animated counter hook
+function useCountUp(target: number, duration = 1500) {
+  const [count, setCount] = useState(0)
+  const ref = useRef<HTMLDivElement>(null)
+  const inView = useInView(ref, { once: true })
+
+  useEffect(() => {
+    if (!inView) return
+    const start = performance.now()
+    const step = (now: number) => {
+      const progress = Math.min((now - start) / duration, 1)
+      const eased = 1 - Math.pow(1 - progress, 3) // ease-out cubic
+      setCount(Math.floor(eased * target))
+      if (progress < 1) requestAnimationFrame(step)
+    }
+    requestAnimationFrame(step)
+  }, [inView, target, duration])
+
+  return { count, ref }
+}
+
+function StatsCounter() {
+  const clips = useCountUp(12847)
+  const creators = useCountUp(2340)
+
+  return (
+    <div ref={clips.ref} className="flex flex-wrap items-center justify-center gap-8 mt-12 pt-8 border-t border-border/20">
+      <div className="flex items-center gap-2">
+        <Film className="h-5 w-5 text-blue-400" />
+        <div className="text-left">
+          <p className="text-2xl font-black text-foreground">{clips.count.toLocaleString('fr-FR')}</p>
+          <p className="text-xs text-muted-foreground">clips créés</p>
+        </div>
+      </div>
+      <div ref={creators.ref} className="flex items-center gap-2">
+        <Users className="h-5 w-5 text-indigo-400" />
+        <div className="text-left">
+          <p className="text-2xl font-black text-foreground">{creators.count.toLocaleString('fr-FR')}+</p>
+          <p className="text-xs text-muted-foreground">créateurs actifs</p>
+        </div>
+      </div>
+      <div className="flex items-center gap-2">
+        <TrendingUp className="h-5 w-5 text-emerald-400" />
+        <div className="text-left">
+          <p className="text-2xl font-black text-foreground">x8.5</p>
+          <p className="text-xs text-muted-foreground">vues en moyenne</p>
+        </div>
+      </div>
+    </div>
+  )
+}
 
 // Platform logo SVG components
 function TwitchLogo({ className }: { className?: string }) {
@@ -352,30 +420,8 @@ export function LandingPage() {
             </div>
           </div>
 
-          {/* Stats counter */}
-          <div className="flex flex-wrap items-center justify-center gap-8 mt-12 pt-8 border-t border-border/20">
-            <div className="flex items-center gap-2">
-              <Film className="h-5 w-5 text-blue-400" />
-              <div className="text-left">
-                <p className="text-2xl font-black text-foreground">12,847</p>
-                <p className="text-xs text-muted-foreground">clips créés</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <Users className="h-5 w-5 text-indigo-400" />
-              <div className="text-left">
-                <p className="text-2xl font-black text-foreground">2,340+</p>
-                <p className="text-xs text-muted-foreground">créateurs actifs</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <TrendingUp className="h-5 w-5 text-emerald-400" />
-              <div className="text-left">
-                <p className="text-2xl font-black text-foreground">x8.5</p>
-                <p className="text-xs text-muted-foreground">vues en moyenne</p>
-              </div>
-            </div>
-          </div>
+          {/* Stats counter — animated */}
+          <StatsCounter />
 
           {/* Platform logos */}
           <div className="mt-10">
@@ -404,7 +450,7 @@ export function LandingPage() {
 
       {/* Before / After */}
       <section className="py-20 px-6 border-t border-border/30">
-        <div className="max-w-5xl mx-auto">
+        <AnimatedSection className="max-w-5xl mx-auto">
           <div className="text-center mb-14">
             <h2 className="text-3xl sm:text-4xl font-bold tracking-tight">Avant / Après</h2>
             <p className="text-muted-foreground mt-3 text-lg">Un moment de stream brut devient un clip viral optimisé</p>
@@ -506,7 +552,7 @@ export function LandingPage() {
               </div>
             </div>
           </div>
-        </div>
+        </AnimatedSection>
       </section>
 
       {/* How it works — with mockups */}
@@ -692,7 +738,7 @@ export function LandingPage() {
 
       {/* Features */}
       <section className="py-20 px-6 bg-card/30 border-t border-border/30">
-        <div className="max-w-5xl mx-auto">
+        <AnimatedSection className="max-w-5xl mx-auto">
           <div className="text-center mb-14">
             <h2 className="text-3xl sm:text-4xl font-bold tracking-tight">Fonctionnalités</h2>
             <p className="text-muted-foreground mt-3 text-lg">Tout ce qu&apos;il faut pour créer des clips qui explosent</p>
@@ -713,12 +759,12 @@ export function LandingPage() {
               </Card>
             ))}
           </div>
-        </div>
+        </AnimatedSection>
       </section>
 
       {/* Testimonials */}
       <section className="py-20 px-6 border-t border-border/30">
-        <div className="max-w-5xl mx-auto">
+        <AnimatedSection className="max-w-5xl mx-auto">
           <div className="text-center mb-14">
             <h2 className="text-3xl sm:text-4xl font-bold tracking-tight">Ils créent des clips viraux avec nous</h2>
             <p className="text-muted-foreground mt-3 text-lg">Rejoins +2,300 créateurs qui explosent sur les réseaux</p>
@@ -774,7 +820,7 @@ export function LandingPage() {
               </Button>
             </Link>
           </div>
-        </div>
+        </AnimatedSection>
       </section>
 
       {/* FAQ */}
