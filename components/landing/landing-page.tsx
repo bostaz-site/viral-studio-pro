@@ -1,7 +1,8 @@
 "use client"
 
+import { useEffect } from 'react'
 import Link from 'next/link'
-import { Scissors, Sparkles, TrendingUp, Check, Subtitles, MonitorPlay, ArrowRight, Play, Star, Users, Film } from 'lucide-react'
+import { Scissors, Sparkles, TrendingUp, Check, Subtitles, MonitorPlay, ArrowRight, Play, Star, Users, Film, ChevronDown } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
@@ -166,7 +167,52 @@ const PLANS: PlanConfig[] = [
   },
 ]
 
+const FAQ_ITEMS = [
+  {
+    q: 'Comment fonctionnent les crédits ?',
+    a: 'Chaque clip consommé coûte environ 3 crédits. Avec les 90 crédits offerts sur le plan Free, vous pouvez créer environ 30 clips complets. Les crédits n\'expirent pas tant que votre compte est actif.',
+  },
+  {
+    q: 'Quels formats de clips puis-je exporter ?',
+    a: 'Vous pouvez exporter en 9:16 (TikTok, Reels, Shorts), 1:1 (feed Instagram) et 16:9 (YouTube). Le plan Free est limité au 9:16, les plans Pro et Studio supportent les 3 formats.',
+  },
+  {
+    q: 'Comment fonctionne le split-screen automatique ?',
+    a: 'Vous choisissez une vidéo satisfaisante (Subway Surfers, Minecraft parkour, etc.) et l\'outil combine automatiquement votre clip de stream en haut avec la vidéo en bas, au format 9:16 vertical. C\'est le format qui génère le plus de rétention sur TikTok.',
+  },
+  {
+    q: 'Twitch et YouTube Gaming sont-ils les seules plateformes supportées ?',
+    a: 'Pour l\'instant, nous supportons les clips Twitch et YouTube Gaming. Vous pouvez aussi uploader directement vos propres vidéos (MP4, MOV, WebM). Le support Kick et d\'autres plateformes arrive bientôt.',
+  },
+  {
+    q: 'Faut-il installer un logiciel ?',
+    a: 'Non. Viral Studio Pro fonctionne entièrement dans votre navigateur. Aucune installation requise, aucun logiciel à télécharger. Il vous suffit de créer un compte et de commencer à clipper.',
+  },
+]
+
 export function LandingPage() {
+  // Inject FAQ structured data
+  useEffect(() => {
+    const faqJsonLd = {
+      '@context': 'https://schema.org',
+      '@type': 'FAQPage',
+      mainEntity: FAQ_ITEMS.map((item) => ({
+        '@type': 'Question',
+        name: item.q,
+        acceptedAnswer: {
+          '@type': 'Answer',
+          text: item.a,
+        },
+      })),
+    }
+    const script = document.createElement('script')
+    script.type = 'application/ld+json'
+    script.textContent = JSON.stringify(faqJsonLd)
+    script.id = 'faq-jsonld'
+    document.head.appendChild(script)
+    return () => { document.getElementById('faq-jsonld')?.remove() }
+  }, [])
+
   return (
     <div className="min-h-screen bg-background text-foreground">
       {/* Nav */}
@@ -727,6 +773,30 @@ export function LandingPage() {
                 <ArrowRight className="h-4 w-4" />
               </Button>
             </Link>
+          </div>
+        </div>
+      </section>
+
+      {/* FAQ */}
+      <section className="py-20 px-6 bg-card/30 border-t border-border/30">
+        <div className="max-w-3xl mx-auto">
+          <div className="text-center mb-14">
+            <h2 className="text-3xl sm:text-4xl font-bold tracking-tight">Questions fréquentes</h2>
+            <p className="text-muted-foreground mt-3 text-lg">Tout ce que tu dois savoir avant de commencer</p>
+          </div>
+
+          <div className="space-y-3">
+            {FAQ_ITEMS.map((item, i) => (
+              <details key={i} className="group rounded-xl border border-border bg-card/60 overflow-hidden">
+                <summary className="flex items-center justify-between cursor-pointer px-6 py-4 text-sm font-medium text-foreground hover:bg-muted/30 transition-colors list-none">
+                  {item.q}
+                  <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0 ml-4 transition-transform group-open:rotate-180" />
+                </summary>
+                <div className="px-6 pb-4 text-sm text-muted-foreground leading-relaxed">
+                  {item.a}
+                </div>
+              </details>
+            ))}
           </div>
         </div>
       </section>
