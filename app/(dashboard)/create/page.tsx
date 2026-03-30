@@ -13,6 +13,7 @@ import { useClipsStore, type GeneratedClip } from '@/stores/clips-store'
 import { cn } from '@/lib/utils'
 import type { AspectRatio } from '@/lib/ffmpeg/reframe'
 import { parseSrtToWordTimestamps, parseSrt, srtToFullText, srtToTranscriptionSegments } from '@/lib/captions/srt-parser'
+import { waitForVideoReady, pollClipRendering } from '@/lib/hooks/useVideoPolling'
 
 // ─── Import by URL ───────────────────────────────────────────────────────────
 
@@ -25,33 +26,6 @@ async function importUrl(url: string): Promise<string> {
   const data = await res.json() as { data: { video_id: string } | null; error: string | null; message: string }
   if (!res.ok || !data.data) throw new Error(data.message ?? 'Import failed')
   return data.data.video_id
-}
-
-// ─── Poll video status until VPS finishes downloading ────────────────────────
-
-async function waitForVideoReady(videoId: string, maxWaitMs = 600_000): Promise<void> {
-  const start = Date.now()
-  const interval = 4_000 // poll every 4 seconds
-
-  while (Date.now() - start < maxWaitMs) {
-    await new Promise((r) => setTimeout(r, interval))
-
-    const res = await fetch(`/api/videos/status?video_id=${videoId}`)
-    if (!res.ok) continue
-
-    const { data } = await res.json() as { data: { status: string; error_message?: string } | null }
-    if (!data) continue
-
-    if (data.status === 'uploaded' || data.status === 'transcribing' || data.status === 'analyzing' || data.status === 'done') {
-      return // video is ready
-    }
-    if (data.status === 'error') {
-      throw new Error(data.error_message || 'Le téléchargement de la vidéo a échoué sur le serveur')
-    }
-    // still 'processing' — keep polling
-  }
-
-  throw new Error('Le téléchargement prend trop de temps (> 10 min). Réessayez plus tard.')
 }
 
 // ─── Upload with XHR progress ───────────────────────────────────────────────
@@ -289,30 +263,8 @@ function CreatePage() {
 
       // Poll until all clips are done or errored (VPS renders in background)
       const clipIds = clipsData.data.map((c) => c.id)
-      const maxPollMs = 600_000 // 10 minutes max
-      const pollInterval = 4_000
-      const pollStart = Date.now()
-      let allFinished = false
-
-      while (Date.now() - pollStart < maxPollMs) {
-        await new Promise((r) => setTimeout(r, pollInterval))
-
-        const pollRes = await fetch(`/api/clips?video_id=${videoId}`)
-        const pollData = await pollRes.json() as { data: GeneratedClip[] | null }
-        if (!pollData.data) continue
-
-        setGeneratedClips(pollData.data)
-
-        // Check if all clips are terminal (done or error)
-        const allDone = pollData.data
-          .filter((c) => clipIds.includes(c.id))
-          .every((c) => c.status === 'done' || c.status === 'error')
-
-        if (allDone) { allFinished = true; break }
-      }
-
+      const { allFinished } = await pollClipRendering(videoId, clipIds, setGeneratedClips)
       if (!allFinished) {
-        // Some clips still rendering but timeout reached — mark done anyway, user can refresh
         console.warn('[create] Render polling timed out — some clips may still be processing')
       }
       setProcessingStep('done')
@@ -396,19 +348,7 @@ function CreatePage() {
 
       // Poll until all clips are terminal
       const clipIds = clipsData.data.map((c) => c.id)
-      const maxPollMs = 600_000 // 10 minutes
-      const pollStart = Date.now()
-      while (Date.now() - pollStart < maxPollMs) {
-        await new Promise((r) => setTimeout(r, 4_000))
-        const pollRes = await fetch(`/api/clips?video_id=${videoId}`)
-        const pollData = await pollRes.json() as { data: GeneratedClip[] | null }
-        if (!pollData.data) continue
-        setGeneratedClips(pollData.data)
-        const allDone = pollData.data
-          .filter((c) => clipIds.includes(c.id))
-          .every((c) => c.status === 'done' || c.status === 'error')
-        if (allDone) break
-      }
+      await pollClipRendering(videoId, clipIds, setGeneratedClips)
 
       setProcessingStep('done')
     } catch (err) {
@@ -442,19 +382,7 @@ function CreatePage() {
           // Some clips are still rendering — poll until all terminal
           setProcessingStep('rendering')
           const clipIds = clipsData.data.map((c) => c.id)
-          const maxPollMs = 600_000
-          const pollStart = Date.now()
-          while (Date.now() - pollStart < maxPollMs) {
-            await new Promise((r) => setTimeout(r, 4_000))
-            const pollRes = await fetch(`/api/clips?video_id=${videoId}`)
-            const pollData = await pollRes.json() as { data: GeneratedClip[] | null }
-            if (!pollData.data) continue
-            setGeneratedClips(pollData.data)
-            const allDone = pollData.data
-              .filter((c) => clipIds.includes(c.id))
-              .every((c) => c.status === 'done' || c.status === 'error')
-            if (allDone) break
-          }
+          await pollClipRendering(videoId, clipIds, setGeneratedClips)
           setProcessingStep('done')
         }
       }
@@ -496,28 +424,13 @@ function CreatePage() {
     const videoId = generatedClips[0]?.video_id
     if (!videoId) return
 
-    let cancelled = false
+    const signal = { cancelled: false }
     const poll = async () => {
-      const maxPollMs = 600_000
-      const pollStart = Date.now()
-      while (!cancelled && Date.now() - pollStart < maxPollMs) {
-        await new Promise((r) => setTimeout(r, 4_000))
-        if (cancelled) break
-        try {
-          const pollRes = await fetch(`/api/clips?video_id=${videoId}`)
-          const pollData = await pollRes.json() as { data: GeneratedClip[] | null }
-          if (!pollData.data) continue
-          setGeneratedClips(pollData.data)
-          const allDone = pollData.data.every((c) => c.status === 'done' || c.status === 'error')
-          if (allDone) break
-        } catch {
-          // network error, keep trying
-        }
-      }
-      if (!cancelled) setProcessingStep('done')
+      await pollClipRendering(videoId, [], setGeneratedClips, { signal })
+      if (!signal.cancelled) setProcessingStep('done')
     }
     poll()
-    return () => { cancelled = true }
+    return () => { signal.cancelled = true }
   }, [processingStep, generatedClips, setGeneratedClips, setProcessingStep])
 
   const handleUrlImport = useCallback((importedUrl: string) => {
