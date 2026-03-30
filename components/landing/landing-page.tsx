@@ -891,6 +891,53 @@ export function LandingPage() {
         </AnimatedSection>
       </section>
 
+      {/* Competitor comparison */}
+      <section className="py-20 px-6 border-t border-border/30">
+        <AnimatedSection className="max-w-3xl mx-auto">
+          <div className="text-center mb-10">
+            <h2 className="text-3xl sm:text-4xl font-bold tracking-tight">Pourquoi pas OpusClip ?</h2>
+            <p className="text-muted-foreground mt-3 text-lg">Ce qu&apos;on fait que personne d&apos;autre ne propose</p>
+          </div>
+
+          <div className="rounded-xl border border-border overflow-hidden">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-border bg-card/60">
+                  <th className="text-left py-3 px-4 font-medium text-muted-foreground">Fonctionnalité</th>
+                  <th className="text-center py-3 px-4 font-bold text-primary">Viral Studio</th>
+                  <th className="text-center py-3 px-4 font-medium text-muted-foreground">OpusClip</th>
+                  <th className="text-center py-3 px-4 font-medium text-muted-foreground">Eklipse</th>
+                </tr>
+              </thead>
+              <tbody>
+                {[
+                  { feature: 'Split-screen automatique', us: true, opus: false, eklipse: false },
+                  { feature: 'Sous-titres karaoké (9 styles)', us: true, opus: true, eklipse: true },
+                  { feature: 'Score viral IA', us: true, opus: true, eklipse: false },
+                  { feature: 'Remake This (clone un trending)', us: true, opus: false, eklipse: false },
+                  { feature: 'Clips Twitch + YouTube Gaming', us: true, opus: true, eklipse: true },
+                  { feature: 'Vidéo satisfaisante intégrée', us: true, opus: false, eklipse: false },
+                  { feature: 'À partir de 0€/mois', us: true, opus: false, eklipse: true },
+                ].map((row) => (
+                  <tr key={row.feature} className="border-b border-border/50 last:border-0">
+                    <td className="py-2.5 px-4 text-foreground text-xs sm:text-sm">{row.feature}</td>
+                    <td className="py-2.5 px-4 text-center">
+                      {row.us ? <Check className="h-4 w-4 text-emerald-400 mx-auto" /> : <span className="text-red-400 text-xs">—</span>}
+                    </td>
+                    <td className="py-2.5 px-4 text-center">
+                      {row.opus ? <Check className="h-4 w-4 text-muted-foreground/40 mx-auto" /> : <span className="text-red-400 text-xs">—</span>}
+                    </td>
+                    <td className="py-2.5 px-4 text-center">
+                      {row.eklipse ? <Check className="h-4 w-4 text-muted-foreground/40 mx-auto" /> : <span className="text-red-400 text-xs">—</span>}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </AnimatedSection>
+      </section>
+
       {/* FAQ */}
       <section className="py-20 px-6 bg-card/30 border-t border-border/30">
         <div className="max-w-3xl mx-auto">
