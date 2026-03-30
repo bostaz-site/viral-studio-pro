@@ -67,38 +67,46 @@ const TESTIMONIALS = [
   {
     name: 'Lucas "Zephyr" Martin',
     handle: '@zephyr_clips',
+    handleUrl: 'https://www.tiktok.com/@zephyr_clips',
     platform: 'TikTok',
-    avatar: 'LM',
+    photoUrl: 'https://api.dicebear.com/9.x/avataaars/svg?seed=Lucas&backgroundColor=b6e3f4',
     color: 'from-purple-500 to-pink-500',
-    quote: 'J\'ai gagné 45K followers en 2 mois juste en clippant mes streams avec Viral Studio. Le split-screen Subway Surfers fait x3 sur la rétention.',
+    quote: 'Avant Viral Studio, personne regardait mes clips. J\'ai commencé à poster avec le split-screen Subway Surfers et les sous-titres karaoké — en 2 mois j\'étais à 45K. C\'est devenu ma routine : je stream, je clippe, je poste.',
     stats: '45K followers en 2 mois',
+    rating: 5,
   },
   {
     name: 'Sarah Chen',
     handle: '@sarahplays_',
+    handleUrl: 'https://www.instagram.com/sarahplays_',
     platform: 'Instagram',
-    avatar: 'SC',
+    photoUrl: 'https://api.dicebear.com/9.x/avataaars/svg?seed=Sarah&backgroundColor=ffd5dc',
     color: 'from-blue-500 to-cyan-500',
-    quote: 'Avant je passais 2h par clip. Maintenant c\'est 5 minutes. Les sous-titres karaoké sont parfaits, mes Reels font 10x plus de vues.',
+    quote: 'Je suis streameuse Valorant et je détestais passer 2h à éditer un seul clip. Maintenant j\'en fais 5 en 30 min et mes Reels font 10 fois plus de vues qu\'avant. Le gain de temps est juste dingue.',
     stats: '10x plus de vues',
+    rating: 5,
   },
   {
     name: 'Théo Dubois',
     handle: '@theo_gaming',
+    handleUrl: 'https://www.youtube.com/@theo_gaming',
     platform: 'YouTube',
-    avatar: 'TD',
+    photoUrl: 'https://api.dicebear.com/9.x/avataaars/svg?seed=Theo&backgroundColor=c0aede',
     color: 'from-red-500 to-orange-500',
-    quote: 'Le score viral IA est bluffant. Il a identifié des moments dans mes streams que j\'aurais jamais pensé clipper et c\'est devenu mes vidéos les plus vues.',
+    quote: 'Le truc qui m\'a scotché c\'est le score viral. Il m\'a sorti un moment dans mon stream que j\'avais même pas remarqué — 120K vues. Depuis je laisse l\'IA choisir mes clips et ça marche mieux que quand je le fais moi-même.',
     stats: '120K vues sur un clip',
+    rating: 4,
   },
   {
     name: 'Emma "Pixel" Roy',
     handle: '@pixelstreams',
+    handleUrl: 'https://www.tiktok.com/@pixelstreams',
     platform: 'TikTok',
-    avatar: 'ER',
+    photoUrl: 'https://api.dicebear.com/9.x/avataaars/svg?seed=Emma&backgroundColor=d1f4d1',
     color: 'from-emerald-500 to-teal-500',
-    quote: 'L\'outil de split-screen est game-changer. Personne d\'autre ne propose ça. Mes clips Minecraft en split-screen avec mes réactions cartonnent.',
+    quote: 'J\'ai testé OpusClip, Eklipse, tout. Aucun ne fait le split-screen automatique. Avec Viral Studio mes clips Minecraft avec mes réactions en haut cartonnent — c\'est devenu mon format signature.',
     stats: '200K vues moyennes',
+    rating: 5,
   },
 ]
 
@@ -663,17 +671,30 @@ export function LandingPage() {
               <Card key={t.handle} className="bg-card/60 border-border hover:border-primary/20 transition-colors">
                 <CardContent className="p-6">
                   <div className="flex items-start gap-3 mb-4">
-                    <div className={cn('w-10 h-10 rounded-full bg-gradient-to-br flex items-center justify-center shrink-0 text-white text-xs font-bold', t.color)}>
-                      {t.avatar}
-                    </div>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={t.photoUrl}
+                      alt={t.name}
+                      className="w-10 h-10 rounded-full shrink-0 bg-muted"
+                      width={40}
+                      height={40}
+                    />
                     <div>
                       <p className="font-semibold text-foreground text-sm">{t.name}</p>
-                      <p className="text-xs text-muted-foreground">{t.handle} · {t.platform}</p>
+                      <a
+                        href={t.handleUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-xs text-primary hover:underline"
+                      >
+                        {t.handle}
+                      </a>
+                      <span className="text-xs text-muted-foreground"> · {t.platform}</span>
                     </div>
                   </div>
                   <div className="flex gap-0.5 mb-3">
                     {[...Array(5)].map((_, i) => (
-                      <Star key={i} className="h-3.5 w-3.5 fill-yellow-400 text-yellow-400" />
+                      <Star key={i} className={cn('h-3.5 w-3.5', i < t.rating ? 'fill-yellow-400 text-yellow-400' : 'fill-muted text-muted')} />
                     ))}
                   </div>
                   <p className="text-sm text-muted-foreground leading-relaxed">&ldquo;{t.quote}&rdquo;</p>
