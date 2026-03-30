@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { rateLimit } from '@/lib/rate-limit'
 import { fetchAndUpsertTwitchClips } from '@/lib/twitch/fetch-clips'
+import { withAuth } from '@/lib/api/withAuth'
 
 /**
  * POST /api/streams/refresh
@@ -10,17 +10,7 @@ import { fetchAndUpsertTwitchClips } from '@/lib/twitch/fetch-clips'
  * User-triggered refresh of Twitch clips.
  * Rate limited to 1 request per minute per user.
  */
-export async function POST() {
-  const supabase = createClient()
-  const { data: { user }, error: authError } = await supabase.auth.getUser()
-
-  if (authError || !user) {
-    return NextResponse.json(
-      { data: null, error: 'Unauthorized', message: 'Non autorisé' },
-      { status: 401 }
-    )
-  }
-
+export const POST = withAuth(async (req, user) => {
   // Rate limit: 1 per minute per user
   const rl = rateLimit(`streams-refresh:${user.id}`, 1, 60_000)
   if (!rl.allowed) {
@@ -46,4 +36,4 @@ export async function POST() {
       { status: 500 }
     )
   }
-}
+})

@@ -1,8 +1,8 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextResponse } from 'next/server'
 import { z } from 'zod'
-import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createAnthropicClient, CLAUDE_MODEL } from '@/lib/claude/client'
+import { withAuth } from '@/lib/api/withAuth'
 
 const inputSchema = z.object({
   clip_id: z.string().uuid(),
@@ -27,19 +27,7 @@ export interface BrollAnalysisResult {
 
 // ── Route ─────────────────────────────────────────────────────────────────────
 
-export async function POST(req: NextRequest) {
-  const supabase = createClient()
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser()
-  if (authError || !user) {
-    return NextResponse.json(
-      { data: null, error: 'Unauthorized', message: 'Non autorisé' },
-      { status: 401 }
-    )
-  }
-
+export const POST = withAuth(async (req, user) => {
   let body: unknown
   try {
     body = await req.json()
@@ -178,4 +166,4 @@ ${transcriptText}`,
       { status: 500 }
     )
   }
-}
+})

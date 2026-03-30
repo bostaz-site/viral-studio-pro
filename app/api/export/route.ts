@@ -1,7 +1,7 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextResponse } from 'next/server'
 import { z } from 'zod'
-import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { withAuth } from '@/lib/api/withAuth'
 
 const bodySchema = z.object({
   clip_id: z.string().uuid(),
@@ -13,16 +13,7 @@ const bodySchema = z.object({
  * Generates a temporary signed download URL for a rendered clip.
  * Also returns clip metadata (title, transcript) for caption generation.
  */
-export async function POST(req: NextRequest) {
-  const supabase = createClient()
-  const { data: { user }, error: authError } = await supabase.auth.getUser()
-  if (authError || !user) {
-    return NextResponse.json(
-      { data: null, error: 'Unauthorized', message: 'Non autorisé' },
-      { status: 401 }
-    )
-  }
-
+export const POST = withAuth(async (req, user) => {
   let body: unknown
   try {
     body = await req.json()
@@ -96,4 +87,4 @@ export async function POST(req: NextRequest) {
     error: null,
     message: downloadUrl ? 'URL de téléchargement générée' : 'Clip pas encore rendu',
   })
-}
+})

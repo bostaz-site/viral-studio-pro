@@ -1,7 +1,8 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { withAuth } from '@/lib/api/withAuth'
 
 const platformCaptionSchema = z.object({
   caption: z.string(),
@@ -15,19 +16,7 @@ const bodySchema = z.object({
   scheduled_at: z.string().datetime(),
 })
 
-export async function POST(req: NextRequest) {
-  const supabase = createClient()
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser()
-  if (authError || !user) {
-    return NextResponse.json(
-      { data: null, error: 'Unauthorized', message: 'Non autorisé' },
-      { status: 401 }
-    )
-  }
-
+export const POST = withAuth(async (req, user) => {
   let body: unknown
   try {
     body = await req.json()
@@ -47,6 +36,7 @@ export async function POST(req: NextRequest) {
   }
 
   const { clip_id, platforms, captions, scheduled_at } = parsed.data
+  const supabase = createClient()
 
   // Validate clip ownership
   const { data: clip } = await supabase
@@ -98,21 +88,10 @@ export async function POST(req: NextRequest) {
     error: null,
     message: `${inserted.length} publication(s) planifiée(s)`,
   })
-}
+})
 
-export async function GET(req: NextRequest) {
+export const GET = withAuth(async (req, user) => {
   const supabase = createClient()
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser()
-  if (authError || !user) {
-    return NextResponse.json(
-      { data: null, error: 'Unauthorized', message: 'Non autorisé' },
-      { status: 401 }
-    )
-  }
-
   const admin = createAdminClient()
 
   // Optional date range filters
@@ -149,4 +128,4 @@ export async function GET(req: NextRequest) {
   }
 
   return NextResponse.json({ data, error: null, message: 'OK' })
-}
+})

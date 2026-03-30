@@ -1,6 +1,6 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextResponse } from 'next/server'
 import { z } from 'zod'
-import { createClient } from '@/lib/supabase/server'
+import { withAuth } from '@/lib/api/withAuth'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getPlanConfig } from '@/lib/plans'
 import { rateLimit, RATE_LIMITS } from '@/lib/rate-limit'
@@ -21,13 +21,7 @@ const bodySchema = z.object({
  * The VPS downloads the clip, uploads to Supabase Storage, and updates the DB.
  * The user is then redirected to /create where they can transcribe + analyze.
  */
-export async function POST(req: NextRequest) {
-  const supabase = createClient()
-  const { data: { user }, error: authError } = await supabase.auth.getUser()
-  if (authError || !user) {
-    return NextResponse.json({ data: null, error: 'Unauthorized', message: 'Non autorisé' }, { status: 401 })
-  }
-
+export const POST = withAuth(async (req, user) => {
   let body: unknown
   try {
     body = await req.json()
@@ -158,4 +152,4 @@ export async function POST(req: NextRequest) {
     const message = err instanceof Error ? err.message : 'Erreur lors du remix'
     return NextResponse.json({ data: null, error: message, message }, { status: 500 })
   }
-}
+})

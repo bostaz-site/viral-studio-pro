@@ -1,27 +1,16 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createClient } from '@/lib/supabase/server'
 import { runCopywriterSeo } from '@/lib/claude/copywriter-seo'
 import { rateLimit, RATE_LIMITS } from '@/lib/rate-limit'
+import { withAuth } from '@/lib/api/withAuth'
 
 const bodySchema = z.object({
   clip_id: z.string().uuid(),
   niche: z.string().optional(),
 })
 
-export async function POST(req: NextRequest) {
-  const supabase = createClient()
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser()
-  if (authError || !user) {
-    return NextResponse.json(
-      { data: null, error: 'Unauthorized', message: 'Non autorisé' },
-      { status: 401 }
-    )
-  }
-
+export const POST = withAuth(async (req, user) => {
   // Rate limiting (AI operation: 5 req/min)
   const rl = rateLimit(user.id, RATE_LIMITS.ai.limit, RATE_LIMITS.ai.windowMs)
   if (!rl.allowed) {
@@ -50,6 +39,7 @@ export async function POST(req: NextRequest) {
   }
 
   const { clip_id, niche } = parsed.data
+  const supabase = createClient()
 
   // Fetch clip transcript (owned by current user)
   const { data: clip, error: clipError } = await supabase
@@ -75,4 +65,4 @@ export async function POST(req: NextRequest) {
     const message = err instanceof Error ? err.message : 'Erreur Claude'
     return NextResponse.json({ data: null, error: message, message }, { status: 500 })
   }
-}
+})

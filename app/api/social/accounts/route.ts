@@ -1,19 +1,10 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { withAuth } from '@/lib/api/withAuth'
 
-export async function GET() {
+export const GET = withAuth(async (_req, user) => {
   const supabase = createClient()
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser()
-  if (authError || !user) {
-    return NextResponse.json(
-      { data: null, error: 'Unauthorized', message: 'Non autorisé' },
-      { status: 401 }
-    )
-  }
 
   const { data, error } = await supabase
     .from('social_accounts')
@@ -29,21 +20,9 @@ export async function GET() {
   }
 
   return NextResponse.json({ data, error: null, message: 'OK' })
-}
+})
 
-export async function DELETE(req: NextRequest) {
-  const supabase = createClient()
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser()
-  if (authError || !user) {
-    return NextResponse.json(
-      { data: null, error: 'Unauthorized', message: 'Non autorisé' },
-      { status: 401 }
-    )
-  }
-
+export const DELETE = withAuth(async (req, user) => {
   const accountId = req.nextUrl.searchParams.get('id')
   const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
   if (!accountId || !UUID_RE.test(accountId)) {
@@ -78,4 +57,4 @@ export async function DELETE(req: NextRequest) {
   }
 
   return NextResponse.json({ data: { id: accountId }, error: null, message: 'Compte déconnecté' })
-}
+})

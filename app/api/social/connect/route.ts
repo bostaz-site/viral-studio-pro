@@ -1,8 +1,8 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { NextResponse } from 'next/server'
 import { getTikTokAuthUrl } from '@/lib/social/tiktok'
 import { getInstagramAuthUrl } from '@/lib/social/instagram'
 import { getYouTubeAuthUrl } from '@/lib/social/youtube'
+import { withAuth } from '@/lib/api/withAuth'
 
 const PLATFORMS = ['tiktok', 'instagram', 'youtube'] as const
 type Platform = (typeof PLATFORMS)[number]
@@ -13,19 +13,8 @@ function randomState(): string {
   return randomBytes(32).toString('hex')
 }
 
-export async function GET(req: NextRequest) {
-  const supabase = createClient()
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser()
-  if (authError || !user) {
-    return NextResponse.json(
-      { data: null, error: 'Unauthorized', message: 'Non autorisé' },
-      { status: 401 }
-    )
-  }
-
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export const GET = withAuth(async (req, _user) => {
   const platform = req.nextUrl.searchParams.get('platform') as Platform | null
   if (!platform || !PLATFORMS.includes(platform)) {
     return NextResponse.json(
@@ -80,4 +69,4 @@ export async function GET(req: NextRequest) {
     sameSite: 'lax',
   })
   return response
-}
+})

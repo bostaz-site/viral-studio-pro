@@ -1,12 +1,12 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { exchangeTikTokCode, getTikTokUserInfo } from '@/lib/social/tiktok'
 import { exchangeInstagramCode, getInstagramUserInfo } from '@/lib/social/instagram'
 import { exchangeYouTubeCode, getYouTubeChannelInfo } from '@/lib/social/youtube'
 import { safeEncrypt } from '@/lib/crypto'
+import { withAuth } from '@/lib/api/withAuth'
 
-export async function GET(req: NextRequest) {
+export const GET = withAuth(async (req, user) => {
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'
   const redirectBase = `${appUrl}/publish`
 
@@ -35,16 +35,6 @@ export async function GET(req: NextRequest) {
   // Validate CSRF state — REQUIRE both values to prevent bypass
   if (!storedState || !returnedState || storedState !== returnedState) {
     return NextResponse.redirect(`${redirectBase}?error=invalid_state`)
-  }
-
-  // Get current user from Supabase session
-  const supabase = createClient()
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser()
-  if (authError || !user) {
-    return NextResponse.redirect(`${appUrl}/login`)
   }
 
   const admin = createAdminClient()
@@ -132,4 +122,4 @@ export async function GET(req: NextRequest) {
       `${redirectBase}?error=${encodeURIComponent(errorMsg)}`
     )
   }
-}
+})

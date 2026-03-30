@@ -1,7 +1,7 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextResponse } from 'next/server'
 import { z } from 'zod'
-import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { withAuth } from '@/lib/api/withAuth'
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
@@ -15,13 +15,7 @@ const createSchema = z.object({
 
 // ── GET /api/brand-templates ──────────────────────────────────────────────────
 
-export async function GET() {
-  const supabase = createClient()
-  const { data: { user }, error: authError } = await supabase.auth.getUser()
-  if (authError || !user) {
-    return NextResponse.json({ data: null, error: 'Unauthorized', message: 'Non autorisé' }, { status: 401 })
-  }
-
+export const GET = withAuth(async (req, user) => {
   const admin = createAdminClient()
   const { data, error } = await admin
     .from('brand_templates')
@@ -35,18 +29,12 @@ export async function GET() {
   }
 
   return NextResponse.json({ data, error: null, message: 'OK' })
-}
+})
 
 // ── POST /api/brand-templates ─────────────────────────────────────────────────
 // Multipart form: fields + optional file uploads (logo, watermark, intro, outro)
 
-export async function POST(req: NextRequest) {
-  const supabase = createClient()
-  const { data: { user }, error: authError } = await supabase.auth.getUser()
-  if (authError || !user) {
-    return NextResponse.json({ data: null, error: 'Unauthorized', message: 'Non autorisé' }, { status: 401 })
-  }
-
+export const POST = withAuth(async (req, user) => {
   const admin = createAdminClient()
   let formData: FormData
   try {
@@ -72,7 +60,7 @@ export async function POST(req: NextRequest) {
   async function uploadAsset(file: File | null, assetType: string): Promise<string | null> {
     if (!file || file.size === 0) return null
     const ext = file.name.split('.').pop() ?? 'bin'
-    const path = `${user!.id}/${assetType}_${Date.now()}.${ext}`
+    const path = `${user.id}/${assetType}_${Date.now()}.${ext}`
     const buffer = Buffer.from(await file.arrayBuffer())
     const { error } = await admin.storage.from('brand-assets').upload(path, buffer, {
       contentType: file.type,
@@ -121,17 +109,11 @@ export async function POST(req: NextRequest) {
     const message = err instanceof Error ? err.message : 'Erreur lors de la création'
     return NextResponse.json({ data: null, error: message, message }, { status: 500 })
   }
-}
+})
 
 // ── DELETE /api/brand-templates?id= ──────────────────────────────────────────
 
-export async function DELETE(req: NextRequest) {
-  const supabase = createClient()
-  const { data: { user }, error: authError } = await supabase.auth.getUser()
-  if (authError || !user) {
-    return NextResponse.json({ data: null, error: 'Unauthorized', message: 'Non autorisé' }, { status: 401 })
-  }
-
+export const DELETE = withAuth(async (req, user) => {
   const id = new URL(req.url).searchParams.get('id')
   if (!id || !UUID_REGEX.test(id)) {
     return NextResponse.json({ data: null, error: 'Missing or invalid id', message: 'ID UUID manquant ou invalide' }, { status: 400 })
@@ -168,18 +150,12 @@ export async function DELETE(req: NextRequest) {
   }
 
   return NextResponse.json({ data: { id }, error: null, message: 'Template supprimé' })
-}
+})
 
 // ── PUT /api/brand-templates?id= ──────────────────────────────────────────────
 // Same multipart form as POST, but updates an existing template
 
-export async function PUT(req: NextRequest) {
-  const supabase = createClient()
-  const { data: { user }, error: authError } = await supabase.auth.getUser()
-  if (authError || !user) {
-    return NextResponse.json({ data: null, error: 'Unauthorized', message: 'Non autorisé' }, { status: 401 })
-  }
-
+export const PUT = withAuth(async (req, user) => {
   const id = new URL(req.url).searchParams.get('id')
   if (!id || !UUID_REGEX.test(id)) {
     return NextResponse.json({ data: null, error: 'Missing or invalid id', message: 'ID UUID manquant ou invalide' }, { status: 400 })
@@ -221,7 +197,7 @@ export async function PUT(req: NextRequest) {
   async function uploadAsset(file: File | null, assetType: string, existingPath: string | null): Promise<string | null> {
     if (!file || file.size === 0) return existingPath
     const ext = file.name.split('.').pop() ?? 'bin'
-    const path = `${user!.id}/${assetType}_${Date.now()}.${ext}`
+    const path = `${user.id}/${assetType}_${Date.now()}.${ext}`
     const buffer = Buffer.from(await file.arrayBuffer())
     const { error } = await admin.storage.from('brand-assets').upload(path, buffer, {
       contentType: file.type,
@@ -271,4 +247,4 @@ export async function PUT(req: NextRequest) {
     const message = err instanceof Error ? err.message : 'Erreur lors de la mise à jour'
     return NextResponse.json({ data: null, error: message, message }, { status: 500 })
   }
-}
+})

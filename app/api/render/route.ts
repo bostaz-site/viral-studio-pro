@@ -1,6 +1,6 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextResponse } from 'next/server'
 import { z } from 'zod'
-import { createClient } from '@/lib/supabase/server'
+import { withAuth } from '@/lib/api/withAuth'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getPlanConfig } from '@/lib/plans'
 import { rateLimit, RATE_LIMITS } from '@/lib/rate-limit'
@@ -43,20 +43,7 @@ const inputSchema = z.object({
 
 // ── Route handler — Proxy to VPS Render API ──────────────────────────────────
 
-export async function POST(request: NextRequest) {
-  const supabase = createClient()
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser()
-
-  if (authError || !user) {
-    return NextResponse.json(
-      { data: null, error: 'Unauthorized', message: 'Non autorisé' },
-      { status: 401 }
-    )
-  }
-
+export const POST = withAuth(async (request, user) => {
   // Rate limiting (AI/render operation: 5 req/min)
   const rl = rateLimit(user.id, RATE_LIMITS.ai.limit, RATE_LIMITS.ai.windowMs)
   if (!rl.allowed) {
@@ -210,7 +197,7 @@ export async function POST(request: NextRequest) {
     error: null,
     message: 'Rendu lancé — le clip sera prêt dans quelques secondes',
   })
-}
+})
 
 // Expose types for use in create page
 export type RenderResult = {

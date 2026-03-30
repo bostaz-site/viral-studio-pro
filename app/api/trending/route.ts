@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { timingSafeCompare } from '@/lib/crypto'
+import { withAuth } from '@/lib/api/withAuth'
 
 const postSchema = z.object({
   external_url: z.string().url(),
@@ -29,13 +30,8 @@ function sanitizeSearch(input: string): string {
     .slice(0, 100) // Max length
 }
 
-export async function GET(req: NextRequest) {
-  const supabase = createClient()
-  const { data: { user }, error: authError } = await supabase.auth.getUser()
-  if (authError || !user) {
-    return NextResponse.json({ data: null, error: 'Unauthorized', message: 'Non autorisé' }, { status: 401 })
-  }
-
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export const GET = withAuth(async (req, _user) => {
   const { searchParams } = new URL(req.url)
   const niche    = searchParams.get('niche')
   const platform = searchParams.get('platform')
@@ -78,7 +74,7 @@ export async function GET(req: NextRequest) {
   }
 
   return NextResponse.json({ data, error: null, message: 'OK', meta: { total: count ?? 0, limit, offset } })
-}
+})
 
 /**
  * POST /api/trending — Add/update a trending clip.

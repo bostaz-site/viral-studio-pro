@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -6,6 +6,7 @@ import { uploadVideoToTikTok } from '@/lib/social/tiktok'
 import { uploadReelToInstagram } from '@/lib/social/instagram'
 import { uploadVideoToYouTube, refreshYouTubeToken } from '@/lib/social/youtube'
 import { safeDecrypt, safeEncrypt } from '@/lib/crypto'
+import { withAuth } from '@/lib/api/withAuth'
 
 const platformCaptionSchema = z.object({
   caption: z.string(),
@@ -25,19 +26,7 @@ interface PublishResult {
   error?: string
 }
 
-export async function POST(req: NextRequest) {
-  const supabase = createClient()
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser()
-  if (authError || !user) {
-    return NextResponse.json(
-      { data: null, error: 'Unauthorized', message: 'Non autorisé' },
-      { status: 401 }
-    )
-  }
-
+export const POST = withAuth(async (req, user) => {
   let body: unknown
   try {
     body = await req.json()
@@ -57,6 +46,7 @@ export async function POST(req: NextRequest) {
   }
 
   const { clip_id, platforms, captions } = parsed.data
+  const supabase = createClient()
   const admin = createAdminClient()
 
   // Fetch clip
@@ -203,4 +193,4 @@ export async function POST(req: NextRequest) {
     error: allOk ? null : 'Certaines publications ont échoué',
     message: allOk ? 'Publié avec succès' : 'Publication partielle',
   })
-}
+})
