@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { Scissors, TrendingUp, Share, Settings, Menu, X, LogOut, Plus, Zap, LayoutDashboard } from 'lucide-react'
+import { Share, Settings, Menu, X, LogOut, Upload, Zap, Compass, Wand2 } from 'lucide-react'
 import { useUiStore } from '@/stores/ui-store'
 import { Button } from '@/components/ui/button'
 import { NotificationBell } from '@/components/trending/notification-bell'
@@ -48,9 +48,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   }
 
   const navigation = [
-    { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-    { name: 'Créer', href: '/create', icon: Scissors },
-    { name: 'Trending', href: '/trending', icon: TrendingUp },
+    { name: 'Browse', href: '/dashboard', icon: Compass },
+    { name: 'Enhance', href: '/dashboard/enhance', icon: Wand2 },
     { name: 'Publier', href: '/publish', icon: Share },
     { name: 'Paramètres', href: '/settings', icon: Settings },
   ]
@@ -93,12 +92,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           </div>
         </div>
 
-        {/* Quick action */}
+        {/* Quick action — secondary upload */}
         <div className="px-4 pt-4">
           <Link href="/create">
-            <Button className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-md font-semibold gap-2 h-10">
-              <Plus className="h-4 w-4" />
-              Nouvelle vidéo
+            <Button variant="outline" className="w-full border-dashed border-border hover:border-primary/40 text-muted-foreground hover:text-foreground font-medium gap-2 h-9 text-sm">
+              <Upload className="h-3.5 w-3.5" />
+              Importer ma vidéo
             </Button>
           </Link>
         </div>
@@ -107,6 +106,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           {navigation.map((item) => {
             const isActive = item.href === '/dashboard'
               ? pathname === '/dashboard'
+              : item.href === '/dashboard/enhance'
+              ? pathname?.startsWith('/dashboard/enhance')
               : pathname?.startsWith(item.href) && item.href !== '/dashboard'
             return (
               <Link key={item.name} href={item.href}>
