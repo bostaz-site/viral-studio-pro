@@ -11,7 +11,6 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { TrendingCard } from '@/components/trending/trending-card'
 import { TrendingFilters } from '@/components/trending/trending-filters'
-import { TrendingStatsPanel } from '@/components/trending/trending-stats'
 import { useTrendingStore, type TrendingClip } from '@/stores/trending-store'
 import { cn } from '@/lib/utils'
 
@@ -23,15 +22,12 @@ export default function DashboardPage() {
 
   const {
     filteredClips,
-    stats,
     filters,
     loading,
     refreshing,
     error,
-    usingSeed,
     autoRefreshEnabled,
     autoRefreshInterval,
-    lastRefreshed,
     clips,
     setFilters,
     setAutoRefresh,
@@ -166,21 +162,22 @@ export default function DashboardPage() {
         </Card>
       )}
 
-      {/* Seed data notice */}
-      {usingSeed && !loading && (
+      {/* New clips counter */}
+      {!loading && filteredClips.length > 0 && (
         <Card className="border-primary/20 bg-primary/5">
-          <CardContent className="p-3 flex items-center gap-3 text-sm">
-            <Sparkles className="h-4 w-4 text-primary shrink-0" />
-            <p className="text-muted-foreground">
-              <span className="text-foreground font-medium">Donn&eacute;es de d&eacute;mo.</span>{' '}
-              Cliquez sur &laquo; Twitch &raquo; pour importer de vrais clips.
-            </p>
+          <CardContent className="p-3 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center">
+                <Sparkles className="h-4 w-4 text-primary" />
+              </div>
+              <p className="text-sm">
+                <span className="font-bold text-foreground">{filteredClips.length} clips trending</span>
+                <span className="text-muted-foreground"> disponibles maintenant</span>
+              </p>
+            </div>
           </CardContent>
         </Card>
       )}
-
-      {/* Stats Panel */}
-      <TrendingStatsPanel stats={stats} lastRefreshed={lastRefreshed} loading={loading} />
 
       {/* Filters */}
       <TrendingFilters

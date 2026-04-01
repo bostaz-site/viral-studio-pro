@@ -4,97 +4,12 @@
 import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { motion, useInView } from 'framer-motion'
+import { useInView } from 'framer-motion'
 import {
   TrendingUp, MonitorPlay, ArrowRight, Play, Users, Film,
-  Link2, ChevronDown, Sparkles,
+  Link2,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-
-// ─── Clip data with real Twitch thumbnails ──────────────────────────────────
-
-export const STREAMER_CLIPS = [
-  {
-    streamer: 'KaiCenat',
-    handle: '@kaicenat',
-    thumbnail: 'https://static-cdn.jtvnw.net/twitch-clips/88IOIjUFzPnqNfIAxkEg4Q/AT-cm%7C88IOIjUFzPnqNfIAxkEg4Q-preview-480x272.jpg',
-    score: 97,
-    platform: 'tiktok' as const,
-    caption: ['Kevin Hart', 'gets', 'DRENCHED'],
-    highlightIdx: 2,
-    brollGradient: 'from-emerald-600/80 to-teal-500/80',
-  },
-  {
-    streamer: 'Jynxzi',
-    handle: '@jynxzi',
-    thumbnail: 'https://static-cdn.jtvnw.net/twitch-clips/STEG3XE8W9bFbKHyEwN5Jg/AT-cm%7CSTEG3XE8W9bFbKHyEwN5Jg-preview-480x272.jpg',
-    score: 94,
-    platform: 'youtube' as const,
-    caption: ['Kiss', 'on the', 'LIPS'],
-    highlightIdx: 2,
-    brollGradient: 'from-orange-500/80 to-amber-500/80',
-  },
-  {
-    streamer: 'xQc',
-    handle: '@xqc',
-    thumbnail: 'https://static-cdn.jtvnw.net/twitch-clips/AT-cm%7C961443378-preview-480x272.jpg',
-    score: 92,
-    platform: 'instagram' as const,
-    caption: ['Makes', 'the WRONG', 'choice'],
-    highlightIdx: 1,
-    brollGradient: 'from-blue-600/80 to-cyan-500/80',
-  },
-  {
-    streamer: 'HasanAbi',
-    handle: '@hasanabi',
-    thumbnail: 'https://static-cdn.jtvnw.net/twitch-clips/AT-cm%7C902106752-preview-480x272.jpg',
-    score: 89,
-    platform: 'tiktok' as const,
-    caption: ['Left with', 'a', '50/50'],
-    highlightIdx: 2,
-    brollGradient: 'from-purple-600/80 to-pink-500/80',
-  },
-  {
-    streamer: 'AdinRoss',
-    handle: '@adinross',
-    thumbnail: 'https://static-cdn.jtvnw.net/twitch-clips/kN5xYj8Vta-j59QgA_wgSg/AT-cm%7CkN5xYj8Vta-j59QgA_wgSg-preview-480x272.jpg',
-    score: 91,
-    platform: 'youtube' as const,
-    caption: ['Good', 'ADVICE', 'bro'],
-    highlightIdx: 1,
-    brollGradient: 'from-red-500/80 to-orange-500/80',
-  },
-  {
-    streamer: 'IShowSpeed',
-    handle: '@ishowspeed',
-    thumbnail: 'https://static-cdn.jtvnw.net/twitch-clips-thumbnails-prod/FlaccidRealChoughPRChase-sxx8aLkNwPOo1Jyv/8c2313f0-d1a4-4bf7-b5c5-8e71e7661418/preview-480x272.jpg',
-    score: 93,
-    platform: 'instagram' as const,
-    caption: ['Jump', 'scared by', 'COFFEE'],
-    highlightIdx: 2,
-    brollGradient: 'from-yellow-500/80 to-orange-500/80',
-  },
-  {
-    streamer: 'Marlon',
-    handle: '@marlon',
-    thumbnail: 'https://static-cdn.jtvnw.net/twitch-clips-thumbnails-prod/NastyPrettiestGrassItsBoshyTime-e7AxBVAwRXaRV5pc/5e34c5b0-ed3c-449d-afdc-7ec8b988a89b/preview-480x272.jpg',
-    score: 88,
-    platform: 'tiktok' as const,
-    caption: ['More', 'than', 'FRIENDS'],
-    highlightIdx: 2,
-    brollGradient: 'from-emerald-500/80 to-lime-500/80',
-  },
-  {
-    streamer: 'Sketch',
-    handle: '@sketch',
-    thumbnail: 'https://static-cdn.jtvnw.net/twitch-clips/EsTVs1C6OcD6wNMP8QL8NQ/AT-cm%7CEsTVs1C6OcD6wNMP8QL8NQ-preview-480x272.jpg',
-    score: 86,
-    platform: 'youtube' as const,
-    caption: ['Strong', 'Minecraft', 'WEAPONS'],
-    highlightIdx: 2,
-    brollGradient: 'from-indigo-500/80 to-violet-500/80',
-  },
-]
 
 // ─── Platform SVG Icons ─────────────────────────────────────────────────────
 
@@ -130,16 +45,6 @@ function InstagramLogo({ className }: { className?: string }) {
   )
 }
 
-type Platform = 'tiktok' | 'youtube' | 'instagram'
-
-function PlatformIcon({ platform, className }: { platform: Platform; className?: string }) {
-  switch (platform) {
-    case 'tiktok': return <TikTokLogo className={className} />
-    case 'youtube': return <YouTubeLogo className={className} />
-    case 'instagram': return <InstagramLogo className={className} />
-  }
-}
-
 // ─── useCountUp ─────────────────────────────────────────────────────────────
 
 function useCountUp(target: number, duration = 1500) {
@@ -162,196 +67,9 @@ function useCountUp(target: number, duration = 1500) {
   return { count, ref }
 }
 
-// ─── ClipCard ───────────────────────────────────────────────────────────────
+// ─── Hero Demo (shared animation) ───────────────────────────────────────────
 
-export function ClipCard({ clip, delay = 0 }: { clip: typeof STREAMER_CLIPS[0]; delay?: number }) {
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 30, scale: 0.95 }}
-      animate={{ opacity: 1, y: 0, scale: 1 }}
-      transition={{ duration: 0.5, delay, ease: 'easeOut' }}
-      className="w-[145px] sm:w-[165px] flex-shrink-0"
-    >
-      <div
-        className="relative rounded-[1.2rem] border border-white/10 overflow-hidden bg-black shadow-2xl shadow-black/40 hover:shadow-blue-500/15 transition-shadow duration-300"
-        style={{ aspectRatio: '9/16' }}
-      >
-        {/* Top 60%: Twitch thumbnail */}
-        <div className="absolute inset-x-0 top-0 h-[60%] overflow-hidden">
-          <img
-            src={clip.thumbnail}
-            alt={clip.streamer}
-            className="w-full h-full object-cover"
-            loading="lazy"
-          />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
-
-          {/* Platform icon — top left */}
-          <div className="absolute top-2 left-2 w-5 h-5 rounded-full bg-black/60 backdrop-blur-sm flex items-center justify-center">
-            <PlatformIcon platform={clip.platform} className="w-3 h-3 text-white" />
-          </div>
-
-          {/* Streamer handle — top right */}
-          <div className="absolute top-2 right-2 bg-black/60 backdrop-blur-sm rounded-full px-1.5 py-0.5">
-            <span className="text-[8px] sm:text-[9px] font-bold text-white">{clip.handle}</span>
-          </div>
-        </div>
-
-        {/* Karaoke subtitles — at the junction */}
-        <div className="absolute top-[52%] left-1/2 -translate-x-1/2 z-10 bg-black/80 rounded-lg px-2 py-1 backdrop-blur-sm">
-          <p className="text-[9px] sm:text-[10px] font-black text-center whitespace-nowrap">
-            {clip.caption.map((word, i) => (
-              <span key={i}>
-                {i === clip.highlightIdx ? (
-                  <span className="text-yellow-400 bg-yellow-400/20 px-0.5 rounded">{word}</span>
-                ) : (
-                  <span className="text-white">{word}</span>
-                )}
-                {i < clip.caption.length - 1 && ' '}
-              </span>
-            ))}
-          </p>
-        </div>
-
-        {/* Divider line */}
-        <div className="absolute top-[60%] inset-x-0 h-0.5 bg-gradient-to-r from-transparent via-blue-400/60 to-transparent z-10" />
-
-        {/* Bottom 40%: B-roll simulation */}
-        <div className={`absolute inset-x-0 bottom-0 h-[40%] bg-gradient-to-br ${clip.brollGradient} overflow-hidden`}>
-          <div
-            className="absolute inset-0 opacity-20"
-            style={{
-              backgroundImage: 'repeating-linear-gradient(-45deg, transparent, transparent 8px, rgba(255,255,255,0.15) 8px, rgba(255,255,255,0.15) 16px)',
-              backgroundSize: '22px 22px',
-              animation: 'broll-slide 2s linear infinite',
-            }}
-          />
-          <div className="absolute inset-0 flex items-center justify-center">
-            <div className="w-6 h-6 rounded-full bg-white/10 border border-white/20 flex items-center justify-center">
-              <Play className="h-2.5 w-2.5 text-white/50 ml-0.5" />
-            </div>
-          </div>
-        </div>
-
-        {/* Viral score badge — bottom left */}
-        <div className="absolute bottom-2 left-2 bg-gradient-to-r from-yellow-500 to-amber-500 rounded-lg px-1.5 py-0.5 shadow-lg shadow-yellow-500/25">
-          <div className="flex items-center gap-0.5">
-            <TrendingUp className="h-2.5 w-2.5 text-black" />
-            <span className="text-[10px] font-black text-black">{clip.score}</span>
-          </div>
-        </div>
-      </div>
-    </motion.div>
-  )
-}
-
-// ─── Stream → Clips Demo ────────────────────────────────────────────────────
-
-function StreamToClipsDemo() {
-  const [phase, setPhase] = useState(0)
-
-  useEffect(() => {
-    setPhase(1)
-    const t1 = setTimeout(() => setPhase(2), 2500)
-    const t2 = setTimeout(() => setPhase(3), 3500)
-    return () => { clearTimeout(t1); clearTimeout(t2) }
-  }, [])
-
-  const demoClips = STREAMER_CLIPS.slice(0, 6)
-
-  return (
-    <div className="mt-14">
-      {/* Keyframes */}
-      <style dangerouslySetInnerHTML={{ __html: `
-        @keyframes carousel-scroll { from { transform: translateX(0); } to { transform: translateX(-50%); } }
-        @keyframes broll-slide { from { background-position: 0 0; } to { background-position: 22px 22px; } }
-      ` }} />
-
-      {/* Stream preview (landscape 16:9) */}
-      <motion.div
-        initial={{ opacity: 0, scale: 0.95 }}
-        animate={{
-          opacity: phase >= 1 ? 1 : 0,
-          scale: phase >= 2 ? 0.88 : phase >= 1 ? 1 : 0.95,
-          y: phase >= 2 ? -10 : 0,
-        }}
-        transition={{ duration: 0.6, ease: 'easeInOut' }}
-        className="relative mx-auto max-w-2xl rounded-2xl overflow-hidden border border-white/10 shadow-2xl shadow-blue-500/10"
-        style={{ aspectRatio: '16/9' }}
-      >
-        <img
-          src={STREAMER_CLIPS[0].thumbnail}
-          alt="Stream en direct"
-          className="w-full h-full object-cover"
-        />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent" />
-
-        {/* LIVE badge */}
-        <div className="absolute top-3 sm:top-4 left-3 sm:left-4 flex items-center gap-2">
-          <div className="flex items-center gap-1.5 bg-red-600 rounded px-2 py-0.5">
-            <div className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
-            <span className="text-[10px] sm:text-xs font-bold text-white">LIVE</span>
-          </div>
-          <span className="text-[10px] sm:text-xs text-white/80 font-medium bg-black/40 rounded px-2 py-0.5 backdrop-blur-sm hidden sm:inline">
-            2h34m de stream
-          </span>
-        </div>
-
-        {/* Play button */}
-        <div className="absolute inset-0 flex items-center justify-center">
-          <motion.div
-            animate={{ scale: [1, 1.08, 1] }}
-            transition={{ duration: 2, repeat: Infinity }}
-            className="w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-white/10 border-2 border-white/20 flex items-center justify-center backdrop-blur-sm"
-          >
-            <Play className="h-6 w-6 sm:h-7 sm:w-7 text-white ml-1" />
-          </motion.div>
-        </div>
-
-        {/* Streamer info */}
-        <div className="absolute bottom-3 sm:bottom-4 left-3 sm:left-4 flex items-center gap-2">
-          <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center text-white text-[10px] font-bold">
-            K
-          </div>
-          <div>
-            <p className="text-xs sm:text-sm font-bold text-white">KaiCenat</p>
-            <p className="text-[10px] sm:text-xs text-white/60">Just Chatting &middot; 67K viewers</p>
-          </div>
-        </div>
-      </motion.div>
-
-      {/* Split indicator */}
-      <motion.div
-        initial={{ opacity: 0, scaleY: 0 }}
-        animate={{ opacity: phase >= 2 ? 1 : 0, scaleY: phase >= 2 ? 1 : 0 }}
-        transition={{ duration: 0.4 }}
-        className="flex flex-col items-center py-3 origin-top"
-      >
-        <div className="w-px h-5 bg-gradient-to-b from-blue-500/60 to-indigo-500/60" />
-        <div className="flex items-center gap-2 bg-blue-500/10 border border-blue-500/20 rounded-full px-3 py-1">
-          <Sparkles className="h-3 w-3 text-blue-400" />
-          <span className="text-[11px] sm:text-xs text-blue-400 font-semibold">IA split en 6 clips viraux</span>
-        </div>
-        <div className="w-px h-5 bg-gradient-to-b from-indigo-500/60 to-transparent" />
-        <ChevronDown className="h-4 w-4 text-indigo-400/50 -mt-1" />
-      </motion.div>
-
-      {/* Clips carousel */}
-      {phase >= 3 && (
-        <div className="overflow-hidden">
-          <div
-            className="flex gap-4 w-max hover:[animation-play-state:paused]"
-            style={{ animation: 'carousel-scroll 35s linear infinite', animationDelay: '1s' }}
-          >
-            {[...demoClips, ...demoClips].map((clip, i) => (
-              <ClipCard key={`${clip.streamer}-${i}`} clip={clip} delay={i < 6 ? i * 0.12 : 0} />
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
-  )
-}
+import { ClipTransformAnimation } from '@/components/shared/clip-transform-animation'
 
 // ─── URL Input Bar ──────────────────────────────────────────────────────────
 
@@ -515,8 +233,10 @@ export function HeroSection() {
             </p>
           </div>
 
-          {/* Stream → Clips Demo */}
-          <StreamToClipsDemo />
+          {/* Clip transformation demo */}
+          <div className="mt-14">
+            <ClipTransformAnimation />
+          </div>
 
           {/* URL Input */}
           <UrlInputBar />

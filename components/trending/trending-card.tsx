@@ -1,7 +1,8 @@
 "use client"
 
 import { useState } from 'react'
-import { Eye, Heart, ExternalLink, Clapperboard, Play } from 'lucide-react'
+import Link from 'next/link'
+import { Eye, Heart, ExternalLink, Clapperboard, Play, Crown, Lock } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { VelocityBadge } from '@/components/trending/velocity-badge'
@@ -28,7 +29,10 @@ interface TrendingCardProps {
   clip: TrendingClip
   onRemix?: (clip: TrendingClip) => void
   remixing?: boolean
+  isPremiumUser?: boolean
 }
+
+const PREMIUM_THRESHOLD = 85
 
 const PLATFORM_STYLES: Record<string, { label: string; colorClass: string }> = {
   twitch:         { label: 'Twitch',         colorClass: 'text-purple-400 bg-purple-500/15 border-purple-500/30' },
@@ -58,8 +62,10 @@ function timeAgo(dateStr: string | null): string {
   return `${Math.floor(diff / 86400)}j`
 }
 
-export function TrendingCard({ clip, onRemix, remixing = false }: TrendingCardProps) {
+export function TrendingCard({ clip, onRemix, remixing = false, isPremiumUser = false }: TrendingCardProps) {
   const [imgError, setImgError] = useState(false)
+
+  const isLocked = !isPremiumUser && (clip.velocity_score ?? 0) >= PREMIUM_THRESHOLD
 
   const platformStyle = PLATFORM_STYLES[clip.platform.toLowerCase()] ?? {
     label: clip.platform,
@@ -71,7 +77,12 @@ export function TrendingCard({ clip, onRemix, remixing = false }: TrendingCardPr
   const gameLabel = GAME_LABELS[gameKey] ?? clip.niche
 
   return (
-    <Card className="bg-card/60 border-border overflow-hidden group hover:border-primary/40 transition-all duration-200 hover:shadow-lg hover:shadow-primary/5">
+    <Card className={cn(
+      'bg-card/60 border-border overflow-hidden group transition-all duration-200',
+      isLocked
+        ? 'hover:border-amber-500/40 hover:shadow-lg hover:shadow-amber-500/5'
+        : 'hover:border-primary/40 hover:shadow-lg hover:shadow-primary/5'
+    )}>
       {/* Thumbnail */}
       <div className="aspect-[9/16] max-h-52 relative overflow-hidden bg-gradient-to-br from-slate-900 to-slate-800">
         {clip.thumbnail_url && !imgError ? (
@@ -79,7 +90,10 @@ export function TrendingCard({ clip, onRemix, remixing = false }: TrendingCardPr
           <img
             src={clip.thumbnail_url}
             alt={clip.title ?? 'Clip de stream'}
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+            className={cn(
+              'w-full h-full object-cover transition-all duration-300',
+              isLocked ? 'blur-md scale-105' : 'group-hover:scale-105'
+            )}
             onError={() => setImgError(true)}
           />
         ) : (
@@ -88,13 +102,33 @@ export function TrendingCard({ clip, onRemix, remixing = false }: TrendingCardPr
           </div>
         )}
 
-        {/* Platform badge */}
-        <span className={cn(
-          'absolute top-2 left-2 text-xs font-bold px-2 py-0.5 rounded-full border backdrop-blur-sm',
-          platformStyle.colorClass
-        )}>
-          {platformStyle.label}
-        </span>
+        {/* Premium overlay */}
+        {isLocked && (
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px] flex flex-col items-center justify-center z-10">
+            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-yellow-500 to-amber-600 flex items-center justify-center shadow-lg shadow-amber-500/30 mb-2">
+              <Crown className="h-5 w-5 text-white" />
+            </div>
+            <span className="text-xs font-bold text-white">Premium requis</span>
+          </div>
+        )}
+
+        {/* PRO badge for locked clips */}
+        {isLocked && (
+          <div className="absolute top-2 left-2 z-20 flex items-center gap-1 bg-gradient-to-r from-yellow-500 to-amber-500 text-black text-[10px] font-black px-2 py-0.5 rounded-full shadow-lg">
+            <Crown className="h-2.5 w-2.5" />
+            PRO
+          </div>
+        )}
+
+        {/* Platform badge — only show if not locked */}
+        {!isLocked && (
+          <span className={cn(
+            'absolute top-2 left-2 text-xs font-bold px-2 py-0.5 rounded-full border backdrop-blur-sm',
+            platformStyle.colorClass
+          )}>
+            {platformStyle.label}
+          </span>
+        )}
 
         {/* Velocity badge */}
         <div className="absolute top-2 right-2">
@@ -102,19 +136,21 @@ export function TrendingCard({ clip, onRemix, remixing = false }: TrendingCardPr
         </div>
 
         {/* External link */}
-        <a
-          href={clip.external_url}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="absolute bottom-2 right-2 p-1.5 rounded-lg bg-black/60 backdrop-blur-sm text-white/70 hover:text-white transition-colors opacity-0 group-hover:opacity-100"
-          onClick={(e) => e.stopPropagation()}
-          title="Voir l'original"
-        >
-          <ExternalLink className="h-3.5 w-3.5" />
-        </a>
+        {!isLocked && (
+          <a
+            href={clip.external_url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="absolute bottom-2 right-2 p-1.5 rounded-lg bg-black/60 backdrop-blur-sm text-white/70 hover:text-white transition-colors opacity-0 group-hover:opacity-100"
+            onClick={(e) => e.stopPropagation()}
+            title="Voir l'original"
+          >
+            <ExternalLink className="h-3.5 w-3.5" />
+          </a>
+        )}
 
         {/* Scraped time */}
-        {clip.scraped_at && (
+        {!isLocked && clip.scraped_at && (
           <span className="absolute bottom-2 left-2 text-[10px] text-white/50 bg-black/40 px-1.5 py-0.5 rounded-md backdrop-blur-sm">
             il y a {timeAgo(clip.scraped_at)}
           </span>
@@ -123,7 +159,10 @@ export function TrendingCard({ clip, onRemix, remixing = false }: TrendingCardPr
 
       <CardContent className="p-3 space-y-2">
         {/* Title */}
-        <p className="text-sm font-medium leading-tight line-clamp-2 text-foreground">
+        <p className={cn(
+          'text-sm font-medium leading-tight line-clamp-2',
+          isLocked ? 'text-muted-foreground' : 'text-foreground'
+        )}>
           {clip.title ?? clip.author_name ?? 'Clip de stream'}
         </p>
 
@@ -132,7 +171,7 @@ export function TrendingCard({ clip, onRemix, remixing = false }: TrendingCardPr
           <p className="text-xs text-muted-foreground truncate">
             @{clip.author_handle}
             {clip.author_name && clip.author_name !== clip.author_handle && (
-              <span className="ml-1 text-muted-foreground/60">· {clip.author_name}</span>
+              <span className="ml-1 text-muted-foreground/60">&middot; {clip.author_name}</span>
             )}
           </p>
         )}
@@ -156,16 +195,29 @@ export function TrendingCard({ clip, onRemix, remixing = false }: TrendingCardPr
           )}
         </div>
 
-        {/* Clip button */}
-        <Button
-          size="sm"
-          className="w-full h-8 text-xs gap-1.5 mt-1"
-          onClick={(e) => { e.stopPropagation(); onRemix?.(clip) }}
-          disabled={remixing}
-        >
-          <Clapperboard className="h-3.5 w-3.5" />
-          {remixing ? 'Création…' : 'Clipper'}
-        </Button>
+        {/* Clip / Enhance button */}
+        {isLocked ? (
+          <Link href="/settings" onClick={(e) => e.stopPropagation()}>
+            <Button
+              size="sm"
+              variant="outline"
+              className="w-full h-8 text-xs gap-1.5 mt-1 border-amber-500/30 text-amber-400 hover:bg-amber-500/10"
+            >
+              <Lock className="h-3 w-3" />
+              Passe &agrave; Premium
+            </Button>
+          </Link>
+        ) : (
+          <Button
+            size="sm"
+            className="w-full h-8 text-xs gap-1.5 mt-1"
+            onClick={(e) => { e.stopPropagation(); onRemix?.(clip) }}
+            disabled={remixing}
+          >
+            <Clapperboard className="h-3.5 w-3.5" />
+            {remixing ? 'Cr\u00e9ation\u2026' : 'Enhance'}
+          </Button>
+        )}
       </CardContent>
     </Card>
   )
