@@ -1,13 +1,13 @@
 /* eslint-disable @next/next/no-img-element */
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useMemo } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import {
   ChevronLeft, Loader2, AlertCircle, Sparkles, Download,
   Type, Wand2, Eye, Heart, ExternalLink, Play,
-  Monitor, Paintbrush, TrendingUp,
+  Monitor, Paintbrush, TrendingUp, Zap, CheckCircle2,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -214,6 +214,165 @@ function SplitScreenPreview({
   )
 }
 
+// ─── AI Style Suggestion Engine ─────────────────────────────────────────────
+
+interface StyleSuggestion {
+  captionStyle: string
+  captionAnimation: string
+  brollVideo: string
+  splitRatio: number
+  score: number
+  reason: string
+}
+
+/**
+ * Compute the best style suggestion based on clip metadata.
+ * Uses heuristics based on streamer type, niche, velocity, and view count.
+ */
+function computeStyleSuggestion(clip: TrendingClipData): StyleSuggestion {
+  const velocity = clip.velocity_score ?? 50
+  const views = clip.view_count ?? 0
+  const niche = clip.niche?.toLowerCase() ?? 'irl'
+  const author = clip.author_handle?.toLowerCase() ?? ''
+
+  // Determine energy level from velocity + views
+  const isHighEnergy = velocity >= 70 || views >= 1_000_000
+  const isMidEnergy = velocity >= 40 || views >= 100_000
+
+  // Caption style scoring
+  let captionStyle = 'hormozi'
+  let captionAnimation = 'highlight'
+  let captionReason = ''
+
+  if (isHighEnergy) {
+    captionStyle = 'mrbeast'
+    captionAnimation = 'pop'
+    captionReason = 'Clip haute \u00e9nergie — le style MrBeast bold + animation Pop maximise l\u2019impact visuel'
+  } else if (niche === 'irl' || niche === 'just chatting') {
+    captionStyle = 'hormozi'
+    captionAnimation = 'highlight'
+    captionReason = 'Contenu IRL/talking — Hormozi + Highlight met en avant les punchlines'
+  } else if (isMidEnergy) {
+    captionStyle = 'bold'
+    captionAnimation = 'bounce'
+    captionReason = '\u00c9nergie moyenne — Bold + Bounce garde l\u2019attention sans surcharger'
+  } else {
+    captionStyle = 'aliabdaal'
+    captionAnimation = 'typewriter'
+    captionReason = 'Clip calme — Ali Abdaal + Typewriter donne un ton pro et clean'
+  }
+
+  // B-roll scoring
+  let brollVideo = 'subway-surfers'
+  let brollReason = ''
+
+  if (isHighEnergy) {
+    brollVideo = 'minecraft-parkour'
+    brollReason = 'Minecraft Parkour synce bien avec l\u2019\u00e9nergie rapide du clip'
+  } else if (niche === 'irl') {
+    brollVideo = 'subway-surfers'
+    brollReason = 'Subway Surfers est le classique pour les clips IRL — maximise la r\u00e9tention'
+  } else {
+    brollVideo = 'sand-cutting'
+    brollReason = 'Sand Cutting ASMR pour un clip plus pos\u00e9 — satisfaction visuelle'
+  }
+
+  // Split ratio
+  const splitRatio = isHighEnergy ? 65 : 60
+
+  // Compute overall score
+  let score = 72 // base
+  if (isHighEnergy) score += 15
+  else if (isMidEnergy) score += 8
+  if (niche === 'irl') score += 5
+  if (velocity >= 80) score += 5
+  score = Math.min(98, score)
+
+  return {
+    captionStyle,
+    captionAnimation,
+    brollVideo,
+    splitRatio,
+    score,
+    reason: `${captionReason}. ${brollReason}.`,
+  }
+}
+
+function AISuggestionPanel({
+  clip,
+  suggestion,
+  onApply,
+}: {
+  clip: TrendingClipData
+  suggestion: StyleSuggestion
+  onApply: () => void
+}) {
+  const captionLabel = CAPTION_STYLES.find((s) => s.id === suggestion.captionStyle)?.label ?? suggestion.captionStyle
+  const animLabel = CAPTION_ANIMATIONS.find((a) => a.id === suggestion.captionAnimation)?.label ?? suggestion.captionAnimation
+  const brollLabel = BROLL_OPTIONS.find((b) => b.id === suggestion.brollVideo)?.label ?? suggestion.brollVideo
+
+  return (
+    <Card className="bg-gradient-to-br from-primary/10 via-card/80 to-purple-500/10 border-primary/30 shadow-lg shadow-primary/5">
+      <CardContent className="p-4 space-y-4">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-primary to-purple-600 flex items-center justify-center shadow-lg shadow-primary/30">
+              <Sparkles className="h-4.5 w-4.5 text-white" />
+            </div>
+            <div>
+              <p className="text-sm font-bold text-foreground">Suggestion IA</p>
+              <p className="text-[10px] text-muted-foreground">
+                Bas\u00e9e sur le type de contenu et la v\u00e9locit\u00e9
+              </p>
+            </div>
+          </div>
+          {/* Score badge */}
+          <div className="flex items-center gap-1.5 bg-gradient-to-r from-green-500 to-emerald-500 rounded-full px-3 py-1.5 shadow-lg shadow-green-500/20">
+            <Zap className="h-3.5 w-3.5 text-white" />
+            <span className="text-sm font-black text-white">{suggestion.score}</span>
+            <span className="text-[10px] text-white/70">/100</span>
+          </div>
+        </div>
+
+        {/* Recommended settings */}
+        <div className="grid grid-cols-3 gap-2">
+          <div className="rounded-lg bg-card/60 border border-border p-2.5 space-y-1">
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Sous-titres</p>
+            <p className="text-xs font-semibold text-foreground">{captionLabel}</p>
+            <p className="text-[10px] text-primary">{animLabel}</p>
+          </div>
+          <div className="rounded-lg bg-card/60 border border-border p-2.5 space-y-1">
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Split-Screen</p>
+            <p className="text-xs font-semibold text-foreground">{brollLabel}</p>
+            <p className="text-[10px] text-primary">{suggestion.splitRatio}% / {100 - suggestion.splitRatio}%</p>
+          </div>
+          <div className="rounded-lg bg-card/60 border border-border p-2.5 space-y-1">
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Format</p>
+            <p className="text-xs font-semibold text-foreground">9:16</p>
+            <p className="text-[10px] text-primary">TikTok / Reels</p>
+          </div>
+        </div>
+
+        {/* Explanation */}
+        <p className="text-xs text-muted-foreground leading-relaxed">
+          {suggestion.reason}
+        </p>
+
+        {/* Apply button */}
+        <Button
+          size="sm"
+          className="w-full gap-2 bg-gradient-to-r from-primary to-purple-600 hover:from-primary/90 hover:to-purple-600/90 text-white font-semibold shadow-lg shadow-primary/20"
+          onClick={onApply}
+        >
+          <CheckCircle2 className="h-4 w-4" />
+          Appliquer la suggestion IA
+        </Button>
+      </CardContent>
+    </Card>
+  )
+}
+
 // ─── Main Page ──────────────────────────────────────────────────────────────
 
 export default function EnhancePage() {
@@ -330,6 +489,26 @@ export default function EnhancePage() {
       setRendering(false)
     }
   }, [clip, settings, router])
+
+  // ── AI Suggestion ──────────────────────────────────────────────────────
+
+  const aiSuggestion = useMemo(() => {
+    if (!clip) return null
+    return computeStyleSuggestion(clip)
+  }, [clip])
+
+  const applyAISuggestion = useCallback(() => {
+    if (!aiSuggestion) return
+    setSettings((s) => ({
+      ...s,
+      captionStyle: aiSuggestion.captionStyle,
+      captionAnimation: aiSuggestion.captionAnimation,
+      brollVideo: aiSuggestion.brollVideo,
+      splitRatio: aiSuggestion.splitRatio,
+      splitScreenEnabled: true,
+      captionsEnabled: true,
+    }))
+  }, [aiSuggestion])
 
   // ── Loading / Error states ─────────────────────────────────────────────
 
@@ -659,27 +838,19 @@ export default function EnhancePage() {
                 </CardContent>
               </Card>
 
-              {/* AI Hook suggestion */}
-              <Card className="bg-primary/5 border-primary/20">
-                <CardContent className="p-4">
-                  <div className="flex items-start gap-3">
-                    <div className="w-8 h-8 rounded-lg bg-primary/20 flex items-center justify-center shrink-0">
-                      <Sparkles className="h-4 w-4 text-primary" />
-                    </div>
-                    <div>
-                      <p className="text-sm font-semibold text-foreground">Suggestion IA</p>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        Le meilleur hook pour ce clip serait un format &laquo; curiosity &raquo; :
-                        <span className="text-foreground font-medium block mt-1">
-                          &laquo; Personne ne s&apos;attendait &agrave; &ccedil;a pendant le live de {clip.author_handle ?? 'ce streamer'}&hellip; &raquo;
-                        </span>
-                      </p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
             </TabsContent>
           </Tabs>
+
+          {/* AI Style Suggestion — below all tabs */}
+          {clip && aiSuggestion && (
+            <div className="mt-6">
+              <AISuggestionPanel
+                clip={clip}
+                suggestion={aiSuggestion}
+                onApply={applyAISuggestion}
+              />
+            </div>
+          )}
         </div>
       </div>
     </div>
