@@ -1,11 +1,12 @@
 "use client"
 
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import Link from 'next/link'
 import { Eye, Heart, ExternalLink, Clapperboard, Play, Crown, Lock } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { VelocityBadge } from '@/components/trending/velocity-badge'
+import { twitchThumbnailToVideoUrl } from '@/lib/twitch/thumbnail-to-video'
 import { cn } from '@/lib/utils'
 
 export interface TrendingClip {
@@ -64,8 +65,12 @@ function timeAgo(dateStr: string | null): string {
 
 export function TrendingCard({ clip, onRemix, remixing = false, isPremiumUser = false }: TrendingCardProps) {
   const [imgError, setImgError] = useState(false)
+  const [videoError, setVideoError] = useState(false)
+  const videoRef = useRef<HTMLVideoElement>(null)
 
   const isLocked = !isPremiumUser && (clip.velocity_score ?? 0) >= PREMIUM_THRESHOLD
+  const videoUrl = clip.thumbnail_url ? twitchThumbnailToVideoUrl(clip.thumbnail_url) : null
+  const useVideo = videoUrl && !videoError && !isLocked
 
   const platformStyle = PLATFORM_STYLES[clip.platform.toLowerCase()] ?? {
     label: clip.platform,
@@ -85,7 +90,19 @@ export function TrendingCard({ clip, onRemix, remixing = false, isPremiumUser = 
     )}>
       {/* Thumbnail */}
       <div className="aspect-[9/16] max-h-52 relative overflow-hidden bg-gradient-to-br from-slate-900 to-slate-800">
-        {clip.thumbnail_url && !imgError ? (
+        {useVideo ? (
+          <video
+            ref={videoRef}
+            src={videoUrl}
+            poster={clip.thumbnail_url ?? undefined}
+            autoPlay
+            muted
+            loop
+            playsInline
+            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+            onError={() => setVideoError(true)}
+          />
+        ) : clip.thumbnail_url && !imgError ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
             src={clip.thumbnail_url}

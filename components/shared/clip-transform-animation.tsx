@@ -5,7 +5,10 @@ import { useEffect, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { TrendingUp, Play, Eye, DollarSign, Type, Monitor } from 'lucide-react'
 
-const THUMBNAIL = 'https://static-cdn.jtvnw.net/twitch-clips/88IOIjUFzPnqNfIAxkEg4Q/AT-cm%7C88IOIjUFzPnqNfIAxkEg4Q-preview-480x272.jpg'
+// KaiCenat clip — old-format thumbnail so video URL works
+const CLIP_THUMBNAIL = 'https://static-cdn.jtvnw.net/twitch-clips/88IOIjUFzPnqNfIAxkEg4Q/AT-cm%7C88IOIjUFzPnqNfIAxkEg4Q-preview-480x272.jpg'
+const CLIP_VIDEO = 'https://clips-media-assets2.twitch.tv/88IOIjUFzPnqNfIAxkEg4Q/AT-cm%7C88IOIjUFzPnqNfIAxkEg4Q.mp4'
+const BROLL_VIDEO = '/assets/gameplay-broll.mp4'
 
 const KARAOKE_WORDS = ['Kevin', 'Hart', 'gets', 'DRENCHED']
 
@@ -13,7 +16,6 @@ export function ClipTransformAnimation({ compact = false }: { compact?: boolean 
   const [phase, setPhase] = useState(0)
   const [karaokeIdx, setKaraokeIdx] = useState(0)
 
-  // Phase cycle: 0→1→2→3→4→0
   useEffect(() => {
     const schedule = () => {
       const t1 = setTimeout(() => setPhase(1), 1800)
@@ -32,7 +34,6 @@ export function ClipTransformAnimation({ compact = false }: { compact?: boolean 
     return () => { timers.forEach(clearTimeout); clearInterval(loop) }
   }, [])
 
-  // Karaoke word highlight cycling (only in phase 1+)
   useEffect(() => {
     if (phase < 1) { setKaraokeIdx(0); return }
     const interval = setInterval(() => {
@@ -46,39 +47,26 @@ export function ClipTransformAnimation({ compact = false }: { compact?: boolean 
 
   return (
     <div className="flex flex-col items-center gap-5">
-      {/* Keyframes */}
-      <style dangerouslySetInnerHTML={{ __html: `
-        @keyframes coin-float {
-          0% { transform: translateY(0); opacity: 1; }
-          100% { transform: translateY(60px); opacity: 0; }
-        }
-        @keyframes track-scroll {
-          0% { background-position: 0 0; }
-          100% { background-position: 0 40px; }
-        }
-        @keyframes obstacle-move {
-          0% { transform: translateY(-20px) scale(0.8); opacity: 0; }
-          20% { opacity: 1; }
-          100% { transform: translateY(80px) scale(1.1); opacity: 0; }
-        }
-      ` }} />
-
       <div
         className="relative rounded-[1.8rem] overflow-hidden bg-black border-2 border-white/10 shadow-2xl shadow-blue-500/15 mx-auto"
         style={{ width: w, aspectRatio: '9/16' }}
       >
-        {/* ─── Top: Stream thumbnail ─────────────────────────────── */}
+        {/* ─── Top: Stream clip VIDEO ────────────────────────────── */}
         <motion.div
           animate={{ height: phase >= 1 ? '58%' : '100%' }}
           transition={{ duration: 0.7, ease: [0.4, 0, 0.2, 1] }}
           className="absolute inset-x-0 top-0 overflow-hidden"
         >
-          <img
-            src={THUMBNAIL}
-            alt="KaiCenat stream clip"
+          <video
+            src={CLIP_VIDEO}
+            poster={CLIP_THUMBNAIL}
+            autoPlay
+            muted
+            loop
+            playsInline
             className="w-full h-full object-cover"
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent" />
 
           {/* LIVE badge — phase 0 */}
           <AnimatePresence mode="wait">
@@ -139,15 +127,15 @@ export function ClipTransformAnimation({ compact = false }: { compact?: boolean 
               transition={{ duration: 0.4, delay: 0.15 }}
               className="absolute top-[50%] left-1/2 -translate-x-1/2 z-20 bg-black/85 rounded-xl px-3 py-2 backdrop-blur-md border border-white/5 shadow-xl"
             >
-              <p className="text-[11px] sm:text-xs font-black text-center whitespace-nowrap tracking-wide leading-relaxed">
+              <p className="text-[11px] sm:text-xs font-black text-center whitespace-nowrap tracking-wide">
                 {KARAOKE_WORDS.map((word, i) => (
                   <span key={i}>
                     <span
-                      className={`transition-all duration-200 inline-block ${
+                      className={`transition-all duration-150 inline-block ${
                         i === karaokeIdx
-                          ? 'text-yellow-400 bg-yellow-400/20 px-0.5 rounded scale-110'
+                          ? 'text-yellow-400 bg-yellow-400/25 px-0.5 rounded scale-110'
                           : i < karaokeIdx
-                          ? 'text-white/60'
+                          ? 'text-white/50'
                           : 'text-white'
                       }`}
                     >
@@ -173,7 +161,7 @@ export function ClipTransformAnimation({ compact = false }: { compact?: boolean 
           )}
         </AnimatePresence>
 
-        {/* ─── Bottom: Subway Surfers gameplay scene — phase 1+ ── */}
+        {/* ─── Bottom: B-roll gameplay VIDEO — phase 1+ ──────────── */}
         <AnimatePresence>
           {phase >= 1 && (
             <motion.div
@@ -182,56 +170,14 @@ export function ClipTransformAnimation({ compact = false }: { compact?: boolean 
               transition={{ duration: 0.6, ease: [0.4, 0, 0.2, 1] }}
               className="absolute inset-x-0 bottom-0 h-[42%] overflow-hidden"
             >
-              {/* Sky */}
-              <div className="absolute inset-0 bg-gradient-to-b from-sky-400 via-sky-300 to-emerald-400" />
-
-              {/* Tracks/ground */}
-              <div
-                className="absolute bottom-0 inset-x-0 h-[75%] bg-gradient-to-b from-gray-500 to-gray-600"
-                style={{
-                  backgroundImage: 'repeating-linear-gradient(0deg, transparent, transparent 18px, rgba(255,255,255,0.08) 18px, rgba(255,255,255,0.08) 20px)',
-                  backgroundSize: '100% 20px',
-                  animation: 'track-scroll 0.6s linear infinite',
-                }}
-              >
-                {/* Lane dividers */}
-                <div className="absolute inset-y-0 left-[33.3%] w-[2px] bg-yellow-400/30" />
-                <div className="absolute inset-y-0 left-[66.6%] w-[2px] bg-yellow-400/30" />
-
-                {/* Rails */}
-                <div className="absolute bottom-0 inset-x-0 h-[3px] bg-gray-400/50" />
-                <div className="absolute bottom-[6px] inset-x-0 h-[3px] bg-gray-400/50" />
-              </div>
-
-              {/* Coins */}
-              <div
-                className="absolute w-3 h-3 rounded-full bg-yellow-400 shadow-md shadow-yellow-400/50 border border-yellow-300"
-                style={{ top: '25%', left: '20%', animation: 'coin-float 1.2s linear infinite' }}
+              <video
+                src={BROLL_VIDEO}
+                autoPlay
+                muted
+                loop
+                playsInline
+                className="w-full h-full object-cover"
               />
-              <div
-                className="absolute w-3 h-3 rounded-full bg-yellow-400 shadow-md shadow-yellow-400/50 border border-yellow-300"
-                style={{ top: '15%', left: '50%', animation: 'coin-float 1.2s linear infinite 0.4s' }}
-              />
-              <div
-                className="absolute w-2.5 h-2.5 rounded-full bg-yellow-400 shadow-md shadow-yellow-400/50 border border-yellow-300"
-                style={{ top: '35%', left: '75%', animation: 'coin-float 1.2s linear infinite 0.8s' }}
-              />
-
-              {/* Obstacles */}
-              <div
-                className="absolute w-8 h-5 rounded-sm bg-red-500/90 border border-red-400/50 shadow-lg"
-                style={{ top: '20%', left: '65%', animation: 'obstacle-move 2s linear infinite' }}
-              />
-              <div
-                className="absolute w-6 h-6 rounded-sm bg-blue-500/90 border border-blue-400/50 shadow-lg"
-                style={{ top: '10%', left: '15%', animation: 'obstacle-move 2s linear infinite 0.7s' }}
-              />
-
-              {/* Character silhouette (center lane) */}
-              <div className="absolute bottom-[30%] left-1/2 -translate-x-1/2">
-                <div className="w-5 h-7 bg-orange-400 rounded-t-full rounded-b-sm shadow-lg border border-orange-300" />
-                <div className="w-3 h-2 bg-blue-500 rounded-sm mx-auto -mt-0.5" />
-              </div>
             </motion.div>
           )}
         </AnimatePresence>
