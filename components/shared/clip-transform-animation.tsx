@@ -20,7 +20,7 @@ interface StreamerScene {
 const SCENES: StreamerScene[] = [
   {
     handle: '@kaicenat',
-    thumbnail: 'https://static-cdn.jtvnw.net/twitch-clips/88IOIjUFzPnqNfIAxkEg4Q/AT-cm%7C88IOIjUFzPnqNfIAxkEg4Q-preview-480x272.jpg',
+    thumbnail: '/images/streamer-1.jpg',
     karaoke: ['Kevin', 'Hart', 'gets', 'DRENCHED'],
     scoreBefore: 47,
     scoreAfter: 96,
@@ -29,7 +29,7 @@ const SCENES: StreamerScene[] = [
   },
   {
     handle: '@ishowspeed',
-    thumbnail: 'https://static-cdn.jtvnw.net/twitch-clips-thumbnails-prod/FlaccidRealChoughPRChase-sxx8aLkNwPOo1Jyv/8c2313f0-d1a4-4bf7-b5c5-8e71e7661418/preview-480x272.jpg',
+    thumbnail: '/images/streamer-2.jpg',
     karaoke: ['Speed', 'gets', 'jump', 'SCARED'],
     scoreBefore: 52,
     scoreAfter: 98,
@@ -38,7 +38,7 @@ const SCENES: StreamerScene[] = [
   },
   {
     handle: '@xqc',
-    thumbnail: 'https://static-cdn.jtvnw.net/twitch-clips/AT-cm%7C961443378-preview-480x272.jpg',
+    thumbnail: '/images/streamer-3.jpg',
     karaoke: ['Makes', 'the', 'wrong', 'CHOICE'],
     scoreBefore: 41,
     scoreAfter: 94,
@@ -47,7 +47,7 @@ const SCENES: StreamerScene[] = [
   },
   {
     handle: '@jynxzi',
-    thumbnail: 'https://static-cdn.jtvnw.net/twitch-clips/STEG3XE8W9bFbKHyEwN5Jg/AT-cm%7CSTEG3XE8W9bFbKHyEwN5Jg-preview-480x272.jpg',
+    thumbnail: '/images/streamer-4.jpg',
     karaoke: ['Kiss', 'on', 'the', 'LIPS'],
     scoreBefore: 55,
     scoreAfter: 97,
@@ -56,8 +56,8 @@ const SCENES: StreamerScene[] = [
   },
 ]
 
-// Colorful gameplay image for split-screen bottom
-const GAMEPLAY_IMG = 'https://images.unsplash.com/photo-1550745165-9bc0b252726f?w=480&h=300&fit=crop&q=80'
+// Colorful gameplay image for split-screen bottom (local asset)
+const GAMEPLAY_IMG = '/images/gameplay.jpg'
 
 // ─── Animated counter hook ──────────────────────────────────────────────────
 
