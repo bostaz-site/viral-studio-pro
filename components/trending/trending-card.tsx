@@ -130,8 +130,8 @@ export function TrendingCard({ clip, onRemix, remixing = false, isPremiumUser = 
           </span>
         )}
 
-        {/* Velocity badge */}
-        <div className="absolute top-2 right-2">
+        {/* Velocity badge — always visible, even on locked clips */}
+        <div className="absolute top-2 right-2 z-20">
           <VelocityBadge score={clip.velocity_score} />
         </div>
 
