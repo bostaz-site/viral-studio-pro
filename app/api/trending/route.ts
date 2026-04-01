@@ -30,8 +30,11 @@ function sanitizeSearch(input: string): string {
     .slice(0, 100) // Max length
 }
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-export const GET = withAuth(async (req, _user) => {
+/**
+ * GET /api/trending — Public endpoint (no auth required).
+ * Trending clips are public data viewable by any authenticated or unauthenticated user.
+ */
+export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
   const niche    = searchParams.get('niche')
   const platform = searchParams.get('platform')
@@ -74,7 +77,7 @@ export const GET = withAuth(async (req, _user) => {
   }
 
   return NextResponse.json({ data, error: null, message: 'OK', meta: { total: count ?? 0, limit, offset } })
-})
+}
 
 /**
  * POST /api/trending — Add/update a trending clip.

@@ -114,8 +114,11 @@ export function TrendingCard({ clip, onRemix, remixing = false, isPremiumUser = 
             onError={() => setImgError(true)}
           />
         ) : (
-          <div className="w-full h-full flex items-center justify-center">
-            <Play className="h-10 w-10 text-muted-foreground/40" />
+          <div className="w-full h-full flex flex-col items-center justify-center gap-2 bg-gradient-to-br from-purple-900/40 via-slate-900 to-blue-900/40">
+            <Play className="h-8 w-8 text-purple-400/60" />
+            {clip.author_handle && (
+              <span className="text-xs font-bold text-white/40">@{clip.author_handle}</span>
+            )}
           </div>
         )}
 

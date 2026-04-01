@@ -1,5 +1,10 @@
 import type { TrendingClip } from '@/types/trending'
 
+/**
+ * Seed clips used as fallback when the trending_clips table is empty.
+ * These use placeholder gradient thumbnails since we can't use Twitch CDN URLs
+ * without real clip data.
+ */
 export const SEED_CLIPS: TrendingClip[] = [
   {
     id: 'seed-1',
@@ -8,7 +13,7 @@ export const SEED_CLIPS: TrendingClip[] = [
     author_name: 'Kai Cenat',
     author_handle: 'kaicenat',
     title: 'KAI REACTS TO THE CRAZIEST FAN ENCOUNTER',
-    description: null,
+    description: 'IRL · Kai Cenat · Seed data — click "Twitch" to load real clips',
     niche: 'irl',
     view_count: 4_200_000,
     like_count: 312_000,
@@ -24,7 +29,7 @@ export const SEED_CLIPS: TrendingClip[] = [
     author_name: 'IShowSpeed',
     author_handle: 'ishowspeed',
     title: 'SPEED DOES THE MOST UNEXPECTED THING ON STREAM',
-    description: null,
+    description: 'IRL · IShowSpeed · Seed data — click "Twitch" to load real clips',
     niche: 'irl',
     view_count: 2_800_000,
     like_count: 198_000,
@@ -40,7 +45,7 @@ export const SEED_CLIPS: TrendingClip[] = [
     author_name: 'xQc',
     author_handle: 'xqc',
     title: 'XQC LOSES IT OVER THE DUMBEST TAKE EVER',
-    description: null,
+    description: 'IRL · xQc · Seed data — click "Twitch" to load real clips',
     niche: 'irl',
     view_count: 1_900_000,
     like_count: 145_000,
@@ -56,7 +61,7 @@ export const SEED_CLIPS: TrendingClip[] = [
     author_name: 'HasanAbi',
     author_handle: 'hasanabi',
     title: 'HASAN HAS THE BEST REACTION TO VIRAL CLIP',
-    description: null,
+    description: 'IRL · HasanAbi · Seed data — click "Twitch" to load real clips',
     niche: 'irl',
     view_count: 3_500_000,
     like_count: 421_000,
