@@ -18,6 +18,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { createClient } from '@/lib/supabase/client'
+import { useTrendingStore } from '@/stores/trending-store'
 import { cn } from '@/lib/utils'
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -240,9 +241,36 @@ export default function EnhancePage() {
     aspectRatio: '9:16',
   })
 
-  // Load clip data
+  // Load clip data — try trending store first, then Supabase
+  const storeClips = useTrendingStore((s) => s.clips)
+
   useEffect(() => {
     async function loadClip() {
+      // 1. Try the trending store (works for seed data + already-fetched clips)
+      const storeClip = storeClips.find((c) => c.id === clipId)
+      if (storeClip) {
+        setClip({
+          id: storeClip.id,
+          external_url: storeClip.external_url,
+          platform: storeClip.platform,
+          author_name: storeClip.author_name,
+          author_handle: storeClip.author_handle,
+          title: storeClip.title,
+          description: storeClip.description,
+          niche: storeClip.niche,
+          view_count: storeClip.view_count,
+          like_count: storeClip.like_count,
+          velocity_score: storeClip.velocity_score,
+          thumbnail_url: storeClip.thumbnail_url,
+        })
+        if (storeClip.author_handle) {
+          setSettings((s) => ({ ...s, streamerTag: `@${storeClip.author_handle}` }))
+        }
+        setLoading(false)
+        return
+      }
+
+      // 2. Fallback to Supabase query
       try {
         const supabase = createClient()
         const { data, error: dbError } = await supabase
@@ -255,13 +283,8 @@ export default function EnhancePage() {
         if (!data) throw new Error('Clip non trouv\u00e9')
 
         setClip(data as TrendingClipData)
-
-        // Auto-set streamer tag
         if (data.author_handle) {
-          setSettings((s) => ({
-            ...s,
-            streamerTag: `@${data.author_handle}`,
-          }))
+          setSettings((s) => ({ ...s, streamerTag: `@${data.author_handle}` }))
         }
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Erreur de chargement')
@@ -271,7 +294,7 @@ export default function EnhancePage() {
     }
 
     loadClip()
-  }, [clipId])
+  }, [clipId, storeClips])
 
   const updateSetting = useCallback(<K extends keyof EnhanceSettings>(key: K, value: EnhanceSettings[K]) => {
     setSettings((s) => ({ ...s, [key]: value }))

@@ -3,11 +3,9 @@
 
 import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
 import { useInView } from 'framer-motion'
 import {
   TrendingUp, MonitorPlay, ArrowRight, Play, Users, Film,
-  Link2,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 
@@ -71,43 +69,7 @@ function useCountUp(target: number, duration = 1500) {
 
 import { ClipTransformAnimation } from '@/components/shared/clip-transform-animation'
 
-// ─── URL Input Bar ──────────────────────────────────────────────────────────
-
-function UrlInputBar() {
-  const [url, setUrl] = useState('')
-  const router = useRouter()
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    router.push(url.trim() ? `/signup?url=${encodeURIComponent(url)}` : '/signup')
-  }
-
-  return (
-    <form onSubmit={handleSubmit} className="mt-12 max-w-xl mx-auto">
-      <div className="relative flex items-center gap-2 bg-white/5 border border-white/10 rounded-2xl p-1.5 pl-4 hover:border-blue-500/30 transition-colors focus-within:border-blue-500/40 focus-within:shadow-lg focus-within:shadow-blue-500/10">
-        <Link2 className="h-5 w-5 text-muted-foreground flex-shrink-0" />
-        <input
-          type="url"
-          placeholder="Colle un lien YouTube, Twitch, TikTok..."
-          value={url}
-          onChange={(e) => setUrl(e.target.value)}
-          className="flex-1 bg-transparent border-0 text-sm text-foreground placeholder:text-muted-foreground/60 focus:outline-none py-2 min-w-0"
-        />
-        <Button
-          type="submit"
-          className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-semibold h-10 px-5 rounded-xl text-sm gap-1.5 flex-shrink-0"
-        >
-          <span className="hidden sm:inline">G&eacute;n&eacute;rer mes clips</span>
-          <span className="sm:hidden">Go</span>
-          <ArrowRight className="h-3.5 w-3.5" />
-        </Button>
-      </div>
-      <p className="text-xs text-muted-foreground/50 mt-2 text-center">
-        YouTube, Twitch, TikTok, Instagram &mdash; tout lien vid&eacute;o fonctionne
-      </p>
-    </form>
-  )
-}
+// ─── (URL input removed — flow is Browse → Enhance → Post) ─────────────────
 
 // ─── StatsCounter ───────────────────────────────────────────────────────────
 
@@ -237,9 +199,6 @@ export function HeroSection() {
           <div className="mt-14">
             <ClipTransformAnimation />
           </div>
-
-          {/* URL Input */}
-          <UrlInputBar />
 
           {/* Pain point */}
           <p className="text-sm text-muted-foreground/70 mt-10 italic max-w-lg mx-auto text-center">
