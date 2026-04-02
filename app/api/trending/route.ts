@@ -3,7 +3,6 @@ import { z } from 'zod'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { timingSafeCompare } from '@/lib/crypto'
-import { withAuth } from '@/lib/api/withAuth'
 
 const postSchema = z.object({
   external_url: z.string().url(),
