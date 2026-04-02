@@ -105,13 +105,19 @@ const TWITCH_CLIENT_ID = 'kimne78kx3ncx6brgo4mv6wki5h1ko'
 /**
  * Fetch the direct MP4 URL for a Twitch clip via Twitch's GQL API.
  * Called directly from the browser (CORS allowed, works reliably).
- * Returns the highest quality MP4 URL from CloudFront CDN.
+ *
+ * The GQL query fetches both videoQualities (base MP4 URLs on CloudFront)
+ * and playbackAccessToken (sig + token). The final URL is:
+ *   sourceURL?sig={signature}&token={encodedValue}
+ *
+ * Without the token, CloudFront returns 401.
  */
 async function fetchVideoUrl(slug: string): Promise<string | null> {
   const cached = videoUrlCache.get(slug)
   if (cached) return cached
 
   try {
+    const sanitized = slug.replace(/"/g, '')
     const res = await fetch(TWITCH_GQL_URL, {
       method: 'POST',
       headers: {
@@ -119,14 +125,27 @@ async function fetchVideoUrl(slug: string): Promise<string | null> {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        query: `{ clip(slug: "${slug.replace(/"/g, '')}") { videoQualities { frameRate quality sourceURL } } }`,
+        query: `{
+          clip(slug: "${sanitized}") {
+            playbackAccessToken(params: {platform: "web", playerType: "site"}) {
+              signature
+              value
+            }
+            videoQualities {
+              quality
+              sourceURL
+            }
+          }
+        }`,
       }),
     })
     if (!res.ok) return null
 
     const data = await res.json()
-    const qualities = data?.data?.clip?.videoQualities
-    if (!qualities || qualities.length === 0) return null
+    const clip = data?.data?.clip
+    const token = clip?.playbackAccessToken
+    const qualities = clip?.videoQualities
+    if (!token || !qualities || qualities.length === 0) return null
 
     // Pick highest quality
     const best = [...qualities].sort(
@@ -135,8 +154,10 @@ async function fetchVideoUrl(slug: string): Promise<string | null> {
     )[0]
 
     if (best?.sourceURL) {
-      videoUrlCache.set(slug, best.sourceURL)
-      return best.sourceURL
+      // Build authenticated URL with signature + token
+      const authUrl = `${best.sourceURL}?sig=${token.signature}&token=${encodeURIComponent(token.value)}`
+      videoUrlCache.set(slug, authUrl)
+      return authUrl
     }
   } catch { /* network error */ }
   return null
