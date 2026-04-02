@@ -17,33 +17,59 @@ async function importUrl(url: string): Promise<string> {
   return data.data.video_id
 }
 
-// ─── Upload with XHR progress ───────────────────────────────────────────────
+// ─── Upload with signed URL (bypasses Netlify 6MB limit) ───────────────────
 
-function uploadFile(file: File, onProgress: (pct: number) => void): Promise<string> {
+interface SignedUrlResponse {
+  data: {
+    video_id: string
+    signed_url: string
+    token: string
+    storage_path: string
+  } | null
+  error: string | null
+  message: string
+}
+
+async function uploadFile(file: File, onProgress: (pct: number) => void): Promise<string> {
+  // Step 1: Get a signed upload URL from our API (small JSON request)
+  const metaRes = await fetch('/api/upload/signed-url', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      fileName: file.name,
+      fileSize: file.size,
+      mimeType: file.type,
+    }),
+  })
+  const metaData = (await metaRes.json()) as SignedUrlResponse
+  if (!metaRes.ok || !metaData.data) {
+    throw new Error(metaData.message || 'Upload failed')
+  }
+
+  const { video_id, signed_url, token } = metaData.data
+
+  // Step 2: Upload file directly to Supabase Storage via signed URL (with progress)
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest()
-    const formData = new FormData()
-    formData.append('file', file)
 
     xhr.upload.addEventListener('progress', (e) => {
       if (e.lengthComputable) onProgress(Math.round((e.loaded / e.total) * 100))
     })
     xhr.addEventListener('load', () => {
       if (xhr.status >= 200 && xhr.status < 300) {
-        try {
-          const data = JSON.parse(xhr.responseText) as { data: { video_id: string } | null; error: string | null; message: string }
-          if (data.data?.video_id) resolve(data.data.video_id)
-          else reject(new Error(data.message || 'Upload failed'))
-        } catch { reject(new Error('Invalid server response')) }
+        resolve(video_id)
       } else {
-        reject(new Error(`Upload failed (${xhr.status})`))
+        reject(new Error(`Upload failed: ${xhr.statusText || xhr.status}`))
       }
     })
     xhr.addEventListener('error', () => reject(new Error('Network error during upload')))
     xhr.addEventListener('abort', () => reject(new Error('Upload cancelled')))
 
-    xhr.open('POST', '/api/upload')
-    xhr.send(formData)
+    // Supabase signed URL expects PUT with the file body
+    xhr.open('PUT', signed_url)
+    xhr.setRequestHeader('Authorization', `Bearer ${token}`)
+    xhr.setRequestHeader('Content-Type', file.type)
+    xhr.send(file)
   })
 }
 

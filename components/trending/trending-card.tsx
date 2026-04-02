@@ -76,17 +76,28 @@ function timeAgo(dateStr: string | null): string {
 }
 
 /**
- * Extract Twitch clip embed URL from a clips.twitch.tv URL
- * Twitch clips can be embedded via iframe: https://clips.twitch.tv/embed?clip=SLUG&parent=DOMAIN
+ * Extract Twitch clip embed URL from a Twitch clip URL.
+ * Supports two formats:
+ *   - https://clips.twitch.tv/SLUG
+ *   - https://www.twitch.tv/USERNAME/clip/SLUG  (returned by Helix API)
  */
 function getClipEmbedUrl(externalUrl: string, parentDomain: string): string | null {
   try {
     const url = new URL(externalUrl)
-    // Format: https://clips.twitch.tv/SLUG
+
+    // Format 1: https://clips.twitch.tv/SLUG
     if (url.hostname === 'clips.twitch.tv') {
       const slug = url.pathname.replace('/', '')
       if (slug && !slug.includes('/')) {
         return `https://clips.twitch.tv/embed?clip=${slug}&parent=${parentDomain}&autoplay=true&muted=true`
+      }
+    }
+
+    // Format 2: https://www.twitch.tv/USERNAME/clip/SLUG (from Helix API)
+    if (url.hostname === 'www.twitch.tv' || url.hostname === 'twitch.tv') {
+      const match = url.pathname.match(/^\/[^/]+\/clip\/([^/]+)$/)
+      if (match) {
+        return `https://clips.twitch.tv/embed?clip=${match[1]}&parent=${parentDomain}&autoplay=true&muted=true`
       }
     }
   } catch {
