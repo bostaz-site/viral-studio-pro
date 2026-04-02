@@ -8,6 +8,7 @@ import {
   ChevronLeft, Loader2, AlertCircle, Sparkles, Download,
   Type, Wand2, Eye, Heart, ExternalLink, Play,
   Monitor, Paintbrush, TrendingUp, Zap, CheckCircle2,
+  Upload, FileVideo, Link2,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -617,6 +618,35 @@ export default function EnhancePage() {
               {renderMessage}
             </p>
           )}
+
+          {/* Import your own clip */}
+          <Card className="bg-card/40 border-dashed border-border hover:border-primary/40 transition-colors">
+            <CardContent className="p-4 space-y-3">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-blue-500/15 flex items-center justify-center">
+                  <Upload className="h-4 w-4 text-blue-400" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-foreground">Importer ton clip</p>
+                  <p className="text-[10px] text-muted-foreground">Upload ou colle un lien pour enhance ton propre contenu</p>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <Link href="/create">
+                  <Button variant="outline" size="sm" className="w-full gap-1.5 h-9 text-xs border-blue-500/20 text-blue-400 hover:bg-blue-500/10">
+                    <FileVideo className="h-3.5 w-3.5" />
+                    Upload fichier
+                  </Button>
+                </Link>
+                <Link href="/create?mode=url">
+                  <Button variant="outline" size="sm" className="w-full gap-1.5 h-9 text-xs border-purple-500/20 text-purple-400 hover:bg-purple-500/10">
+                    <Link2 className="h-3.5 w-3.5" />
+                    Coller un lien
+                  </Button>
+                </Link>
+              </div>
+            </CardContent>
+          </Card>
         </div>
 
         {/* Right: Settings Tabs */}
