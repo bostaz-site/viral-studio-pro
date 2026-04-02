@@ -201,6 +201,11 @@ function ScoreBadge({ score, isBest }: { score: number; isBest: boolean }) {
 
 // ─── Live Preview Component ─────────────────────────────────────────────────
 
+function extractTwitchSlug(url: string): string | null {
+  const match = url.match(/\/clip\/([A-Za-z0-9_-]+)/)
+  return match ? match[1] : null
+}
+
 function LivePreview({
   clip,
   settings,
@@ -212,6 +217,7 @@ function LivePreview({
   const captionStyle = CAPTION_STYLES.find((s) => s.id === settings.captionStyle)
   const tagStyle = TAG_STYLES.find((t) => t.id === settings.tagStyle)
   const streamerName = clip.author_handle ? `@${clip.author_handle}` : clip.author_name ?? ''
+  const twitchSlug = clip.platform === 'twitch' ? extractTwitchSlug(clip.external_url) : null
 
   const animationClass = settings.captionAnimation === 'pop' ? 'animate-[pulse_2s_ease-in-out_infinite]'
     : settings.captionAnimation === 'bounce' ? 'animate-bounce'
@@ -223,19 +229,26 @@ function LivePreview({
       className="relative w-full rounded-2xl overflow-hidden bg-black border border-white/10 shadow-2xl mx-auto transition-all duration-500"
       style={{ aspectRatio: '9/16', maxWidth: 280 }}
     >
-      {/* Top: Clip thumbnail */}
+      {/* Top: Clip video or thumbnail */}
       <div
         className="absolute inset-x-0 top-0 overflow-hidden transition-all duration-500"
         style={{ height: settings.splitScreenEnabled ? `${settings.splitRatio}%` : '100%' }}
       >
-        {clip.thumbnail_url ? (
+        {twitchSlug ? (
+          <iframe
+            src={`https://clips.twitch.tv/embed?clip=${twitchSlug}&parent=viral-studio-pro.netlify.app&parent=localhost&autoplay=true&muted=true`}
+            className="w-full h-full border-0 pointer-events-none"
+            allow="autoplay"
+            title={clip.title ?? 'Clip preview'}
+          />
+        ) : clip.thumbnail_url ? (
           <img src={clip.thumbnail_url} alt={clip.title ?? 'Clip'} className="w-full h-full object-cover" />
         ) : (
           <div className="w-full h-full bg-gradient-to-br from-slate-800 to-slate-900 flex items-center justify-center">
             <Play className="h-10 w-10 text-white/20" />
           </div>
         )}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent pointer-events-none" />
 
         {/* Platform badge */}
         <div className="absolute top-3 left-3">
@@ -517,8 +530,8 @@ export default function EnhancePage() {
 
       {/* Two-column layout */}
       <div className="grid lg:grid-cols-[340px_1fr] gap-8">
-        {/* Left: Live Preview */}
-        <div className="space-y-4">
+        {/* Left: Live Preview — sticky so it stays visible while scrolling options */}
+        <div className="space-y-4 lg:sticky lg:top-4 lg:self-start">
           <Card className="bg-card/60 border-border p-4">
             <div className="flex items-center gap-2 mb-3">
               <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
