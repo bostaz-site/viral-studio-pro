@@ -13,6 +13,8 @@ import {
   getUsersByLogin,
   TRACKED_GAMES,
   TRACKED_IRL_LOGINS,
+  CLIP_MIN_DURATION,
+  CLIP_MAX_DURATION,
   type TwitchClip,
 } from '@/lib/twitch/client'
 import type { SupabaseClient } from '@supabase/supabase-js'
@@ -47,6 +49,13 @@ function filterEnglishOnly(clips: TwitchClip[]): TwitchClip[] {
 }
 
 /**
+ * Filter clips to keep only those within the allowed duration range (8–20s).
+ */
+function filterByDuration(clips: TwitchClip[]): TwitchClip[] {
+  return clips.filter((clip) => clip.duration >= CLIP_MIN_DURATION && clip.duration <= CLIP_MAX_DURATION)
+}
+
+/**
  * Fetch top clips for all tracked games and upsert into trending_clips.
  */
 export async function fetchAndUpsertTwitchClips(
@@ -62,7 +71,7 @@ export async function fetchAndUpsertTwitchClips(
   for (const [gameName, { gameId, niche }] of gameEntries) {
     try {
       const rawClips = await getTopClips(gameId, hoursAgo, clipsPerGame)
-      const clips = filterEnglishOnly(rawClips)
+      const clips = filterByDuration(filterEnglishOnly(rawClips))
       if (clips.length === 0) continue
 
       result.games++
@@ -79,6 +88,7 @@ export async function fetchAndUpsertTwitchClips(
         like_count: null as number | null,
         velocity_score: computeVelocityScore(clip),
         thumbnail_url: clip.thumbnail_url,
+        duration_seconds: Math.round(clip.duration),
         scraped_at: new Date().toISOString(),
       }))
 
@@ -120,7 +130,7 @@ export async function fetchAndUpsertTwitchClips(
     for (const user of users) {
       try {
         const rawClips = await getClipsByBroadcaster(user.id, hoursAgo, 10)
-        const clips = filterEnglishOnly(rawClips)
+        const clips = filterByDuration(filterEnglishOnly(rawClips))
         if (clips.length === 0) continue
 
         const rows = clips.map((clip) => ({
@@ -135,6 +145,7 @@ export async function fetchAndUpsertTwitchClips(
           like_count: null as number | null,
           velocity_score: computeVelocityScore(clip),
           thumbnail_url: clip.thumbnail_url,
+          duration_seconds: Math.round(clip.duration),
           scraped_at: new Date().toISOString(),
         }))
 

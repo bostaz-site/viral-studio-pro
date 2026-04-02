@@ -20,6 +20,7 @@ export interface TrendingClip {
   like_count: number | null
   velocity_score: number | null
   thumbnail_url: string | null
+  duration_seconds: number | null
   scraped_at: string | null
   created_at: string | null
 }
@@ -49,13 +50,12 @@ const GAME_LABELS: Record<string, string> = {
 const STREAMER_GRADIENTS: Record<string, string> = {
   kaicenat: 'from-purple-600 via-pink-500 to-red-500',
   ishowspeed: 'from-red-600 via-orange-500 to-yellow-500',
-  xqc: 'from-blue-600 via-indigo-500 to-purple-500',
-  hasanabi: 'from-red-700 via-red-500 to-orange-500',
-  jynxzi: 'from-emerald-600 via-teal-500 to-cyan-500',
+  mrbeast6000: 'from-blue-600 via-cyan-500 to-teal-500',
   adinross: 'from-violet-600 via-purple-500 to-fuchsia-500',
-  sketch: 'from-sky-600 via-blue-500 to-indigo-500',
-  amouranth: 'from-pink-600 via-rose-500 to-red-500',
-  marlon: 'from-amber-600 via-orange-500 to-red-500',
+  duke: 'from-amber-600 via-orange-500 to-red-500',
+  kingclavicular: 'from-emerald-600 via-teal-500 to-cyan-500',
+  marlon: 'from-rose-600 via-pink-500 to-fuchsia-500',
+  lacy: 'from-sky-600 via-blue-500 to-indigo-500',
 }
 
 function formatCount(n: number | null): string {
@@ -362,9 +362,19 @@ export function TrendingCard({ clip, onRemix, remixing = false, isPremiumUser = 
           </a>
         )}
 
+        {/* Duration badge */}
+        {!isLocked && !videoPlaying && clip.duration_seconds && (
+          <span className="absolute bottom-2 left-2 text-[10px] font-bold text-white bg-black/70 px-1.5 py-0.5 rounded-md backdrop-blur-sm z-10">
+            {clip.duration_seconds}s
+          </span>
+        )}
+
         {/* Scraped time */}
         {!isLocked && !videoPlaying && clip.scraped_at && (
-          <span className="absolute bottom-2 left-2 text-[10px] text-white/50 bg-black/40 px-1.5 py-0.5 rounded-md backdrop-blur-sm">
+          <span className={cn(
+            'absolute bottom-2 text-[10px] text-white/50 bg-black/40 px-1.5 py-0.5 rounded-md backdrop-blur-sm',
+            clip.duration_seconds ? 'left-12' : 'left-2'
+          )}>
             il y a {timeAgo(clip.scraped_at)}
           </span>
         )}
