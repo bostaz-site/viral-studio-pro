@@ -49,7 +49,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const navigation = [
     { name: 'Browse', href: '/dashboard', icon: Compass },
     { name: 'Enhance', href: '/dashboard/enhance', icon: Wand2 },
-    { name: 'Paramètres', href: '/settings', icon: Settings },
+    { name: 'Paramètres', href: '/dashboard/settings', icon: Settings },
   ]
 
   const planLimits: Record<string, number> = { free: 3, pro: 50, studio: 999 }
@@ -129,7 +129,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               />
             </div>
             {currentPlan === 'free' && (
-              <Link href="/settings" className="flex items-center gap-1.5 text-xs text-amber-400 hover:text-amber-300 transition-colors font-medium">
+              <Link href="/dashboard/settings" className="flex items-center gap-1.5 text-xs text-amber-400 hover:text-amber-300 transition-colors font-medium">
                 <Zap className="h-3 w-3" />
                 Passer à Pro — vidéos illimitées
               </Link>

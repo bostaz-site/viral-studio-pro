@@ -16,12 +16,10 @@ vps/
 ├── lib/                         # Core libraries
 │   ├── ffmpeg-render.js         # FFmpeg video rendering engine
 │   ├── subtitle-generator.js    # ASS subtitle file generator
-│   ├── supabase-client.js       # Supabase database & storage client
-│   └── yt-dlp-wrapper.js        # yt-dlp video downloader wrapper
+│   └── supabase-client.js       # Supabase database & storage client
 │
 ├── routes/                      # API route handlers
 │   ├── render.js                # POST /api/render endpoint
-│   ├── download.js              # POST /api/download & metadata endpoints
 │   └── health.js                # GET /api/health health check
 │
 └── docs/
@@ -140,23 +138,6 @@ updateClipAfterRender(clipId, duration, storagePath, thumbPath)
 checkSupabaseHealth()
 ```
 
-#### lib/yt-dlp-wrapper.js
-Video downloader supporting YouTube, TikTok, Instagram, etc:
-- Download videos from URLs
-- Extract metadata without downloading
-- Support for major platforms
-- Progress tracking
-- Error handling
-- System availability checks
-
-**Main Functions:**
-```js
-downloadVideo(videoUrl, outputPath, options)
-getVideoMetadata(videoUrl)
-checkYtdlpAvailability()
-getSupportedPlatforms()
-```
-
 ### Route Handlers
 
 #### routes/render.js
@@ -186,21 +167,6 @@ Main rendering endpoint: `POST /api/render`
 
 **Additional Routes:**
 - `POST /api/render/caption` — Generate ASS file only
-
-#### routes/download.js
-Video download endpoints:
-
-**POST /api/download** — Download video from URL
-```json
-{"url": "https://youtube.com/watch?v=...", "platform": "youtube"}
-```
-
-**POST /api/download/metadata** — Get metadata only
-```json
-{"url": "https://youtube.com/watch?v=..."}
-```
-
-**DELETE /api/download/:sessionId** — Cleanup downloaded files
 
 #### routes/health.js
 Health check endpoint: `GET /api/health` (no auth required)
@@ -307,9 +273,6 @@ This file — complete overview of the project structure and file purposes.
 | GET | `/api/health` | No | Health check |
 | POST | `/api/render` | Yes | Render clip with FFmpeg |
 | POST | `/api/render/caption` | Yes | Generate ASS subtitle file |
-| POST | `/api/download` | Yes | Download video from URL |
-| POST | `/api/download/metadata` | Yes | Get video metadata |
-| DELETE | `/api/download/:sessionId` | Yes | Cleanup session |
 
 ## Technology Stack
 

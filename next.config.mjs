@@ -70,15 +70,6 @@ const nextConfig = {
     ],
   },
 
-  // ── Server-only packages (not bundled to client) ──────────────────────────
-  experimental: {
-    serverComponentsExternalPackages: [
-      '@anthropic-ai/sdk',
-      'openai',
-      'stripe',
-    ],
-  },
-
   // ── Build settings ────────────────────────────────────────────────────────
   eslint: {
     ignoreDuringBuilds: true,

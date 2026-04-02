@@ -450,7 +450,7 @@ export default function EnhancePage() {
               animation: settings.captionAnimation,
             },
             splitScreen: {
-              enabled: settings.splitScreen,
+              enabled: settings.splitScreenEnabled,
               brollCategory: settings.brollVideo,
             },
             format: {
@@ -614,13 +614,13 @@ export default function EnhancePage() {
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-2">
-                <Link href="/create">
+                <Link href="/dashboard">
                   <Button variant="outline" size="sm" className="w-full gap-1.5 h-9 text-xs border-blue-500/20 text-blue-400 hover:bg-blue-500/10">
                     <FileVideo className="h-3.5 w-3.5" />
                     Upload fichier
                   </Button>
                 </Link>
-                <Link href="/create?mode=url">
+                <Link href="/dashboard">
                   <Button variant="outline" size="sm" className="w-full gap-1.5 h-9 text-xs border-purple-500/20 text-purple-400 hover:bg-purple-500/10">
                     <Link2 className="h-3.5 w-3.5" />
                     Coller un lien
