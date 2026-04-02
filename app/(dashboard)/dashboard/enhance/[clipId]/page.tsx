@@ -58,12 +58,12 @@ interface EnhanceSettings {
 // ─── Constants ──────────────────────────────────────────────────────────────
 
 const CAPTION_STYLES = [
-  { id: 'hormozi', label: 'Hormozi', preview: 'text-yellow-400 font-black uppercase' },
-  { id: 'mrbeast', label: 'MrBeast', preview: 'text-white font-black' },
-  { id: 'aliabdaal', label: 'Ali Abdaal', preview: 'text-blue-300 font-semibold' },
-  { id: 'neon', label: 'Neon', preview: 'text-green-400 font-bold' },
-  { id: 'bold', label: 'Bold', preview: 'text-white font-black text-lg' },
-  { id: 'minimal', label: 'Minimal', preview: 'text-white/80 font-medium' },
+  { id: 'hormozi', label: 'Hormozi', preview: 'text-yellow-400 font-black uppercase', highlightClass: 'text-yellow-400 bg-yellow-400/20' },
+  { id: 'mrbeast', label: 'MrBeast', preview: 'text-white font-black', highlightClass: 'text-red-500 bg-red-500/20' },
+  { id: 'aliabdaal', label: 'Ali Abdaal', preview: 'text-blue-300 font-semibold', highlightClass: 'text-blue-300 bg-blue-300/20' },
+  { id: 'neon', label: 'Neon', preview: 'text-green-400 font-bold', highlightClass: 'text-green-400 bg-green-400/20' },
+  { id: 'bold', label: 'Bold', preview: 'text-white font-black text-lg', highlightClass: 'text-white bg-white/20' },
+  { id: 'minimal', label: 'Minimal', preview: 'text-white/80 font-medium', highlightClass: 'text-white/80 bg-white/10' },
 ]
 
 const CAPTION_ANIMATIONS = [
@@ -89,6 +89,17 @@ function formatCount(n: number | null): string {
   return String(n)
 }
 
+// ─── AI Badge Component ────────────────────────────────────────────────────
+
+function AIBadge() {
+  return (
+    <span className="inline-flex items-center gap-1 text-[9px] font-bold uppercase tracking-wider text-amber-400 bg-amber-400/10 border border-amber-400/20 rounded-full px-1.5 py-0.5 ml-1.5">
+      <Sparkles className="h-2.5 w-2.5" />
+      IA
+    </span>
+  )
+}
+
 // ─── Viral Score Badge ──────────────────────────────────────────────────────
 
 function ViralScoreBadge({ score }: { score: number | null }) {
@@ -110,9 +121,9 @@ function ViralScoreBadge({ score }: { score: number | null }) {
   )
 }
 
-// ─── Split-Screen Preview ───────────────────────────────────────────────────
+// ─── Live Preview Component ─────────────────────────────────────────────────
 
-function SplitScreenPreview({
+function LivePreview({
   clip,
   settings,
 }: {
@@ -122,14 +133,20 @@ function SplitScreenPreview({
   const broll = BROLL_OPTIONS.find((b) => b.id === settings.brollVideo)
   const captionStyle = CAPTION_STYLES.find((s) => s.id === settings.captionStyle)
 
+  // Animation classes for the subtitle preview
+  const animationClass = settings.captionAnimation === 'pop' ? 'animate-[pulse_2s_ease-in-out_infinite]'
+    : settings.captionAnimation === 'bounce' ? 'animate-bounce'
+    : settings.captionAnimation === 'glow' ? 'animate-[pulse_1.5s_ease-in-out_infinite]'
+    : ''
+
   return (
     <div
-      className="relative rounded-2xl overflow-hidden bg-black border border-white/10 shadow-2xl mx-auto"
+      className="relative rounded-2xl overflow-hidden bg-black border border-white/10 shadow-2xl mx-auto transition-all duration-500"
       style={{ aspectRatio: '9/16', maxWidth: 280 }}
     >
       {/* Top: Clip thumbnail */}
       <div
-        className="absolute inset-x-0 top-0 overflow-hidden"
+        className="absolute inset-x-0 top-0 overflow-hidden transition-all duration-500"
         style={{ height: settings.splitScreenEnabled ? `${settings.splitRatio}%` : '100%' }}
       >
         {clip.thumbnail_url ? (
@@ -145,9 +162,9 @@ function SplitScreenPreview({
         )}
         <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
 
-        {/* Streamer tag */}
+        {/* Streamer tag overlay */}
         {settings.streamerTag && (
-          <div className="absolute top-3 right-3 bg-black/60 backdrop-blur-sm rounded-full px-2.5 py-1">
+          <div className="absolute top-3 right-3 bg-black/60 backdrop-blur-sm rounded-full px-2.5 py-1 transition-all duration-300">
             <span className="text-xs font-bold text-white">{settings.streamerTag}</span>
           </div>
         )}
@@ -160,18 +177,27 @@ function SplitScreenPreview({
         </div>
       </div>
 
-      {/* Karaoke subtitles */}
+      {/* Karaoke subtitle preview — live updates with style */}
       {settings.captionsEnabled && (
         <div
-          className="absolute left-1/2 -translate-x-1/2 z-20 bg-black/80 rounded-lg px-3 py-1.5 backdrop-blur-sm max-w-[85%]"
+          className={cn(
+            'absolute left-1/2 -translate-x-1/2 z-20 rounded-lg px-3 py-1.5 max-w-[85%] transition-all duration-500',
+            settings.captionAnimation === 'glow'
+              ? 'bg-black/60 shadow-[0_0_20px_rgba(255,255,255,0.15)]'
+              : 'bg-black/80 backdrop-blur-sm'
+          )}
           style={{
-            top: settings.captionPosition === 'top' ? '15%'
-              : settings.captionPosition === 'middle' ? (settings.splitScreenEnabled ? `${settings.splitRatio - 8}%` : '45%')
-              : settings.splitScreenEnabled ? `${settings.splitRatio - 8}%` : '75%',
+            top: settings.captionPosition === 'top' ? '8%'
+              : settings.captionPosition === 'middle' ? (settings.splitScreenEnabled ? `${settings.splitRatio / 2}%` : '42%')
+              : settings.splitScreenEnabled ? `${settings.splitRatio - 10}%` : '72%',
           }}
         >
-          <p className={cn('text-sm text-center', captionStyle?.preview)}>
-            This is <span className="text-yellow-400 bg-yellow-400/20 px-0.5 rounded">CRAZY</span> bro
+          <p className={cn('text-sm text-center transition-all duration-300', captionStyle?.preview, animationClass)}>
+            This is{' '}
+            <span className={cn('px-0.5 rounded', captionStyle?.highlightClass)}>
+              {settings.captionAnimation === 'typewriter' ? 'CRA...' : 'CRAZY'}
+            </span>{' '}
+            bro
           </p>
         </div>
       )}
@@ -179,15 +205,18 @@ function SplitScreenPreview({
       {/* Split line */}
       {settings.splitScreenEnabled && (
         <div
-          className="absolute inset-x-0 h-0.5 bg-gradient-to-r from-transparent via-blue-400/60 to-transparent z-10"
+          className="absolute inset-x-0 h-0.5 bg-gradient-to-r from-transparent via-blue-400/60 to-transparent z-10 transition-all duration-500"
           style={{ top: `${settings.splitRatio}%` }}
         />
       )}
 
-      {/* Bottom: B-roll */}
+      {/* Bottom: B-roll gameplay preview */}
       {settings.splitScreenEnabled && broll && (
         <div
-          className={`absolute inset-x-0 bottom-0 bg-gradient-to-br ${broll.color} overflow-hidden`}
+          className={cn(
+            'absolute inset-x-0 bottom-0 overflow-hidden transition-all duration-500',
+            `bg-gradient-to-br ${broll.color}`
+          )}
           style={{ height: `${100 - settings.splitRatio}%` }}
         >
           <div
@@ -197,9 +226,17 @@ function SplitScreenPreview({
               backgroundSize: '22px 22px',
             }}
           />
-          <div className="absolute inset-0 flex items-center justify-center">
-            <span className="text-xs text-white/50 font-medium">{broll.label}</span>
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-1">
+            <Play className="h-5 w-5 text-white/40" />
+            <span className="text-[10px] text-white/60 font-semibold">{broll.label}</span>
           </div>
+        </div>
+      )}
+
+      {/* No split screen — full screen indicator */}
+      {!settings.splitScreenEnabled && (
+        <div className="absolute bottom-3 right-3 bg-black/50 backdrop-blur-sm rounded-lg px-2 py-1 z-20">
+          <span className="text-[10px] text-white/50">Plein \u00e9cran</span>
         </div>
       )}
 
@@ -207,8 +244,15 @@ function SplitScreenPreview({
       <div className="absolute bottom-3 left-3 bg-gradient-to-r from-yellow-500 to-amber-500 rounded-lg px-2 py-1 shadow-lg z-20">
         <div className="flex items-center gap-1">
           <TrendingUp className="h-3 w-3 text-black" />
-          <span className="text-xs font-black text-black">{clip.velocity_score ?? '—'}</span>
+          <span className="text-xs font-black text-black">{clip.velocity_score ?? '\u2014'}</span>
         </div>
+      </div>
+
+      {/* Format badge */}
+      <div className="absolute top-3 left-1/2 -translate-x-1/2 z-20">
+        <span className="text-[9px] text-white/40 font-medium bg-black/30 rounded-full px-2 py-0.5">
+          {settings.aspectRatio}
+        </span>
       </div>
     </div>
   )
@@ -225,21 +269,14 @@ interface StyleSuggestion {
   reason: string
 }
 
-/**
- * Compute the best style suggestion based on clip metadata.
- * Uses heuristics based on streamer type, niche, velocity, and view count.
- */
 function computeStyleSuggestion(clip: TrendingClipData): StyleSuggestion {
   const velocity = clip.velocity_score ?? 50
   const views = clip.view_count ?? 0
   const niche = clip.niche?.toLowerCase() ?? 'irl'
-  const author = clip.author_handle?.toLowerCase() ?? ''
 
-  // Determine energy level from velocity + views
   const isHighEnergy = velocity >= 70 || views >= 1_000_000
   const isMidEnergy = velocity >= 40 || views >= 100_000
 
-  // Caption style scoring
   let captionStyle = 'hormozi'
   let captionAnimation = 'highlight'
   let captionReason = ''
@@ -247,41 +284,38 @@ function computeStyleSuggestion(clip: TrendingClipData): StyleSuggestion {
   if (isHighEnergy) {
     captionStyle = 'mrbeast'
     captionAnimation = 'pop'
-    captionReason = 'Clip haute \u00e9nergie — le style MrBeast bold + animation Pop maximise l\u2019impact visuel'
+    captionReason = 'Clip haute \u00e9nergie \u2014 MrBeast + Pop maximise l\u2019impact'
   } else if (niche === 'irl' || niche === 'just chatting') {
     captionStyle = 'hormozi'
     captionAnimation = 'highlight'
-    captionReason = 'Contenu IRL/talking — Hormozi + Highlight met en avant les punchlines'
+    captionReason = 'Contenu IRL \u2014 Hormozi + Highlight met en avant les punchlines'
   } else if (isMidEnergy) {
     captionStyle = 'bold'
     captionAnimation = 'bounce'
-    captionReason = '\u00c9nergie moyenne — Bold + Bounce garde l\u2019attention sans surcharger'
+    captionReason = '\u00c9nergie moyenne \u2014 Bold + Bounce garde l\u2019attention'
   } else {
     captionStyle = 'aliabdaal'
     captionAnimation = 'typewriter'
-    captionReason = 'Clip calme — Ali Abdaal + Typewriter donne un ton pro et clean'
+    captionReason = 'Clip calme \u2014 Ali Abdaal + Typewriter donne un ton pro'
   }
 
-  // B-roll scoring
   let brollVideo = 'subway-surfers'
   let brollReason = ''
 
   if (isHighEnergy) {
     brollVideo = 'minecraft-parkour'
-    brollReason = 'Minecraft Parkour synce bien avec l\u2019\u00e9nergie rapide du clip'
+    brollReason = 'Minecraft Parkour synce avec l\u2019\u00e9nergie rapide'
   } else if (niche === 'irl') {
     brollVideo = 'subway-surfers'
-    brollReason = 'Subway Surfers est le classique pour les clips IRL — maximise la r\u00e9tention'
+    brollReason = 'Subway Surfers \u2014 le classique pour les clips IRL'
   } else {
     brollVideo = 'sand-cutting'
-    brollReason = 'Sand Cutting ASMR pour un clip plus pos\u00e9 — satisfaction visuelle'
+    brollReason = 'Sand Cutting ASMR pour un clip plus pos\u00e9'
   }
 
-  // Split ratio
   const splitRatio = isHighEnergy ? 65 : 60
 
-  // Compute overall score
-  let score = 72 // base
+  let score = 72
   if (isHighEnergy) score += 15
   else if (isMidEnergy) score += 8
   if (niche === 'irl') score += 5
@@ -296,81 +330,6 @@ function computeStyleSuggestion(clip: TrendingClipData): StyleSuggestion {
     score,
     reason: `${captionReason}. ${brollReason}.`,
   }
-}
-
-function AISuggestionPanel({
-  clip,
-  suggestion,
-  onApply,
-}: {
-  clip: TrendingClipData
-  suggestion: StyleSuggestion
-  onApply: () => void
-}) {
-  const captionLabel = CAPTION_STYLES.find((s) => s.id === suggestion.captionStyle)?.label ?? suggestion.captionStyle
-  const animLabel = CAPTION_ANIMATIONS.find((a) => a.id === suggestion.captionAnimation)?.label ?? suggestion.captionAnimation
-  const brollLabel = BROLL_OPTIONS.find((b) => b.id === suggestion.brollVideo)?.label ?? suggestion.brollVideo
-
-  return (
-    <Card className="bg-gradient-to-br from-primary/10 via-card/80 to-purple-500/10 border-primary/30 shadow-lg shadow-primary/5">
-      <CardContent className="p-4 space-y-4">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-primary to-purple-600 flex items-center justify-center shadow-lg shadow-primary/30">
-              <Sparkles className="h-4.5 w-4.5 text-white" />
-            </div>
-            <div>
-              <p className="text-sm font-bold text-foreground">Suggestion IA</p>
-              <p className="text-[10px] text-muted-foreground">
-                Bas\u00e9e sur le type de contenu et la v\u00e9locit\u00e9
-              </p>
-            </div>
-          </div>
-          {/* Score badge */}
-          <div className="flex items-center gap-1.5 bg-gradient-to-r from-green-500 to-emerald-500 rounded-full px-3 py-1.5 shadow-lg shadow-green-500/20">
-            <Zap className="h-3.5 w-3.5 text-white" />
-            <span className="text-sm font-black text-white">{suggestion.score}</span>
-            <span className="text-[10px] text-white/70">/100</span>
-          </div>
-        </div>
-
-        {/* Recommended settings */}
-        <div className="grid grid-cols-3 gap-2">
-          <div className="rounded-lg bg-card/60 border border-border p-2.5 space-y-1">
-            <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Sous-titres</p>
-            <p className="text-xs font-semibold text-foreground">{captionLabel}</p>
-            <p className="text-[10px] text-primary">{animLabel}</p>
-          </div>
-          <div className="rounded-lg bg-card/60 border border-border p-2.5 space-y-1">
-            <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Split-Screen</p>
-            <p className="text-xs font-semibold text-foreground">{brollLabel}</p>
-            <p className="text-[10px] text-primary">{suggestion.splitRatio}% / {100 - suggestion.splitRatio}%</p>
-          </div>
-          <div className="rounded-lg bg-card/60 border border-border p-2.5 space-y-1">
-            <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Format</p>
-            <p className="text-xs font-semibold text-foreground">9:16</p>
-            <p className="text-[10px] text-primary">TikTok / Reels</p>
-          </div>
-        </div>
-
-        {/* Explanation */}
-        <p className="text-xs text-muted-foreground leading-relaxed">
-          {suggestion.reason}
-        </p>
-
-        {/* Apply button */}
-        <Button
-          size="sm"
-          className="w-full gap-2 bg-gradient-to-r from-primary to-purple-600 hover:from-primary/90 hover:to-purple-600/90 text-white font-semibold shadow-lg shadow-primary/20"
-          onClick={onApply}
-        >
-          <CheckCircle2 className="h-4 w-4" />
-          Appliquer la suggestion IA
-        </Button>
-      </CardContent>
-    </Card>
-  )
 }
 
 // ─── Main Page ──────────────────────────────────────────────────────────────
@@ -400,7 +359,6 @@ export default function EnhancePage() {
     aspectRatio: '9:16',
   })
 
-  // Load clip data from Supabase
   useEffect(() => {
     async function loadClip() {
       try {
@@ -412,7 +370,7 @@ export default function EnhancePage() {
           .single()
 
         if (dbError) throw new Error(dbError.message)
-        if (!data) throw new Error('Clip non trouvé')
+        if (!data) throw new Error('Clip non trouv\u00e9')
 
         setClip(data as TrendingClipData)
         if (data.author_handle) {
@@ -544,12 +502,42 @@ export default function EnhancePage() {
         <ViralScoreBadge score={clip.velocity_score} />
       </div>
 
+      {/* AI suggestion banner — compact, at top */}
+      {aiSuggestion && (
+        <div className="mb-6 flex items-center gap-3 bg-gradient-to-r from-amber-500/10 via-primary/5 to-purple-500/10 border border-amber-400/20 rounded-xl px-4 py-3">
+          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-amber-400 to-primary flex items-center justify-center shrink-0">
+            <Sparkles className="h-4 w-4 text-white" />
+          </div>
+          <p className="text-xs text-muted-foreground flex-1">
+            <span className="font-semibold text-foreground">Suggestion IA :</span>{' '}
+            {aiSuggestion.reason}
+          </p>
+          <div className="flex items-center gap-1.5 bg-gradient-to-r from-green-500 to-emerald-500 rounded-full px-2.5 py-1 shrink-0">
+            <Zap className="h-3 w-3 text-white" />
+            <span className="text-xs font-black text-white">{aiSuggestion.score}</span>
+          </div>
+          <Button
+            size="sm"
+            variant="outline"
+            className="shrink-0 gap-1.5 text-xs border-amber-400/30 text-amber-400 hover:bg-amber-400/10"
+            onClick={applyAISuggestion}
+          >
+            <CheckCircle2 className="h-3 w-3" />
+            Appliquer
+          </Button>
+        </div>
+      )}
+
       {/* Two-column layout: Preview | Settings */}
       <div className="grid lg:grid-cols-[340px_1fr] gap-8">
-        {/* Left: Preview */}
+        {/* Left: Live Preview */}
         <div className="space-y-4">
           <Card className="bg-card/60 border-border p-4">
-            <SplitScreenPreview clip={clip} settings={settings} />
+            <div className="flex items-center gap-2 mb-3">
+              <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+              <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Preview live</span>
+            </div>
+            <LivePreview clip={clip} settings={settings} />
           </Card>
 
           {/* Clip metadata */}
@@ -672,14 +660,17 @@ export default function EnhancePage() {
                             key={style.id}
                             onClick={() => updateSetting('captionStyle', style.id)}
                             className={cn(
-                              'rounded-xl border p-3 text-left transition-all',
+                              'relative rounded-xl border p-3 text-left transition-all',
                               settings.captionStyle === style.id
-                                ? 'border-primary bg-primary/10'
+                                ? 'border-primary bg-primary/10 ring-1 ring-primary/30'
                                 : 'border-border hover:border-primary/40'
                             )}
                           >
                             <span className={cn('text-xs block', style.preview)}>Aa</span>
-                            <span className="text-[10px] text-muted-foreground mt-1 block">{style.label}</span>
+                            <span className="text-[10px] text-muted-foreground mt-1 block">
+                              {style.label}
+                            </span>
+                            {aiSuggestion?.captionStyle === style.id && <AIBadge />}
                           </button>
                         ))}
                       </div>
@@ -688,14 +679,29 @@ export default function EnhancePage() {
                     {/* Animation */}
                     <div className="space-y-2">
                       <Label className="text-xs uppercase tracking-wider text-muted-foreground">Animation</Label>
-                      <Select value={settings.captionAnimation} onValueChange={(v) => updateSetting('captionAnimation', v)}>
-                        <SelectTrigger><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          {CAPTION_ANIMATIONS.map((a) => (
-                            <SelectItem key={a.id} value={a.id}>{a.label}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
+                        {CAPTION_ANIMATIONS.map((anim) => (
+                          <button
+                            key={anim.id}
+                            onClick={() => updateSetting('captionAnimation', anim.id)}
+                            className={cn(
+                              'relative rounded-xl border px-3 py-2.5 text-center transition-all',
+                              settings.captionAnimation === anim.id
+                                ? 'border-primary bg-primary/10 ring-1 ring-primary/30'
+                                : 'border-border hover:border-primary/40'
+                            )}
+                          >
+                            <span className="text-[10px] font-medium text-foreground">{anim.label}</span>
+                            {aiSuggestion?.captionAnimation === anim.id && (
+                              <span className="absolute -top-1.5 -right-1.5">
+                                <span className="flex h-4 w-4 items-center justify-center rounded-full bg-amber-400 text-[8px] text-black font-bold">
+                                  <Sparkles className="h-2.5 w-2.5" />
+                                </span>
+                              </span>
+                            )}
+                          </button>
+                        ))}
+                      </div>
                     </div>
 
                     {/* Position */}
@@ -753,14 +759,21 @@ export default function EnhancePage() {
                             key={broll.id}
                             onClick={() => updateSetting('brollVideo', broll.id)}
                             className={cn(
-                              'rounded-xl border p-3 transition-all',
+                              'relative rounded-xl border p-3 transition-all',
                               settings.brollVideo === broll.id
-                                ? 'border-primary bg-primary/10'
+                                ? 'border-primary bg-primary/10 ring-1 ring-primary/30'
                                 : 'border-border hover:border-primary/40'
                             )}
                           >
                             <div className={`w-full h-8 rounded-lg bg-gradient-to-r ${broll.color} mb-1.5`} />
                             <span className="text-[10px] text-muted-foreground">{broll.label}</span>
+                            {aiSuggestion?.brollVideo === broll.id && (
+                              <span className="absolute -top-1.5 -right-1.5">
+                                <span className="flex h-4 w-4 items-center justify-center rounded-full bg-amber-400 text-[8px] text-black font-bold">
+                                  <Sparkles className="h-2.5 w-2.5" />
+                                </span>
+                              </span>
+                            )}
                           </button>
                         ))}
                       </div>
@@ -769,7 +782,10 @@ export default function EnhancePage() {
                     {/* Split ratio */}
                     <div className="space-y-2">
                       <div className="flex items-center justify-between">
-                        <Label className="text-xs uppercase tracking-wider text-muted-foreground">Ratio stream / B-roll</Label>
+                        <Label className="text-xs uppercase tracking-wider text-muted-foreground">
+                          Ratio stream / B-roll
+                          {aiSuggestion && settings.splitRatio === aiSuggestion.splitRatio && <AIBadge />}
+                        </Label>
                         <span className="text-sm font-semibold text-foreground">{settings.splitRatio}% / {100 - settings.splitRatio}%</span>
                       </div>
                       <Slider
@@ -836,7 +852,7 @@ export default function EnhancePage() {
                         className={cn(
                           'rounded-xl border p-3 text-center transition-all',
                           settings.aspectRatio === ratio
-                            ? 'border-primary bg-primary/10'
+                            ? 'border-primary bg-primary/10 ring-1 ring-primary/30'
                             : 'border-border hover:border-primary/40'
                         )}
                       >
@@ -849,20 +865,8 @@ export default function EnhancePage() {
                   </div>
                 </CardContent>
               </Card>
-
             </TabsContent>
           </Tabs>
-
-          {/* AI Style Suggestion — below all tabs */}
-          {clip && aiSuggestion && (
-            <div className="mt-6">
-              <AISuggestionPanel
-                clip={clip}
-                suggestion={aiSuggestion}
-                onApply={applyAISuggestion}
-              />
-            </div>
-          )}
         </div>
       </div>
     </div>
