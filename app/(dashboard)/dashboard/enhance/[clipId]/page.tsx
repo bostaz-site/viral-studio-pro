@@ -6,7 +6,7 @@ import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import {
   ChevronLeft, Loader2, AlertCircle, Sparkles, Download,
-  Type, Wand2, Eye, Heart, ExternalLink, Play,
+  Type, Wand2, Eye, ExternalLink, Play,
   Monitor, Paintbrush, Zap, AtSign,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -508,88 +508,58 @@ export default function EnhancePage() {
         </div>
       </div>
 
-      {/* ── Score bar + Apply IA button ── */}
-      {scores && (
-        <div className="mb-6 flex items-center gap-4 bg-gradient-to-r from-orange-500/10 via-card to-primary/10 border border-orange-400/20 rounded-xl px-5 py-3">
-          <div className="flex items-center gap-3 flex-1">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-orange-400 to-amber-500 flex items-center justify-center shadow-lg shadow-orange-500/20">
-              <Zap className="h-5 w-5 text-white" />
-            </div>
-            <div>
-              <div className="flex items-baseline gap-2">
-                <span className="text-2xl font-black text-foreground">{currentScore}</span>
-                <span className="text-sm text-muted-foreground">/ {scores.totalBestScore} pts</span>
-              </div>
-              <p className="text-[10px] text-muted-foreground">Score viral de ta config actuelle</p>
-            </div>
-          </div>
-
-          {/* Progress bar */}
-          <div className="flex-1 max-w-[200px]">
-            <div className="h-2.5 bg-muted/50 rounded-full overflow-hidden">
-              <div
-                className="h-full rounded-full bg-gradient-to-r from-orange-400 to-amber-500 transition-all duration-500"
-                style={{ width: `${Math.round((currentScore / scores.totalBestScore) * 100)}%` }}
-              />
-            </div>
-          </div>
-
-          <Button
-            size="sm"
-            className="shrink-0 gap-2 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white font-bold shadow-lg shadow-orange-500/20"
-            onClick={applyBestCombo}
-          >
-            <Sparkles className="h-4 w-4" />
-            Appliquer les choix IA
-          </Button>
-        </div>
-      )}
-
       {/* Two-column layout */}
-      <div className="grid lg:grid-cols-[340px_1fr] gap-8">
-        {/* Left: Live Preview — sticky so it stays visible while scrolling options */}
-        <div className="space-y-4 lg:sticky lg:top-4 lg:self-start">
-          <Card className="bg-card/60 border-border p-4">
-            <div className="flex items-center gap-2 mb-3">
-              <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-              <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Preview live</span>
-            </div>
-            <LivePreview clip={clip} settings={settings} />
-          </Card>
-
-          {/* Clip metadata */}
-          <Card className="bg-card/60 border-border">
-            <CardContent className="p-4 space-y-3">
-              <div className="flex items-center gap-3 text-sm text-muted-foreground">
-                <span className="flex items-center gap-1"><Eye className="h-3.5 w-3.5" />{formatCount(clip.view_count)} vues</span>
-                {clip.like_count !== null && (
-                  <span className="flex items-center gap-1"><Heart className="h-3.5 w-3.5" />{formatCount(clip.like_count)}</span>
-                )}
+      <div className="grid lg:grid-cols-[300px_1fr] gap-6">
+        {/* Left: Preview + Score + Generate — compact, sticky */}
+        <div className="lg:sticky lg:top-4 lg:self-start space-y-3">
+          {/* Score compact */}
+          {scores && (
+            <div className="flex items-center justify-between bg-card/60 border border-orange-400/20 rounded-xl px-3 py-2">
+              <div className="flex items-center gap-2">
+                <Zap className="h-4 w-4 text-orange-400" />
+                <span className="text-lg font-black text-foreground">{currentScore}</span>
+                <span className="text-xs text-muted-foreground">/ 100</span>
               </div>
-              <a href={clip.external_url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 text-xs text-primary hover:underline">
-                <ExternalLink className="h-3 w-3" />Voir l&apos;original sur {clip.platform}
-              </a>
-            </CardContent>
-          </Card>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-7 gap-1.5 text-xs text-orange-400 hover:text-orange-300 hover:bg-orange-500/10 px-2"
+                onClick={applyBestCombo}
+              >
+                <Sparkles className="h-3 w-3" />
+                Choix IA
+              </Button>
+            </div>
+          )}
 
-          {/* Render button */}
+          {/* Preview */}
+          <LivePreview clip={clip} settings={settings} />
+
+          {/* Metadata inline */}
+          <div className="flex items-center justify-between text-xs text-muted-foreground px-1">
+            <span className="flex items-center gap-1"><Eye className="h-3 w-3" />{formatCount(clip.view_count)} vues</span>
+            <a href={clip.external_url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-primary hover:underline">
+              <ExternalLink className="h-3 w-3" />Original
+            </a>
+          </div>
+
+          {/* Generate button */}
           <Button
-            className="w-full h-12 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-semibold gap-2 text-base shadow-lg shadow-blue-500/20"
+            className="w-full h-11 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-semibold gap-2 shadow-lg shadow-blue-500/20"
             onClick={handleRender}
             disabled={rendering}
           >
             {rendering ? (
-              <><Loader2 className="h-5 w-5 animate-spin" /> Rendu en cours&hellip;</>
+              <><Loader2 className="h-4 w-4 animate-spin" /> Rendu en cours&hellip;</>
             ) : (
-              <><Download className="h-5 w-5" /> G&eacute;n&eacute;rer le clip</>
+              <><Download className="h-4 w-4" /> G&eacute;n&eacute;rer le clip</>
             )}
           </Button>
           {renderMessage && (
-            <p className={cn('text-sm text-center font-medium', renderMessage.includes('Erreur') ? 'text-destructive' : 'text-green-400')}>
+            <p className={cn('text-xs text-center font-medium', renderMessage.includes('Erreur') ? 'text-destructive' : 'text-green-400')}>
               {renderMessage}
             </p>
           )}
-
         </div>
 
         {/* Right: Settings Tabs */}
