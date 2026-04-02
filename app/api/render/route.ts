@@ -2,8 +2,6 @@ import { NextResponse } from 'next/server'
 import { z } from 'zod'
 import { withAuth } from '@/lib/api/withAuth'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { getPlanConfig } from '@/lib/plans'
-import { rateLimit, RATE_LIMITS } from '@/lib/rate-limit'
 
 const inputSchema = z.object({
   clip_id: z.string().uuid(),
@@ -16,7 +14,6 @@ const inputSchema = z.object({
       position: z.string().optional(),
       wordsPerLine: z.number().optional(),
       animation: z.string().optional(),
-      autoEmojis: z.boolean().optional(),
     }).optional(),
     splitScreen: z.object({
       enabled: z.boolean().optional(),
@@ -26,33 +23,11 @@ const inputSchema = z.object({
     }).optional(),
     format: z.object({
       aspectRatio: z.string().optional(),
-      smartZoom: z.boolean().optional(),
-      smartReframe: z.boolean().optional(),
-      facecamPosition: z.enum(['bottom-left', 'bottom-right', 'top-left', 'top-right', 'none']).optional(),
-      backgroundBlur: z.boolean().optional(),
-    }).optional(),
-    branding: z.object({
-      watermark: z.boolean().optional(),
-      watermarkPosition: z.string().optional(),
-      creditText: z.string().optional(),
-      brandTemplateId: z.string().uuid().nullable().optional(),
-      brandLogoPath: z.string().nullable().optional(),
     }).optional(),
   }).optional(),
 })
 
-// ── Route handler — Proxy to VPS Render API ──────────────────────────────────
-
 export const POST = withAuth(async (request, user) => {
-  // Rate limiting (AI/render operation: 5 req/min)
-  const rl = rateLimit(user.id, RATE_LIMITS.ai.limit, RATE_LIMITS.ai.windowMs)
-  if (!rl.allowed) {
-    return NextResponse.json(
-      { data: null, error: 'Rate limited', message: `Trop de requêtes. Réessayez dans ${Math.ceil((rl.retryAfterMs ?? 0) / 1000)}s` },
-      { status: 429 }
-    )
-  }
-
   let body: unknown
   try {
     body = await request.json()
@@ -74,7 +49,7 @@ export const POST = withAuth(async (request, user) => {
   const { clip_id, settings } = parsed.data
   const admin = createAdminClient()
 
-  // Fetch clip + video + transcription
+  // Fetch clip + video
   const { data: clip } = await admin
     .from('clips')
     .select('*, videos(storage_path, duration_seconds, title)')
@@ -111,32 +86,13 @@ export const POST = withAuth(async (request, user) => {
     .limit(1)
     .single()
 
-  // Get user plan for feature gating
-  const { data: profile } = await admin
-    .from('profiles')
-    .select('plan')
-    .eq('id', user.id)
-    .single()
-  const planConfig = getPlanConfig(profile?.plan)
-
-  // Gate split-screen to Studio plan
-  if (settings?.splitScreen?.enabled && !planConfig.limits.splitScreen) {
-    return NextResponse.json(
-      { data: null, error: 'Feature not available', message: `Le split-screen nécessite le plan Studio (${planConfig.name} actuel)` },
-      { status: 403 }
-    )
-  }
-
   // Mark clip as rendering
   await admin.from('clips').update({ status: 'rendering' }).eq('id', clip_id)
-
-  // ── Send render job to VPS ──────────────────────────────────────────────────
 
   const vpsUrl = process.env.VPS_RENDER_URL
   const vpsKey = process.env.VPS_RENDER_API_KEY
 
   if (!vpsUrl || !vpsKey) {
-    // Fallback: mark as done without rendering (no VPS configured)
     await admin
       .from('clips')
       .update({ status: 'done', storage_path: null })
@@ -148,7 +104,6 @@ export const POST = withAuth(async (request, user) => {
     })
   }
 
-  // Build render request for VPS
   const renderPayload = {
     videoStoragePath: video.storage_path,
     clipStartTime: clip.start_time,
@@ -156,27 +111,15 @@ export const POST = withAuth(async (request, user) => {
     clipId: clip_id,
     wordTimestamps: transcription?.word_timestamps ?? [],
     settings: {
-      captions: settings?.captions ?? { enabled: true, style: 'hormozi', wordsPerLine: 4, autoEmojis: true },
+      captions: settings?.captions ?? { enabled: true, style: 'hormozi', wordsPerLine: 4 },
       splitScreen: settings?.splitScreen ?? { enabled: false },
       format: {
         aspectRatio: settings?.format?.aspectRatio ?? '9:16',
-        smartZoom: settings?.format?.smartZoom ?? false,
-        smartReframe: settings?.format?.smartReframe ?? false,
-        facecamPosition: settings?.format?.facecamPosition ?? 'bottom-left',
-        backgroundBlur: settings?.format?.backgroundBlur ?? false,
-      },
-      branding: {
-        watermark: planConfig.limits.watermarkForced ? true : (settings?.branding?.watermark ?? false),
-        watermarkPosition: settings?.branding?.watermarkPosition ?? 'bottom-right',
-        creditText: settings?.branding?.creditText ?? null,
-        brandTemplateId: settings?.branding?.brandTemplateId ?? null,
-        brandLogoPath: (!planConfig.limits.watermarkForced && settings?.branding?.brandLogoPath) ? settings.branding.brandLogoPath : null,
       },
     },
   }
 
-  // ── Fire-and-forget: send to VPS, don't wait (Netlify timeout is 10-26s) ──
-  // VPS will update clip status in DB when done via markClipError / updateClipAfterRender
+  // Fire-and-forget to VPS
   fetch(`${vpsUrl}/api/render`, {
     method: 'POST',
     headers: {
@@ -189,17 +132,12 @@ export const POST = withAuth(async (request, user) => {
   })
 
   return NextResponse.json({
-    data: {
-      clip_id,
-      rendered: false,
-      message: 'Rendu lancé en arrière-plan',
-    },
+    data: { clip_id, rendered: false, message: 'Rendu lancé en arrière-plan' },
     error: null,
     message: 'Rendu lancé — le clip sera prêt dans quelques secondes',
   })
 })
 
-// Expose types for use in create page
 export type RenderResult = {
   clip_id: string
   storage_path?: string

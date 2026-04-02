@@ -1,85 +1,87 @@
 "use client"
 
-import { useEffect, useCallback, useRef, useState } from 'react'
+import { useEffect, useCallback, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import {
-  TrendingUp, RefreshCw, AlertCircle, Loader2, Sparkles,
-  Wifi, WifiOff, Download, Upload,
+  RefreshCw, AlertCircle, Loader2, Sparkles,
+  Download, Upload,
 } from 'lucide-react'
-import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { TrendingCard } from '@/components/trending/trending-card'
-import { TrendingFilters } from '@/components/trending/trending-filters'
-import { useTrendingStore, type TrendingClip } from '@/stores/trending-store'
+import { Input } from '@/components/ui/input'
+import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
+
+interface StreamerClip {
+  id: string
+  external_url: string
+  platform: string
+  author_name: string | null
+  author_handle: string | null
+  title: string | null
+  description: string | null
+  game: string | null
+  view_count: number | null
+  like_count: number | null
+  thumbnail_url: string | null
+  created_at: string | null
+}
 
 export default function DashboardPage() {
   const router = useRouter()
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const [clips, setClips] = useState<StreamerClip[]>([])
+  const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
   const [twitchRefreshing, setTwitchRefreshing] = useState(false)
-  const [twitchMessage, setTwitchMessage] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [search, setSearch] = useState('')
+  const [selectedGame, setSelectedGame] = useState<string | null>(null)
 
-  const {
-    filteredClips,
-    filters,
-    loading,
-    refreshing,
-    error,
-    autoRefreshEnabled,
-    autoRefreshInterval,
-    clips,
-    setFilters,
-    setAutoRefresh,
-    fetchClips,
-  } = useTrendingStore()
+  const fetchClips = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true)
+    else setRefreshing(true)
+    setError(null)
+    try {
+      const supabase = createClient()
+      const { data, error: fetchError } = await supabase
+        .from('trending_clips')
+        .select('*')
+        .order('view_count', { ascending: false })
+        .limit(100)
 
-  // Initial fetch
-  useEffect(() => {
-    fetchClips()
-  }, [fetchClips])
-
-  // Auto-refresh polling
-  useEffect(() => {
-    if (autoRefreshEnabled) {
-      intervalRef.current = setInterval(() => {
-        fetchClips(true)
-      }, autoRefreshInterval)
+      if (fetchError) throw new Error(fetchError.message)
+      setClips((data as StreamerClip[]) ?? [])
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Erreur de chargement')
+    } finally {
+      setLoading(false)
+      setRefreshing(false)
     }
+  }, [])
 
-    return () => {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current)
-        intervalRef.current = null
-      }
-    }
-  }, [autoRefreshEnabled, autoRefreshInterval, fetchClips])
+  useEffect(() => { fetchClips() }, [fetchClips])
 
-  // Twitch refresh
   const handleTwitchRefresh = useCallback(async () => {
     setTwitchRefreshing(true)
-    setTwitchMessage(null)
     try {
       const res = await fetch('/api/streams/refresh', { method: 'POST' })
-      const data = await res.json() as { data: { upserted: number } | null; error: string | null; message: string }
-      if (!res.ok || data.error) {
-        setTwitchMessage(data.message ?? 'Erreur')
-      } else {
-        setTwitchMessage(`${data.data?.upserted ?? 0} clips import&eacute;s depuis Twitch`)
-        fetchClips(true)
-      }
-    } catch {
-      setTwitchMessage('Erreur r&eacute;seau')
-    } finally {
-      setTwitchRefreshing(false)
-      setTimeout(() => setTwitchMessage(null), 5000)
-    }
+      if (res.ok) fetchClips(true)
+    } catch { /* ignore */ }
+    finally { setTwitchRefreshing(false) }
   }, [fetchClips])
 
-  // Navigate to enhance page when clicking a clip
-  const handleEnhance = useCallback((clip: TrendingClip) => {
+  const handleEnhance = useCallback((clip: StreamerClip) => {
     router.push(`/dashboard/enhance/${clip.id}`)
   }, [router])
+
+  // Filters
+  const games = [...new Set(clips.map(c => c.game).filter(Boolean))] as string[]
+  const filtered = clips.filter(c => {
+    if (search && !c.title?.toLowerCase().includes(search.toLowerCase()) && !c.author_name?.toLowerCase().includes(search.toLowerCase())) return false
+    if (selectedGame && c.game !== selectedGame) return false
+    return true
+  })
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
@@ -91,38 +93,19 @@ export default function DashboardPage() {
             Browse Clips
           </h1>
           <p className="text-muted-foreground mt-1">
-            Choisis un clip trending, enhance-le et poste &mdash; en 3 clics.
+            Choisis un clip, boost sa viralité et exporte.
           </p>
         </div>
         <div className="flex items-center gap-2 shrink-0 mt-1">
-          {/* Import own video */}
-          <Link href="/create">
-            <Button
-              variant="outline"
-              size="sm"
-              className="gap-2 h-8 border-blue-500/30 text-blue-400 hover:bg-blue-500/10"
-            >
-              <Upload className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">Importer ma vid&eacute;o</span>
-            </Button>
-          </Link>
-
-          {/* Auto-refresh toggle */}
           <Button
-            variant="ghost"
+            variant="outline"
             size="sm"
-            className={cn(
-              'gap-1.5 text-xs h-8',
-              autoRefreshEnabled ? 'text-green-400 hover:text-green-300' : 'text-muted-foreground'
-            )}
-            onClick={() => setAutoRefresh(!autoRefreshEnabled)}
-            title={autoRefreshEnabled ? 'Auto-refresh actif (60s)' : 'Auto-refresh d\u00e9sactiv\u00e9'}
+            className="gap-2 h-8 border-blue-500/30 text-blue-400 hover:bg-blue-500/10"
+            onClick={() => router.push('/dashboard/enhance')}
           >
-            {autoRefreshEnabled ? <Wifi className="h-3.5 w-3.5" /> : <WifiOff className="h-3.5 w-3.5" />}
-            Live
+            <Upload className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">Mon clip</span>
           </Button>
-
-          {/* Fetch from Twitch */}
           <Button
             variant="outline"
             size="sm"
@@ -130,62 +113,52 @@ export default function DashboardPage() {
             onClick={handleTwitchRefresh}
             disabled={twitchRefreshing}
           >
-            {twitchRefreshing ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            ) : (
-              <Download className="h-3.5 w-3.5" />
-            )}
-            {twitchRefreshing ? 'Import\u2026' : 'Twitch'}
+            {twitchRefreshing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
+            {twitchRefreshing ? 'Import...' : 'Twitch'}
           </Button>
-
-          {/* Manual refresh */}
-          <Button
-            variant="outline"
-            size="sm"
-            className="gap-2 h-8"
-            onClick={() => fetchClips(true)}
-            disabled={refreshing}
-          >
+          <Button variant="outline" size="sm" className="gap-2 h-8" onClick={() => fetchClips(true)} disabled={refreshing}>
             <RefreshCw className={cn('h-3.5 w-3.5', refreshing && 'animate-spin')} />
-            <span className="hidden sm:inline">Actualiser</span>
           </Button>
         </div>
       </div>
 
-      {/* Twitch refresh toast */}
-      {twitchMessage && (
-        <Card className="border-purple-500/20 bg-purple-500/5">
-          <CardContent className="p-3 flex items-center gap-3 text-sm">
-            <TrendingUp className="h-4 w-4 text-purple-400 shrink-0" />
-            <p className="text-muted-foreground">{twitchMessage}</p>
-          </CardContent>
-        </Card>
-      )}
+      {/* Search & Game filter */}
+      <div className="flex gap-3 flex-wrap">
+        <Input
+          placeholder="Rechercher un clip ou streamer..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="max-w-xs"
+        />
+        <div className="flex gap-1.5 flex-wrap">
+          <Button
+            variant={selectedGame === null ? 'default' : 'outline'}
+            size="sm"
+            className="h-8 text-xs"
+            onClick={() => setSelectedGame(null)}
+          >
+            Tous
+          </Button>
+          {games.map(game => (
+            <Button
+              key={game}
+              variant={selectedGame === game ? 'default' : 'outline'}
+              size="sm"
+              className="h-8 text-xs"
+              onClick={() => setSelectedGame(game === selectedGame ? null : game)}
+            >
+              {game}
+            </Button>
+          ))}
+        </div>
+      </div>
 
-      {/* New clips counter */}
-      {!loading && filteredClips.length > 0 && (
-        <Card className="border-primary/20 bg-primary/5">
-          <CardContent className="p-3 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center">
-                <Sparkles className="h-4 w-4 text-primary" />
-              </div>
-              <p className="text-sm">
-                <span className="font-bold text-foreground">{filteredClips.length} clips trending</span>
-                <span className="text-muted-foreground"> disponibles maintenant</span>
-              </p>
-            </div>
-          </CardContent>
-        </Card>
+      {/* Counter */}
+      {!loading && filtered.length > 0 && (
+        <p className="text-sm text-muted-foreground">
+          <span className="font-bold text-foreground">{filtered.length}</span> clips disponibles
+        </p>
       )}
-
-      {/* Filters */}
-      <TrendingFilters
-        filters={filters}
-        onChange={setFilters}
-        totalCount={clips.length}
-        filteredCount={filteredClips.length}
-      />
 
       {/* Error */}
       {error && (
@@ -197,30 +170,22 @@ export default function DashboardPage() {
         </Card>
       )}
 
-      {/* Clip Grid */}
+      {/* Grid */}
       {loading ? (
         <div className="flex items-center justify-center py-24 gap-3">
           <Loader2 className="h-6 w-6 animate-spin text-primary" />
-          <p className="text-muted-foreground">Chargement des clips\u2026</p>
+          <p className="text-muted-foreground">Chargement des clips...</p>
         </div>
-      ) : filteredClips.length === 0 ? (
+      ) : filtered.length === 0 ? (
         <Card className="border-border bg-card/50">
           <CardContent className="p-12 text-center">
-            <TrendingUp className="h-12 w-12 text-muted-foreground/30 mx-auto mb-3" />
-            <p className="text-muted-foreground">Aucun clip trouv&eacute; pour ces filtres.</p>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="mt-3"
-              onClick={() => setFilters({ search: '', games: [], platforms: [], sort: 'velocity' })}
-            >
-              Effacer les filtres
-            </Button>
+            <Sparkles className="h-12 w-12 text-muted-foreground/30 mx-auto mb-3" />
+            <p className="text-muted-foreground">Aucun clip trouvé.</p>
           </CardContent>
         </Card>
       ) : (
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4">
-          {filteredClips.map((clip) => (
+          {filtered.map((clip) => (
             <div key={clip.id} onClick={() => handleEnhance(clip)} className="cursor-pointer">
               <TrendingCard
                 clip={clip}
@@ -229,14 +194,6 @@ export default function DashboardPage() {
               />
             </div>
           ))}
-        </div>
-      )}
-
-      {/* Refresh indicator */}
-      {refreshing && (
-        <div className="fixed bottom-6 right-6 flex items-center gap-2 px-4 py-2 rounded-full bg-card border border-border shadow-lg animate-in slide-in-from-bottom-2 fade-in">
-          <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
-          <span className="text-xs text-muted-foreground">Actualisation\u2026</span>
         </div>
       )}
     </div>

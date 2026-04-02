@@ -5,7 +5,6 @@ import Link from 'next/link'
 import { Eye, Heart, ExternalLink, Clapperboard, Crown, Lock } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
-import { VelocityBadge } from '@/components/trending/velocity-badge'
 import { cn } from '@/lib/utils'
 
 export interface TrendingClip {
@@ -342,10 +341,12 @@ export function TrendingCard({ clip, onRemix, remixing = false, isPremiumUser = 
           </span>
         )}
 
-        {/* Velocity badge */}
-        <div className="absolute top-2 right-2 z-20">
-          <VelocityBadge score={clip.velocity_score} />
-        </div>
+        {/* View count badge */}
+        {clip.view_count && clip.view_count > 0 && !isLocked && !videoPlaying && (
+          <span className="absolute top-2 right-2 z-20 text-xs font-bold px-2 py-0.5 rounded-full bg-black/60 backdrop-blur-sm text-white/80 border border-white/10">
+            {formatCount(clip.view_count)} vues
+          </span>
+        )}
 
         {/* External link */}
         {!isLocked && !videoPlaying && (

@@ -2,10 +2,9 @@
 
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { Share, Settings, Menu, X, LogOut, Upload, Zap, Compass, Wand2 } from 'lucide-react'
+import { Settings, Menu, X, LogOut, Upload, Zap, Compass, Wand2 } from 'lucide-react'
 import { useUiStore } from '@/stores/ui-store'
 import { Button } from '@/components/ui/button'
-import { NotificationBell } from '@/components/trending/notification-bell'
 import { createClient } from '@/lib/supabase/client'
 import { useEffect, useState } from 'react'
 import type { User } from '@supabase/supabase-js'
@@ -50,7 +49,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const navigation = [
     { name: 'Browse', href: '/dashboard', icon: Compass },
     { name: 'Enhance', href: '/dashboard/enhance', icon: Wand2 },
-    { name: 'Publier', href: '/publish', icon: Share },
     { name: 'Paramètres', href: '/settings', icon: Settings },
   ]
 
@@ -84,12 +82,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               </span>
             )}
           </Link>
-          <div className="flex items-center gap-1">
-            <NotificationBell />
-            <Button variant="ghost" size="icon" className="md:hidden" onClick={() => setSidebarOpen(false)}>
-              <X className="h-5 w-5" />
-            </Button>
-          </div>
+          <Button variant="ghost" size="icon" className="md:hidden" onClick={() => setSidebarOpen(false)}>
+            <X className="h-5 w-5" />
+          </Button>
         </div>
 
         {/* Quick action — secondary upload */}

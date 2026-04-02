@@ -19,7 +19,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { createClient } from '@/lib/supabase/client'
-import { useTrendingStore } from '@/stores/trending-store'
 import { cn } from '@/lib/utils'
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -401,36 +400,9 @@ export default function EnhancePage() {
     aspectRatio: '9:16',
   })
 
-  // Load clip data — try trending store first, then Supabase
-  const storeClips = useTrendingStore((s) => s.clips)
-
+  // Load clip data from Supabase
   useEffect(() => {
     async function loadClip() {
-      // 1. Try the trending store (works for seed data + already-fetched clips)
-      const storeClip = storeClips.find((c) => c.id === clipId)
-      if (storeClip) {
-        setClip({
-          id: storeClip.id,
-          external_url: storeClip.external_url,
-          platform: storeClip.platform,
-          author_name: storeClip.author_name,
-          author_handle: storeClip.author_handle,
-          title: storeClip.title,
-          description: storeClip.description,
-          niche: storeClip.niche,
-          view_count: storeClip.view_count,
-          like_count: storeClip.like_count,
-          velocity_score: storeClip.velocity_score,
-          thumbnail_url: storeClip.thumbnail_url,
-        })
-        if (storeClip.author_handle) {
-          setSettings((s) => ({ ...s, streamerTag: `@${storeClip.author_handle}` }))
-        }
-        setLoading(false)
-        return
-      }
-
-      // 2. Fallback to Supabase query
       try {
         const supabase = createClient()
         const { data, error: dbError } = await supabase
@@ -440,7 +412,7 @@ export default function EnhancePage() {
           .single()
 
         if (dbError) throw new Error(dbError.message)
-        if (!data) throw new Error('Clip non trouv\u00e9')
+        if (!data) throw new Error('Clip non trouvé')
 
         setClip(data as TrendingClipData)
         if (data.author_handle) {
@@ -454,7 +426,7 @@ export default function EnhancePage() {
     }
 
     loadClip()
-  }, [clipId, storeClips])
+  }, [clipId])
 
   const updateSetting = useCallback(<K extends keyof EnhanceSettings>(key: K, value: EnhanceSettings[K]) => {
     setSettings((s) => ({ ...s, [key]: value }))
@@ -466,23 +438,33 @@ export default function EnhancePage() {
     setRenderMessage(null)
 
     try {
-      const res = await fetch('/api/remix', {
+      const res = await fetch('/api/render', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          trending_clip_id: clip.id,
-          enhance_settings: settings,
+          clip_id: clip.id,
+          settings: {
+            captions: {
+              enabled: settings.captionsEnabled,
+              style: settings.captionStyle,
+              animation: settings.captionAnimation,
+            },
+            splitScreen: {
+              enabled: settings.splitScreen,
+              brollCategory: settings.brollVideo,
+            },
+            format: {
+              aspectRatio: settings.aspectRatio,
+            },
+          },
         }),
       })
-      const data = await res.json() as { data: { video_id: string } | null; error: string | null; message: string }
+      const data = await res.json() as { data: { clip_id: string } | null; error: string | null; message: string }
 
       if (!res.ok || !data.data) {
         setRenderMessage(data.message ?? 'Erreur lors du rendu')
       } else {
-        setRenderMessage('Clip en cours de rendu ! Redirection\u2026')
-        setTimeout(() => {
-          router.push(`/create?video_id=${data.data!.video_id}&mode=remix`)
-        }, 1500)
+        setRenderMessage('Clip en cours de rendu !')
       }
     } catch {
       setRenderMessage('Erreur r\u00e9seau')
