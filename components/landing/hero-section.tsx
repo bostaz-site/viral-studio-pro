@@ -67,7 +67,6 @@ function useCountUp(target: number, duration = 1500) {
 
 // ─── Hero Demo (shared animation) ───────────────────────────────────────────
 
-import { ClipTransformAnimation } from '@/components/shared/clip-transform-animation'
 
 // ─── (URL input removed — flow is Browse → Enhance → Post) ─────────────────
 
@@ -195,10 +194,8 @@ export function HeroSection() {
             </p>
           </div>
 
-          {/* Clip transformation demo */}
-          <div className="mt-14">
-            <ClipTransformAnimation />
-          </div>
+          {/* Spacer */}
+          <div className="mt-14" />
 
           {/* Pain point */}
           <p className="text-sm text-muted-foreground/70 mt-10 italic max-w-lg mx-auto text-center">

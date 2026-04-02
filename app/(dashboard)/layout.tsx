@@ -89,7 +89,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
         {/* Quick action — secondary upload */}
         <div className="px-4 pt-4">
-          <Link href="/create">
+          <Link href="/dashboard">
             <Button variant="outline" className="w-full border-dashed border-border hover:border-primary/40 text-muted-foreground hover:text-foreground font-medium gap-2 h-9 text-sm">
               <Upload className="h-3.5 w-3.5" />
               Importer ma vidéo
