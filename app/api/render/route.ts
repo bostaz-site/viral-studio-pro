@@ -5,6 +5,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 
 const inputSchema = z.object({
   clip_id: z.string().uuid(),
+  source: z.enum(['clips', 'trending']).optional().default('trending'),
   settings: z.object({
     captions: z.object({
       enabled: z.boolean().optional(),
@@ -20,6 +21,10 @@ const inputSchema = z.object({
       layout: z.string().optional(),
       brollCategory: z.string().optional(),
       ratio: z.number().optional(),
+    }).optional(),
+    hook: z.object({
+      enabled: z.boolean().optional(),
+      text: z.string().optional(),
     }).optional(),
     format: z.object({
       aspectRatio: z.string().optional(),
@@ -46,73 +51,95 @@ export const POST = withAuth(async (request, user) => {
     )
   }
 
-  const { clip_id, settings } = parsed.data
+  const { clip_id, source, settings } = parsed.data
   const admin = createAdminClient()
 
-  // Fetch clip + video
-  const { data: clip } = await admin
-    .from('clips')
-    .select('*, videos(storage_path, duration_seconds, title)')
-    .eq('id', clip_id)
-    .eq('user_id', user.id)
-    .single()
+  // ── Try trending_clips first (Browse Clips flow), then user clips ──
+  let videoUrl: string | null = null
+  let clipTitle: string | null = null
+  let clipDuration: number | null = null
+  let foundSource: 'trending' | 'clips' | null = null
 
-  if (!clip) {
+  if (source === 'trending') {
+    const { data: trendingClip } = await admin
+      .from('trending_clips')
+      .select('*')
+      .eq('id', clip_id)
+      .single()
+
+    if (trendingClip) {
+      foundSource = 'trending'
+      videoUrl = trendingClip.external_url
+      clipTitle = trendingClip.title
+      clipDuration = (trendingClip as Record<string, unknown>).duration_seconds as number | null
+    }
+  }
+
+  // Fallback: check user clips table
+  if (!foundSource) {
+    const { data: clip } = await admin
+      .from('clips')
+      .select('*, videos(storage_path, duration_seconds, title)')
+      .eq('id', clip_id)
+      .eq('user_id', user.id)
+      .single()
+
+    if (clip) {
+      foundSource = 'clips'
+      const video = (clip.videos as unknown) as {
+        storage_path: string
+        duration_seconds: number | null
+        title: string | null
+      } | null
+      videoUrl = video?.storage_path ?? null
+      clipTitle = video?.title ?? clip.title
+      clipDuration = video?.duration_seconds ?? clip.duration_seconds
+    }
+  }
+
+  if (!foundSource || !videoUrl) {
     return NextResponse.json(
       { data: null, error: 'Clip not found', message: 'Clip introuvable' },
       { status: 404 }
     )
   }
 
-  const video = (clip.videos as unknown) as {
-    storage_path: string
-    duration_seconds: number | null
-    title: string | null
-  } | null
-
-  if (!video?.storage_path) {
-    return NextResponse.json(
-      { data: null, error: 'Video not found', message: 'Vidéo source introuvable' },
-      { status: 404 }
-    )
-  }
-
-  // Get word timestamps for subtitles
-  const { data: transcription } = await admin
-    .from('transcriptions')
-    .select('word_timestamps')
-    .eq('video_id', clip.video_id ?? '')
-    .order('created_at', { ascending: false })
-    .limit(1)
-    .single()
-
-  // Mark clip as rendering
-  await admin.from('clips').update({ status: 'rendering' }).eq('id', clip_id)
-
+  // ── VPS render ──
   const vpsUrl = process.env.VPS_RENDER_URL
   const vpsKey = process.env.VPS_RENDER_API_KEY
 
   if (!vpsUrl || !vpsKey) {
-    await admin
-      .from('clips')
-      .update({ status: 'done', storage_path: null })
-      .eq('id', clip_id)
     return NextResponse.json({
-      data: { clip_id, rendered: false },
+      data: { clip_id, rendered: false, source: foundSource },
       error: null,
-      message: 'VPS de rendu non configuré — clip marqué sans rendu vidéo',
+      message: 'VPS de rendu non configuré — le rendu sera disponible prochainement',
     })
   }
 
+  // Get word timestamps for subtitles (only for user clips with transcriptions)
+  let wordTimestamps: unknown[] = []
+  if (foundSource === 'clips') {
+    const { data: transcription } = await admin
+      .from('transcriptions')
+      .select('word_timestamps')
+      .eq('video_id', clip_id)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .single()
+    wordTimestamps = (transcription?.word_timestamps as unknown[] | null) ?? []
+  }
+
   const renderPayload = {
-    videoStoragePath: video.storage_path,
-    clipStartTime: clip.start_time,
-    clipEndTime: clip.end_time,
+    videoUrl,
     clipId: clip_id,
-    wordTimestamps: transcription?.word_timestamps ?? [],
+    source: foundSource,
+    clipTitle,
+    clipDuration,
+    wordTimestamps,
     settings: {
       captions: settings?.captions ?? { enabled: true, style: 'hormozi', wordsPerLine: 4 },
       splitScreen: settings?.splitScreen ?? { enabled: false },
+      hook: settings?.hook ?? { enabled: false },
       format: {
         aspectRatio: settings?.format?.aspectRatio ?? '9:16',
       },
@@ -132,7 +159,7 @@ export const POST = withAuth(async (request, user) => {
   })
 
   return NextResponse.json({
-    data: { clip_id, rendered: false, message: 'Rendu lancé en arrière-plan' },
+    data: { clip_id, rendered: false, source: foundSource },
     error: null,
     message: 'Rendu lancé — le clip sera prêt dans quelques secondes',
   })
@@ -145,4 +172,5 @@ export type RenderResult = {
   render_time?: string
   duration?: number
   rendered: boolean
+  source?: string
 }

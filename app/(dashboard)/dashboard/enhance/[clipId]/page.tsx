@@ -524,6 +524,7 @@ export default function EnhancePage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           clip_id: clip.id,
+          source: 'trending',
           settings: {
             captions: { enabled: settings.captionsEnabled, style: settings.captionStyle, animation: settings.captionAnimation },
             splitScreen: { enabled: settings.splitScreenEnabled, brollCategory: settings.brollVideo },
@@ -641,8 +642,7 @@ export default function EnhancePage() {
           <LivePreview clip={clip} settings={settings} />
 
           {/* Metadata inline */}
-          <div className="flex items-center justify-between text-xs text-muted-foreground px-1">
-            <span className="flex items-center gap-1"><Eye className="h-3 w-3" />{formatCount(clip.view_count)} vues</span>
+          <div className="flex items-center justify-end text-xs text-muted-foreground px-1">
             <a href={clip.external_url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-primary hover:underline">
               <ExternalLink className="h-3 w-3" />Original
             </a>
