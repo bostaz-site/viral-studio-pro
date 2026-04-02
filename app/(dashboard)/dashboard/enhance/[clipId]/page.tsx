@@ -14,7 +14,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Switch } from '@/components/ui/switch'
 import { Slider } from '@/components/ui/slider'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { createClient } from '@/lib/supabase/client'
@@ -61,6 +60,7 @@ const CAPTION_STYLES = [
   { id: 'neon', label: 'Neon', preview: 'text-green-400 font-bold', highlightClass: 'text-green-400 bg-green-400/20', baseScore: 10 },
   { id: 'bold', label: 'Bold', preview: 'text-white font-black text-lg', highlightClass: 'text-white bg-white/20', baseScore: 11 },
   { id: 'minimal', label: 'Minimal', preview: 'text-white/80 font-medium', highlightClass: 'text-white/80 bg-white/10', baseScore: 6 },
+  { id: 'none', label: 'Aucun', preview: 'text-muted-foreground line-through', highlightClass: '', baseScore: 0 },
 ]
 
 const CAPTION_ANIMATIONS = [
@@ -77,13 +77,14 @@ const BROLL_OPTIONS = [
   { id: 'sand-cutting', label: 'Sand Cutting', color: 'from-amber-500 to-orange-500', baseScore: 10 },
   { id: 'soap-cutting', label: 'Soap Cutting', color: 'from-pink-500 to-rose-500', baseScore: 9 },
   { id: 'slime-satisfying', label: 'Slime', color: 'from-purple-500 to-violet-500', baseScore: 8 },
+  { id: 'none', label: 'Aucun', color: 'from-slate-700 to-slate-800', baseScore: 0 },
 ]
 
 const TAG_STYLES = [
-  { id: 'badge-top', label: 'Badge coin', description: 'Tag dans un badge en haut \u00e0 droite', baseScore: 10, position: 'top-right' as const },
-  { id: 'watermark-center', label: 'Watermark', description: 'Semi-transparent au centre', baseScore: 6, position: 'center' as const },
-  { id: 'banner-bottom', label: 'Banni\u00e8re bas', description: 'Bande en bas de la vid\u00e9o', baseScore: 12, position: 'bottom' as const },
-  { id: 'none', label: 'Aucun tag', description: 'Pas de tag visible', baseScore: 0, position: 'none' as const },
+  { id: 'badge-top', label: 'Badge coin', description: 'Badge arrondi en haut \u00e0 droite', icon: '🏷️', baseScore: 10, position: 'top-right' as const },
+  { id: 'watermark-center', label: 'Watermark', description: 'Semi-transparent au centre', icon: '💧', baseScore: 6, position: 'center' as const },
+  { id: 'banner-bottom', label: 'Banni\u00e8re', description: 'Bande color\u00e9e en bas', icon: '🎬', baseScore: 12, position: 'bottom' as const },
+  { id: 'none', label: 'Aucun', description: 'Pas de tag visible', icon: '🚫', baseScore: 0, position: 'none' as const },
 ]
 
 function formatCount(n: number | null): string {
@@ -576,12 +577,9 @@ export default function EnhancePage() {
             <TabsContent value="captions" className="space-y-6">
               <Card className="bg-card/60 border-border">
                 <CardHeader className="pb-3">
-                  <div className="flex items-center justify-between">
-                    <CardTitle className="text-base">Sous-titres karaok&eacute;</CardTitle>
-                    <Switch checked={settings.captionsEnabled} onCheckedChange={(v) => updateSetting('captionsEnabled', v)} />
-                  </div>
+                  <CardTitle className="text-base">Sous-titres karaok&eacute;</CardTitle>
                 </CardHeader>
-                {settings.captionsEnabled && scores && (
+                {scores && (
                   <CardContent className="space-y-5">
                     {/* Style selector with scores */}
                     <div className="space-y-2">
@@ -592,7 +590,10 @@ export default function EnhancePage() {
                           return (
                             <button
                               key={style.id}
-                              onClick={() => updateSetting('captionStyle', style.id)}
+                              onClick={() => {
+                                updateSetting('captionStyle', style.id)
+                                updateSetting('captionsEnabled', style.id !== 'none')
+                              }}
                               className={cn(
                                 'relative rounded-xl border p-3 text-left transition-all',
                                 settings.captionStyle === style.id
@@ -615,7 +616,8 @@ export default function EnhancePage() {
                       </div>
                     </div>
 
-                    {/* Animation with scores */}
+                    {/* Animation, position, words — hidden when style is 'none' */}
+                    {settings.captionStyle !== 'none' && <>
                     <div className="space-y-2">
                       <Label className="text-xs uppercase tracking-wider text-muted-foreground">Animation</Label>
                       <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
@@ -645,14 +647,22 @@ export default function EnhancePage() {
                     {/* Position */}
                     <div className="space-y-2">
                       <Label className="text-xs uppercase tracking-wider text-muted-foreground">Position</Label>
-                      <Select value={settings.captionPosition} onValueChange={(v) => updateSetting('captionPosition', v as 'top' | 'middle' | 'bottom')}>
-                        <SelectTrigger><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="top">Haut</SelectItem>
-                          <SelectItem value="middle">Milieu</SelectItem>
-                          <SelectItem value="bottom">Bas</SelectItem>
-                        </SelectContent>
-                      </Select>
+                      <div className="grid grid-cols-3 gap-2">
+                        {([['top', 'Haut'], ['middle', 'Milieu'], ['bottom', 'Bas']] as const).map(([pos, label]) => (
+                          <button
+                            key={pos}
+                            onClick={() => updateSetting('captionPosition', pos)}
+                            className={cn(
+                              'rounded-xl border px-3 py-2 text-center text-xs font-medium transition-all',
+                              settings.captionPosition === pos
+                                ? 'border-primary bg-primary/10 ring-1 ring-primary/30 text-foreground'
+                                : 'border-border hover:border-primary/40 text-muted-foreground'
+                            )}
+                          >
+                            {label}
+                          </button>
+                        ))}
+                      </div>
                     </div>
 
                     {/* Words per line */}
@@ -663,6 +673,7 @@ export default function EnhancePage() {
                       </div>
                       <Slider value={[settings.wordsPerLine]} onValueChange={([v]) => updateSetting('wordsPerLine', v)} min={2} max={8} step={1} />
                     </div>
+                    </>}
                   </CardContent>
                 )}
               </Card>
@@ -672,12 +683,9 @@ export default function EnhancePage() {
             <TabsContent value="splitscreen" className="space-y-6">
               <Card className="bg-card/60 border-border">
                 <CardHeader className="pb-3">
-                  <div className="flex items-center justify-between">
-                    <CardTitle className="text-base">Split-Screen</CardTitle>
-                    <Switch checked={settings.splitScreenEnabled} onCheckedChange={(v) => updateSetting('splitScreenEnabled', v)} />
-                  </div>
+                  <CardTitle className="text-base">Split-Screen</CardTitle>
                 </CardHeader>
-                {settings.splitScreenEnabled && scores && (
+                {scores && (
                   <CardContent className="space-y-5">
                     <div className="space-y-2">
                       <Label className="text-xs uppercase tracking-wider text-muted-foreground">Vid&eacute;o B-roll</Label>
@@ -687,7 +695,10 @@ export default function EnhancePage() {
                           return (
                             <button
                               key={broll.id}
-                              onClick={() => updateSetting('brollVideo', broll.id)}
+                              onClick={() => {
+                                updateSetting('brollVideo', broll.id)
+                                updateSetting('splitScreenEnabled', broll.id !== 'none')
+                              }}
                               className={cn(
                                 'relative rounded-xl border p-3 transition-all',
                                 settings.brollVideo === broll.id
@@ -708,6 +719,7 @@ export default function EnhancePage() {
                       </div>
                     </div>
 
+                    {settings.brollVideo !== 'none' && (
                     <div className="space-y-2">
                       <div className="flex items-center justify-between">
                         <Label className="text-xs uppercase tracking-wider text-muted-foreground">Ratio stream / B-roll</Label>
@@ -715,6 +727,7 @@ export default function EnhancePage() {
                       </div>
                       <Slider value={[settings.splitRatio]} onValueChange={([v]) => updateSetting('splitRatio', v)} min={40} max={80} step={5} />
                     </div>
+                    )}
                   </CardContent>
                 )}
               </Card>
@@ -738,7 +751,7 @@ export default function EnhancePage() {
                               key={tag.id}
                               onClick={() => updateSetting('tagStyle', tag.id)}
                               className={cn(
-                                'relative rounded-xl border p-3 text-left transition-all',
+                                'relative rounded-xl border p-3 text-left transition-all group',
                                 settings.tagStyle === tag.id
                                   ? 'border-primary bg-primary/10 ring-1 ring-primary/30'
                                   : scored.isBest
@@ -746,11 +759,12 @@ export default function EnhancePage() {
                                   : 'border-border hover:border-primary/40'
                               )}
                             >
-                              <div className="flex items-center justify-between mb-1">
-                                <span className={cn('text-xs font-semibold', scored.isBest ? 'text-orange-400' : 'text-foreground')}>{tag.label}</span>
+                              <div className="flex items-center gap-2 mb-1">
+                                <span className="text-base">{tag.icon}</span>
+                                <span className={cn('text-xs font-semibold flex-1', scored.isBest ? 'text-orange-400' : 'text-foreground')}>{tag.label}</span>
                                 <ScoreBadge score={scored.score} isBest={scored.isBest} />
                               </div>
-                              <span className="text-[10px] text-muted-foreground">{tag.description}</span>
+                              <span className="text-[10px] text-muted-foreground pl-7">{tag.description}</span>
                             </button>
                           )
                         })}
@@ -801,21 +815,6 @@ export default function EnhancePage() {
                 </CardContent>
               </Card>
 
-              <Card className="bg-card/60 border-border">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-base">Position sous-titres</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <Select value={settings.captionPosition} onValueChange={(v) => updateSetting('captionPosition', v as 'top' | 'middle' | 'bottom')}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="top">Haut</SelectItem>
-                      <SelectItem value="middle">Milieu</SelectItem>
-                      <SelectItem value="bottom">Bas</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </CardContent>
-              </Card>
             </TabsContent>
           </Tabs>
         </div>
