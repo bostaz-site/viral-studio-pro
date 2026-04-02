@@ -12,7 +12,6 @@ import {
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Switch } from '@/components/ui/switch'
 import { Slider } from '@/components/ui/slider'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
@@ -83,7 +82,7 @@ const BROLL_OPTIONS = [
 const TAG_STYLES = [
   { id: 'badge-top', label: 'Badge coin', description: 'Badge arrondi en haut \u00e0 droite', icon: '🏷️', baseScore: 10, position: 'top-right' as const },
   { id: 'watermark-center', label: 'Watermark', description: 'Semi-transparent au centre', icon: '💧', baseScore: 6, position: 'center' as const },
-  { id: 'banner-bottom', label: 'Banni\u00e8re', description: 'Bande color\u00e9e en bas', icon: '🎬', baseScore: 12, position: 'bottom' as const },
+  { id: 'banner-bottom', label: 'Bannière', description: 'Bande colorée en bas', icon: 'discord', baseScore: 12, position: 'bottom' as const },
   { id: 'none', label: 'Aucun', description: 'Pas de tag visible', icon: '🚫', baseScore: 0, position: 'none' as const },
 ]
 
@@ -292,7 +291,7 @@ function LivePreview({
             <div className="absolute bottom-0 inset-x-0 z-20 bg-gradient-to-t from-black/80 to-transparent px-3 py-2 transition-all duration-300 pointer-events-none"
               style={{ bottom: settings.splitScreenEnabled ? `${100 - settings.splitRatio}%` : '0' }}>
               <div className="flex items-center gap-1.5">
-                <AtSign className="h-3 w-3 text-blue-400" />
+                <svg className="h-3 w-3 text-indigo-400" viewBox="0 0 24 24" fill="currentColor"><path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028c.462-.63.874-1.295 1.226-1.994a.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128c.12-.094.246-.192.372-.292a.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419s.956-2.419 2.157-2.419c1.21 0 2.176 1.095 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419s.955-2.419 2.157-2.419c1.21 0 2.176 1.095 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"/></svg>
                 <span className="text-xs font-bold text-white">{streamerName}</span>
               </div>
             </div>
@@ -665,14 +664,6 @@ export default function EnhancePage() {
                       </div>
                     </div>
 
-                    {/* Words per line */}
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <Label className="text-xs uppercase tracking-wider text-muted-foreground">Mots par ligne</Label>
-                        <span className="text-sm font-semibold text-foreground">{settings.wordsPerLine}</span>
-                      </div>
-                      <Slider value={[settings.wordsPerLine]} onValueChange={([v]) => updateSetting('wordsPerLine', v)} min={2} max={8} step={1} />
-                    </div>
                     </>}
                   </CardContent>
                 )}
@@ -725,7 +716,14 @@ export default function EnhancePage() {
                         <Label className="text-xs uppercase tracking-wider text-muted-foreground">Ratio stream / B-roll</Label>
                         <span className="text-sm font-semibold text-foreground">{settings.splitRatio}% / {100 - settings.splitRatio}%</span>
                       </div>
-                      <Slider value={[settings.splitRatio]} onValueChange={([v]) => updateSetting('splitRatio', v)} min={40} max={80} step={5} />
+                      <Slider
+                        value={[settings.splitRatio]}
+                        onValueChange={([v]) => updateSetting('splitRatio', v)}
+                        min={40}
+                        max={80}
+                        step={5}
+                        className="accent-orange-500 [&::-webkit-slider-thumb]:bg-orange-500 [&::-webkit-slider-thumb]:border-orange-400 [&::-webkit-slider-thumb]:w-5 [&::-webkit-slider-thumb]:h-5 [&::-webkit-slider-thumb]:shadow-lg [&::-webkit-slider-thumb]:shadow-orange-500/30 [&::-moz-range-thumb]:bg-orange-500 [&::-moz-range-thumb]:border-orange-400 [&::-moz-range-thumb]:w-5 [&::-moz-range-thumb]:h-5 h-2 bg-orange-500/20"
+                      />
                     </div>
                     )}
                   </CardContent>
@@ -760,7 +758,11 @@ export default function EnhancePage() {
                               )}
                             >
                               <div className="flex items-center gap-2 mb-1">
-                                <span className="text-base">{tag.icon}</span>
+                                {tag.icon === 'discord' ? (
+                                  <svg className="w-4 h-4 text-indigo-400" viewBox="0 0 24 24" fill="currentColor"><path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028 14.09 14.09 0 0 0 1.226-1.994.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.095 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.095 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"/></svg>
+                                ) : (
+                                  <span className="text-base">{tag.icon}</span>
+                                )}
                                 <span className={cn('text-xs font-semibold flex-1', scored.isBest ? 'text-orange-400' : 'text-foreground')}>{tag.label}</span>
                                 <ScoreBadge score={scored.score} isBest={scored.isBest} />
                               </div>
@@ -771,16 +773,6 @@ export default function EnhancePage() {
                       </div>
                     </div>
 
-                    {/* Auto credit toggle */}
-                    <div className="flex items-center justify-between pt-2 border-t border-border">
-                      <div>
-                        <Label className="text-sm">Cr&eacute;dit en description</Label>
-                        <p className="text-[10px] text-muted-foreground">
-                          Ajoute &laquo; Cr&eacute;dit : {clip.author_handle ? `@${clip.author_handle}` : '@streamer'} &raquo;
-                        </p>
-                      </div>
-                      <Switch checked={settings.autoCredit} onCheckedChange={(v) => updateSetting('autoCredit', v)} />
-                    </div>
                   </CardContent>
                 )}
               </Card>
