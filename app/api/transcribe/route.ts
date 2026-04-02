@@ -3,8 +3,12 @@ import { z } from 'zod'
 import { withAuth } from '@/lib/api/withAuth'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { transcribeAudio } from '@/lib/whisper'
+import { extractAudioFromVideo } from '@/lib/whisper/extract-audio'
 import { rateLimit, RATE_LIMITS } from '@/lib/rate-limit'
 import type { Json } from '@/lib/supabase/types'
+
+// OpenAI Whisper file size limit is 25MB
+const WHISPER_MAX_BYTES = 25 * 1024 * 1024
 
 const srtDataSchema = z.object({
   full_text: z.string().min(1),
@@ -88,8 +92,27 @@ export const POST = withAuth(async (request, user) => {
     }
 
     const arrayBuffer = await fileData.arrayBuffer()
-    const buffer = Buffer.from(arrayBuffer)
-    const filename = video.storage_path.split('/').pop() ?? 'video.mp4'
+    let buffer: Buffer = Buffer.from(arrayBuffer)
+    let filename: string = video.storage_path.split('/').pop() ?? 'video.mp4'
+
+    // If file exceeds Whisper's 25MB limit, extract audio track as MP3
+    if (buffer.length > WHISPER_MAX_BYTES) {
+      try {
+        const audio = await extractAudioFromVideo(buffer, filename)
+        buffer = audio.buffer
+        filename = audio.filename
+        console.log(`[transcribe] Extracted audio: ${(buffer.length / 1024).toFixed(0)}KB from ${(arrayBuffer.byteLength / 1024 / 1024).toFixed(1)}MB video`)
+      } catch (ffmpegError) {
+        await admin
+          .from('videos')
+          .update({ status: 'error', error_message: `Audio extraction failed: ${String(ffmpegError)}` })
+          .eq('id', video_id)
+        return NextResponse.json(
+          { data: null, error: String(ffmpegError), message: 'Failed to extract audio from video' },
+          { status: 500 }
+        )
+      }
+    }
 
     try {
       transcription = await transcribeAudio(buffer, filename)
