@@ -76,41 +76,67 @@ function timeAgo(dateStr: string | null): string {
 }
 
 /**
- * Extract Twitch clip embed URL from a Twitch clip URL.
- * Supports two formats:
- *   - https://clips.twitch.tv/SLUG
- *   - https://www.twitch.tv/USERNAME/clip/SLUG  (returned by Helix API)
+ * Derive a direct MP4 video URL from a Twitch clip thumbnail URL.
+ *
+ * New CDN format (twitch-video-assets / VAP):
+ *   Thumbnail: https://static-cdn.jtvnw.net/twitch-video-assets/.../UUID/landscape/thumb/thumb-000-480x272.jpg
+ *   Video:     Replace "/thumb/thumb-...-480x272.jpg" with ".mp4" at the UUID level
+ *
+ * Old CDN format (clips-media-assets):
+ *   Thumbnail: https://clips-media-assets2.twitch.tv/SLUG-preview-480x272.jpg
+ *   Video:     https://clips-media-assets2.twitch.tv/SLUG.mp4
+ */
+function thumbnailToVideoUrl(thumbnailUrl: string | null): string | null {
+  if (!thumbnailUrl) return null
+
+  // New VAP format: ...twitch-video-assets/.../UUID/landscape/thumb/thumb-XXX-WxH.jpg
+  // → ...twitch-video-assets/.../UUID/720.mp4
+  const vapMatch = thumbnailUrl.match(
+    /(https:\/\/static-cdn\.jtvnw\.net\/twitch-video-assets\/[^/]+\/[^/]+)\/landscape\/thumb\/.*$/
+  )
+  if (vapMatch) {
+    return `${vapMatch[1]}/720.mp4`
+  }
+
+  // Old format: .../SLUG-preview-WxH.jpg → .../SLUG.mp4
+  const oldMatch = thumbnailUrl.match(/^(https:\/\/clips-media-assets2\.twitch\.tv\/.+)-preview-\d+x\d+\.jpg$/)
+  if (oldMatch) {
+    return `${oldMatch[1]}.mp4`
+  }
+
+  return null
+}
+
+/**
+ * Extract Twitch clip embed URL as fallback.
  */
 function getClipEmbedUrl(externalUrl: string, parentDomain: string): string | null {
   try {
     const url = new URL(externalUrl)
-
-    // Format 1: https://clips.twitch.tv/SLUG
     if (url.hostname === 'clips.twitch.tv') {
       const slug = url.pathname.replace('/', '')
       if (slug && !slug.includes('/')) {
         return `https://clips.twitch.tv/embed?clip=${slug}&parent=${parentDomain}&autoplay=true&muted=true`
       }
     }
-
-    // Format 2: https://www.twitch.tv/USERNAME/clip/SLUG (from Helix API)
     if (url.hostname === 'www.twitch.tv' || url.hostname === 'twitch.tv') {
       const match = url.pathname.match(/^\/[^/]+\/clip\/([^/]+)$/)
       if (match) {
         return `https://clips.twitch.tv/embed?clip=${match[1]}&parent=${parentDomain}&autoplay=true&muted=true`
       }
     }
-  } catch {
-    // Invalid URL
-  }
+  } catch { /* invalid URL */ }
   return null
 }
 
 export function TrendingCard({ clip, onRemix, remixing = false, isPremiumUser = false }: TrendingCardProps) {
   const [imgError, setImgError] = useState(false)
   const [hovered, setHovered] = useState(false)
-  const [showEmbed, setShowEmbed] = useState(false)
+  const [showVideo, setShowVideo] = useState(false)
+  const [videoError, setVideoError] = useState(false)
+  const [videoPlaying, setVideoPlaying] = useState(false)
   const hoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const videoRef = useRef<HTMLVideoElement | null>(null)
 
   const isLocked = !isPremiumUser && (clip.velocity_score ?? 0) >= PREMIUM_THRESHOLD
 
@@ -124,26 +150,41 @@ export function TrendingCard({ clip, onRemix, remixing = false, isPremiumUser = 
   const gameLabel = GAME_LABELS[gameKey] ?? clip.niche
   const streamerGradient = STREAMER_GRADIENTS[clip.author_handle?.toLowerCase() ?? ''] ?? 'from-slate-700 via-slate-600 to-slate-500'
 
-  // Hover handlers — show embed after 400ms hover to avoid accidental loads
+  // Derive direct MP4 URL from thumbnail (for native <video> autoplay)
+  const videoUrl = clip.platform === 'twitch' ? thumbnailToVideoUrl(clip.thumbnail_url) : null
+  // Fallback to iframe embed if direct video not available
+  const parentDomain = typeof window !== 'undefined' ? window.location.hostname : 'viral-studio-pro.netlify.app'
+  const embedUrl = (!videoUrl || videoError) && clip.platform === 'twitch'
+    ? getClipEmbedUrl(clip.external_url, parentDomain)
+    : null
+
+  // Hover handlers — show video after 300ms hover
   const handleMouseEnter = useCallback(() => {
     setHovered(true)
     if (!isLocked) {
-      hoverTimerRef.current = setTimeout(() => setShowEmbed(true), 400)
+      hoverTimerRef.current = setTimeout(() => {
+        setShowVideo(true)
+        // Try to play the video element
+        setTimeout(() => {
+          videoRef.current?.play().catch(() => {/* autoplay blocked, that's ok */})
+        }, 50)
+      }, 300)
     }
   }, [isLocked])
 
   const handleMouseLeave = useCallback(() => {
     setHovered(false)
-    setShowEmbed(false)
+    setShowVideo(false)
+    setVideoPlaying(false)
+    if (videoRef.current) {
+      videoRef.current.pause()
+      videoRef.current.currentTime = 0
+    }
     if (hoverTimerRef.current) {
       clearTimeout(hoverTimerRef.current)
       hoverTimerRef.current = null
     }
   }, [])
-
-  // Build embed URL for Twitch clips
-  const parentDomain = typeof window !== 'undefined' ? window.location.hostname : 'viral-studio-pro.netlify.app'
-  const embedUrl = clip.platform === 'twitch' ? getClipEmbedUrl(clip.external_url, parentDomain) : null
 
   return (
     <Card
@@ -159,8 +200,23 @@ export function TrendingCard({ clip, onRemix, remixing = false, isPremiumUser = 
       {/* Thumbnail / Video area */}
       <div className="aspect-[9/16] max-h-52 relative overflow-hidden bg-gradient-to-br from-slate-900 to-slate-800">
 
-        {/* Twitch embed on hover (plays the clip) */}
-        {showEmbed && embedUrl && !isLocked && (
+        {/* Native video on hover (autoplay muted — works in all browsers) */}
+        {showVideo && videoUrl && !videoError && !isLocked && (
+          <video
+            ref={videoRef}
+            src={videoUrl}
+            className="absolute inset-0 w-full h-full object-cover z-[5]"
+            autoPlay
+            muted
+            playsInline
+            loop
+            onPlaying={() => setVideoPlaying(true)}
+            onError={() => setVideoError(true)}
+          />
+        )}
+
+        {/* Fallback: Twitch iframe embed if direct video fails */}
+        {showVideo && videoError && embedUrl && !isLocked && (
           <iframe
             src={embedUrl}
             className="absolute inset-0 w-full h-full z-[5]"
@@ -200,8 +256,8 @@ export function TrendingCard({ clip, onRemix, remixing = false, isPremiumUser = 
           </div>
         )}
 
-        {/* Hover play indicator */}
-        {hovered && !isLocked && !showEmbed && (
+        {/* Hover play indicator (before video loads) */}
+        {hovered && !isLocked && !videoPlaying && !showVideo && (
           <div className="absolute inset-0 flex items-center justify-center z-[4] pointer-events-none">
             <div className="w-12 h-12 rounded-full bg-black/50 backdrop-blur-sm flex items-center justify-center border border-white/20 animate-in zoom-in-50 duration-200">
               <Play className="h-5 w-5 text-white ml-0.5" fill="white" />
@@ -210,7 +266,7 @@ export function TrendingCard({ clip, onRemix, remixing = false, isPremiumUser = 
         )}
 
         {/* Playing indicator */}
-        {showEmbed && embedUrl && !isLocked && (
+        {videoPlaying && !isLocked && (
           <div className="absolute bottom-2 left-2 z-[6] flex items-center gap-1.5 bg-black/60 backdrop-blur-sm rounded-full px-2 py-1">
             <div className="flex items-center gap-0.5">
               <div className="w-0.5 h-3 bg-green-400 rounded-full animate-pulse" />
@@ -240,7 +296,7 @@ export function TrendingCard({ clip, onRemix, remixing = false, isPremiumUser = 
         )}
 
         {/* Platform badge — only show if not locked */}
-        {!isLocked && !showEmbed && (
+        {!isLocked && !videoPlaying && (
           <span className={cn(
             'absolute top-2 left-2 text-xs font-bold px-2 py-0.5 rounded-full border backdrop-blur-sm',
             platformStyle.colorClass
@@ -255,7 +311,7 @@ export function TrendingCard({ clip, onRemix, remixing = false, isPremiumUser = 
         </div>
 
         {/* External link */}
-        {!isLocked && !showEmbed && (
+        {!isLocked && !videoPlaying && (
           <a
             href={clip.external_url}
             target="_blank"
@@ -269,7 +325,7 @@ export function TrendingCard({ clip, onRemix, remixing = false, isPremiumUser = 
         )}
 
         {/* Scraped time */}
-        {!isLocked && !showEmbed && clip.scraped_at && (
+        {!isLocked && !videoPlaying && clip.scraped_at && (
           <span className="absolute bottom-2 left-2 text-[10px] text-white/50 bg-black/40 px-1.5 py-0.5 rounded-md backdrop-blur-sm">
             il y a {timeAgo(clip.scraped_at)}
           </span>
