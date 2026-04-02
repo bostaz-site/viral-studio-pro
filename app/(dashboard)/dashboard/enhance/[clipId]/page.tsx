@@ -201,11 +201,6 @@ function ScoreBadge({ score, isBest }: { score: number; isBest: boolean }) {
 
 // ─── Live Preview Component ─────────────────────────────────────────────────
 
-function extractTwitchSlug(url: string): string | null {
-  const match = url.match(/\/clip\/([A-Za-z0-9_-]+)/)
-  return match ? match[1] : null
-}
-
 function LivePreview({
   clip,
   settings,
@@ -217,7 +212,6 @@ function LivePreview({
   const captionStyle = CAPTION_STYLES.find((s) => s.id === settings.captionStyle)
   const tagStyle = TAG_STYLES.find((t) => t.id === settings.tagStyle)
   const streamerName = clip.author_handle ? `@${clip.author_handle}` : clip.author_name ?? ''
-  const twitchSlug = clip.platform === 'twitch' ? extractTwitchSlug(clip.external_url) : null
 
   const animationClass = settings.captionAnimation === 'pop' ? 'animate-[pulse_2s_ease-in-out_infinite]'
     : settings.captionAnimation === 'bounce' ? 'animate-bounce'
@@ -225,6 +219,13 @@ function LivePreview({
     : ''
 
   return (
+    <>
+    <style>{`
+      @keyframes kenburns {
+        0% { transform: scale(1) translate(0, 0); }
+        100% { transform: scale(1.08) translate(-2%, -1%); }
+      }
+    `}</style>
     <div
       className="relative w-full rounded-2xl overflow-hidden bg-black border border-white/10 shadow-2xl mx-auto transition-all duration-500"
       style={{ aspectRatio: '9/16', maxWidth: 280 }}
@@ -234,16 +235,12 @@ function LivePreview({
         className="absolute inset-x-0 top-0 overflow-hidden transition-all duration-500"
         style={{ height: settings.splitScreenEnabled ? `${settings.splitRatio}%` : '100%' }}
       >
-        {twitchSlug ? (
-          <iframe
-            src={`https://clips.twitch.tv/embed?clip=${twitchSlug}&parent=viral-studio-pro.netlify.app&parent=localhost&autoplay=true&muted=true`}
-            className="w-full h-full border-0"
-            allow="autoplay; encrypted-media"
-            allowFullScreen
-            title={clip.title ?? 'Clip preview'}
+        {clip.thumbnail_url ? (
+          <img
+            src={clip.thumbnail_url}
+            alt={clip.title ?? 'Clip'}
+            className="w-full h-full object-cover animate-[kenburns_20s_ease-in-out_infinite_alternate]"
           />
-        ) : clip.thumbnail_url ? (
-          <img src={clip.thumbnail_url} alt={clip.title ?? 'Clip'} className="w-full h-full object-cover" />
         ) : (
           <div className="w-full h-full bg-gradient-to-br from-slate-800 to-slate-900 flex items-center justify-center">
             <Play className="h-10 w-10 text-white/20" />
@@ -339,6 +336,7 @@ function LivePreview({
         <span className="text-[9px] text-white/40 font-medium bg-black/30 rounded-full px-2 py-0.5">{settings.aspectRatio}</span>
       </div>
     </div>
+    </>
   )
 }
 
