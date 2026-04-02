@@ -370,21 +370,13 @@ export function TrendingCard({ clip, onRemix, remixing = false, isPremiumUser = 
           </div>
         )}
 
-        {/* Platform badge */}
+        {/* Platform badge (no views shown) */}
         {!isLocked && !videoPlaying && !viralBadge && (
           <span className={cn(
-            'absolute top-2 left-2 text-xs font-bold px-2 py-0.5 rounded-full border backdrop-blur-sm',
+            'absolute top-2 left-2 z-20 text-xs font-bold px-2 py-0.5 rounded-full border backdrop-blur-sm',
             platformStyle.colorClass
           )}>
             {platformStyle.label}
-          </span>
-        )}
-
-        {/* Boosted view count badge */}
-        {!isLocked && !videoPlaying && (
-          <span className="absolute top-2 left-2 z-20 text-xs font-bold px-2 py-0.5 rounded-full bg-black/60 backdrop-blur-sm text-white/90 border border-white/10 flex items-center gap-1">
-            <Eye className="h-3 w-3" />
-            {formatCount(boostedViews)}
           </span>
         )}
 
@@ -428,17 +420,13 @@ export function TrendingCard({ clip, onRemix, remixing = false, isPremiumUser = 
           </p>
         )}
 
-        <div className="flex items-center gap-3 text-xs text-muted-foreground">
-          <span className="flex items-center gap-1">
-            <TrendingUp className="h-3 w-3 text-orange-400" />
-            <span className="text-orange-400 font-semibold">{formatCount(boostedViews)}</span>
-          </span>
-          {clip.niche && (
-            <span className={cn('ml-auto px-2 py-0.5 rounded-full text-[10px] font-medium', gameColor)}>
+        {clip.niche && (
+          <div className="flex items-center text-xs text-muted-foreground">
+            <span className={cn('px-2 py-0.5 rounded-full text-[10px] font-medium', gameColor)}>
               {gameLabel}
             </span>
-          )}
-        </div>
+          </div>
+        )}
 
         {isLocked ? (
           <Link href="/settings" onClick={(e) => e.stopPropagation()}>

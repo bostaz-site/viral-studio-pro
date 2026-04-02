@@ -408,7 +408,7 @@ export default function EnhancePage() {
   const [error, setError] = useState<string | null>(null)
   const [rendering, setRendering] = useState(false)
   const [renderMessage, setRenderMessage] = useState<string | null>(null)
-  const [mode, setMode] = useState<'simple' | 'advanced'>('simple')
+  const [mode, setMode] = useState<'simple' | 'advanced'>('advanced')
   const [viralApplied, setViralApplied] = useState(false)
 
   // Section refs for scroll navigation (advanced mode)
@@ -594,14 +594,17 @@ export default function EnhancePage() {
         <button
           onClick={() => setMode(mode === 'simple' ? 'advanced' : 'simple')}
           className={cn(
-            'flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all border',
-            mode === 'advanced'
-              ? 'bg-primary/10 border-primary/30 text-primary'
-              : 'bg-muted/50 border-border text-muted-foreground hover:text-foreground'
+            'flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all border shadow-sm',
+            mode === 'simple'
+              ? 'bg-gradient-to-r from-orange-500/15 to-pink-500/15 border-orange-500/30 text-orange-400 shadow-orange-500/10 hover:shadow-orange-500/20'
+              : 'bg-primary/10 border-primary/30 text-primary hover:bg-primary/15'
           )}
         >
-          <Settings2 className="h-3.5 w-3.5" />
-          {mode === 'simple' ? 'Mode avancé' : 'Mode simple'}
+          {mode === 'simple' ? (
+            <><Settings2 className="h-4 w-4" /> Mode avancé</>
+          ) : (
+            <><Zap className="h-4 w-4" /> Mode simple</>
+          )}
         </button>
       </div>
 
