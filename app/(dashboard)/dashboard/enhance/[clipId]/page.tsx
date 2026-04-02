@@ -7,8 +7,7 @@ import Link from 'next/link'
 import {
   ChevronLeft, Loader2, AlertCircle, Sparkles, Download,
   Type, Wand2, Eye, Heart, ExternalLink, Play,
-  Monitor, Paintbrush, TrendingUp, Zap, CheckCircle2,
-  Upload, FileVideo, Link2, AtSign,
+  Monitor, Paintbrush, Zap, AtSign,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -156,20 +155,39 @@ function computeScores(clip: TrendingClipData) {
   const maxTag = Math.max(...tagScores.map((s) => s.score))
   tagScores.forEach((s) => { s.isBest = s.score === maxTag })
 
+  // Normalize scores to /100 — weights: captions 30, animation 20, b-roll 30, tags 20
+  const WEIGHTS = { caption: 30, anim: 20, broll: 30, tag: 20 }
+
+  const normCaption = captionScores.map((s) => ({
+    ...s,
+    score: Math.round((s.score / maxCaption) * WEIGHTS.caption),
+  }))
+  const normAnim = animScores.map((s) => ({
+    ...s,
+    score: Math.round((s.score / maxAnim) * WEIGHTS.anim),
+  }))
+  const normBroll = brollScores.map((s) => ({
+    ...s,
+    score: Math.round((s.score / maxBroll) * WEIGHTS.broll),
+  }))
+  const normTag = tagScores.map((s) => ({
+    ...s,
+    score: Math.round((s.score / maxTag) * WEIGHTS.tag),
+  }))
+
   // Best combo
   const bestCaption = captionScores.find((s) => s.isBest)!.id
   const bestAnim = animScores.find((s) => s.isBest)!.id
   const bestBroll = brollScores.find((s) => s.isBest)!.id
   const bestTag = tagScores.find((s) => s.isBest)!.id
-  const totalBestScore = maxCaption + maxAnim + maxBroll + maxTag
 
   return {
-    captionScores,
-    animScores,
-    brollScores,
-    tagScores,
+    captionScores: normCaption,
+    animScores: normAnim,
+    brollScores: normBroll,
+    tagScores: normTag,
     best: { captionStyle: bestCaption, captionAnimation: bestAnim, brollVideo: bestBroll, tagStyle: bestTag },
-    totalBestScore,
+    totalBestScore: 100,
   }
 }
 
@@ -572,30 +590,6 @@ export default function EnhancePage() {
             </p>
           )}
 
-          {/* Import your own */}
-          <Card className="bg-card/40 border-dashed border-border hover:border-primary/40 transition-colors">
-            <CardContent className="p-4 space-y-3">
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-lg bg-blue-500/15 flex items-center justify-center"><Upload className="h-4 w-4 text-blue-400" /></div>
-                <div>
-                  <p className="text-sm font-semibold text-foreground">Importer ton clip</p>
-                  <p className="text-[10px] text-muted-foreground">Upload ou colle un lien</p>
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                <Link href="/dashboard">
-                  <Button variant="outline" size="sm" className="w-full gap-1.5 h-9 text-xs border-blue-500/20 text-blue-400 hover:bg-blue-500/10">
-                    <FileVideo className="h-3.5 w-3.5" />Upload
-                  </Button>
-                </Link>
-                <Link href="/dashboard">
-                  <Button variant="outline" size="sm" className="w-full gap-1.5 h-9 text-xs border-purple-500/20 text-purple-400 hover:bg-purple-500/10">
-                    <Link2 className="h-3.5 w-3.5" />Lien
-                  </Button>
-                </Link>
-              </div>
-            </CardContent>
-          </Card>
         </div>
 
         {/* Right: Settings Tabs */}

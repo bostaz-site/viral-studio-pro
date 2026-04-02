@@ -81,15 +81,13 @@ export default function DashboardPage() {
             Choisis un clip, boost sa viralité et exporte.
           </p>
         </div>
-        <div className="flex items-center gap-2 shrink-0 mt-1">
+        <div className="flex items-center gap-3 shrink-0 mt-1">
           <Button
-            variant="outline"
-            size="sm"
-            className="gap-2 h-8 border-blue-500/30 text-blue-400 hover:bg-blue-500/10"
+            className="gap-2 h-10 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-semibold shadow-lg shadow-blue-500/20 px-5"
             onClick={() => router.push('/dashboard/enhance')}
           >
-            <Upload className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">Mon clip</span>
+            <Upload className="h-4 w-4" />
+            Importer mon clip
           </Button>
           <Button
             variant="outline"
