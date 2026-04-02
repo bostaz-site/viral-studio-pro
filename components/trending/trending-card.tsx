@@ -2,7 +2,7 @@
 
 import { useState, useRef, useCallback } from 'react'
 import Link from 'next/link'
-import { Eye, Heart, ExternalLink, Clapperboard, Play, Crown, Lock } from 'lucide-react'
+import { Eye, Heart, ExternalLink, Clapperboard, Crown, Lock } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { VelocityBadge } from '@/components/trending/velocity-badge'
@@ -300,18 +300,7 @@ export function TrendingCard({ clip, onRemix, remixing = false, isPremiumUser = 
           </div>
         )}
 
-        {/* Hover indicator: play icon or loading spinner */}
-        {hovered && !isLocked && !videoPlaying && (
-          <div className="absolute inset-0 flex items-center justify-center z-[4] pointer-events-none">
-            <div className="w-12 h-12 rounded-full bg-black/50 backdrop-blur-sm flex items-center justify-center border border-white/20 animate-in zoom-in-50 duration-200">
-              {videoLoading || videoUrl ? (
-                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-              ) : (
-                <Play className="h-5 w-5 text-white ml-0.5" fill="white" />
-              )}
-            </div>
-          </div>
-        )}
+        {/* No play button or spinner — video loads silently on hover */}
 
         {/* Playing indicator */}
         {videoPlaying && !isLocked && (
