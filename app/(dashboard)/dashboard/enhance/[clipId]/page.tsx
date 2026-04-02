@@ -237,8 +237,9 @@ function LivePreview({
         {twitchSlug ? (
           <iframe
             src={`https://clips.twitch.tv/embed?clip=${twitchSlug}&parent=viral-studio-pro.netlify.app&parent=localhost&autoplay=true&muted=true`}
-            className="w-full h-full border-0 pointer-events-none"
-            allow="autoplay"
+            className="w-full h-full border-0"
+            allow="autoplay; encrypted-media"
+            allowFullScreen
             title={clip.title ?? 'Clip preview'}
           />
         ) : clip.thumbnail_url ? (
@@ -248,10 +249,10 @@ function LivePreview({
             <Play className="h-10 w-10 text-white/20" />
           </div>
         )}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent pointer-events-none" />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent pointer-events-none z-10" />
 
         {/* Platform badge */}
-        <div className="absolute top-3 left-3">
+        <div className="absolute top-3 left-3 z-10 pointer-events-none">
           <Badge variant="outline" className="text-[10px] bg-black/50 backdrop-blur-sm border-white/20 text-white">
             {clip.platform === 'twitch' ? 'Twitch' : clip.platform}
           </Badge>
@@ -262,7 +263,7 @@ function LivePreview({
       {tagStyle && tagStyle.id !== 'none' && streamerName && (
         <>
           {tagStyle.position === 'top-right' && (
-            <div className="absolute top-3 right-3 z-20 bg-black/60 backdrop-blur-sm rounded-full px-2.5 py-1 transition-all duration-300">
+            <div className="absolute top-3 right-3 z-20 bg-black/60 backdrop-blur-sm rounded-full px-2.5 py-1 transition-all duration-300 pointer-events-none">
               <span className="text-xs font-bold text-white">{streamerName}</span>
             </div>
           )}
@@ -272,7 +273,7 @@ function LivePreview({
             </div>
           )}
           {tagStyle.position === 'bottom' && (
-            <div className="absolute bottom-0 inset-x-0 z-20 bg-gradient-to-t from-black/80 to-transparent px-3 py-2 transition-all duration-300"
+            <div className="absolute bottom-0 inset-x-0 z-20 bg-gradient-to-t from-black/80 to-transparent px-3 py-2 transition-all duration-300 pointer-events-none"
               style={{ bottom: settings.splitScreenEnabled ? `${100 - settings.splitRatio}%` : '0' }}>
               <div className="flex items-center gap-1.5">
                 <AtSign className="h-3 w-3 text-blue-400" />
