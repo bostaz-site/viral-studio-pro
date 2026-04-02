@@ -26,6 +26,7 @@
     X-Content-Type-Options = "nosniff"
     Referrer-Policy = "strict-origin-when-cross-origin"
     Permissions-Policy = "camera=(), microphone=(), geolocation=()"
+    Content-Security-Policy = "default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https: ; media-src 'self' blob: https: ; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.anthropic.com https://api.openai.com https://api.stripe.com; font-src 'self'; frame-src 'self' https://js.stripe.com https://checkout.stripe.com https://clips.twitch.tv https://player.twitch.tv; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
 
 # Cache agressif sur les assets statiques Next.js
 [[headers]]

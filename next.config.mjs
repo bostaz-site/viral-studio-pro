@@ -30,22 +30,7 @@ const nextConfig = {
             key: 'Permissions-Policy',
             value: 'camera=(), microphone=(), geolocation=()',
           },
-          {
-            key: 'Content-Security-Policy',
-            value: [
-              "default-src 'self'",
-              "script-src 'self' 'unsafe-eval' 'unsafe-inline'",
-              "style-src 'self' 'unsafe-inline'",
-              "img-src 'self' data: blob: https://*.supabase.co https://i.ytimg.com https://p16-sign.tiktokcdn-us.com https://p77-sign.tiktokcdn-us.com https://scontent.cdninstagram.com https://*.scdn.co https://static-cdn.jtvnw.net https://*.jtvnw.net https://clips-media-assets2.twitch.tv",
-              "media-src 'self' blob: https://*.supabase.co https://clips-media-assets2.twitch.tv https://*.jtvnw.net https://production.assets.clips.twitchcdn.net",
-              "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.anthropic.com https://api.openai.com https://api.stripe.com",
-              "font-src 'self'",
-              "frame-src 'self' https://js.stripe.com https://checkout.stripe.com",
-              "frame-ancestors 'none'",
-              "base-uri 'self'",
-              "form-action 'self'",
-            ].join('; '),
-          },
+          // CSP is defined in netlify.toml to avoid duplication issues
         ],
       },
     ];

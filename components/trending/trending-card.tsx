@@ -1,12 +1,11 @@
 "use client"
 
-import { useState, useRef } from 'react'
+import { useState, useRef, useCallback } from 'react'
 import Link from 'next/link'
-import { Eye, Heart, ExternalLink, Clapperboard, Play, Crown, Lock } from 'lucide-react'
+import { Eye, Heart, ExternalLink, Clapperboard, Play, Crown, Lock, Pause } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { VelocityBadge } from '@/components/trending/velocity-badge'
-import { twitchThumbnailToVideoUrl } from '@/lib/twitch/thumbnail-to-video'
 import { cn } from '@/lib/utils'
 
 export interface TrendingClip {
@@ -48,6 +47,19 @@ const GAME_LABELS: Record<string, string> = {
   irl: 'IRL',
 }
 
+// Gradient colors per streamer for nicer placeholders
+const STREAMER_GRADIENTS: Record<string, string> = {
+  kaicenat: 'from-purple-600 via-pink-500 to-red-500',
+  ishowspeed: 'from-red-600 via-orange-500 to-yellow-500',
+  xqc: 'from-blue-600 via-indigo-500 to-purple-500',
+  hasanabi: 'from-red-700 via-red-500 to-orange-500',
+  jynxzi: 'from-emerald-600 via-teal-500 to-cyan-500',
+  adinross: 'from-violet-600 via-purple-500 to-fuchsia-500',
+  sketch: 'from-sky-600 via-blue-500 to-indigo-500',
+  amouranth: 'from-pink-600 via-rose-500 to-red-500',
+  marlon: 'from-amber-600 via-orange-500 to-red-500',
+}
+
 function formatCount(n: number | null): string {
   if (n === null) return '--'
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`
@@ -63,14 +75,33 @@ function timeAgo(dateStr: string | null): string {
   return `${Math.floor(diff / 86400)}j`
 }
 
+/**
+ * Extract Twitch clip embed URL from a clips.twitch.tv URL
+ * Twitch clips can be embedded via iframe: https://clips.twitch.tv/embed?clip=SLUG&parent=DOMAIN
+ */
+function getClipEmbedUrl(externalUrl: string, parentDomain: string): string | null {
+  try {
+    const url = new URL(externalUrl)
+    // Format: https://clips.twitch.tv/SLUG
+    if (url.hostname === 'clips.twitch.tv') {
+      const slug = url.pathname.replace('/', '')
+      if (slug && !slug.includes('/')) {
+        return `https://clips.twitch.tv/embed?clip=${slug}&parent=${parentDomain}&autoplay=true&muted=true`
+      }
+    }
+  } catch {
+    // Invalid URL
+  }
+  return null
+}
+
 export function TrendingCard({ clip, onRemix, remixing = false, isPremiumUser = false }: TrendingCardProps) {
   const [imgError, setImgError] = useState(false)
-  const [videoError, setVideoError] = useState(false)
-  const videoRef = useRef<HTMLVideoElement>(null)
+  const [hovered, setHovered] = useState(false)
+  const [showEmbed, setShowEmbed] = useState(false)
+  const hoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const isLocked = !isPremiumUser && (clip.velocity_score ?? 0) >= PREMIUM_THRESHOLD
-  const videoUrl = clip.thumbnail_url ? twitchThumbnailToVideoUrl(clip.thumbnail_url) : null
-  const useVideo = videoUrl && !videoError && !isLocked
 
   const platformStyle = PLATFORM_STYLES[clip.platform.toLowerCase()] ?? {
     label: clip.platform,
@@ -80,45 +111,102 @@ export function TrendingCard({ clip, onRemix, remixing = false, isPremiumUser = 
   const gameKey = clip.niche?.toLowerCase() ?? ''
   const gameColor = GAME_COLORS[gameKey] ?? 'text-muted-foreground bg-muted'
   const gameLabel = GAME_LABELS[gameKey] ?? clip.niche
+  const streamerGradient = STREAMER_GRADIENTS[clip.author_handle?.toLowerCase() ?? ''] ?? 'from-slate-700 via-slate-600 to-slate-500'
+
+  // Hover handlers — show embed after 400ms hover to avoid accidental loads
+  const handleMouseEnter = useCallback(() => {
+    setHovered(true)
+    if (!isLocked) {
+      hoverTimerRef.current = setTimeout(() => setShowEmbed(true), 400)
+    }
+  }, [isLocked])
+
+  const handleMouseLeave = useCallback(() => {
+    setHovered(false)
+    setShowEmbed(false)
+    if (hoverTimerRef.current) {
+      clearTimeout(hoverTimerRef.current)
+      hoverTimerRef.current = null
+    }
+  }, [])
+
+  // Build embed URL for Twitch clips
+  const parentDomain = typeof window !== 'undefined' ? window.location.hostname : 'viral-studio-pro.netlify.app'
+  const embedUrl = clip.platform === 'twitch' ? getClipEmbedUrl(clip.external_url, parentDomain) : null
 
   return (
-    <Card className={cn(
-      'bg-card/60 border-border overflow-hidden group transition-all duration-200',
-      isLocked
-        ? 'hover:border-amber-500/40 hover:shadow-lg hover:shadow-amber-500/5'
-        : 'hover:border-primary/40 hover:shadow-lg hover:shadow-primary/5'
-    )}>
-      {/* Thumbnail */}
+    <Card
+      className={cn(
+        'bg-card/60 border-border overflow-hidden group transition-all duration-200',
+        isLocked
+          ? 'hover:border-amber-500/40 hover:shadow-lg hover:shadow-amber-500/5'
+          : 'hover:border-primary/40 hover:shadow-lg hover:shadow-primary/5'
+      )}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
+    >
+      {/* Thumbnail / Video area */}
       <div className="aspect-[9/16] max-h-52 relative overflow-hidden bg-gradient-to-br from-slate-900 to-slate-800">
-        {useVideo ? (
-          <video
-            ref={videoRef}
-            src={videoUrl}
-            poster={clip.thumbnail_url ?? undefined}
-            autoPlay
-            muted
-            loop
-            playsInline
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-            onError={() => setVideoError(true)}
+
+        {/* Twitch embed on hover (plays the clip) */}
+        {showEmbed && embedUrl && !isLocked && (
+          <iframe
+            src={embedUrl}
+            className="absolute inset-0 w-full h-full z-[5]"
+            allowFullScreen
+            allow="autoplay"
+            style={{ border: 'none' }}
           />
-        ) : clip.thumbnail_url && !imgError ? (
+        )}
+
+        {/* Static thumbnail or gradient placeholder */}
+        {clip.thumbnail_url && !imgError ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
             src={clip.thumbnail_url}
             alt={clip.title ?? 'Clip de stream'}
             className={cn(
-              'w-full h-full object-cover transition-all duration-300',
-              isLocked ? 'blur-md scale-105' : 'group-hover:scale-105'
+              'w-full h-full object-cover transition-all duration-500',
+              isLocked ? 'blur-md scale-105' : hovered ? 'scale-110 brightness-75' : ''
             )}
             onError={() => setImgError(true)}
           />
         ) : (
-          <div className="w-full h-full flex flex-col items-center justify-center gap-2 bg-gradient-to-br from-purple-900/40 via-slate-900 to-blue-900/40">
-            <Play className="h-8 w-8 text-purple-400/60" />
+          /* Colorful gradient placeholder with streamer initial */
+          <div className={cn(
+            'w-full h-full flex flex-col items-center justify-center gap-2 bg-gradient-to-br transition-all duration-500',
+            streamerGradient,
+            hovered && !isLocked ? 'scale-110 brightness-75' : ''
+          )}>
+            <div className="w-14 h-14 rounded-full bg-black/30 backdrop-blur-sm flex items-center justify-center border border-white/10">
+              <span className="text-2xl font-black text-white/90">
+                {(clip.author_name ?? clip.title ?? 'C')[0].toUpperCase()}
+              </span>
+            </div>
             {clip.author_handle && (
-              <span className="text-xs font-bold text-white/40">@{clip.author_handle}</span>
+              <span className="text-xs font-bold text-white/60">@{clip.author_handle}</span>
             )}
+          </div>
+        )}
+
+        {/* Hover play indicator */}
+        {hovered && !isLocked && !showEmbed && (
+          <div className="absolute inset-0 flex items-center justify-center z-[4] pointer-events-none">
+            <div className="w-12 h-12 rounded-full bg-black/50 backdrop-blur-sm flex items-center justify-center border border-white/20 animate-in zoom-in-50 duration-200">
+              <Play className="h-5 w-5 text-white ml-0.5" fill="white" />
+            </div>
+          </div>
+        )}
+
+        {/* Playing indicator */}
+        {showEmbed && embedUrl && !isLocked && (
+          <div className="absolute bottom-2 left-2 z-[6] flex items-center gap-1.5 bg-black/60 backdrop-blur-sm rounded-full px-2 py-1">
+            <div className="flex items-center gap-0.5">
+              <div className="w-0.5 h-3 bg-green-400 rounded-full animate-pulse" />
+              <div className="w-0.5 h-2 bg-green-400 rounded-full animate-pulse" style={{ animationDelay: '150ms' }} />
+              <div className="w-0.5 h-3.5 bg-green-400 rounded-full animate-pulse" style={{ animationDelay: '300ms' }} />
+            </div>
+            <span className="text-[10px] text-white/70 font-medium">En lecture</span>
           </div>
         )}
 
@@ -141,7 +229,7 @@ export function TrendingCard({ clip, onRemix, remixing = false, isPremiumUser = 
         )}
 
         {/* Platform badge — only show if not locked */}
-        {!isLocked && (
+        {!isLocked && !showEmbed && (
           <span className={cn(
             'absolute top-2 left-2 text-xs font-bold px-2 py-0.5 rounded-full border backdrop-blur-sm',
             platformStyle.colorClass
@@ -156,7 +244,7 @@ export function TrendingCard({ clip, onRemix, remixing = false, isPremiumUser = 
         </div>
 
         {/* External link */}
-        {!isLocked && (
+        {!isLocked && !showEmbed && (
           <a
             href={clip.external_url}
             target="_blank"
@@ -170,7 +258,7 @@ export function TrendingCard({ clip, onRemix, remixing = false, isPremiumUser = 
         )}
 
         {/* Scraped time */}
-        {!isLocked && clip.scraped_at && (
+        {!isLocked && !showEmbed && clip.scraped_at && (
           <span className="absolute bottom-2 left-2 text-[10px] text-white/50 bg-black/40 px-1.5 py-0.5 rounded-md backdrop-blur-sm">
             il y a {timeAgo(clip.scraped_at)}
           </span>
