@@ -16,7 +16,6 @@ import {
   updateClipAfterRender,
   markClipError,
   maybeMarkVideoComplete,
-  getDefaultBrandTemplate,
   checkSupabaseHealth,
 } from '../lib/supabase-client.js';
 
@@ -163,18 +162,6 @@ router.post('/', async (req, res) => {
         enabled: true,
         position: settings.branding.watermarkPosition || 'bottom-right',
       };
-
-      // Try to get custom logo if Pro/Studio
-      if (userPlan !== 'free') {
-        try {
-          const template = await getDefaultBrandTemplate(clip.user_id);
-          if (template?.logo_path) {
-            watermarkConfig.logoPath = template.logo_path;
-          }
-        } catch (err) {
-          console.warn(`[Render ${renderSessionId}] Warning: Failed to fetch brand template:`, err.message);
-        }
-      }
     }
 
     // Prepare split-screen if enabled
