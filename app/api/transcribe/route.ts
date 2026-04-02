@@ -3,12 +3,77 @@ import { z } from 'zod'
 import { withAuth } from '@/lib/api/withAuth'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { transcribeAudio } from '@/lib/whisper'
-import { extractAudioFromVideo } from '@/lib/whisper/extract-audio'
 import { rateLimit, RATE_LIMITS } from '@/lib/rate-limit'
 import type { Json } from '@/lib/supabase/types'
 
 // OpenAI Whisper file size limit is 25MB
 const WHISPER_MAX_BYTES = 25 * 1024 * 1024
+const TWITCH_GQL_URL = 'https://gql.twitch.tv/gql'
+const TWITCH_CLIENT_ID = 'kimne78kx3ncx6brgo4mv6wki5h1ko'
+
+/**
+ * For Twitch clips over 25MB, fetch a lower quality version directly
+ * from Twitch's CDN (360p is typically 2-5MB for a 30s clip).
+ */
+async function fetchLowerQualityTwitchClip(sourceUrl: string): Promise<{ buffer: Buffer; filename: string } | null> {
+  // Extract slug from Twitch URL
+  let slug: string | null = null
+  try {
+    const url = new URL(sourceUrl)
+    if (url.hostname === 'clips.twitch.tv') {
+      slug = url.pathname.replace('/', '')
+    } else if (url.hostname === 'www.twitch.tv' || url.hostname === 'twitch.tv') {
+      const match = url.pathname.match(/^\/[^/]+\/clip\/([^/]+)$/)
+      if (match) slug = match[1]
+    }
+  } catch { /* not a valid URL */ }
+
+  if (!slug) return null
+
+  // Get video URLs + access token from Twitch GQL
+  const gqlRes = await fetch(TWITCH_GQL_URL, {
+    method: 'POST',
+    headers: {
+      'Client-ID': TWITCH_CLIENT_ID,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      query: `{
+        clip(slug: "${slug.replace(/"/g, '')}") {
+          playbackAccessToken(params: {platform: "web", playerType: "site"}) {
+            signature
+            value
+          }
+          videoQualities {
+            quality
+            sourceURL
+          }
+        }
+      }`,
+    }),
+  })
+
+  if (!gqlRes.ok) return null
+  const gqlData = await gqlRes.json()
+  const clip = gqlData?.data?.clip
+  const token = clip?.playbackAccessToken
+  const qualities = clip?.videoQualities as Array<{ quality: string; sourceURL: string }> | undefined
+
+  if (!token || !qualities || qualities.length === 0) return null
+
+  // Pick lowest quality (360p or smallest available)
+  const sorted = [...qualities].sort((a, b) => parseInt(a.quality) - parseInt(b.quality))
+  const lowest = sorted[0]
+
+  const videoUrl = `${lowest.sourceURL}?sig=${token.signature}&token=${encodeURIComponent(token.value)}`
+  console.log(`[transcribe] Downloading ${lowest.quality}p version from Twitch CDN`)
+
+  const videoRes = await fetch(videoUrl)
+  if (!videoRes.ok) return null
+
+  const arrayBuf = await videoRes.arrayBuffer()
+  return { buffer: Buffer.from(arrayBuf), filename: `clip_${lowest.quality}p.mp4` }
+}
 
 const srtDataSchema = z.object({
   full_text: z.string().min(1),
@@ -95,21 +160,40 @@ export const POST = withAuth(async (request, user) => {
     let buffer: Buffer = Buffer.from(arrayBuffer)
     let filename: string = video.storage_path.split('/').pop() ?? 'video.mp4'
 
-    // If file exceeds Whisper's 25MB limit, extract audio track as MP3
+    // If file exceeds Whisper's 25MB limit, try to get a smaller version
     if (buffer.length > WHISPER_MAX_BYTES) {
-      try {
-        const audio = await extractAudioFromVideo(buffer, filename)
-        buffer = audio.buffer
-        filename = audio.filename
-        console.log(`[transcribe] Extracted audio: ${(buffer.length / 1024).toFixed(0)}KB from ${(arrayBuffer.byteLength / 1024 / 1024).toFixed(1)}MB video`)
-      } catch (ffmpegError) {
+      console.log(`[transcribe] File too large (${(buffer.length / 1024 / 1024).toFixed(1)}MB). Trying lower quality...`)
+
+      // For Twitch clips, fetch a lower quality version from CDN
+      if (video.source_url) {
+        try {
+          const lowerQuality = await fetchLowerQualityTwitchClip(video.source_url)
+          if (lowerQuality && lowerQuality.buffer.length <= WHISPER_MAX_BYTES) {
+            buffer = lowerQuality.buffer
+            filename = lowerQuality.filename
+            console.log(`[transcribe] Using lower quality: ${(buffer.length / 1024 / 1024).toFixed(1)}MB`)
+          } else {
+            throw new Error('Lower quality version still exceeds 25MB or unavailable')
+          }
+        } catch (dlError) {
+          await admin
+            .from('videos')
+            .update({ status: 'error', error_message: `Video too large for transcription (${(buffer.length / 1024 / 1024).toFixed(1)}MB > 25MB limit). ${String(dlError)}` })
+            .eq('id', video_id)
+          return NextResponse.json(
+            { data: null, error: 'Video too large', message: 'La vidéo dépasse la limite de 25MB pour la transcription. Essayez un clip plus court.' },
+            { status: 413 }
+          )
+        }
+      } else {
+        // Non-Twitch upload — no way to get a smaller version without ffmpeg
         await admin
           .from('videos')
-          .update({ status: 'error', error_message: `Audio extraction failed: ${String(ffmpegError)}` })
+          .update({ status: 'error', error_message: `Video too large for transcription: ${(buffer.length / 1024 / 1024).toFixed(1)}MB > 25MB limit` })
           .eq('id', video_id)
         return NextResponse.json(
-          { data: null, error: String(ffmpegError), message: 'Failed to extract audio from video' },
-          { status: 500 }
+          { data: null, error: 'Video too large', message: 'La vidéo dépasse la limite de 25MB. Essayez une vidéo plus courte ou compressée.' },
+          { status: 413 }
         )
       }
     }
