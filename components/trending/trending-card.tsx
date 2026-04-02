@@ -98,21 +98,45 @@ function extractClipSlug(externalUrl: string): string | null {
 // Client-side cache for video URLs (persists across re-renders)
 const videoUrlCache = new Map<string, string>()
 
+// Public Client-ID used by Twitch's own web player
+const TWITCH_GQL_URL = 'https://gql.twitch.tv/gql'
+const TWITCH_CLIENT_ID = 'kimne78kx3ncx6brgo4mv6wki5h1ko'
+
 /**
- * Fetch the direct MP4 URL for a Twitch clip via our API route.
- * Uses client-side caching to avoid redundant requests.
+ * Fetch the direct MP4 URL for a Twitch clip via Twitch's GQL API.
+ * Called directly from the browser (CORS allowed, works reliably).
+ * Returns the highest quality MP4 URL from CloudFront CDN.
  */
 async function fetchVideoUrl(slug: string): Promise<string | null> {
   const cached = videoUrlCache.get(slug)
   if (cached) return cached
 
   try {
-    const res = await fetch(`/api/clips/video-url?slug=${encodeURIComponent(slug)}`)
+    const res = await fetch(TWITCH_GQL_URL, {
+      method: 'POST',
+      headers: {
+        'Client-ID': TWITCH_CLIENT_ID,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        query: `{ clip(slug: "${slug.replace(/"/g, '')}") { videoQualities { frameRate quality sourceURL } } }`,
+      }),
+    })
     if (!res.ok) return null
+
     const data = await res.json()
-    if (data.video_url) {
-      videoUrlCache.set(slug, data.video_url)
-      return data.video_url
+    const qualities = data?.data?.clip?.videoQualities
+    if (!qualities || qualities.length === 0) return null
+
+    // Pick highest quality
+    const best = [...qualities].sort(
+      (a: { quality: string }, b: { quality: string }) =>
+        parseInt(b.quality) - parseInt(a.quality)
+    )[0]
+
+    if (best?.sourceURL) {
+      videoUrlCache.set(slug, best.sourceURL)
+      return best.sourceURL
     }
   } catch { /* network error */ }
   return null
