@@ -110,9 +110,9 @@ export const POST = withAuth(async (request, user) => {
 
   if (!vpsUrl || !vpsKey) {
     return NextResponse.json({
-      data: { clip_id, rendered: false, source: foundSource },
+      data: { clip_id, rendered: false, source: foundSource, vpsReady: false, originalUrl: videoUrl },
       error: null,
-      message: 'VPS de rendu non configuré — le rendu sera disponible prochainement',
+      message: 'Le serveur de rendu n\'est pas encore configuré. Tu peux télécharger le clip original en attendant.',
     })
   }
 
@@ -159,7 +159,7 @@ export const POST = withAuth(async (request, user) => {
   })
 
   return NextResponse.json({
-    data: { clip_id, rendered: false, source: foundSource },
+    data: { clip_id, rendered: false, source: foundSource, vpsReady: true, originalUrl: videoUrl },
     error: null,
     message: 'Rendu lancé — le clip sera prêt dans quelques secondes',
   })

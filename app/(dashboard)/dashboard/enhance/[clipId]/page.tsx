@@ -408,6 +408,7 @@ export default function EnhancePage() {
   const [error, setError] = useState<string | null>(null)
   const [rendering, setRendering] = useState(false)
   const [renderMessage, setRenderMessage] = useState<string | null>(null)
+  const [renderOriginalUrl, setRenderOriginalUrl] = useState<string | null>(null)
   const [mode, setMode] = useState<'simple' | 'advanced'>('advanced')
   const [viralApplied, setViralApplied] = useState(false)
 
@@ -518,6 +519,7 @@ export default function EnhancePage() {
     if (!clip) return
     setRendering(true)
     setRenderMessage(null)
+    setRenderOriginalUrl(null)
     try {
       const res = await fetch('/api/render', {
         method: 'POST',
@@ -533,11 +535,18 @@ export default function EnhancePage() {
           },
         }),
       })
-      const data = await res.json() as { data: { clip_id: string } | null; error: string | null; message: string }
+      const data = await res.json() as {
+        data: { clip_id: string; vpsReady?: boolean; originalUrl?: string } | null
+        error: string | null
+        message: string
+      }
       if (!res.ok || !data.data) {
         setRenderMessage(data.message ?? 'Erreur lors du rendu')
+      } else if (data.data.vpsReady === false) {
+        setRenderMessage(data.message)
+        setRenderOriginalUrl(data.data.originalUrl ?? clip.external_url)
       } else {
-        setRenderMessage('Clip en cours de rendu !')
+        setRenderMessage('Rendu lancé ! Le clip sera prêt dans quelques secondes.')
       }
     } catch {
       setRenderMessage('Erreur réseau')
@@ -678,9 +687,27 @@ export default function EnhancePage() {
             )}
           </Button>
           {renderMessage && (
-            <p className={cn('text-xs text-center font-medium', renderMessage.includes('Erreur') ? 'text-destructive' : 'text-green-400')}>
-              {renderMessage}
-            </p>
+            <div className="space-y-2">
+              <p className={cn(
+                'text-xs text-center font-medium',
+                renderMessage.includes('Erreur') ? 'text-destructive'
+                  : renderMessage.includes('pas encore') ? 'text-amber-400'
+                  : 'text-green-400'
+              )}>
+                {renderMessage}
+              </p>
+              {renderOriginalUrl && (
+                <a
+                  href={renderOriginalUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center justify-center gap-2 w-full h-9 rounded-xl border border-purple-500/30 bg-purple-500/10 text-purple-400 text-xs font-semibold hover:bg-purple-500/20 transition-colors"
+                >
+                  <ExternalLink className="h-3.5 w-3.5" />
+                  Télécharger le clip original
+                </a>
+              )}
+            </div>
           )}
         </div>
 
