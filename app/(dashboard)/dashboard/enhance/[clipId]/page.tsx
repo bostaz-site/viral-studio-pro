@@ -220,7 +220,7 @@ function LivePreview({
 
   return (
     <div
-      className="relative rounded-2xl overflow-hidden bg-black border border-white/10 shadow-2xl mx-auto transition-all duration-500"
+      className="relative w-full rounded-2xl overflow-hidden bg-black border border-white/10 shadow-2xl mx-auto transition-all duration-500"
       style={{ aspectRatio: '9/16', maxWidth: 280 }}
     >
       {/* Top: Clip thumbnail */}
