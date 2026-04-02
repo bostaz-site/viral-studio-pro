@@ -8,29 +8,14 @@ import {
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
-import { TrendingCard } from '@/components/trending/trending-card'
+import { TrendingCard, type TrendingClip } from '@/components/trending/trending-card'
 import { Input } from '@/components/ui/input'
 import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
 
-interface StreamerClip {
-  id: string
-  external_url: string
-  platform: string
-  author_name: string | null
-  author_handle: string | null
-  title: string | null
-  description: string | null
-  game: string | null
-  view_count: number | null
-  like_count: number | null
-  thumbnail_url: string | null
-  created_at: string | null
-}
-
 export default function DashboardPage() {
   const router = useRouter()
-  const [clips, setClips] = useState<StreamerClip[]>([])
+  const [clips, setClips] = useState<TrendingClip[]>([])
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [twitchRefreshing, setTwitchRefreshing] = useState(false)
@@ -51,7 +36,7 @@ export default function DashboardPage() {
         .limit(100)
 
       if (fetchError) throw new Error(fetchError.message)
-      setClips((data as StreamerClip[]) ?? [])
+      setClips((data as TrendingClip[]) ?? [])
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erreur de chargement')
     } finally {
@@ -71,15 +56,15 @@ export default function DashboardPage() {
     finally { setTwitchRefreshing(false) }
   }, [fetchClips])
 
-  const handleEnhance = useCallback((clip: StreamerClip) => {
+  const handleEnhance = useCallback((clip: TrendingClip) => {
     router.push(`/dashboard/enhance/${clip.id}`)
   }, [router])
 
   // Filters
-  const games = [...new Set(clips.map(c => c.game).filter(Boolean))] as string[]
+  const games = [...new Set(clips.map(c => c.niche).filter(Boolean))] as string[]
   const filtered = clips.filter(c => {
     if (search && !c.title?.toLowerCase().includes(search.toLowerCase()) && !c.author_name?.toLowerCase().includes(search.toLowerCase())) return false
-    if (selectedGame && c.game !== selectedGame) return false
+    if (selectedGame && c.niche !== selectedGame) return false
     return true
   })
 
