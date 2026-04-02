@@ -1,7 +1,7 @@
 /* eslint-disable @next/next/no-img-element */
 'use client'
 
-import { useEffect, useState, useCallback, useMemo } from 'react'
+import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import {
@@ -11,7 +11,6 @@ import {
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Slider } from '@/components/ui/slider'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
@@ -288,13 +287,11 @@ function LivePreview({
             </div>
           )}
           {tagStyle.position === 'bottom' && (
-            <div className="absolute bottom-0 inset-x-0 z-20 pointer-events-none transition-all duration-300"
-              style={{ bottom: settings.splitScreenEnabled ? `${100 - settings.splitRatio}%` : '0' }}>
-              <div className="bg-gradient-to-r from-[#9146FF] to-[#772CE8] px-3 py-1.5">
-                <div className="flex items-center gap-1.5">
-                  <svg className="h-3 w-3 text-white" viewBox="0 0 24 24" fill="currentColor"><path d="M11.571 4.714h1.715v5.143H11.57zm4.715 0H18v5.143h-1.714zM6 0L1.714 4.286v15.428h5.143V24l4.286-4.286h3.428L22.286 12V0zm14.571 11.143l-3.428 3.428h-3.429l-3 3v-3H6.857V1.714h13.714z"/></svg>
-                  <span className="text-[10px] font-bold text-white tracking-wide">{streamerName}</span>
-                </div>
+            <div className="absolute z-20 pointer-events-none transition-all duration-300 right-3"
+              style={{ bottom: settings.splitScreenEnabled ? `calc(${100 - settings.splitRatio}% + 8px)` : '8px' }}>
+              <div className="flex items-center gap-1 bg-black/50 backdrop-blur-sm rounded-full px-2 py-0.5 border border-white/10">
+                <svg className="h-2.5 w-2.5 text-[#9146FF]" viewBox="0 0 24 24" fill="currentColor"><path d="M11.571 4.714h1.715v5.143H11.57zm4.715 0H18v5.143h-1.714zM6 0L1.714 4.286v15.428h5.143V24l4.286-4.286h3.428L22.286 12V0zm14.571 11.143l-3.428 3.428h-3.429l-3 3v-3H6.857V1.714h13.714z"/></svg>
+                <span className="text-[9px] font-semibold text-white/80">{streamerName}</span>
               </div>
             </div>
           )}
@@ -372,6 +369,16 @@ export default function EnhancePage() {
   const [error, setError] = useState<string | null>(null)
   const [rendering, setRendering] = useState(false)
   const [renderMessage, setRenderMessage] = useState<string | null>(null)
+
+  // Section refs for scroll navigation
+  const captionsRef = useRef<HTMLDivElement>(null)
+  const splitscreenRef = useRef<HTMLDivElement>(null)
+  const tagsRef = useRef<HTMLDivElement>(null)
+  const styleRef = useRef<HTMLDivElement>(null)
+
+  const scrollToSection = useCallback((ref: React.RefObject<HTMLDivElement | null>) => {
+    ref.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }, [])
 
   const [settings, setSettings] = useState<EnhanceSettings>({
     captionsEnabled: true,
@@ -564,18 +571,32 @@ export default function EnhancePage() {
           )}
         </div>
 
-        {/* Right: Settings Tabs */}
+        {/* Right: Settings — all sections visible, nav scrolls to them */}
         <div>
-          <Tabs defaultValue="captions" className="w-full">
-            <TabsList className="grid grid-cols-4 mb-6">
-              <TabsTrigger value="captions" className="gap-1.5"><Type className="h-3.5 w-3.5" />Sous-titres</TabsTrigger>
-              <TabsTrigger value="splitscreen" className="gap-1.5"><Monitor className="h-3.5 w-3.5" />Split-Screen</TabsTrigger>
-              <TabsTrigger value="tags" className="gap-1.5"><AtSign className="h-3.5 w-3.5" />Tags</TabsTrigger>
-              <TabsTrigger value="style" className="gap-1.5"><Paintbrush className="h-3.5 w-3.5" />Style</TabsTrigger>
-            </TabsList>
+          {/* Sticky nav bar */}
+          <div className="sticky top-0 z-30 bg-background/80 backdrop-blur-md border-b border-border mb-6 -mx-1 px-1">
+            <div className="grid grid-cols-4 gap-1 py-2">
+              {([
+                { label: 'Sous-titres', icon: <Type className="h-3.5 w-3.5" />, ref: captionsRef },
+                { label: 'Split-Screen', icon: <Monitor className="h-3.5 w-3.5" />, ref: splitscreenRef },
+                { label: 'Tags', icon: <AtSign className="h-3.5 w-3.5" />, ref: tagsRef },
+                { label: 'Style', icon: <Paintbrush className="h-3.5 w-3.5" />, ref: styleRef },
+              ] as const).map((item) => (
+                <button
+                  key={item.label}
+                  onClick={() => scrollToSection(item.ref)}
+                  className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
+                >
+                  {item.icon}
+                  {item.label}
+                </button>
+              ))}
+            </div>
+          </div>
 
-            {/* ─── Captions Tab ─── */}
-            <TabsContent value="captions" className="space-y-6">
+          <div className="space-y-6">
+            {/* ─── Captions Section ─── */}
+            <div ref={captionsRef} className="scroll-mt-16">
               <Card className="bg-card/60 border-border">
                 <CardHeader className="pb-3">
                   <CardTitle className="text-base">Sous-titres karaok&eacute;</CardTitle>
@@ -670,10 +691,10 @@ export default function EnhancePage() {
                   </CardContent>
                 )}
               </Card>
-            </TabsContent>
+            </div>
 
-            {/* ─── Split-Screen Tab ─── */}
-            <TabsContent value="splitscreen" className="space-y-6">
+            {/* ─── Split-Screen Section ─── */}
+            <div ref={splitscreenRef} className="scroll-mt-16">
               <Card className="bg-card/60 border-border">
                 <CardHeader className="pb-3">
                   <CardTitle className="text-base">Split-Screen</CardTitle>
@@ -731,10 +752,10 @@ export default function EnhancePage() {
                   </CardContent>
                 )}
               </Card>
-            </TabsContent>
+            </div>
 
-            {/* ─── Tags Tab ─── */}
-            <TabsContent value="tags" className="space-y-6">
+            {/* ─── Tags Section ─── */}
+            <div ref={tagsRef} className="scroll-mt-16">
               <Card className="bg-card/60 border-border">
                 <CardHeader className="pb-3">
                   <CardTitle className="text-base">Tag du streamer</CardTitle>
@@ -789,10 +810,10 @@ export default function EnhancePage() {
                   </CardContent>
                 )}
               </Card>
-            </TabsContent>
+            </div>
 
-            {/* ─── Style Tab ─── */}
-            <TabsContent value="style" className="space-y-6">
+            {/* ─── Style Section ─── */}
+            <div ref={styleRef} className="scroll-mt-16">
               <Card className="bg-card/60 border-border">
                 <CardHeader className="pb-3">
                   <CardTitle className="text-base">Format</CardTitle>
@@ -820,8 +841,8 @@ export default function EnhancePage() {
                 </CardContent>
               </Card>
 
-            </TabsContent>
-          </Tabs>
+            </div>
+          </div>
         </div>
       </div>
     </div>
