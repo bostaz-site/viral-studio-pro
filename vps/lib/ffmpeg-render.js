@@ -329,8 +329,14 @@ async function execRender(args, outputPath, timeout = 300000) {
     console.log(`[FFmpeg] Render completed successfully: ${outputPath}`);
     return { success: true, outputPath };
   } catch (err) {
-    console.error('[FFmpeg Error]', err.message);
-    throw new Error(`FFmpeg render failed: ${err.message}`);
+    // Extract the useful part of the error (last 800 chars of stderr contain the actual error)
+    const fullMsg = err.message || 'Unknown error';
+    const stderrContent = err.stderr || '';
+    const lastStderr = stderrContent ? stderrContent.slice(-800) : '';
+    const errorSummary = lastStderr || fullMsg.slice(-800);
+    console.error('[FFmpeg Error] Full stderr tail:', errorSummary);
+    console.error('[FFmpeg Error] Command:', cmd);
+    throw new Error(`FFmpeg render failed: ${errorSummary}`);
   }
 }
 
