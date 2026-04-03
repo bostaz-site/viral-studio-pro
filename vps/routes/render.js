@@ -307,9 +307,9 @@ router.post('/', async (req, res) => {
           try {
             await execFileAsync('ffmpeg', [
               '-y',
-              '-f', 'lavfi', '-i', `color=c=0x${colorInfo.color}:s=1080x960:d=${brollDuration}:r=30,format=yuv420p,drawtext=text='${colorInfo.label}':fontcolor=white:fontsize=50:x=(w-text_w)/2:y=(h-text_h)/2:borderw=3:bordercolor=black`,
+              '-f', 'lavfi', '-i', `color=c=0x${colorInfo.color}:s=540x480:d=${brollDuration}:r=30,format=yuv420p,drawtext=text='${colorInfo.label}':fontcolor=white:fontsize=36:x=(w-text_w)/2:y=(h-text_h)/2:borderw=2:bordercolor=black`,
               '-f', 'lavfi', '-i', `anullsrc=r=44100:cl=stereo`,
-              '-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '28',
+              '-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '30',
               '-r', '30',
               '-c:a', 'aac', '-shortest', '-t', String(brollDuration),
               genPath,

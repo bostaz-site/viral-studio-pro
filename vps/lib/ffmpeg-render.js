@@ -216,10 +216,11 @@ async function renderSplitScreen(inputPath, outputPath, opts) {
   const ratio = Math.max(30, Math.min(70, splitScreen.ratio || 50)) / 100; // 0.3–0.7
   const brollPath = splitScreen.brollPath;
 
+  // Use 720p for split-screen to reduce memory (Railway OOM at 1080p)
   const ratios = {
-    '9:16': { w: 1080, h: 1920 },
-    '1:1': { w: 1080, h: 1080 },
-    '16:9': { w: 1920, h: 1080 },
+    '9:16': { w: 720, h: 1280 },
+    '1:1': { w: 720, h: 720 },
+    '16:9': { w: 1280, h: 720 },
   };
   const { w: canvasW, h: canvasH } = ratios[aspectRatio] || ratios['9:16'];
 
@@ -236,7 +237,7 @@ async function renderSplitScreen(inputPath, outputPath, opts) {
       // Scale + crop main video to top region, normalize fps
       `[0:v]fps=30,scale=${canvasW}:${topH}:force_original_aspect_ratio=increase,crop=${canvasW}:${topH}:(iw-${canvasW})/2:(ih-${topH})/2,setsar=1[main]`,
       // Scale + crop B-roll to bottom region, loop if shorter, normalize fps
-      `[1:v]loop=loop=-1:size=32767:start=0,fps=30,scale=${canvasW}:${botH}:force_original_aspect_ratio=increase,crop=${canvasW}:${botH}:(iw-${canvasW})/2:(ih-${botH})/2,setsar=1[broll]`,
+      `[1:v]loop=loop=-1:size=900:start=0,fps=30,scale=${canvasW}:${botH}:force_original_aspect_ratio=increase,crop=${canvasW}:${botH}:(iw-${canvasW})/2:(ih-${botH})/2,setsar=1[broll]`,
       // Stack vertically
       `[main][broll]vstack=inputs=2[composed]`,
     ].join(';');
@@ -249,7 +250,7 @@ async function renderSplitScreen(inputPath, outputPath, opts) {
 
     filterComplex = [
       `[0:v]fps=30,scale=${leftW}:${canvasH}:force_original_aspect_ratio=increase,crop=${leftW}:${canvasH}:(iw-${leftW})/2:(ih-${canvasH})/2,setsar=1[main]`,
-      `[1:v]loop=loop=-1:size=32767:start=0,fps=30,scale=${rightW}:${canvasH}:force_original_aspect_ratio=increase,crop=${rightW}:${canvasH}:(iw-${rightW})/2:(ih-${canvasH})/2,setsar=1[broll]`,
+      `[1:v]loop=loop=-1:size=900:start=0,fps=30,scale=${rightW}:${canvasH}:force_original_aspect_ratio=increase,crop=${rightW}:${canvasH}:(iw-${rightW})/2:(ih-${canvasH})/2,setsar=1[broll]`,
       `[main][broll]hstack=inputs=2[composed]`,
     ].join(';');
     mapVideo = '[composed]';
@@ -263,7 +264,7 @@ async function renderSplitScreen(inputPath, outputPath, opts) {
 
     filterComplex = [
       `[0:v]fps=30,scale=${canvasW}:${canvasH}:force_original_aspect_ratio=increase,crop=${canvasW}:${canvasH}:(iw-${canvasW})/2:(ih-${canvasH})/2,setsar=1[main]`,
-      `[1:v]loop=loop=-1:size=32767:start=0,fps=30,scale=${pipW}:${pipH}:force_original_aspect_ratio=increase,crop=${pipW}:${pipH}:(iw-${pipW})/2:(ih-${pipH})/2,setsar=1[broll]`,
+      `[1:v]loop=loop=-1:size=900:start=0,fps=30,scale=${pipW}:${pipH}:force_original_aspect_ratio=increase,crop=${pipW}:${pipH}:(iw-${pipW})/2:(ih-${pipH})/2,setsar=1[broll]`,
       `[main][broll]overlay=${pipX}:${pipY}[composed]`,
     ].join(';');
     mapVideo = '[composed]';
@@ -302,10 +303,11 @@ async function renderSplitScreen(inputPath, outputPath, opts) {
   args.push('-map', '0:a?');             // Keep audio from main video (if exists)
   args.push('-c:v', 'libx264');
   args.push('-preset', 'ultrafast');     // Use ultrafast to minimize memory (Railway OOM)
-  args.push('-threads', '2');            // Limit threads to reduce memory footprint
-  args.push('-crf', String(crf));
+  args.push('-threads', '1');            // Single thread to reduce memory footprint
+  args.push('-crf', String(Math.max(crf, 26))); // Higher CRF for split-screen to save memory
   args.push('-c:a', 'aac');
   args.push('-b:a', '128k');
+  args.push('-max_muxing_queue_size', '512');
   args.push('-movflags', '+faststart');
   args.push('-pix_fmt', 'yuv420p');
   args.push('-shortest');                // End when shortest input ends
