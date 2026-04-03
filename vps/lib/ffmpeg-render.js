@@ -434,17 +434,18 @@ function buildTagFilter(tagConfig, canvasW = 720, canvasH = 1280) {
   switch (tagConfig.style) {
     case 'badge-top': {
       // White text with dark background box in top-right
-      // Use drawtext with box=1 (built-in background box) — avoids drawbox tw/th issue
       const fontSize = Math.round(canvasW * 0.035);
       const padX = Math.round(canvasW * 0.03);
-      const padY = Math.round(canvasH * 0.02);
-      return `drawtext=text='${displayText}':fontfile=${fontFile}:fontcolor=white:fontsize=${fontSize}:x=W-tw-${padX}:y=${padY}:box=1:boxcolor=0x000000@0.65:boxborderw=8`;
+      const padY = Math.round(canvasH * 0.03);
+      return `drawtext=text='${displayText}':fontfile=${fontFile}:fontcolor=white:fontsize=${fontSize}:x=W-tw-${padX}:y=${padY}:box=1:boxcolor=0x000000@0.6:boxborderw=10`;
     }
 
     case 'watermark-center': {
-      // Semi-transparent large text in center
-      const fontSize = Math.round(canvasW * 0.06);
-      return `drawtext=text='${displayText}':fontfile=${fontFile}:fontcolor=white@0.3:fontsize=${fontSize}:x=(W-tw)/2:y=(H-th)/2`;
+      // Small semi-transparent tag at bottom-left (TikTok style)
+      const fontSize = Math.round(canvasW * 0.038);
+      const padX = Math.round(canvasW * 0.04);
+      const padY = Math.round(canvasH * 0.08);
+      return `drawtext=text='${displayText}':fontfile=${fontFile}:fontcolor=white@0.85:fontsize=${fontSize}:x=${padX}:y=H-${padY}:shadowcolor=0x000000@0.6:shadowx=2:shadowy=2`;
     }
 
     case 'banner-bottom': {
