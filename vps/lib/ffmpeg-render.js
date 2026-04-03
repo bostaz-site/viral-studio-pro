@@ -62,21 +62,29 @@ function buildReframeFilters(aspectRatio, options = {}) {
   };
 
   const { w: targetW, h: targetH } = ratios[aspectRatio] || ratios['9:16'];
+  const targetAspect = targetW / targetH; // e.g. 9/16 = 0.5625
 
-  // Strategy: scale to cover → force even dims → crop to exact target
-  // force_original_aspect_ratio=increase ensures both dimensions >= target
-  // The scale can produce odd dimensions (e.g. 3413x1920), so we round to even
-  // before cropping to avoid non-integer crop offsets that crash FFmpeg 5.x
-  const scaleFilter = `scale=${targetW}:${targetH}:force_original_aspect_ratio=increase`;
-  const evenFilter = `scale=trunc(iw/2)*2:trunc(ih/2)*2`;
+  // Memory-efficient strategy: crop to target aspect ratio FIRST (at original resolution),
+  // then scale to exact target size. This avoids creating huge intermediate frames
+  // (e.g. 3414x1920 from a 1280x720 input) which caused OOM on Railway.
 
-  let cropY = `(ih-${targetH})/2`;
+  // Crop to target aspect ratio — pick the dimension that "fits"
+  // If input is wider than target → crop width, keep height
+  // If input is taller than target → crop height, keep width
+  // Use min(iw, ih*targetAspect) for width, min(ih, iw/targetAspect) for height
+  const cropW = `min(iw\\, trunc(ih*${targetAspect}/2)*2)`;
+  const cropH = `min(ih\\, trunc(iw/${targetAspect}/2)*2)`;
+
+  let cropY = `(ih-${cropH})/2`;
   if (cropAnchor === 'top') cropY = '0';
-  if (cropAnchor === 'bottom') cropY = `ih-${targetH}`;
+  if (cropAnchor === 'bottom') cropY = `ih-${cropH}`;
 
-  const cropFilter = `crop=${targetW}:${targetH}:(iw-${targetW})/2:${cropY}`;
+  const cropFilter = `crop=${cropW}:${cropH}:(iw-${cropW})/2:${cropY}`;
 
-  return `${scaleFilter},${evenFilter},${cropFilter},setsar=1`;
+  // Then scale the cropped frame to exact target dimensions
+  const scaleFilter = `scale=${targetW}:${targetH}`;
+
+  return `${cropFilter},${scaleFilter},setsar=1`;
 }
 
 /**
