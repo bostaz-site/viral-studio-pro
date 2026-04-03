@@ -697,28 +697,22 @@ export default function EnhancePage() {
       <div className="grid lg:grid-cols-[300px_1fr] gap-6">
         {/* Left: Preview only — truly sticky, fits in viewport */}
         <div className="lg:sticky lg:top-4 lg:self-start space-y-3 lg:max-h-[calc(100vh-2rem)] lg:overflow-y-auto lg:scrollbar-none" style={{ scrollbarWidth: 'none' }}>
-          {/* ── Blowup chance bar ── */}
-          <div className="space-y-1">
-            <div className="flex items-center justify-between px-0.5">
-              <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium flex items-center gap-1">
-                <Flame className="h-3 w-3 text-orange-400" />
-                Chance de blowup
-              </span>
-              <span className="text-[10px] text-muted-foreground font-semibold">{currentScore}/100</span>
-            </div>
-            <div className="relative w-full h-3 rounded-full bg-card/60 border border-white/10 overflow-hidden">
-              <div
-                className={cn(
-                  'absolute inset-y-0 left-0 rounded-full transition-all duration-700 ease-out',
-                  currentScore >= 75 ? 'bg-gradient-to-r from-orange-500 to-amber-400' :
-                  currentScore >= 50 ? 'bg-gradient-to-r from-blue-500 to-cyan-400' :
-                  currentScore >= 30 ? 'bg-gradient-to-r from-yellow-500 to-amber-400' :
-                  'bg-gradient-to-r from-slate-500 to-slate-400'
-                )}
-                style={{ width: `${currentScore}%` }}
-              />
-            </div>
-          </div>
+          {/* ── Score compact ── */}
+          {scores && (() => {
+            const label = getScoreLabel(currentScore)
+            return (
+              <div className="bg-card/60 border border-white/5 rounded-xl px-3 py-2.5 flex items-center justify-between">
+                <div className="flex items-center gap-1.5">
+                  <Flame className="h-4 w-4 text-orange-400" />
+                  <span className="text-2xl font-black text-foreground tabular-nums transition-all duration-500">{currentScore}</span>
+                  <span className="text-xs text-muted-foreground font-medium">/ 100</span>
+                </div>
+                <span className={cn('text-[11px] font-semibold', label.color)}>
+                  {label.text}
+                </span>
+              </div>
+            )
+          })()}
 
           {/* ── Before/After Preview Toggle ── */}
           <div className="flex gap-2">
