@@ -817,10 +817,13 @@ export default function EnhancePage() {
           {/* ── Settings ── */}
           <div className="opacity-90 hover:opacity-100 transition-opacity duration-300">
 
-          {/* Quick nav bar — scrolls to sections */}
+          {/* Blowup score bar */}
           <div className="sticky top-0 z-10 bg-background/80 backdrop-blur-md border-b border-white/5 -mx-1 px-1 pb-3 pt-1 mb-4">
-            <div className="flex items-center justify-between mb-3">
-              <p className="text-xs text-muted-foreground uppercase tracking-widest font-medium">Paramètres</p>
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2">
+                <Flame className="h-4 w-4 text-orange-400" />
+                <span className="text-xs text-muted-foreground uppercase tracking-widest font-medium">Chance de blowup</span>
+              </div>
               <div className="flex items-center gap-2">
                 <Button
                   variant={!advancedMode ? 'default' : 'outline'}
@@ -840,21 +843,21 @@ export default function EnhancePage() {
                 </Button>
               </div>
             </div>
-            <div className="grid grid-cols-4 gap-2">
-              {([
-                { key: 'captions', icon: <Type className="h-3.5 w-3.5" />, label: 'Sous-titres' },
-                { key: 'splitscreen', icon: <Monitor className="h-3.5 w-3.5" />, label: 'Split-Screen' },
-                { key: 'tags', icon: <AtSign className="h-3.5 w-3.5" />, label: 'Tags' },
-                { key: 'style', icon: <Paintbrush className="h-3.5 w-3.5" />, label: 'Style' },
-              ] as const).map(({ key, icon, label }) => (
-                <button
-                  key={key}
-                  onClick={() => sectionRefs[key].current?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
-                  className="flex items-center justify-center gap-1.5 text-xs font-medium rounded-lg border border-border hover:border-primary/50 hover:bg-primary/5 px-2 py-2 transition-all text-muted-foreground hover:text-foreground"
-                >
-                  {icon}{label}
-                </button>
-              ))}
+            {/* Progress bar */}
+            <div className="relative w-full h-8 rounded-full bg-card/60 border border-white/10 overflow-hidden">
+              <div
+                className={cn(
+                  'absolute inset-y-0 left-0 rounded-full transition-all duration-700 ease-out',
+                  currentScore >= 75 ? 'bg-gradient-to-r from-orange-500 to-amber-400' :
+                  currentScore >= 50 ? 'bg-gradient-to-r from-blue-500 to-cyan-400' :
+                  currentScore >= 30 ? 'bg-gradient-to-r from-yellow-500 to-amber-400' :
+                  'bg-gradient-to-r from-slate-500 to-slate-400'
+                )}
+                style={{ width: `${currentScore}%` }}
+              />
+              <div className="absolute inset-0 flex items-center justify-center">
+                <span className="text-sm font-black text-white drop-shadow-md">{currentScore} / 100</span>
+              </div>
             </div>
           </div>
 
