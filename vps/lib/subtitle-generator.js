@@ -232,9 +232,9 @@ function adjustPositioning(styleConfig, { position = 'bottom', canvasWidth = 108
     config.alignment = 5; // middle center
     config.marginV = 0;
   } else {
-    // bottom (default)
+    // bottom (default) — keep well above player controls
     config.alignment = 2;
-    config.marginV = Math.round(canvasHeight * 0.04);
+    config.marginV = Math.round(canvasHeight * 0.15);
   }
 
   return config;
@@ -477,9 +477,8 @@ function generateBounceEvents(lineWords, clipStartTime, lineStart, lineEnd) {
     return `{\\t(${relOffset},${relOffset + bounceDuration},\\frz0)\\kf${Math.max(1, Math.round((w.end - w.start) * 100))}}${w.word}`;
   }).join(' ');
 
-  // Use \\move for overall line drop effect
-  const marginV = 30;
-  return [`Dialogue: 0,${toASSTime(lineStart)},${toASSTime(lineEnd)},Default,,0,0,0,,{\\move(540,${1920 - marginV - 80},540,${1920 - marginV},0,200)}${text}`];
+  // Use default style positioning (no hardcoded \\move — let marginV handle position)
+  return [`Dialogue: 0,${toASSTime(lineStart)},${toASSTime(lineEnd)},Default,,0,0,0,,${text}`];
 }
 
 /**
