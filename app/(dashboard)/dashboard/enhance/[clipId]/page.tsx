@@ -697,23 +697,6 @@ export default function EnhancePage() {
       <div className="grid lg:grid-cols-[300px_1fr] gap-6">
         {/* Left: Preview only — truly sticky, fits in viewport */}
         <div className="lg:sticky lg:top-4 lg:self-start space-y-3 lg:max-h-[calc(100vh-2rem)] lg:overflow-y-auto lg:scrollbar-none" style={{ scrollbarWidth: 'none' }}>
-          {/* ── Score compact ── */}
-          {scores && (() => {
-            const label = getScoreLabel(currentScore)
-            return (
-              <div className="bg-card/60 border border-white/5 rounded-xl px-3 py-2.5 flex items-center justify-between">
-                <div className="flex items-center gap-1.5">
-                  <Flame className="h-4 w-4 text-orange-400" />
-                  <span className="text-2xl font-black text-foreground tabular-nums transition-all duration-500">{currentScore}</span>
-                  <span className="text-xs text-muted-foreground font-medium">/ 100</span>
-                </div>
-                <span className={cn('text-[11px] font-semibold', label.color)}>
-                  {label.text}
-                </span>
-              </div>
-            )
-          })()}
-
           {/* ── Before/After Preview Toggle ── */}
           <div className="flex gap-2">
             <Button
