@@ -65,16 +65,20 @@ ensureDirs();
 async function downloadFromUrl(url, outputPath) {
   // Try yt-dlp first (handles Twitch clips well)
   try {
+    console.log(`[download] Trying yt-dlp for: ${url}`);
     await execFileAsync('yt-dlp', [
       '-o', outputPath,
       '--no-check-certificates',
       '--quiet',
       '--no-warnings',
       url,
-    ], { timeout: 120_000 });
+    ], { timeout: 60_000 }); // 60s timeout (was 120s)
 
     const stat = await fs.stat(outputPath);
-    if (stat.size > 0) return true;
+    if (stat.size > 0) {
+      console.log(`[download] yt-dlp success: ${stat.size} bytes`);
+      return true;
+    }
   } catch (err) {
     console.warn(`[yt-dlp] Failed: ${err.message}, trying direct fetch...`);
   }
@@ -348,18 +352,23 @@ router.post('/', async (req, res) => {
       message: 'Clip rendered successfully',
     });
   } catch (err) {
-    console.error(`[Render ${renderSessionId}] Error:`, err.message);
+    const errorMsg = err?.message || 'Unknown error';
+    console.error(`[Render ${renderSessionId}] Error:`, errorMsg);
 
-    // Mark render job as error
-    await updateRenderJob(req.body.jobId, {
-      status: 'error',
-      error_message: err.message || 'Unknown error',
-    });
+    // Mark render job as error — do this FIRST and protect it
+    try {
+      await updateRenderJob(req.body?.jobId, {
+        status: 'error',
+        error_message: errorMsg.substring(0, 500),
+      });
+    } catch (jobErr) {
+      console.error(`[Render ${renderSessionId}] Failed to update render job:`, jobErr?.message);
+    }
 
     // Mark clip as error (only for user clips)
-    if (clipId && req.body.source !== 'trending') {
+    if (clipId && req.body?.source !== 'trending') {
       try {
-        await markClipError(clipId, err.message);
+        await markClipError(clipId, errorMsg);
         const clipData = await getClip(clipId).catch(() => null);
         if (clipData?.video_id) {
           await maybeMarkVideoComplete(clipData.video_id);
@@ -369,12 +378,15 @@ router.post('/', async (req, res) => {
       }
     }
 
-    res.status(500).json({
-      success: false,
-      error: err.message || 'Unknown error',
-      message: 'Render failed',
-      sessionId: renderSessionId,
-    });
+    // Only send response if not already sent
+    if (!res.headersSent) {
+      res.status(500).json({
+        success: false,
+        error: errorMsg,
+        message: 'Render failed',
+        sessionId: renderSessionId,
+      });
+    }
   } finally {
     // Cleanup temp files
     if (tempDir) {
