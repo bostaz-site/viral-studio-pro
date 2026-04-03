@@ -409,16 +409,12 @@ function buildTagFilter(tagConfig, canvasW = 720, canvasH = 1280) {
 
   switch (tagConfig.style) {
     case 'badge-top': {
-      // Rounded badge in top-right — dark bg box + white text
+      // White text with dark background box in top-right
+      // Use drawtext with box=1 (built-in background box) — avoids drawbox tw/th issue
       const fontSize = Math.round(canvasW * 0.035);
       const padX = Math.round(canvasW * 0.03);
       const padY = Math.round(canvasH * 0.02);
-      return [
-        // Dark background box
-        `drawbox=x=W-tw-${padX * 3}:y=${padY}:w=tw+${padX * 2}:h=th+${Math.round(padY * 0.8)}:color=0x000000@0.65:thickness=fill`,
-        // Text
-        `drawtext=text='${displayText}':fontfile=${fontFile}:fontcolor=white:fontsize=${fontSize}:x=W-tw-${padX * 2}:y=${padY + Math.round(padY * 0.2)}`,
-      ].join(',');
+      return `drawtext=text='${displayText}':fontfile=${fontFile}:fontcolor=white:fontsize=${fontSize}:x=W-tw-${padX}:y=${padY}:box=1:boxcolor=0x000000@0.65:boxborderw=8`;
     }
 
     case 'watermark-center': {
@@ -429,14 +425,14 @@ function buildTagFilter(tagConfig, canvasW = 720, canvasH = 1280) {
 
     case 'banner-bottom': {
       // Dark banner bar at bottom with credit text
+      // Use fixed-height drawbox (no tw/th), then overlay text
       const barH = Math.round(canvasH * 0.045);
       const fontSize = Math.round(canvasW * 0.032);
-      const creditText = escapeDrawtext(`Credit: ${handle}`);
+      const creditText = escapeDrawtext(`Credit\\: ${handle}`);
+      const textY = canvasH - barH + Math.round((barH - fontSize) / 2);
       return [
-        // Dark bar
-        `drawbox=x=0:y=H-${barH}:w=W:h=${barH}:color=0x000000@0.75:thickness=fill`,
-        // Credit text centered in the bar
-        `drawtext=text='${creditText}':fontfile=${fontFile}:fontcolor=white:fontsize=${fontSize}:x=(W-tw)/2:y=H-${barH}+(${barH}-th)/2`,
+        `drawbox=x=0:y=${canvasH - barH}:w=iw:h=${barH}:color=0x000000@0.75:thickness=fill`,
+        `drawtext=text='${creditText}':fontfile=${fontFile}:fontcolor=white:fontsize=${fontSize}:x=(W-tw)/2:y=${textY}`,
       ].join(',');
     }
 
