@@ -359,7 +359,7 @@ router.post('/', async (req, res) => {
     try {
       await updateRenderJob(req.body?.jobId, {
         status: 'error',
-        error_message: errorMsg.substring(0, 500),
+        error_message: errorMsg.substring(0, 2000),
       });
     } catch (jobErr) {
       console.error(`[Render ${renderSessionId}] Failed to update render job:`, jobErr?.message);

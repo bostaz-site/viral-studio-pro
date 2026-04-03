@@ -63,16 +63,15 @@ function buildReframeFilters(aspectRatio, options = {}) {
 
   const { w: targetW, h: targetH } = ratios[aspectRatio] || ratios['9:16'];
 
-  // Strategy: scale to cover → crop to exact target → setsar to avoid issues
-  // "cover" = scale so BOTH dimensions >= target, then crop the excess
-  // force_original_aspect_ratio=increase ensures minimum dimension matches
+  // Strategy: scale to cover → crop to exact target
+  // force_original_aspect_ratio=increase ensures both dimensions >= target
   const scaleFilter = `scale=${targetW}:${targetH}:force_original_aspect_ratio=increase`;
 
-  let cropY = '(ih-oh)/2';
+  // Use explicit numeric values instead of oh/ow references for max compatibility
+  let cropY = `(ih-${targetH})/2`;
   if (cropAnchor === 'top') cropY = '0';
-  if (cropAnchor === 'bottom') cropY = 'ih-oh';
+  if (cropAnchor === 'bottom') cropY = `ih-${targetH}`;
 
-  // After scale, video is >= target in both dims. Crop to exact size.
   const cropFilter = `crop=${targetW}:${targetH}:(iw-${targetW})/2:${cropY}`;
 
   return `${scaleFilter},${cropFilter},setsar=1`;
