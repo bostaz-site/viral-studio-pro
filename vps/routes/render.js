@@ -5,7 +5,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { execFile } from 'child_process';
 import { promisify } from 'util';
 import { renderClip, extractThumbnail, checkFfmpegAvailability } from '../lib/ffmpeg-render.js';
-import { generateASS, validateWordTimestamps } from '../lib/subtitle-generator.js';
+import { generateASS, generateStaticASS, validateWordTimestamps } from '../lib/subtitle-generator.js';
 import {
   getClip,
   getVideo,
@@ -239,15 +239,28 @@ router.post('/', async (req, res) => {
           }
         }
 
+        const captionStyle = settings.captions.style || 'hormozi';
+        let assContent = null;
+
         if (wordTimestamps.length > 0) {
+          // Full karaoke captions from word timestamps
           validateWordTimestamps(wordTimestamps);
-          const captionStyle = settings.captions.style || 'hormozi';
-          const assContent = generateASS(wordTimestamps, {
+          assContent = generateASS(wordTimestamps, {
             style: captionStyle,
             clipStartTime,
             wordsPerLine: settings.captions.wordsPerLine || 6,
             customColors: settings.captions.customColors,
           });
+        } else if (source === 'trending' && clipTitle) {
+          // Static captions from clip title (for trending clips without transcription)
+          console.log(`[Render ${renderSessionId}] No word timestamps — generating static captions from title: "${clipTitle}"`);
+          assContent = generateStaticASS(clipTitle, duration, {
+            style: captionStyle,
+            wordsPerLine: settings.captions.wordsPerLine || 4,
+          });
+        }
+
+        if (assContent) {
           assFilePath = path.join(tempDir, 'captions.ass');
           await fs.writeFile(assFilePath, assContent, 'utf-8');
           console.log(`[Render ${renderSessionId}] Generated captions: ${assFilePath}`);
@@ -264,25 +277,65 @@ router.post('/', async (req, res) => {
       const category = settings.splitScreen.brollCategory || 'minecraft';
       const brollDir = path.join(BROLL_DIR, category);
 
+      // B-roll category → color for on-the-fly generation when no real B-roll files exist
+      const BROLL_COLORS = {
+        'subway-surfers': { color: '1DB954', label: 'SUBWAY SURFERS' },
+        'minecraft-parkour': { color: '5B8731', label: 'MINECRAFT' },
+        'sand-cutting': { color: 'E8A87C', label: 'SATISFYING' },
+        'soap-cutting': { color: 'FF6B8A', label: 'SATISFYING' },
+        'slime-satisfying': { color: '9B59B6', label: 'SATISFYING' },
+      };
+
       try {
         await fs.mkdir(brollDir, { recursive: true });
         const files = await fs.readdir(brollDir);
         const videoFiles = files.filter(f => /\.(mp4|mov|mkv|webm)$/i.test(f));
 
+        let brollPath = null;
+
         if (videoFiles.length > 0) {
+          // Use local B-roll file
           const picked = videoFiles[Math.floor(Math.random() * videoFiles.length)];
+          brollPath = path.join(brollDir, picked);
+          console.log(`[Render ${renderSessionId}] Using local B-roll: ${picked}`);
+        } else {
+          // Generate a simple colored B-roll video with FFmpeg on-the-fly
+          const colorInfo = BROLL_COLORS[category] || { color: '333333', label: 'B-ROLL' };
+          const genPath = path.join(tempDir, `broll-${category}.mp4`);
+          const brollDuration = Math.max(duration, 30); // At least 30s to cover clip
+          console.log(`[Render ${renderSessionId}] Generating B-roll for "${category}" (${colorInfo.color}, ${brollDuration}s)...`);
+          try {
+            await execFileAsync('ffmpeg', [
+              '-y',
+              '-f', 'lavfi', '-i', `color=c=0x${colorInfo.color}:s=1080x960:d=${brollDuration},format=yuv420p,drawtext=text='${colorInfo.label}':fontcolor=white:fontsize=50:x=(w-text_w)/2:y=(h-text_h)/2:borderw=3:bordercolor=black`,
+              '-f', 'lavfi', '-i', `anullsrc=r=44100:cl=stereo`,
+              '-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '28',
+              '-c:a', 'aac', '-shortest', '-t', String(brollDuration),
+              genPath,
+            ], { timeout: 30000 });
+            const stat = await fs.stat(genPath);
+            if (stat.size > 1000) {
+              brollPath = genPath;
+              console.log(`[Render ${renderSessionId}] Generated B-roll: ${stat.size} bytes`);
+            }
+          } catch (genErr) {
+            console.warn(`[Render ${renderSessionId}] B-roll generation failed: ${genErr.message}`);
+          }
+        }
+
+        if (brollPath) {
           splitScreenConfig = {
             enabled: true,
             layout: settings.splitScreen.layout || 'top-bottom',
             ratio: settings.splitScreen.ratio || 50,
-            brollPath: path.join(brollDir, picked),
+            brollPath,
           };
-          console.log(`[Render ${renderSessionId}] Split-screen: layout=${splitScreenConfig.layout}, broll=${picked}`);
+          console.log(`[Render ${renderSessionId}] Split-screen: layout=${splitScreenConfig.layout}, broll=${brollPath}`);
         } else {
-          console.warn(`[Render ${renderSessionId}] No B-roll files in ${brollDir} — rendering without split-screen`);
+          console.warn(`[Render ${renderSessionId}] No B-roll available for "${category}" — rendering without split-screen`);
         }
       } catch (err) {
-        console.warn(`[Render ${renderSessionId}] B-roll directory not ready: ${err.message}`);
+        console.warn(`[Render ${renderSessionId}] B-roll setup error: ${err.message}`);
       }
     }
 
@@ -307,7 +360,7 @@ router.post('/', async (req, res) => {
     });
 
     // Upload rendered clip to Supabase Storage
-    const clipStoragePath = `${userId}/${clipId}.mp4`;
+    const clipStoragePath = source === 'trending' ? `trending/${clipId}.mp4` : `${userId}/${clipId}.mp4`;
     console.log(`[Render ${renderSessionId}] Uploading rendered clip...`);
     const uploadResult = await uploadClip(outputPath, clipStoragePath);
 

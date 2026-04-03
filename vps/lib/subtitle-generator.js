@@ -553,6 +553,54 @@ export function validateWordTimestamps(words) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Static Captions (for clips without transcription/word timestamps)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Generate ASS subtitles from a plain text string (no word timestamps needed).
+ * Splits text into lines and distributes them evenly across the clip duration.
+ * Used for trending clips that don't have Whisper transcription.
+ *
+ * @param {string} text - The text to display (e.g. clip title)
+ * @param {number} duration - Clip duration in seconds
+ * @param {Object} options - {style, wordsPerLine}
+ * @returns {string} ASS file content
+ */
+export function generateStaticASS(text, duration, options = {}) {
+  const {
+    style = 'hormozi',
+    wordsPerLine = 4,
+  } = options;
+
+  if (!text || !duration || duration <= 0) return '';
+
+  const styleConfig = CAPTION_STYLES[style] || CAPTION_STYLES.hormozi;
+  const header = buildASSHeader(styleConfig);
+
+  // Split text into words, then group into lines
+  const words = text.trim().split(/\s+/).filter(w => w.length > 0);
+  if (words.length === 0) return '';
+
+  const lines = [];
+  for (let i = 0; i < words.length; i += wordsPerLine) {
+    lines.push(words.slice(i, i + wordsPerLine).join(' '));
+  }
+
+  // Distribute lines evenly across the clip duration
+  const lineDuration = Math.max(1.5, duration / lines.length);
+  const events = [];
+
+  for (let i = 0; i < lines.length; i++) {
+    const start = i * lineDuration;
+    const end = Math.min(start + lineDuration, duration);
+    const lineText = lines[i].toUpperCase(); // Uppercase for viral style
+    events.push(`Dialogue: 0,${toASSTime(start)},${toASSTime(end)},Default,,0,0,0,,${lineText}`);
+  }
+
+  return [header, ...events].join('\n');
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Example Usage Comment
 // ─────────────────────────────────────────────────────────────────────────────
 
