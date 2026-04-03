@@ -446,11 +446,10 @@ function buildTagFilter(tagConfig, canvasW = 720, canvasH = 1280) {
       // Use fixed-height drawbox (no tw/th), then overlay text
       const barH = Math.round(canvasH * 0.045);
       const fontSize = Math.round(canvasW * 0.032);
-      const creditText = escapeDrawtext(`Credit\\: ${handle}`);
       const textY = canvasH - barH + Math.round((barH - fontSize) / 2);
       return [
         `drawbox=x=0:y=${canvasH - barH}:w=iw:h=${barH}:color=0x000000@0.75:thickness=fill`,
-        `drawtext=text='${creditText}':fontfile=${fontFile}:fontcolor=white:fontsize=${fontSize}:x=(W-tw)/2:y=${textY}`,
+        `drawtext=text='${displayText}':fontfile=${fontFile}:fontcolor=white:fontsize=${fontSize}:x=(W-tw)/2:y=${textY}`,
       ].join(',');
     }
 
