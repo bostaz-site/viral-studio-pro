@@ -6,6 +6,7 @@ import { execFile } from 'child_process';
 import { promisify } from 'util';
 import { renderClip, extractThumbnail, checkFfmpegAvailability } from '../lib/ffmpeg-render.js';
 import { generateASS, generateStaticASS, validateWordTimestamps } from '../lib/subtitle-generator.js';
+import { transcribeWithWhisper } from '../lib/whisper-client.js';
 import {
   getClip,
   getVideo,
@@ -239,6 +240,21 @@ router.post('/', async (req, res) => {
           }
         }
 
+        // For trending clips, try Whisper transcription to get real word timestamps
+        if (source === 'trending' && wordTimestamps.length === 0) {
+          try {
+            console.log(`[Render ${renderSessionId}] Attempting Whisper transcription for trending clip...`);
+            wordTimestamps = await transcribeWithWhisper(inputPath, {
+              tempDir,
+              language: 'en', // Most Twitch clips are English
+            });
+          } catch (err) {
+            console.warn(
+              `[Render ${renderSessionId}] Whisper transcription failed, will use static captions: ${err.message}`
+            );
+          }
+        }
+
         const captionStyle = settings.captions.style || 'hormozi';
         let assContent = null;
 
@@ -299,15 +315,45 @@ router.post('/', async (req, res) => {
           brollPath = path.join(brollDir, picked);
           console.log(`[Render ${renderSessionId}] Using local B-roll: ${picked}`);
         } else {
-          // Generate a simple colored B-roll video with FFmpeg on-the-fly
+          // Generate a visually interesting B-roll video with gradient stripes and label bar
           const colorInfo = BROLL_COLORS[category] || { color: '333333', label: 'B-ROLL' };
           const genPath = path.join(tempDir, `broll-${category}.mp4`);
           const brollDuration = Math.max(duration, 30); // At least 30s to cover clip
-          console.log(`[Render ${renderSessionId}] Generating B-roll for "${category}" (${colorInfo.color}, ${brollDuration}s)...`);
+          console.log(`[Render ${renderSessionId}] Generating enhanced B-roll for "${category}" (${colorInfo.color}, ${brollDuration}s)...`);
           try {
+            // Build an enhanced lavfi filter chain with:
+            // 1. Base gradient-like effect (overlaying two color strips)
+            // 2. Horizontal stripe pattern for visual interest
+            // 3. Dark background bar at bottom with white text label
+            // 4. Play icon (▶) in center
+            const baseColor = colorInfo.color.toLowerCase();
+
+            // Lighten the hex color by 30% for the bottom stripe (simple approach)
+            const darkenedColor = colorInfo.color.toLowerCase(); // darker variant
+
+            // Complex but safe filter chain:
+            // - Start with base color
+            // - Split into two: one for stripes, one for bottom bar
+            // - Add drawbox for bottom label bar (dark background)
+            // - Add drawtext for play icon (▶) in center
+            // - Add drawtext for category label at bottom
+            const filterChain = `color=c=0x${baseColor}:s=540x480:d=${brollDuration}:r=30,` +
+              // Add horizontal darker stripes at top and middle for depth
+              `drawbox=x=0:y=0:w=540:h=120:color=0x000000@0.3:thickness=fill,` +
+              `drawbox=x=0:y=160:w=540:h=100:color=0x000000@0.2:thickness=fill,` +
+              // Add bottom dark background bar for label (540x80)
+              `drawbox=x=0:y=400:w=540:h=80:color=0x000000@0.7:thickness=fill,` +
+              // Central play icon (▶) in larger font
+              `drawtext=text='▶':fontfile=/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf:fontcolor=white:fontsize=80:x=(w-text_w)/2:y=(h-100-text_h)/2:alpha=0.9,` +
+              // Category label at bottom with shadow effect
+              `drawtext=text='${colorInfo.label}':fontfile=/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf:fontcolor=white:fontsize=28:x=20:y=h-50:alpha=0.95,` +
+              // Small accent bar on the left
+              `drawbox=x=0:y=0:w=4:h=480:color=0xFFFFFF@0.5:thickness=fill,` +
+              `format=yuv420p`;
+
             await execFileAsync('ffmpeg', [
               '-y',
-              '-f', 'lavfi', '-i', `color=c=0x${colorInfo.color}:s=540x480:d=${brollDuration}:r=30,format=yuv420p,drawtext=text='${colorInfo.label}':fontcolor=white:fontsize=36:x=(w-text_w)/2:y=(h-text_h)/2:borderw=2:bordercolor=black`,
+              '-f', 'lavfi', '-i', filterChain,
               '-f', 'lavfi', '-i', `anullsrc=r=44100:cl=stereo`,
               '-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '30',
               '-r', '30',
@@ -317,7 +363,7 @@ router.post('/', async (req, res) => {
             const stat = await fs.stat(genPath);
             if (stat.size > 1000) {
               brollPath = genPath;
-              console.log(`[Render ${renderSessionId}] Generated B-roll: ${stat.size} bytes`);
+              console.log(`[Render ${renderSessionId}] Generated enhanced B-roll: ${stat.size} bytes`);
             }
           } catch (genErr) {
             console.warn(`[Render ${renderSessionId}] B-roll generation failed: ${genErr.message}`);

@@ -213,6 +213,16 @@ function getScoreLabel(score: number): { text: string; color: string } {
   return { text: 'Low viral score', color: 'text-muted-foreground' }
 }
 
+function generateHooks(title: string | null, authorName: string | null): string[] {
+  if (!title) return []
+  const truncated = title.length > 40 ? title.substring(0, 40) + '...' : title
+  return [
+    `Wait till you see what happens... ${truncated}`,
+    `POV: ${title}`,
+    `This is why ${authorName || 'they'} is viral`,
+  ]
+}
+
 // ─── Score Badge Component ──────────────────────────────────────────────────
 
 function ScoreBadge({ score, isBest }: { score: number; isBest: boolean }) {
@@ -233,9 +243,11 @@ function ScoreBadge({ score, isBest }: { score: number; isBest: boolean }) {
 function LivePreview({
   clip,
   settings,
+  showEnhancements,
 }: {
   clip: TrendingClipData
   settings: EnhanceSettings
+  showEnhancements: boolean
 }) {
   const broll = BROLL_OPTIONS.find((b) => b.id === settings.brollVideo)
   const captionStyle = CAPTION_STYLES.find((s) => s.id === settings.captionStyle)
@@ -290,7 +302,7 @@ function LivePreview({
       </div>
 
       {/* ── Tag overlays ── */}
-      {tagStyle && tagStyle.id !== 'none' && streamerName && (
+      {showEnhancements && tagStyle && tagStyle.id !== 'none' && streamerName && (
         <>
           {tagStyle.position === 'top-right' && (
             <div className="absolute top-3 right-3 z-20 bg-black/60 backdrop-blur-sm rounded-full px-2.5 py-1 transition-all duration-300 pointer-events-none">
@@ -315,7 +327,7 @@ function LivePreview({
       )}
 
       {/* Karaoke subtitle preview */}
-      {settings.captionsEnabled && (
+      {showEnhancements && settings.captionsEnabled && (
         <div
           className={cn(
             'absolute left-1/2 -translate-x-1/2 z-20 rounded-lg px-3 py-1.5 max-w-[85%] transition-all duration-500',
@@ -340,7 +352,7 @@ function LivePreview({
       )}
 
       {/* Split line */}
-      {settings.splitScreenEnabled && (
+      {showEnhancements && settings.splitScreenEnabled && (
         <div
           className="absolute inset-x-0 h-0.5 bg-gradient-to-r from-transparent via-blue-400/60 to-transparent z-10 transition-all duration-500"
           style={{ top: `${settings.splitRatio}%` }}
@@ -348,7 +360,7 @@ function LivePreview({
       )}
 
       {/* Bottom: B-roll */}
-      {settings.splitScreenEnabled && broll && (
+      {showEnhancements && settings.splitScreenEnabled && broll && (
         <div
           className={cn('absolute inset-x-0 bottom-0 overflow-hidden transition-all duration-500', `bg-gradient-to-br ${broll.color}`)}
           style={{ height: `${100 - settings.splitRatio}%` }}
@@ -389,6 +401,8 @@ export default function EnhancePage() {
   const [renderDownloadUrl, setRenderDownloadUrl] = useState<string | null>(null)
   const [renderJobId, setRenderJobId] = useState<string | null>(null)
   const pollRef = useRef<NodeJS.Timeout | null>(null)
+  const [advancedMode, setAdvancedMode] = useState(false)
+  const [showEnhancements, setShowEnhancements] = useState(true)
 
   const [settings, setSettings] = useState<EnhanceSettings>({
     captionsEnabled: true,
@@ -412,7 +426,7 @@ export default function EnhancePage() {
       // 1. Try the trending store (works for seed data + already-fetched clips)
       const storeClip = storeClips.find((c) => c.id === clipId)
       if (storeClip) {
-        setClip({
+        const clipData: TrendingClipData = {
           id: storeClip.id,
           external_url: storeClip.external_url,
           platform: storeClip.platform,
@@ -425,7 +439,16 @@ export default function EnhancePage() {
           like_count: storeClip.like_count,
           velocity_score: storeClip.velocity_score,
           thumbnail_url: storeClip.thumbnail_url,
-        })
+        }
+        setClip(clipData)
+
+        // Auto-enable split-screen for long descriptions or low view counts
+        const descriptionWordCount = clipData.description?.split(/\s+/).length ?? 0
+        const shouldAutoEnableSplitScreen = descriptionWordCount > 20 || (clipData.view_count ?? 0) < 1000
+        if (shouldAutoEnableSplitScreen) {
+          setSettings((s) => ({ ...s, splitScreenEnabled: true }))
+        }
+
         setLoading(false)
         return
       }
@@ -442,7 +465,15 @@ export default function EnhancePage() {
         if (dbError) throw new Error(dbError.message)
         if (!data) throw new Error('Clip non trouvé')
 
-        setClip(data as TrendingClipData)
+        const clipData = data as TrendingClipData
+        setClip(clipData)
+
+        // Auto-enable split-screen for long descriptions or low view counts
+        const descriptionWordCount = clipData.description?.split(/\s+/).length ?? 0
+        const shouldAutoEnableSplitScreen = descriptionWordCount > 20 || (clipData.view_count ?? 0) < 1000
+        if (shouldAutoEnableSplitScreen) {
+          setSettings((s) => ({ ...s, splitScreenEnabled: true }))
+        }
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Erreur de chargement')
       } finally {
@@ -668,27 +699,93 @@ export default function EnhancePage() {
             </button>
           )}
 
-          {/* ── #2 Score with dynamic label ── */}
+          {/* ── #2 Score with dynamic label and performance indicators ── */}
           {scores && (() => {
             const label = getScoreLabel(currentScore)
+            const retentionRate = Math.round(50 + (currentScore * 0.5))
+            const viewsEstimate = currentScore >= 75 ? '10K-50K' : currentScore >= 50 ? '5K-20K' : '1K-10K'
             return (
-              <div className="flex items-center justify-between bg-card/60 border border-white/5 rounded-xl px-3 py-2">
-                <div className="flex items-center gap-2">
+              <div className="bg-card/60 border border-white/5 rounded-xl px-3 py-3 space-y-3">
+                <div className="flex items-center justify-between">
                   <div className="flex items-center gap-1.5">
                     <Flame className="h-4 w-4 text-orange-400" />
                     <span className="text-2xl font-black text-foreground tabular-nums transition-all duration-500">{currentScore}</span>
                     <span className="text-xs text-muted-foreground font-medium">/ 100</span>
                   </div>
+                  <span className={cn('text-[11px] font-semibold', label.color)}>
+                    {label.text}
+                  </span>
                 </div>
-                <span className={cn('text-[11px] font-semibold', label.color)}>
-                  {label.text}
-                </span>
+                <div className="space-y-1.5 text-[10px] text-muted-foreground">
+                  <div className="flex items-center gap-1.5">
+                    <TrendingUp className="h-3 w-3 text-green-400" />
+                    <span>~{retentionRate}% retention</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <Eye className="h-3 w-3 text-blue-400" />
+                    <span>{viewsEstimate} views</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <Zap className="h-3 w-3 text-amber-400" />
+                    <span>Best: 18h-21h</span>
+                  </div>
+                </div>
               </div>
             )
           })()}
 
-          {/* ── #3 Preview ── */}
-          <LivePreview clip={clip} settings={settings} />
+          {/* ── #2.5 Hook Section ── */}
+          {clip && (() => {
+            const hooks = generateHooks(clip.title, clip.author_name)
+            return (
+              <Card className="bg-card/60 border-border">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm flex items-center gap-2">
+                    <Sparkles className="h-4 w-4 text-amber-400" />
+                    Hook Ideas
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  {hooks.map((hook, idx) => (
+                    <button
+                      key={idx}
+                      onClick={() => {
+                        navigator.clipboard.writeText(hook)
+                      }}
+                      className="block w-full text-left p-2 rounded-lg border border-white/10 hover:border-amber-400/50 hover:bg-amber-400/5 transition-all text-xs text-muted-foreground hover:text-amber-300 truncate"
+                      title={hook}
+                    >
+                      {hook}
+                    </button>
+                  ))}
+                  <p className="text-[9px] text-muted-foreground text-center mt-2">Click to copy</p>
+                </CardContent>
+              </Card>
+            )
+          })()}
+
+          {/* ── #3 Before/After Preview Toggle ── */}
+          <div className="flex gap-2">
+            <Button
+              variant={!showEnhancements ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setShowEnhancements(false)}
+              className="flex-1 text-xs h-8"
+            >
+              Original
+            </Button>
+            <Button
+              variant={showEnhancements ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setShowEnhancements(true)}
+              className="flex-1 text-xs h-8"
+            >
+              Enhanced
+            </Button>
+          </div>
+
+          {/* ── #3.5 Preview ── */}
+          <LivePreview clip={clip} settings={settings} showEnhancements={showEnhancements} />
 
           {/* Metadata inline */}
           <div className="flex items-center justify-between text-xs text-muted-foreground px-1">
@@ -779,8 +876,45 @@ export default function EnhancePage() {
 
         {/* Right: Settings — secondary, lower visual weight */}
         <div className="opacity-90 hover:opacity-100 transition-opacity duration-300">
-          <p className="text-xs text-muted-foreground mb-3 uppercase tracking-widest font-medium">Fine-tune</p>
-          <Tabs defaultValue="captions" className="w-full">
+          <div className="flex items-center justify-between mb-3">
+            <p className="text-xs text-muted-foreground uppercase tracking-widest font-medium">Fine-tune</p>
+            <div className="flex items-center gap-2">
+              <Button
+                variant={!advancedMode ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setAdvancedMode(false)}
+                className="text-xs h-7 px-3"
+              >
+                Simple
+              </Button>
+              <Button
+                variant={advancedMode ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setAdvancedMode(true)}
+                className="text-xs h-7 px-3"
+              >
+                Advanced
+              </Button>
+            </div>
+          </div>
+
+          {!advancedMode ? (
+            <div className="space-y-3">
+              <Button
+                onClick={applyBestCombo}
+                className="w-full h-10 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white font-semibold gap-2 shadow-lg shadow-orange-500/20"
+              >
+                <Wand2 className="h-4 w-4" />
+                Auto-Optimize
+              </Button>
+              <div className="text-center p-4 rounded-lg bg-card/40 border border-white/5">
+                <p className="text-xs text-muted-foreground">
+                  Score: <span className="text-sm font-bold text-orange-400">{currentScore}</span> / 100
+                </p>
+              </div>
+            </div>
+          ) : (
+            <Tabs defaultValue="captions" className="w-full">
             <TabsList className="grid grid-cols-4 mb-6">
               <TabsTrigger value="captions" className="gap-1.5 text-xs"><Type className="h-3.5 w-3.5" />Sous-titres</TabsTrigger>
               <TabsTrigger value="splitscreen" className="gap-1.5 text-xs"><Monitor className="h-3.5 w-3.5" />Split-Screen</TabsTrigger>
@@ -1025,6 +1159,7 @@ export default function EnhancePage() {
 
             </TabsContent>
           </Tabs>
+          )}
         </div>
       </div>
     </div>
