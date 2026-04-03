@@ -292,13 +292,10 @@ router.post('/', async (req, res) => {
             wordsPerLine: settings.captions.wordsPerLine || 6,
             customColors: settings.captions.customColors,
           });
-        } else if (source === 'trending' && clipTitle) {
-          // Static captions from clip title (for trending clips without transcription)
-          console.log(`[Render ${renderSessionId}] No word timestamps — generating static captions from title: "${clipTitle}"`);
-          assContent = generateStaticASS(clipTitle, duration, {
-            ...subtitleOpts,
-            wordsPerLine: settings.captions.wordsPerLine || 4,
-          });
+        } else {
+          // No word timestamps available — skip captions entirely
+          // (Static captions from title are useless, only real transcription matters)
+          console.log(`[Render ${renderSessionId}] No word timestamps available — skipping captions`);
         }
 
         if (assContent) {
