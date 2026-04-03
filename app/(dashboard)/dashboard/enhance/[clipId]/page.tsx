@@ -8,11 +8,10 @@ import {
   ChevronLeft, Loader2, AlertCircle, Sparkles, Download,
   Type, Wand2, Eye, ExternalLink, Play,
   Monitor, Paintbrush, Zap, AtSign,
-  Upload, FileVideo, Link2, Flame,
+  Flame,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Slider } from '@/components/ui/slider'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
@@ -408,6 +407,12 @@ export default function EnhancePage() {
   const pollRef = useRef<NodeJS.Timeout | null>(null)
   const [advancedMode, setAdvancedMode] = useState(false)
   const [showEnhancements, setShowEnhancements] = useState(true)
+  const sectionRefs = {
+    captions: useRef<HTMLDivElement>(null),
+    splitscreen: useRef<HTMLDivElement>(null),
+    tags: useRef<HTMLDivElement>(null),
+    style: useRef<HTMLDivElement>(null),
+  }
 
   const [settings, setSettings] = useState<EnhanceSettings>({
     captionsEnabled: true,
@@ -809,63 +814,181 @@ export default function EnhancePage() {
             </button>
           )}
 
-          {/* ── Fine-tune Settings ── */}
+          {/* ── Settings ── */}
           <div className="opacity-90 hover:opacity-100 transition-opacity duration-300">
-          <div className="flex items-center justify-between mb-3">
-            <p className="text-xs text-muted-foreground uppercase tracking-widest font-medium">Fine-tune</p>
-            <div className="flex items-center gap-2">
-              <Button
-                variant={!advancedMode ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setAdvancedMode(false)}
-                className="text-xs h-7 px-3"
-              >
-                Simple
-              </Button>
-              <Button
-                variant={advancedMode ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setAdvancedMode(true)}
-                className="text-xs h-7 px-3"
-              >
-                Advanced
-              </Button>
+
+          {/* Quick nav bar — scrolls to sections */}
+          <div className="sticky top-0 z-10 bg-background/80 backdrop-blur-md border-b border-white/5 -mx-1 px-1 pb-3 pt-1 mb-4">
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-xs text-muted-foreground uppercase tracking-widest font-medium">Paramètres</p>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant={!advancedMode ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setAdvancedMode(false)}
+                  className="text-xs h-7 px-3"
+                >
+                  Simple
+                </Button>
+                <Button
+                  variant={advancedMode ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setAdvancedMode(true)}
+                  className="text-xs h-7 px-3"
+                >
+                  Avancé
+                </Button>
+              </div>
+            </div>
+            <div className="grid grid-cols-4 gap-2">
+              {([
+                { key: 'captions', icon: <Type className="h-3.5 w-3.5" />, label: 'Sous-titres' },
+                { key: 'splitscreen', icon: <Monitor className="h-3.5 w-3.5" />, label: 'Split-Screen' },
+                { key: 'tags', icon: <AtSign className="h-3.5 w-3.5" />, label: 'Tags' },
+                { key: 'style', icon: <Paintbrush className="h-3.5 w-3.5" />, label: 'Style' },
+              ] as const).map(({ key, icon, label }) => (
+                <button
+                  key={key}
+                  onClick={() => sectionRefs[key].current?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+                  className="flex items-center justify-center gap-1.5 text-xs font-medium rounded-lg border border-border hover:border-primary/50 hover:bg-primary/5 px-2 py-2 transition-all text-muted-foreground hover:text-foreground"
+                >
+                  {icon}{label}
+                </button>
+              ))}
             </div>
           </div>
 
           {!advancedMode ? (
-            <div className="space-y-3">
-              <Button
-                onClick={applyBestCombo}
-                className="w-full h-10 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white font-semibold gap-2 shadow-lg shadow-orange-500/20"
-              >
-                <Wand2 className="h-4 w-4" />
-                Auto-Optimize
-              </Button>
-              <div className="text-center p-4 rounded-lg bg-card/40 border border-white/5">
-                <p className="text-xs text-muted-foreground">
-                  Score: <span className="text-sm font-bold text-orange-400">{currentScore}</span> / 100
-                </p>
+            /* ── Simple Mode — key visual options ── */
+            <div className="space-y-6">
+              {/* Caption Style — the most impactful choice */}
+              <div ref={sectionRefs.captions} className="scroll-mt-32 space-y-3">
+                <div className="flex items-center gap-2">
+                  <Type className="h-4 w-4 text-primary" />
+                  <h3 className="text-sm font-semibold text-foreground">Style sous-titres</h3>
+                </div>
+                <div className="grid grid-cols-3 gap-2">
+                  {CAPTION_STYLES.map((style) => (
+                    <button
+                      key={style.id}
+                      onClick={() => {
+                        updateSetting('captionStyle', style.id)
+                        updateSetting('captionsEnabled', style.id !== 'none')
+                      }}
+                      className={cn(
+                        'rounded-xl border p-3 text-center transition-all',
+                        settings.captionStyle === style.id
+                          ? 'border-primary bg-primary/10 ring-1 ring-primary/30'
+                          : 'border-border hover:border-primary/40'
+                      )}
+                    >
+                      <span className={cn('text-sm block mb-0.5', style.preview)}>Aa</span>
+                      <span className="text-[10px] text-muted-foreground block">{style.label}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* B-Roll / Split-Screen */}
+              <div ref={sectionRefs.splitscreen} className="scroll-mt-32 space-y-3">
+                <div className="flex items-center gap-2">
+                  <Monitor className="h-4 w-4 text-primary" />
+                  <h3 className="text-sm font-semibold text-foreground">Split-Screen</h3>
+                </div>
+                <div className="grid grid-cols-3 gap-2">
+                  {BROLL_OPTIONS.map((broll) => (
+                    <button
+                      key={broll.id}
+                      onClick={() => {
+                        updateSetting('brollVideo', broll.id)
+                        updateSetting('splitScreenEnabled', broll.id !== 'none')
+                      }}
+                      className={cn(
+                        'rounded-xl border p-3 transition-all',
+                        settings.brollVideo === broll.id
+                          ? 'border-primary bg-primary/10 ring-1 ring-primary/30'
+                          : 'border-border hover:border-primary/40'
+                      )}
+                    >
+                      <div className={`w-full h-6 rounded-lg bg-gradient-to-r ${broll.color} mb-1.5`} />
+                      <span className="text-[10px] text-muted-foreground block text-center">{broll.label}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Tag Style */}
+              <div ref={sectionRefs.tags} className="scroll-mt-32 space-y-3">
+                <div className="flex items-center gap-2">
+                  <AtSign className="h-4 w-4 text-primary" />
+                  <h3 className="text-sm font-semibold text-foreground">Crédit streamer</h3>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  {TAG_STYLES.map((tag) => (
+                    <button
+                      key={tag.id}
+                      onClick={() => updateSetting('tagStyle', tag.id)}
+                      className={cn(
+                        'rounded-xl border p-3 text-left transition-all',
+                        settings.tagStyle === tag.id
+                          ? 'border-primary bg-primary/10 ring-1 ring-primary/30'
+                          : 'border-border hover:border-primary/40'
+                      )}
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className="text-base">{tag.icon === 'discord' ? '📢' : tag.icon}</span>
+                        <div>
+                          <span className="text-xs font-medium text-foreground block">{tag.label}</span>
+                          <span className="text-[10px] text-muted-foreground block">{tag.description}</span>
+                        </div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Format */}
+              <div ref={sectionRefs.style} className="scroll-mt-32 space-y-3">
+                <div className="flex items-center gap-2">
+                  <Paintbrush className="h-4 w-4 text-primary" />
+                  <h3 className="text-sm font-semibold text-foreground">Format</h3>
+                </div>
+                <div className="grid grid-cols-3 gap-2">
+                  {(['9:16', '1:1', '16:9'] as const).map((ratio) => (
+                    <button
+                      key={ratio}
+                      onClick={() => updateSetting('aspectRatio', ratio)}
+                      className={cn(
+                        'rounded-xl border p-3 text-center transition-all',
+                        settings.aspectRatio === ratio
+                          ? 'border-primary bg-primary/10 ring-1 ring-primary/30'
+                          : 'border-border hover:border-primary/40'
+                      )}
+                    >
+                      <span className="text-sm font-semibold text-foreground">{ratio}</span>
+                      <span className="text-[10px] text-muted-foreground block mt-0.5">
+                        {ratio === '9:16' ? 'TikTok / Reels' : ratio === '1:1' ? 'Instagram' : 'YouTube'}
+                      </span>
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
           ) : (
-            <Tabs defaultValue="captions" className="w-full">
-            <TabsList className="grid grid-cols-4 mb-6">
-              <TabsTrigger value="captions" className="gap-1.5 text-xs"><Type className="h-3.5 w-3.5" />Sous-titres</TabsTrigger>
-              <TabsTrigger value="splitscreen" className="gap-1.5 text-xs"><Monitor className="h-3.5 w-3.5" />Split-Screen</TabsTrigger>
-              <TabsTrigger value="tags" className="gap-1.5 text-xs"><AtSign className="h-3.5 w-3.5" />Tags</TabsTrigger>
-              <TabsTrigger value="style" className="gap-1.5 text-xs"><Paintbrush className="h-3.5 w-3.5" />Style</TabsTrigger>
-            </TabsList>
+            /* ── Advanced Mode — full control with scores ── */
+            <div className="space-y-6">
 
-            {/* ─── Captions Tab ─── */}
-            <TabsContent value="captions" className="space-y-6">
+            {/* ─── Captions Section ─── */}
+            <div ref={sectionRefs.captions} className="scroll-mt-32">
               <Card className="bg-card/60 border-border">
                 <CardHeader className="pb-3">
-                  <CardTitle className="text-base">Sous-titres karaoké</CardTitle>
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <Type className="h-4 w-4 text-primary" />
+                    Sous-titres karaoké
+                  </CardTitle>
                 </CardHeader>
                 {scores && (
                   <CardContent className="space-y-5">
-                    {/* Style selector with scores */}
                     <div className="space-y-2">
                       <Label className="text-xs uppercase tracking-wider text-muted-foreground">Style</Label>
                       <div className="grid grid-cols-3 gap-2">
@@ -900,7 +1023,6 @@ export default function EnhancePage() {
                       </div>
                     </div>
 
-                    {/* Animation, position — hidden when style is 'none' */}
                     {settings.captionStyle !== 'none' && <>
                     <div className="space-y-2">
                       <Label className="text-xs uppercase tracking-wider text-muted-foreground">Animation</Label>
@@ -928,7 +1050,6 @@ export default function EnhancePage() {
                       </div>
                     </div>
 
-                    {/* Position */}
                     <div className="space-y-2">
                       <Label className="text-xs uppercase tracking-wider text-muted-foreground">Position</Label>
                       <div className="grid grid-cols-3 gap-2">
@@ -948,18 +1069,20 @@ export default function EnhancePage() {
                         ))}
                       </div>
                     </div>
-
                     </>}
                   </CardContent>
                 )}
               </Card>
-            </TabsContent>
+            </div>
 
-            {/* ─── Split-Screen Tab ─── */}
-            <TabsContent value="splitscreen" className="space-y-6">
+            {/* ─── Split-Screen Section ─── */}
+            <div ref={sectionRefs.splitscreen} className="scroll-mt-32">
               <Card className="bg-card/60 border-border">
                 <CardHeader className="pb-3">
-                  <CardTitle className="text-base">Split-Screen</CardTitle>
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <Monitor className="h-4 w-4 text-primary" />
+                    Split-Screen
+                  </CardTitle>
                 </CardHeader>
                 {scores && (
                   <CardContent className="space-y-5">
@@ -1014,13 +1137,16 @@ export default function EnhancePage() {
                   </CardContent>
                 )}
               </Card>
-            </TabsContent>
+            </div>
 
-            {/* ─── Tags Tab ─── */}
-            <TabsContent value="tags" className="space-y-6">
+            {/* ─── Tags Section ─── */}
+            <div ref={sectionRefs.tags} className="scroll-mt-32">
               <Card className="bg-card/60 border-border">
                 <CardHeader className="pb-3">
-                  <CardTitle className="text-base">Tag du streamer</CardTitle>
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <AtSign className="h-4 w-4 text-primary" />
+                    Tag du streamer
+                  </CardTitle>
                 </CardHeader>
                 {scores && (
                   <CardContent className="space-y-5">
@@ -1043,11 +1169,7 @@ export default function EnhancePage() {
                               )}
                             >
                               <div className="flex items-center gap-2 mb-1">
-                                {tag.icon === 'discord' ? (
-                                  <svg className="w-4 h-4 text-indigo-400" viewBox="0 0 24 24" fill="currentColor"><path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028 14.09 14.09 0 0 0 1.226-1.994.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.095 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.095 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"/></svg>
-                                ) : (
-                                  <span className="text-base">{tag.icon}</span>
-                                )}
+                                <span className="text-base">{tag.icon === 'discord' ? '📢' : tag.icon}</span>
                                 <span className={cn('text-xs font-semibold flex-1', scored.isBest ? 'text-orange-400' : 'text-foreground')}>{tag.label}</span>
                                 <ScoreBadge score={scored.score} isBest={scored.isBest} />
                               </div>
@@ -1057,17 +1179,19 @@ export default function EnhancePage() {
                         })}
                       </div>
                     </div>
-
                   </CardContent>
                 )}
               </Card>
-            </TabsContent>
+            </div>
 
-            {/* ─── Style Tab ─── */}
-            <TabsContent value="style" className="space-y-6">
+            {/* ─── Style Section ─── */}
+            <div ref={sectionRefs.style} className="scroll-mt-32">
               <Card className="bg-card/60 border-border">
                 <CardHeader className="pb-3">
-                  <CardTitle className="text-base">Format</CardTitle>
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <Paintbrush className="h-4 w-4 text-primary" />
+                    Format
+                  </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="grid grid-cols-3 gap-2">
@@ -1091,40 +1215,10 @@ export default function EnhancePage() {
                   </div>
                 </CardContent>
               </Card>
-
-            </TabsContent>
-          </Tabs>
+            </div>
+          </div>
           )}
           </div>
-
-          {/* Import your own clip */}
-          <Card className="bg-card/40 border-dashed border-border hover:border-primary/40 transition-colors">
-            <CardContent className="p-4 space-y-3">
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-lg bg-blue-500/15 flex items-center justify-center">
-                  <Upload className="h-4 w-4 text-blue-400" />
-                </div>
-                <div>
-                  <p className="text-sm font-semibold text-foreground">Importer ton clip</p>
-                  <p className="text-[10px] text-muted-foreground">Upload ou colle un lien pour enhance ton propre contenu</p>
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                <Link href="/create">
-                  <Button variant="outline" size="sm" className="w-full gap-1.5 h-9 text-xs border-blue-500/20 text-blue-400 hover:bg-blue-500/10">
-                    <FileVideo className="h-3.5 w-3.5" />
-                    Upload fichier
-                  </Button>
-                </Link>
-                <Link href="/create?mode=url">
-                  <Button variant="outline" size="sm" className="w-full gap-1.5 h-9 text-xs border-purple-500/20 text-purple-400 hover:bg-purple-500/10">
-                    <Link2 className="h-3.5 w-3.5" />
-                    Coller un lien
-                  </Button>
-                </Link>
-              </div>
-            </CardContent>
-          </Card>
         </div>
       </div>
     </div>
