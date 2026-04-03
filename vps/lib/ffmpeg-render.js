@@ -25,10 +25,13 @@ export function escapePath(filePath) {
  */
 export function escapeDrawtext(text) {
   return text
+    .replace(/\\/g, '\\\\')
     .replace(/'/g, "\\'")
     .replace(/:/g, '\\:')
+    .replace(/@/g, '\\@')
     .replace(/\[/g, '\\[')
     .replace(/\]/g, '\\]')
+    .replace(/%/g, '%%')
     .replace(/\n/g, ' ');
 }
 
