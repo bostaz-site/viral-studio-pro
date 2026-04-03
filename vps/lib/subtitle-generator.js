@@ -200,6 +200,47 @@ function hexToASSColor(hex, alpha = 0) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Positioning Logic
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Adjust caption alignment and marginV based on position setting and split-screen config.
+ * ASS alignment values: 1-3 = bottom, 4-6 = middle, 7-9 = top (left/center/right)
+ * MarginV: distance from the edge determined by alignment (bottom→from bottom, top→from top)
+ */
+function adjustPositioning(styleConfig, { position = 'bottom', canvasWidth = 1080, canvasHeight = 1920, splitScreen = null }) {
+  const config = { ...styleConfig };
+
+  // Scale font size proportionally to canvas (styles designed for 1080x1920)
+  const scaleFactor = canvasHeight / 1920;
+  config.fontsize = Math.round(config.fontsize * scaleFactor);
+
+  if (splitScreen && splitScreen.enabled && splitScreen.layout === 'top-bottom') {
+    // Split-screen: place captions inside the TOP portion (main video)
+    const ratio = (splitScreen.ratio || 50) / 100;
+    const topH = Math.round(canvasHeight * ratio);
+    const botH = canvasHeight - topH;
+
+    // Use bottom alignment (2) but push up above the B-roll area
+    // marginV = distance from bottom = botH + small padding inside top portion
+    config.alignment = 2;
+    config.marginV = botH + Math.round(topH * 0.08);
+  } else if (position === 'top') {
+    config.alignment = 8; // top center
+    config.marginV = Math.round(canvasHeight * 0.05);
+  } else if (position === 'middle') {
+    config.alignment = 5; // middle center
+    config.marginV = 0;
+  } else {
+    // bottom (default)
+    config.alignment = 2;
+    config.marginV = Math.round(canvasHeight * 0.04);
+  }
+
+  return config;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // ASS File Generation
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -207,7 +248,7 @@ function hexToASSColor(hex, alpha = 0) {
  * Generate complete ASS subtitle file with karaoke support
  *
  * @param {Array} wordTimestamps - [{word, start, end}, ...]
- * @param {Object} options - {style, clipStartTime, wordsPerLine, customColors}
+ * @param {Object} options - {style, clipStartTime, wordsPerLine, customColors, position, canvasWidth, canvasHeight, splitScreen}
  * @returns {string} ASS file content
  */
 export function generateASS(wordTimestamps, options = {}) {
@@ -216,6 +257,10 @@ export function generateASS(wordTimestamps, options = {}) {
     clipStartTime = 0,
     wordsPerLine = 6,
     customColors = null,
+    position = 'bottom',
+    canvasWidth = 1080,
+    canvasHeight = 1920,
+    splitScreen = null,
   } = options;
 
   // Get base style
@@ -231,8 +276,11 @@ export function generateASS(wordTimestamps, options = {}) {
     };
   }
 
-  // Generate ASS header
-  const header = buildASSHeader(styleConfig);
+  // Adjust positioning based on split-screen and position setting
+  styleConfig = adjustPositioning(styleConfig, { position, canvasWidth, canvasHeight, splitScreen });
+
+  // Generate ASS header with correct canvas dimensions
+  const header = buildASSHeader(styleConfig, canvasWidth, canvasHeight);
 
   // Group words into lines
   const wordLines = groupWords(wordTimestamps, wordsPerLine);
@@ -249,8 +297,11 @@ export function generateASS(wordTimestamps, options = {}) {
 
 /**
  * Build ASS file header with style definition
+ * @param {Object} styleConfig - Style configuration
+ * @param {number} canvasWidth - Actual video canvas width (default 1080)
+ * @param {number} canvasHeight - Actual video canvas height (default 1920)
  */
-function buildASSHeader(styleConfig) {
+function buildASSHeader(styleConfig, canvasWidth = 1080, canvasHeight = 1920) {
   const {
     fontname,
     fontsize,
@@ -269,8 +320,8 @@ function buildASSHeader(styleConfig) {
   return `[Script Info]
 Title: Viral Studio Pro Captions
 ScriptType: v4.00+
-PlayResX: 1080
-PlayResY: 1920
+PlayResX: ${canvasWidth}
+PlayResY: ${canvasHeight}
 ScaledBorderAndShadow: yes
 
 [V4+ Styles]
@@ -570,12 +621,17 @@ export function generateStaticASS(text, duration, options = {}) {
   const {
     style = 'hormozi',
     wordsPerLine = 4,
+    position = 'bottom',
+    canvasWidth = 1080,
+    canvasHeight = 1920,
+    splitScreen = null,
   } = options;
 
   if (!text || !duration || duration <= 0) return '';
 
-  const styleConfig = CAPTION_STYLES[style] || CAPTION_STYLES.hormozi;
-  const header = buildASSHeader(styleConfig);
+  let styleConfig = CAPTION_STYLES[style] || CAPTION_STYLES.hormozi;
+  styleConfig = adjustPositioning(styleConfig, { position, canvasWidth, canvasHeight, splitScreen });
+  const header = buildASSHeader(styleConfig, canvasWidth, canvasHeight);
 
   // Split text into words, then group into lines
   const words = text.trim().split(/\s+/).filter(w => w.length > 0);

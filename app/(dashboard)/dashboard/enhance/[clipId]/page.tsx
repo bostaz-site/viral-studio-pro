@@ -580,6 +580,11 @@ export default function EnhancePage() {
               ratio: settings.splitRatio,
               layout: 'top-bottom',
             },
+            tag: {
+              style: settings.tagStyle,
+              authorName: clip.author_name || null,
+              authorHandle: clip.author_handle || null,
+            },
             format: {
               aspectRatio: settings.aspectRatio,
             },

@@ -224,6 +224,21 @@ router.post('/', async (req, res) => {
 
     // ── COMMON RENDER PIPELINE ──
 
+    // Determine canvas dimensions (must match FFmpeg render output)
+    const isSplitScreen = settings.splitScreen?.enabled;
+    const targetAspectRatio = settings.format?.aspectRatio || '9:16';
+    const canvasSizes = isSplitScreen
+      ? { '9:16': { w: 720, h: 1280 }, '1:1': { w: 720, h: 720 }, '16:9': { w: 1280, h: 720 } }
+      : { '9:16': { w: 1080, h: 1920 }, '1:1': { w: 1080, h: 1080 }, '16:9': { w: 1920, h: 1080 } };
+    const { w: canvasW, h: canvasH } = canvasSizes[targetAspectRatio] || canvasSizes['9:16'];
+
+    // Split-screen info for subtitle positioning
+    const splitScreenForCaptions = isSplitScreen ? {
+      enabled: true,
+      layout: settings.splitScreen.layout || 'top-bottom',
+      ratio: settings.splitScreen.ratio || 50,
+    } : null;
+
     // Prepare captions if enabled
     let assFilePath = null;
     if (settings.captions?.enabled) {
@@ -256,13 +271,23 @@ router.post('/', async (req, res) => {
         }
 
         const captionStyle = settings.captions.style || 'hormozi';
+        const captionPosition = settings.captions.position || 'bottom';
         let assContent = null;
+
+        // Common subtitle options — canvas-aware positioning
+        const subtitleOpts = {
+          style: captionStyle,
+          position: captionPosition,
+          canvasWidth: canvasW,
+          canvasHeight: canvasH,
+          splitScreen: splitScreenForCaptions,
+        };
 
         if (wordTimestamps.length > 0) {
           // Full karaoke captions from word timestamps
           validateWordTimestamps(wordTimestamps);
           assContent = generateASS(wordTimestamps, {
-            style: captionStyle,
+            ...subtitleOpts,
             clipStartTime,
             wordsPerLine: settings.captions.wordsPerLine || 6,
             customColors: settings.captions.customColors,
@@ -271,7 +296,7 @@ router.post('/', async (req, res) => {
           // Static captions from clip title (for trending clips without transcription)
           console.log(`[Render ${renderSessionId}] No word timestamps — generating static captions from title: "${clipTitle}"`);
           assContent = generateStaticASS(clipTitle, duration, {
-            style: captionStyle,
+            ...subtitleOpts,
             wordsPerLine: settings.captions.wordsPerLine || 4,
           });
         }
@@ -279,7 +304,7 @@ router.post('/', async (req, res) => {
         if (assContent) {
           assFilePath = path.join(tempDir, 'captions.ass');
           await fs.writeFile(assFilePath, assContent, 'utf-8');
-          console.log(`[Render ${renderSessionId}] Generated captions: ${assFilePath}`);
+          console.log(`[Render ${renderSessionId}] Generated captions (${canvasW}x${canvasH}, pos=${captionPosition}, split=${!!isSplitScreen}): ${assFilePath}`);
         }
       } catch (err) {
         console.warn(`[Render ${renderSessionId}] Warning: Failed to generate captions:`, err.message);
@@ -386,6 +411,17 @@ router.post('/', async (req, res) => {
       }
     }
 
+    // Prepare tag/credit config
+    let tagConfig = null;
+    if (settings.tag && settings.tag.style && settings.tag.style !== 'none') {
+      tagConfig = {
+        style: settings.tag.style,
+        authorName: settings.tag.authorName || null,
+        authorHandle: settings.tag.authorHandle || null,
+      };
+      console.log(`[Render ${renderSessionId}] Tag: style=${tagConfig.style}, author=${tagConfig.authorHandle || tagConfig.authorName || 'none'}`);
+    }
+
     // Render clip with FFmpeg
     const outputPath = path.join(tempDir, 'output.mp4');
     console.log(`[Render ${renderSessionId}] Starting FFmpeg render...`);
@@ -401,6 +437,7 @@ router.post('/', async (req, res) => {
       watermark: null,
       plan: userPlan,
       splitScreen: splitScreenConfig,
+      tag: tagConfig,
       cropAnchor: settings.format?.cropAnchor || 'center',
       backgroundBlur: settings.format?.backgroundBlur || false,
       crf: settings.format?.crf || 23,

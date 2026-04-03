@@ -26,6 +26,11 @@ const inputSchema = z.object({
       enabled: z.boolean().optional(),
       text: z.string().optional(),
     }).optional(),
+    tag: z.object({
+      style: z.string().optional(),
+      authorName: z.string().nullable().optional(),
+      authorHandle: z.string().nullable().optional(),
+    }).optional(),
     format: z.object({
       aspectRatio: z.string().optional(),
     }).optional(),
@@ -163,6 +168,7 @@ export const POST = withAuth(async (request, user) => {
       captions: settings?.captions ?? { enabled: true, style: 'hormozi', wordsPerLine: 4 },
       splitScreen: settings?.splitScreen ?? { enabled: false },
       hook: settings?.hook ?? { enabled: false },
+      tag: settings?.tag ?? { style: 'none' },
       format: {
         aspectRatio: settings?.format?.aspectRatio ?? '9:16',
       },

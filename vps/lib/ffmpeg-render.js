@@ -102,6 +102,7 @@ export async function renderClip(inputPath, outputPath, options = {}) {
     watermarkPosition = 'bottom-right',
     plan = 'free',
     splitScreen = null,
+    tag = null,
     cropAnchor = 'center',
     backgroundBlur = false,
     maxDuration = 300,
@@ -129,6 +130,7 @@ export async function renderClip(inputPath, outputPath, options = {}) {
       watermarkPosition,
       plan,
       splitScreen,
+      tag,
       cropAnchor,
       crf,
       timeout,
@@ -153,7 +155,15 @@ export async function renderClip(inputPath, outputPath, options = {}) {
     filters.push(captionFilter);
   }
 
-  // 4. Watermark
+  // 4. Tag / Credit overlay
+  if (tag) {
+    const ratios = { '9:16': { w: 1080, h: 1920 }, '1:1': { w: 1080, h: 1080 }, '16:9': { w: 1920, h: 1080 } };
+    const { w, h } = ratios[aspectRatio] || ratios['9:16'];
+    const tagFilter = buildTagFilter(tag, w, h);
+    if (tagFilter) filters.push(tagFilter);
+  }
+
+  // 5. Watermark
   if (watermark && (plan === 'free' || (plan !== 'free' && watermark.logoPath))) {
     const watermarkFilter = buildWatermarkFilter(watermark, watermarkPosition, plan);
     if (watermarkFilter) filters.push(watermarkFilter);
@@ -207,6 +217,7 @@ async function renderSplitScreen(inputPath, outputPath, opts) {
     watermarkPosition,
     plan,
     splitScreen,
+    tag,
     cropAnchor,
     crf,
     timeout,
@@ -283,6 +294,15 @@ async function renderSplitScreen(inputPath, outputPath, opts) {
     mapVideo = '[captioned]';
   }
 
+  // Apply tag / credit overlay on composed output
+  if (tag) {
+    const tagFilter = buildTagFilter(tag, canvasW, canvasH);
+    if (tagFilter) {
+      filterComplex += `;${mapVideo}${tagFilter}[tagged]`;
+      mapVideo = '[tagged]';
+    }
+  }
+
   // Apply watermark on composed output
   if (watermark && (plan === 'free' || (plan !== 'free' && watermark.logoPath))) {
     const wmFilter = buildWatermarkFilter(watermark, watermarkPosition, plan);
@@ -357,6 +377,71 @@ async function execRender(args, outputPath, timeout = 300000) {
     console.error('[FFmpeg Error]', diagnostic);
     console.error('[FFmpeg Error] Command:', cmd);
     throw new Error(`FFmpeg render failed: ${diagnostic}`);
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Tag / Credit Overlay
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Build FFmpeg drawtext filter for streamer tag/credit overlay.
+ * Supports 3 styles:
+ *   - badge-top:       Rounded badge in top-right corner
+ *   - watermark-center: Semi-transparent text in center
+ *   - banner-bottom:   Dark banner bar at bottom with credit text
+ *
+ * @param {Object} tagConfig - {style, authorName, authorHandle}
+ * @param {number} canvasW - Canvas width
+ * @param {number} canvasH - Canvas height
+ * @returns {string|null} FFmpeg filter string or null
+ */
+function buildTagFilter(tagConfig, canvasW = 720, canvasH = 1280) {
+  if (!tagConfig || tagConfig.style === 'none' || (!tagConfig.authorName && !tagConfig.authorHandle)) {
+    return null;
+  }
+
+  const handle = tagConfig.authorHandle
+    ? `@${tagConfig.authorHandle.replace(/^@/, '')}`
+    : tagConfig.authorName || '';
+  const displayText = escapeDrawtext(handle);
+  const fontFile = '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf';
+
+  switch (tagConfig.style) {
+    case 'badge-top': {
+      // Rounded badge in top-right — dark bg box + white text
+      const fontSize = Math.round(canvasW * 0.035);
+      const padX = Math.round(canvasW * 0.03);
+      const padY = Math.round(canvasH * 0.02);
+      return [
+        // Dark background box
+        `drawbox=x=W-tw-${padX * 3}:y=${padY}:w=tw+${padX * 2}:h=th+${Math.round(padY * 0.8)}:color=0x000000@0.65:thickness=fill`,
+        // Text
+        `drawtext=text='${displayText}':fontfile=${fontFile}:fontcolor=white:fontsize=${fontSize}:x=W-tw-${padX * 2}:y=${padY + Math.round(padY * 0.2)}`,
+      ].join(',');
+    }
+
+    case 'watermark-center': {
+      // Semi-transparent large text in center
+      const fontSize = Math.round(canvasW * 0.06);
+      return `drawtext=text='${displayText}':fontfile=${fontFile}:fontcolor=white@0.3:fontsize=${fontSize}:x=(W-tw)/2:y=(H-th)/2`;
+    }
+
+    case 'banner-bottom': {
+      // Dark banner bar at bottom with credit text
+      const barH = Math.round(canvasH * 0.045);
+      const fontSize = Math.round(canvasW * 0.032);
+      const creditText = escapeDrawtext(`Credit: ${handle}`);
+      return [
+        // Dark bar
+        `drawbox=x=0:y=H-${barH}:w=W:h=${barH}:color=0x000000@0.75:thickness=fill`,
+        // Credit text centered in the bar
+        `drawtext=text='${creditText}':fontfile=${fontFile}:fontcolor=white:fontsize=${fontSize}:x=(W-tw)/2:y=H-${barH}+(${barH}-th)/2`,
+      ].join(',');
+    }
+
+    default:
+      return null;
   }
 }
 
