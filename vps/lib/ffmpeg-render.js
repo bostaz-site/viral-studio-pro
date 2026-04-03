@@ -233,10 +233,10 @@ async function renderSplitScreen(inputPath, outputPath, opts) {
     const botH = canvasH - topH;
 
     filterComplex = [
-      // Scale + crop main video to top region
-      `[0:v]scale=${canvasW}:${topH}:force_original_aspect_ratio=increase,crop=${canvasW}:${topH}:(iw-${canvasW})/2:(ih-${topH})/2,setsar=1[main]`,
-      // Scale + crop B-roll to bottom region, loop if shorter
-      `[1:v]loop=loop=-1:size=32767:start=0,scale=${canvasW}:${botH}:force_original_aspect_ratio=increase,crop=${canvasW}:${botH}:(iw-${canvasW})/2:(ih-${botH})/2,setsar=1[broll]`,
+      // Scale + crop main video to top region, normalize fps
+      `[0:v]fps=30,scale=${canvasW}:${topH}:force_original_aspect_ratio=increase,crop=${canvasW}:${topH}:(iw-${canvasW})/2:(ih-${topH})/2,setsar=1[main]`,
+      // Scale + crop B-roll to bottom region, loop if shorter, normalize fps
+      `[1:v]loop=loop=-1:size=32767:start=0,fps=30,scale=${canvasW}:${botH}:force_original_aspect_ratio=increase,crop=${canvasW}:${botH}:(iw-${canvasW})/2:(ih-${botH})/2,setsar=1[broll]`,
       // Stack vertically
       `[main][broll]vstack=inputs=2[composed]`,
     ].join(';');
@@ -248,8 +248,8 @@ async function renderSplitScreen(inputPath, outputPath, opts) {
     const rightW = canvasW - leftW;
 
     filterComplex = [
-      `[0:v]scale=${leftW}:${canvasH}:force_original_aspect_ratio=increase,crop=${leftW}:${canvasH}:(iw-${leftW})/2:(ih-${canvasH})/2,setsar=1[main]`,
-      `[1:v]loop=loop=-1:size=32767:start=0,scale=${rightW}:${canvasH}:force_original_aspect_ratio=increase,crop=${rightW}:${canvasH}:(iw-${rightW})/2:(ih-${canvasH})/2,setsar=1[broll]`,
+      `[0:v]fps=30,scale=${leftW}:${canvasH}:force_original_aspect_ratio=increase,crop=${leftW}:${canvasH}:(iw-${leftW})/2:(ih-${canvasH})/2,setsar=1[main]`,
+      `[1:v]loop=loop=-1:size=32767:start=0,fps=30,scale=${rightW}:${canvasH}:force_original_aspect_ratio=increase,crop=${rightW}:${canvasH}:(iw-${rightW})/2:(ih-${canvasH})/2,setsar=1[broll]`,
       `[main][broll]hstack=inputs=2[composed]`,
     ].join(';');
     mapVideo = '[composed]';
@@ -262,8 +262,8 @@ async function renderSplitScreen(inputPath, outputPath, opts) {
     const pipY = canvasH - pipH - 20; // 20px margin bottom
 
     filterComplex = [
-      `[0:v]scale=${canvasW}:${canvasH}:force_original_aspect_ratio=increase,crop=${canvasW}:${canvasH}:(iw-${canvasW})/2:(ih-${canvasH})/2,setsar=1[main]`,
-      `[1:v]loop=loop=-1:size=32767:start=0,scale=${pipW}:${pipH}:force_original_aspect_ratio=increase,crop=${pipW}:${pipH}:(iw-${pipW})/2:(ih-${pipH})/2,setsar=1[broll]`,
+      `[0:v]fps=30,scale=${canvasW}:${canvasH}:force_original_aspect_ratio=increase,crop=${canvasW}:${canvasH}:(iw-${canvasW})/2:(ih-${canvasH})/2,setsar=1[main]`,
+      `[1:v]loop=loop=-1:size=32767:start=0,fps=30,scale=${pipW}:${pipH}:force_original_aspect_ratio=increase,crop=${pipW}:${pipH}:(iw-${pipW})/2:(ih-${pipH})/2,setsar=1[broll]`,
       `[main][broll]overlay=${pipX}:${pipY}[composed]`,
     ].join(';');
     mapVideo = '[composed]';
