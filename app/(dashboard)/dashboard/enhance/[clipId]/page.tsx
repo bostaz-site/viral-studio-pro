@@ -271,11 +271,26 @@ function LivePreview({
         style={{ height: showEnhancements && settings.splitScreenEnabled ? `${settings.splitRatio}%` : '100%' }}
       >
         {clip.thumbnail_url ? (
-          <img
-            src={clip.thumbnail_url}
-            alt={clip.title ?? 'Clip'}
-            className="w-full h-full object-cover animate-[kenburns_20s_ease-in-out_infinite_alternate]"
-          />
+          <>
+            {/* Blurred background fill — always visible when no split-screen */}
+            {!(showEnhancements && settings.splitScreenEnabled) && (
+              <img
+                src={clip.thumbnail_url}
+                alt=""
+                className="absolute inset-0 w-full h-full object-cover scale-110 blur-xl brightness-50"
+                aria-hidden="true"
+              />
+            )}
+            {/* Main video — object-contain when no split-screen (blur bg), object-cover with split */}
+            <img
+              src={clip.thumbnail_url}
+              alt={clip.title ?? 'Clip'}
+              className={cn(
+                'relative w-full h-full animate-[kenburns_20s_ease-in-out_infinite_alternate] z-[1]',
+                showEnhancements && settings.splitScreenEnabled ? 'object-cover' : 'object-contain'
+              )}
+            />
+          </>
         ) : (
           <div className="w-full h-full bg-gradient-to-br from-slate-800 to-slate-900 flex items-center justify-center">
             <Play className="h-10 w-10 text-white/20" />

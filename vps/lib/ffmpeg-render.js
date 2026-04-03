@@ -138,35 +138,54 @@ export async function renderClip(inputPath, outputPath, options = {}) {
   }
 
   // ── Standard (single video) render path ─────────────────────────────────
-  const filters = [];
+  // Use blur-background compositing: blurred fill + sharp centered video
+  // This keeps the original video resolution without cropping content.
 
-  // 1. Reframe to target aspect ratio
-  filters.push(buildReframeFilters(aspectRatio, { cropAnchor }));
+  const ratios = {
+    '9:16': { w: 1080, h: 1920 },
+    '1:1': { w: 1080, h: 1080 },
+    '16:9': { w: 1920, h: 1080 },
+  };
+  const { w: canvasW, h: canvasH } = ratios[aspectRatio] || ratios['9:16'];
 
-  // 2. Background blur for letterbox (optional)
-  if (backgroundBlur) {
-    const blurFilter = `split=2[main][blur];[blur]scale=iw/2:-1,boxblur=10:1[blurred];[blurred]scale=iw*2:-1,format=rgb24[scaled];[scaled][main]overlay=0:0`;
-    filters.push(blurFilter);
-  }
+  // Build filter_complex for blur background compositing:
+  // [0:v] → split into two streams
+  //   Stream 1 (blur): scale to fill canvas, heavy blur, crop to exact canvas
+  //   Stream 2 (main): scale to fit inside canvas (no crop)
+  //   Overlay main centered on blur background
+  const filterParts = [
+    // Background: scale to fill (cover), blur, crop to exact canvas size
+    `[0:v]fps=30,scale=${canvasW}:${canvasH}:force_original_aspect_ratio=increase,crop=${canvasW}:${canvasH}:(iw-${canvasW})/2:(ih-${canvasH})/2,boxblur=20:5,setsar=1[bg]`,
+    // Foreground: scale to fit (contain) — no content lost
+    `[0:v]fps=30,scale=${canvasW}:${canvasH}:force_original_aspect_ratio=decrease,setsar=1[fg]`,
+    // Overlay foreground centered on blurred background
+    `[bg][fg]overlay=(W-w)/2:(H-h)/2[composed]`,
+  ];
+  let filterComplex = filterParts.join(';');
+  let mapVideo = '[composed]';
 
-  // 3. Captions (ASS subtitle format with karaoke)
+  // Captions (ASS subtitle format with karaoke)
   if (captions && captions.assFilePath) {
-    const captionFilter = `ass='${escapePath(captions.assFilePath)}'`;
-    filters.push(captionFilter);
+    filterComplex += `;${mapVideo}ass='${escapePath(captions.assFilePath)}'[captioned]`;
+    mapVideo = '[captioned]';
   }
 
-  // 4. Tag / Credit overlay
+  // Tag / Credit overlay
   if (tag) {
-    const ratios = { '9:16': { w: 1080, h: 1920 }, '1:1': { w: 1080, h: 1080 }, '16:9': { w: 1920, h: 1080 } };
-    const { w, h } = ratios[aspectRatio] || ratios['9:16'];
-    const tagFilter = buildTagFilter(tag, w, h);
-    if (tagFilter) filters.push(tagFilter);
+    const tagFilter = buildTagFilter(tag, canvasW, canvasH);
+    if (tagFilter) {
+      filterComplex += `;${mapVideo}${tagFilter}[tagged]`;
+      mapVideo = '[tagged]';
+    }
   }
 
-  // 5. Watermark
+  // Watermark
   if (watermark && (plan === 'free' || (plan !== 'free' && watermark.logoPath))) {
     const watermarkFilter = buildWatermarkFilter(watermark, watermarkPosition, plan);
-    if (watermarkFilter) filters.push(watermarkFilter);
+    if (watermarkFilter) {
+      filterComplex += `;${mapVideo}${watermarkFilter}[watermarked]`;
+      mapVideo = '[watermarked]';
+    }
   }
 
   // Build FFmpeg command
@@ -174,10 +193,9 @@ export async function renderClip(inputPath, outputPath, options = {}) {
   args.push('-ss', String(startTime));
   args.push('-i', inputPath);
   args.push('-t', String(clipDuration));
-
-  if (filters.length > 0) {
-    args.push('-vf', filters.join(','));
-  }
+  args.push('-filter_complex', filterComplex);
+  args.push('-map', mapVideo);
+  args.push('-map', '0:a?');
 
   args.push('-c:v', 'libx264');
   args.push('-preset', 'ultrafast');  // Use ultrafast to minimize memory (Railway OOM)
