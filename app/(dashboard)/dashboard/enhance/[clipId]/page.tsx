@@ -683,93 +683,28 @@ export default function EnhancePage() {
         </div>
       </div>
 
-      {/* Two-column layout: Preview | Settings */}
+      {/* Two-column layout: Sticky Preview | Scrollable Settings */}
       <div className="grid lg:grid-cols-[300px_1fr] gap-6">
-        {/* Left: IA Button + Score + Preview + Generate — sticky */}
-        <div className="lg:sticky lg:top-4 lg:self-start space-y-3">
-          {/* ── #1 HERO: Make it viral button — dominant, glowing ── */}
-          {scores && (
-            <button
-              onClick={applyBestCombo}
-              className="group relative w-full rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-orange-600 p-[1px] shadow-lg shadow-orange-500/25 hover:shadow-orange-500/40 transition-all duration-300 animate-[glow_3s_ease-in-out_infinite]"
-            >
-              <div className="relative flex items-center justify-center gap-3 rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-orange-600 px-4 py-3.5">
-                <Zap className="h-5 w-5 text-white drop-shadow-lg" />
-                <div className="text-left">
-                  <span className="text-base font-black text-white tracking-tight block leading-tight">Make it viral</span>
-                  <span className="text-[10px] font-medium text-white/70 block">1 click = viral clip</span>
-                </div>
-                <Sparkles className="h-4 w-4 text-white/80 ml-auto group-hover:animate-spin" />
-              </div>
-            </button>
-          )}
-
-          {/* ── #2 Score with dynamic label and performance indicators ── */}
+        {/* Left: Preview only — truly sticky, fits in viewport */}
+        <div className="lg:sticky lg:top-4 lg:self-start space-y-3 lg:max-h-[calc(100vh-2rem)] lg:overflow-y-auto lg:scrollbar-none" style={{ scrollbarWidth: 'none' }}>
+          {/* ── Score compact ── */}
           {scores && (() => {
             const label = getScoreLabel(currentScore)
-            const retentionRate = Math.round(50 + (currentScore * 0.5))
-            const viewsEstimate = currentScore >= 75 ? '10K-50K' : currentScore >= 50 ? '5K-20K' : '1K-10K'
             return (
-              <div className="bg-card/60 border border-white/5 rounded-xl px-3 py-3 space-y-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-1.5">
-                    <Flame className="h-4 w-4 text-orange-400" />
-                    <span className="text-2xl font-black text-foreground tabular-nums transition-all duration-500">{currentScore}</span>
-                    <span className="text-xs text-muted-foreground font-medium">/ 100</span>
-                  </div>
-                  <span className={cn('text-[11px] font-semibold', label.color)}>
-                    {label.text}
-                  </span>
+              <div className="bg-card/60 border border-white/5 rounded-xl px-3 py-2.5 flex items-center justify-between">
+                <div className="flex items-center gap-1.5">
+                  <Flame className="h-4 w-4 text-orange-400" />
+                  <span className="text-2xl font-black text-foreground tabular-nums transition-all duration-500">{currentScore}</span>
+                  <span className="text-xs text-muted-foreground font-medium">/ 100</span>
                 </div>
-                <div className="space-y-1.5 text-[10px] text-muted-foreground">
-                  <div className="flex items-center gap-1.5">
-                    <TrendingUp className="h-3 w-3 text-green-400" />
-                    <span>~{retentionRate}% retention</span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <Eye className="h-3 w-3 text-blue-400" />
-                    <span>{viewsEstimate} views</span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <Zap className="h-3 w-3 text-amber-400" />
-                    <span>Best: 18h-21h</span>
-                  </div>
-                </div>
+                <span className={cn('text-[11px] font-semibold', label.color)}>
+                  {label.text}
+                </span>
               </div>
             )
           })()}
 
-          {/* ── #2.5 Hook Section ── */}
-          {clip && (() => {
-            const hooks = generateHooks(clip.title, clip.author_name)
-            return (
-              <Card className="bg-card/60 border-border">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm flex items-center gap-2">
-                    <Sparkles className="h-4 w-4 text-amber-400" />
-                    Hook Ideas
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-2">
-                  {hooks.map((hook, idx) => (
-                    <button
-                      key={idx}
-                      onClick={() => {
-                        navigator.clipboard.writeText(hook)
-                      }}
-                      className="block w-full text-left p-2 rounded-lg border border-white/10 hover:border-amber-400/50 hover:bg-amber-400/5 transition-all text-xs text-muted-foreground hover:text-amber-300 truncate"
-                      title={hook}
-                    >
-                      {hook}
-                    </button>
-                  ))}
-                  <p className="text-[9px] text-muted-foreground text-center mt-2">Click to copy</p>
-                </CardContent>
-              </Card>
-            )
-          })()}
-
-          {/* ── #3 Before/After Preview Toggle ── */}
+          {/* ── Before/After Preview Toggle ── */}
           <div className="flex gap-2">
             <Button
               variant={!showEnhancements ? 'default' : 'outline'}
@@ -789,7 +724,7 @@ export default function EnhancePage() {
             </Button>
           </div>
 
-          {/* ── #3.5 Preview ── */}
+          {/* ── Preview ── */}
           <LivePreview clip={clip} settings={settings} showEnhancements={showEnhancements} />
 
           {/* Metadata inline */}
@@ -800,7 +735,7 @@ export default function EnhancePage() {
             </a>
           </div>
 
-          {/* Generate button */}
+          {/* Generate button — always visible with preview */}
           <Button
             className="w-full h-11 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-semibold gap-2 shadow-lg shadow-blue-500/20"
             onClick={handleRender}
@@ -848,39 +783,92 @@ export default function EnhancePage() {
               )}
             </div>
           )}
-
-          {/* Import your own clip */}
-          <Card className="bg-card/40 border-dashed border-border hover:border-primary/40 transition-colors">
-            <CardContent className="p-4 space-y-3">
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-lg bg-blue-500/15 flex items-center justify-center">
-                  <Upload className="h-4 w-4 text-blue-400" />
-                </div>
-                <div>
-                  <p className="text-sm font-semibold text-foreground">Importer ton clip</p>
-                  <p className="text-[10px] text-muted-foreground">Upload ou colle un lien pour enhance ton propre contenu</p>
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                <Link href="/create">
-                  <Button variant="outline" size="sm" className="w-full gap-1.5 h-9 text-xs border-blue-500/20 text-blue-400 hover:bg-blue-500/10">
-                    <FileVideo className="h-3.5 w-3.5" />
-                    Upload fichier
-                  </Button>
-                </Link>
-                <Link href="/create?mode=url">
-                  <Button variant="outline" size="sm" className="w-full gap-1.5 h-9 text-xs border-purple-500/20 text-purple-400 hover:bg-purple-500/10">
-                    <Link2 className="h-3.5 w-3.5" />
-                    Coller un lien
-                  </Button>
-                </Link>
-              </div>
-            </CardContent>
-          </Card>
         </div>
 
-        {/* Right: Settings — secondary, lower visual weight */}
-        <div className="opacity-90 hover:opacity-100 transition-opacity duration-300">
+        {/* Right: Actions + Settings — scrollable */}
+        <div className="space-y-6">
+          {/* ── Make it viral button ── */}
+          {scores && (
+            <button
+              onClick={applyBestCombo}
+              className="group relative w-full rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-orange-600 p-[1px] shadow-lg shadow-orange-500/25 hover:shadow-orange-500/40 transition-all duration-300 animate-[glow_3s_ease-in-out_infinite]"
+            >
+              <div className="relative flex items-center justify-center gap-3 rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-orange-600 px-4 py-3.5">
+                <Zap className="h-5 w-5 text-white drop-shadow-lg" />
+                <div className="text-left">
+                  <span className="text-base font-black text-white tracking-tight block leading-tight">Make it viral</span>
+                  <span className="text-[10px] font-medium text-white/70 block">1 click = viral clip</span>
+                </div>
+                <Sparkles className="h-4 w-4 text-white/80 ml-auto group-hover:animate-spin" />
+              </div>
+            </button>
+          )}
+
+          {/* ── Score details + Hook Ideas — side by side ── */}
+          <div className="grid sm:grid-cols-2 gap-3">
+            {/* Score details */}
+            {scores && (() => {
+              const retentionRate = Math.round(50 + (currentScore * 0.5))
+              const viewsEstimate = currentScore >= 75 ? '10K-50K' : currentScore >= 50 ? '5K-20K' : '1K-10K'
+              return (
+                <Card className="bg-card/60 border-border">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm flex items-center gap-2">
+                      <TrendingUp className="h-4 w-4 text-green-400" />
+                      Performance estimée
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-2 text-xs text-muted-foreground">
+                    <div className="flex items-center gap-1.5">
+                      <TrendingUp className="h-3 w-3 text-green-400" />
+                      <span>~{retentionRate}% retention</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <Eye className="h-3 w-3 text-blue-400" />
+                      <span>{viewsEstimate} views</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <Zap className="h-3 w-3 text-amber-400" />
+                      <span>Best: 18h-21h</span>
+                    </div>
+                  </CardContent>
+                </Card>
+              )
+            })()}
+
+            {/* Hook Ideas */}
+            {clip && (() => {
+              const hooks = generateHooks(clip.title, clip.author_name)
+              return (
+                <Card className="bg-card/60 border-border">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm flex items-center gap-2">
+                      <Sparkles className="h-4 w-4 text-amber-400" />
+                      Hook Ideas
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-2">
+                    {hooks.map((hook, idx) => (
+                      <button
+                        key={idx}
+                        onClick={() => {
+                          navigator.clipboard.writeText(hook)
+                        }}
+                        className="block w-full text-left p-2 rounded-lg border border-white/10 hover:border-amber-400/50 hover:bg-amber-400/5 transition-all text-xs text-muted-foreground hover:text-amber-300 truncate"
+                        title={hook}
+                      >
+                        {hook}
+                      </button>
+                    ))}
+                    <p className="text-[9px] text-muted-foreground text-center mt-1">Click to copy</p>
+                  </CardContent>
+                </Card>
+              )
+            })()}
+          </div>
+
+          {/* ── Fine-tune Settings ── */}
+          <div className="opacity-90 hover:opacity-100 transition-opacity duration-300">
           <div className="flex items-center justify-between mb-3">
             <p className="text-xs text-muted-foreground uppercase tracking-widest font-medium">Fine-tune</p>
             <div className="flex items-center gap-2">
@@ -1165,6 +1153,36 @@ export default function EnhancePage() {
             </TabsContent>
           </Tabs>
           )}
+          </div>
+
+          {/* Import your own clip */}
+          <Card className="bg-card/40 border-dashed border-border hover:border-primary/40 transition-colors">
+            <CardContent className="p-4 space-y-3">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-blue-500/15 flex items-center justify-center">
+                  <Upload className="h-4 w-4 text-blue-400" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-foreground">Importer ton clip</p>
+                  <p className="text-[10px] text-muted-foreground">Upload ou colle un lien pour enhance ton propre contenu</p>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <Link href="/create">
+                  <Button variant="outline" size="sm" className="w-full gap-1.5 h-9 text-xs border-blue-500/20 text-blue-400 hover:bg-blue-500/10">
+                    <FileVideo className="h-3.5 w-3.5" />
+                    Upload fichier
+                  </Button>
+                </Link>
+                <Link href="/create?mode=url">
+                  <Button variant="outline" size="sm" className="w-full gap-1.5 h-9 text-xs border-purple-500/20 text-purple-400 hover:bg-purple-500/10">
+                    <Link2 className="h-3.5 w-3.5" />
+                    Coller un lien
+                  </Button>
+                </Link>
+              </div>
+            </CardContent>
+          </Card>
         </div>
       </div>
     </div>
