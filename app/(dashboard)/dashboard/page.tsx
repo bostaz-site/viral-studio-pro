@@ -1,10 +1,10 @@
 "use client"
 
-import { useEffect, useCallback, useRef, useState } from 'react'
+import { useEffect, useCallback, useRef, useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   TrendingUp, RefreshCw, AlertCircle, Loader2, Sparkles,
-  Wifi, WifiOff, Download, Upload,
+  Wifi, WifiOff, Download, Upload, Flame, Zap, Clock,
 } from 'lucide-react'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
@@ -19,6 +19,7 @@ export default function DashboardPage() {
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const [twitchRefreshing, setTwitchRefreshing] = useState(false)
   const [twitchMessage, setTwitchMessage] = useState<string | null>(null)
+  const [quickFilter, setQuickFilter] = useState<'all' | 'viral' | 'potential' | 'recent'>('all')
 
   const {
     filteredClips,
@@ -75,6 +76,27 @@ export default function DashboardPage() {
       setTimeout(() => setTwitchMessage(null), 5000)
     }
   }, [fetchClips])
+
+  // Quick filter logic
+  const displayClips = useMemo(() => {
+    if (quickFilter === 'viral') {
+      return filteredClips
+        .filter(c => (c.velocity_score ?? 0) >= 70)
+        .sort((a, b) => (b.velocity_score ?? 0) - (a.velocity_score ?? 0))
+    }
+    if (quickFilter === 'potential') {
+      return filteredClips.filter(c => {
+        const v = c.velocity_score ?? 0
+        return v >= 40 && v < 70
+      })
+    }
+    if (quickFilter === 'recent') {
+      return [...filteredClips].sort(
+        (a, b) => new Date(b.created_at ?? 0).getTime() - new Date(a.created_at ?? 0).getTime()
+      )
+    }
+    return filteredClips
+  }, [filteredClips, quickFilter])
 
   // Navigate to enhance page when clicking a clip
   const handleEnhance = useCallback((clip: TrendingClip) => {
@@ -179,6 +201,32 @@ export default function DashboardPage() {
         </Card>
       )}
 
+      {/* Quick filter tabs */}
+      <div className="flex items-center gap-2 overflow-x-auto pb-1">
+        {([
+          { key: 'all', label: 'Tout', icon: Sparkles },
+          { key: 'viral', label: 'Trending now', icon: Flame },
+          { key: 'potential', label: 'High potential', icon: Zap },
+          { key: 'recent', label: 'Récents', icon: Clock },
+        ] as const).map(({ key, label, icon: Icon }) => (
+          <Button
+            key={key}
+            variant={quickFilter === key ? 'default' : 'outline'}
+            size="sm"
+            className={cn(
+              'gap-1.5 h-8 text-xs shrink-0 transition-all',
+              quickFilter === key
+                ? 'shadow-md shadow-primary/20'
+                : 'text-muted-foreground hover:text-foreground'
+            )}
+            onClick={() => setQuickFilter(key)}
+          >
+            <Icon className="h-3.5 w-3.5" />
+            {label}
+          </Button>
+        ))}
+      </div>
+
       {/* Filters */}
       <TrendingFilters
         filters={filters}
@@ -203,7 +251,7 @@ export default function DashboardPage() {
           <Loader2 className="h-6 w-6 animate-spin text-primary" />
           <p className="text-muted-foreground">Chargement des clips\u2026</p>
         </div>
-      ) : filteredClips.length === 0 ? (
+      ) : displayClips.length === 0 ? (
         <Card className="border-border bg-card/50">
           <CardContent className="p-12 text-center">
             <TrendingUp className="h-12 w-12 text-muted-foreground/30 mx-auto mb-3" />
@@ -220,7 +268,7 @@ export default function DashboardPage() {
         </Card>
       ) : (
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4">
-          {filteredClips.map((clip) => (
+          {displayClips.map((clip) => (
             <div key={clip.id} onClick={() => handleEnhance(clip)} className="cursor-pointer">
               <TrendingCard
                 clip={clip}
