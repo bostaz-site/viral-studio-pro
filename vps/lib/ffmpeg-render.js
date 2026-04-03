@@ -170,10 +170,11 @@ export async function renderClip(inputPath, outputPath, options = {}) {
   }
 
   args.push('-c:v', 'libx264');
-  args.push('-preset', 'fast');
+  args.push('-preset', 'ultrafast');  // Use ultrafast to minimize memory (Railway OOM)
+  args.push('-threads', '2');          // Limit threads to reduce memory footprint
   args.push('-crf', String(crf));
   args.push('-c:a', 'aac');
-  args.push('-b:a', '192k');
+  args.push('-b:a', '128k');          // Slightly lower audio bitrate to save memory
   args.push('-movflags', '+faststart');
   args.push('-pix_fmt', 'yuv420p');
   args.push(outputPath);
@@ -300,10 +301,11 @@ async function renderSplitScreen(inputPath, outputPath, opts) {
   args.push('-map', mapVideo);
   args.push('-map', '0:a?');             // Keep audio from main video (if exists)
   args.push('-c:v', 'libx264');
-  args.push('-preset', 'fast');
+  args.push('-preset', 'ultrafast');     // Use ultrafast to minimize memory (Railway OOM)
+  args.push('-threads', '2');            // Limit threads to reduce memory footprint
   args.push('-crf', String(crf));
   args.push('-c:a', 'aac');
-  args.push('-b:a', '192k');
+  args.push('-b:a', '128k');
   args.push('-movflags', '+faststart');
   args.push('-pix_fmt', 'yuv420p');
   args.push('-shortest');                // End when shortest input ends
