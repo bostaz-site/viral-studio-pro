@@ -8,7 +8,7 @@ import {
   ChevronLeft, Loader2, AlertCircle, Sparkles, Download,
   Type, Wand2, Eye, ExternalLink, Play,
   Monitor, Paintbrush, Zap, AtSign,
-  Upload, FileVideo, Link2, TrendingUp, Flame,
+  Upload, FileVideo, Link2, Flame,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -213,16 +213,6 @@ function getScoreLabel(score: number): { text: string; color: string } {
   return { text: 'Low viral score', color: 'text-muted-foreground' }
 }
 
-function generateHooks(title: string | null, authorName: string | null): string[] {
-  if (!title) return []
-  const truncated = title.length > 40 ? title.substring(0, 40) + '...' : title
-  return [
-    `Wait till you see what happens... ${truncated}`,
-    `POV: ${title}`,
-    `This is why ${authorName || 'they'} is viral`,
-  ]
-}
-
 // ─── Score Badge Component ──────────────────────────────────────────────────
 
 function ScoreBadge({ score, isBest }: { score: number; isBest: boolean }) {
@@ -278,7 +268,7 @@ function LivePreview({
       {/* Top: Clip video or thumbnail */}
       <div
         className="absolute inset-x-0 top-0 overflow-hidden transition-all duration-500"
-        style={{ height: settings.splitScreenEnabled ? `${settings.splitRatio}%` : '100%' }}
+        style={{ height: showEnhancements && settings.splitScreenEnabled ? `${settings.splitRatio}%` : '100%' }}
       >
         {clip.thumbnail_url ? (
           <img
@@ -316,7 +306,7 @@ function LivePreview({
           )}
           {tagStyle.position === 'bottom' && (
             <div className="absolute bottom-0 inset-x-0 z-20 bg-gradient-to-t from-black/80 to-transparent px-3 py-2 transition-all duration-300 pointer-events-none"
-              style={{ bottom: settings.splitScreenEnabled ? `${100 - settings.splitRatio}%` : '0' }}>
+              style={{ bottom: showEnhancements && settings.splitScreenEnabled ? `${100 - settings.splitRatio}%` : '0' }}>
               <div className="flex items-center gap-1.5">
                 <svg className="h-3 w-3 text-indigo-400" viewBox="0 0 24 24" fill="currentColor"><path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028c.462-.63.874-1.295 1.226-1.994a.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128c.12-.094.246-.192.372-.292a.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.095 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.095 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"/></svg>
                 <span className="text-xs font-bold text-white">{streamerName}</span>
@@ -735,16 +725,16 @@ export default function EnhancePage() {
             </a>
           </div>
 
-          {/* Generate button — always visible with preview */}
+          {/* Generate button — orange, always visible with preview */}
           <Button
-            className="w-full h-11 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-semibold gap-2 shadow-lg shadow-blue-500/20"
+            className="w-full h-12 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white font-bold text-base gap-2 shadow-lg shadow-orange-500/25 rounded-xl"
             onClick={handleRender}
             disabled={rendering}
           >
             {rendering ? (
-              <><Loader2 className="h-4 w-4 animate-spin" /> Rendu en cours&hellip;</>
+              <><Loader2 className="h-5 w-5 animate-spin" /> Rendu en cours&hellip;</>
             ) : (
-              <><Download className="h-4 w-4" /> Générer le clip</>
+              <><Zap className="h-5 w-5" /> Générer le clip</>
             )}
           </Button>
 
@@ -803,69 +793,6 @@ export default function EnhancePage() {
               </div>
             </button>
           )}
-
-          {/* ── Score details + Hook Ideas — side by side ── */}
-          <div className="grid sm:grid-cols-2 gap-3">
-            {/* Score details */}
-            {scores && (() => {
-              const retentionRate = Math.round(50 + (currentScore * 0.5))
-              const viewsEstimate = currentScore >= 75 ? '10K-50K' : currentScore >= 50 ? '5K-20K' : '1K-10K'
-              return (
-                <Card className="bg-card/60 border-border">
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm flex items-center gap-2">
-                      <TrendingUp className="h-4 w-4 text-green-400" />
-                      Performance estimée
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-2 text-xs text-muted-foreground">
-                    <div className="flex items-center gap-1.5">
-                      <TrendingUp className="h-3 w-3 text-green-400" />
-                      <span>~{retentionRate}% retention</span>
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                      <Eye className="h-3 w-3 text-blue-400" />
-                      <span>{viewsEstimate} views</span>
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                      <Zap className="h-3 w-3 text-amber-400" />
-                      <span>Best: 18h-21h</span>
-                    </div>
-                  </CardContent>
-                </Card>
-              )
-            })()}
-
-            {/* Hook Ideas */}
-            {clip && (() => {
-              const hooks = generateHooks(clip.title, clip.author_name)
-              return (
-                <Card className="bg-card/60 border-border">
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm flex items-center gap-2">
-                      <Sparkles className="h-4 w-4 text-amber-400" />
-                      Hook Ideas
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-2">
-                    {hooks.map((hook, idx) => (
-                      <button
-                        key={idx}
-                        onClick={() => {
-                          navigator.clipboard.writeText(hook)
-                        }}
-                        className="block w-full text-left p-2 rounded-lg border border-white/10 hover:border-amber-400/50 hover:bg-amber-400/5 transition-all text-xs text-muted-foreground hover:text-amber-300 truncate"
-                        title={hook}
-                      >
-                        {hook}
-                      </button>
-                    ))}
-                    <p className="text-[9px] text-muted-foreground text-center mt-1">Click to copy</p>
-                  </CardContent>
-                </Card>
-              )
-            })()}
-          </div>
 
           {/* ── Fine-tune Settings ── */}
           <div className="opacity-90 hover:opacity-100 transition-opacity duration-300">
