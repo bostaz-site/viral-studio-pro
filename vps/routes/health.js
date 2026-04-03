@@ -1,4 +1,5 @@
 import express from 'express';
+import { promises as fs } from 'fs';
 import { checkFfmpegAvailability } from '../lib/ffmpeg-render.js';
 import { checkYtdlpAvailability } from '../lib/yt-dlp-wrapper.js';
 import { checkSupabaseHealth } from '../lib/supabase-client.js';
@@ -19,6 +20,16 @@ router.get('/', async (req, res) => {
 
     const uptime = Math.floor((Date.now() - startTime) / 1000);
 
+    // Check font availability for drawtext
+    const fontPath = '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf';
+    let fontAvailable = false;
+    try {
+      await fs.access(fontPath);
+      fontAvailable = true;
+    } catch {
+      fontAvailable = false;
+    }
+
     const allHealthy = ffmpegStatus.ffmpeg && supabaseStatus.connected;
     const statusCode = allHealthy ? 200 : 503;
 
@@ -26,7 +37,7 @@ router.get('/', async (req, res) => {
       status: allHealthy ? 'healthy' : 'degraded',
       timestamp: new Date().toISOString(),
       uptime: `${uptime}s`,
-      version: '1.0.0',
+      version: '1.1.0',
       environment: process.env.NODE_ENV || 'development',
       components: {
         ffmpeg: {
@@ -44,6 +55,13 @@ router.get('/', async (req, res) => {
         supabase: {
           connected: supabaseStatus.connected,
           error: supabaseStatus.connected ? null : supabaseStatus.error,
+        },
+        fonts: {
+          dejavuBold: fontAvailable,
+          path: fontPath,
+        },
+        openaiKey: {
+          configured: !!process.env.OPENAI_API_KEY,
         },
       },
     });

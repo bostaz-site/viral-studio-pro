@@ -257,15 +257,21 @@ router.post('/', async (req, res) => {
 
         // For trending clips, try Whisper transcription to get real word timestamps
         if (source === 'trending' && wordTimestamps.length === 0) {
+          const hasWhisperKey = !!process.env.OPENAI_API_KEY;
+          console.log(`[Render ${renderSessionId}] OPENAI_API_KEY present: ${hasWhisperKey}`);
+          if (!hasWhisperKey) {
+            console.warn(`[Render ${renderSessionId}] OPENAI_API_KEY is NOT set — Whisper transcription will be skipped`);
+          }
           try {
             console.log(`[Render ${renderSessionId}] Attempting Whisper transcription for trending clip...`);
             wordTimestamps = await transcribeWithWhisper(inputPath, {
               tempDir,
               language: 'en', // Most Twitch clips are English
             });
+            console.log(`[Render ${renderSessionId}] Whisper returned ${wordTimestamps.length} word timestamps`);
           } catch (err) {
             console.warn(
-              `[Render ${renderSessionId}] Whisper transcription failed, will use static captions: ${err.message}`
+              `[Render ${renderSessionId}] Whisper transcription failed: ${err.message}`
             );
           }
         }
@@ -410,6 +416,7 @@ router.post('/', async (req, res) => {
 
     // Prepare tag/credit config
     let tagConfig = null;
+    console.log(`[Render ${renderSessionId}] Tag settings received:`, JSON.stringify(settings.tag));
     if (settings.tag && settings.tag.style && settings.tag.style !== 'none') {
       tagConfig = {
         style: settings.tag.style,
@@ -440,8 +447,9 @@ router.post('/', async (req, res) => {
       crf: settings.format?.crf || 23,
     });
 
-    // Upload rendered clip to Supabase Storage
-    const clipStoragePath = source === 'trending' ? `trending/${clipId}.mp4` : `${userId}/${clipId}.mp4`;
+    // Upload rendered clip to Supabase Storage (unique path per render to avoid CDN cache)
+    const renderTs = Date.now();
+    const clipStoragePath = source === 'trending' ? `trending/${clipId}_${renderTs}.mp4` : `${userId}/${clipId}_${renderTs}.mp4`;
     console.log(`[Render ${renderSessionId}] Uploading rendered clip...`);
     const uploadResult = await uploadClip(outputPath, clipStoragePath);
 
