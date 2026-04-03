@@ -188,6 +188,9 @@ export async function renderClip(inputPath, outputPath, options = {}) {
     }
   }
 
+  console.log(`[FFmpeg] Standard render filter_complex:\n${filterComplex}`);
+  console.log(`[FFmpeg] Map video: ${mapVideo}`);
+
   // Build FFmpeg command
   const args = ['-y'];
   args.push('-ss', String(startTime));
