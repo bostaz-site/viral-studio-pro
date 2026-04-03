@@ -63,18 +63,20 @@ function buildReframeFilters(aspectRatio, options = {}) {
 
   const { w: targetW, h: targetH } = ratios[aspectRatio] || ratios['9:16'];
 
-  // Strategy: scale to cover → crop to exact target
+  // Strategy: scale to cover → force even dims → crop to exact target
   // force_original_aspect_ratio=increase ensures both dimensions >= target
+  // The scale can produce odd dimensions (e.g. 3413x1920), so we round to even
+  // before cropping to avoid non-integer crop offsets that crash FFmpeg 5.x
   const scaleFilter = `scale=${targetW}:${targetH}:force_original_aspect_ratio=increase`;
+  const evenFilter = `scale=trunc(iw/2)*2:trunc(ih/2)*2`;
 
-  // Use explicit numeric values instead of oh/ow references for max compatibility
   let cropY = `(ih-${targetH})/2`;
   if (cropAnchor === 'top') cropY = '0';
   if (cropAnchor === 'bottom') cropY = `ih-${targetH}`;
 
   const cropFilter = `crop=${targetW}:${targetH}:(iw-${targetW})/2:${cropY}`;
 
-  return `${scaleFilter},${cropFilter},setsar=1`;
+  return `${scaleFilter},${evenFilter},${cropFilter},setsar=1`;
 }
 
 /**
