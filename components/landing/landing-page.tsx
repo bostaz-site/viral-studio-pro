@@ -8,29 +8,49 @@ import { HeroSection } from '@/components/landing/hero-section'
 import { BeforeAfterSection } from '@/components/landing/before-after-section'
 import { HowItWorksSection } from '@/components/landing/how-it-works-section'
 import { FeaturesGrid } from '@/components/landing/features-grid'
+import { TestimonialsSection } from '@/components/landing/testimonials-section'
+import { ComparisonSection } from '@/components/landing/comparison-section'
+import { FaqSection, FAQ_ITEMS } from '@/components/landing/faq-section'
+import { PricingSection } from '@/components/landing/pricing-section'
 
 export function LandingPage() {
-  // Inject HowTo structured data for SEO
+  // Inject FAQ + HowTo structured data for SEO
   useEffect(() => {
+    const faqJsonLd = {
+      '@context': 'https://schema.org',
+      '@type': 'FAQPage',
+      mainEntity: FAQ_ITEMS.map((item) => ({
+        '@type': 'Question',
+        name: item.q,
+        acceptedAnswer: { '@type': 'Answer', text: item.a },
+      })),
+    }
     const howToJsonLd = {
       '@context': 'https://schema.org',
       '@type': 'HowTo',
       name: 'Comment cr\u00e9er un clip viral split-screen depuis un stream',
       description: 'Transforme tes meilleurs moments de stream Twitch ou YouTube Gaming en clips viraux 9:16 avec sous-titres karaok\u00e9 et split-screen automatique.',
       step: [
-        { '@type': 'HowToStep', name: 'Choisis un clip de stream', text: 'Parcours les meilleurs moments Twitch et YouTube Gaming tri\u00e9s par score viral.', position: 1 },
-        { '@type': 'HowToStep', name: 'Personnalise ton clip', text: 'Ajoute des sous-titres karaok\u00e9, choisis une vid\u00e9o satisfaisante pour le split-screen.', position: 2 },
-        { '@type': 'HowToStep', name: 'Exporte', text: 'T\u00e9l\u00e9charge en 9:16 optimis\u00e9 pour TikTok, Reels et Shorts.', position: 3 },
+        { '@type': 'HowToStep', name: 'Choisis un clip de stream', text: 'Parcours les meilleurs moments Twitch et YouTube Gaming tri\u00e9s par score viral. L\'IA identifie automatiquement les moments les plus engageants.', position: 1 },
+        { '@type': 'HowToStep', name: 'Personnalise ton clip', text: 'Ajoute des sous-titres karaok\u00e9 (9 styles), choisis une vid\u00e9o satisfaisante pour le split-screen et v\u00e9rifie le score viral IA.', position: 2 },
+        { '@type': 'HowToStep', name: 'Exporte et publie', text: 'T\u00e9l\u00e9charge en 9:16 optimis\u00e9 pour TikTok, Reels et Shorts ou publie directement. Ton clip est pr\u00eat en moins de 5 minutes.', position: 3 },
       ],
     }
 
     const script = document.createElement('script')
     script.type = 'application/ld+json'
-    script.textContent = JSON.stringify(howToJsonLd)
-    script.id = 'howto-jsonld'
+    script.textContent = JSON.stringify(faqJsonLd)
+    script.id = 'faq-jsonld'
     document.head.appendChild(script)
 
+    const script2 = document.createElement('script')
+    script2.type = 'application/ld+json'
+    script2.textContent = JSON.stringify(howToJsonLd)
+    script2.id = 'howto-jsonld'
+    document.head.appendChild(script2)
+
     return () => {
+      document.getElementById('faq-jsonld')?.remove()
       document.getElementById('howto-jsonld')?.remove()
     }
   }, [])
@@ -65,6 +85,10 @@ export function LandingPage() {
       <BeforeAfterSection />
       <HowItWorksSection />
       <FeaturesGrid />
+      <TestimonialsSection />
+      <ComparisonSection />
+      <FaqSection />
+      <PricingSection />
 
       {/* Footer */}
       <footer className="border-t border-border/30 py-12 px-6">
@@ -88,11 +112,15 @@ export function LandingPage() {
               <div className="space-y-2 text-xs text-muted-foreground">
                 <Link href="/signup" className="block hover:text-foreground transition-colors">Cr&eacute;er un compte</Link>
                 <Link href="/login" className="block hover:text-foreground transition-colors">Se connecter</Link>
+                <Link href="/pricing" className="block hover:text-foreground transition-colors">Tarifs</Link>
+                <Link href="/blog" className="block hover:text-foreground transition-colors">Blog</Link>
               </div>
             </div>
             <div>
-              <p className="text-xs font-semibold text-foreground uppercase tracking-wider mb-3">Contact</p>
+              <p className="text-xs font-semibold text-foreground uppercase tracking-wider mb-3">L&eacute;gal</p>
               <div className="space-y-2 text-xs text-muted-foreground">
+                <Link href="/privacy" className="block hover:text-foreground transition-colors">Confidentialit&eacute;</Link>
+                <Link href="/terms" className="block hover:text-foreground transition-colors">Conditions d&apos;utilisation</Link>
                 <a href="mailto:support@viralstudio.pro" className="block hover:text-foreground transition-colors">Contact</a>
               </div>
             </div>

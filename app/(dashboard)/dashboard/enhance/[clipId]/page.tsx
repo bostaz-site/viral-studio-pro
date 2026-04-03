@@ -2,20 +2,24 @@
 'use client'
 
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
-import { useParams, useRouter } from 'next/navigation'
+import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import {
   ChevronLeft, Loader2, AlertCircle, Sparkles, Download,
-  Type, Wand2, Eye, ExternalLink, Play,
-  Monitor, Paintbrush, Zap, AtSign, Settings2,
-  MessageSquare, Target,
+  Type, Wand2, Eye, Heart, ExternalLink, Play,
+  Monitor, Paintbrush, TrendingUp, Zap, CheckCircle2,
+  Upload, FileVideo, Link2,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Switch } from '@/components/ui/switch'
 import { Slider } from '@/components/ui/slider'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { createClient } from '@/lib/supabase/client'
+import { useTrendingStore } from '@/stores/trending-store'
 import { cn } from '@/lib/utils'
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -33,7 +37,6 @@ interface TrendingClipData {
   like_count: number | null
   velocity_score: number | null
   thumbnail_url: string | null
-  duration_seconds: number | null
 }
 
 interface EnhanceSettings {
@@ -42,67 +45,43 @@ interface EnhanceSettings {
   captionAnimation: string
   captionPosition: 'top' | 'middle' | 'bottom'
   wordsPerLine: number
+
   splitScreenEnabled: boolean
   brollVideo: string
   splitRatio: number
-  tagStyle: string
+
+  streamerTag: string
   autoCredit: boolean
+
   aspectRatio: '9:16' | '1:1' | '16:9'
-  hookText: string
-  hookEnabled: boolean
-  platform: 'tiktok' | 'reels' | 'shorts'
 }
 
-// ─── Scoring Constants ──────────────────────────────────────────────────────
+// ─── Constants ──────────────────────────────────────────────────────────────
 
 const CAPTION_STYLES = [
-  { id: 'hormozi', label: 'Hormozi', preview: 'text-yellow-400 font-black uppercase', highlightClass: 'text-yellow-400 bg-yellow-400/20', baseScore: 12 },
-  { id: 'mrbeast', label: 'MrBeast', preview: 'text-white font-black', highlightClass: 'text-red-500 bg-red-500/20', baseScore: 14 },
-  { id: 'aliabdaal', label: 'Ali Abdaal', preview: 'text-blue-300 font-semibold', highlightClass: 'text-blue-300 bg-blue-300/20', baseScore: 8 },
-  { id: 'neon', label: 'Neon', preview: 'text-green-400 font-bold', highlightClass: 'text-green-400 bg-green-400/20', baseScore: 10 },
-  { id: 'bold', label: 'Bold', preview: 'text-white font-black text-lg', highlightClass: 'text-white bg-white/20', baseScore: 11 },
-  { id: 'minimal', label: 'Minimal', preview: 'text-white/80 font-medium', highlightClass: 'text-white/80 bg-white/10', baseScore: 6 },
-  { id: 'none', label: 'Aucun', preview: 'text-muted-foreground line-through', highlightClass: '', baseScore: 0 },
+  { id: 'hormozi', label: 'Hormozi', preview: 'text-yellow-400 font-black uppercase' },
+  { id: 'mrbeast', label: 'MrBeast', preview: 'text-white font-black' },
+  { id: 'aliabdaal', label: 'Ali Abdaal', preview: 'text-blue-300 font-semibold' },
+  { id: 'neon', label: 'Neon', preview: 'text-green-400 font-bold' },
+  { id: 'bold', label: 'Bold', preview: 'text-white font-black text-lg' },
+  { id: 'minimal', label: 'Minimal', preview: 'text-white/80 font-medium' },
 ]
 
 const CAPTION_ANIMATIONS = [
-  { id: 'highlight', label: 'Highlight', baseScore: 10 },
-  { id: 'pop', label: 'Pop', baseScore: 12 },
-  { id: 'bounce', label: 'Bounce', baseScore: 9 },
-  { id: 'typewriter', label: 'Typewriter', baseScore: 7 },
-  { id: 'glow', label: 'Glow', baseScore: 8 },
+  { id: 'highlight', label: 'Highlight' },
+  { id: 'pop', label: 'Pop' },
+  { id: 'bounce', label: 'Bounce' },
+  { id: 'typewriter', label: 'Typewriter' },
+  { id: 'glow', label: 'Glow' },
 ]
 
 const BROLL_OPTIONS = [
-  { id: 'subway-surfers', label: 'Subway Surfers', color: 'from-emerald-500 to-teal-500', baseScore: 14 },
-  { id: 'minecraft-parkour', label: 'Minecraft Parkour', color: 'from-green-600 to-lime-500', baseScore: 12 },
-  { id: 'sand-cutting', label: 'Sand Cutting', color: 'from-amber-500 to-orange-500', baseScore: 10 },
-  { id: 'soap-cutting', label: 'Soap Cutting', color: 'from-pink-500 to-rose-500', baseScore: 9 },
-  { id: 'slime-satisfying', label: 'Slime', color: 'from-purple-500 to-violet-500', baseScore: 8 },
-  { id: 'none', label: 'Aucun', color: 'from-slate-700 to-slate-800', baseScore: 0 },
+  { id: 'subway-surfers', label: 'Subway Surfers', color: 'from-emerald-500 to-teal-500' },
+  { id: 'minecraft-parkour', label: 'Minecraft Parkour', color: 'from-green-600 to-lime-500' },
+  { id: 'sand-cutting', label: 'Sand Cutting', color: 'from-amber-500 to-orange-500' },
+  { id: 'soap-cutting', label: 'Soap Cutting', color: 'from-pink-500 to-rose-500' },
+  { id: 'slime-satisfying', label: 'Slime', color: 'from-purple-500 to-violet-500' },
 ]
-
-const TAG_STYLES = [
-  { id: 'badge-top', label: 'Badge coin', description: 'Badge arrondi en haut à droite', icon: '🏷️', baseScore: 10, position: 'top-right' as const },
-  { id: 'watermark-center', label: 'Watermark', description: 'Semi-transparent au centre', icon: '💧', baseScore: 6, position: 'center' as const },
-  { id: 'banner-bottom', label: 'Bannière', description: 'Bande Twitch en bas', icon: 'twitch', baseScore: 12, position: 'bottom' as const },
-  { id: 'none', label: 'Aucun', description: 'Pas de tag visible', icon: '🚫', baseScore: 0, position: 'none' as const },
-]
-
-const HOOK_PRESETS = [
-  { id: 'wait', text: 'WAIT FOR IT...', emoji: '😳', score: 18 },
-  { id: 'crazy', text: 'THIS IS CRAZY', emoji: '🤯', score: 16 },
-  { id: 'bro', text: 'BRO DID NOT EXPECT THIS', emoji: '💀', score: 15 },
-  { id: 'watch', text: 'WATCH TILL THE END', emoji: '👀', score: 14 },
-  { id: 'no-way', text: 'NO WAY HE DID THIS', emoji: '😱', score: 17 },
-  { id: 'none', text: 'Aucun hook', emoji: '—', score: 0 },
-]
-
-const PLATFORM_PRESETS: Record<string, { label: string; icon: string; captionStyle: string; animation: string; aspectRatio: '9:16' | '1:1' | '16:9' }> = {
-  tiktok: { label: 'TikTok', icon: '🎵', captionStyle: 'hormozi', animation: 'pop', aspectRatio: '9:16' },
-  reels: { label: 'Reels', icon: '📸', captionStyle: 'mrbeast', animation: 'highlight', aspectRatio: '9:16' },
-  shorts: { label: 'Shorts', icon: '▶️', captionStyle: 'bold', animation: 'bounce', aspectRatio: '9:16' },
-}
 
 function formatCount(n: number | null): string {
   if (n === null) return '--'
@@ -111,144 +90,30 @@ function formatCount(n: number | null): string {
   return String(n)
 }
 
-function getScoreMessage(score: number): { text: string; color: string } {
-  if (score >= 85) return { text: 'Maximum viral', color: 'text-green-400' }
-  if (score >= 70) return { text: 'High chance to perform', color: 'text-emerald-400' }
-  if (score >= 50) return { text: 'Very viral', color: 'text-orange-400' }
-  if (score >= 30) return { text: 'Good', color: 'text-yellow-400' }
-  return { text: 'Needs optimization', color: 'text-red-400' }
-}
+// ─── Viral Score Badge ──────────────────────────────────────────────────────
 
-function getScoreColor(score: number): string {
-  if (score >= 85) return 'from-green-500 to-emerald-500'
-  if (score >= 70) return 'from-emerald-500 to-teal-500'
-  if (score >= 50) return 'from-orange-500 to-amber-500'
-  if (score >= 30) return 'from-yellow-500 to-orange-500'
-  return 'from-red-500 to-orange-500'
-}
+function ViralScoreBadge({ score }: { score: number | null }) {
+  if (!score) return null
+  const color = score >= 70
+    ? 'from-green-500 to-emerald-500'
+    : score >= 40
+    ? 'from-yellow-500 to-amber-500'
+    : 'from-red-500 to-orange-500'
 
-// ─── Scoring Engine ─────────────────────────────────────────────────────────
-
-interface ScoredOption {
-  id: string
-  score: number
-  isBest: boolean
-}
-
-function computeScores(clip: TrendingClipData) {
-  const velocity = clip.velocity_score ?? 50
-  const views = clip.view_count ?? 0
-  const niche = clip.niche?.toLowerCase() ?? 'irl'
-  const isHighEnergy = velocity >= 70 || views >= 1_000_000
-  const isMidEnergy = velocity >= 40 || views >= 100_000
-
-  const captionScores: ScoredOption[] = CAPTION_STYLES.map((s) => {
-    let score = s.baseScore
-    if (isHighEnergy && (s.id === 'mrbeast' || s.id === 'bold')) score += 6
-    if (!isHighEnergy && (s.id === 'hormozi' || s.id === 'aliabdaal')) score += 4
-    if (niche === 'irl' && s.id === 'hormozi') score += 5
-    if (niche === 'gaming' && s.id === 'mrbeast') score += 5
-    if (isMidEnergy && s.id === 'neon') score += 3
-    return { id: s.id, score, isBest: false }
-  })
-  const maxCaption = Math.max(...captionScores.map((s) => s.score))
-  captionScores.forEach((s) => { s.isBest = s.score === maxCaption })
-
-  const animScores: ScoredOption[] = CAPTION_ANIMATIONS.map((a) => {
-    let score = a.baseScore
-    if (isHighEnergy && (a.id === 'pop' || a.id === 'bounce')) score += 5
-    if (!isHighEnergy && a.id === 'highlight') score += 4
-    if (niche === 'irl' && a.id === 'highlight') score += 3
-    if (velocity < 30 && a.id === 'typewriter') score += 4
-    return { id: a.id, score, isBest: false }
-  })
-  const maxAnim = Math.max(...animScores.map((s) => s.score))
-  animScores.forEach((s) => { s.isBest = s.score === maxAnim })
-
-  const brollScores: ScoredOption[] = BROLL_OPTIONS.map((b) => {
-    let score = b.baseScore
-    if (isHighEnergy && b.id === 'minecraft-parkour') score += 6
-    if (niche === 'irl' && b.id === 'subway-surfers') score += 7
-    if (!isHighEnergy && (b.id === 'sand-cutting' || b.id === 'soap-cutting')) score += 4
-    if (isMidEnergy && b.id === 'subway-surfers') score += 3
-    return { id: b.id, score, isBest: false }
-  })
-  const maxBroll = Math.max(...brollScores.map((s) => s.score))
-  brollScores.forEach((s) => { s.isBest = s.score === maxBroll })
-
-  const tagScores: ScoredOption[] = TAG_STYLES.map((t) => {
-    let score = t.baseScore
-    if (t.id === 'banner-bottom' && clip.author_handle) score += 5
-    if (t.id === 'badge-top') score += 3
-    return { id: t.id, score, isBest: false }
-  })
-  const maxTag = Math.max(...tagScores.map((s) => s.score))
-  tagScores.forEach((s) => { s.isBest = s.score === maxTag })
-
-  const WEIGHTS = { caption: 25, anim: 15, broll: 25, tag: 15, hook: 20 }
-
-  const normCaption = captionScores.map((s) => ({
-    ...s,
-    score: Math.round((s.score / maxCaption) * WEIGHTS.caption),
-  }))
-  const normAnim = animScores.map((s) => ({
-    ...s,
-    score: Math.round((s.score / maxAnim) * WEIGHTS.anim),
-  }))
-  const normBroll = brollScores.map((s) => ({
-    ...s,
-    score: Math.round((s.score / maxBroll) * WEIGHTS.broll),
-  }))
-  const normTag = tagScores.map((s) => ({
-    ...s,
-    score: Math.round((s.score / maxTag) * WEIGHTS.tag),
-  }))
-
-  const bestCaption = captionScores.find((s) => s.isBest)!.id
-  const bestAnim = animScores.find((s) => s.isBest)!.id
-  const bestBroll = brollScores.find((s) => s.isBest)!.id
-  const bestTag = tagScores.find((s) => s.isBest)!.id
-
-  return {
-    captionScores: normCaption,
-    animScores: normAnim,
-    brollScores: normBroll,
-    tagScores: normTag,
-    best: { captionStyle: bestCaption, captionAnimation: bestAnim, brollVideo: bestBroll, tagStyle: bestTag },
-    totalBestScore: 100,
-  }
-}
-
-function computeCurrentScore(
-  settings: EnhanceSettings,
-  scores: ReturnType<typeof computeScores>
-) {
-  const cs = scores.captionScores.find((s) => s.id === settings.captionStyle)?.score ?? 0
-  const as2 = scores.animScores.find((s) => s.id === settings.captionAnimation)?.score ?? 0
-  const bs = settings.splitScreenEnabled ? (scores.brollScores.find((s) => s.id === settings.brollVideo)?.score ?? 0) : 0
-  const ts = scores.tagScores.find((s) => s.id === settings.tagStyle)?.score ?? 0
-  const hookScore = settings.hookEnabled ? (HOOK_PRESETS.find((h) => h.text === settings.hookText)?.score ?? 12) : 0
-  return (settings.captionsEnabled ? cs + as2 : 0) + bs + ts + hookScore
-}
-
-// ─── Score Badge Component ──────────────────────────────────────────────────
-
-function ScoreBadge({ score, isBest }: { score: number; isBest: boolean }) {
   return (
-    <span className={cn(
-      'inline-flex items-center gap-0.5 text-[10px] font-bold rounded-full px-1.5 py-0.5',
-      isBest
-        ? 'bg-orange-500/20 text-orange-400 border border-orange-500/30'
-        : 'bg-muted/50 text-muted-foreground'
-    )}>
-      +{score}
-    </span>
+    <div className={`bg-gradient-to-r ${color} rounded-xl px-4 py-2 shadow-lg`}>
+      <div className="flex items-center gap-2">
+        <TrendingUp className="h-5 w-5 text-white" />
+        <span className="text-2xl font-black text-white">{score}</span>
+        <span className="text-xs text-white/70 font-medium">/100</span>
+      </div>
+    </div>
   )
 }
 
-// ─── Live Preview Component ─────────────────────────────────────────────────
+// ─── Split-Screen Preview ───────────────────────────────────────────────────
 
-function LivePreview({
+function SplitScreenPreview({
   clip,
   settings,
 }: {
@@ -257,107 +122,57 @@ function LivePreview({
 }) {
   const broll = BROLL_OPTIONS.find((b) => b.id === settings.brollVideo)
   const captionStyle = CAPTION_STYLES.find((s) => s.id === settings.captionStyle)
-  const tagStyle = TAG_STYLES.find((t) => t.id === settings.tagStyle)
-  const streamerName = clip.author_handle ? `@${clip.author_handle}` : clip.author_name ?? ''
-
-  const animationClass = settings.captionAnimation === 'pop' ? 'animate-[pulse_2s_ease-in-out_infinite]'
-    : settings.captionAnimation === 'bounce' ? 'animate-bounce'
-    : settings.captionAnimation === 'glow' ? 'animate-[pulse_1.5s_ease-in-out_infinite]'
-    : ''
 
   return (
-    <>
-    <style>{`
-      @keyframes kenburns {
-        0% { transform: scale(1) translate(0, 0); }
-        100% { transform: scale(1.08) translate(-2%, -1%); }
-      }
-    `}</style>
     <div
-      className="relative w-full rounded-2xl overflow-hidden bg-black border border-white/10 shadow-2xl mx-auto transition-all duration-500"
+      className="relative rounded-2xl overflow-hidden bg-black border border-white/10 shadow-2xl mx-auto"
       style={{ aspectRatio: '9/16', maxWidth: 280 }}
     >
-      {/* Top: Clip video or thumbnail */}
+      {/* Top: Clip thumbnail */}
       <div
-        className="absolute inset-x-0 top-0 overflow-hidden transition-all duration-500"
+        className="absolute inset-x-0 top-0 overflow-hidden"
         style={{ height: settings.splitScreenEnabled ? `${settings.splitRatio}%` : '100%' }}
       >
         {clip.thumbnail_url ? (
           <img
             src={clip.thumbnail_url}
             alt={clip.title ?? 'Clip'}
-            className="w-full h-full object-cover animate-[kenburns_20s_ease-in-out_infinite_alternate]"
+            className="w-full h-full object-cover"
           />
         ) : (
           <div className="w-full h-full bg-gradient-to-br from-slate-800 to-slate-900 flex items-center justify-center">
             <Play className="h-10 w-10 text-white/20" />
           </div>
         )}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent pointer-events-none z-10" />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
+
+        {/* Streamer tag */}
+        {settings.streamerTag && (
+          <div className="absolute top-3 right-3 bg-black/60 backdrop-blur-sm rounded-full px-2.5 py-1">
+            <span className="text-xs font-bold text-white">{settings.streamerTag}</span>
+          </div>
+        )}
 
         {/* Platform badge */}
-        <div className="absolute top-3 left-3 z-10 pointer-events-none">
+        <div className="absolute top-3 left-3">
           <Badge variant="outline" className="text-[10px] bg-black/50 backdrop-blur-sm border-white/20 text-white">
             {clip.platform === 'twitch' ? 'Twitch' : clip.platform}
           </Badge>
         </div>
       </div>
 
-      {/* ── Hook text overlay ── */}
-      {settings.hookEnabled && settings.hookText && settings.hookText !== 'Aucun hook' && (
-        <div className="absolute top-[12%] left-1/2 -translate-x-1/2 z-30 pointer-events-none">
-          <div className="bg-black/70 backdrop-blur-sm rounded-lg px-3 py-1.5 border border-white/10 animate-[pulse_2s_ease-in-out_infinite]">
-            <span className="text-xs font-black text-white uppercase tracking-wide whitespace-nowrap">{settings.hookText}</span>
-          </div>
-        </div>
-      )}
-
-      {/* ── Tag overlays ── */}
-      {tagStyle && tagStyle.id !== 'none' && streamerName && (
-        <>
-          {tagStyle.position === 'top-right' && (
-            <div className="absolute top-3 right-3 z-20 bg-black/60 backdrop-blur-sm rounded-full px-2.5 py-1 transition-all duration-300 pointer-events-none">
-              <span className="text-xs font-bold text-white">{streamerName}</span>
-            </div>
-          )}
-          {tagStyle.position === 'center' && (
-            <div className="absolute inset-0 flex items-center justify-center z-10 pointer-events-none">
-              <span className="text-2xl font-black text-white/15 rotate-[-20deg]">{streamerName}</span>
-            </div>
-          )}
-          {tagStyle.position === 'bottom' && (
-            <div className="absolute z-20 pointer-events-none transition-all duration-300 right-3"
-              style={{ bottom: settings.splitScreenEnabled ? `calc(${100 - settings.splitRatio}% + 8px)` : '8px' }}>
-              <div className="flex items-center gap-1 bg-black/50 backdrop-blur-sm rounded-full px-2 py-0.5 border border-white/10">
-                <svg className="h-2.5 w-2.5 text-[#9146FF]" viewBox="0 0 24 24" fill="currentColor"><path d="M11.571 4.714h1.715v5.143H11.57zm4.715 0H18v5.143h-1.714zM6 0L1.714 4.286v15.428h5.143V24l4.286-4.286h3.428L22.286 12V0zm14.571 11.143l-3.428 3.428h-3.429l-3 3v-3H6.857V1.714h13.714z"/></svg>
-                <span className="text-[9px] font-semibold text-white/80">{streamerName}</span>
-              </div>
-            </div>
-          )}
-        </>
-      )}
-
-      {/* Karaoke subtitle preview */}
+      {/* Karaoke subtitles */}
       {settings.captionsEnabled && (
         <div
-          className={cn(
-            'absolute left-1/2 -translate-x-1/2 z-20 rounded-lg px-3 py-1.5 max-w-[85%] transition-all duration-500',
-            settings.captionAnimation === 'glow'
-              ? 'bg-black/60 shadow-[0_0_20px_rgba(255,255,255,0.15)]'
-              : 'bg-black/80 backdrop-blur-sm'
-          )}
+          className="absolute left-1/2 -translate-x-1/2 z-20 bg-black/80 rounded-lg px-3 py-1.5 backdrop-blur-sm max-w-[85%]"
           style={{
-            top: settings.captionPosition === 'top' ? '8%'
-              : settings.captionPosition === 'middle' ? (settings.splitScreenEnabled ? `${settings.splitRatio / 2}%` : '42%')
-              : settings.splitScreenEnabled ? `${settings.splitRatio - 10}%` : '72%',
+            top: settings.captionPosition === 'top' ? '15%'
+              : settings.captionPosition === 'middle' ? (settings.splitScreenEnabled ? `${settings.splitRatio - 8}%` : '45%')
+              : settings.splitScreenEnabled ? `${settings.splitRatio - 8}%` : '75%',
           }}
         >
-          <p className={cn('text-sm text-center transition-all duration-300', captionStyle?.preview, animationClass)}>
-            This is{' '}
-            <span className={cn('px-0.5 rounded', captionStyle?.highlightClass)}>
-              {settings.captionAnimation === 'typewriter' ? 'CRA...' : 'CRAZY'}
-            </span>{' '}
-            bro
+          <p className={cn('text-sm text-center', captionStyle?.preview)}>
+            This is <span className="text-yellow-400 bg-yellow-400/20 px-0.5 rounded">CRAZY</span> bro
           </p>
         </div>
       )}
@@ -365,7 +180,7 @@ function LivePreview({
       {/* Split line */}
       {settings.splitScreenEnabled && (
         <div
-          className="absolute inset-x-0 h-0.5 bg-gradient-to-r from-transparent via-blue-400/60 to-transparent z-10 transition-all duration-500"
+          className="absolute inset-x-0 h-0.5 bg-gradient-to-r from-transparent via-blue-400/60 to-transparent z-10"
           style={{ top: `${settings.splitRatio}%` }}
         />
       )}
@@ -373,26 +188,189 @@ function LivePreview({
       {/* Bottom: B-roll */}
       {settings.splitScreenEnabled && broll && (
         <div
-          className={cn('absolute inset-x-0 bottom-0 overflow-hidden transition-all duration-500', `bg-gradient-to-br ${broll.color}`)}
+          className={`absolute inset-x-0 bottom-0 bg-gradient-to-br ${broll.color} overflow-hidden`}
           style={{ height: `${100 - settings.splitRatio}%` }}
         >
-          <div className="absolute inset-0 opacity-20" style={{
-            backgroundImage: 'repeating-linear-gradient(-45deg, transparent, transparent 8px, rgba(255,255,255,0.15) 8px, rgba(255,255,255,0.15) 16px)',
-            backgroundSize: '22px 22px',
-          }} />
-          <div className="absolute inset-0 flex flex-col items-center justify-center gap-1">
-            <Play className="h-5 w-5 text-white/40" />
-            <span className="text-[10px] text-white/60 font-semibold">{broll.label}</span>
+          <div
+            className="absolute inset-0 opacity-20"
+            style={{
+              backgroundImage: 'repeating-linear-gradient(-45deg, transparent, transparent 8px, rgba(255,255,255,0.15) 8px, rgba(255,255,255,0.15) 16px)',
+              backgroundSize: '22px 22px',
+            }}
+          />
+          <div className="absolute inset-0 flex items-center justify-center">
+            <span className="text-xs text-white/50 font-medium">{broll.label}</span>
           </div>
         </div>
       )}
 
-      {/* Format badge */}
-      <div className="absolute top-3 left-1/2 -translate-x-1/2 z-20">
-        <span className="text-[9px] text-white/40 font-medium bg-black/30 rounded-full px-2 py-0.5">{settings.aspectRatio}</span>
+      {/* Viral score */}
+      <div className="absolute bottom-3 left-3 bg-gradient-to-r from-yellow-500 to-amber-500 rounded-lg px-2 py-1 shadow-lg z-20">
+        <div className="flex items-center gap-1">
+          <TrendingUp className="h-3 w-3 text-black" />
+          <span className="text-xs font-black text-black">{clip.velocity_score ?? '—'}</span>
+        </div>
       </div>
     </div>
-    </>
+  )
+}
+
+// ─── AI Style Suggestion Engine ─────────────────────────────────────────────
+
+interface StyleSuggestion {
+  captionStyle: string
+  captionAnimation: string
+  brollVideo: string
+  splitRatio: number
+  score: number
+  reason: string
+}
+
+/**
+ * Compute the best style suggestion based on clip metadata.
+ * Uses heuristics based on streamer type, niche, velocity, and view count.
+ */
+function computeStyleSuggestion(clip: TrendingClipData): StyleSuggestion {
+  const velocity = clip.velocity_score ?? 50
+  const views = clip.view_count ?? 0
+  const niche = clip.niche?.toLowerCase() ?? 'irl'
+  const author = clip.author_handle?.toLowerCase() ?? ''
+
+  // Determine energy level from velocity + views
+  const isHighEnergy = velocity >= 70 || views >= 1_000_000
+  const isMidEnergy = velocity >= 40 || views >= 100_000
+
+  // Caption style scoring
+  let captionStyle = 'hormozi'
+  let captionAnimation = 'highlight'
+  let captionReason = ''
+
+  if (isHighEnergy) {
+    captionStyle = 'mrbeast'
+    captionAnimation = 'pop'
+    captionReason = 'Clip haute \u00e9nergie — le style MrBeast bold + animation Pop maximise l\u2019impact visuel'
+  } else if (niche === 'irl' || niche === 'just chatting') {
+    captionStyle = 'hormozi'
+    captionAnimation = 'highlight'
+    captionReason = 'Contenu IRL/talking — Hormozi + Highlight met en avant les punchlines'
+  } else if (isMidEnergy) {
+    captionStyle = 'bold'
+    captionAnimation = 'bounce'
+    captionReason = '\u00c9nergie moyenne — Bold + Bounce garde l\u2019attention sans surcharger'
+  } else {
+    captionStyle = 'aliabdaal'
+    captionAnimation = 'typewriter'
+    captionReason = 'Clip calme — Ali Abdaal + Typewriter donne un ton pro et clean'
+  }
+
+  // B-roll scoring
+  let brollVideo = 'subway-surfers'
+  let brollReason = ''
+
+  if (isHighEnergy) {
+    brollVideo = 'minecraft-parkour'
+    brollReason = 'Minecraft Parkour synce bien avec l\u2019\u00e9nergie rapide du clip'
+  } else if (niche === 'irl') {
+    brollVideo = 'subway-surfers'
+    brollReason = 'Subway Surfers est le classique pour les clips IRL — maximise la r\u00e9tention'
+  } else {
+    brollVideo = 'sand-cutting'
+    brollReason = 'Sand Cutting ASMR pour un clip plus pos\u00e9 — satisfaction visuelle'
+  }
+
+  // Split ratio
+  const splitRatio = isHighEnergy ? 65 : 60
+
+  // Compute overall score
+  let score = 72 // base
+  if (isHighEnergy) score += 15
+  else if (isMidEnergy) score += 8
+  if (niche === 'irl') score += 5
+  if (velocity >= 80) score += 5
+  score = Math.min(98, score)
+
+  return {
+    captionStyle,
+    captionAnimation,
+    brollVideo,
+    splitRatio,
+    score,
+    reason: `${captionReason}. ${brollReason}.`,
+  }
+}
+
+function AISuggestionPanel({
+  clip,
+  suggestion,
+  onApply,
+}: {
+  clip: TrendingClipData
+  suggestion: StyleSuggestion
+  onApply: () => void
+}) {
+  const captionLabel = CAPTION_STYLES.find((s) => s.id === suggestion.captionStyle)?.label ?? suggestion.captionStyle
+  const animLabel = CAPTION_ANIMATIONS.find((a) => a.id === suggestion.captionAnimation)?.label ?? suggestion.captionAnimation
+  const brollLabel = BROLL_OPTIONS.find((b) => b.id === suggestion.brollVideo)?.label ?? suggestion.brollVideo
+
+  return (
+    <Card className="bg-gradient-to-br from-primary/10 via-card/80 to-purple-500/10 border-primary/30 shadow-lg shadow-primary/5">
+      <CardContent className="p-4 space-y-4">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-primary to-purple-600 flex items-center justify-center shadow-lg shadow-primary/30">
+              <Sparkles className="h-4.5 w-4.5 text-white" />
+            </div>
+            <div>
+              <p className="text-sm font-bold text-foreground">Suggestion IA</p>
+              <p className="text-[10px] text-muted-foreground">
+                Bas\u00e9e sur le type de contenu et la v\u00e9locit\u00e9
+              </p>
+            </div>
+          </div>
+          {/* Score badge */}
+          <div className="flex items-center gap-1.5 bg-gradient-to-r from-green-500 to-emerald-500 rounded-full px-3 py-1.5 shadow-lg shadow-green-500/20">
+            <Zap className="h-3.5 w-3.5 text-white" />
+            <span className="text-sm font-black text-white">{suggestion.score}</span>
+            <span className="text-[10px] text-white/70">/100</span>
+          </div>
+        </div>
+
+        {/* Recommended settings */}
+        <div className="grid grid-cols-3 gap-2">
+          <div className="rounded-lg bg-card/60 border border-border p-2.5 space-y-1">
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Sous-titres</p>
+            <p className="text-xs font-semibold text-foreground">{captionLabel}</p>
+            <p className="text-[10px] text-primary">{animLabel}</p>
+          </div>
+          <div className="rounded-lg bg-card/60 border border-border p-2.5 space-y-1">
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Split-Screen</p>
+            <p className="text-xs font-semibold text-foreground">{brollLabel}</p>
+            <p className="text-[10px] text-primary">{suggestion.splitRatio}% / {100 - suggestion.splitRatio}%</p>
+          </div>
+          <div className="rounded-lg bg-card/60 border border-border p-2.5 space-y-1">
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Format</p>
+            <p className="text-xs font-semibold text-foreground">9:16</p>
+            <p className="text-[10px] text-primary">TikTok / Reels</p>
+          </div>
+        </div>
+
+        {/* Explanation */}
+        <p className="text-xs text-muted-foreground leading-relaxed">
+          {suggestion.reason}
+        </p>
+
+        {/* Apply button */}
+        <Button
+          size="sm"
+          className="w-full gap-2 bg-gradient-to-r from-primary to-purple-600 hover:from-primary/90 hover:to-purple-600/90 text-white font-semibold shadow-lg shadow-primary/20"
+          onClick={onApply}
+        >
+          <CheckCircle2 className="h-4 w-4" />
+          Appliquer la suggestion IA
+        </Button>
+      </CardContent>
+    </Card>
   )
 }
 
@@ -400,7 +378,6 @@ function LivePreview({
 
 export default function EnhancePage() {
   const params = useParams()
-  const router = useRouter()
   const clipId = params.clipId as string
 
   const [clip, setClip] = useState<TrendingClipData | null>(null)
@@ -409,19 +386,9 @@ export default function EnhancePage() {
   const [rendering, setRendering] = useState(false)
   const [renderMessage, setRenderMessage] = useState<string | null>(null)
   const [renderOriginalUrl, setRenderOriginalUrl] = useState<string | null>(null)
-  const [mode, setMode] = useState<'simple' | 'advanced'>('advanced')
-  const [viralApplied, setViralApplied] = useState(false)
-
-  // Section refs for scroll navigation (advanced mode)
-  const captionsRef = useRef<HTMLDivElement>(null)
-  const splitscreenRef = useRef<HTMLDivElement>(null)
-  const hookRef = useRef<HTMLDivElement>(null)
-  const tagsRef = useRef<HTMLDivElement>(null)
-  const styleRef = useRef<HTMLDivElement>(null)
-
-  const scrollToSection = useCallback((ref: React.RefObject<HTMLDivElement | null>) => {
-    ref.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-  }, [])
+  const [renderDownloadUrl, setRenderDownloadUrl] = useState<string | null>(null)
+  const [renderJobId, setRenderJobId] = useState<string | null>(null)
+  const pollRef = useRef<NodeJS.Timeout | null>(null)
 
   const [settings, setSettings] = useState<EnhanceSettings>({
     captionsEnabled: true,
@@ -432,16 +399,41 @@ export default function EnhancePage() {
     splitScreenEnabled: true,
     brollVideo: 'subway-surfers',
     splitRatio: 60,
-    tagStyle: 'badge-top',
+    streamerTag: '',
     autoCredit: true,
     aspectRatio: '9:16',
-    hookText: '',
-    hookEnabled: false,
-    platform: 'tiktok',
   })
+
+  // Load clip data — try trending store first, then Supabase
+  const storeClips = useTrendingStore((s) => s.clips)
 
   useEffect(() => {
     async function loadClip() {
+      // 1. Try the trending store (works for seed data + already-fetched clips)
+      const storeClip = storeClips.find((c) => c.id === clipId)
+      if (storeClip) {
+        setClip({
+          id: storeClip.id,
+          external_url: storeClip.external_url,
+          platform: storeClip.platform,
+          author_name: storeClip.author_name,
+          author_handle: storeClip.author_handle,
+          title: storeClip.title,
+          description: storeClip.description,
+          niche: storeClip.niche,
+          view_count: storeClip.view_count,
+          like_count: storeClip.like_count,
+          velocity_score: storeClip.velocity_score,
+          thumbnail_url: storeClip.thumbnail_url,
+        })
+        if (storeClip.author_handle) {
+          setSettings((s) => ({ ...s, streamerTag: `@${storeClip.author_handle}` }))
+        }
+        setLoading(false)
+        return
+      }
+
+      // 2. Fallback to Supabase query
       try {
         const supabase = createClient()
         const { data, error: dbError } = await supabase
@@ -449,14 +441,13 @@ export default function EnhancePage() {
           .select('*')
           .eq('id', clipId)
           .single()
-        if (dbError) throw new Error(dbError.message)
-        if (!data) throw new Error('Clip non trouvé')
-        setClip(data as unknown as TrendingClipData)
 
-        // Auto-enable split screen if clip > 15 seconds
-        const duration = (data as unknown as TrendingClipData).duration_seconds
-        if (duration && duration > 15) {
-          setSettings((s) => ({ ...s, splitScreenEnabled: true, brollVideo: 'subway-surfers' }))
+        if (dbError) throw new Error(dbError.message)
+        if (!data) throw new Error('Clip non trouv\u00e9')
+
+        setClip(data as TrendingClipData)
+        if (data.author_handle) {
+          setSettings((s) => ({ ...s, streamerTag: `@${data.author_handle}` }))
         }
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Erreur de chargement')
@@ -464,62 +455,75 @@ export default function EnhancePage() {
         setLoading(false)
       }
     }
+
     loadClip()
-  }, [clipId])
+  }, [clipId, storeClips])
 
   const updateSetting = useCallback(<K extends keyof EnhanceSettings>(key: K, value: EnhanceSettings[K]) => {
     setSettings((s) => ({ ...s, [key]: value }))
   }, [])
 
-  const scores = useMemo(() => {
-    if (!clip) return null
-    return computeScores(clip)
-  }, [clip])
+  // ── Polling for render job status ──
+  const startPolling = useCallback((jobId: string) => {
+    // Clear any existing poll
+    if (pollRef.current) clearInterval(pollRef.current)
 
-  const currentScore = useMemo(() => {
-    if (!scores) return 0
-    return computeCurrentScore(settings, scores)
-  }, [settings, scores])
+    setRenderJobId(jobId)
+    setRenderDownloadUrl(null)
 
-  // ⚡ MAKE IT VIRAL — applies the best combo automatically
-  const makeItViral = useCallback(() => {
-    if (!scores) return
-    const bestHook = HOOK_PRESETS.reduce((a, b) => a.score > b.score ? a : b)
-    setSettings((s) => ({
-      ...s,
-      captionsEnabled: true,
-      captionStyle: scores.best.captionStyle,
-      captionAnimation: scores.best.captionAnimation,
-      captionPosition: 'bottom',
-      splitScreenEnabled: true,
-      brollVideo: scores.best.brollVideo,
-      splitRatio: 60,
-      tagStyle: scores.best.tagStyle,
-      hookEnabled: true,
-      hookText: bestHook.text,
-      aspectRatio: '9:16',
-    }))
-    setViralApplied(true)
-    setTimeout(() => setViralApplied(false), 2000)
-  }, [scores])
+    let pollCount = 0
+    const maxPolls = 60 // 60 × 3s = 3 minutes max
 
-  // Apply platform preset
-  const applyPlatformPreset = useCallback((platform: 'tiktok' | 'reels' | 'shorts') => {
-    const preset = PLATFORM_PRESETS[platform]
-    setSettings((s) => ({
-      ...s,
-      platform,
-      captionStyle: preset.captionStyle,
-      captionAnimation: preset.animation,
-      aspectRatio: preset.aspectRatio,
-    }))
+    pollRef.current = setInterval(async () => {
+      pollCount++
+      if (pollCount > maxPolls) {
+        if (pollRef.current) clearInterval(pollRef.current)
+        setRenderMessage('⚠️ Le rendu prend plus longtemps que prévu. Reviens vérifier plus tard.')
+        setRendering(false)
+        return
+      }
+
+      try {
+        const res = await fetch(`/api/render/status?jobId=${jobId}`)
+        const json = await res.json() as {
+          data: { status: string; downloadUrl?: string | null; errorMessage?: string | null } | null
+          message: string
+        }
+
+        if (!json.data) return
+
+        if (json.data.status === 'done' && json.data.downloadUrl) {
+          if (pollRef.current) clearInterval(pollRef.current)
+          setRenderDownloadUrl(json.data.downloadUrl)
+          setRenderMessage('✅ Clip prêt ! Clique pour télécharger.')
+          setRendering(false)
+        } else if (json.data.status === 'error') {
+          if (pollRef.current) clearInterval(pollRef.current)
+          setRenderMessage(`❌ Erreur : ${json.data.errorMessage || 'Erreur inconnue'}`)
+          setRendering(false)
+        } else if (json.data.status === 'rendering') {
+          setRenderMessage('⏳ Rendu en cours... ça peut prendre 30-60 secondes.')
+        }
+      } catch {
+        // Silently retry on network errors
+      }
+    }, 3000) // Poll every 3 seconds
+  }, [])
+
+  // Cleanup polling on unmount
+  useEffect(() => {
+    return () => {
+      if (pollRef.current) clearInterval(pollRef.current)
+    }
   }, [])
 
   const handleRender = useCallback(async () => {
     if (!clip) return
     setRendering(true)
-    setRenderMessage(null)
+    setRenderMessage('⏳ Lancement du rendu...')
+    setRenderDownloadUrl(null)
     setRenderOriginalUrl(null)
+
     try {
       const res = await fetch('/api/render', {
         method: 'POST',
@@ -528,34 +532,75 @@ export default function EnhancePage() {
           clip_id: clip.id,
           source: 'trending',
           settings: {
-            captions: { enabled: settings.captionsEnabled, style: settings.captionStyle, animation: settings.captionAnimation },
-            splitScreen: { enabled: settings.splitScreenEnabled, brollCategory: settings.brollVideo },
-            hook: { enabled: settings.hookEnabled, text: settings.hookText },
-            format: { aspectRatio: settings.aspectRatio },
+            captions: {
+              enabled: settings.captionsEnabled,
+              style: settings.captionStyle,
+              wordsPerLine: settings.wordsPerLine,
+              animation: settings.captionAnimation,
+              position: settings.captionPosition,
+            },
+            splitScreen: {
+              enabled: settings.splitScreenEnabled,
+              brollCategory: settings.brollVideo,
+              ratio: settings.splitRatio,
+              layout: 'top-bottom',
+            },
+            format: {
+              aspectRatio: settings.aspectRatio,
+            },
           },
         }),
       })
       const data = await res.json() as {
-        data: { clip_id: string; vpsReady?: boolean; originalUrl?: string } | null
+        data: { clip_id: string; jobId?: string; rendered: boolean; vpsReady?: boolean; originalUrl?: string } | null
         error: string | null
         message: string
       }
+
       if (!res.ok || !data.data) {
         setRenderMessage(data.message ?? 'Erreur lors du rendu')
+        setRendering(false)
       } else if (data.data.vpsReady === false) {
-        setRenderMessage(data.message)
-        setRenderOriginalUrl(data.data.originalUrl ?? clip.external_url)
+        setRenderMessage(`⚠️ ${data.message}`)
+        if (data.data.originalUrl) {
+          setRenderOriginalUrl(data.data.originalUrl)
+        }
+        setRendering(false)
+      } else if (data.data.jobId) {
+        // Start polling for job completion
+        setRenderMessage('⏳ Rendu en cours... ça peut prendre 30-60 secondes.')
+        startPolling(data.data.jobId)
       } else {
-        setRenderMessage('Rendu lancé ! Le clip sera prêt dans quelques secondes.')
+        setRenderMessage('✅ Rendu lancé !')
+        setRendering(false)
       }
     } catch {
       setRenderMessage('Erreur réseau')
-    } finally {
       setRendering(false)
     }
-  }, [clip, settings, router])
+  }, [clip, settings, startPolling])
 
-  // ── Loading / Error ────────────────────────────────────────────────────
+  // ── AI Suggestion ──────────────────────────────────────────────────────
+
+  const aiSuggestion = useMemo(() => {
+    if (!clip) return null
+    return computeStyleSuggestion(clip)
+  }, [clip])
+
+  const applyAISuggestion = useCallback(() => {
+    if (!aiSuggestion) return
+    setSettings((s) => ({
+      ...s,
+      captionStyle: aiSuggestion.captionStyle,
+      captionAnimation: aiSuggestion.captionAnimation,
+      brollVideo: aiSuggestion.brollVideo,
+      splitRatio: aiSuggestion.splitRatio,
+      splitScreenEnabled: true,
+      captionsEnabled: true,
+    }))
+  }, [aiSuggestion])
+
+  // ── Loading / Error states ─────────────────────────────────────────────
 
   if (loading) {
     return (
@@ -570,25 +615,28 @@ export default function EnhancePage() {
     return (
       <div className="max-w-md mx-auto py-24 text-center space-y-4">
         <AlertCircle className="h-12 w-12 text-destructive mx-auto" />
-        <p className="text-destructive font-medium">{error ?? 'Clip non trouvé'}</p>
+        <p className="text-destructive font-medium">{error ?? 'Clip non trouv\u00e9'}</p>
         <Link href="/dashboard">
-          <Button variant="outline" className="gap-2"><ChevronLeft className="h-4 w-4" />Retour au feed</Button>
+          <Button variant="outline" className="gap-2">
+            <ChevronLeft className="h-4 w-4" />
+            Retour au feed
+          </Button>
         </Link>
       </div>
     )
   }
 
-  const scoreMsg = getScoreMessage(currentScore)
-
   // ── Main layout ────────────────────────────────────────────────────────
 
   return (
     <div className="animate-in fade-in duration-500">
-      {/* Header */}
-      <div className="flex items-start justify-between gap-4 mb-4">
+      {/* Back button + clip info header */}
+      <div className="flex items-start justify-between gap-4 mb-6">
         <div className="flex items-start gap-4">
           <Link href="/dashboard">
-            <Button variant="ghost" size="icon" className="mt-0.5"><ChevronLeft className="h-5 w-5" /></Button>
+            <Button variant="ghost" size="icon" className="mt-0.5">
+              <ChevronLeft className="h-5 w-5" />
+            </Button>
           </Link>
           <div>
             <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
@@ -600,662 +648,353 @@ export default function EnhancePage() {
             </p>
           </div>
         </div>
-        {/* Mode toggle */}
-        <button
-          onClick={() => setMode(mode === 'simple' ? 'advanced' : 'simple')}
-          className={cn(
-            'flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all border shadow-sm',
-            mode === 'simple'
-              ? 'bg-gradient-to-r from-orange-500/15 to-pink-500/15 border-orange-500/30 text-orange-400 shadow-orange-500/10 hover:shadow-orange-500/20'
-              : 'bg-primary/10 border-primary/30 text-primary hover:bg-primary/15'
-          )}
-        >
-          {mode === 'simple' ? (
-            <><Settings2 className="h-4 w-4" /> Mode avancé</>
-          ) : (
-            <><Zap className="h-4 w-4" /> Mode simple</>
-          )}
-        </button>
+        <ViralScoreBadge score={clip.velocity_score} />
       </div>
 
-      {/* Two-column layout */}
-      <div className="grid lg:grid-cols-[300px_1fr] gap-6">
-        {/* Left: Preview + Score + Generate — compact, sticky */}
-        <div className="lg:sticky lg:top-4 lg:self-start space-y-3">
-          {/* Score — enhanced with dynamic message */}
-          {scores && (
-            <div className="bg-card/60 border border-border rounded-xl p-3 space-y-2">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className={cn('w-8 h-8 rounded-lg bg-gradient-to-br flex items-center justify-center', getScoreColor(currentScore))}>
-                    <Zap className="h-4 w-4 text-white" />
-                  </div>
-                  <div>
-                    <span className="text-2xl font-black text-foreground leading-none">{currentScore}</span>
-                    <span className="text-xs text-muted-foreground ml-0.5">/ 100</span>
-                  </div>
-                </div>
+      {/* Two-column layout: Preview | Settings */}
+      <div className="grid lg:grid-cols-[340px_1fr] gap-8">
+        {/* Left: Preview */}
+        <div className="space-y-4">
+          <Card className="bg-card/60 border-border p-4">
+            <SplitScreenPreview clip={clip} settings={settings} />
+          </Card>
+
+          {/* Clip metadata */}
+          <Card className="bg-card/60 border-border">
+            <CardContent className="p-4 space-y-3">
+              <div className="flex items-center gap-3 text-sm text-muted-foreground">
+                <span className="flex items-center gap-1">
+                  <Eye className="h-3.5 w-3.5" />
+                  {formatCount(clip.view_count)} vues
+                </span>
+                {clip.like_count !== null && (
+                  <span className="flex items-center gap-1">
+                    <Heart className="h-3.5 w-3.5" />
+                    {formatCount(clip.like_count)}
+                  </span>
+                )}
               </div>
-              {/* Score bar */}
-              <div className="w-full h-1.5 bg-muted rounded-full overflow-hidden">
-                <div
-                  className={cn('h-full rounded-full bg-gradient-to-r transition-all duration-700', getScoreColor(currentScore))}
-                  style={{ width: `${currentScore}%` }}
-                />
-              </div>
-              <p className={cn('text-xs font-semibold', scoreMsg.color)}>{scoreMsg.text}</p>
-            </div>
-          )}
+              <a
+                href={clip.external_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1.5 text-xs text-primary hover:underline"
+              >
+                <ExternalLink className="h-3 w-3" />
+                Voir l&apos;original sur {clip.platform}
+              </a>
+            </CardContent>
+          </Card>
 
-          {/* Preview */}
-          <LivePreview clip={clip} settings={settings} />
-
-          {/* Metadata inline */}
-          <div className="flex items-center justify-end text-xs text-muted-foreground px-1">
-            <a href={clip.external_url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-primary hover:underline">
-              <ExternalLink className="h-3 w-3" />Original
-            </a>
-          </div>
-
-          {/* ⚡ MAKE IT VIRAL — Big CTA */}
-          <button
-            onClick={makeItViral}
-            className={cn(
-              'w-full h-12 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all duration-300',
-              viralApplied
-                ? 'bg-green-500 text-white shadow-lg shadow-green-500/30'
-                : 'bg-gradient-to-r from-orange-500 via-red-500 to-pink-500 text-white shadow-lg shadow-orange-500/30 hover:shadow-orange-500/50 hover:scale-[1.02] active:scale-[0.98]'
-            )}
-          >
-            {viralApplied ? (
-              <><Sparkles className="h-5 w-5" /> Optimisé !</>
-            ) : (
-              <><Zap className="h-5 w-5" /> Make it viral</>
-            )}
-          </button>
-
-          {/* Generate button */}
+          {/* Render button */}
           <Button
-            className="w-full h-11 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-semibold gap-2 shadow-lg shadow-blue-500/20"
+            className="w-full h-12 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-semibold gap-2 text-base shadow-lg shadow-blue-500/20"
             onClick={handleRender}
             disabled={rendering}
           >
             {rendering ? (
-              <><Loader2 className="h-4 w-4 animate-spin" /> Rendu en cours&hellip;</>
+              <><Loader2 className="h-5 w-5 animate-spin" /> Rendu en cours&hellip;</>
             ) : (
-              <><Download className="h-4 w-4" /> Générer le clip</>
+              <><Download className="h-5 w-5" /> G&eacute;n&eacute;rer le clip</>
             )}
           </Button>
+
           {renderMessage && (
-            <div className="space-y-2">
+            <div className="text-center space-y-3">
               <p className={cn(
-                'text-xs text-center font-medium',
-                renderMessage.includes('Erreur') ? 'text-destructive'
-                  : renderMessage.includes('pas encore') ? 'text-amber-400'
-                  : 'text-green-400'
+                'text-sm font-medium',
+                renderMessage.includes('Erreur') || renderMessage.includes('❌') ? 'text-destructive' :
+                renderMessage.includes('⚠️') ? 'text-amber-400' :
+                renderMessage.includes('⏳') ? 'text-blue-400' : 'text-green-400'
               )}>
                 {renderMessage}
               </p>
-              {renderOriginalUrl && (
+              {renderDownloadUrl && (
+                <a
+                  href={renderDownloadUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center justify-center gap-2 w-full h-11 rounded-lg bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white font-semibold text-sm shadow-lg shadow-green-500/20 transition-all"
+                >
+                  <Download className="h-4 w-4" />
+                  Télécharger le clip
+                </a>
+              )}
+              {renderOriginalUrl && !renderDownloadUrl && (
                 <a
                   href={renderOriginalUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center justify-center gap-2 w-full h-9 rounded-xl border border-purple-500/30 bg-purple-500/10 text-purple-400 text-xs font-semibold hover:bg-purple-500/20 transition-colors"
+                  className="inline-flex items-center gap-2 text-xs text-blue-400 hover:text-blue-300 underline"
                 >
-                  <ExternalLink className="h-3.5 w-3.5" />
+                  <ExternalLink className="h-3 w-3" />
                   Télécharger le clip original
                 </a>
               )}
             </div>
           )}
+
+          {/* Import your own clip */}
+          <Card className="bg-card/40 border-dashed border-border hover:border-primary/40 transition-colors">
+            <CardContent className="p-4 space-y-3">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-blue-500/15 flex items-center justify-center">
+                  <Upload className="h-4 w-4 text-blue-400" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-foreground">Importer ton clip</p>
+                  <p className="text-[10px] text-muted-foreground">Upload ou colle un lien pour enhance ton propre contenu</p>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <Link href="/create">
+                  <Button variant="outline" size="sm" className="w-full gap-1.5 h-9 text-xs border-blue-500/20 text-blue-400 hover:bg-blue-500/10">
+                    <FileVideo className="h-3.5 w-3.5" />
+                    Upload fichier
+                  </Button>
+                </Link>
+                <Link href="/create?mode=url">
+                  <Button variant="outline" size="sm" className="w-full gap-1.5 h-9 text-xs border-purple-500/20 text-purple-400 hover:bg-purple-500/10">
+                    <Link2 className="h-3.5 w-3.5" />
+                    Coller un lien
+                  </Button>
+                </Link>
+              </div>
+            </CardContent>
+          </Card>
         </div>
 
-        {/* Right: Settings panel */}
+        {/* Right: Settings Tabs */}
         <div>
-          {/* ════════════════════════════════════════════════════════════════
-              SIMPLE MODE — minimal UI, 3 quick toggles + platform
-             ════════════════════════════════════════════════════════════════ */}
-          {mode === 'simple' && (
-            <div className="space-y-4">
-              {/* Quick toggles */}
+          <Tabs defaultValue="captions" className="w-full">
+            <TabsList className="grid grid-cols-3 mb-6">
+              <TabsTrigger value="captions" className="gap-1.5">
+                <Type className="h-3.5 w-3.5" />
+                Sous-titres
+              </TabsTrigger>
+              <TabsTrigger value="splitscreen" className="gap-1.5">
+                <Monitor className="h-3.5 w-3.5" />
+                Split-Screen
+              </TabsTrigger>
+              <TabsTrigger value="style" className="gap-1.5">
+                <Paintbrush className="h-3.5 w-3.5" />
+                Style
+              </TabsTrigger>
+            </TabsList>
+
+            {/* ─── Captions Tab ───────────────────────────────────────── */}
+            <TabsContent value="captions" className="space-y-6">
               <Card className="bg-card/60 border-border">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-base flex items-center gap-2">
-                    <Zap className="h-4 w-4 text-orange-400" />
-                    Réglages rapides
-                  </CardTitle>
+                <CardHeader className="pb-3">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-base">Sous-titres karaok&eacute;</CardTitle>
+                    <Switch
+                      checked={settings.captionsEnabled}
+                      onCheckedChange={(v) => updateSetting('captionsEnabled', v)}
+                    />
+                  </div>
                 </CardHeader>
-                <CardContent className="space-y-3">
-                  {/* Captions toggle */}
-                  <button
-                    onClick={() => updateSetting('captionsEnabled', !settings.captionsEnabled)}
-                    className={cn(
-                      'w-full flex items-center justify-between p-3 rounded-xl border transition-all',
-                      settings.captionsEnabled
-                        ? 'border-primary/50 bg-primary/10'
-                        : 'border-border hover:border-primary/30'
-                    )}
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className={cn('w-9 h-9 rounded-lg flex items-center justify-center', settings.captionsEnabled ? 'bg-primary/20' : 'bg-muted')}>
-                        <Type className={cn('h-4 w-4', settings.captionsEnabled ? 'text-primary' : 'text-muted-foreground')} />
-                      </div>
-                      <div className="text-left">
-                        <span className="text-sm font-semibold text-foreground">Sous-titres</span>
-                        <span className="text-[10px] text-muted-foreground block">Sous-titres karaoké automatiques</span>
+                {settings.captionsEnabled && (
+                  <CardContent className="space-y-5">
+                    {/* Style selector */}
+                    <div className="space-y-2">
+                      <Label className="text-xs uppercase tracking-wider text-muted-foreground">Style</Label>
+                      <div className="grid grid-cols-3 gap-2">
+                        {CAPTION_STYLES.map((style) => (
+                          <button
+                            key={style.id}
+                            onClick={() => updateSetting('captionStyle', style.id)}
+                            className={cn(
+                              'rounded-xl border p-3 text-left transition-all',
+                              settings.captionStyle === style.id
+                                ? 'border-primary bg-primary/10'
+                                : 'border-border hover:border-primary/40'
+                            )}
+                          >
+                            <span className={cn('text-xs block', style.preview)}>Aa</span>
+                            <span className="text-[10px] text-muted-foreground mt-1 block">{style.label}</span>
+                          </button>
+                        ))}
                       </div>
                     </div>
-                    <div className={cn(
-                      'w-10 h-6 rounded-full transition-all relative',
-                      settings.captionsEnabled ? 'bg-primary' : 'bg-muted'
-                    )}>
-                      <div className={cn(
-                        'absolute top-0.5 w-5 h-5 rounded-full bg-white shadow-sm transition-all',
-                        settings.captionsEnabled ? 'left-[18px]' : 'left-0.5'
-                      )} />
-                    </div>
-                  </button>
 
-                  {/* Split screen toggle */}
-                  <button
-                    onClick={() => {
-                      const newEnabled = !settings.splitScreenEnabled
-                      updateSetting('splitScreenEnabled', newEnabled)
-                      if (newEnabled && settings.brollVideo === 'none') {
-                        updateSetting('brollVideo', 'subway-surfers')
-                      }
-                    }}
-                    className={cn(
-                      'w-full flex items-center justify-between p-3 rounded-xl border transition-all',
-                      settings.splitScreenEnabled
-                        ? 'border-emerald-500/50 bg-emerald-500/10'
-                        : 'border-border hover:border-emerald-500/30'
-                    )}
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className={cn('w-9 h-9 rounded-lg flex items-center justify-center', settings.splitScreenEnabled ? 'bg-emerald-500/20' : 'bg-muted')}>
-                        <Monitor className={cn('h-4 w-4', settings.splitScreenEnabled ? 'text-emerald-400' : 'text-muted-foreground')} />
-                      </div>
-                      <div className="text-left">
-                        <span className="text-sm font-semibold text-foreground">Split-Screen</span>
-                        <span className="text-[10px] text-muted-foreground block">
-                          {settings.splitScreenEnabled ? BROLL_OPTIONS.find((b) => b.id === settings.brollVideo)?.label ?? 'Activé' : 'Gameplay en bas'}
-                        </span>
-                      </div>
+                    {/* Animation */}
+                    <div className="space-y-2">
+                      <Label className="text-xs uppercase tracking-wider text-muted-foreground">Animation</Label>
+                      <Select value={settings.captionAnimation} onValueChange={(v) => updateSetting('captionAnimation', v)}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          {CAPTION_ANIMATIONS.map((a) => (
+                            <SelectItem key={a.id} value={a.id}>{a.label}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
-                    <div className={cn(
-                      'w-10 h-6 rounded-full transition-all relative',
-                      settings.splitScreenEnabled ? 'bg-emerald-500' : 'bg-muted'
-                    )}>
-                      <div className={cn(
-                        'absolute top-0.5 w-5 h-5 rounded-full bg-white shadow-sm transition-all',
-                        settings.splitScreenEnabled ? 'left-[18px]' : 'left-0.5'
-                      )} />
-                    </div>
-                  </button>
 
-                  {/* Quick B-roll presets when split is enabled */}
-                  {settings.splitScreenEnabled && (
-                    <div className="grid grid-cols-3 gap-2 pl-12">
-                      {BROLL_OPTIONS.filter((b) => b.id !== 'none').slice(0, 3).map((broll) => (
-                        <button
-                          key={broll.id}
-                          onClick={() => updateSetting('brollVideo', broll.id)}
-                          className={cn(
-                            'rounded-lg border px-2 py-1.5 text-[10px] font-medium transition-all',
-                            settings.brollVideo === broll.id
-                              ? 'border-emerald-500/50 bg-emerald-500/10 text-emerald-400'
-                              : 'border-border text-muted-foreground hover:border-emerald-500/30'
-                          )}
-                        >
-                          {broll.label.replace(' Surfers', '').replace(' Parkour', '').replace(' Cutting', '')}
-                        </button>
-                      ))}
+                    {/* Position */}
+                    <div className="space-y-2">
+                      <Label className="text-xs uppercase tracking-wider text-muted-foreground">Position</Label>
+                      <Select value={settings.captionPosition} onValueChange={(v) => updateSetting('captionPosition', v as 'top' | 'middle' | 'bottom')}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="top">Haut</SelectItem>
+                          <SelectItem value="middle">Milieu</SelectItem>
+                          <SelectItem value="bottom">Bas</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
-                  )}
 
-                  {/* Hook toggle */}
-                  <button
-                    onClick={() => {
-                      const newEnabled = !settings.hookEnabled
-                      updateSetting('hookEnabled', newEnabled)
-                      if (newEnabled && !settings.hookText) {
-                        updateSetting('hookText', 'WAIT FOR IT...')
-                      }
-                    }}
-                    className={cn(
-                      'w-full flex items-center justify-between p-3 rounded-xl border transition-all',
-                      settings.hookEnabled
-                        ? 'border-amber-500/50 bg-amber-500/10'
-                        : 'border-border hover:border-amber-500/30'
-                    )}
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className={cn('w-9 h-9 rounded-lg flex items-center justify-center', settings.hookEnabled ? 'bg-amber-500/20' : 'bg-muted')}>
-                        <MessageSquare className={cn('h-4 w-4', settings.hookEnabled ? 'text-amber-400' : 'text-muted-foreground')} />
+                    {/* Words per line */}
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <Label className="text-xs uppercase tracking-wider text-muted-foreground">Mots par ligne</Label>
+                        <span className="text-sm font-semibold text-foreground">{settings.wordsPerLine}</span>
                       </div>
-                      <div className="text-left">
-                        <span className="text-sm font-semibold text-foreground">Hook / Intro</span>
-                        <span className="text-[10px] text-muted-foreground block">
-                          {settings.hookEnabled && settings.hookText ? settings.hookText : 'Texte accrocheur au début'}
-                        </span>
-                      </div>
+                      <Slider
+                        value={[settings.wordsPerLine]}
+                        onValueChange={([v]) => updateSetting('wordsPerLine', v)}
+                        min={2}
+                        max={8}
+                        step={1}
+                      />
                     </div>
-                    <div className={cn(
-                      'w-10 h-6 rounded-full transition-all relative',
-                      settings.hookEnabled ? 'bg-amber-500' : 'bg-muted'
-                    )}>
-                      <div className={cn(
-                        'absolute top-0.5 w-5 h-5 rounded-full bg-white shadow-sm transition-all',
-                        settings.hookEnabled ? 'left-[18px]' : 'left-0.5'
-                      )} />
-                    </div>
-                  </button>
+                  </CardContent>
+                )}
+              </Card>
+            </TabsContent>
 
-                  {/* Quick hook presets when enabled */}
-                  {settings.hookEnabled && (
-                    <div className="grid grid-cols-2 gap-2 pl-12">
-                      {HOOK_PRESETS.filter((h) => h.id !== 'none').slice(0, 4).map((hook) => (
-                        <button
-                          key={hook.id}
-                          onClick={() => updateSetting('hookText', hook.text)}
-                          className={cn(
-                            'rounded-lg border px-2 py-1.5 text-[10px] font-medium transition-all text-left',
-                            settings.hookText === hook.text
-                              ? 'border-amber-500/50 bg-amber-500/10 text-amber-400'
-                              : 'border-border text-muted-foreground hover:border-amber-500/30'
-                          )}
-                        >
-                          <span className="mr-1">{hook.emoji}</span>{hook.text}
-                        </button>
-                      ))}
+            {/* ─── Split-Screen Tab ───────────────────────────────────── */}
+            <TabsContent value="splitscreen" className="space-y-6">
+              <Card className="bg-card/60 border-border">
+                <CardHeader className="pb-3">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-base">Split-Screen</CardTitle>
+                    <Switch
+                      checked={settings.splitScreenEnabled}
+                      onCheckedChange={(v) => updateSetting('splitScreenEnabled', v)}
+                    />
+                  </div>
+                </CardHeader>
+                {settings.splitScreenEnabled && (
+                  <CardContent className="space-y-5">
+                    {/* B-roll selector */}
+                    <div className="space-y-2">
+                      <Label className="text-xs uppercase tracking-wider text-muted-foreground">Vid&eacute;o B-roll</Label>
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                        {BROLL_OPTIONS.map((broll) => (
+                          <button
+                            key={broll.id}
+                            onClick={() => updateSetting('brollVideo', broll.id)}
+                            className={cn(
+                              'rounded-xl border p-3 transition-all',
+                              settings.brollVideo === broll.id
+                                ? 'border-primary bg-primary/10'
+                                : 'border-border hover:border-primary/40'
+                            )}
+                          >
+                            <div className={`w-full h-8 rounded-lg bg-gradient-to-r ${broll.color} mb-1.5`} />
+                            <span className="text-[10px] text-muted-foreground">{broll.label}</span>
+                          </button>
+                        ))}
+                      </div>
                     </div>
-                  )}
+
+                    {/* Split ratio */}
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <Label className="text-xs uppercase tracking-wider text-muted-foreground">Ratio stream / B-roll</Label>
+                        <span className="text-sm font-semibold text-foreground">{settings.splitRatio}% / {100 - settings.splitRatio}%</span>
+                      </div>
+                      <Slider
+                        value={[settings.splitRatio]}
+                        onValueChange={([v]) => updateSetting('splitRatio', v)}
+                        min={40}
+                        max={80}
+                        step={5}
+                      />
+                    </div>
+                  </CardContent>
+                )}
+              </Card>
+            </TabsContent>
+
+            {/* ─── Style Tab ───────────────────────────────────────────── */}
+            <TabsContent value="style" className="space-y-6">
+              <Card className="bg-card/60 border-border">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base">Cr&eacute;dit & Tag</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-5">
+                  {/* Streamer tag */}
+                  <div className="space-y-2">
+                    <Label className="text-xs uppercase tracking-wider text-muted-foreground">Tag streamer</Label>
+                    <input
+                      type="text"
+                      value={settings.streamerTag}
+                      onChange={(e) => updateSetting('streamerTag', e.target.value)}
+                      className="w-full bg-muted/50 border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary/50"
+                      placeholder="@kaicenat"
+                    />
+                    <p className="text-[10px] text-muted-foreground">
+                      Ajout&eacute; automatiquement depuis le clip. Modifiable.
+                    </p>
+                  </div>
+
+                  {/* Auto credit */}
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <Label className="text-sm">Cr&eacute;dit automatique</Label>
+                      <p className="text-[10px] text-muted-foreground">
+                        Ajoute &laquo; Cr&eacute;dit : {settings.streamerTag || '@streamer'} &raquo; dans la description
+                      </p>
+                    </div>
+                    <Switch
+                      checked={settings.autoCredit}
+                      onCheckedChange={(v) => updateSetting('autoCredit', v)}
+                    />
+                  </div>
                 </CardContent>
               </Card>
 
-              {/* Platform optimization */}
               <Card className="bg-card/60 border-border">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-base flex items-center gap-2">
-                    <Target className="h-4 w-4 text-blue-400" />
-                    Optimiser pour
-                  </CardTitle>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base">Format</CardTitle>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="space-y-4">
                   <div className="grid grid-cols-3 gap-2">
-                    {Object.entries(PLATFORM_PRESETS).map(([key, preset]) => (
+                    {(['9:16', '1:1', '16:9'] as const).map((ratio) => (
                       <button
-                        key={key}
-                        onClick={() => applyPlatformPreset(key as 'tiktok' | 'reels' | 'shorts')}
+                        key={ratio}
+                        onClick={() => updateSetting('aspectRatio', ratio)}
                         className={cn(
                           'rounded-xl border p-3 text-center transition-all',
-                          settings.platform === key
-                            ? 'border-blue-500/50 bg-blue-500/10 ring-1 ring-blue-500/30'
-                            : 'border-border hover:border-blue-500/30'
+                          settings.aspectRatio === ratio
+                            ? 'border-primary bg-primary/10'
+                            : 'border-border hover:border-primary/40'
                         )}
                       >
-                        <span className="text-lg block mb-1">{preset.icon}</span>
-                        <span className={cn('text-xs font-semibold', settings.platform === key ? 'text-blue-400' : 'text-foreground')}>
-                          {preset.label}
+                        <span className="text-sm font-semibold text-foreground">{ratio}</span>
+                        <span className="text-[10px] text-muted-foreground block mt-0.5">
+                          {ratio === '9:16' ? 'TikTok / Reels' : ratio === '1:1' ? 'Instagram' : 'YouTube'}
                         </span>
                       </button>
                     ))}
                   </div>
                 </CardContent>
               </Card>
+
+            </TabsContent>
+          </Tabs>
+
+          {/* AI Style Suggestion — below all tabs */}
+          {clip && aiSuggestion && (
+            <div className="mt-6">
+              <AISuggestionPanel
+                clip={clip}
+                suggestion={aiSuggestion}
+                onApply={applyAISuggestion}
+              />
             </div>
-          )}
-
-          {/* ════════════════════════════════════════════════════════════════
-              ADVANCED MODE — all the detailed options
-             ════════════════════════════════════════════════════════════════ */}
-          {mode === 'advanced' && (
-            <>
-              {/* Sticky nav bar */}
-              <div className="sticky top-0 z-30 bg-background/80 backdrop-blur-md border-b border-border mb-6 -mx-1 px-1">
-                <div className="grid grid-cols-5 gap-1 py-2">
-                  {([
-                    { label: 'Sous-titres', icon: <Type className="h-3.5 w-3.5" />, ref: captionsRef },
-                    { label: 'Split', icon: <Monitor className="h-3.5 w-3.5" />, ref: splitscreenRef },
-                    { label: 'Hook', icon: <MessageSquare className="h-3.5 w-3.5" />, ref: hookRef },
-                    { label: 'Tags', icon: <AtSign className="h-3.5 w-3.5" />, ref: tagsRef },
-                    { label: 'Format', icon: <Paintbrush className="h-3.5 w-3.5" />, ref: styleRef },
-                  ] as const).map((item) => (
-                    <button
-                      key={item.label}
-                      onClick={() => scrollToSection(item.ref)}
-                      className="flex items-center justify-center gap-1.5 px-2 py-2 rounded-lg text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
-                    >
-                      {item.icon}
-                      {item.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="space-y-6">
-                {/* ─── Captions Section ─── */}
-                <div ref={captionsRef} className="scroll-mt-16">
-                  <Card className="bg-card/60 border-border">
-                    <CardHeader className="pb-3">
-                      <CardTitle className="text-base">Sous-titres karaoké</CardTitle>
-                    </CardHeader>
-                    {scores && (
-                      <CardContent className="space-y-5">
-                        <div className="space-y-2">
-                          <Label className="text-xs uppercase tracking-wider text-muted-foreground">Style</Label>
-                          <div className="grid grid-cols-3 gap-2">
-                            {CAPTION_STYLES.map((style) => {
-                              const scored = scores.captionScores.find((s) => s.id === style.id)!
-                              return (
-                                <button
-                                  key={style.id}
-                                  onClick={() => {
-                                    updateSetting('captionStyle', style.id)
-                                    updateSetting('captionsEnabled', style.id !== 'none')
-                                  }}
-                                  className={cn(
-                                    'relative rounded-xl border p-3 text-left transition-all',
-                                    settings.captionStyle === style.id
-                                      ? 'border-primary bg-primary/10 ring-1 ring-primary/30'
-                                      : scored.isBest
-                                      ? 'border-orange-500/40 bg-orange-500/5 hover:bg-orange-500/10'
-                                      : 'border-border hover:border-primary/40'
-                                  )}
-                                >
-                                  <div className="flex items-center justify-between mb-1">
-                                    <span className={cn('text-xs block', style.preview, scored.isBest && 'drop-shadow-[0_0_6px_rgba(249,115,22,0.4)]')}>Aa</span>
-                                    <ScoreBadge score={scored.score} isBest={scored.isBest} />
-                                  </div>
-                                  <span className={cn('text-[10px] block', scored.isBest ? 'text-orange-400 font-bold' : 'text-muted-foreground')}>
-                                    {style.label}
-                                  </span>
-                                </button>
-                              )
-                            })}
-                          </div>
-                        </div>
-
-                        {settings.captionStyle !== 'none' && <>
-                        <div className="space-y-2">
-                          <Label className="text-xs uppercase tracking-wider text-muted-foreground">Animation</Label>
-                          <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
-                            {CAPTION_ANIMATIONS.map((anim) => {
-                              const scored = scores.animScores.find((s) => s.id === anim.id)!
-                              return (
-                                <button
-                                  key={anim.id}
-                                  onClick={() => updateSetting('captionAnimation', anim.id)}
-                                  className={cn(
-                                    'relative rounded-xl border px-3 py-2.5 text-center transition-all',
-                                    settings.captionAnimation === anim.id
-                                      ? 'border-primary bg-primary/10 ring-1 ring-primary/30'
-                                      : scored.isBest
-                                      ? 'border-orange-500/40 bg-orange-500/5 hover:bg-orange-500/10'
-                                      : 'border-border hover:border-primary/40'
-                                  )}
-                                >
-                                  <span className={cn('text-[10px] font-medium block', scored.isBest ? 'text-orange-400 font-bold' : 'text-foreground')}>{anim.label}</span>
-                                  <ScoreBadge score={scored.score} isBest={scored.isBest} />
-                                </button>
-                              )
-                            })}
-                          </div>
-                        </div>
-
-                        <div className="space-y-2">
-                          <Label className="text-xs uppercase tracking-wider text-muted-foreground">Position</Label>
-                          <div className="grid grid-cols-3 gap-2">
-                            {([['top', 'Haut'], ['middle', 'Milieu'], ['bottom', 'Bas']] as const).map(([pos, label]) => (
-                              <button
-                                key={pos}
-                                onClick={() => updateSetting('captionPosition', pos)}
-                                className={cn(
-                                  'rounded-xl border px-3 py-2 text-center text-xs font-medium transition-all',
-                                  settings.captionPosition === pos
-                                    ? 'border-primary bg-primary/10 ring-1 ring-primary/30 text-foreground'
-                                    : 'border-border hover:border-primary/40 text-muted-foreground'
-                                )}
-                              >
-                                {label}
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                        </>}
-                      </CardContent>
-                    )}
-                  </Card>
-                </div>
-
-                {/* ─── Split-Screen Section ─── */}
-                <div ref={splitscreenRef} className="scroll-mt-16">
-                  <Card className="bg-card/60 border-border">
-                    <CardHeader className="pb-3">
-                      <CardTitle className="text-base">Split-Screen</CardTitle>
-                    </CardHeader>
-                    {scores && (
-                      <CardContent className="space-y-5">
-                        <div className="space-y-2">
-                          <Label className="text-xs uppercase tracking-wider text-muted-foreground">Vidéo B-roll</Label>
-                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                            {BROLL_OPTIONS.map((broll) => {
-                              const scored = scores.brollScores.find((s) => s.id === broll.id)!
-                              return (
-                                <button
-                                  key={broll.id}
-                                  onClick={() => {
-                                    updateSetting('brollVideo', broll.id)
-                                    updateSetting('splitScreenEnabled', broll.id !== 'none')
-                                  }}
-                                  className={cn(
-                                    'relative rounded-xl border p-3 transition-all',
-                                    settings.brollVideo === broll.id
-                                      ? 'border-primary bg-primary/10 ring-1 ring-primary/30'
-                                      : scored.isBest
-                                      ? 'border-orange-500/40 bg-orange-500/5 hover:bg-orange-500/10'
-                                      : 'border-border hover:border-primary/40'
-                                  )}
-                                >
-                                  <div className={`w-full h-8 rounded-lg bg-gradient-to-r ${broll.color} mb-1.5`} />
-                                  <div className="flex items-center justify-between">
-                                    <span className={cn('text-[10px]', scored.isBest ? 'text-orange-400 font-bold' : 'text-muted-foreground')}>{broll.label}</span>
-                                    <ScoreBadge score={scored.score} isBest={scored.isBest} />
-                                  </div>
-                                </button>
-                              )
-                            })}
-                          </div>
-                        </div>
-
-                        {settings.brollVideo !== 'none' && (
-                        <div className="space-y-2">
-                          <div className="flex items-center justify-between">
-                            <Label className="text-xs uppercase tracking-wider text-muted-foreground">Ratio stream / B-roll</Label>
-                            <span className="text-sm font-semibold text-foreground">{settings.splitRatio}% / {100 - settings.splitRatio}%</span>
-                          </div>
-                          <Slider
-                            value={[settings.splitRatio]}
-                            onValueChange={([v]) => updateSetting('splitRatio', v)}
-                            min={40}
-                            max={80}
-                            step={5}
-                            className="accent-orange-500 [&::-webkit-slider-thumb]:bg-orange-500 [&::-webkit-slider-thumb]:border-orange-400 [&::-webkit-slider-thumb]:w-5 [&::-webkit-slider-thumb]:h-5 [&::-webkit-slider-thumb]:shadow-lg [&::-webkit-slider-thumb]:shadow-orange-500/30 [&::-moz-range-thumb]:bg-orange-500 [&::-moz-range-thumb]:border-orange-400 [&::-moz-range-thumb]:w-5 [&::-moz-range-thumb]:h-5 h-2 bg-orange-500/20"
-                          />
-                        </div>
-                        )}
-                      </CardContent>
-                    )}
-                  </Card>
-                </div>
-
-                {/* ─── Hook / Intro Section ─── */}
-                <div ref={hookRef} className="scroll-mt-16">
-                  <Card className="bg-card/60 border-border">
-                    <CardHeader className="pb-3">
-                      <CardTitle className="text-base flex items-center gap-2">
-                        <MessageSquare className="h-4 w-4 text-amber-400" />
-                        Hook / Intro
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                      <p className="text-xs text-muted-foreground">Texte accrocheur affiché dans les 2 premières secondes pour capter l&apos;attention.</p>
-                      <div className="grid grid-cols-2 gap-2">
-                        {HOOK_PRESETS.map((hook) => (
-                          <button
-                            key={hook.id}
-                            onClick={() => {
-                              updateSetting('hookText', hook.text)
-                              updateSetting('hookEnabled', hook.id !== 'none')
-                            }}
-                            className={cn(
-                              'relative rounded-xl border p-3 text-left transition-all',
-                              settings.hookText === hook.text
-                                ? 'border-amber-500/50 bg-amber-500/10 ring-1 ring-amber-500/30'
-                                : 'border-border hover:border-amber-500/30'
-                            )}
-                          >
-                            <div className="flex items-center justify-between mb-1">
-                              <span className="text-base">{hook.emoji}</span>
-                              {hook.score > 0 && (
-                                <span className={cn(
-                                  'text-[10px] font-bold rounded-full px-1.5 py-0.5',
-                                  settings.hookText === hook.text ? 'bg-amber-500/20 text-amber-400' : 'bg-muted/50 text-muted-foreground'
-                                )}>+{hook.score}</span>
-                              )}
-                            </div>
-                            <span className={cn(
-                              'text-[10px] font-semibold block',
-                              settings.hookText === hook.text ? 'text-amber-400' : 'text-foreground'
-                            )}>{hook.text}</span>
-                          </button>
-                        ))}
-                      </div>
-                    </CardContent>
-                  </Card>
-                </div>
-
-                {/* ─── Tags Section ─── */}
-                <div ref={tagsRef} className="scroll-mt-16">
-                  <Card className="bg-card/60 border-border">
-                    <CardHeader className="pb-3">
-                      <CardTitle className="text-base">Tag du streamer</CardTitle>
-                    </CardHeader>
-                    {scores && (
-                      <CardContent className="space-y-5">
-                        <div className="space-y-2">
-                          <Label className="text-xs uppercase tracking-wider text-muted-foreground">Style du tag</Label>
-                          <div className="grid grid-cols-2 gap-2">
-                            {TAG_STYLES.map((tag) => {
-                              const scored = scores.tagScores.find((s) => s.id === tag.id)!
-                              return (
-                                <button
-                                  key={tag.id}
-                                  onClick={() => updateSetting('tagStyle', tag.id)}
-                                  className={cn(
-                                    'relative rounded-xl border p-3 text-left transition-all group',
-                                    settings.tagStyle === tag.id
-                                      ? 'border-purple-500/60 bg-purple-500/10 ring-1 ring-purple-500/30'
-                                      : scored.isBest
-                                      ? 'border-orange-500/40 bg-orange-500/5 hover:bg-orange-500/10'
-                                      : 'border-border hover:border-purple-500/40'
-                                  )}
-                                >
-                                  <div className="flex items-center gap-2.5 mb-1.5">
-                                    {tag.icon === 'twitch' ? (
-                                      <div className="w-7 h-7 rounded-lg bg-[#9146FF]/20 flex items-center justify-center">
-                                        <svg className="w-4 h-4 text-[#9146FF]" viewBox="0 0 24 24" fill="currentColor"><path d="M11.571 4.714h1.715v5.143H11.57zm4.715 0H18v5.143h-1.714zM6 0L1.714 4.286v15.428h5.143V24l4.286-4.286h3.428L22.286 12V0zm14.571 11.143l-3.428 3.428h-3.429l-3 3v-3H6.857V1.714h13.714z"/></svg>
-                                      </div>
-                                    ) : (
-                                      <div className={cn(
-                                        'w-7 h-7 rounded-lg flex items-center justify-center text-sm',
-                                        tag.id === 'badge-top' ? 'bg-blue-500/15' : tag.id === 'watermark-center' ? 'bg-cyan-500/15' : 'bg-muted/50'
-                                      )}>
-                                        {tag.icon}
-                                      </div>
-                                    )}
-                                    <div className="flex-1 min-w-0">
-                                      <div className="flex items-center justify-between">
-                                        <span className={cn('text-xs font-semibold', scored.isBest ? 'text-orange-400' : 'text-foreground')}>{tag.label}</span>
-                                        <ScoreBadge score={scored.score} isBest={scored.isBest} />
-                                      </div>
-                                      <span className="text-[10px] text-muted-foreground block">{tag.description}</span>
-                                    </div>
-                                  </div>
-                                </button>
-                              )
-                            })}
-                          </div>
-                        </div>
-                      </CardContent>
-                    )}
-                  </Card>
-                </div>
-
-                {/* ─── Format / Platform Section ─── */}
-                <div ref={styleRef} className="scroll-mt-16">
-                  <Card className="bg-card/60 border-border">
-                    <CardHeader className="pb-3">
-                      <CardTitle className="text-base flex items-center gap-2">
-                        <Target className="h-4 w-4 text-blue-400" />
-                        Plateforme & Format
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                      {/* Platform presets */}
-                      <div className="space-y-2">
-                        <Label className="text-xs uppercase tracking-wider text-muted-foreground">Optimiser pour</Label>
-                        <div className="grid grid-cols-3 gap-2">
-                          {Object.entries(PLATFORM_PRESETS).map(([key, preset]) => (
-                            <button
-                              key={key}
-                              onClick={() => applyPlatformPreset(key as 'tiktok' | 'reels' | 'shorts')}
-                              className={cn(
-                                'rounded-xl border p-3 text-center transition-all',
-                                settings.platform === key
-                                  ? 'border-blue-500/50 bg-blue-500/10 ring-1 ring-blue-500/30'
-                                  : 'border-border hover:border-blue-500/30'
-                              )}
-                            >
-                              <span className="text-lg block mb-1">{preset.icon}</span>
-                              <span className={cn('text-xs font-semibold', settings.platform === key ? 'text-blue-400' : 'text-foreground')}>
-                                {preset.label}
-                              </span>
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-
-                      {/* Format manual */}
-                      <div className="space-y-2">
-                        <Label className="text-xs uppercase tracking-wider text-muted-foreground">Format</Label>
-                        <div className="grid grid-cols-3 gap-2">
-                          {(['9:16', '1:1', '16:9'] as const).map((ratio) => (
-                            <button
-                              key={ratio}
-                              onClick={() => updateSetting('aspectRatio', ratio)}
-                              className={cn(
-                                'rounded-xl border p-3 text-center transition-all',
-                                settings.aspectRatio === ratio
-                                  ? 'border-primary bg-primary/10 ring-1 ring-primary/30'
-                                  : 'border-border hover:border-primary/40'
-                              )}
-                            >
-                              <span className="text-sm font-semibold text-foreground">{ratio}</span>
-                              <span className="text-[10px] text-muted-foreground block mt-0.5">
-                                {ratio === '9:16' ? 'TikTok / Reels' : ratio === '1:1' ? 'Instagram' : 'YouTube'}
-                              </span>
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </div>
-              </div>
-            </>
           )}
         </div>
       </div>

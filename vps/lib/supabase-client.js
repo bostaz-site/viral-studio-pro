@@ -408,6 +408,33 @@ export async function createViralScore(clipId, scoreData) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Brand Template Functions
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Get user's default brand template
+ */
+export async function getDefaultBrandTemplate(userId) {
+  const { data, error } = await supabase
+    .from('brand_templates')
+    .select('id, logo_path, watermark_path, intro_video_path, outro_video_path')
+    .eq('user_id', userId)
+    .eq('is_default', true)
+    .limit(1)
+    .single();
+
+  if (error) {
+    if (error.code === 'PGRST116') {
+      return null;
+    }
+    console.error(`Failed to fetch brand template: ${error.message}`);
+    return null;
+  }
+
+  return data;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Health Check
 // ─────────────────────────────────────────────────────────────────────────────
 

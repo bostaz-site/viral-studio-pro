@@ -125,6 +125,7 @@ export const POST = withAuth(async (request, user) => {
       duration_seconds: end_time - start_time,
       aspect_ratio: aspect_ratio ?? '9:16',
       status: 'pending',
+      is_remake: false,
     })
     .select()
     .single()

@@ -1,0 +1,460 @@
+{
+  "name": "The Speaker — Distribution Multi-Plateforme",
+  "nodes": [
+    {
+      "id": "trigger-schedule",
+      "name": "Every 5 Minutes",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [240, 300],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 5
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "supabase-get-scheduled",
+      "name": "Get Scheduled Publications",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [460, 300],
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "publications",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "status",
+              "condition": "eq",
+              "keyValue": "scheduled"
+            },
+            {
+              "keyName": "scheduled_at",
+              "condition": "lte",
+              "keyValue": "={{ new Date().toISOString() }}"
+            }
+          ]
+        },
+        "returnAll": true
+      },
+      "credentials": {
+        "supabaseApi": {
+          "id": "supabase-credentials",
+          "name": "Supabase API"
+        }
+      }
+    },
+    {
+      "id": "if-has-publications",
+      "name": "Has Publications?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [680, 300],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "check-count",
+              "leftValue": "={{ $json.length }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      }
+    },
+    {
+      "id": "split-in-batches",
+      "name": "Process Each Publication",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [900, 220],
+      "parameters": {
+        "batchSize": 1,
+        "options": {}
+      }
+    },
+    {
+      "id": "update-status-publishing",
+      "name": "Set Status: publishing",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [1120, 220],
+      "parameters": {
+        "operation": "update",
+        "tableId": "publications",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $json.id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "status",
+              "fieldValue": "publishing"
+            }
+          ]
+        }
+      },
+      "credentials": {
+        "supabaseApi": {
+          "id": "supabase-credentials",
+          "name": "Supabase API"
+        }
+      }
+    },
+    {
+      "id": "get-clip-url",
+      "name": "Get Clip Storage URL",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [1340, 220],
+      "parameters": {
+        "operation": "get",
+        "tableId": "clips",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $json.clip_id }}"
+            }
+          ]
+        }
+      },
+      "credentials": {
+        "supabaseApi": {
+          "id": "supabase-credentials",
+          "name": "Supabase API"
+        }
+      }
+    },
+    {
+      "id": "get-social-account",
+      "name": "Get Social Account Tokens",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [1560, 220],
+      "parameters": {
+        "operation": "get",
+        "tableId": "social_accounts",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $('Get Scheduled Publications').item.json.social_account_id }}"
+            }
+          ]
+        }
+      },
+      "credentials": {
+        "supabaseApi": {
+          "id": "supabase-credentials",
+          "name": "Supabase API"
+        }
+      }
+    },
+    {
+      "id": "switch-platform",
+      "name": "Switch by Platform",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [1780, 220],
+      "parameters": {
+        "mode": "rules",
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "conditions": [
+                  {
+                    "leftValue": "={{ $('Get Scheduled Publications').item.json.platform }}",
+                    "rightValue": "tiktok",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "TikTok"
+            },
+            {
+              "conditions": {
+                "conditions": [
+                  {
+                    "leftValue": "={{ $('Get Scheduled Publications').item.json.platform }}",
+                    "rightValue": "instagram",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Instagram"
+            },
+            {
+              "conditions": {
+                "conditions": [
+                  {
+                    "leftValue": "={{ $('Get Scheduled Publications').item.json.platform }}",
+                    "rightValue": "youtube",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "YouTube"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "publish-tiktok",
+      "name": "Publish to TikTok",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2000, 80],
+      "parameters": {
+        "method": "POST",
+        "url": "https://open.tiktokapis.com/v2/post/publish/video/init/",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $('Get Social Account Tokens').item.json.access_token }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "body": {
+          "post_info": {
+            "title": "={{ $('Get Scheduled Publications').item.json.caption.slice(0, 150) }}",
+            "privacy_level": "PUBLIC_TO_EVERYONE",
+            "disable_duet": false,
+            "disable_comment": false,
+            "disable_stitch": false
+          },
+          "source_info": {
+            "source": "PULL_FROM_URL",
+            "video_url": "={{ $env.NEXT_PUBLIC_SUPABASE_URL }}/storage/v1/object/public/clips/{{ $('Get Clip Storage URL').item.json.storage_path }}"
+          }
+        }
+      }
+    },
+    {
+      "id": "publish-instagram",
+      "name": "Create Instagram Container",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2000, 240],
+      "parameters": {
+        "method": "POST",
+        "url": "=https://graph.instagram.com/v18.0/{{ $('Get Social Account Tokens').item.json.platform_user_id }}/media",
+        "sendBody": true,
+        "contentType": "json",
+        "body": {
+          "media_type": "REELS",
+          "video_url": "={{ $env.NEXT_PUBLIC_SUPABASE_URL }}/storage/v1/object/public/clips/{{ $('Get Clip Storage URL').item.json.storage_path }}",
+          "caption": "={{ $('Get Scheduled Publications').item.json.caption }}",
+          "share_to_feed": true,
+          "access_token": "={{ $('Get Social Account Tokens').item.json.access_token }}"
+        }
+      }
+    },
+    {
+      "id": "publish-youtube",
+      "name": "Call Publish API (YouTube)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2000, 400],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.NEXT_PUBLIC_APP_URL }}/api/publish",
+        "sendBody": true,
+        "contentType": "json",
+        "body": {
+          "clip_id": "={{ $('Get Scheduled Publications').item.json.clip_id }}",
+          "platforms": ["youtube"],
+          "captions": {
+            "youtube": {
+              "caption": "={{ $('Get Scheduled Publications').item.json.caption }}",
+              "hashtags": "={{ $('Get Scheduled Publications').item.json.hashtags }}"
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "merge-results",
+      "name": "Merge Platform Results",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [2240, 240],
+      "parameters": {
+        "mode": "append",
+        "options": {}
+      }
+    },
+    {
+      "id": "update-status-published",
+      "name": "Set Status: published",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [2460, 240],
+      "parameters": {
+        "operation": "update",
+        "tableId": "publications",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $('Get Scheduled Publications').item.json.id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "status",
+              "fieldValue": "published"
+            },
+            {
+              "fieldId": "published_at",
+              "fieldValue": "={{ new Date().toISOString() }}"
+            },
+            {
+              "fieldId": "platform_post_id",
+              "fieldValue": "={{ $json?.data?.publish_id || $json?.id || '' }}"
+            }
+          ]
+        }
+      },
+      "credentials": {
+        "supabaseApi": {
+          "id": "supabase-credentials",
+          "name": "Supabase API"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Every 5 Minutes": {
+      "main": [
+        [{ "node": "Get Scheduled Publications", "type": "main", "index": 0 }]
+      ]
+    },
+    "Get Scheduled Publications": {
+      "main": [
+        [{ "node": "Has Publications?", "type": "main", "index": 0 }]
+      ]
+    },
+    "Has Publications?": {
+      "main": [
+        [{ "node": "Process Each Publication", "type": "main", "index": 0 }],
+        []
+      ]
+    },
+    "Process Each Publication": {
+      "main": [
+        [{ "node": "Set Status: publishing", "type": "main", "index": 0 }]
+      ]
+    },
+    "Set Status: publishing": {
+      "main": [
+        [{ "node": "Get Clip Storage URL", "type": "main", "index": 0 }]
+      ]
+    },
+    "Get Clip Storage URL": {
+      "main": [
+        [{ "node": "Get Social Account Tokens", "type": "main", "index": 0 }]
+      ]
+    },
+    "Get Social Account Tokens": {
+      "main": [
+        [{ "node": "Switch by Platform", "type": "main", "index": 0 }]
+      ]
+    },
+    "Switch by Platform": {
+      "main": [
+        [{ "node": "Publish to TikTok", "type": "main", "index": 0 }],
+        [{ "node": "Create Instagram Container", "type": "main", "index": 0 }],
+        [{ "node": "Call Publish API (YouTube)", "type": "main", "index": 0 }]
+      ]
+    },
+    "Publish to TikTok": {
+      "main": [
+        [{ "node": "Merge Platform Results", "type": "main", "index": 0 }]
+      ]
+    },
+    "Create Instagram Container": {
+      "main": [
+        [{ "node": "Merge Platform Results", "type": "main", "index": 1 }]
+      ]
+    },
+    "Call Publish API (YouTube)": {
+      "main": [
+        [{ "node": "Merge Platform Results", "type": "main", "index": 2 }]
+      ]
+    },
+    "Merge Platform Results": {
+      "main": [
+        [{ "node": "Set Status: published", "type": "main", "index": 0 }]
+      ]
+    },
+    "Set Status: published": {
+      "main": [
+        [{ "node": "Process Each Publication", "type": "main", "index": 0 }]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner",
+    "errorWorkflow": ""
+  },
+  "staticData": null,
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "viral-studio-pro"
+  },
+  "tags": ["distribution", "social-media", "sprint-5"]
+}

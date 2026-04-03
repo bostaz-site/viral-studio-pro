@@ -67,6 +67,7 @@ function useCountUp(target: number, duration = 1500) {
 
 // ─── Hero Demo (shared animation) ───────────────────────────────────────────
 
+import { ClipTransformAnimation } from '@/components/shared/clip-transform-animation'
 
 // ─── (URL input removed — flow is Browse → Enhance → Post) ─────────────────
 
@@ -177,7 +178,7 @@ export function HeroSection() {
                   <ArrowRight className="h-4 w-4" />
                 </Button>
               </Link>
-              <Link href="/signup">
+              <Link href="/blog/creer-clips-viraux-twitch-guide-2026">
                 <Button variant="ghost" size="lg" className="h-12 px-6 text-base text-muted-foreground hover:text-foreground gap-2">
                   <Play className="h-4 w-4" />
                   Voir comment &ccedil;a marche
@@ -194,8 +195,10 @@ export function HeroSection() {
             </p>
           </div>
 
-          {/* Spacer */}
-          <div className="mt-14" />
+          {/* Clip transformation demo */}
+          <div className="mt-14">
+            <ClipTransformAnimation />
+          </div>
 
           {/* Pain point */}
           <p className="text-sm text-muted-foreground/70 mt-10 italic max-w-lg mx-auto text-center">

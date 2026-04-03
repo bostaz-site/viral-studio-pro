@@ -32,6 +32,8 @@ const inputSchema = z.object({
   }).optional(),
 })
 
+// ── Route handler — Proxy to VPS Render API ──────────────────────────────────
+
 export const POST = withAuth(async (request, user) => {
   let body: unknown
   try {
@@ -129,7 +131,28 @@ export const POST = withAuth(async (request, user) => {
     wordTimestamps = (transcription?.word_timestamps as unknown[] | null) ?? []
   }
 
+  // ── Create render job for tracking ──
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: job, error: jobError } = await (admin as any)
+    .from('render_jobs')
+    .insert({
+      clip_id,
+      source: foundSource,
+      user_id: user.id,
+      status: 'pending',
+    })
+    .select('id')
+    .single() as { data: { id: string } | null; error: unknown }
+
+  if (jobError || !job) {
+    return NextResponse.json(
+      { data: null, error: 'Job creation failed', message: 'Impossible de lancer le rendu' },
+      { status: 500 }
+    )
+  }
+
   const renderPayload = {
+    jobId: job.id,
     videoUrl,
     clipId: clip_id,
     source: foundSource,
@@ -159,7 +182,7 @@ export const POST = withAuth(async (request, user) => {
   })
 
   return NextResponse.json({
-    data: { clip_id, rendered: false, source: foundSource, vpsReady: true, originalUrl: videoUrl },
+    data: { clip_id, jobId: job.id, rendered: false, source: foundSource, vpsReady: true, originalUrl: videoUrl },
     error: null,
     message: 'Rendu lancé — le clip sera prêt dans quelques secondes',
   })

@@ -14,6 +14,8 @@ type ProfileRow = {
   avatar_url: string | null
   plan: string | null
   monthly_videos_used: number | null
+  monthly_processing_minutes_used: number | null
+  stripe_customer_id: string | null
   created_at: string | null
   updated_at: string | null
 }
@@ -60,6 +62,8 @@ type ClipRow = {
   caption_template: string | null
   aspect_ratio: string | null
   status: string | null
+  is_remake: boolean | null
+  parent_clip_id: string | null
   created_at: string | null
   updated_at: string | null
 }
@@ -95,6 +99,53 @@ type TrendingClipRow = {
   created_at: string | null
 }
 
+type SocialAccountRow = {
+  id: string
+  user_id: string | null
+  platform: string
+  platform_user_id: string | null
+  access_token: string | null
+  refresh_token: string | null
+  token_expires_at: string | null
+  username: string | null
+  connected_at: string | null
+}
+
+type PublicationRow = {
+  id: string
+  clip_id: string | null
+  social_account_id: string | null
+  platform: string
+  platform_post_id: string | null
+  caption: string | null
+  hashtags: string[] | null
+  scheduled_at: string | null
+  published_at: string | null
+  status: string | null
+  tracking_url: string | null
+  created_at: string | null
+}
+
+type BrandTemplateRow = {
+  id: string
+  user_id: string | null
+  name: string
+  logo_path: string | null
+  primary_color: string | null
+  secondary_color: string | null
+  font_family: string | null
+  intro_video_path: string | null
+  outro_video_path: string | null
+  watermark_path: string | null
+  is_default: boolean | null
+  created_at: string | null
+}
+
+type StripeEventRow = {
+  event_id: string
+  event_type: string
+  processed_at: string | null
+}
 
 export interface Database {
   public: {
@@ -135,12 +186,51 @@ export interface Database {
         Update: Partial<TrendingClipRow>
         Relationships: []
       }
+      social_accounts: {
+        Row: SocialAccountRow
+        Insert: Partial<SocialAccountRow> & { platform: string }
+        Update: Partial<SocialAccountRow>
+        Relationships: []
+      }
+      publications: {
+        Row: PublicationRow
+        Insert: Partial<PublicationRow> & { platform: string }
+        Update: Partial<PublicationRow>
+        Relationships: []
+      }
+      brand_templates: {
+        Row: BrandTemplateRow
+        Insert: Partial<BrandTemplateRow> & { name: string }
+        Update: Partial<BrandTemplateRow>
+        Relationships: []
+      }
+      stripe_events: {
+        Row: StripeEventRow
+        Insert: Partial<StripeEventRow> & { event_id: string; event_type: string }
+        Update: Partial<StripeEventRow>
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      increment_video_usage: {
+        Args: { p_user_id: string; p_max_videos: number }
+        Returns: boolean
+      }
+      decrement_video_usage: {
+        Args: { p_user_id: string }
+        Returns: boolean
+      }
+      check_rate_limit: {
+        Args: { p_identifier: string; p_limit: number; p_window_ms: number }
+        Returns: boolean
+      }
+      cleanup_rate_limit_log: {
+        Args: Record<string, never>
+        Returns: void
+      }
     }
     Enums: {
       [_ in never]: never

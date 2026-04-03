@@ -9,6 +9,7 @@ import { dirname } from 'path';
 // Import route handlers
 import renderRouter from './routes/render.js';
 import healthRouter from './routes/health.js';
+import downloadRouter from './routes/download.js';
 
 // Setup
 const __filename = fileURLToPath(import.meta.url);
@@ -92,6 +93,9 @@ app.use('/api/health', healthRouter);
 // Render endpoint (requires auth)
 app.use('/api/render', authenticateApiKey, renderRouter);
 
+// Download endpoint (requires auth)
+app.use('/api/download', authenticateApiKey, downloadRouter);
+
 // Root endpoint
 app.get('/', (req, res) => {
   res.json({
@@ -101,6 +105,7 @@ app.get('/', (req, res) => {
     endpoints: {
       health: 'GET /api/health',
       render: 'POST /api/render',
+      download: 'POST /api/download',
     },
   });
 });

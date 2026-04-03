@@ -1,4 +1,5 @@
 import type { CaptionStyle } from '@/components/captions/caption-templates'
+import { insertAutoEmojisWithPhrases } from '@/lib/captions/auto-emojis'
 
 export interface WordTimestamp {
   word: string
@@ -32,7 +33,8 @@ export function generateKaraokeAss(
   wordsPerLine = 6,
   autoEmojis = true
 ): string {
-  const processedWords = words
+  // Apply auto-emoji insertion if enabled
+  const processedWords = autoEmojis ? insertAutoEmojisWithPhrases(words) : words
   const { ffmpegStyle } = style
 
   const header = `[Script Info]

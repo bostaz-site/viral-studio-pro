@@ -1,21 +1,10 @@
 import express from 'express';
 import { checkFfmpegAvailability } from '../lib/ffmpeg-render.js';
+import { checkYtdlpAvailability } from '../lib/yt-dlp-wrapper.js';
 import { checkSupabaseHealth } from '../lib/supabase-client.js';
-import { exec } from 'child_process';
-import { promisify } from 'util';
 
-const execAsync = promisify(exec);
 const router = express.Router();
 const startTime = Date.now();
-
-async function checkYtdlpAvailability() {
-  try {
-    await execAsync('yt-dlp --version');
-    return { available: true, error: null };
-  } catch {
-    return { available: false, error: 'yt-dlp not installed' };
-  }
-}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // GET /api/health — Health check endpoint

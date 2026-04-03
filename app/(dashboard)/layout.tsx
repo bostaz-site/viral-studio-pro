@@ -2,9 +2,10 @@
 
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { Settings, Menu, X, LogOut, Upload, Zap, Compass, Wand2 } from 'lucide-react'
+import { Share, Settings, Menu, X, LogOut, Upload, Zap, Compass, Wand2 } from 'lucide-react'
 import { useUiStore } from '@/stores/ui-store'
 import { Button } from '@/components/ui/button'
+import { NotificationBell } from '@/components/trending/notification-bell'
 import { createClient } from '@/lib/supabase/client'
 import { useEffect, useState } from 'react'
 import type { User } from '@supabase/supabase-js'
@@ -49,7 +50,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const navigation = [
     { name: 'Browse', href: '/dashboard', icon: Compass },
     { name: 'Enhance', href: '/dashboard/enhance', icon: Wand2 },
-    { name: 'Paramètres', href: '/dashboard/settings', icon: Settings },
+    { name: 'Publier', href: '/publish', icon: Share },
+    { name: 'Paramètres', href: '/settings', icon: Settings },
   ]
 
   const planLimits: Record<string, number> = { free: 3, pro: 50, studio: 999 }
@@ -82,14 +84,17 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               </span>
             )}
           </Link>
-          <Button variant="ghost" size="icon" className="md:hidden" onClick={() => setSidebarOpen(false)}>
-            <X className="h-5 w-5" />
-          </Button>
+          <div className="flex items-center gap-1">
+            <NotificationBell />
+            <Button variant="ghost" size="icon" className="md:hidden" onClick={() => setSidebarOpen(false)}>
+              <X className="h-5 w-5" />
+            </Button>
+          </div>
         </div>
 
         {/* Quick action — secondary upload */}
         <div className="px-4 pt-4">
-          <Link href="/dashboard">
+          <Link href="/create">
             <Button variant="outline" className="w-full border-dashed border-border hover:border-primary/40 text-muted-foreground hover:text-foreground font-medium gap-2 h-9 text-sm">
               <Upload className="h-3.5 w-3.5" />
               Importer ma vidéo
@@ -129,7 +134,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               />
             </div>
             {currentPlan === 'free' && (
-              <Link href="/dashboard/settings" className="flex items-center gap-1.5 text-xs text-amber-400 hover:text-amber-300 transition-colors font-medium">
+              <Link href="/settings" className="flex items-center gap-1.5 text-xs text-amber-400 hover:text-amber-300 transition-colors font-medium">
                 <Zap className="h-3 w-3" />
                 Passer à Pro — vidéos illimitées
               </Link>

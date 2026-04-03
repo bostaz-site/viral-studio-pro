@@ -1,13 +1,25 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { rateLimit } from '@/lib/rate-limit'
 import { fetchAndUpsertTwitchClips } from '@/lib/twitch/fetch-clips'
 import { withAuth } from '@/lib/api/withAuth'
 
 /**
  * POST /api/streams/refresh
+ *
  * User-triggered refresh of Twitch clips.
+ * Rate limited to 1 request per minute per user.
  */
-export const POST = withAuth(async (_req, _user) => {
+export const POST = withAuth(async (req, user) => {
+  // Rate limit: 1 per minute per user
+  const rl = rateLimit(`streams-refresh:${user.id}`, 1, 60_000)
+  if (!rl.allowed) {
+    return NextResponse.json(
+      { data: null, error: 'Rate limited', message: `Réessayez dans ${Math.ceil((rl.retryAfterMs ?? 0) / 1000)}s` },
+      { status: 429 }
+    )
+  }
+
   try {
     const admin = createAdminClient()
     const result = await fetchAndUpsertTwitchClips(admin)

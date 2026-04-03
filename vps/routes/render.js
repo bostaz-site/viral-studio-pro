@@ -20,6 +20,25 @@ import {
   maybeMarkVideoComplete,
   checkSupabaseHealth,
 } from '../lib/supabase-client.js';
+import { createClient } from '@supabase/supabase-js';
+
+// Direct supabase client for render_jobs updates
+const supabase = createClient(
+  process.env.SUPABASE_URL || '',
+  process.env.SUPABASE_SERVICE_ROLE_KEY || ''
+);
+
+async function updateRenderJob(jobId, updates) {
+  if (!jobId) return;
+  try {
+    await supabase
+      .from('render_jobs')
+      .update({ ...updates, updated_at: new Date().toISOString() })
+      .eq('id', jobId);
+  } catch (err) {
+    console.warn(`[RenderJob] Failed to update job ${jobId}:`, err.message);
+  }
+}
 
 const execFileAsync = promisify(execFile);
 const router = express.Router();
@@ -40,7 +59,7 @@ async function ensureDirs() {
 ensureDirs();
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Download Twitch clip via yt-dlp or direct fetch
+// Download clip via yt-dlp or direct fetch (for trending clips)
 // ─────────────────────────────────────────────────────────────────────────────
 
 async function downloadFromUrl(url, outputPath) {
@@ -87,6 +106,7 @@ router.post('/', async (req, res) => {
 
   try {
     const {
+      jobId,
       clipId: reqClipId,
       videoUrl,
       source = 'clips',
@@ -105,7 +125,10 @@ router.post('/', async (req, res) => {
     }
 
     clipId = reqClipId;
-    console.log(`[Render ${renderSessionId}] Starting render for ${source} clip ${clipId}`);
+    console.log(`[Render ${renderSessionId}] Starting render for ${source} clip ${clipId} (job: ${jobId || 'none'})`);
+
+    // Mark job as rendering
+    await updateRenderJob(jobId, { status: 'rendering' });
 
     // Check FFmpeg availability
     const ffmpegStatus = await checkFfmpegAvailability();
@@ -305,6 +328,13 @@ router.post('/', async (req, res) => {
     const elapsedSeconds = (Date.now() - startTime) / 1000;
     console.log(`[Render ${renderSessionId}] Render completed in ${elapsedSeconds.toFixed(1)}s`);
 
+    // Mark render job as done
+    await updateRenderJob(req.body.jobId, {
+      status: 'done',
+      storage_path: clipStoragePath,
+      clip_url: uploadResult.url,
+    });
+
     res.json({
       success: true,
       data: {
@@ -319,6 +349,12 @@ router.post('/', async (req, res) => {
     });
   } catch (err) {
     console.error(`[Render ${renderSessionId}] Error:`, err.message);
+
+    // Mark render job as error
+    await updateRenderJob(req.body.jobId, {
+      status: 'error',
+      error_message: err.message || 'Unknown error',
+    });
 
     // Mark clip as error (only for user clips)
     if (clipId && req.body.source !== 'trending') {

@@ -2,9 +2,10 @@
 
 import { useState, useRef, useCallback } from 'react'
 import Link from 'next/link'
-import { Eye, Heart, ExternalLink, Zap, Crown, Lock, TrendingUp } from 'lucide-react'
+import { Eye, Heart, ExternalLink, Clapperboard, Play, Crown, Lock } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
+import { VelocityBadge } from '@/components/trending/velocity-badge'
 import { cn } from '@/lib/utils'
 
 export interface TrendingClip {
@@ -20,7 +21,6 @@ export interface TrendingClip {
   like_count: number | null
   velocity_score: number | null
   thumbnail_url: string | null
-  duration_seconds: number | null
   scraped_at: string | null
   created_at: string | null
 }
@@ -30,7 +30,6 @@ interface TrendingCardProps {
   onRemix?: (clip: TrendingClip) => void
   remixing?: boolean
   isPremiumUser?: boolean
-  featured?: boolean
 }
 
 const PREMIUM_THRESHOLD = 85
@@ -48,33 +47,23 @@ const GAME_LABELS: Record<string, string> = {
   irl: 'IRL',
 }
 
+// Gradient colors per streamer for nicer placeholders
 const STREAMER_GRADIENTS: Record<string, string> = {
   kaicenat: 'from-purple-600 via-pink-500 to-red-500',
   ishowspeed: 'from-red-600 via-orange-500 to-yellow-500',
-  mrbeast6000: 'from-blue-600 via-cyan-500 to-teal-500',
+  xqc: 'from-blue-600 via-indigo-500 to-purple-500',
+  hasanabi: 'from-red-700 via-red-500 to-orange-500',
+  jynxzi: 'from-emerald-600 via-teal-500 to-cyan-500',
   adinross: 'from-violet-600 via-purple-500 to-fuchsia-500',
-  duke: 'from-amber-600 via-orange-500 to-red-500',
-  kingclavicular: 'from-emerald-600 via-teal-500 to-cyan-500',
-  marlon: 'from-rose-600 via-pink-500 to-fuchsia-500',
-  lacy: 'from-sky-600 via-blue-500 to-indigo-500',
+  sketch: 'from-sky-600 via-blue-500 to-indigo-500',
+  amouranth: 'from-pink-600 via-rose-500 to-red-500',
+  marlon: 'from-amber-600 via-orange-500 to-red-500',
 }
 
-// ── Viral view count booster ──
-// Amplifies low view counts to give a perception of virality
-function boostViewCount(n: number | null): number {
-  if (n === null) return 0
-  if (n >= 10_000) return n // already high
-  // Boost small numbers: map 0-100 → 5K-50K, 100-1000 → 50K-500K, etc.
-  if (n < 10) return Math.round(5_000 + n * 4_500)
-  if (n < 100) return Math.round(10_000 + n * 800)
-  if (n < 1_000) return Math.round(50_000 + n * 450)
-  return Math.round(n * 50)
-}
-
-export function formatCount(n: number | null): string {
+function formatCount(n: number | null): string {
   if (n === null) return '--'
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`
-  if (n >= 1_000)     return `${(n / 1_000).toFixed(1)}K`
+  if (n >= 1_000)     return `${(n / 1_000).toFixed(0)}K`
   return String(n)
 }
 
@@ -86,120 +75,42 @@ function timeAgo(dateStr: string | null): string {
   return `${Math.floor(diff / 86400)}j`
 }
 
-// ── Viral badge system ──
-export function getViralBadge(clip: TrendingClip): { text: string; emoji: string; color: string } | null {
-  const velocity = clip.velocity_score ?? 0
-  const views = clip.view_count ?? 0
-
-  if (velocity >= 70 || views >= 500) return { text: 'Viral', emoji: '🔥', color: 'from-red-500 to-orange-500' }
-  if (velocity >= 50 || views >= 200) return { text: 'Blowing up', emoji: '📈', color: 'from-orange-500 to-amber-500' }
-  if (velocity >= 30 || views >= 50) return { text: 'High retention', emoji: '⚡', color: 'from-amber-500 to-yellow-500' }
-  return null
-}
-
-// ── Viral title generator ──
-const VIRAL_TITLES: string[] = [
-  'BRO DID NOT EXPECT THIS',
-  'THIS IS ACTUALLY CRAZY',
-  'NO WAY HE JUST DID THAT',
-  'WAIT FOR IT...',
-  'THIS CLIP IS INSANE',
-  'HE BROKE THE INTERNET',
-  'EVERYONE IS TALKING ABOUT THIS',
-  'YOU WON\'T BELIEVE THIS',
-]
-
-export function getViralTitle(clip: TrendingClip): string {
-  const original = clip.title ?? ''
-  // Keep titles that are already good (longer than 15 chars and contain caps/emotion)
-  if (original.length > 15 && (original.includes('!') || original === original.toUpperCase())) {
-    return original
-  }
-  // Replace weak titles with viral ones using a seeded pseudo-random
-  const seed = clip.id.charCodeAt(0) + clip.id.charCodeAt(1) + (clip.view_count ?? 0)
-  return VIRAL_TITLES[seed % VIRAL_TITLES.length]
-}
-
 /**
- * Extract the clip slug from a Twitch clip URL.
+ * Extract Twitch clip embed URL from a Twitch clip URL.
+ * Supports two formats:
+ *   - https://clips.twitch.tv/SLUG
+ *   - https://www.twitch.tv/USERNAME/clip/SLUG  (returned by Helix API)
  */
-function extractClipSlug(externalUrl: string): string | null {
+function getClipEmbedUrl(externalUrl: string, parentDomain: string): string | null {
   try {
     const url = new URL(externalUrl)
+
+    // Format 1: https://clips.twitch.tv/SLUG
     if (url.hostname === 'clips.twitch.tv') {
       const slug = url.pathname.replace('/', '')
-      if (slug && !slug.includes('/')) return slug
+      if (slug && !slug.includes('/')) {
+        return `https://clips.twitch.tv/embed?clip=${slug}&parent=${parentDomain}&autoplay=true&muted=true`
+      }
     }
+
+    // Format 2: https://www.twitch.tv/USERNAME/clip/SLUG (from Helix API)
     if (url.hostname === 'www.twitch.tv' || url.hostname === 'twitch.tv') {
       const match = url.pathname.match(/^\/[^/]+\/clip\/([^/]+)$/)
-      if (match) return match[1]
+      if (match) {
+        return `https://clips.twitch.tv/embed?clip=${match[1]}&parent=${parentDomain}&autoplay=true&muted=true`
+      }
     }
-  } catch { /* invalid URL */ }
+  } catch {
+    // Invalid URL
+  }
   return null
 }
 
-const videoUrlCache = new Map<string, string>()
-const TWITCH_GQL_URL = 'https://gql.twitch.tv/gql'
-const TWITCH_CLIENT_ID = 'kimne78kx3ncx6brgo4mv6wki5h1ko'
-
-async function fetchVideoUrl(slug: string): Promise<string | null> {
-  const cached = videoUrlCache.get(slug)
-  if (cached) return cached
-
-  try {
-    const sanitized = slug.replace(/"/g, '')
-    const res = await fetch(TWITCH_GQL_URL, {
-      method: 'POST',
-      headers: {
-        'Client-ID': TWITCH_CLIENT_ID,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        query: `{
-          clip(slug: "${sanitized}") {
-            playbackAccessToken(params: {platform: "web", playerType: "site"}) {
-              signature
-              value
-            }
-            videoQualities {
-              quality
-              sourceURL
-            }
-          }
-        }`,
-      }),
-    })
-    if (!res.ok) return null
-
-    const data = await res.json()
-    const clip = data?.data?.clip
-    const token = clip?.playbackAccessToken
-    const qualities = clip?.videoQualities
-    if (!token || !qualities || qualities.length === 0) return null
-
-    const best = [...qualities].sort(
-      (a: { quality: string }, b: { quality: string }) =>
-        parseInt(b.quality) - parseInt(a.quality)
-    )[0]
-
-    if (best?.sourceURL) {
-      const authUrl = `${best.sourceURL}?sig=${token.signature}&token=${encodeURIComponent(token.value)}`
-      videoUrlCache.set(slug, authUrl)
-      return authUrl
-    }
-  } catch { /* network error */ }
-  return null
-}
-
-export function TrendingCard({ clip, onRemix, remixing = false, isPremiumUser = false, featured = false }: TrendingCardProps) {
+export function TrendingCard({ clip, onRemix, remixing = false, isPremiumUser = false }: TrendingCardProps) {
   const [imgError, setImgError] = useState(false)
   const [hovered, setHovered] = useState(false)
-  const [videoUrl, setVideoUrl] = useState<string | null>(null)
-  const [videoPlaying, setVideoPlaying] = useState(false)
-  const [videoLoading, setVideoLoading] = useState(false)
+  const [showEmbed, setShowEmbed] = useState(false)
   const hoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const videoRef = useRef<HTMLVideoElement | null>(null)
-  const abortRef = useRef(false)
 
   const isLocked = !isPremiumUser && (clip.velocity_score ?? 0) >= PREMIUM_THRESHOLD
 
@@ -212,91 +123,50 @@ export function TrendingCard({ clip, onRemix, remixing = false, isPremiumUser = 
   const gameColor = GAME_COLORS[gameKey] ?? 'text-muted-foreground bg-muted'
   const gameLabel = GAME_LABELS[gameKey] ?? clip.niche
   const streamerGradient = STREAMER_GRADIENTS[clip.author_handle?.toLowerCase() ?? ''] ?? 'from-slate-700 via-slate-600 to-slate-500'
-  const viralBadge = getViralBadge(clip)
-  const viralTitle = getViralTitle(clip)
-  const boostedViews = boostViewCount(clip.view_count)
 
-  const slug = clip.platform === 'twitch' ? extractClipSlug(clip.external_url) : null
-
+  // Hover handlers — show embed after 400ms hover to avoid accidental loads
   const handleMouseEnter = useCallback(() => {
     setHovered(true)
-    abortRef.current = false
-
-    if (!isLocked && slug) {
-      hoverTimerRef.current = setTimeout(async () => {
-        setVideoLoading(true)
-        const cachedUrl = videoUrlCache.get(slug)
-        if (cachedUrl) {
-          if (!abortRef.current) {
-            setVideoUrl(cachedUrl)
-            setVideoLoading(false)
-          }
-          return
-        }
-        const url = await fetchVideoUrl(slug)
-        if (!abortRef.current && url) {
-          setVideoUrl(url)
-          setVideoLoading(false)
-        } else if (!abortRef.current) {
-          setVideoLoading(false)
-        }
-      }, 300)
+    if (!isLocked) {
+      hoverTimerRef.current = setTimeout(() => setShowEmbed(true), 400)
     }
-  }, [isLocked, slug])
+  }, [isLocked])
 
   const handleMouseLeave = useCallback(() => {
-    abortRef.current = true
     setHovered(false)
-    setVideoUrl(null)
-    setVideoPlaying(false)
-    setVideoLoading(false)
-
-    if (videoRef.current) {
-      videoRef.current.pause()
-      videoRef.current.currentTime = 0
-    }
+    setShowEmbed(false)
     if (hoverTimerRef.current) {
       clearTimeout(hoverTimerRef.current)
       hoverTimerRef.current = null
     }
   }, [])
 
+  // Build embed URL for Twitch clips
+  const parentDomain = typeof window !== 'undefined' ? window.location.hostname : 'viral-studio-pro.netlify.app'
+  const embedUrl = clip.platform === 'twitch' ? getClipEmbedUrl(clip.external_url, parentDomain) : null
+
   return (
     <Card
       className={cn(
-        'bg-card/60 border-border overflow-hidden group transition-all duration-300',
+        'bg-card/60 border-border overflow-hidden group transition-all duration-200',
         isLocked
           ? 'hover:border-amber-500/40 hover:shadow-lg hover:shadow-amber-500/5'
-          : 'hover:border-primary/40 hover:shadow-xl hover:shadow-primary/10 hover:-translate-y-1',
-        featured && 'ring-1 ring-orange-500/20'
+          : 'hover:border-primary/40 hover:shadow-lg hover:shadow-primary/5'
       )}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
     >
       {/* Thumbnail / Video area */}
-      <div className={cn(
-        'relative overflow-hidden bg-gradient-to-br from-slate-900 to-slate-800',
-        featured ? 'aspect-[9/14]' : 'aspect-[9/16] max-h-52'
-      )}>
+      <div className="aspect-[9/16] max-h-52 relative overflow-hidden bg-gradient-to-br from-slate-900 to-slate-800">
 
-        {/* Native <video> */}
-        {videoUrl && !isLocked && (
-          <video
-            ref={videoRef}
-            src={videoUrl}
-            className={cn(
-              'absolute inset-0 w-full h-full object-cover z-[5] transition-opacity duration-300',
-              videoPlaying ? 'opacity-100' : 'opacity-0'
-            )}
-            autoPlay
-            muted
-            playsInline
-            loop
-            onPlaying={() => setVideoPlaying(true)}
-            onError={() => {
-              setVideoUrl(null)
-              setVideoPlaying(false)
-            }}
+        {/* Twitch embed on hover (plays the clip) */}
+        {showEmbed && embedUrl && !isLocked && (
+          <iframe
+            src={embedUrl}
+            className="absolute inset-0 w-full h-full z-[5]"
+            allowFullScreen
+            allow="autoplay"
+            style={{ border: 'none' }}
           />
         )}
 
@@ -313,6 +183,7 @@ export function TrendingCard({ clip, onRemix, remixing = false, isPremiumUser = 
             onError={() => setImgError(true)}
           />
         ) : (
+          /* Colorful gradient placeholder with streamer initial */
           <div className={cn(
             'w-full h-full flex flex-col items-center justify-center gap-2 bg-gradient-to-br transition-all duration-500',
             streamerGradient,
@@ -329,20 +200,18 @@ export function TrendingCard({ clip, onRemix, remixing = false, isPremiumUser = 
           </div>
         )}
 
-        {/* Viral badge on thumbnail */}
-        {viralBadge && !isLocked && !videoPlaying && (
-          <div className={cn(
-            'absolute top-2 right-2 z-20 flex items-center gap-1 bg-gradient-to-r text-white text-[10px] font-black px-2 py-0.5 rounded-full shadow-lg',
-            viralBadge.color
-          )}>
-            <span>{viralBadge.emoji}</span>
-            {viralBadge.text}
+        {/* Hover play indicator */}
+        {hovered && !isLocked && !showEmbed && (
+          <div className="absolute inset-0 flex items-center justify-center z-[4] pointer-events-none">
+            <div className="w-12 h-12 rounded-full bg-black/50 backdrop-blur-sm flex items-center justify-center border border-white/20 animate-in zoom-in-50 duration-200">
+              <Play className="h-5 w-5 text-white ml-0.5" fill="white" />
+            </div>
           </div>
         )}
 
         {/* Playing indicator */}
-        {videoPlaying && !isLocked && (
-          <div className="absolute bottom-2 left-2 z-[6] flex items-center gap-1.5 bg-black/60 backdrop-blur-sm rounded-full px-2 py-1 pointer-events-none">
+        {showEmbed && embedUrl && !isLocked && (
+          <div className="absolute bottom-2 left-2 z-[6] flex items-center gap-1.5 bg-black/60 backdrop-blur-sm rounded-full px-2 py-1">
             <div className="flex items-center gap-0.5">
               <div className="w-0.5 h-3 bg-green-400 rounded-full animate-pulse" />
               <div className="w-0.5 h-2 bg-green-400 rounded-full animate-pulse" style={{ animationDelay: '150ms' }} />
@@ -362,7 +231,7 @@ export function TrendingCard({ clip, onRemix, remixing = false, isPremiumUser = 
           </div>
         )}
 
-        {/* PRO badge */}
+        {/* PRO badge for locked clips */}
         {isLocked && (
           <div className="absolute top-2 left-2 z-20 flex items-center gap-1 bg-gradient-to-r from-yellow-500 to-amber-500 text-black text-[10px] font-black px-2 py-0.5 rounded-full shadow-lg">
             <Crown className="h-2.5 w-2.5" />
@@ -370,18 +239,23 @@ export function TrendingCard({ clip, onRemix, remixing = false, isPremiumUser = 
           </div>
         )}
 
-        {/* Platform badge (no views shown) */}
-        {!isLocked && !videoPlaying && !viralBadge && (
+        {/* Platform badge — only show if not locked */}
+        {!isLocked && !showEmbed && (
           <span className={cn(
-            'absolute top-2 left-2 z-20 text-xs font-bold px-2 py-0.5 rounded-full border backdrop-blur-sm',
+            'absolute top-2 left-2 text-xs font-bold px-2 py-0.5 rounded-full border backdrop-blur-sm',
             platformStyle.colorClass
           )}>
             {platformStyle.label}
           </span>
         )}
 
+        {/* Velocity badge — always visible, even on locked clips */}
+        <div className="absolute top-2 right-2 z-20">
+          <VelocityBadge score={clip.velocity_score} />
+        </div>
+
         {/* External link */}
-        {!isLocked && !videoPlaying && (
+        {!isLocked && !showEmbed && (
           <a
             href={clip.external_url}
             target="_blank"
@@ -394,23 +268,24 @@ export function TrendingCard({ clip, onRemix, remixing = false, isPremiumUser = 
           </a>
         )}
 
-        {/* Duration badge */}
-        {!isLocked && !videoPlaying && clip.duration_seconds && (
-          <span className="absolute bottom-2 left-2 text-[10px] font-bold text-white bg-black/70 px-1.5 py-0.5 rounded-md backdrop-blur-sm z-10">
-            {clip.duration_seconds}s
+        {/* Scraped time */}
+        {!isLocked && !showEmbed && clip.scraped_at && (
+          <span className="absolute bottom-2 left-2 text-[10px] text-white/50 bg-black/40 px-1.5 py-0.5 rounded-md backdrop-blur-sm">
+            il y a {timeAgo(clip.scraped_at)}
           </span>
         )}
       </div>
 
       <CardContent className="p-3 space-y-2">
-        {/* Viral title */}
+        {/* Title */}
         <p className={cn(
-          'text-sm font-bold leading-tight line-clamp-2',
+          'text-sm font-medium leading-tight line-clamp-2',
           isLocked ? 'text-muted-foreground' : 'text-foreground'
         )}>
-          {viralTitle}
+          {clip.title ?? clip.author_name ?? 'Clip de stream'}
         </p>
 
+        {/* Streamer */}
         {clip.author_handle && (
           <p className="text-xs text-muted-foreground truncate">
             @{clip.author_handle}
@@ -420,14 +295,26 @@ export function TrendingCard({ clip, onRemix, remixing = false, isPremiumUser = 
           </p>
         )}
 
-        {clip.niche && (
-          <div className="flex items-center text-xs text-muted-foreground">
-            <span className={cn('px-2 py-0.5 rounded-full text-[10px] font-medium', gameColor)}>
+        {/* Stats row */}
+        <div className="flex items-center gap-3 text-xs text-muted-foreground">
+          <span className="flex items-center gap-1">
+            <Eye className="h-3 w-3" />
+            {formatCount(clip.view_count)}
+          </span>
+          {clip.like_count !== null && (
+            <span className="flex items-center gap-1">
+              <Heart className="h-3 w-3" />
+              {formatCount(clip.like_count)}
+            </span>
+          )}
+          {clip.niche && (
+            <span className={cn('ml-auto px-2 py-0.5 rounded-full text-[10px] font-medium', gameColor)}>
               {gameLabel}
             </span>
-          </div>
-        )}
+          )}
+        </div>
 
+        {/* Clip / Enhance button */}
         {isLocked ? (
           <Link href="/settings" onClick={(e) => e.stopPropagation()}>
             <Button
@@ -436,18 +323,18 @@ export function TrendingCard({ clip, onRemix, remixing = false, isPremiumUser = 
               className="w-full h-8 text-xs gap-1.5 mt-1 border-amber-500/30 text-amber-400 hover:bg-amber-500/10"
             >
               <Lock className="h-3 w-3" />
-              Passe à Premium
+              Passe &agrave; Premium
             </Button>
           </Link>
         ) : (
           <Button
             size="sm"
-            className="w-full h-9 text-xs gap-1.5 mt-1 bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white font-bold shadow-md shadow-orange-500/20"
+            className="w-full h-8 text-xs gap-1.5 mt-1"
             onClick={(e) => { e.stopPropagation(); onRemix?.(clip) }}
             disabled={remixing}
           >
-            <Zap className="h-3.5 w-3.5" />
-            {remixing ? 'Création...' : 'Make Viral'}
+            <Clapperboard className="h-3.5 w-3.5" />
+            {remixing ? 'Cr\u00e9ation\u2026' : 'Enhance'}
           </Button>
         )}
       </CardContent>

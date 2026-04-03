@@ -222,17 +222,14 @@ export const TRACKED_GAMES: Record<string, { gameId: string; niche: string }> = 
 export const TRACKED_IRL_LOGINS: string[] = [
   'kaicenat',
   'ishowspeed',
-  'mrbeast6000',
+  'xqc',
   'adinross',
-  'duke',            // Duke Dennis
-  'kingclavicular',  // Clavicular
+  'hasanabi',
+  'amouranth',
   'marlon',
-  'lacy',
+  'jynxzi',
+  'sketch',
 ]
-
-/** Duration filter: only keep clips between these bounds (seconds) */
-export const CLIP_MIN_DURATION = 8
-export const CLIP_MAX_DURATION = 20
 
 /**
  * Get Twitch user IDs by login names.

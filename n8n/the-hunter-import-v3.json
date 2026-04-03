@@ -1,0 +1,307 @@
+{
+  "name": "The Hunter v3 — YouTube Raw Material Finder",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [{ "field": "hours", "hoursInterval": 3 }]
+        }
+      },
+      "id": "v3-schedule",
+      "name": "Every 3 Hours",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [200, 400]
+    },
+    {
+      "parameters": {
+        "url": "https://www.googleapis.com/youtube/v3/videos",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            { "name": "part",            "value": "snippet,statistics,contentDetails" },
+            { "name": "chart",           "value": "mostPopular" },
+            { "name": "regionCode",      "value": "CA" },
+            { "name": "videoCategoryId", "value": "28" },
+            { "name": "maxResults",      "value": "50" },
+            { "name": "key",             "value": "AIzaSyBNEpqcvEZaCJgOKEtn_VyDJQziAySXYPQ" }
+          ]
+        },
+        "options": { "response": { "response": { "responseFormat": "json" } } }
+      },
+      "id": "v3-yt-science",
+      "name": "YT Science (28)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [480, 80],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "url": "https://www.googleapis.com/youtube/v3/videos",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            { "name": "part",            "value": "snippet,statistics,contentDetails" },
+            { "name": "chart",           "value": "mostPopular" },
+            { "name": "regionCode",      "value": "CA" },
+            { "name": "videoCategoryId", "value": "20" },
+            { "name": "maxResults",      "value": "50" },
+            { "name": "key",             "value": "AIzaSyBNEpqcvEZaCJgOKEtn_VyDJQziAySXYPQ" }
+          ]
+        },
+        "options": { "response": { "response": { "responseFormat": "json" } } }
+      },
+      "id": "v3-yt-gaming",
+      "name": "YT Gaming (20)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [480, 200],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "url": "https://www.googleapis.com/youtube/v3/videos",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            { "name": "part",            "value": "snippet,statistics,contentDetails" },
+            { "name": "chart",           "value": "mostPopular" },
+            { "name": "regionCode",      "value": "CA" },
+            { "name": "videoCategoryId", "value": "24" },
+            { "name": "maxResults",      "value": "50" },
+            { "name": "key",             "value": "AIzaSyBNEpqcvEZaCJgOKEtn_VyDJQziAySXYPQ" }
+          ]
+        },
+        "options": { "response": { "response": { "responseFormat": "json" } } }
+      },
+      "id": "v3-yt-entertainment",
+      "name": "YT Entertainment (24)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [480, 320],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "url": "https://www.googleapis.com/youtube/v3/videos",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            { "name": "part",            "value": "snippet,statistics,contentDetails" },
+            { "name": "chart",           "value": "mostPopular" },
+            { "name": "regionCode",      "value": "CA" },
+            { "name": "videoCategoryId", "value": "26" },
+            { "name": "maxResults",      "value": "50" },
+            { "name": "key",             "value": "AIzaSyBNEpqcvEZaCJgOKEtn_VyDJQziAySXYPQ" }
+          ]
+        },
+        "options": { "response": { "response": { "responseFormat": "json" } } }
+      },
+      "id": "v3-yt-howto",
+      "name": "YT Howto & Style (26)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [480, 440],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "url": "https://www.googleapis.com/youtube/v3/videos",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            { "name": "part",            "value": "snippet,statistics,contentDetails" },
+            { "name": "chart",           "value": "mostPopular" },
+            { "name": "regionCode",      "value": "CA" },
+            { "name": "videoCategoryId", "value": "17" },
+            { "name": "maxResults",      "value": "50" },
+            { "name": "key",             "value": "AIzaSyBNEpqcvEZaCJgOKEtn_VyDJQziAySXYPQ" }
+          ]
+        },
+        "options": { "response": { "response": { "responseFormat": "json" } } }
+      },
+      "id": "v3-yt-sports",
+      "name": "YT Sports (17)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [480, 560],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "url": "https://www.googleapis.com/youtube/v3/videos",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            { "name": "part",            "value": "snippet,statistics,contentDetails" },
+            { "name": "chart",           "value": "mostPopular" },
+            { "name": "regionCode",      "value": "CA" },
+            { "name": "videoCategoryId", "value": "10" },
+            { "name": "maxResults",      "value": "50" },
+            { "name": "key",             "value": "AIzaSyBNEpqcvEZaCJgOKEtn_VyDJQziAySXYPQ" }
+          ]
+        },
+        "options": { "response": { "response": { "responseFormat": "json" } } }
+      },
+      "id": "v3-yt-music",
+      "name": "YT Music (10)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [480, 680],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "mode": "append",
+        "options": {}
+      },
+      "id": "v3-merge1",
+      "name": "Merge 1 (Sci+Game)",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [720, 140]
+    },
+    {
+      "parameters": {
+        "mode": "append",
+        "options": {}
+      },
+      "id": "v3-merge2",
+      "name": "Merge 2 (+Enter)",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [920, 220]
+    },
+    {
+      "parameters": {
+        "mode": "append",
+        "options": {}
+      },
+      "id": "v3-merge3",
+      "name": "Merge 3 (+Howto)",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [1120, 320]
+    },
+    {
+      "parameters": {
+        "mode": "append",
+        "options": {}
+      },
+      "id": "v3-merge4",
+      "name": "Merge 4 (+Sports)",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [1320, 420]
+    },
+    {
+      "parameters": {
+        "mode": "append",
+        "options": {}
+      },
+      "id": "v3-merge5",
+      "name": "Merge 5 (+Music)",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [1520, 520]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Process YouTube API responses — find RAW MATERIAL for clipping\n// Accepts videos 60s–30min, filters out already-edited/reaction content\n// Output: sorted by velocity_score desc\n\nconst CATEGORY_NAMES = {\n  '10': 'music',\n  '17': 'sports',\n  '20': 'gaming',\n  '24': 'entertainment',\n  '26': 'howto',\n  '28': 'science',\n};\n\n// Duration: 60s minimum (skip ultra-short already-clipped), 30min max\nconst MIN_DURATION = 60;\nconst MAX_DURATION = 1800;\n\n// Velocity calibration: 50k views/hour = score 100\nconst MAX_VELOCITY_VPH = 50000;\n\n// Blacklist: titles containing these = already edited/reaction content\nconst BLACKLIST_PATTERNS = [\n  /react/i, /reaction/i, /reacting/i,\n  /compilation/i, /best of/i, /top \\d+/i,\n  /#shorts?\\b/i, /\\bshort\\b/i,\n  /tiktok/i, /repost/i, /reupload/i,\n  /try not to/i, /watching/i,\n  /part \\d+/i, /ep\\.?\\s*\\d+/i,\n  /clip[s]? from/i, /best moment/i,\n  /highlight/i, /funny moment/i,\n  /meme review/i,\n];\n\nfunction parseDurationSec(iso) {\n  if (!iso) return 9999;\n  const m = iso.match(/PT(?:(\\d+)H)?(?:(\\d+)M)?(?:(\\d+)S)?/);\n  if (!m) return 9999;\n  return (parseInt(m[1] || '0') * 3600)\n       + (parseInt(m[2] || '0') * 60)\n       +  parseInt(m[3] || '0');\n}\n\nfunction isBlacklisted(title) {\n  if (!title) return false;\n  return BLACKLIST_PATTERNS.some(p => p.test(title));\n}\n\nconst clips = [];\nconst seenIds = new Set();\n\nfor (const item of $input.all()) {\n  const response = item.json;\n  if (response.error || !response.items) continue;\n  const ytItems = Array.isArray(response.items) ? response.items : [];\n\n  for (const vid of ytItems) {\n    if (seenIds.has(vid.id)) continue;\n    seenIds.add(vid.id);\n\n    // Duration filter: raw material = 1min to 30min\n    const durationSec = parseDurationSec(vid.contentDetails?.duration);\n    if (durationSec < MIN_DURATION || durationSec > MAX_DURATION) continue;\n\n    // Title blacklist: skip reaction/compilation/repost content\n    const title = vid.snippet?.title || '';\n    if (isBlacklisted(title)) continue;\n\n    // Minimum views: at least 10k to be worth clipping\n    const viewCount = parseInt(vid.statistics?.viewCount || '0', 10);\n    if (viewCount < 10000) continue;\n\n    const publishedAt = new Date(vid.snippet?.publishedAt || Date.now());\n    const hoursAgo = Math.max(0.5, (Date.now() - publishedAt.getTime()) / 3_600_000);\n    const likeCount = parseInt(vid.statistics?.likeCount || '0', 10);\n    const rawVph = viewCount / hoursAgo;\n    const velocity = Math.min(100, parseFloat(((rawVph / MAX_VELOCITY_VPH) * 100).toFixed(1)));\n\n    // Engagement ratio bonus: high likes/views = quality content\n    const engagementRatio = viewCount > 0 ? (likeCount / viewCount) * 100 : 0;\n    const engagementBonus = Math.min(10, engagementRatio * 2);\n    const finalScore = Math.min(100, velocity + engagementBonus);\n\n    const categoryId = vid.snippet?.categoryId || '';\n\n    clips.push({\n      json: {\n        external_url:  `https://www.youtube.com/watch?v=${vid.id}`,\n        platform:       'youtube',\n        title:          title || null,\n        description:   (vid.snippet?.description || '').slice(0, 500) || null,\n        author_name:    vid.snippet?.channelTitle || null,\n        author_handle:  vid.snippet?.channelId   || null,\n        niche:          CATEGORY_NAMES[categoryId] || null,\n        view_count:     viewCount,\n        like_count:     likeCount,\n        thumbnail_url:  vid.snippet?.thumbnails?.high?.url\n                     || vid.snippet?.thumbnails?.medium?.url\n                     || null,\n        velocity_score: finalScore,\n        duration_seconds: durationSec,\n      }\n    });\n  }\n}\n\nclips.sort((a, b) => b.json.velocity_score - a.json.velocity_score);\n\nif (clips.length === 0) {\n  return [{ json: { _empty: true, message: 'No raw material found this scan' } }];\n}\n\nreturn clips.slice(0, 200);\n"
+      },
+      "id": "v3-process",
+      "name": "Process & Velocity Score",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1760, 520]
+    },
+    {
+      "parameters": {
+        "batchSize": 10,
+        "options": {}
+      },
+      "id": "v3-split",
+      "name": "Split Batches (10)",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [2000, 520]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://viral-studio-pro.netlify.app/api/trending/scrape",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "x-api-key",     "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIyYTZhODhjYS1iMTNkLTQ5NDctOTFjMS1kMTk2M2U5N2U4NjYiLCJpc3MiOiJuOG4iLCJhdWQiOiJwdWJsaWMtYXBpIiwianRpIjoiZjU0YTQzMjQtNmM4OS00Y2IzLWIxZTgtMmY3OTY2ZGMzZmQyIiwiaWF0IjoxNzc0Mjk0MjU3LCJleHAiOjE3NzY4NzM2MDB9.Jl3JJSRO-a3dGUkhuIZrVXqjwE5QyR6s9mg6BnSe7Jg" },
+            { "name": "Content-Type",  "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ clips: $input.all().map(i => i.json) }) }}",
+        "options": {
+          "timeout": 30000,
+          "response": { "response": { "responseFormat": "json" } }
+        }
+      },
+      "id": "v3-post",
+      "name": "POST → Netlify API",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2240, 520]
+    },
+    {
+      "parameters": {},
+      "id": "v3-done",
+      "name": "Done ✅",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [2480, 520]
+    }
+  ],
+  "connections": {
+    "Every 3 Hours": {
+      "main": [[
+        { "node": "YT Science (28)",        "type": "main", "index": 0 },
+        { "node": "YT Gaming (20)",          "type": "main", "index": 0 },
+        { "node": "YT Entertainment (24)",   "type": "main", "index": 0 },
+        { "node": "YT Howto & Style (26)",   "type": "main", "index": 0 },
+        { "node": "YT Sports (17)",          "type": "main", "index": 0 },
+        { "node": "YT Music (10)",           "type": "main", "index": 0 }
+      ]]
+    },
+    "YT Science (28)":          { "main": [[{ "node": "Merge 1 (Sci+Game)", "type": "main", "index": 0 }]] },
+    "YT Gaming (20)":           { "main": [[{ "node": "Merge 1 (Sci+Game)", "type": "main", "index": 1 }]] },
+    "Merge 1 (Sci+Game)":       { "main": [[{ "node": "Merge 2 (+Enter)",   "type": "main", "index": 0 }]] },
+    "YT Entertainment (24)":    { "main": [[{ "node": "Merge 2 (+Enter)",   "type": "main", "index": 1 }]] },
+    "Merge 2 (+Enter)":         { "main": [[{ "node": "Merge 3 (+Howto)",   "type": "main", "index": 0 }]] },
+    "YT Howto & Style (26)":    { "main": [[{ "node": "Merge 3 (+Howto)",   "type": "main", "index": 1 }]] },
+    "Merge 3 (+Howto)":         { "main": [[{ "node": "Merge 4 (+Sports)",  "type": "main", "index": 0 }]] },
+    "YT Sports (17)":           { "main": [[{ "node": "Merge 4 (+Sports)",  "type": "main", "index": 1 }]] },
+    "Merge 4 (+Sports)":        { "main": [[{ "node": "Merge 5 (+Music)",   "type": "main", "index": 0 }]] },
+    "YT Music (10)":            { "main": [[{ "node": "Merge 5 (+Music)",   "type": "main", "index": 1 }]] },
+    "Merge 5 (+Music)":         { "main": [[{ "node": "Process & Velocity Score", "type": "main", "index": 0 }]] },
+    "Process & Velocity Score":  { "main": [[{ "node": "Split Batches (10)", "type": "main", "index": 0 }]] },
+    "Split Batches (10)": {
+      "main": [
+        [{ "node": "POST → Netlify API", "type": "main", "index": 0 }],
+        [{ "node": "Done ✅", "type": "main", "index": 0 }]
+      ]
+    },
+    "POST → Netlify API": {
+      "main": [[{ "node": "Split Batches (10)", "type": "main", "index": 0 }]]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 0,
+  "versionId": "v3-raw-material-filters"
+}

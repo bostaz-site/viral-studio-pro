@@ -22,5 +22,6 @@ export interface GeneratedClip {
   transcript_segment: string | null
   aspect_ratio: string | null
   status: string | null
+  is_remake: boolean | null
   viral_scores: ViralScore[]
 }
