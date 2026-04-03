@@ -329,14 +329,22 @@ async function execRender(args, outputPath, timeout = 300000) {
     console.log(`[FFmpeg] Render completed successfully: ${outputPath}`);
     return { success: true, outputPath };
   } catch (err) {
-    // Extract the useful part of the error (last 800 chars of stderr contain the actual error)
-    const fullMsg = err.message || 'Unknown error';
+    // Extract diagnostic info
+    const killed = err.killed || false;
+    const signal = err.signal || 'none';
+    const code = err.code || 'unknown';
     const stderrContent = err.stderr || '';
-    const lastStderr = stderrContent ? stderrContent.slice(-800) : '';
-    const errorSummary = lastStderr || fullMsg.slice(-800);
-    console.error('[FFmpeg Error] Full stderr tail:', errorSummary);
+
+    // Get the last 500 chars of stderr (where actual errors appear after progress)
+    // Also look for lines that DON'T start with \r (progress lines start with \r)
+    const stderrLines = stderrContent.split('\n');
+    const errorLines = stderrLines.filter(l => !l.startsWith('\r') && l.trim().length > 0);
+    const meaningfulErrors = errorLines.slice(-10).join('\n');
+
+    const diagnostic = `[killed=${killed} signal=${signal} code=${code}] ${meaningfulErrors || stderrContent.slice(-500)}`;
+    console.error('[FFmpeg Error]', diagnostic);
     console.error('[FFmpeg Error] Command:', cmd);
-    throw new Error(`FFmpeg render failed: ${errorSummary}`);
+    throw new Error(`FFmpeg render failed: ${diagnostic}`);
   }
 }
 
