@@ -696,7 +696,7 @@ export default function EnhancePage() {
       {/* Two-column layout: Sticky Preview | Scrollable Settings */}
       <div className="grid lg:grid-cols-[300px_1fr] gap-6">
         {/* Left: Preview only — truly sticky, fits in viewport */}
-        <div className="lg:sticky lg:top-4 lg:self-start space-y-3 lg:max-h-[calc(100vh-2rem)] lg:overflow-y-auto lg:scrollbar-none" style={{ scrollbarWidth: 'none' }}>
+        <div className="lg:sticky lg:top-4 lg:self-start space-y-3">
           {/* ── Before/After Preview Toggle ── */}
           <div className="flex gap-2">
             <Button
@@ -719,14 +719,6 @@ export default function EnhancePage() {
 
           {/* ── Preview ── */}
           <LivePreview clip={clip} settings={settings} showEnhancements={showEnhancements} />
-
-          {/* Metadata inline */}
-          <div className="flex items-center justify-between text-xs text-muted-foreground px-1">
-            <span className="flex items-center gap-1"><Eye className="h-3 w-3" />{formatCount(clip.view_count)} vues</span>
-            <a href={clip.external_url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-primary hover:underline">
-              <ExternalLink className="h-3 w-3" />Original
-            </a>
-          </div>
 
           {/* Generate button — orange, always visible with preview */}
           <Button
