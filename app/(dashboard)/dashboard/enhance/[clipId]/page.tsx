@@ -8,7 +8,7 @@ import {
   ChevronLeft, Loader2, AlertCircle, Sparkles, Download,
   Type, Wand2, Eye, ExternalLink, Play,
   Monitor, Paintbrush, Zap, AtSign,
-  Upload, FileVideo, Link2,
+  Upload, FileVideo, Link2, TrendingUp, Flame,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -203,6 +203,16 @@ function computeCurrentScore(
   return (settings.captionsEnabled ? cs + as2 : 0) + bs + ts
 }
 
+// ─── Score Label ────────────────────────────────────────────────────────────
+
+function getScoreLabel(score: number): { text: string; color: string } {
+  if (score >= 90) return { text: 'High chance to blow up', color: 'text-orange-400' }
+  if (score >= 75) return { text: 'Very viral', color: 'text-green-400' }
+  if (score >= 50) return { text: 'Good potential', color: 'text-blue-400' }
+  if (score >= 30) return { text: 'Needs improvement', color: 'text-yellow-400' }
+  return { text: 'Low viral score', color: 'text-muted-foreground' }
+}
+
 // ─── Score Badge Component ──────────────────────────────────────────────────
 
 function ScoreBadge({ score, isBest }: { score: number; isBest: boolean }) {
@@ -243,6 +253,10 @@ function LivePreview({
       @keyframes kenburns {
         0% { transform: scale(1) translate(0, 0); }
         100% { transform: scale(1.08) translate(-2%, -1%); }
+      }
+      @keyframes glow {
+        0%, 100% { box-shadow: 0 0 15px rgba(249, 115, 22, 0.3); }
+        50% { box-shadow: 0 0 25px rgba(249, 115, 22, 0.5), 0 0 50px rgba(249, 115, 22, 0.15); }
       }
     `}</style>
     <div
@@ -635,29 +649,45 @@ export default function EnhancePage() {
 
       {/* Two-column layout: Preview | Settings */}
       <div className="grid lg:grid-cols-[300px_1fr] gap-6">
-        {/* Left: Preview + Score + Generate — compact, sticky */}
+        {/* Left: IA Button + Score + Preview + Generate — sticky */}
         <div className="lg:sticky lg:top-4 lg:self-start space-y-3">
-          {/* Score compact */}
+          {/* ── #1 HERO: Make it viral button — dominant, glowing ── */}
           {scores && (
-            <div className="flex items-center justify-between bg-card/60 border border-orange-400/20 rounded-xl px-3 py-2">
-              <div className="flex items-center gap-2">
-                <Zap className="h-4 w-4 text-orange-400" />
-                <span className="text-lg font-black text-foreground">{currentScore}</span>
-                <span className="text-xs text-muted-foreground">/ 100</span>
+            <button
+              onClick={applyBestCombo}
+              className="group relative w-full rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-orange-600 p-[1px] shadow-lg shadow-orange-500/25 hover:shadow-orange-500/40 transition-all duration-300 animate-[glow_3s_ease-in-out_infinite]"
+            >
+              <div className="relative flex items-center justify-center gap-3 rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-orange-600 px-4 py-3.5">
+                <Zap className="h-5 w-5 text-white drop-shadow-lg" />
+                <div className="text-left">
+                  <span className="text-base font-black text-white tracking-tight block leading-tight">Make it viral</span>
+                  <span className="text-[10px] font-medium text-white/70 block">1 click = viral clip</span>
+                </div>
+                <Sparkles className="h-4 w-4 text-white/80 ml-auto group-hover:animate-spin" />
               </div>
-              <Button
-                size="sm"
-                variant="ghost"
-                className="h-7 gap-1.5 text-xs text-orange-400 hover:text-orange-300 hover:bg-orange-500/10 px-2"
-                onClick={applyBestCombo}
-              >
-                <Sparkles className="h-3 w-3" />
-                Choix IA
-              </Button>
-            </div>
+            </button>
           )}
 
-          {/* Preview */}
+          {/* ── #2 Score with dynamic label ── */}
+          {scores && (() => {
+            const label = getScoreLabel(currentScore)
+            return (
+              <div className="flex items-center justify-between bg-card/60 border border-white/5 rounded-xl px-3 py-2">
+                <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1.5">
+                    <Flame className="h-4 w-4 text-orange-400" />
+                    <span className="text-2xl font-black text-foreground tabular-nums transition-all duration-500">{currentScore}</span>
+                    <span className="text-xs text-muted-foreground font-medium">/ 100</span>
+                  </div>
+                </div>
+                <span className={cn('text-[11px] font-semibold', label.color)}>
+                  {label.text}
+                </span>
+              </div>
+            )
+          })()}
+
+          {/* ── #3 Preview ── */}
           <LivePreview clip={clip} settings={settings} />
 
           {/* Metadata inline */}
@@ -747,14 +777,15 @@ export default function EnhancePage() {
           </Card>
         </div>
 
-        {/* Right: Settings Tabs */}
-        <div>
+        {/* Right: Settings — secondary, lower visual weight */}
+        <div className="opacity-90 hover:opacity-100 transition-opacity duration-300">
+          <p className="text-xs text-muted-foreground mb-3 uppercase tracking-widest font-medium">Fine-tune</p>
           <Tabs defaultValue="captions" className="w-full">
             <TabsList className="grid grid-cols-4 mb-6">
-              <TabsTrigger value="captions" className="gap-1.5"><Type className="h-3.5 w-3.5" />Sous-titres</TabsTrigger>
-              <TabsTrigger value="splitscreen" className="gap-1.5"><Monitor className="h-3.5 w-3.5" />Split-Screen</TabsTrigger>
-              <TabsTrigger value="tags" className="gap-1.5"><AtSign className="h-3.5 w-3.5" />Tags</TabsTrigger>
-              <TabsTrigger value="style" className="gap-1.5"><Paintbrush className="h-3.5 w-3.5" />Style</TabsTrigger>
+              <TabsTrigger value="captions" className="gap-1.5 text-xs"><Type className="h-3.5 w-3.5" />Sous-titres</TabsTrigger>
+              <TabsTrigger value="splitscreen" className="gap-1.5 text-xs"><Monitor className="h-3.5 w-3.5" />Split-Screen</TabsTrigger>
+              <TabsTrigger value="tags" className="gap-1.5 text-xs"><AtSign className="h-3.5 w-3.5" />Tags</TabsTrigger>
+              <TabsTrigger value="style" className="gap-1.5 text-xs"><Paintbrush className="h-3.5 w-3.5" />Style</TabsTrigger>
             </TabsList>
 
             {/* ─── Captions Tab ─── */}
