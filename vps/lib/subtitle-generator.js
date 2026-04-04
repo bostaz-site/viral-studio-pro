@@ -594,8 +594,10 @@ export function validateWordTimestamps(words) {
       throw new Error('Each word must have: word (string), start (number), end (number)');
     }
 
-    if (word.start >= word.end) {
-      throw new Error(`Invalid timing for word "${word.word}": start (${word.start}) >= end (${word.end})`);
+    // Auto-fix zero-duration or reversed timings (Whisper sometimes returns start == end).
+    // Give the word a minimum duration of 80ms so subtitle rendering still works.
+    if (word.end <= word.start) {
+      word.end = word.start + 0.08;
     }
   }
 
