@@ -62,7 +62,10 @@ router.get('/', async (req, res) => {
         },
         openaiKey: {
           configured: !!process.env.OPENAI_API_KEY,
+          length: (process.env.OPENAI_API_KEY || '').length,
+          startsWith: (process.env.OPENAI_API_KEY || '').slice(0, 7),
         },
+        envKeys: Object.keys(process.env).filter(k => /openai|api_key|api|secret|supabase|port/i.test(k)).sort(),
       },
     });
   } catch (err) {
