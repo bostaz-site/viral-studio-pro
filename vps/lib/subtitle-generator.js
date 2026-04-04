@@ -10,16 +10,17 @@
 const CAPTION_STYLES = {
   hormozi: {
     fontname: 'Arial Black',
-    fontsize: 80,
+    fontsize: 72,
     fontweight: true,
-    primaryColor: '&H0000FFFF', // Yellow (AABBGGRR format)
-    secondaryColor: '&H000000FF', // Red
-    outlineColor: '&H00000000', // Black
-    backColor: '&H00000000', // Black (transparent)
+    primaryColor: '&H0000FFFF', // Yellow (active / highlighted word)
+    secondaryColor: '&H00FFFFFF', // White (inactive words)
+    outlineColor: '&H30000000', // Black box background (with slight alpha)
+    backColor: '&H00000000',
     bold: -1,
     italic: 0,
-    outline: 2,
-    shadow: 1,
+    outline: 20, // Box padding
+    shadow: 0,
+    borderStyle: 3, // Opaque box background — THE signature Hormozi look
     alignment: 2, // Bottom center
     marginV: 30,
   },
@@ -315,6 +316,7 @@ function buildASSHeader(styleConfig, canvasWidth = 1080, canvasHeight = 1920) {
     backColor,
     alignment,
     marginV,
+    borderStyle = 1, // 1 = outline+shadow, 3 = opaque box
   } = styleConfig;
 
   return `[Script Info]
@@ -326,7 +328,7 @@ ScaledBorderAndShadow: yes
 
 [V4+ Styles]
 Format: Name,Fontname,Fontsize,PrimaryColour,SecondaryColour,OutlineColour,BackColour,Bold,Italic,Underline,StrikeOut,ScaleX,ScaleY,Spacing,Angle,BorderStyle,Outline,Shadow,Alignment,MarginL,MarginR,MarginV,Encoding
-Style: Default,${fontname},${fontsize},${primaryColor},${secondaryColor},${outlineColor},${backColor},${bold},${italic},0,0,100,100,0,0,1,${outline},${shadow},${alignment},20,20,${marginV},1
+Style: Default,${fontname},${fontsize},${primaryColor},${secondaryColor},${outlineColor},${backColor},${bold},${italic},0,0,100,100,0,0,${borderStyle},${outline},${shadow},${alignment},20,20,${marginV},1
 
 [Events]
 Format: Layer,Start,End,Style,Name,MarginL,MarginR,MarginV,Effect,Text`;
