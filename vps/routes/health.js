@@ -61,9 +61,9 @@ router.get('/', async (req, res) => {
           path: fontPath,
         },
         openaiKey: {
-          configured: !!process.env.OPENAI_API_KEY,
-          length: (process.env.OPENAI_API_KEY || '').length,
-          startsWith: (process.env.OPENAI_API_KEY || '').slice(0, 7),
+          configured: !!(process.env.OPENAI_API_KEY || process.env.OPENAI_KEY),
+          source: process.env.OPENAI_API_KEY ? 'OPENAI_API_KEY' : (process.env.OPENAI_KEY ? 'OPENAI_KEY' : null),
+          length: (process.env.OPENAI_API_KEY || process.env.OPENAI_KEY || '').length,
         },
         envKeys: Object.keys(process.env).filter(k => /openai|api_key|api|secret|supabase|port/i.test(k)).sort(),
       },

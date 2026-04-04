@@ -14,9 +14,9 @@ const execFileAsync = promisify(execFile);
 export async function transcribeWithWhisper(videoPath, options = {}) {
   const { language = 'en', tempDir = '/tmp' } = options;
 
-  const apiKey = process.env.OPENAI_API_KEY;
+  const apiKey = process.env.OPENAI_API_KEY || process.env.OPENAI_KEY;
   if (!apiKey) {
-    console.warn('[Whisper] No OPENAI_API_KEY set — skipping transcription');
+    console.warn('[Whisper] No OPENAI_API_KEY/OPENAI_KEY set — skipping transcription');
     return [];
   }
 
