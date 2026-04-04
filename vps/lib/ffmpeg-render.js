@@ -445,15 +445,14 @@ function buildTagFilter(tagConfig, canvasW = 720, canvasH = 1280, inputLabel = n
       // UI: text-2xl font-black text-white/15 rotate-[-20deg]
       // Render a rotated semi-transparent watermark via a synthetic canvas +
       // rotate + overlay chain. We need a multi-filter graph fragment here.
-      const fontSize = Math.round(canvasW * 0.09); // text-2xl-ish scaled for mobile
-      // Rotation of -20 degrees = -0.349 rad. Using ow/oh=hypot keeps text visible.
-      // We draw text on a transparent canvas sized to (canvasW x canvasH), rotate it,
-      // then overlay centered on the main video.
+      const fontSize = Math.round(canvasW * 0.13); // bigger so clearly visible in video
+      // Rotation of -20 degrees = -0.349 rad.
+      // 0.30 opacity + shadow for visibility against any background.
       const angleRad = '-0.349066'; // -20 degrees
-      const canvasSize = `${canvasW}x${Math.round(canvasH * 0.3)}`;
+      const canvasSize = `${canvasW}x${Math.round(canvasH * 0.35)}`;
       const chain = [
         `color=c=0x000000@0.0:s=${canvasSize}:r=30:d=600,format=yuva420p[wcbg]`,
-        `[wcbg]drawtext=text='${displayText}':fontfile=${fontFile}:fontcolor=white@0.15:fontsize=${fontSize}:x=(w-text_w)/2:y=(h-text_h)/2[wctxt]`,
+        `[wcbg]drawtext=text='${displayText}':fontfile=${fontFile}:fontcolor=white@0.30:fontsize=${fontSize}:x=(w-text_w)/2:y=(h-text_h)/2:shadowcolor=black@0.6:shadowx=3:shadowy=3[wctxt]`,
         `[wctxt]rotate=${angleRad}:c=none:ow=rotw(${angleRad}):oh=roth(${angleRad})[wcrot]`,
         `${inputLabel}[wcrot]overlay=(W-w)/2:(H-h)/2:format=auto`,
       ].join(';');

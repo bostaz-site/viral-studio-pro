@@ -506,10 +506,11 @@ function buildLoopedTransforms(lineDurCs, cycleLenCs, builder) {
  */
 function generatePopEvents(lineWords, clipStartTime, lineStart, lineEnd) {
   const lineDurCs = Math.max(1, Math.round((lineEnd - lineStart) * 100));
-  // 2s cycle = 200cs. half = 100cs: alpha 00 → 80 → 00
+  // 2s cycle = 200cs. Pulse alpha + scale for strong visual "pop".
   const transforms = buildLoopedTransforms(lineDurCs, 200, (t0, t1, toggle) => {
-    const targetAlpha = toggle === 0 ? '80' : '00';
-    return `\\t(${t0},${t1},\\alpha&H${targetAlpha}&)`;
+    const targetAlpha = toggle === 0 ? 'A0' : '00'; // more dramatic: 37% ↔ 100%
+    const scale = toggle === 0 ? 92 : 108; // slight scale pulse
+    return `\\t(${t0},${t1},\\alpha&H${targetAlpha}&\\fscx${scale}\\fscy${scale})`;
   });
   const karaoke = buildKaraokeWordChain(lineWords);
   return [`Dialogue: 0,${toASSTime(lineStart)},${toASSTime(lineEnd)},Default,,0,0,0,,{${transforms}}${karaoke}`];
@@ -522,10 +523,12 @@ function generatePopEvents(lineWords, clipStartTime, lineStart, lineEnd) {
  */
 function generateBounceEvents(lineWords, clipStartTime, lineStart, lineEnd) {
   const lineDurCs = Math.max(1, Math.round((lineEnd - lineStart) * 100));
-  // 1s cycle = 100cs. Scale Y 100% → 115% → 100%
+  // 1s cycle = 100cs. Squash-stretch: (fscy up + fscx down) ↔ (fscy down + fscx up)
+  // This produces a visually obvious "bouncing" deformation.
   const transforms = buildLoopedTransforms(lineDurCs, 100, (t0, t1, toggle) => {
-    const scale = toggle === 0 ? 115 : 100;
-    return `\\t(${t0},${t1},\\fscy${scale})`;
+    const scaleY = toggle === 0 ? 130 : 90;
+    const scaleX = toggle === 0 ? 88 : 110;
+    return `\\t(${t0},${t1},\\fscx${scaleX}\\fscy${scaleY})`;
   });
   const karaoke = buildKaraokeWordChain(lineWords);
   return [`Dialogue: 0,${toASSTime(lineStart)},${toASSTime(lineEnd)},Default,,0,0,0,,{${transforms}}${karaoke}`];
@@ -585,10 +588,10 @@ function generateTypewriterEvents(lineWords, clipStartTime, lineStart, lineEnd) 
 function generateGlowEvents(lineWords, clipStartTime, lineStart, lineEnd, styleConfig) {
   const lineDurCs = Math.max(1, Math.round((lineEnd - lineStart) * 100));
   const baseBord = styleConfig.outline || 20;
-  const glowBord = Math.round(baseBord * 1.35);
+  const glowBord = Math.round(baseBord * 1.8); // more dramatic glow pulse
   // 1.5s cycle = 150cs
   const transforms = buildLoopedTransforms(lineDurCs, 150, (t0, t1, toggle) => {
-    const targetAlpha = toggle === 0 ? '60' : '00';
+    const targetAlpha = toggle === 0 ? '70' : '00';
     const targetBord = toggle === 0 ? glowBord : baseBord;
     return `\\t(${t0},${t1},\\alpha&H${targetAlpha}&\\bord${targetBord})`;
   });
