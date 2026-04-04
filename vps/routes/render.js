@@ -6,6 +6,7 @@ import { execFile } from 'child_process';
 import { promisify } from 'util';
 import { renderClip, extractThumbnail, checkFfmpegAvailability } from '../lib/ffmpeg-render.js';
 import { generateASS, generateStaticASS, validateWordTimestamps } from '../lib/subtitle-generator.js';
+import { generateCaptionPNGs } from '../lib/caption-png.js';
 import { transcribeWithWhisper } from '../lib/whisper-client.js';
 import {
   getClip,
@@ -256,6 +257,7 @@ router.post('/', async (req, res) => {
 
     // Prepare captions if enabled
     let assFilePath = null;
+    let captionOverlays = null;
     if (settings.captions?.enabled) {
       try {
         let wordTimestamps = providedWordTimestamps || [];
@@ -304,16 +306,33 @@ router.post('/', async (req, res) => {
         };
 
         if (wordTimestamps.length > 0) {
-          // Full karaoke captions from word timestamps
+          // ── NEW: PNG overlay path (pixel-perfect parity with UI preview) ──
           validateWordTimestamps(wordTimestamps);
-          assContent = generateASS(wordTimestamps, {
-            ...subtitleOpts,
-            animation: settings.captions.animation || 'highlight',
-            clipStartTime,
-            wordsPerLine: settings.captions.wordsPerLine || 6,
-            customColors: settings.captions.customColors,
-          });
-          trc(`CAPTIONS generated ASS from ${wordTimestamps.length} words anim=${settings.captions.animation || 'highlight'}`);
+          try {
+            const captionDir = path.join(tempDir, 'captions_png');
+            captionOverlays = await generateCaptionPNGs(wordTimestamps, {
+              style: captionStyle,
+              animation: settings.captions.animation || 'highlight',
+              position: captionPosition,
+              canvasWidth: canvasW,
+              canvasHeight: canvasH,
+              splitScreen: splitScreenForCaptions,
+              clipStartTime,
+              wordsPerLine: settings.captions.wordsPerLine || 4,
+              outputDir: captionDir,
+            });
+            trc(`CAPTIONS generated ${captionOverlays.length} PNG overlays style=${captionStyle} anim=${settings.captions.animation || 'highlight'}`);
+          } catch (pngErr) {
+            trc(`CAPTIONS PNG gen failed, falling back to ASS: ${pngErr.message}`);
+            // Fallback to ASS if PNG generation fails
+            assContent = generateASS(wordTimestamps, {
+              ...subtitleOpts,
+              animation: settings.captions.animation || 'highlight',
+              clipStartTime,
+              wordsPerLine: settings.captions.wordsPerLine || 6,
+              customColors: settings.captions.customColors,
+            });
+          }
         } else {
           trc(`CAPTIONS SKIPPED - no word timestamps`);
         }
@@ -321,7 +340,7 @@ router.post('/', async (req, res) => {
         if (assContent) {
           assFilePath = path.join(tempDir, 'captions.ass');
           await fs.writeFile(assFilePath, assContent, 'utf-8');
-          trc(`CAPTIONS wrote ${canvasW}x${canvasH} pos=${captionPosition} split=${!!isSplitScreen}`);
+          trc(`CAPTIONS wrote ASS ${canvasW}x${canvasH} pos=${captionPosition} split=${!!isSplitScreen}`);
         }
       } catch (err) {
         trc(`CAPTIONS ERROR: ${err.message}`);
@@ -454,7 +473,11 @@ router.post('/', async (req, res) => {
       endTime: clipEndTime,
       duration,
       aspectRatio: settings.format?.aspectRatio || '9:16',
-      captions: assFilePath ? { assFilePath, ...settings.captions } : null,
+      captions: captionOverlays
+        ? { pngOverlays: captionOverlays, ...settings.captions }
+        : assFilePath
+        ? { assFilePath, ...settings.captions }
+        : null,
       watermark: null,
       plan: userPlan,
       splitScreen: splitScreenConfig,
@@ -491,7 +514,7 @@ router.post('/', async (req, res) => {
     const elapsedSeconds = (Date.now() - startTime) / 1000;
     console.log(`[Render ${renderSessionId}] Render completed in ${elapsedSeconds.toFixed(1)}s`);
 
-    trc(`DONE elapsed=${elapsedSeconds.toFixed(1)}s assFilePath=${assFilePath ? 'yes' : 'no'} tag=${tagConfig?.style || 'none'}`);
+    trc(`DONE elapsed=${elapsedSeconds.toFixed(1)}s captions=${captionOverlays ? `${captionOverlays.length} PNGs` : (assFilePath ? 'ASS' : 'none')} tag=${tagConfig?.style || 'none'}`);
 
     // Mark render job as done
     await updateRenderJob(req.body.jobId, {

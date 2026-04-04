@@ -158,8 +158,18 @@ export async function renderClip(inputPath, outputPath, options = {}) {
   let filterComplex = filterComplex_raw;
   let mapVideo = '[composed]';
 
-  // Captions (ASS subtitle format with karaoke)
-  if (captions && captions.assFilePath) {
+  // Captions: prefer PNG overlays (pixel-perfect UI parity), fallback to ASS
+  const extraInputs = [];
+  if (captions && captions.pngOverlays && captions.pngOverlays.length > 0) {
+    const { chain, nextLabel, inputs } = buildPngCaptionChain(
+      captions.pngOverlays,
+      mapVideo,
+      extraInputs.length + 1 // first PNG input index = 1 (0 is main video)
+    );
+    filterComplex += `;${chain}`;
+    mapVideo = nextLabel;
+    extraInputs.push(...inputs);
+  } else if (captions && captions.assFilePath) {
     filterComplex += `;${mapVideo}ass='${escapePath(captions.assFilePath)}'[captioned]`;
     mapVideo = '[captioned]';
   }
@@ -193,6 +203,13 @@ export async function renderClip(inputPath, outputPath, options = {}) {
   const args = ['-y'];
   args.push('-ss', String(startTime));
   args.push('-i', inputPath);
+  // PNG caption overlay inputs (gated by -itsoffset + -t so each PNG only
+  // occupies the decode pipeline during its active window — memory friendly).
+  for (const overlay of extraInputs) {
+    const ts = Math.max(0, overlay.startTime);
+    const td = Math.max(0.01, overlay.endTime - overlay.startTime);
+    args.push('-loop', '1', '-t', td.toFixed(3), '-itsoffset', ts.toFixed(3), '-i', overlay.pngPath);
+  }
   args.push('-t', String(clipDuration));
   args.push('-filter_complex', filterComplex);
   args.push('-map', mapVideo);
@@ -307,8 +324,19 @@ async function renderSplitScreen(inputPath, outputPath, opts) {
     });
   }
 
-  // Apply captions on the composed output
-  if (captions && captions.assFilePath) {
+  // Apply captions on the composed output — PNG overlays preferred
+  const extraInputs = [];
+  if (captions && captions.pngOverlays && captions.pngOverlays.length > 0) {
+    // Main video=0, broll=1, PNGs start at index 2
+    const { chain, nextLabel, inputs } = buildPngCaptionChain(
+      captions.pngOverlays,
+      mapVideo,
+      2
+    );
+    filterComplex += `;${chain}`;
+    mapVideo = nextLabel;
+    extraInputs.push(...inputs);
+  } else if (captions && captions.assFilePath) {
     filterComplex += `;${mapVideo}ass='${escapePath(captions.assFilePath)}'[captioned]`;
     mapVideo = '[captioned]';
   }
@@ -340,6 +368,13 @@ async function renderSplitScreen(inputPath, outputPath, opts) {
   args.push('-ss', String(startTime));
   args.push('-i', inputPath);           // Input 0: main video
   args.push('-i', brollPath);           // Input 1: B-roll video
+  // PNG caption overlay inputs (gated by -itsoffset + -t so each PNG only
+  // occupies the decode pipeline during its active window — memory friendly).
+  for (const overlay of extraInputs) {
+    const ts = Math.max(0, overlay.startTime);
+    const td = Math.max(0.01, overlay.endTime - overlay.startTime);
+    args.push('-loop', '1', '-t', td.toFixed(3), '-itsoffset', ts.toFixed(3), '-i', overlay.pngPath);
+  }
   args.push('-t', String(clipDuration));
   args.push('-filter_complex', filterComplex);
   args.push('-map', mapVideo);
@@ -401,6 +436,51 @@ async function execRender(args, outputPath, timeout = 300000) {
     console.error('[FFmpeg Error] Command:', cmd);
     throw new Error(`FFmpeg render failed: ${diagnostic}`);
   }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PNG Caption Overlay Chain
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Builds a filter_complex chain that overlays a sequence of caption PNGs
+ * onto the video track, each gated by its time window.
+ *
+ * @param {Array}  overlays - [{ pngPath, startTime, endTime, x, y }]
+ * @param {string} inputLabel - current video label (e.g. '[composed]')
+ * @param {number} firstInputIdx - FFmpeg input index of the first PNG
+ * @returns {{chain: string, nextLabel: string, inputs: string[]}}
+ */
+function buildPngCaptionChain(overlays, inputLabel, firstInputIdx) {
+  const inputs = [];
+  const filters = [];
+  let currentLabel = inputLabel;
+
+  for (let i = 0; i < overlays.length; i++) {
+    const ov = overlays[i];
+    inputs.push(ov); // keep full overlay for args-building (needs timing)
+    const pngInputIdx = firstInputIdx + i;
+    const nextLabel = i === overlays.length - 1 ? '[cap_out]' : `[cap_${i}]`;
+
+    // Trim the overlay to its active window. The input is already offset
+    // via -itsoffset so its PTS matches the timeline; enable='between(...)'
+    // guards against any drift.
+    const ts = Math.max(0, ov.startTime);
+    const te = Math.max(ts + 0.01, ov.endTime);
+    const enable = `between(t,${ts.toFixed(3)},${te.toFixed(3)})`;
+
+    filters.push(
+      `[${pngInputIdx}:v]format=rgba[cap_src_${i}]`,
+      `${currentLabel}[cap_src_${i}]overlay=${ov.x}:${ov.y}:enable='${enable}':format=auto:eof_action=pass:repeatlast=0${nextLabel}`
+    );
+    currentLabel = nextLabel;
+  }
+
+  return {
+    chain: filters.join(';'),
+    nextLabel: currentLabel,
+    inputs,
+  };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
