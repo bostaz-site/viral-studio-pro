@@ -441,11 +441,9 @@ function buildTagFilter(tagConfig, canvasW = 720, canvasH = 1280) {
     }
 
     case 'watermark-center': {
-      // Small semi-transparent tag at bottom-left (TikTok style)
-      const fontSize = Math.round(canvasW * 0.038);
-      const padX = Math.round(canvasW * 0.04);
-      const padY = Math.round(canvasH * 0.08);
-      return `drawtext=text='${displayText}':fontfile=${fontFile}:fontcolor=white@0.85:fontsize=${fontSize}:x=${padX}:y=H-${padY}:shadowcolor=0x000000@0.6:shadowx=2:shadowy=2`;
+      // Semi-transparent text centered on video (subtle watermark)
+      const fontSize = Math.round(canvasW * 0.06);
+      return `drawtext=text='${displayText}':fontfile=${fontFile}:fontcolor=white@0.25:fontsize=${fontSize}:x=(w-text_w)/2:y=(h-text_h)/2:shadowcolor=0x000000@0.3:shadowx=2:shadowy=2`;
     }
 
     case 'banner-bottom': {
