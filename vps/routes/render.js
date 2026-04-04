@@ -257,10 +257,11 @@ router.post('/', async (req, res) => {
 
         // For trending clips, try Whisper transcription to get real word timestamps
         if (source === 'trending' && wordTimestamps.length === 0) {
-          const hasWhisperKey = !!process.env.OPENAI_API_KEY;
-          console.log(`[Render ${renderSessionId}] OPENAI_API_KEY present: ${hasWhisperKey}`);
+          const hasWhisperKey = !!(process.env.OPENAI_API_KEY || process.env.OPENAI_KEY);
+          const keySource = process.env.OPENAI_API_KEY ? 'OPENAI_API_KEY' : (process.env.OPENAI_KEY ? 'OPENAI_KEY' : 'NONE');
+          console.log(`[Render ${renderSessionId}] Whisper key present: ${hasWhisperKey} (source: ${keySource})`);
           if (!hasWhisperKey) {
-            console.warn(`[Render ${renderSessionId}] OPENAI_API_KEY is NOT set — Whisper transcription will be skipped`);
+            console.warn(`[Render ${renderSessionId}] No OPENAI key set — Whisper transcription will be skipped`);
           }
           try {
             console.log(`[Render ${renderSessionId}] Attempting Whisper transcription for trending clip...`);
