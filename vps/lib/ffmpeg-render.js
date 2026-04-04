@@ -151,20 +151,11 @@ export async function renderClip(inputPath, outputPath, options = {}) {
   };
   const { w: canvasW, h: canvasH } = ratios[aspectRatio] || ratios['9:16'];
 
-  // Build filter_complex for blur background compositing:
-  // [0:v] → split into two streams
-  //   Stream 1 (blur): scale to fill canvas, heavy blur, crop to exact canvas
-  //   Stream 2 (main): scale to fit inside canvas (no crop)
-  //   Overlay main centered on blur background
-  const filterParts = [
-    // Background: scale to fill (cover), blur, crop to exact canvas size
-    `[0:v]fps=30,scale=${canvasW}:${canvasH}:force_original_aspect_ratio=increase,crop=${canvasW}:${canvasH}:(iw-${canvasW})/2:(ih-${canvasH})/2,boxblur=20:5,setsar=1[bg]`,
-    // Foreground: scale to fit (contain) — no content lost
-    `[0:v]fps=30,scale=${canvasW}:${canvasH}:force_original_aspect_ratio=decrease,setsar=1[fg]`,
-    // Overlay foreground centered on blurred background
-    `[bg][fg]overlay=(W-w)/2:(H-h)/2[composed]`,
-  ];
-  let filterComplex = filterParts.join(';');
+  // Crop-fill: scale video to cover canvas, center-crop to exact canvas size.
+  // Matches TikTok/Reels behavior and ensures captions overlay on the video
+  // (not in blurred letterbox bars). This is what the UI preview shows.
+  const filterComplex_raw = `[0:v]fps=30,scale=${canvasW}:${canvasH}:force_original_aspect_ratio=increase,crop=${canvasW}:${canvasH}:(iw-${canvasW})/2:(ih-${canvasH})/2,setsar=1[composed]`;
+  let filterComplex = filterComplex_raw;
   let mapVideo = '[composed]';
 
   // Captions (ASS subtitle format with karaoke)
