@@ -29,14 +29,15 @@ const CAPTION_STYLES = {
     fontname: 'Arial',
     fontsize: 72,
     fontweight: true,
-    primaryColor: '&H00FFFFFF', // White
-    secondaryColor: '&H00000000', // Black
-    outlineColor: '&H00000000', // Black
-    backColor: '&H80000000', // Semi-transparent black
+    primaryColor: '&H00FFFFFF', // White (active)
+    secondaryColor: '&H00FFFFFF', // White (inactive - pulses via animation)
+    outlineColor: '&H30000000', // Black box background
+    backColor: '&H00000000',
     bold: -1,
     italic: 0,
-    outline: 3,
-    shadow: 2,
+    outline: 20, // Box padding
+    shadow: 0,
+    borderStyle: 3,
     alignment: 2,
     marginV: 30,
   },
@@ -45,14 +46,15 @@ const CAPTION_STYLES = {
     fontname: 'Arial',
     fontsize: 70,
     fontweight: true,
-    primaryColor: '&H0000FFFF', // Cyan/Neon yellow
-    secondaryColor: '&H00FF00FF', // Magenta
-    outlineColor: '&H00FFFFFF', // White glow
-    backColor: '&H80000000', // Semi-transparent
+    primaryColor: '&H00FFFF00', // Cyan (active)
+    secondaryColor: '&H00FFFFFF', // White (inactive)
+    outlineColor: '&H30000000', // Black box background
+    backColor: '&H00000000',
     bold: -1,
     italic: 0,
-    outline: 4,
-    shadow: 2,
+    outline: 20,
+    shadow: 0,
+    borderStyle: 3,
     alignment: 2,
     marginV: 40,
   },
@@ -61,14 +63,15 @@ const CAPTION_STYLES = {
     fontname: 'Helvetica',
     fontsize: 60,
     fontweight: 0,
-    primaryColor: '&H00FFFFFF', // White
-    secondaryColor: '&H00808080', // Gray
-    outlineColor: '&H00000000', // Black
-    backColor: '&H00000000', // Transparent
+    primaryColor: '&H00FFFFFF', // White (active)
+    secondaryColor: '&H00CCCCCC', // Light gray (inactive)
+    outlineColor: '&H50000000', // Semi-transparent box
+    backColor: '&H00000000',
     bold: 0,
     italic: 0,
-    outline: 1,
+    outline: 15,
     shadow: 0,
+    borderStyle: 3,
     alignment: 2,
     marginV: 20,
   },
@@ -77,14 +80,15 @@ const CAPTION_STYLES = {
     fontname: 'Impact',
     fontsize: 75,
     fontweight: true,
-    primaryColor: '&H00FFFFFF', // White
-    secondaryColor: '&H000000FF', // Red
-    outlineColor: '&H00000000', // Black
-    backColor: '&H00000000', // Transparent
+    primaryColor: '&H000000FF', // Red (active)
+    secondaryColor: '&H00FFFFFF', // White (inactive)
+    outlineColor: '&H30000000', // Black box background
+    backColor: '&H00000000',
     bold: -1,
     italic: 0,
-    outline: 3,
-    shadow: 1,
+    outline: 20,
+    shadow: 0,
+    borderStyle: 3,
     alignment: 2,
     marginV: 30,
   },
@@ -94,14 +98,15 @@ const CAPTION_STYLES = {
     fontname: 'Montserrat',
     fontsize: 65,
     fontweight: true,
-    primaryColor: '&H00FFFFFF', // White
-    secondaryColor: '&H0068D8FF', // Orange highlight
-    outlineColor: '&H00000000', // Black
-    backColor: '&H80000000', // Semi-transparent black bg
+    primaryColor: '&H0068D8FF', // Orange highlight (active)
+    secondaryColor: '&H00FFFFFF', // White (inactive)
+    outlineColor: '&H30000000', // Black box background
+    backColor: '&H00000000',
     bold: -1,
     italic: 0,
-    outline: 0,
+    outline: 20,
     shadow: 0,
+    borderStyle: 3,
     alignment: 2,
     marginV: 35,
   },
@@ -111,14 +116,15 @@ const CAPTION_STYLES = {
     fontname: 'Arial Black',
     fontsize: 85,
     fontweight: true,
-    primaryColor: '&H0000D4FF', // Gold/Yellow
-    secondaryColor: '&H00FFFFFF', // White
-    outlineColor: '&H00000000', // Black
-    backColor: '&H00000000', // Transparent
+    primaryColor: '&H0000D4FF', // Gold/Yellow (active)
+    secondaryColor: '&H00FFFFFF', // White (inactive)
+    outlineColor: '&H30000000', // Black box background
+    backColor: '&H00000000',
     bold: -1,
     italic: 0,
-    outline: 4,
-    shadow: 2,
+    outline: 20,
+    shadow: 0,
+    borderStyle: 3,
     alignment: 2,
     marginV: 25,
   },
@@ -128,31 +134,33 @@ const CAPTION_STYLES = {
     fontname: 'Arial',
     fontsize: 65,
     fontweight: true,
-    primaryColor: '&H00FFFFFF', // White
-    secondaryColor: '&H0000FFFF', // Yellow
-    outlineColor: '&H00000000', // Black
-    backColor: '&H00000000', // Transparent
+    primaryColor: '&H0000FFFF', // Yellow (active)
+    secondaryColor: '&H00FFFFFF', // White (inactive)
+    outlineColor: '&H30000000', // Black box background
+    backColor: '&H00000000',
     bold: -1,
     italic: 0,
-    outline: 2,
-    shadow: 1,
+    outline: 20,
+    shadow: 0,
+    borderStyle: 3,
     alignment: 2,
     marginV: 30,
   },
 
-  // Bold — thick outline
+  // Bold — thick outline with box
   bold: {
     fontname: 'Arial Black',
     fontsize: 78,
     fontweight: true,
-    primaryColor: '&H00FFFFFF', // White
-    secondaryColor: '&H000088FF', // Orange
-    outlineColor: '&H00000000', // Black
-    backColor: '&H00000000', // Transparent
+    primaryColor: '&H000088FF', // Orange (active)
+    secondaryColor: '&H00FFFFFF', // White (inactive)
+    outlineColor: '&H30000000', // Black box background
+    backColor: '&H00000000',
     bold: -1,
     italic: 0,
-    outline: 4,
-    shadow: 2,
+    outline: 20,
+    shadow: 0,
+    borderStyle: 3,
     alignment: 2,
     marginV: 30,
   },
@@ -233,9 +241,10 @@ function adjustPositioning(styleConfig, { position = 'bottom', canvasWidth = 108
     config.alignment = 5; // middle center
     config.marginV = 0;
   } else {
-    // bottom (default) — keep well above player controls
+    // bottom (default) — match UI preview: ~72% from top = ~28% from bottom
+    // but keep above banner-bottom tag bar (which is 7% of height)
     config.alignment = 2;
-    config.marginV = Math.round(canvasHeight * 0.15);
+    config.marginV = Math.round(canvasHeight * 0.22);
   }
 
   return config;

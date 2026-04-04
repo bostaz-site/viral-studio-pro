@@ -447,14 +447,13 @@ function buildTagFilter(tagConfig, canvasW = 720, canvasH = 1280) {
     }
 
     case 'banner-bottom': {
-      // Dark banner bar at bottom with credit text
-      // Use fixed-height drawbox (no tw/th), then overlay text
-      const barH = Math.round(canvasH * 0.045);
-      const fontSize = Math.round(canvasW * 0.032);
-      const textY = canvasH - barH + Math.round((barH - fontSize) / 2);
+      // Dark banner bar at bottom with credit text — prominent and readable
+      const barH = Math.round(canvasH * 0.07); // 7% of height
+      const fontSize = Math.round(canvasW * 0.045); // larger text
+      const textY = canvasH - barH + Math.round((barH - fontSize) / 2) - Math.round(fontSize * 0.1);
       return [
-        `drawbox=x=0:y=${canvasH - barH}:w=iw:h=${barH}:color=0x000000@0.75:thickness=fill`,
-        `drawtext=text='${displayText}':fontfile=${fontFile}:fontcolor=white:fontsize=${fontSize}:x=(W-tw)/2:y=${textY}`,
+        `drawbox=x=0:y=${canvasH - barH}:w=iw:h=${barH}:color=0x000000@0.85:thickness=fill`,
+        `drawtext=text='${displayText}':fontfile=${fontFile}:fontcolor=white:fontsize=${fontSize}:x=(W-tw)/2:y=${textY}:shadowcolor=0x000000@0.6:shadowx=2:shadowy=2`,
       ].join(',');
     }
 
