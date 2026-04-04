@@ -108,6 +108,12 @@ router.post('/', async (req, res) => {
   let renderSessionId = uuidv4();
   let clipId = null;
   let tempDir = null;
+  const trace = [];
+  const trc = (msg) => {
+    const line = `[${((Date.now() - startTime) / 1000).toFixed(2)}s] ${msg}`;
+    trace.push(line);
+    console.log(`[Render ${renderSessionId}] TRACE: ${line}`);
+  };
 
   try {
     const {
@@ -120,6 +126,15 @@ router.post('/', async (req, res) => {
       wordTimestamps: providedWordTimestamps,
       settings = {},
     } = req.body;
+
+    trc(`START source=${source} clipId=${reqClipId} jobId=${jobId || 'none'}`);
+    trc(`settings.tag=${JSON.stringify(settings.tag)}`);
+    trc(`settings.captions=${JSON.stringify(settings.captions)}`);
+    trc(`settings.splitScreen=${JSON.stringify(settings.splitScreen)}`);
+    trc(`settings.format=${JSON.stringify(settings.format)}`);
+    const envHasOpenAI = !!process.env.OPENAI_API_KEY;
+    const envHasOpenAIKey = !!process.env.OPENAI_KEY;
+    trc(`env OPENAI_API_KEY=${envHasOpenAI} OPENAI_KEY=${envHasOpenAIKey}`);
 
     if (!reqClipId) {
       return res.status(400).json({
@@ -259,21 +274,19 @@ router.post('/', async (req, res) => {
         if (source === 'trending' && wordTimestamps.length === 0) {
           const hasWhisperKey = !!(process.env.OPENAI_API_KEY || process.env.OPENAI_KEY);
           const keySource = process.env.OPENAI_API_KEY ? 'OPENAI_API_KEY' : (process.env.OPENAI_KEY ? 'OPENAI_KEY' : 'NONE');
-          console.log(`[Render ${renderSessionId}] Whisper key present: ${hasWhisperKey} (source: ${keySource})`);
+          trc(`WHISPER key present=${hasWhisperKey} source=${keySource}`);
           if (!hasWhisperKey) {
-            console.warn(`[Render ${renderSessionId}] No OPENAI key set — Whisper transcription will be skipped`);
+            trc(`WHISPER SKIPPED - no key`);
           }
           try {
-            console.log(`[Render ${renderSessionId}] Attempting Whisper transcription for trending clip...`);
+            trc(`WHISPER calling transcribeWithWhisper...`);
             wordTimestamps = await transcribeWithWhisper(inputPath, {
               tempDir,
               language: 'en', // Most Twitch clips are English
             });
-            console.log(`[Render ${renderSessionId}] Whisper returned ${wordTimestamps.length} word timestamps`);
+            trc(`WHISPER returned ${wordTimestamps.length} word timestamps`);
           } catch (err) {
-            console.warn(
-              `[Render ${renderSessionId}] Whisper transcription failed: ${err.message}`
-            );
+            trc(`WHISPER ERROR: ${err.message}`);
           }
         }
 
@@ -299,20 +312,21 @@ router.post('/', async (req, res) => {
             wordsPerLine: settings.captions.wordsPerLine || 6,
             customColors: settings.captions.customColors,
           });
+          trc(`CAPTIONS generated ASS from ${wordTimestamps.length} words`);
         } else {
-          // No word timestamps available — skip captions entirely
-          // (Static captions from title are useless, only real transcription matters)
-          console.log(`[Render ${renderSessionId}] No word timestamps available — skipping captions`);
+          trc(`CAPTIONS SKIPPED - no word timestamps`);
         }
 
         if (assContent) {
           assFilePath = path.join(tempDir, 'captions.ass');
           await fs.writeFile(assFilePath, assContent, 'utf-8');
-          console.log(`[Render ${renderSessionId}] Generated captions (${canvasW}x${canvasH}, pos=${captionPosition}, split=${!!isSplitScreen}): ${assFilePath}`);
+          trc(`CAPTIONS wrote ${canvasW}x${canvasH} pos=${captionPosition} split=${!!isSplitScreen}`);
         }
       } catch (err) {
-        console.warn(`[Render ${renderSessionId}] Warning: Failed to generate captions:`, err.message);
+        trc(`CAPTIONS ERROR: ${err.message}`);
       }
+    } else {
+      trc(`CAPTIONS disabled (settings.captions.enabled=${settings.captions?.enabled})`);
     }
 
     // Prepare split-screen if enabled
@@ -417,14 +431,15 @@ router.post('/', async (req, res) => {
 
     // Prepare tag/credit config
     let tagConfig = null;
-    console.log(`[Render ${renderSessionId}] Tag settings received:`, JSON.stringify(settings.tag));
     if (settings.tag && settings.tag.style && settings.tag.style !== 'none') {
       tagConfig = {
         style: settings.tag.style,
         authorName: settings.tag.authorName || null,
         authorHandle: settings.tag.authorHandle || null,
       };
-      console.log(`[Render ${renderSessionId}] Tag: style=${tagConfig.style}, author=${tagConfig.authorHandle || tagConfig.authorName || 'none'}`);
+      trc(`TAG applied style=${tagConfig.style} author=${tagConfig.authorHandle || tagConfig.authorName || 'none'}`);
+    } else {
+      trc(`TAG skipped (style=${settings.tag?.style || 'undefined'})`);
     }
 
     // Render clip with FFmpeg
@@ -475,11 +490,14 @@ router.post('/', async (req, res) => {
     const elapsedSeconds = (Date.now() - startTime) / 1000;
     console.log(`[Render ${renderSessionId}] Render completed in ${elapsedSeconds.toFixed(1)}s`);
 
+    trc(`DONE elapsed=${elapsedSeconds.toFixed(1)}s assFilePath=${assFilePath ? 'yes' : 'no'} tag=${tagConfig?.style || 'none'}`);
+
     // Mark render job as done
     await updateRenderJob(req.body.jobId, {
       status: 'done',
       storage_path: clipStoragePath,
       clip_url: uploadResult.url,
+      debug_log: trace.join('\n'),
     });
 
     res.json({
@@ -498,11 +516,14 @@ router.post('/', async (req, res) => {
     const errorMsg = err?.message || 'Unknown error';
     console.error(`[Render ${renderSessionId}] Error:`, errorMsg);
 
+    trace.push(`[ERROR] ${errorMsg}`);
+
     // Mark render job as error — do this FIRST and protect it
     try {
       await updateRenderJob(req.body?.jobId, {
         status: 'error',
         error_message: errorMsg.substring(0, 2000),
+        debug_log: trace.join('\n'),
       });
     } catch (jobErr) {
       console.error(`[Render ${renderSessionId}] Failed to update render job:`, jobErr?.message);
