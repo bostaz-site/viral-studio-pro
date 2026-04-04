@@ -18,9 +18,9 @@ const CAPTION_STYLES = {
     backColor: '&H00000000',
     bold: -1,
     italic: 0,
-    outline: 20, // Box padding
+    outline: 0, // no glyph stroke — rounded bg provides box
     shadow: 0,
-    borderStyle: 3, // Opaque box background — THE signature Hormozi look
+    borderStyle: 1,
     alignment: 2, // Bottom center
     marginV: 30,
   },
@@ -35,9 +35,9 @@ const CAPTION_STYLES = {
     backColor: '&H00000000',
     bold: -1,
     italic: 0,
-    outline: 20, // Box padding
+    outline: 0, // no glyph stroke — rounded bg provides box
     shadow: 0,
-    borderStyle: 3,
+    borderStyle: 1,
     alignment: 2,
     marginV: 30,
   },
@@ -52,9 +52,9 @@ const CAPTION_STYLES = {
     backColor: '&H00000000',
     bold: -1,
     italic: 0,
-    outline: 20,
+    outline: 0,
     shadow: 0,
-    borderStyle: 3,
+    borderStyle: 1,
     alignment: 2,
     marginV: 40,
   },
@@ -69,9 +69,9 @@ const CAPTION_STYLES = {
     backColor: '&H00000000',
     bold: 0,
     italic: 0,
-    outline: 15,
+    outline: 0,
     shadow: 0,
-    borderStyle: 3,
+    borderStyle: 1,
     alignment: 2,
     marginV: 20,
   },
@@ -86,9 +86,9 @@ const CAPTION_STYLES = {
     backColor: '&H00000000',
     bold: -1,
     italic: 0,
-    outline: 20,
+    outline: 0,
     shadow: 0,
-    borderStyle: 3,
+    borderStyle: 1,
     alignment: 2,
     marginV: 30,
   },
@@ -104,9 +104,9 @@ const CAPTION_STYLES = {
     backColor: '&H00000000',
     bold: -1,
     italic: 0,
-    outline: 20,
+    outline: 0,
     shadow: 0,
-    borderStyle: 3,
+    borderStyle: 1,
     alignment: 2,
     marginV: 35,
   },
@@ -122,9 +122,9 @@ const CAPTION_STYLES = {
     backColor: '&H00000000',
     bold: -1,
     italic: 0,
-    outline: 20,
+    outline: 0,
     shadow: 0,
-    borderStyle: 3,
+    borderStyle: 1,
     alignment: 2,
     marginV: 25,
   },
@@ -140,9 +140,9 @@ const CAPTION_STYLES = {
     backColor: '&H00000000',
     bold: -1,
     italic: 0,
-    outline: 20,
+    outline: 0,
     shadow: 0,
-    borderStyle: 3,
+    borderStyle: 1,
     alignment: 2,
     marginV: 30,
   },
@@ -158,9 +158,9 @@ const CAPTION_STYLES = {
     backColor: '&H00000000',
     bold: -1,
     italic: 0,
-    outline: 20,
+    outline: 0,
     shadow: 0,
-    borderStyle: 3,
+    borderStyle: 1,
     alignment: 2,
     marginV: 30,
   },
@@ -299,8 +299,18 @@ export function generateASS(wordTimestamps, options = {}) {
   const wordLines = groupWords(wordTimestamps, wordsPerLine);
 
   // Generate events (dialogue lines with karaoke timing or animated effects)
+  // For each line: emit a rounded-rect bg event FIRST (renders behind),
+  // then the text event(s). Both on Layer 0 — ASS renders in document order.
   const events = [];
   for (const lineWords of wordLines) {
+    if (!lineWords || lineWords.length === 0) continue;
+    const firstWord = lineWords[0];
+    const lastWord = lineWords[lineWords.length - 1];
+    const lineStart = Math.max(0, firstWord.start - clipStartTime);
+    const lineEnd = Math.max(lineStart + 0.1, lastWord.end - clipStartTime);
+    const bgEvent = buildRoundedBgEvent(lineWordsText(lineWords), styleConfig, lineStart, lineEnd);
+    events.push(bgEvent);
+
     if (animation && animation !== 'highlight') {
       const lineEvents = generateAnimatedEvents(lineWords, clipStartTime, styleConfig, animation);
       events.push(...lineEvents);
@@ -349,6 +359,62 @@ Style: Default,${fontname},${fontsize},${primaryColor},${secondaryColor},${outli
 
 [Events]
 Format: Layer,Start,End,Style,Name,MarginL,MarginR,MarginV,Effect,Text`;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Rounded Background Box (vector drawing to simulate CSS rounded-lg)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Estimate text pixel width for Liberation Sans Bold (rough heuristic) */
+function estimateTextWidthPx(text, fontsize) {
+  // Bold sans-serif: avg advance ≈ 0.58 × fontsize for mixed case, 0.62 for UPPER
+  const hasLower = /[a-z]/.test(text);
+  const ratio = hasLower ? 0.54 : 0.60;
+  return Math.round(text.length * fontsize * ratio);
+}
+
+/** Build ASS \p drawing commands for a rounded rectangle anchored at bottom-center. */
+function buildRoundedRectDrawing(width, height, radius) {
+  const W = Math.round(width);
+  const H = Math.round(height);
+  const R = Math.max(1, Math.min(radius, Math.floor(Math.min(W, H) / 2)));
+  const hw = Math.round(W / 2);
+  // Drawing space: x in [-hw, hw], y in [-H, 0] (0 = baseline anchor)
+  const L = -hw, Rx = hw, T = -H, B = 0;
+  return [
+    `m ${L + R} ${T}`,
+    `l ${Rx - R} ${T}`,
+    `b ${Rx} ${T} ${Rx} ${T} ${Rx} ${T + R}`,
+    `l ${Rx} ${B - R}`,
+    `b ${Rx} ${B} ${Rx} ${B} ${Rx - R} ${B}`,
+    `l ${L + R} ${B}`,
+    `b ${L} ${B} ${L} ${B} ${L} ${B - R}`,
+    `l ${L} ${T + R}`,
+    `b ${L} ${T} ${L} ${T} ${L + R} ${T}`,
+  ].join(' ');
+}
+
+/**
+ * Build a background box dialogue event (rounded rect, black 80% opacity)
+ * that sits BEHIND a caption line. Uses Layer 0 so text (Layer 1) renders on top.
+ */
+function buildRoundedBgEvent(lineText, styleConfig, lineStart, lineEnd) {
+  const fontsize = styleConfig.fontsize;
+  const padX = Math.round(fontsize * 0.40);
+  const padY = Math.round(fontsize * 0.20);
+  const textW = estimateTextWidthPx(lineText, fontsize);
+  const boxW = textW + 2 * padX;
+  // Total box height accounts for text ascent + descent + vertical padding
+  const boxH = Math.round(fontsize * 1.25) + 2 * padY;
+  const radius = Math.round(fontsize * 0.30);
+  const drawing = buildRoundedRectDrawing(boxW, boxH, radius);
+  // Background: black 80% opaque (bg-black/80 in UI). Alpha &H33& = 0x33 = 51/255 ≈ 20% transparent
+  return `Dialogue: 0,${toASSTime(lineStart)},${toASSTime(lineEnd)},Default,,0,0,0,,{\\an2\\bord0\\shad0\\1c&H000000&\\alpha&H33&\\p1}${drawing}{\\p0}`;
+}
+
+/** Concatenate all words in a line into display text (used for width estimation). */
+function lineWordsText(lineWords) {
+  return lineWords.map((w) => w.word).join(' ');
 }
 
 /**
