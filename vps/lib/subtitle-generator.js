@@ -470,34 +470,65 @@ function generateAnimatedEvents(lineWords, clipStartTime, styleConfig, animation
 }
 
 /**
- * Pop animation: each word scales from 0% → 120% → 100%
+ * Helper: build a karaoke word chain with optional line-level prefix transforms.
  */
-function generatePopEvents(lineWords, clipStartTime, lineStart, lineEnd) {
-  const text = lineWords.map((w) => {
-    const wordStart = Math.max(0, w.start - clipStartTime);
-    const relOffset = Math.round((wordStart - lineStart) * 100); // centiseconds offset
-    const popDuration = 15; // 150ms pop
-    // Scale from 0 to 120 over popDuration, then from 120 to 100 over another popDuration
-    return `{\\t(${relOffset},${relOffset + popDuration},\\fscx120\\fscy120)\\t(${relOffset + popDuration},${relOffset + popDuration * 2},\\fscx100\\fscy100)\\kf${Math.max(1, Math.round((w.end - w.start) * 100))}}${w.word}`;
-  }).join(' ');
-
-  return [`Dialogue: 0,${toASSTime(lineStart)},${toASSTime(lineEnd)},Default,,0,0,0,,{\\fscx0\\fscy0}${text}`];
+function buildKaraokeWordChain(lineWords) {
+  return lineWords
+    .map((w) => {
+      const durationCs = Math.max(1, Math.round((w.end - w.start) * 100));
+      return `{\\kf${durationCs}}${w.word}`;
+    })
+    .join(' ');
 }
 
 /**
- * Bounce animation: words translate from above (Y offset)
+ * Helper: build a repeating \\t transform sequence over [0, lineDurCs] centiseconds.
+ * cycleLenCs: duration of ONE full cycle in centiseconds
+ * builder(t0, t1, half): returns a string of tags for a single half-cycle
+ */
+function buildLoopedTransforms(lineDurCs, cycleLenCs, builder) {
+  const half = Math.max(1, Math.round(cycleLenCs / 2));
+  const tags = [];
+  let t = 0;
+  let toggle = 0;
+  while (t < lineDurCs) {
+    const t1 = Math.min(t + half, lineDurCs);
+    tags.push(builder(t, t1, toggle));
+    toggle = 1 - toggle;
+    t = t1;
+  }
+  return tags.join('');
+}
+
+/**
+ * Pop animation: whole line pulses opacity 100% → 50% → 100% every 2s (matches
+ * Tailwind `animate-pulse` in UI preview).
+ */
+function generatePopEvents(lineWords, clipStartTime, lineStart, lineEnd) {
+  const lineDurCs = Math.max(1, Math.round((lineEnd - lineStart) * 100));
+  // 2s cycle = 200cs. half = 100cs: alpha 00 → 80 → 00
+  const transforms = buildLoopedTransforms(lineDurCs, 200, (t0, t1, toggle) => {
+    const targetAlpha = toggle === 0 ? '80' : '00';
+    return `\\t(${t0},${t1},\\alpha&H${targetAlpha}&)`;
+  });
+  const karaoke = buildKaraokeWordChain(lineWords);
+  return [`Dialogue: 0,${toASSTime(lineStart)},${toASSTime(lineEnd)},Default,,0,0,0,,{${transforms}}${karaoke}`];
+}
+
+/**
+ * Bounce animation: whole line bounces vertically (matches Tailwind
+ * `animate-bounce` in UI: translateY(-25%) with ease-out, 1s cycle).
+ * In ASS we simulate by pulsing Y scale up and down slightly.
  */
 function generateBounceEvents(lineWords, clipStartTime, lineStart, lineEnd) {
-  const text = lineWords.map((w) => {
-    const wordStart = Math.max(0, w.start - clipStartTime);
-    const relOffset = Math.round((wordStart - lineStart) * 100);
-    const bounceDuration = 20; // 200ms
-    // Move from 80px above to 0, with slight overshoot
-    return `{\\t(${relOffset},${relOffset + bounceDuration},\\frz0)\\kf${Math.max(1, Math.round((w.end - w.start) * 100))}}${w.word}`;
-  }).join(' ');
-
-  // Use default style positioning (no hardcoded \\move — let marginV handle position)
-  return [`Dialogue: 0,${toASSTime(lineStart)},${toASSTime(lineEnd)},Default,,0,0,0,,${text}`];
+  const lineDurCs = Math.max(1, Math.round((lineEnd - lineStart) * 100));
+  // 1s cycle = 100cs. Scale Y 100% → 115% → 100%
+  const transforms = buildLoopedTransforms(lineDurCs, 100, (t0, t1, toggle) => {
+    const scale = toggle === 0 ? 115 : 100;
+    return `\\t(${t0},${t1},\\fscy${scale})`;
+  });
+  const karaoke = buildKaraokeWordChain(lineWords);
+  return [`Dialogue: 0,${toASSTime(lineStart)},${toASSTime(lineEnd)},Default,,0,0,0,,{${transforms}}${karaoke}`];
 }
 
 /**
@@ -548,20 +579,21 @@ function generateTypewriterEvents(lineWords, clipStartTime, lineStart, lineEnd) 
 }
 
 /**
- * Glow animation: active words pulse with outline glow
+ * Glow animation: whole line pulses opacity + border width, 1.5s cycle
+ * (matches Tailwind `animate-pulse` 1.5s + glow shadow in UI preview).
  */
 function generateGlowEvents(lineWords, clipStartTime, lineStart, lineEnd, styleConfig) {
-  const glowColor = styleConfig.secondaryColor || '&H0000FFFF';
-  const text = lineWords.map((w) => {
-    const wordStart = Math.max(0, w.start - clipStartTime);
-    const relOffset = Math.round((wordStart - lineStart) * 100);
-    const durationCs = Math.max(1, Math.round((w.end - w.start) * 100));
-    const glowDur = Math.min(durationCs, 30);
-    // Expand border for glow, then shrink back
-    return `{\\t(${relOffset},${relOffset + glowDur},\\bord6\\3c${glowColor})\\t(${relOffset + glowDur},${relOffset + durationCs},\\bord${styleConfig.outline}\\3c${styleConfig.outlineColor})\\kf${durationCs}}${w.word}`;
-  }).join(' ');
-
-  return [`Dialogue: 0,${toASSTime(lineStart)},${toASSTime(lineEnd)},Default,,0,0,0,,${text}`];
+  const lineDurCs = Math.max(1, Math.round((lineEnd - lineStart) * 100));
+  const baseBord = styleConfig.outline || 20;
+  const glowBord = Math.round(baseBord * 1.35);
+  // 1.5s cycle = 150cs
+  const transforms = buildLoopedTransforms(lineDurCs, 150, (t0, t1, toggle) => {
+    const targetAlpha = toggle === 0 ? '60' : '00';
+    const targetBord = toggle === 0 ? glowBord : baseBord;
+    return `\\t(${t0},${t1},\\alpha&H${targetAlpha}&\\bord${targetBord})`;
+  });
+  const karaoke = buildKaraokeWordChain(lineWords);
+  return [`Dialogue: 0,${toASSTime(lineStart)},${toASSTime(lineEnd)},Default,,0,0,0,,{${transforms}}${karaoke}`];
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
