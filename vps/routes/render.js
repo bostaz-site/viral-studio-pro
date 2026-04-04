@@ -308,11 +308,12 @@ router.post('/', async (req, res) => {
           validateWordTimestamps(wordTimestamps);
           assContent = generateASS(wordTimestamps, {
             ...subtitleOpts,
+            animation: settings.captions.animation || 'highlight',
             clipStartTime,
             wordsPerLine: settings.captions.wordsPerLine || 6,
             customColors: settings.captions.customColors,
           });
-          trc(`CAPTIONS generated ASS from ${wordTimestamps.length} words`);
+          trc(`CAPTIONS generated ASS from ${wordTimestamps.length} words anim=${settings.captions.animation || 'highlight'}`);
         } else {
           trc(`CAPTIONS SKIPPED - no word timestamps`);
         }

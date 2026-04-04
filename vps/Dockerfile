@@ -5,6 +5,9 @@ RUN apt-get update && \
     apt-get install -y --no-install-recommends \
       ffmpeg \
       fonts-dejavu-core \
+      fonts-liberation \
+      fonts-liberation2 \
+      fonts-noto-core \
       fontconfig \
       python3 \
       curl \

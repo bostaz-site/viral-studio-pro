@@ -175,9 +175,13 @@ export async function renderClip(inputPath, outputPath, options = {}) {
 
   // Tag / Credit overlay
   if (tag) {
-    const tagFilter = buildTagFilter(tag, canvasW, canvasH);
+    const tagFilter = buildTagFilter(tag, canvasW, canvasH, mapVideo);
     if (tagFilter) {
-      filterComplex += `;${mapVideo}${tagFilter}[tagged]`;
+      if (typeof tagFilter === 'string') {
+        filterComplex += `;${mapVideo}${tagFilter}[tagged]`;
+      } else if (tagFilter.complex) {
+        filterComplex += `;${tagFilter.chain}[tagged]`;
+      }
       mapVideo = '[tagged]';
     }
   }
@@ -320,9 +324,13 @@ async function renderSplitScreen(inputPath, outputPath, opts) {
 
   // Apply tag / credit overlay on composed output
   if (tag) {
-    const tagFilter = buildTagFilter(tag, canvasW, canvasH);
+    const tagFilter = buildTagFilter(tag, canvasW, canvasH, mapVideo);
     if (tagFilter) {
-      filterComplex += `;${mapVideo}${tagFilter}[tagged]`;
+      if (typeof tagFilter === 'string') {
+        filterComplex += `;${mapVideo}${tagFilter}[tagged]`;
+      } else if (tagFilter.complex) {
+        filterComplex += `;${tagFilter.chain}[tagged]`;
+      }
       mapVideo = '[tagged]';
     }
   }
@@ -420,7 +428,7 @@ async function execRender(args, outputPath, timeout = 300000) {
  * @param {number} canvasH - Canvas height
  * @returns {string|null} FFmpeg filter string or null
  */
-function buildTagFilter(tagConfig, canvasW = 720, canvasH = 1280) {
+function buildTagFilter(tagConfig, canvasW = 720, canvasH = 1280, inputLabel = null) {
   if (!tagConfig || tagConfig.style === 'none' || (!tagConfig.authorName && !tagConfig.authorHandle)) {
     return null;
   }
@@ -433,26 +441,50 @@ function buildTagFilter(tagConfig, canvasW = 720, canvasH = 1280) {
 
   switch (tagConfig.style) {
     case 'badge-top': {
-      // White text with dark background box in top-right
-      const fontSize = Math.round(canvasW * 0.035);
-      const padX = Math.round(canvasW * 0.03);
-      const padY = Math.round(canvasH * 0.03);
-      return `drawtext=text='${displayText}':fontfile=${fontFile}:fontcolor=white:fontsize=${fontSize}:x=W-tw-${padX}:y=${padY}:box=1:boxcolor=0x000000@0.6:boxborderw=10`;
+      // Rounded pill: small dark semi-transparent badge in top-right
+      // UI: bg-black/60 rounded-full px-2.5 py-1, text-xs font-bold white
+      const fontSize = Math.round(canvasW * 0.028); // matches text-xs scaled
+      const padX = Math.round(canvasW * 0.025);
+      const padY = Math.round(canvasH * 0.018);
+      // boxborderw gives us the rounded-ish padding illusion
+      return `drawtext=text='${displayText}':fontfile=${fontFile}:fontcolor=white:fontsize=${fontSize}:x=W-tw-${padX * 2}-${padX}:y=${padY}:box=1:boxcolor=0x000000@0.60:boxborderw=${Math.round(fontSize * 0.55)}`;
     }
 
     case 'watermark-center': {
-      // Semi-transparent text centered on video (subtle watermark)
-      const fontSize = Math.round(canvasW * 0.06);
-      return `drawtext=text='${displayText}':fontfile=${fontFile}:fontcolor=white@0.25:fontsize=${fontSize}:x=(w-text_w)/2:y=(h-text_h)/2:shadowcolor=0x000000@0.3:shadowx=2:shadowy=2`;
+      // UI: text-2xl font-black text-white/15 rotate-[-20deg]
+      // Render a rotated semi-transparent watermark via a synthetic canvas +
+      // rotate + overlay chain. We need a multi-filter graph fragment here.
+      const fontSize = Math.round(canvasW * 0.09); // text-2xl-ish scaled for mobile
+      // Rotation of -20 degrees = -0.349 rad. Using ow/oh=hypot keeps text visible.
+      // We draw text on a transparent canvas sized to (canvasW x canvasH), rotate it,
+      // then overlay centered on the main video.
+      const angleRad = '-0.349066'; // -20 degrees
+      const canvasSize = `${canvasW}x${Math.round(canvasH * 0.3)}`;
+      const chain = [
+        `color=c=0x000000@0.0:s=${canvasSize}:r=30:d=600,format=yuva420p[wcbg]`,
+        `[wcbg]drawtext=text='${displayText}':fontfile=${fontFile}:fontcolor=white@0.15:fontsize=${fontSize}:x=(w-text_w)/2:y=(h-text_h)/2[wctxt]`,
+        `[wctxt]rotate=${angleRad}:c=none:ow=rotw(a):oh=roth(a)[wcrot]`,
+        `${inputLabel}[wcrot]overlay=(W-w)/2:(H-h)/2:format=auto`,
+      ].join(';');
+      return { chain, complex: true };
     }
 
     case 'banner-bottom': {
-      // Dark banner bar at bottom with credit text — prominent and readable
+      // UI: bg-gradient-to-t from-black/80 to-transparent, discord icon + handle
+      // Fake a gradient with 3 stacked boxes of decreasing opacity (top→bottom fade-in)
       const barH = Math.round(canvasH * 0.07); // 7% of height
-      const fontSize = Math.round(canvasW * 0.045); // larger text
+      const fontSize = Math.round(canvasW * 0.04);
       const textY = canvasH - barH + Math.round((barH - fontSize) / 2) - Math.round(fontSize * 0.1);
+      const topY = canvasH - barH;
+      const band = Math.round(barH / 3);
       return [
-        `drawbox=x=0:y=${canvasH - barH}:w=iw:h=${barH}:color=0x000000@0.85:thickness=fill`,
+        // Top band (lightest, fades in)
+        `drawbox=x=0:y=${topY}:w=iw:h=${band}:color=0x000000@0.35:thickness=fill`,
+        // Middle band
+        `drawbox=x=0:y=${topY + band}:w=iw:h=${band}:color=0x000000@0.60:thickness=fill`,
+        // Bottom band (darkest)
+        `drawbox=x=0:y=${topY + band * 2}:w=iw:h=${barH - band * 2}:color=0x000000@0.85:thickness=fill`,
+        // Handle text centered
         `drawtext=text='${displayText}':fontfile=${fontFile}:fontcolor=white:fontsize=${fontSize}:x=(W-tw)/2:y=${textY}:shadowcolor=0x000000@0.6:shadowx=2:shadowy=2`,
       ].join(',');
     }

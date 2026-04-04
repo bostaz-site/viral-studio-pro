@@ -9,10 +9,10 @@
 
 const CAPTION_STYLES = {
   hormozi: {
-    fontname: 'Arial Black',
+    fontname: 'Liberation Sans',
     fontsize: 72,
     fontweight: true,
-    primaryColor: '&H0000FFFF', // Yellow (active / highlighted word)
+    primaryColor: '&H0015CCFA', // yellow-400 #FACC15 (active / highlighted word)
     secondaryColor: '&H00FFFFFF', // White (inactive words)
     outlineColor: '&H30000000', // Black box background (with slight alpha)
     backColor: '&H00000000',
@@ -26,11 +26,11 @@ const CAPTION_STYLES = {
   },
 
   mrbeast: {
-    fontname: 'Arial',
+    fontname: 'Liberation Sans',
     fontsize: 72,
     fontweight: true,
-    primaryColor: '&H00FFFFFF', // White (active)
-    secondaryColor: '&H00FFFFFF', // White (inactive - pulses via animation)
+    primaryColor: '&H004444EF', // red-500 #EF4444 (active / highlighted)
+    secondaryColor: '&H00FFFFFF', // White (inactive)
     outlineColor: '&H30000000', // Black box background
     backColor: '&H00000000',
     bold: -1,
@@ -43,11 +43,11 @@ const CAPTION_STYLES = {
   },
 
   neon: {
-    fontname: 'Arial',
+    fontname: 'Liberation Sans',
     fontsize: 70,
     fontweight: true,
-    primaryColor: '&H00FFFF00', // Cyan (active)
-    secondaryColor: '&H00FFFFFF', // White (inactive)
+    primaryColor: '&H0080DE4A', // green-400 #4ADE80 (active)
+    secondaryColor: '&H0080DE4A', // green-400 #4ADE80 (inactive)
     outlineColor: '&H30000000', // Black box background
     backColor: '&H00000000',
     bold: -1,
@@ -60,11 +60,11 @@ const CAPTION_STYLES = {
   },
 
   minimal: {
-    fontname: 'Helvetica',
+    fontname: 'Liberation Sans',
     fontsize: 60,
     fontweight: 0,
-    primaryColor: '&H00FFFFFF', // White (active)
-    secondaryColor: '&H00CCCCCC', // Light gray (inactive)
+    primaryColor: '&H33FFFFFF', // white/80 (active)
+    secondaryColor: '&H33FFFFFF', // white/80 (inactive)
     outlineColor: '&H50000000', // Semi-transparent box
     backColor: '&H00000000',
     bold: 0,
@@ -77,7 +77,7 @@ const CAPTION_STYLES = {
   },
 
   impact: {
-    fontname: 'Impact',
+    fontname: 'Liberation Sans',
     fontsize: 75,
     fontweight: true,
     primaryColor: '&H000000FF', // Red (active)
@@ -95,11 +95,11 @@ const CAPTION_STYLES = {
 
   // Ali Abdaal style — clean white on dark, modern
   aliabdaal: {
-    fontname: 'Montserrat',
+    fontname: 'Liberation Sans',
     fontsize: 65,
     fontweight: true,
-    primaryColor: '&H0068D8FF', // Orange highlight (active)
-    secondaryColor: '&H00FFFFFF', // White (inactive)
+    primaryColor: '&H00FDC593', // blue-300 #93C5FD (active)
+    secondaryColor: '&H00FDC593', // blue-300 #93C5FD (inactive)
     outlineColor: '&H30000000', // Black box background
     backColor: '&H00000000',
     bold: -1,
@@ -113,7 +113,7 @@ const CAPTION_STYLES = {
 
   // Iman Gadzhi style — bold yellow/white, high contrast
   imangadzhi: {
-    fontname: 'Arial Black',
+    fontname: 'Liberation Sans',
     fontsize: 85,
     fontweight: true,
     primaryColor: '&H0000D4FF', // Gold/Yellow (active)
@@ -149,10 +149,10 @@ const CAPTION_STYLES = {
 
   // Bold — thick outline with box
   bold: {
-    fontname: 'Arial Black',
+    fontname: 'Liberation Sans',
     fontsize: 78,
     fontweight: true,
-    primaryColor: '&H000088FF', // Orange (active)
+    primaryColor: '&H00FFFFFF', // White (active)
     secondaryColor: '&H00FFFFFF', // White (inactive)
     outlineColor: '&H30000000', // Black box background
     backColor: '&H00000000',
@@ -221,19 +221,21 @@ function adjustPositioning(styleConfig, { position = 'bottom', canvasWidth = 108
   const config = { ...styleConfig };
 
   // Scale font size proportionally to canvas (styles designed for 1080x1920)
-  const scaleFactor = canvasHeight / 1920;
+  // Clamp to min 0.75 so captions remain readable in split-screen / small canvases
+  const scaleFactor = Math.max(0.75, canvasHeight / 1920);
   config.fontsize = Math.round(config.fontsize * scaleFactor);
 
   if (splitScreen && splitScreen.enabled && splitScreen.layout === 'top-bottom') {
-    // Split-screen: place captions inside the TOP portion (main video)
+    // Split-screen: place captions INSIDE the main video (top portion), near bottom of it
     const ratio = (splitScreen.ratio || 50) / 100;
     const topH = Math.round(canvasHeight * ratio);
     const botH = canvasHeight - topH;
 
-    // Use bottom alignment (2) but push up above the B-roll area
-    // marginV = distance from bottom = botH + small padding inside top portion
+    // marginV = distance from bottom of canvas. We want captions near the bottom
+    // of the TOP clip (just above the B-roll divider), not drifting toward the top.
+    // So marginV = botH (height of B-roll) + small inner padding (~6% of top height).
     config.alignment = 2;
-    config.marginV = botH + Math.round(topH * 0.08);
+    config.marginV = botH + Math.round(topH * 0.06);
   } else if (position === 'top') {
     config.alignment = 8; // top center
     config.marginV = Math.round(canvasHeight * 0.05);
@@ -264,6 +266,7 @@ function adjustPositioning(styleConfig, { position = 'bottom', canvasWidth = 108
 export function generateASS(wordTimestamps, options = {}) {
   const {
     style = 'hormozi',
+    animation = 'highlight',
     clipStartTime = 0,
     wordsPerLine = 6,
     customColors = null,
@@ -295,11 +298,16 @@ export function generateASS(wordTimestamps, options = {}) {
   // Group words into lines
   const wordLines = groupWords(wordTimestamps, wordsPerLine);
 
-  // Generate events (dialogue lines with karaoke timing)
+  // Generate events (dialogue lines with karaoke timing or animated effects)
   const events = [];
   for (const lineWords of wordLines) {
-    const event = generateKaraokeEvent(lineWords, clipStartTime, styleConfig);
-    if (event) events.push(event);
+    if (animation && animation !== 'highlight') {
+      const lineEvents = generateAnimatedEvents(lineWords, clipStartTime, styleConfig, animation);
+      events.push(...lineEvents);
+    } else {
+      const event = generateKaraokeEvent(lineWords, clipStartTime, styleConfig);
+      if (event) events.push(event);
+    }
   }
 
   return [header, ...events].join('\n');
