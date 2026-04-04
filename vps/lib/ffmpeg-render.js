@@ -463,7 +463,7 @@ function buildTagFilter(tagConfig, canvasW = 720, canvasH = 1280, inputLabel = n
       const chain = [
         `color=c=0x000000@0.0:s=${canvasSize}:r=30:d=600,format=yuva420p[wcbg]`,
         `[wcbg]drawtext=text='${displayText}':fontfile=${fontFile}:fontcolor=white@0.15:fontsize=${fontSize}:x=(w-text_w)/2:y=(h-text_h)/2[wctxt]`,
-        `[wctxt]rotate=${angleRad}:c=none:ow=rotw(a):oh=roth(a)[wcrot]`,
+        `[wctxt]rotate=${angleRad}:c=none:ow=rotw(${angleRad}):oh=roth(${angleRad})[wcrot]`,
         `${inputLabel}[wcrot]overlay=(W-w)/2:(H-h)/2:format=auto`,
       ].join(';');
       return { chain, complex: true };
