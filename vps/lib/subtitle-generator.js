@@ -13,7 +13,7 @@ const CAPTION_STYLES = {
     fontsize: 72,
     fontweight: true,
     primaryColor: '&H0015CCFA', // yellow-400 #FACC15 (active / highlighted word)
-    secondaryColor: '&H00FFFFFF', // White (inactive words)
+    secondaryColor: '&H0015CCFA', // yellow-400 (ALL words yellow in UI — text-yellow-400 font-black)
     outlineColor: '&H30000000', // Black box background (with slight alpha)
     backColor: '&H00000000',
     bold: -1,
