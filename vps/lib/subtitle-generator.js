@@ -7,162 +7,161 @@
 // Style Definitions
 // ─────────────────────────────────────────────────────────────────────────────
 
+// Modern viral caption styles (TikTok 2025):
+// No background box — thick black outline around each letter + drop shadow.
+// Clean, cinematic, readable on any background.
 const CAPTION_STYLES = {
   hormozi: {
     fontname: 'Liberation Sans',
-    fontsize: 72,
+    fontsize: 78,
     fontweight: true,
-    primaryColor: '&H0015CCFA', // yellow-400 #FACC15 (active / highlighted word)
-    secondaryColor: '&H0015CCFA', // yellow-400 (ALL words yellow in UI — text-yellow-400 font-black)
-    outlineColor: '&H30000000', // Black box background (with slight alpha)
-    backColor: '&H00000000',
+    primaryColor: '&H0015CCFA', // yellow-400 #FACC15 (active / all words)
+    secondaryColor: '&H0015CCFA',
+    outlineColor: '&H00000000', // Opaque black stroke around letters
+    backColor: '&H80000000', // Shadow: 50% opaque black
     bold: -1,
     italic: 0,
-    outline: 0, // no glyph stroke — rounded bg provides box
-    shadow: 0,
-    borderStyle: 1,
+    outline: 5, // Thick letter stroke
+    shadow: 2, // Drop shadow for depth
+    borderStyle: 1, // 1 = outline+shadow (NOT opaque box)
     alignment: 2, // Bottom center
-    marginV: 30,
+    marginV: 120,
   },
 
   mrbeast: {
     fontname: 'Liberation Sans',
-    fontsize: 72,
+    fontsize: 78,
     fontweight: true,
-    primaryColor: '&H004444EF', // red-500 #EF4444 (active / highlighted)
+    primaryColor: '&H004444EF', // red-500 (active word)
     secondaryColor: '&H00FFFFFF', // White (inactive)
-    outlineColor: '&H30000000', // Black box background
-    backColor: '&H00000000',
+    outlineColor: '&H00000000',
+    backColor: '&H80000000',
     bold: -1,
     italic: 0,
-    outline: 0, // no glyph stroke — rounded bg provides box
-    shadow: 0,
+    outline: 5,
+    shadow: 2,
     borderStyle: 1,
     alignment: 2,
-    marginV: 30,
+    marginV: 120,
   },
 
   neon: {
     fontname: 'Liberation Sans',
-    fontsize: 70,
+    fontsize: 76,
     fontweight: true,
-    primaryColor: '&H0080DE4A', // green-400 #4ADE80 (active)
-    secondaryColor: '&H0080DE4A', // green-400 #4ADE80 (inactive)
-    outlineColor: '&H30000000', // Black box background
-    backColor: '&H00000000',
+    primaryColor: '&H0080DE4A', // green-400
+    secondaryColor: '&H0080DE4A',
+    outlineColor: '&H00000000',
+    backColor: '&H80000000',
     bold: -1,
     italic: 0,
-    outline: 0,
-    shadow: 0,
+    outline: 5,
+    shadow: 2,
     borderStyle: 1,
     alignment: 2,
-    marginV: 40,
+    marginV: 130,
   },
 
   minimal: {
     fontname: 'Liberation Sans',
-    fontsize: 60,
+    fontsize: 64,
     fontweight: 0,
-    primaryColor: '&H33FFFFFF', // white/80 (active)
-    secondaryColor: '&H33FFFFFF', // white/80 (inactive)
-    outlineColor: '&H50000000', // Semi-transparent box
-    backColor: '&H00000000',
+    primaryColor: '&H00FFFFFF', // White
+    secondaryColor: '&H00FFFFFF',
+    outlineColor: '&H00000000',
+    backColor: '&H80000000',
     bold: 0,
     italic: 0,
-    outline: 0,
-    shadow: 0,
+    outline: 3,
+    shadow: 2,
     borderStyle: 1,
     alignment: 2,
-    marginV: 20,
+    marginV: 110,
   },
 
   impact: {
     fontname: 'Liberation Sans',
-    fontsize: 75,
+    fontsize: 80,
     fontweight: true,
-    primaryColor: '&H000000FF', // Red (active)
-    secondaryColor: '&H00FFFFFF', // White (inactive)
-    outlineColor: '&H30000000', // Black box background
-    backColor: '&H00000000',
+    primaryColor: '&H000000FF', // Red
+    secondaryColor: '&H00FFFFFF', // White
+    outlineColor: '&H00000000',
+    backColor: '&H80000000',
     bold: -1,
     italic: 0,
-    outline: 0,
-    shadow: 0,
+    outline: 6,
+    shadow: 2,
     borderStyle: 1,
     alignment: 2,
-    marginV: 30,
+    marginV: 120,
   },
 
-  // Ali Abdaal style — clean white on dark, modern
   aliabdaal: {
     fontname: 'Liberation Sans',
-    fontsize: 65,
+    fontsize: 70,
     fontweight: true,
-    primaryColor: '&H00FDC593', // blue-300 #93C5FD (active)
-    secondaryColor: '&H00FDC593', // blue-300 #93C5FD (inactive)
-    outlineColor: '&H30000000', // Black box background
-    backColor: '&H00000000',
+    primaryColor: '&H00FDC593', // blue-300
+    secondaryColor: '&H00FDC593',
+    outlineColor: '&H00000000',
+    backColor: '&H80000000',
     bold: -1,
     italic: 0,
-    outline: 0,
-    shadow: 0,
+    outline: 5,
+    shadow: 2,
     borderStyle: 1,
     alignment: 2,
-    marginV: 35,
+    marginV: 125,
   },
 
-  // Iman Gadzhi style — bold yellow/white, high contrast
   imangadzhi: {
     fontname: 'Liberation Sans',
-    fontsize: 85,
+    fontsize: 88,
     fontweight: true,
-    primaryColor: '&H0000D4FF', // Gold/Yellow (active)
-    secondaryColor: '&H00FFFFFF', // White (inactive)
-    outlineColor: '&H30000000', // Black box background
-    backColor: '&H00000000',
+    primaryColor: '&H0000D4FF', // Gold
+    secondaryColor: '&H00FFFFFF', // White
+    outlineColor: '&H00000000',
+    backColor: '&H80000000',
     bold: -1,
     italic: 0,
-    outline: 0,
-    shadow: 0,
+    outline: 6,
+    shadow: 2,
     borderStyle: 1,
     alignment: 2,
-    marginV: 25,
+    marginV: 115,
   },
 
-  // Default / clean — simple white
   default: {
     fontname: 'Arial',
-    fontsize: 65,
+    fontsize: 70,
     fontweight: true,
-    primaryColor: '&H0000FFFF', // Yellow (active)
-    secondaryColor: '&H00FFFFFF', // White (inactive)
-    outlineColor: '&H30000000', // Black box background
-    backColor: '&H00000000',
+    primaryColor: '&H0000FFFF', // Yellow
+    secondaryColor: '&H00FFFFFF', // White
+    outlineColor: '&H00000000',
+    backColor: '&H80000000',
     bold: -1,
     italic: 0,
-    outline: 0,
-    shadow: 0,
+    outline: 5,
+    shadow: 2,
     borderStyle: 1,
     alignment: 2,
-    marginV: 30,
+    marginV: 120,
   },
 
-  // Bold — thick outline with box
   bold: {
     fontname: 'Liberation Sans',
-    fontsize: 78,
+    fontsize: 84,
     fontweight: true,
-    primaryColor: '&H00FFFFFF', // White (active)
-    secondaryColor: '&H00FFFFFF', // White (inactive)
-    outlineColor: '&H30000000', // Black box background
-    backColor: '&H00000000',
+    primaryColor: '&H00FFFFFF', // White
+    secondaryColor: '&H00FFFFFF',
+    outlineColor: '&H00000000',
+    backColor: '&H80000000',
     bold: -1,
     italic: 0,
-    outline: 0,
-    shadow: 0,
+    outline: 6,
+    shadow: 2,
     borderStyle: 1,
     alignment: 2,
-    marginV: 30,
+    marginV: 120,
   },
 };
 
@@ -299,17 +298,11 @@ export function generateASS(wordTimestamps, options = {}) {
   const wordLines = groupWords(wordTimestamps, wordsPerLine);
 
   // Generate events (dialogue lines with karaoke timing or animated effects)
-  // For each line: emit a rounded-rect bg event FIRST (renders behind),
-  // then the text event(s). Both on Layer 0 — ASS renders in document order.
+  // Modern viral style: no background box — text with thick stroke + drop shadow
+  // handles contrast against any video background.
   const events = [];
   for (const lineWords of wordLines) {
     if (!lineWords || lineWords.length === 0) continue;
-    const firstWord = lineWords[0];
-    const lastWord = lineWords[lineWords.length - 1];
-    const lineStart = Math.max(0, firstWord.start - clipStartTime);
-    const lineEnd = Math.max(lineStart + 0.1, lastWord.end - clipStartTime);
-    const bgEvent = buildRoundedBgEvent(lineWordsText(lineWords), styleConfig, lineStart, lineEnd);
-    events.push(bgEvent);
 
     if (animation && animation !== 'highlight') {
       const lineEvents = generateAnimatedEvents(lineWords, clipStartTime, styleConfig, animation);

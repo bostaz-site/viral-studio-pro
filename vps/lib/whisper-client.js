@@ -12,7 +12,7 @@ const execFileAsync = promisify(execFile);
  * Requires OPENAI_API_KEY environment variable to be set.
  */
 export async function transcribeWithWhisper(videoPath, options = {}) {
-  const { language = 'en', tempDir = '/tmp' } = options;
+  const { language = 'en', tempDir = '/tmp', contextPrompt = '' } = options;
 
   const apiKey = process.env.OPENAI_API_KEY || process.env.OPENAI_KEY;
   if (!apiKey) {
@@ -24,18 +24,21 @@ export async function transcribeWithWhisper(videoPath, options = {}) {
 
   try {
     // Step 1: Extract audio from video with FFmpeg
+    // Use 96kbps + loudnorm to give Whisper cleaner input → better accuracy.
     console.log('[Whisper] Extracting audio from video...');
     await execFileAsync('ffmpeg', [
       '-y',
       '-i',
       videoPath,
       '-vn',
+      '-af',
+      'loudnorm=I=-16:TP=-1.5:LRA=11',
       '-ar',
       '16000',
       '-ac',
       '1',
       '-b:a',
-      '64k',
+      '96k',
       '-f',
       'mp3',
       audioPath,
@@ -45,12 +48,23 @@ export async function transcribeWithWhisper(videoPath, options = {}) {
     console.log(`[Whisper] Audio extracted: ${stat.size} bytes`);
 
     // Step 2: Send to OpenAI Whisper API with word timestamps
+    // Context prompt steers Whisper toward the right domain vocabulary
+    // (gaming/streaming slang, proper nouns). Bad grammar like "on his house"
+    // vs "in his house" is typical without context.
+    const promptText = [
+      'Twitch stream gaming clip. Casual spoken English with gaming slang.',
+      contextPrompt ? `Context: ${contextPrompt}.` : '',
+      'Use proper grammar and punctuation.',
+    ].filter(Boolean).join(' ');
+
     const formData = new FormData();
     const audioBuffer = await fs.readFile(audioPath);
     formData.append('file', new Blob([audioBuffer], { type: 'audio/mp3' }), 'audio.mp3');
     formData.append('model', 'whisper-1');
     formData.append('response_format', 'verbose_json');
     formData.append('timestamp_granularities[]', 'word');
+    formData.append('temperature', '0');
+    formData.append('prompt', promptText);
     if (language) formData.append('language', language);
 
     console.log('[Whisper] Sending to OpenAI API...');

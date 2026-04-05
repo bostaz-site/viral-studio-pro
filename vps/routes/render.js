@@ -288,6 +288,7 @@ router.post('/', async (req, res) => {
             wordTimestamps = await transcribeWithWhisper(inputPath, {
               tempDir,
               language: 'en', // Most Twitch clips are English
+              contextPrompt: clipTitle || '', // Use clip title as context for better vocab
             });
             trc(`WHISPER returned ${wordTimestamps.length} word timestamps`);
           } catch (err) {
