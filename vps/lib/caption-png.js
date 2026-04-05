@@ -184,10 +184,9 @@ function buildCaptionSVG(line, activeIdx, styleSpec, opts) {
   const boxHeight = lineHeight + padY * 2;
 
   // Extra canvas padding to avoid clipping scaled active words + drop shadow
-  // + glow halo (filter radius ~0.2*fs). Scale 1.35 can extend ~35% of a word
-  // width beyond its nominal box — be generous.
-  const canvasPadX = Math.round(fontSize * 1.2);
-  const canvasPadY = Math.round(fontSize * 0.8);
+  // + glow halo. Keep modest to avoid Railway RAM pressure (36+ PNG overlays).
+  const canvasPadX = Math.round(fontSize * 0.8);
+  const canvasPadY = Math.round(fontSize * 0.5);
   const svgWidth = boxWidth + canvasPadX * 2;
   const svgHeight = boxHeight + canvasPadY * 2;
 
