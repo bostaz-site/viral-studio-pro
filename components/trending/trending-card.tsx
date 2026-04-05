@@ -107,36 +107,15 @@ function thumbnailToVideoUrl(thumbnailUrl: string | null): string | null {
   return null
 }
 
-/**
- * Extract Twitch clip embed URL as fallback.
- */
-function getClipEmbedUrl(externalUrl: string, parentDomain: string): string | null {
-  try {
-    const url = new URL(externalUrl)
-    if (url.hostname === 'clips.twitch.tv') {
-      const slug = url.pathname.replace('/', '')
-      if (slug && !slug.includes('/')) {
-        return `https://clips.twitch.tv/embed?clip=${slug}&parent=${parentDomain}&autoplay=true&muted=true`
-      }
-    }
-    if (url.hostname === 'www.twitch.tv' || url.hostname === 'twitch.tv') {
-      const match = url.pathname.match(/^\/[^/]+\/clip\/([^/]+)$/)
-      if (match) {
-        return `https://clips.twitch.tv/embed?clip=${match[1]}&parent=${parentDomain}&autoplay=true&muted=true`
-      }
-    }
-  } catch { /* invalid URL */ }
-  return null
-}
-
 export function TrendingCard({ clip, onRemix, remixing = false, isPremiumUser = false }: TrendingCardProps) {
   const [imgError, setImgError] = useState(false)
   const [hovered, setHovered] = useState(false)
   const [showVideo, setShowVideo] = useState(false)
-  const [videoError, setVideoError] = useState(false)
   const [videoPlaying, setVideoPlaying] = useState(false)
+  const [resolvedVideoUrl, setResolvedVideoUrl] = useState<string | null>(null)
   const hoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const videoRef = useRef<HTMLVideoElement | null>(null)
+  const fetchedRef = useRef(false)
 
   const isLocked = !isPremiumUser && (clip.velocity_score ?? 0) >= PREMIUM_THRESHOLD
 
@@ -150,27 +129,50 @@ export function TrendingCard({ clip, onRemix, remixing = false, isPremiumUser = 
   const gameLabel = GAME_LABELS[gameKey] ?? clip.niche
   const streamerGradient = STREAMER_GRADIENTS[clip.author_handle?.toLowerCase() ?? ''] ?? 'from-slate-700 via-slate-600 to-slate-500'
 
-  // Derive direct MP4 URL from thumbnail (for native <video> autoplay)
-  const videoUrl = clip.platform === 'twitch' ? thumbnailToVideoUrl(clip.thumbnail_url) : null
-  // Fallback to iframe embed if direct video not available
-  const parentDomain = typeof window !== 'undefined' ? window.location.hostname : 'viral-studio-pro.netlify.app'
-  const embedUrl = (!videoUrl || videoError) && clip.platform === 'twitch'
-    ? getClipEmbedUrl(clip.external_url, parentDomain)
-    : null
+  // Fast-path: derive direct MP4 URL from thumbnail; fallback to GQL resolution via API
+  const initialVideoUrl = clip.platform === 'twitch' ? thumbnailToVideoUrl(clip.thumbnail_url) : null
+  const videoUrl = resolvedVideoUrl ?? initialVideoUrl
+
+  // Resolve slug from external_url for GQL lookup fallback
+  const getClipSlug = useCallback((): string | null => {
+    try {
+      const u = new URL(clip.external_url)
+      if (u.hostname === 'clips.twitch.tv') {
+        const slug = u.pathname.replace('/', '')
+        return slug && !slug.includes('/') ? slug : null
+      }
+      if (u.hostname === 'www.twitch.tv' || u.hostname === 'twitch.tv') {
+        const m = u.pathname.match(/^\/[^/]+\/clip\/([^/]+)$/)
+        return m ? m[1] : null
+      }
+    } catch { /* invalid URL */ }
+    return null
+  }, [clip.external_url])
 
   // Hover handlers — show video after 300ms hover
   const handleMouseEnter = useCallback(() => {
     setHovered(true)
-    if (!isLocked) {
-      hoverTimerRef.current = setTimeout(() => {
-        setShowVideo(true)
-        // Try to play the video element
-        setTimeout(() => {
-          videoRef.current?.play().catch(() => {/* autoplay blocked, that's ok */})
-        }, 50)
-      }, 300)
+    if (isLocked) return
+
+    // Lazy-fetch MP4 URL via GQL on first hover (only if we don't already have one)
+    if (!fetchedRef.current && clip.platform === 'twitch') {
+      fetchedRef.current = true
+      const slug = getClipSlug()
+      if (slug) {
+        fetch(`/api/clips/video-url?slug=${encodeURIComponent(slug)}`)
+          .then((r) => r.ok ? r.json() : null)
+          .then((data) => { if (data?.video_url) setResolvedVideoUrl(data.video_url) })
+          .catch(() => {/* ignore */})
+      }
     }
-  }, [isLocked])
+
+    hoverTimerRef.current = setTimeout(() => {
+      setShowVideo(true)
+      setTimeout(() => {
+        videoRef.current?.play().catch(() => {/* autoplay blocked, that's ok */})
+      }, 50)
+    }, 300)
+  }, [isLocked, clip.platform, getClipSlug])
 
   const handleMouseLeave = useCallback(() => {
     setHovered(false)
@@ -201,7 +203,7 @@ export function TrendingCard({ clip, onRemix, remixing = false, isPremiumUser = 
       <div className="aspect-[9/16] max-h-52 relative overflow-hidden bg-gradient-to-br from-slate-900 to-slate-800">
 
         {/* Native video on hover (autoplay muted — works in all browsers) */}
-        {showVideo && videoUrl && !videoError && !isLocked && (
+        {showVideo && videoUrl && !isLocked && (
           <video
             ref={videoRef}
             src={videoUrl}
@@ -211,18 +213,12 @@ export function TrendingCard({ clip, onRemix, remixing = false, isPremiumUser = 
             playsInline
             loop
             onPlaying={() => setVideoPlaying(true)}
-            onError={() => setVideoError(true)}
-          />
-        )}
-
-        {/* Fallback: Twitch iframe embed if direct video fails */}
-        {showVideo && videoError && embedUrl && !isLocked && (
-          <iframe
-            src={embedUrl}
-            className="absolute inset-0 w-full h-full z-[5]"
-            allowFullScreen
-            allow="autoplay"
-            style={{ border: 'none' }}
+            onError={() => {
+              // If the fast-path thumbnail→MP4 fails, retry with GQL-resolved URL
+              if (resolvedVideoUrl && videoRef.current) {
+                videoRef.current.load()
+              }
+            }}
           />
         )}
 
