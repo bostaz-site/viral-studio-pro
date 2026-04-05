@@ -74,20 +74,21 @@ function buildSmartZoomFilter(inLabel, outLabel, canvasW, canvasH, clipDuration,
   if (!clipDuration || clipDuration <= 0) return null;
 
   if (mode === 'micro') {
-    // Breathing zoom: oscillates between ~1.05 and ~1.20 on a 5s cycle,
-    // layered with a slow 6% cinematic push over the clip. Highly visible
-    // so the effect is perceptible (previous 8% linear push was too subtle).
+    // Breathing zoom: oscillates between ~1.05 and ~1.21 on a 5s cycle,
+    // layered with a slow 6% cinematic push over the clip. Highly visible.
     //
     //   z(t) = 1.08 + 0.07*sin(2*PI*t/5) + 0.06*min(t/D, 1)
     //
-    // Range roughly 1.05 → 1.21 — equivalent to a 5-21% crop-in.
+    // NOTE: FFmpeg's crop filter cannot use `t` in width/height (init-only).
+    // We use scale(eval=frame) to upscale over time, then center-crop back
+    // to canvas size — equivalent to a time-varying zoom-in.
     const D = clipDuration.toFixed(3);
     const zExpr = `(1.08+0.07*sin(2*PI*t/5)+0.06*min(t/${D}\\,1))`;
-    const cropW = `iw/${zExpr}`;
-    const cropH = `ih/${zExpr}`;
-    const cropX = `(iw-${cropW})/2`;
-    const cropY = `(ih-${cropH})/2`;
-    return `${inLabel}crop=${cropW}:${cropH}:${cropX}:${cropY},scale=${canvasW}:${canvasH},setsar=1${outLabel}`;
+    // Scale to canvas*z, then crop canvas from center. eval=frame re-evaluates
+    // the scale expression per frame, enabling time-varying zoom.
+    const scaledW = `${canvasW}*${zExpr}`;
+    const scaledH = `${canvasH}*${zExpr}`;
+    return `${inLabel}scale=w='${scaledW}':h='${scaledH}':eval=frame,crop=${canvasW}:${canvasH},setsar=1${outLabel}`;
   }
 
   // Phase 2: dynamic (audio-peak based) and follow (face-tracking) not yet implemented.
