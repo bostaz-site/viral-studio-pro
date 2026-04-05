@@ -244,12 +244,34 @@ function LivePreview({
   const tagStyle = TAG_STYLES.find((t) => t.id === settings.tagStyle)
   const streamerName = clip.author_handle ? `@${clip.author_handle}` : clip.author_name ?? ''
 
-  // Per-word animations — match FFmpeg render behavior
-  // pop: scale 1.35 burst | bounce: scale 1.12 + lift -18% | glow: colored halo
-  const highlightAnimClass = settings.captionAnimation === 'pop' ? 'animate-[viralPop_1s_ease-in-out_infinite]'
-    : settings.captionAnimation === 'bounce' ? 'animate-[viralBounce_1s_ease-in-out_infinite]'
-    : settings.captionAnimation === 'glow' ? 'animate-[viralGlow_1.5s_ease-in-out_infinite]'
-    : ''
+  // Sample caption sequence — cycles word-by-word to mirror FFmpeg render behavior.
+  // Each word is displayed active for ~400ms (matches typical Whisper timestamps),
+  // then yields to the next word. The active word gets the STATIC peak-state transform
+  // (scale/lift/halo) — no CSS loop animation — exactly like each PNG in the render.
+  const sampleWords = ['This', 'is', 'CRAZY', 'bro', 'let\'s', 'go']
+  const [activeWordIdx, setActiveWordIdx] = useState(0)
+  const [typewriterLen, setTypewriterLen] = useState(0)
+
+  useEffect(() => {
+    // Main word-cycling clock (~400ms per word)
+    const wordTimer = setInterval(() => {
+      setActiveWordIdx((i) => (i + 1) % sampleWords.length)
+      setTypewriterLen(0)
+    }, 400)
+    return () => clearInterval(wordTimer)
+  }, [sampleWords.length])
+
+  useEffect(() => {
+    // Typewriter progression inside each active-word window
+    if (settings.captionAnimation !== 'typewriter') return
+    const activeWord = sampleWords[activeWordIdx] ?? ''
+    setTypewriterLen(0)
+    const perChar = 400 / Math.max(1, activeWord.length + 1)
+    const tick = setInterval(() => {
+      setTypewriterLen((n) => Math.min(n + 1, activeWord.length))
+    }, perChar)
+    return () => clearInterval(tick)
+  }, [activeWordIdx, settings.captionAnimation, sampleWords])
 
   return (
     <>
@@ -262,19 +284,8 @@ function LivePreview({
         0%, 100% { box-shadow: 0 0 15px rgba(249, 115, 22, 0.3); }
         50% { box-shadow: 0 0 25px rgba(249, 115, 22, 0.5), 0 0 50px rgba(249, 115, 22, 0.15); }
       }
-      /* Active-word caption animations — mirror FFmpeg render */
-      @keyframes viralPop {
-        0%, 40%, 100% { transform: scale(1); }
-        20% { transform: scale(1.35); }
-      }
-      @keyframes viralBounce {
-        0%, 40%, 100% { transform: translateY(0) scale(1); }
-        20% { transform: translateY(-18%) scale(1.12); }
-      }
-      @keyframes viralGlow {
-        0%, 100% { text-shadow: 0 0 4px currentColor, 0 0 8px currentColor; }
-        50% { text-shadow: 0 0 10px currentColor, 0 0 20px currentColor, 0 0 30px currentColor; }
-      }
+      /* No keyframe loops — active-word styles are static snap transitions,
+         matching the per-word PNG baking done by the FFmpeg render. */
     `}</style>
     <div
       className="relative w-full rounded-2xl overflow-hidden bg-black border border-white/10 shadow-2xl mx-auto transition-all duration-500"
@@ -383,12 +394,42 @@ function LivePreview({
               : settings.splitScreenEnabled ? `${settings.splitRatio - 10}%` : '72%',
           }}
         >
-          <p className={cn('text-sm text-center transition-all duration-300', captionStyle?.preview)}>
-            This is{' '}
-            <span className={cn('inline-block px-0.5 rounded', captionStyle?.highlightClass, highlightAnimClass)} style={{ transformOrigin: 'center bottom' }}>
-              {settings.captionAnimation === 'typewriter' ? 'CRA...' : 'CRAZY'}
-            </span>{' '}
-            bro
+          <p className={cn('text-sm text-center', captionStyle?.preview)}>
+            {sampleWords.map((word, i) => {
+              const isActive = i === activeWordIdx
+              // Active-word transform — matches FFmpeg render exactly
+              let activeTransform = ''
+              if (isActive) {
+                if (settings.captionAnimation === 'pop') activeTransform = 'scale(1.35)'
+                else if (settings.captionAnimation === 'bounce') activeTransform = 'translateY(-18%) scale(1.12)'
+              }
+              // Glow: colored text-shadow halo on active word
+              const activeTextShadow = isActive && settings.captionAnimation === 'glow'
+                ? '0 0 6px currentColor, 0 0 14px currentColor, 0 0 24px currentColor'
+                : undefined
+              // Typewriter: reveal chars progressively on active word
+              const displayText = isActive && settings.captionAnimation === 'typewriter'
+                ? word.slice(0, typewriterLen) + (typewriterLen < word.length ? '|' : '')
+                : word
+              return (
+                <span key={i}>
+                  <span
+                    className={cn(
+                      'inline-block px-0.5 rounded',
+                      isActive ? captionStyle?.highlightClass : '',
+                    )}
+                    style={{
+                      transform: activeTransform || undefined,
+                      transformOrigin: 'center bottom',
+                      textShadow: activeTextShadow,
+                    }}
+                  >
+                    {displayText}
+                  </span>
+                  {i < sampleWords.length - 1 ? ' ' : ''}
+                </span>
+              )
+            })}
           </p>
         </div>
       )}
