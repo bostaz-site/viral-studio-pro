@@ -400,12 +400,12 @@ function LivePreview({
               // Active-word transform — matches FFmpeg render exactly
               let activeTransform = ''
               if (isActive) {
-                if (settings.captionAnimation === 'pop') activeTransform = 'scale(1.35)'
-                else if (settings.captionAnimation === 'bounce') activeTransform = 'translateY(-18%) scale(1.12)'
+                if (settings.captionAnimation === 'pop') activeTransform = 'scale(1.85)'
+                else if (settings.captionAnimation === 'bounce') activeTransform = 'translateY(-45%) scale(1.3)'
               }
-              // Glow: colored text-shadow halo on active word
+              // Glow: colored text-shadow halo on active word — amplified for visibility
               const activeTextShadow = isActive && settings.captionAnimation === 'glow'
-                ? '0 0 6px currentColor, 0 0 14px currentColor, 0 0 24px currentColor'
+                ? '0 0 8px #fde047, 0 0 18px #fde047, 0 0 32px #facc15, 0 0 48px #eab308'
                 : undefined
               // Typewriter: reveal chars progressively on active word
               const displayText = isActive && settings.captionAnimation === 'typewriter'
@@ -485,7 +485,6 @@ export default function EnhancePage() {
   const [renderDownloadUrl, setRenderDownloadUrl] = useState<string | null>(null)
   const [renderJobId, setRenderJobId] = useState<string | null>(null)
   const pollRef = useRef<NodeJS.Timeout | null>(null)
-  const [advancedMode, setAdvancedMode] = useState(false)
   const [showEnhancements, setShowEnhancements] = useState(true)
   const sectionRefs = {
     captions: useRef<HTMLDivElement>(null),
@@ -893,24 +892,6 @@ export default function EnhancePage() {
                 <Flame className="h-4 w-4 text-orange-400" />
                 <span className="text-xs text-muted-foreground uppercase tracking-widest font-medium">Chance de blowup</span>
               </div>
-              <div className="flex items-center gap-2">
-                <Button
-                  variant={!advancedMode ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => setAdvancedMode(false)}
-                  className="text-xs h-7 px-3"
-                >
-                  Simple
-                </Button>
-                <Button
-                  variant={advancedMode ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => setAdvancedMode(true)}
-                  className="text-xs h-7 px-3"
-                >
-                  Avancé
-                </Button>
-              </div>
             </div>
             {/* Progress bar */}
             <div className="relative w-full h-8 rounded-full bg-card/60 border border-white/10 overflow-hidden">
@@ -930,124 +911,6 @@ export default function EnhancePage() {
             </div>
           </div>
 
-          {!advancedMode ? (
-            /* ── Simple Mode — key visual options ── */
-            <div className="space-y-6">
-              {/* Caption Style — the most impactful choice */}
-              <div ref={sectionRefs.captions} className="scroll-mt-32 space-y-3">
-                <div className="flex items-center gap-2">
-                  <Type className="h-4 w-4 text-primary" />
-                  <h3 className="text-sm font-semibold text-foreground">Style sous-titres</h3>
-                </div>
-                <div className="grid grid-cols-3 gap-2">
-                  {CAPTION_STYLES.map((style) => (
-                    <button
-                      key={style.id}
-                      onClick={() => {
-                        updateSetting('captionStyle', style.id)
-                        updateSetting('captionsEnabled', style.id !== 'none')
-                      }}
-                      className={cn(
-                        'rounded-xl border p-3 text-center transition-all',
-                        settings.captionStyle === style.id
-                          ? 'border-primary bg-primary/10 ring-1 ring-primary/30'
-                          : 'border-border hover:border-primary/40'
-                      )}
-                    >
-                      <span className={cn('text-sm block mb-0.5', style.preview)}>Aa</span>
-                      <span className="text-[10px] text-muted-foreground block">{style.label}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* B-Roll / Split-Screen */}
-              <div ref={sectionRefs.splitscreen} className="scroll-mt-32 space-y-3">
-                <div className="flex items-center gap-2">
-                  <Monitor className="h-4 w-4 text-primary" />
-                  <h3 className="text-sm font-semibold text-foreground">Split-Screen</h3>
-                </div>
-                <div className="grid grid-cols-3 gap-2">
-                  {BROLL_OPTIONS.map((broll) => (
-                    <button
-                      key={broll.id}
-                      onClick={() => {
-                        updateSetting('brollVideo', broll.id)
-                        updateSetting('splitScreenEnabled', broll.id !== 'none')
-                      }}
-                      className={cn(
-                        'rounded-xl border p-3 transition-all',
-                        settings.brollVideo === broll.id
-                          ? 'border-primary bg-primary/10 ring-1 ring-primary/30'
-                          : 'border-border hover:border-primary/40'
-                      )}
-                    >
-                      <div className={`w-full h-6 rounded-lg bg-gradient-to-r ${broll.color} mb-1.5`} />
-                      <span className="text-[10px] text-muted-foreground block text-center">{broll.label}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Tag Style */}
-              <div ref={sectionRefs.tags} className="scroll-mt-32 space-y-3">
-                <div className="flex items-center gap-2">
-                  <AtSign className="h-4 w-4 text-primary" />
-                  <h3 className="text-sm font-semibold text-foreground">Crédit streamer</h3>
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                  {TAG_STYLES.map((tag) => (
-                    <button
-                      key={tag.id}
-                      onClick={() => updateSetting('tagStyle', tag.id)}
-                      className={cn(
-                        'rounded-xl border p-3 text-left transition-all',
-                        settings.tagStyle === tag.id
-                          ? 'border-primary bg-primary/10 ring-1 ring-primary/30'
-                          : 'border-border hover:border-primary/40'
-                      )}
-                    >
-                      <div className="flex items-center gap-2">
-                        <span className="text-base">{tag.icon === 'discord' ? '📢' : tag.icon}</span>
-                        <div>
-                          <span className="text-xs font-medium text-foreground block">{tag.label}</span>
-                          <span className="text-[10px] text-muted-foreground block">{tag.description}</span>
-                        </div>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Format */}
-              <div ref={sectionRefs.style} className="scroll-mt-32 space-y-3">
-                <div className="flex items-center gap-2">
-                  <Paintbrush className="h-4 w-4 text-primary" />
-                  <h3 className="text-sm font-semibold text-foreground">Format</h3>
-                </div>
-                <div className="grid grid-cols-3 gap-2">
-                  {(['9:16', '1:1', '16:9'] as const).map((ratio) => (
-                    <button
-                      key={ratio}
-                      onClick={() => updateSetting('aspectRatio', ratio)}
-                      className={cn(
-                        'rounded-xl border p-3 text-center transition-all',
-                        settings.aspectRatio === ratio
-                          ? 'border-primary bg-primary/10 ring-1 ring-primary/30'
-                          : 'border-border hover:border-primary/40'
-                      )}
-                    >
-                      <span className="text-sm font-semibold text-foreground">{ratio}</span>
-                      <span className="text-[10px] text-muted-foreground block mt-0.5">
-                        {ratio === '9:16' ? 'TikTok / Reels' : ratio === '1:1' ? 'Instagram' : 'YouTube'}
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-          ) : (
-            /* ── Advanced Mode — full control with scores ── */
             <div className="space-y-6">
 
             {/* ─── Captions Section ─── */}
@@ -1289,7 +1152,6 @@ export default function EnhancePage() {
               </Card>
             </div>
           </div>
-          )}
           </div>
         </div>
       </div>

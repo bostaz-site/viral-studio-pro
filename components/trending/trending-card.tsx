@@ -2,7 +2,7 @@
 
 import { useState, useRef, useCallback } from 'react'
 import Link from 'next/link'
-import { ExternalLink, Play, Crown, Lock, Zap, TrendingUp, Flame } from 'lucide-react'
+import { ExternalLink, Crown, Lock, Zap, TrendingUp, Flame } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { VelocityBadge } from '@/components/trending/velocity-badge'
@@ -256,26 +256,7 @@ export function TrendingCard({ clip, onRemix, remixing = false, isPremiumUser = 
           </div>
         )}
 
-        {/* Hover play indicator (before video loads) */}
-        {hovered && !isLocked && !videoPlaying && !showVideo && (
-          <div className="absolute inset-0 flex items-center justify-center z-[4] pointer-events-none">
-            <div className="w-12 h-12 rounded-full bg-black/50 backdrop-blur-sm flex items-center justify-center border border-white/20 animate-in zoom-in-50 duration-200">
-              <Play className="h-5 w-5 text-white ml-0.5" fill="white" />
-            </div>
-          </div>
-        )}
-
-        {/* Playing indicator */}
-        {videoPlaying && !isLocked && (
-          <div className="absolute bottom-2 left-2 z-[6] flex items-center gap-1.5 bg-black/60 backdrop-blur-sm rounded-full px-2 py-1">
-            <div className="flex items-center gap-0.5">
-              <div className="w-0.5 h-3 bg-green-400 rounded-full animate-pulse" />
-              <div className="w-0.5 h-2 bg-green-400 rounded-full animate-pulse" style={{ animationDelay: '150ms' }} />
-              <div className="w-0.5 h-3.5 bg-green-400 rounded-full animate-pulse" style={{ animationDelay: '300ms' }} />
-            </div>
-            <span className="text-[10px] text-white/70 font-medium">En lecture</span>
-          </div>
-        )}
+        {/* Play button & "En lecture" indicator removed — clean autoplay on hover */}
 
         {/* Premium overlay */}
         {isLocked && (
@@ -341,10 +322,11 @@ export function TrendingCard({ clip, onRemix, remixing = false, isPremiumUser = 
       </div>
 
       <CardContent className="p-3 space-y-2">
-        {/* Title */}
+        {/* Title — hidden while hovering/playing video */}
         <p className={cn(
-          'text-sm font-medium leading-tight line-clamp-2',
-          isLocked ? 'text-muted-foreground' : 'text-foreground'
+          'text-sm font-medium leading-tight line-clamp-2 transition-opacity duration-200',
+          isLocked ? 'text-muted-foreground' : 'text-foreground',
+          (hovered || showVideo || videoPlaying) && !isLocked ? 'opacity-0' : 'opacity-100'
         )}>
           {clip.title ?? clip.author_name ?? 'Clip de stream'}
         </p>
