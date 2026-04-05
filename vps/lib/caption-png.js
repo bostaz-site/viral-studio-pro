@@ -84,14 +84,16 @@ const CAPTION_STYLES = {
 // resvg handles glyph layout, but we need to size the background box and
 // the highlight pill. Tuned against DejaVu Sans Bold.
 function estimateTextWidth(text, fontSize, weight) {
-  // Average advance width per character in em units for DejaVu Sans Bold
-  const baseRatio = weight >= 800 ? 0.60 : weight >= 700 ? 0.56 : 0.52;
+  // Average advance width per character (em-units) for DejaVu Sans Bold.
+  // Tuned to be slightly generous — used with SVG textLength/lengthAdjust
+  // so the text is forced to this width, guaranteeing no overlaps.
+  const baseRatio = weight >= 800 ? 0.68 : weight >= 700 ? 0.64 : 0.58;
   let width = 0;
   for (const ch of text) {
-    if (ch === ' ') width += fontSize * 0.30;
-    else if (/[A-Z0-9]/.test(ch)) width += fontSize * baseRatio * 1.05;
-    else if (/[mwMW]/.test(ch)) width += fontSize * baseRatio * 1.35;
-    else if (/[ilIt!.,']/.test(ch)) width += fontSize * baseRatio * 0.45;
+    if (ch === ' ') width += fontSize * 0.38;
+    else if (/[mwMW]/.test(ch)) width += fontSize * baseRatio * 1.50;
+    else if (/[A-Z0-9]/.test(ch)) width += fontSize * baseRatio * 1.15;
+    else if (/[ilIt!.,']/.test(ch)) width += fontSize * baseRatio * 0.50;
     else width += fontSize * baseRatio;
   }
   return width;
@@ -159,8 +161,8 @@ function buildCaptionSVG(line, activeIdx, styleSpec, opts) {
     return { text: display, width, isActive: idx === activeIdx };
   });
 
-  // Space between words (matches a normal space character advance)
-  const spaceWidth = fontSize * 0.30;
+  // Space between words — generous to guarantee visible separation
+  const spaceWidth = Math.round(fontSize * 0.42);
 
   // Layout horizontally
   let totalTextWidth = 0;
@@ -223,10 +225,10 @@ function buildCaptionSVG(line, activeIdx, styleSpec, opts) {
         ? `transform="translate(${pillCx.toFixed(1)} ${pillCy.toFixed(1)}) scale(${activeScale}) translate(${(-pillCx).toFixed(1)} ${(-pillCy).toFixed(1)})"`
         : '';
 
-      tokensSvg += `<text x="${tokenX.toFixed(1)}" y="${baselineY.toFixed(1)}" font-family="${fontFamily}" font-size="${fontSize}" font-weight="${styleSpec.fontWeight}" fill="${styleSpec.highlightTextColor}" opacity="${activeOpacity}" ${transform}>${xmlEscape(t.text)}</text>`;
+      tokensSvg += `<text x="${tokenX.toFixed(1)}" y="${baselineY.toFixed(1)}" font-family="${fontFamily}" font-size="${fontSize}" font-weight="${styleSpec.fontWeight}" fill="${styleSpec.highlightTextColor}" opacity="${activeOpacity}" textLength="${t.width.toFixed(1)}" lengthAdjust="spacingAndGlyphs" ${transform}>${xmlEscape(t.text)}</text>`;
     } else {
       // Inactive word — secondary text color
-      tokensSvg += `<text x="${tokenX.toFixed(1)}" y="${baselineY.toFixed(1)}" font-family="${fontFamily}" font-size="${fontSize}" font-weight="${styleSpec.fontWeight}" fill="${styleSpec.textColor}">${xmlEscape(t.text)}</text>`;
+      tokensSvg += `<text x="${tokenX.toFixed(1)}" y="${baselineY.toFixed(1)}" font-family="${fontFamily}" font-size="${fontSize}" font-weight="${styleSpec.fontWeight}" fill="${styleSpec.textColor}" textLength="${t.width.toFixed(1)}" lengthAdjust="spacingAndGlyphs">${xmlEscape(t.text)}</text>`;
     }
 
     cursorX += t.width;
