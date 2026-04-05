@@ -160,7 +160,7 @@ export async function renderClip(inputPath, outputPath, options = {}) {
   const filterComplex_raw = [
     `[0:v]fps=30,split=2[srcfg][srcbg]`,
     // Background: cover + blur + brightness down + darken
-    `[srcbg]scale=${canvasW}:${canvasH}:force_original_aspect_ratio=increase,crop=${canvasW}:${canvasH}:(iw-${canvasW})/2:(ih-${canvasH})/2,gblur=sigma=30,eq=brightness=-0.5,setsar=1[bg]`,
+    `[srcbg]scale=${canvasW}:${canvasH}:force_original_aspect_ratio=increase,crop=${canvasW}:${canvasH}:(iw-${canvasW})/2:(ih-${canvasH})/2,gblur=sigma=40,eq=brightness=-0.35:saturation=1.25:contrast=1.1,setsar=1[bg]`,
     // Foreground: fit inside canvas (contain), preserve full frame
     `[srcfg]scale=${canvasW}:${canvasH}:force_original_aspect_ratio=decrease,setsar=1[fg]`,
     // Composite fg over bg, centered
@@ -529,7 +529,7 @@ function buildTagFilter(tagConfig, canvasW = 720, canvasH = 1280, inputLabel = n
       const padX = Math.round(canvasW * 0.025);
       const padY = Math.round(canvasH * 0.018);
       // boxborderw gives us the rounded-ish padding illusion
-      return `drawtext=text='${displayText}':fontfile=${fontFile}:fontcolor=white:fontsize=${fontSize}:x=W-tw-${padX * 2}-${padX}:y=${padY}:box=1:boxcolor=0x000000@0.60:boxborderw=${Math.round(fontSize * 0.55)}`;
+      return `drawtext=text='${displayText}':fontfile=${fontFile}:fontcolor=white:fontsize=${fontSize}:x=W-tw-${padX * 2}-${padX}:y=${padY}:box=1:boxcolor=0x000000@0.70:boxborderw=${Math.round(fontSize * 0.55)}:shadowcolor=0x000000@0.5:shadowx=1:shadowy=2`;
     }
 
     case 'watermark-center': {
@@ -543,7 +543,7 @@ function buildTagFilter(tagConfig, canvasW = 720, canvasH = 1280, inputLabel = n
       const canvasSize = `${canvasW}x${Math.round(canvasH * 0.35)}`;
       const chain = [
         `color=c=0x000000@0.0:s=${canvasSize}:r=30:d=600,format=yuva420p[wcbg]`,
-        `[wcbg]drawtext=text='${displayText}':fontfile=${fontFile}:fontcolor=white@0.30:fontsize=${fontSize}:x=(w-text_w)/2:y=(h-text_h)/2:shadowcolor=black@0.6:shadowx=3:shadowy=3[wctxt]`,
+        `[wcbg]drawtext=text='${displayText}':fontfile=${fontFile}:fontcolor=white@0.40:fontsize=${fontSize}:x=(w-text_w)/2:y=(h-text_h)/2:shadowcolor=black@0.7:shadowx=4:shadowy=4:borderw=2:bordercolor=black@0.5[wctxt]`,
         `[wctxt]rotate=${angleRad}:c=none:ow=rotw(${angleRad}):oh=roth(${angleRad})[wcrot]`,
         `${inputLabel}[wcrot]overlay=(W-w)/2:(H-h)/2:format=auto`,
       ].join(';');
