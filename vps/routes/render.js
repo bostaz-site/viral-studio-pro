@@ -256,9 +256,12 @@ router.post('/', async (req, res) => {
     } : null;
 
     // Prepare captions if enabled
+    // IMPORTANT: also skip when style='none' — user explicitly chose no captions.
     let assFilePath = null;
     let captionOverlays = null;
-    if (settings.captions?.enabled) {
+    const captionStyleRequested = settings.captions?.style || 'hormozi';
+    const captionsRequested = settings.captions?.enabled && captionStyleRequested !== 'none';
+    if (captionsRequested) {
       try {
         let wordTimestamps = providedWordTimestamps || [];
 
@@ -346,7 +349,7 @@ router.post('/', async (req, res) => {
         trc(`CAPTIONS ERROR: ${err.message}`);
       }
     } else {
-      trc(`CAPTIONS disabled (settings.captions.enabled=${settings.captions?.enabled})`);
+      trc(`CAPTIONS disabled (enabled=${settings.captions?.enabled}, style=${captionStyleRequested})`);
     }
 
     // Prepare split-screen if enabled

@@ -46,7 +46,6 @@ interface EnhanceSettings {
   brollVideo: string
   splitRatio: number
   tagStyle: string
-  autoCredit: boolean
   aspectRatio: '9:16' | '1:1' | '16:9'
 }
 
@@ -424,7 +423,6 @@ export default function EnhancePage() {
     brollVideo: 'subway-surfers',
     splitRatio: 60,
     tagStyle: 'badge-top',
-    autoCredit: true,
     aspectRatio: '9:16',
   })
 

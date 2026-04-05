@@ -206,8 +206,17 @@ function buildCaptionSVG(line, activeIdx, styleSpec, opts) {
   tokens.forEach((t, i) => {
     const tokenX = cursorX;
 
+    // TYPEWRITER: hide words that come AFTER the active one.
+    // Creates a progressive reveal: words appear one-by-one as they're spoken.
+    if (animation === 'typewriter' && i > activeIdx) {
+      cursorX += t.width;
+      if (i < tokens.length - 1) cursorX += spaceWidth;
+      return;
+    }
+
     if (t.isActive) {
       // Highlight pill bg — matches UI: px-0.5 rounded (r=4px)
+      // Skipped for typewriter: the newest word isn't "highlighted", it's "being typed"
       const pillPadX = Math.round(fontSize * 0.15);
       const pillPadY = Math.round(fontSize * 0.08);
       const pillX = tokenX - pillPadX;
@@ -216,7 +225,9 @@ function buildCaptionSVG(line, activeIdx, styleSpec, opts) {
       const pillH = lineHeight + pillPadY * 2;
       const pillR = Math.round(fontSize * 0.18);
 
-      tokensSvg += `<rect x="${pillX.toFixed(1)}" y="${pillY.toFixed(1)}" width="${pillW.toFixed(1)}" height="${pillH.toFixed(1)}" rx="${pillR}" ry="${pillR}" fill="${styleSpec.highlightBg}"/>`;
+      if (animation !== 'typewriter') {
+        tokensSvg += `<rect x="${pillX.toFixed(1)}" y="${pillY.toFixed(1)}" width="${pillW.toFixed(1)}" height="${pillH.toFixed(1)}" rx="${pillR}" ry="${pillR}" fill="${styleSpec.highlightBg}"/>`;
+      }
 
       // Active word text (with optional scale transform centered on pill)
       const pillCx = pillX + pillW / 2;
