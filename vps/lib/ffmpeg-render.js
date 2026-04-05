@@ -74,13 +74,15 @@ function buildSmartZoomFilter(inLabel, outLabel, canvasW, canvasH, clipDuration,
   if (!clipDuration || clipDuration <= 0) return null;
 
   if (mode === 'micro') {
-    // Slow cinematic push: zoom grows from 1.00 → 1.08 linearly over clip duration.
-    // Uses crop + scale (time-varying): we crop a window that shrinks over time,
-    // then scale it back to canvas size. The `t` variable = current presentation time.
-    const K = 0.08; // max zoom delta
+    // Breathing zoom: oscillates between ~1.05 and ~1.20 on a 5s cycle,
+    // layered with a slow 6% cinematic push over the clip. Highly visible
+    // so the effect is perceptible (previous 8% linear push was too subtle).
+    //
+    //   z(t) = 1.08 + 0.07*sin(2*PI*t/5) + 0.06*min(t/D, 1)
+    //
+    // Range roughly 1.05 → 1.21 — equivalent to a 5-21% crop-in.
     const D = clipDuration.toFixed(3);
-    // zoom(t) = 1 + K * t/D  (capped at 1+K for safety)
-    const zExpr = `(1+${K}*min(t/${D}\\,1))`;
+    const zExpr = `(1.08+0.07*sin(2*PI*t/5)+0.06*min(t/${D}\\,1))`;
     const cropW = `iw/${zExpr}`;
     const cropH = `ih/${zExpr}`;
     const cropX = `(iw-${cropW})/2`;
