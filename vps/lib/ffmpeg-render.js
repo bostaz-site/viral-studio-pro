@@ -151,10 +151,21 @@ export async function renderClip(inputPath, outputPath, options = {}) {
   };
   const { w: canvasW, h: canvasH } = ratios[aspectRatio] || ratios['9:16'];
 
-  // Crop-fill: scale video to cover canvas, center-crop to exact canvas size.
-  // Matches TikTok/Reels behavior and ensures captions overlay on the video
-  // (not in blurred letterbox bars). This is what the UI preview shows.
-  const filterComplex_raw = `[0:v]fps=30,scale=${canvasW}:${canvasH}:force_original_aspect_ratio=increase,crop=${canvasW}:${canvasH}:(iw-${canvasW})/2:(ih-${canvasH})/2,setsar=1[composed]`;
+  // Blur-fill compositing (matches UI preview exactly when no split-screen):
+  //   - Background: same video scaled to COVER the canvas, heavily blurred,
+  //     brightness reduced 50% (Tailwind: blur-xl brightness-50).
+  //   - Foreground: same video scaled to FIT inside canvas (object-contain),
+  //     centered. This preserves the full source frame, no content cropped.
+  // This is exactly what the LivePreview component shows users.
+  const filterComplex_raw = [
+    `[0:v]fps=30,split=2[srcfg][srcbg]`,
+    // Background: cover + blur + brightness down + darken
+    `[srcbg]scale=${canvasW}:${canvasH}:force_original_aspect_ratio=increase,crop=${canvasW}:${canvasH}:(iw-${canvasW})/2:(ih-${canvasH})/2,gblur=sigma=30,eq=brightness=-0.5,setsar=1[bg]`,
+    // Foreground: fit inside canvas (contain), preserve full frame
+    `[srcfg]scale=${canvasW}:${canvasH}:force_original_aspect_ratio=decrease,setsar=1[fg]`,
+    // Composite fg over bg, centered
+    `[bg][fg]overlay=(W-w)/2:(H-h)/2[composed]`,
+  ].join(';');
   let filterComplex = filterComplex_raw;
   let mapVideo = '[composed]';
 

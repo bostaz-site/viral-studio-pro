@@ -182,9 +182,10 @@ function buildCaptionSVG(line, activeIdx, styleSpec, opts) {
   const lineHeight = Math.round(fontSize * 1.25);
   const boxHeight = lineHeight + padY * 2;
 
-  // Extra canvas padding to avoid clipping the highlight pill scaling
-  const canvasPadX = 8;
-  const canvasPadY = 8;
+  // Extra canvas padding to avoid clipping scaled active words.
+  // Must accommodate active scale up to 1.35x (pop) extending ~20% beyond the box.
+  const canvasPadX = Math.round(fontSize * 0.6);
+  const canvasPadY = Math.round(fontSize * 0.4);
   const svgWidth = boxWidth + canvasPadX * 2;
   const svgHeight = boxHeight + canvasPadY * 2;
 
@@ -319,17 +320,18 @@ export async function generateCaptionPNGs(wordTimestamps, opts) {
     for (let wIdx = 0; wIdx < line.words.length; wIdx++) {
       const word = line.words[wIdx];
 
-      // Animation-specific active-word styling
+      // Animation-specific active-word styling — cranked up to be clearly
+      // visible in the render (small scales aren't perceivable on 1080p+).
       let activeScale = 1.0;
       let activeOpacity = 1.0;
       if (animation === 'pop') {
-        activeScale = 1.12;
+        activeScale = 1.35; // was 1.12 — too subtle
       } else if (animation === 'bounce') {
-        activeScale = 1.08;
+        activeScale = 1.22; // was 1.08 — too subtle
       } else if (animation === 'typewriter') {
-        // Show only up to active word (reveal progressively)
         activeScale = 1.0;
       }
+      // highlight and glow: no scale change (glow uses SVG filter)
 
       const { svg, width, height } = buildCaptionSVG(line, wIdx, styleSpec, {
         fontSize,
