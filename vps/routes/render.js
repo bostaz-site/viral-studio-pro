@@ -502,6 +502,10 @@ router.post('/', async (req, res) => {
       cropAnchor: settings.format?.cropAnchor || 'center',
       backgroundBlur: settings.format?.backgroundBlur || false,
       crf: settings.format?.crf || 23,
+      smartZoom: settings.smartZoom?.enabled ? {
+        enabled: true,
+        mode: settings.smartZoom.mode || 'micro',
+      } : null,
     });
 
     // Upload rendered clip to Supabase Storage (unique path per render to avoid CDN cache)

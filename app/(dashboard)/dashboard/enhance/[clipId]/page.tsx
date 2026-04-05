@@ -8,7 +8,7 @@ import {
   ChevronLeft, Loader2, AlertCircle, Sparkles, Download,
   Type, Wand2, Eye, ExternalLink, Play,
   Monitor, Paintbrush, Zap, AtSign,
-  Flame,
+  Flame, Focus,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -47,6 +47,8 @@ interface EnhanceSettings {
   splitRatio: number
   tagStyle: string
   aspectRatio: '9:16' | '1:1' | '16:9'
+  smartZoomEnabled: boolean
+  smartZoomMode: 'micro' | 'dynamic' | 'follow'
 }
 
 // ─── Scoring Constants ──────────────────────────────────────────────────────
@@ -504,6 +506,8 @@ export default function EnhancePage() {
     splitRatio: 60,
     tagStyle: 'badge-top',
     aspectRatio: '9:16',
+    smartZoomEnabled: false,
+    smartZoomMode: 'micro',
   })
 
   // Load clip data — try trending store first, then Supabase
@@ -690,6 +694,10 @@ export default function EnhancePage() {
             },
             format: {
               aspectRatio: settings.aspectRatio,
+            },
+            smartZoom: {
+              enabled: settings.smartZoomEnabled,
+              mode: settings.smartZoomMode,
             },
           },
         }),
@@ -1148,6 +1156,109 @@ export default function EnhancePage() {
                       </button>
                     ))}
                   </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* ─── Smart Zoom Section ─── */}
+            <div className="scroll-mt-32">
+              <Card className="bg-card/60 border-border">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <Focus className="h-4 w-4 text-primary" />
+                    Smart Zoom
+                    <span className="ml-auto text-[10px] font-normal text-muted-foreground bg-primary/10 text-primary px-2 py-0.5 rounded-full border border-primary/20">
+                      Nouveau
+                    </span>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {/* Master toggle */}
+                  <button
+                    onClick={() => updateSetting('smartZoomEnabled', !settings.smartZoomEnabled)}
+                    className={cn(
+                      'w-full rounded-xl border p-3 text-left transition-all flex items-center justify-between',
+                      settings.smartZoomEnabled
+                        ? 'border-primary bg-primary/10 ring-1 ring-primary/30'
+                        : 'border-border hover:border-primary/40'
+                    )}
+                  >
+                    <div>
+                      <span className="text-sm font-semibold text-foreground block">
+                        {settings.smartZoomEnabled ? 'Activé' : 'Désactivé'}
+                      </span>
+                      <span className="text-[10px] text-muted-foreground block mt-0.5">
+                        Zoom dynamique pour plus de mouvement & rétention
+                      </span>
+                    </div>
+                    <div className={cn(
+                      'w-10 h-5 rounded-full relative transition-all',
+                      settings.smartZoomEnabled ? 'bg-primary' : 'bg-border'
+                    )}>
+                      <div className={cn(
+                        'absolute top-0.5 w-4 h-4 rounded-full bg-white transition-all',
+                        settings.smartZoomEnabled ? 'left-[22px]' : 'left-0.5'
+                      )} />
+                    </div>
+                  </button>
+
+                  {/* Mode selector */}
+                  {settings.smartZoomEnabled && (
+                    <div className="space-y-2 animate-in fade-in slide-in-from-top-1">
+                      <Label className="text-xs uppercase tracking-wider text-muted-foreground">Mode</Label>
+                      <div className="grid grid-cols-1 gap-2">
+                        {([
+                          {
+                            id: 'micro' as const,
+                            label: 'Micro zoom',
+                            desc: 'Push cinématique lent (1.0 → 1.08). Invisible mais pro.',
+                            badge: 'Safe',
+                          },
+                          {
+                            id: 'dynamic' as const,
+                            label: 'Dynamique',
+                            desc: 'Punch zooms sur moments forts + cooldown. Max impact.',
+                            badge: 'Bientôt',
+                            disabled: true,
+                          },
+                          {
+                            id: 'follow' as const,
+                            label: 'Follow face',
+                            desc: 'Suit le visage en continu avec lissage.',
+                            badge: 'Bientôt',
+                            disabled: true,
+                          },
+                        ]).map((mode) => (
+                          <button
+                            key={mode.id}
+                            onClick={() => !mode.disabled && updateSetting('smartZoomMode', mode.id)}
+                            disabled={mode.disabled}
+                            className={cn(
+                              'rounded-xl border p-3 text-left transition-all',
+                              mode.disabled
+                                ? 'border-border/50 bg-muted/20 opacity-50 cursor-not-allowed'
+                                : settings.smartZoomMode === mode.id
+                                ? 'border-primary bg-primary/10 ring-1 ring-primary/30'
+                                : 'border-border hover:border-primary/40'
+                            )}
+                          >
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className="text-xs font-semibold text-foreground flex-1">{mode.label}</span>
+                              <span className={cn(
+                                'text-[9px] font-bold px-2 py-0.5 rounded-full',
+                                mode.disabled
+                                  ? 'bg-muted text-muted-foreground'
+                                  : 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/20'
+                              )}>
+                                {mode.badge}
+                              </span>
+                            </div>
+                            <span className="text-[10px] text-muted-foreground">{mode.desc}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </div>

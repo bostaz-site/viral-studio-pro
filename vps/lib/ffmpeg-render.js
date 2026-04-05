@@ -53,6 +53,51 @@ function buildCommand(args) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
+ * Build a smart-zoom filter segment to apply to a canvas-sized video stream.
+ *
+ * Modes:
+ *   - micro:   slow cinematic push 1.0 → 1.08 over clip duration
+ *   - dynamic: (Phase 2) punch zooms on audio peaks with cooldown
+ *   - follow:  (Phase 2) face-tracking with lerp smoothing
+ *
+ * Returns a filter string of the form: `[in]crop=...,scale=WxH,setsar=1[out]`
+ * or null if smart zoom is disabled/unsupported.
+ *
+ * @param {string} inLabel      - FFmpeg stream label to apply zoom to (e.g. '[composed]')
+ * @param {string} outLabel     - Output stream label (e.g. '[zoomed]')
+ * @param {number} canvasW      - Target canvas width
+ * @param {number} canvasH      - Target canvas height
+ * @param {number} clipDuration - Duration in seconds (for time-based expressions)
+ * @param {string} mode         - 'micro' | 'dynamic' | 'follow'
+ */
+function buildSmartZoomFilter(inLabel, outLabel, canvasW, canvasH, clipDuration, mode = 'micro') {
+  if (!clipDuration || clipDuration <= 0) return null;
+
+  if (mode === 'micro') {
+    // Slow cinematic push: zoom grows from 1.00 → 1.08 linearly over clip duration.
+    // Uses crop + scale (time-varying): we crop a window that shrinks over time,
+    // then scale it back to canvas size. The `t` variable = current presentation time.
+    const K = 0.08; // max zoom delta
+    const D = clipDuration.toFixed(3);
+    // zoom(t) = 1 + K * t/D  (capped at 1+K for safety)
+    const zExpr = `(1+${K}*min(t/${D}\\,1))`;
+    const cropW = `iw/${zExpr}`;
+    const cropH = `ih/${zExpr}`;
+    const cropX = `(iw-${cropW})/2`;
+    const cropY = `(ih-${cropH})/2`;
+    return `${inLabel}crop=${cropW}:${cropH}:${cropX}:${cropY},scale=${canvasW}:${canvasH},setsar=1${outLabel}`;
+  }
+
+  // Phase 2: dynamic (audio-peak based) and follow (face-tracking) not yet implemented.
+  // Falls back to micro zoom for now so the feature still works.
+  if (mode === 'dynamic' || mode === 'follow') {
+    return buildSmartZoomFilter(inLabel, outLabel, canvasW, canvasH, clipDuration, 'micro');
+  }
+
+  return null;
+}
+
+/**
  * Build FFmpeg filter chain for reframing to target aspect ratio
  */
 function buildReframeFilters(aspectRatio, options = {}) {
@@ -111,6 +156,7 @@ export async function renderClip(inputPath, outputPath, options = {}) {
     maxDuration = 300,
     crf = 23,
     timeout = 300000,
+    smartZoom = null,
   } = options;
 
   if (!inputPath || !outputPath) {
@@ -137,6 +183,7 @@ export async function renderClip(inputPath, outputPath, options = {}) {
       cropAnchor,
       crf,
       timeout,
+      smartZoom,
     });
   }
 
@@ -170,6 +217,18 @@ export async function renderClip(inputPath, outputPath, options = {}) {
   ].join(';');
   let filterComplex = filterComplex_raw;
   let mapVideo = '[composed]';
+
+  // Smart Zoom (applied on composed output, BEFORE captions/tags so they stay crisp)
+  if (smartZoom && smartZoom.enabled) {
+    const zoomChain = buildSmartZoomFilter(
+      mapVideo, '[zoomed]', canvasW, canvasH, clipDuration, smartZoom.mode || 'micro'
+    );
+    if (zoomChain) {
+      filterComplex += `;${zoomChain}`;
+      mapVideo = '[zoomed]';
+      console.log(`[FFmpeg] Smart Zoom applied: mode=${smartZoom.mode || 'micro'}`);
+    }
+  }
 
   // Captions: prefer PNG overlays (pixel-perfect UI parity), fallback to ASS
   const extraInputs = [];
@@ -272,6 +331,7 @@ async function renderSplitScreen(inputPath, outputPath, opts) {
     cropAnchor,
     crf,
     timeout,
+    smartZoom,
   } = opts;
 
   const layout = splitScreen.layout || 'top-bottom';
@@ -337,6 +397,18 @@ async function renderSplitScreen(inputPath, outputPath, opts) {
       ...opts,
       splitScreen: { ...splitScreen, layout: 'top-bottom' },
     });
+  }
+
+  // Smart Zoom (applied on composed output, BEFORE captions/tags so they stay crisp)
+  if (smartZoom && smartZoom.enabled) {
+    const zoomChain = buildSmartZoomFilter(
+      mapVideo, '[zoomed]', canvasW, canvasH, clipDuration, smartZoom.mode || 'micro'
+    );
+    if (zoomChain) {
+      filterComplex += `;${zoomChain}`;
+      mapVideo = '[zoomed]';
+      console.log(`[FFmpeg-Split] Smart Zoom applied: mode=${smartZoom.mode || 'micro'}`);
+    }
   }
 
   // Apply captions on the composed output — PNG overlays preferred

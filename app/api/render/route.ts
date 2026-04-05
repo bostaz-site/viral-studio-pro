@@ -34,6 +34,10 @@ const inputSchema = z.object({
     format: z.object({
       aspectRatio: z.string().optional(),
     }).optional(),
+    smartZoom: z.object({
+      enabled: z.boolean().optional(),
+      mode: z.enum(['micro', 'dynamic', 'follow']).optional(),
+    }).optional(),
   }).optional(),
 })
 
@@ -172,6 +176,7 @@ export const POST = withAuth(async (request, user) => {
       format: {
         aspectRatio: settings?.format?.aspectRatio ?? '9:16',
       },
+      smartZoom: settings?.smartZoom ?? { enabled: false, mode: 'micro' },
     },
   }
 
