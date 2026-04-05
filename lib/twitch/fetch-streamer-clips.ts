@@ -81,13 +81,14 @@ async function computeVelocity(
   currentViews: number,
   clipCreatedAt: string
 ): Promise<number> {
-  const { data: prevSnapshot } = await admin
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: prevSnapshot } = await (admin as any)
     .from('clip_snapshots')
     .select('view_count, captured_at')
     .eq('clip_id', clipId)
     .order('captured_at', { ascending: false })
     .limit(1)
-    .maybeSingle()
+    .maybeSingle() as { data: { view_count: number; captured_at: string } | null }
 
   if (prevSnapshot) {
     const hoursElapsed = Math.max(
@@ -145,9 +146,9 @@ async function resolveStreamerIds(
     (s, i) => s.twitch_id && !streamers[i].twitch_id
   )
   for (const s of toUpdate) {
-    await admin
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (admin as any)
       .from('streamers')
-      // @ts-expect-error - streamers table not yet in generated types
       .update({ twitch_id: s.twitch_id })
       .eq('id', s.id)
   }
@@ -170,9 +171,9 @@ export async function fetchAndScoreStreamerClips(
   }
 
   // Load active streamers
-  const { data: streamersRaw, error: loadErr } = await admin
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: streamersRaw, error: loadErr } = await (admin as any)
     .from('streamers')
-    // @ts-expect-error - streamers table not yet in generated types
     .select('id, display_name, twitch_login, twitch_id, kick_slug, priority')
     .eq('active', true)
     .order('priority', { ascending: false })
@@ -232,9 +233,9 @@ export async function fetchAndScoreStreamerClips(
           clip_created_at: clip.created_at,
         }
 
-        const { data: upserted, error: upsertErr } = await admin
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { data: upserted, error: upsertErr } = await (admin as any)
           .from('trending_clips')
-          // @ts-expect-error - new columns not yet in generated types
           .upsert(clipRow, { onConflict: 'external_url' })
           .select('id')
           .single()
@@ -264,17 +265,17 @@ export async function fetchAndScoreStreamerClips(
         })
 
         // Write snapshot
-        await admin
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        await (admin as any)
           .from('clip_snapshots')
-          // @ts-expect-error - clip_snapshots not yet in generated types
           .insert({ clip_id: clipId, view_count: clip.view_count })
         result.snapshots++
 
         // Update scoring columns
-        await admin
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        await (admin as any)
           .from('trending_clips')
           .update({
-            // @ts-expect-error - new columns not yet in generated types
             velocity,
             viral_ratio: viralRatio,
             viral_score: viralScore,
@@ -299,7 +300,8 @@ export async function cleanupOldSnapshots(
   keepDays = 7
 ): Promise<number> {
   const cutoff = new Date(Date.now() - keepDays * 86400 * 1000).toISOString()
-  const { error, count } = await admin
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error, count } = await (admin as any)
     .from('clip_snapshots')
     .delete({ count: 'exact' })
     .lt('captured_at', cutoff)
