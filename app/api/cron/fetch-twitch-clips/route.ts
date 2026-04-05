@@ -1,13 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { timingSafeCompare } from '@/lib/crypto'
-import { fetchAndUpsertTwitchClips } from '@/lib/twitch/fetch-clips'
+import { fetchAndScoreStreamerClips, cleanupOldSnapshots } from '@/lib/twitch/fetch-streamer-clips'
 
 /**
  * POST /api/cron/fetch-twitch-clips
  *
- * Fetches top Twitch clips for all tracked games and upserts them
- * into the trending_clips table. Should run every 30-60 minutes.
+ * Fetches recent Twitch clips for every active streamer in the `streamers`
+ * table, upserts them into trending_clips, captures a historical snapshot
+ * (for velocity computation), and updates viral scoring columns.
+ *
+ * Should run every 15-20 minutes.
  *
  * Auth: x-api-key header = CRON_SECRET env var
  */
@@ -31,12 +34,18 @@ export async function POST(req: NextRequest) {
 
   try {
     const admin = createAdminClient()
-    const result = await fetchAndUpsertTwitchClips(admin)
+    const result = await fetchAndScoreStreamerClips(admin, 48, 20)
+
+    // Opportunistic cleanup of old snapshots (keep 7 days)
+    let cleaned = 0
+    try {
+      cleaned = await cleanupOldSnapshots(admin, 7)
+    } catch { /* non-fatal */ }
 
     return NextResponse.json({
-      data: result,
+      data: { ...result, snapshots_cleaned: cleaned },
       error: null,
-      message: `${result.upserted} clips Twitch importés (${result.games} jeux scannés)`,
+      message: `${result.upserted} clips importés · ${result.streamers_scanned} streamers · ${result.snapshots} snapshots`,
     })
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Erreur interne'
@@ -45,4 +54,9 @@ export async function POST(req: NextRequest) {
       { status: 500 }
     )
   }
+}
+
+// Also expose GET for easy manual triggering from browser (with query param auth)
+export async function GET(req: NextRequest) {
+  return POST(req)
 }
