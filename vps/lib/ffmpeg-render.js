@@ -160,7 +160,9 @@ export async function renderClip(inputPath, outputPath, options = {}) {
   const filterComplex_raw = [
     `[0:v]fps=30,split=2[srcfg][srcbg]`,
     // Background: cover + blur + brightness down + darken
-    `[srcbg]scale=${canvasW}:${canvasH}:force_original_aspect_ratio=increase,crop=${canvasW}:${canvasH}:(iw-${canvasW})/2:(ih-${canvasH})/2,gblur=sigma=40,eq=brightness=-0.35:saturation=1.25:contrast=1.1,setsar=1[bg]`,
+    // Blur at 1/2 resolution then upscale — ~4x less memory for the blur pass,
+    // visually equivalent since sigma scales with pixel density.
+    `[srcbg]scale=${canvasW/2}:${canvasH/2}:force_original_aspect_ratio=increase,crop=${canvasW/2}:${canvasH/2}:(iw-${canvasW/2})/2:(ih-${canvasH/2})/2,gblur=sigma=20,eq=brightness=-0.35:saturation=1.25:contrast=1.1,scale=${canvasW}:${canvasH}:flags=bilinear,setsar=1[bg]`,
     // Foreground: fit inside canvas (contain), preserve full frame
     `[srcfg]scale=${canvasW}:${canvasH}:force_original_aspect_ratio=decrease,setsar=1[fg]`,
     // Composite fg over bg, centered
