@@ -230,7 +230,9 @@ export async function renderClip(inputPath, outputPath, options = {}) {
 
   args.push('-c:v', 'libx264');
   args.push('-preset', 'ultrafast');  // Use ultrafast to minimize memory (Railway OOM)
-  args.push('-threads', '2');          // Limit threads to reduce memory footprint
+  args.push('-threads', '1');          // Single thread to reduce memory footprint
+  args.push('-filter_threads', '1');
+  args.push('-filter_complex_threads', '1');
   args.push('-crf', String(crf));
   args.push('-c:a', 'aac');
   args.push('-b:a', '128k');          // Slightly lower audio bitrate to save memory
