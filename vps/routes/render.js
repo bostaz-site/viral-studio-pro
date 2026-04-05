@@ -325,6 +325,20 @@ router.post('/', async (req, res) => {
               outputDir: captionDir,
             });
             trc(`CAPTIONS generated ${captionOverlays.length} PNG overlays style=${captionStyle} anim=${settings.captions.animation || 'highlight'}`);
+            // Railway OOM guard: too many simultaneous PNG inputs kills FFmpeg with SIGKILL.
+            // When over threshold, fall back to ASS (single-input libass render, much lighter RAM).
+            const MAX_PNG_OVERLAYS = 35;
+            if (captionOverlays.length > MAX_PNG_OVERLAYS) {
+              trc(`CAPTIONS too many PNG overlays (${captionOverlays.length} > ${MAX_PNG_OVERLAYS}), falling back to ASS to avoid OOM`);
+              captionOverlays = null;
+              assContent = generateASS(wordTimestamps, {
+                ...subtitleOpts,
+                animation: settings.captions.animation || 'highlight',
+                clipStartTime,
+                wordsPerLine: settings.captions.wordsPerLine || 6,
+                customColors: settings.captions.customColors,
+              });
+            }
           } catch (pngErr) {
             trc(`CAPTIONS PNG gen failed, falling back to ASS: ${pngErr.message}`);
             // Fallback to ASS if PNG generation fails
