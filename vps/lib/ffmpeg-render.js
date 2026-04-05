@@ -91,8 +91,9 @@ function buildSmartZoomFilter(inLabel, outLabel, canvasW, canvasH, clipDuration,
     // Add gentle baseline breathing (smaller than micro) so static shots aren't flat
     const baseline = `1.00+0.02*sin(2*PI*t/6)+0.03*min(t/${D}\\,1)`;
     const zExpr = `(${baseline}+${terms.join('+')})`;
-    const scaledW = `${canvasW}*${zExpr}`;
-    const scaledH = `${canvasH}*${zExpr}`;
+    // Force even dimensions (yuv420p requirement — prevents green-line chroma artifacts)
+    const scaledW = `trunc(${canvasW}*${zExpr}/2)*2`;
+    const scaledH = `trunc(${canvasH}*${zExpr}/2)*2`;
     return `${inLabel}scale=w='${scaledW}':h='${scaledH}':eval=frame,crop=${canvasW}:${canvasH},setsar=1${outLabel}`;
   }
 
@@ -109,8 +110,9 @@ function buildSmartZoomFilter(inLabel, outLabel, canvasW, canvasH, clipDuration,
     const zExpr = `(1.08+0.07*sin(2*PI*t/5)+0.06*min(t/${D}\\,1))`;
     // Scale to canvas*z, then crop canvas from center. eval=frame re-evaluates
     // the scale expression per frame, enabling time-varying zoom.
-    const scaledW = `${canvasW}*${zExpr}`;
-    const scaledH = `${canvasH}*${zExpr}`;
+    // Force even dimensions (yuv420p requirement — prevents green-line chroma artifacts)
+    const scaledW = `trunc(${canvasW}*${zExpr}/2)*2`;
+    const scaledH = `trunc(${canvasH}*${zExpr}/2)*2`;
     return `${inLabel}scale=w='${scaledW}':h='${scaledH}':eval=frame,crop=${canvasW}:${canvasH},setsar=1${outLabel}`;
   }
 
