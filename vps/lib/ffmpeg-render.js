@@ -1,6 +1,7 @@
 import { execFile } from 'child_process';
 import { promisify } from 'util';
 import path from 'path';
+import { analyzeAudioPeaks } from './audio-peaks.js';
 
 const execFileAsync = promisify(execFile);
 
@@ -70,8 +71,30 @@ function buildCommand(args) {
  * @param {number} clipDuration - Duration in seconds (for time-based expressions)
  * @param {string} mode         - 'micro' | 'dynamic' | 'follow'
  */
-function buildSmartZoomFilter(inLabel, outLabel, canvasW, canvasH, clipDuration, mode = 'micro') {
+function buildSmartZoomFilter(inLabel, outLabel, canvasW, canvasH, clipDuration, mode = 'micro', peaks = []) {
   if (!clipDuration || clipDuration <= 0) return null;
+
+  if (mode === 'dynamic' && Array.isArray(peaks) && peaks.length > 0) {
+    // Dynamic mode: punch-zoom on each audio peak.
+    //   z(t) = 1.00 + sum over peaks of: 0.15 * max(0, 1 - (t-tp)/0.4)  for tp ≤ t ≤ tp+0.4
+    // Each punch: quick 15% zoom-in at peak, linear decay over 0.4s back to 1.00.
+    // Cooldown (≥2.5s) ensures punches never overlap.
+    const D = clipDuration.toFixed(3);
+    const PUNCH_AMOUNT = 0.15;
+    const PUNCH_DURATION = 0.4;
+    const limited = peaks.slice(0, 15); // cap at 15 to keep expression tractable
+    const terms = limited.map(tp => {
+      const t0 = tp.toFixed(3);
+      const t1 = (tp + PUNCH_DURATION).toFixed(3);
+      return `if(between(t\\,${t0}\\,${t1})\\,${PUNCH_AMOUNT}*(1-(t-${t0})/${PUNCH_DURATION})\\,0)`;
+    });
+    // Add gentle baseline breathing (smaller than micro) so static shots aren't flat
+    const baseline = `1.00+0.02*sin(2*PI*t/6)+0.03*min(t/${D}\\,1)`;
+    const zExpr = `(${baseline}+${terms.join('+')})`;
+    const scaledW = `${canvasW}*${zExpr}`;
+    const scaledH = `${canvasH}*${zExpr}`;
+    return `${inLabel}scale=w='${scaledW}':h='${scaledH}':eval=frame,crop=${canvasW}:${canvasH},setsar=1${outLabel}`;
+  }
 
   if (mode === 'micro') {
     // Breathing zoom: oscillates between ~1.05 and ~1.21 on a 5s cycle,
@@ -91,8 +114,8 @@ function buildSmartZoomFilter(inLabel, outLabel, canvasW, canvasH, clipDuration,
     return `${inLabel}scale=w='${scaledW}':h='${scaledH}':eval=frame,crop=${canvasW}:${canvasH},setsar=1${outLabel}`;
   }
 
-  // Phase 2: dynamic (audio-peak based) and follow (face-tracking) not yet implemented.
-  // Falls back to micro zoom for now so the feature still works.
+  // Dynamic requested but no peaks detected → fall back to micro so user still gets movement.
+  // Follow mode not yet implemented, also falls back to micro.
   if (mode === 'dynamic' || mode === 'follow') {
     return buildSmartZoomFilter(inLabel, outLabel, canvasW, canvasH, clipDuration, 'micro');
   }
@@ -171,6 +194,17 @@ export async function renderClip(inputPath, outputPath, options = {}) {
     throw new Error(`Clip duration ${clipDuration}s exceeds max ${maxDuration}s`);
   }
 
+  // ── Audio peak detection for Dynamic smart zoom ─────────────────────────
+  let audioPeaks = [];
+  if (smartZoom && smartZoom.enabled && smartZoom.mode === 'dynamic') {
+    try {
+      audioPeaks = await analyzeAudioPeaks(inputPath, startTime, clipDuration);
+    } catch (err) {
+      console.warn('[FFmpeg] Audio peak analysis failed, falling back to micro:', err.message);
+      audioPeaks = [];
+    }
+  }
+
   // ── Split-screen render path ────────────────────────────────────────────
   if (splitScreen && splitScreen.enabled && splitScreen.brollPath) {
     return renderSplitScreen(inputPath, outputPath, {
@@ -187,6 +221,7 @@ export async function renderClip(inputPath, outputPath, options = {}) {
       crf,
       timeout,
       smartZoom,
+      audioPeaks,
     });
   }
 
@@ -224,12 +259,12 @@ export async function renderClip(inputPath, outputPath, options = {}) {
   // Smart Zoom (applied on composed output, BEFORE captions/tags so they stay crisp)
   if (smartZoom && smartZoom.enabled) {
     const zoomChain = buildSmartZoomFilter(
-      mapVideo, '[zoomed]', canvasW, canvasH, clipDuration, smartZoom.mode || 'micro'
+      mapVideo, '[zoomed]', canvasW, canvasH, clipDuration, smartZoom.mode || 'micro', audioPeaks
     );
     if (zoomChain) {
       filterComplex += `;${zoomChain}`;
       mapVideo = '[zoomed]';
-      console.log(`[FFmpeg] Smart Zoom applied: mode=${smartZoom.mode || 'micro'}`);
+      console.log(`[FFmpeg] Smart Zoom applied: mode=${smartZoom.mode || 'micro'}, peaks=${audioPeaks.length}`);
     }
   }
 
@@ -335,6 +370,7 @@ async function renderSplitScreen(inputPath, outputPath, opts) {
     crf,
     timeout,
     smartZoom,
+    audioPeaks = [],
   } = opts;
 
   const layout = splitScreen.layout || 'top-bottom';
@@ -405,12 +441,12 @@ async function renderSplitScreen(inputPath, outputPath, opts) {
   // Smart Zoom (applied on composed output, BEFORE captions/tags so they stay crisp)
   if (smartZoom && smartZoom.enabled) {
     const zoomChain = buildSmartZoomFilter(
-      mapVideo, '[zoomed]', canvasW, canvasH, clipDuration, smartZoom.mode || 'micro'
+      mapVideo, '[zoomed]', canvasW, canvasH, clipDuration, smartZoom.mode || 'micro', audioPeaks
     );
     if (zoomChain) {
       filterComplex += `;${zoomChain}`;
       mapVideo = '[zoomed]';
-      console.log(`[FFmpeg-Split] Smart Zoom applied: mode=${smartZoom.mode || 'micro'}`);
+      console.log(`[FFmpeg-Split] Smart Zoom applied: mode=${smartZoom.mode || 'micro'}, peaks=${audioPeaks.length}`);
     }
   }
 

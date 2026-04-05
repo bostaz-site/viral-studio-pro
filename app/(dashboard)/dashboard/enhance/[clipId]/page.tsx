@@ -1211,15 +1211,14 @@ export default function EnhancePage() {
                           {
                             id: 'micro' as const,
                             label: 'Micro zoom',
-                            desc: 'Push cinématique lent (1.0 → 1.08). Invisible mais pro.',
+                            desc: 'Breathing zoom cinématique (1.05 → 1.21). Subtil et pro.',
                             badge: 'Safe',
                           },
                           {
                             id: 'dynamic' as const,
                             label: 'Dynamique',
-                            desc: 'Punch zooms sur moments forts + cooldown. Max impact.',
-                            badge: 'Bientôt',
-                            disabled: true,
+                            desc: 'Punch zooms sur pics audio + cooldown 2.5s. Max impact.',
+                            badge: 'New',
                           },
                           {
                             id: 'follow' as const,
