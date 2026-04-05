@@ -230,10 +230,12 @@ function ScoreBadge({ score, isBest }: { score: number; isBest: boolean }) {
 
 function LivePreview({
   clip,
+  videoUrl,
   settings,
   showEnhancements,
 }: {
   clip: TrendingClipData
+  videoUrl: string | null
   settings: EnhanceSettings
   showEnhancements: boolean
 }) {
@@ -242,9 +244,11 @@ function LivePreview({
   const tagStyle = TAG_STYLES.find((t) => t.id === settings.tagStyle)
   const streamerName = clip.author_handle ? `@${clip.author_handle}` : clip.author_name ?? ''
 
-  const animationClass = settings.captionAnimation === 'pop' ? 'animate-[pulse_2s_ease-in-out_infinite]'
-    : settings.captionAnimation === 'bounce' ? 'animate-bounce'
-    : settings.captionAnimation === 'glow' ? 'animate-[pulse_1.5s_ease-in-out_infinite]'
+  // Per-word animations — match FFmpeg render behavior
+  // pop: scale 1.35 burst | bounce: scale 1.12 + lift -18% | glow: colored halo
+  const highlightAnimClass = settings.captionAnimation === 'pop' ? 'animate-[viralPop_1s_ease-in-out_infinite]'
+    : settings.captionAnimation === 'bounce' ? 'animate-[viralBounce_1s_ease-in-out_infinite]'
+    : settings.captionAnimation === 'glow' ? 'animate-[viralGlow_1.5s_ease-in-out_infinite]'
     : ''
 
   return (
@@ -258,6 +262,19 @@ function LivePreview({
         0%, 100% { box-shadow: 0 0 15px rgba(249, 115, 22, 0.3); }
         50% { box-shadow: 0 0 25px rgba(249, 115, 22, 0.5), 0 0 50px rgba(249, 115, 22, 0.15); }
       }
+      /* Active-word caption animations — mirror FFmpeg render */
+      @keyframes viralPop {
+        0%, 40%, 100% { transform: scale(1); }
+        20% { transform: scale(1.35); }
+      }
+      @keyframes viralBounce {
+        0%, 40%, 100% { transform: translateY(0) scale(1); }
+        20% { transform: translateY(-18%) scale(1.12); }
+      }
+      @keyframes viralGlow {
+        0%, 100% { text-shadow: 0 0 4px currentColor, 0 0 8px currentColor; }
+        50% { text-shadow: 0 0 10px currentColor, 0 0 20px currentColor, 0 0 30px currentColor; }
+      }
     `}</style>
     <div
       className="relative w-full rounded-2xl overflow-hidden bg-black border border-white/10 shadow-2xl mx-auto transition-all duration-500"
@@ -268,26 +285,48 @@ function LivePreview({
         className="absolute inset-x-0 top-0 overflow-hidden transition-all duration-500"
         style={{ height: showEnhancements && settings.splitScreenEnabled ? `${settings.splitRatio}%` : '100%' }}
       >
-        {clip.thumbnail_url ? (
+        {clip.thumbnail_url || videoUrl ? (
           <>
-            {/* Blurred background fill — always visible when no split-screen */}
+            {/* Blurred background fill — matches FFmpeg gblur sigma=40 + eq(brightness=-0.35, sat=1.25, contrast=1.1) */}
             {!(showEnhancements && settings.splitScreenEnabled) && (
+              videoUrl ? (
+                <video
+                  src={videoUrl}
+                  className="absolute inset-0 w-full h-full object-cover scale-110"
+                  style={{ filter: 'blur(12px) brightness(0.65) saturate(1.25) contrast(1.1)' }}
+                  aria-hidden="true"
+                  autoPlay loop muted playsInline
+                />
+              ) : (
+                <img
+                  src={clip.thumbnail_url!}
+                  alt=""
+                  className="absolute inset-0 w-full h-full object-cover scale-110"
+                  style={{ filter: 'blur(12px) brightness(0.65) saturate(1.25) contrast(1.1)' }}
+                  aria-hidden="true"
+                />
+              )
+            )}
+            {/* Main layer — object-contain when no split-screen (blur bg), object-cover with split */}
+            {videoUrl ? (
+              <video
+                src={videoUrl}
+                className={cn(
+                  'relative w-full h-full z-[1]',
+                  showEnhancements && settings.splitScreenEnabled ? 'object-cover' : 'object-contain'
+                )}
+                autoPlay loop muted playsInline
+              />
+            ) : (
               <img
-                src={clip.thumbnail_url}
-                alt=""
-                className="absolute inset-0 w-full h-full object-cover scale-110 blur-xl brightness-50"
-                aria-hidden="true"
+                src={clip.thumbnail_url!}
+                alt={clip.title ?? 'Clip'}
+                className={cn(
+                  'relative w-full h-full animate-[kenburns_20s_ease-in-out_infinite_alternate] z-[1]',
+                  showEnhancements && settings.splitScreenEnabled ? 'object-cover' : 'object-contain'
+                )}
               />
             )}
-            {/* Main video — object-contain when no split-screen (blur bg), object-cover with split */}
-            <img
-              src={clip.thumbnail_url}
-              alt={clip.title ?? 'Clip'}
-              className={cn(
-                'relative w-full h-full animate-[kenburns_20s_ease-in-out_infinite_alternate] z-[1]',
-                showEnhancements && settings.splitScreenEnabled ? 'object-cover' : 'object-contain'
-              )}
-            />
           </>
         ) : (
           <div className="w-full h-full bg-gradient-to-br from-slate-800 to-slate-900 flex items-center justify-center">
@@ -344,9 +383,9 @@ function LivePreview({
               : settings.splitScreenEnabled ? `${settings.splitRatio - 10}%` : '72%',
           }}
         >
-          <p className={cn('text-sm text-center transition-all duration-300', captionStyle?.preview, animationClass)}>
+          <p className={cn('text-sm text-center transition-all duration-300', captionStyle?.preview)}>
             This is{' '}
-            <span className={cn('px-0.5 rounded', captionStyle?.highlightClass)}>
+            <span className={cn('inline-block px-0.5 rounded', captionStyle?.highlightClass, highlightAnimClass)} style={{ transformOrigin: 'center bottom' }}>
               {settings.captionAnimation === 'typewriter' ? 'CRA...' : 'CRAZY'}
             </span>{' '}
             bro
@@ -396,6 +435,7 @@ export default function EnhancePage() {
   const clipId = params.clipId as string
 
   const [clip, setClip] = useState<TrendingClipData | null>(null)
+  const [videoUrl, setVideoUrl] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [rendering, setRendering] = useState(false)
@@ -491,6 +531,21 @@ export default function EnhancePage() {
 
     loadClip()
   }, [clipId, storeClips])
+
+  // Resolve direct MP4 URL for live preview (Twitch only)
+  useEffect(() => {
+    if (!clip || clip.platform !== 'twitch' || !clip.external_url) return
+    // Extract slug from https://clips.twitch.tv/SLUG or https://www.twitch.tv/CHANNEL/clip/SLUG
+    const m = clip.external_url.match(/clips\.twitch\.tv\/([A-Za-z0-9_-]+)|\/clip\/([A-Za-z0-9_-]+)/)
+    const slug = m ? (m[1] || m[2]) : null
+    if (!slug) return
+    let cancelled = false
+    fetch(`/api/clips/video-url?slug=${encodeURIComponent(slug)}`)
+      .then((r) => r.ok ? r.json() : null)
+      .then((j) => { if (!cancelled && j?.video_url) setVideoUrl(j.video_url) })
+      .catch(() => { /* silent — fallback to thumbnail */ })
+    return () => { cancelled = true }
+  }, [clip])
 
   const updateSetting = useCallback(<K extends keyof EnhanceSettings>(key: K, value: EnhanceSettings[K]) => {
     setSettings((s) => ({ ...s, [key]: value }))
@@ -716,7 +771,7 @@ export default function EnhancePage() {
           </div>
 
           {/* ── Preview ── */}
-          <LivePreview clip={clip} settings={settings} showEnhancements={showEnhancements} />
+          <LivePreview clip={clip} videoUrl={videoUrl} settings={settings} showEnhancements={showEnhancements} />
 
           {/* Generate button — orange, always visible with preview */}
           <Button
