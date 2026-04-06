@@ -294,6 +294,18 @@ export function generateASS(wordTimestamps, options = {}) {
   // Generate ASS header with correct canvas dimensions
   const header = buildASSHeader(styleConfig, canvasWidth, canvasHeight);
 
+  // "word-pop" is a special mode: 1 word at a time, each with a smooth pop-in.
+  // Override wordsPerLine and generate per-word events directly.
+  if (animation === 'word-pop') {
+    const header2 = buildASSHeader(
+      { ...styleConfig, fontsize: Math.round(styleConfig.fontsize * 1.2) }, // 20% bigger for impact
+      canvasWidth,
+      canvasHeight
+    );
+    const events2 = generateWordPopEvents(wordTimestamps, clipStartTime);
+    return [header2, ...events2].join('\n');
+  }
+
   // Group words into lines
   const wordLines = groupWords(wordTimestamps, wordsPerLine);
 
@@ -501,6 +513,45 @@ function buildLoopedTransforms(lineDurCs, cycleLenCs, builder) {
     t = t1;
   }
   return tags.join('');
+}
+
+/**
+ * Word Pop animation: ONE word at a time, each pops in with smooth scale-up.
+ * This is the viral TikTok 2025 style — big text, centered, word-by-word.
+ *
+ * Each word gets its own Dialogue event:
+ *   - Starts at \fscx70\fscy70 (70% scale)
+ *   - Pops to \fscx108\fscy108 (108%) in 80ms (overshoot)
+ *   - Settles to \fscx100\fscy100 in 60ms (ease-out)
+ *   - Slight fade-in from \alpha&H40& to \alpha&H00& in first 60ms
+ *
+ * Words overlap by 50ms so there's no "empty frame" gap between words.
+ */
+function generateWordPopEvents(wordTimestamps, clipStartTime) {
+  const events = [];
+  for (let i = 0; i < wordTimestamps.length; i++) {
+    const w = wordTimestamps[i];
+    const start = Math.max(0, w.start - clipStartTime);
+    // Extend each word slightly (50ms overlap) so no gap between words
+    const nextStart = i < wordTimestamps.length - 1
+      ? Math.max(0, wordTimestamps[i + 1].start - clipStartTime)
+      : start + 0.5;
+    const end = Math.max(start + 0.1, Math.min(nextStart + 0.05, w.end - clipStartTime + 0.15));
+
+    // Pop-in animation: scale 70% → 108% in 8cs, then 108% → 100% in 6cs
+    // Plus alpha fade from semi-transparent to fully opaque in 6cs
+    const popIn = [
+      '\\fscx70\\fscy70\\alpha&H40&',           // Initial state: 70% scale, 25% transparent
+      '\\t(0,8,\\fscx108\\fscy108\\alpha&H00&)', // Overshoot: 108% + fully opaque in 80ms
+      '\\t(8,14,\\fscx100\\fscy100)',             // Settle: 100% in 60ms
+    ].join('');
+
+    const word = w.word.toUpperCase(); // ALL CAPS for viral impact
+    events.push(
+      `Dialogue: 0,${toASSTime(start)},${toASSTime(end)},Default,,0,0,0,,{\\an5${popIn}}${word}`
+    );
+  }
+  return events;
 }
 
 /**

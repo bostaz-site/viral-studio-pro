@@ -64,6 +64,7 @@ const CAPTION_STYLES = [
 ]
 
 const CAPTION_ANIMATIONS = [
+  { id: 'word-pop', label: 'Word Pop', baseScore: 16 },
   { id: 'highlight', label: 'Highlight', baseScore: 10 },
   { id: 'pop', label: 'Pop', baseScore: 12 },
   { id: 'bounce', label: 'Bounce', baseScore: 9 },
@@ -396,6 +397,19 @@ function LivePreview({
               : settings.splitScreenEnabled ? `${settings.splitRatio - 10}%` : '72%',
           }}
         >
+          {/* Word Pop mode: show ONLY the active word, large, with pop animation */}
+          {settings.captionAnimation === 'word-pop' ? (
+            <p className="text-lg font-black text-center uppercase tracking-wide"
+              style={{
+                WebkitTextStroke: '1px black',
+                textShadow: '2px 2px 4px rgba(0,0,0,0.8)',
+                animation: 'wordPopIn 0.2s ease-out',
+              }}
+              key={activeWordIdx}
+            >
+              {sampleWords[activeWordIdx] || ''}
+            </p>
+          ) : (
           <p className={cn('text-sm text-center', captionStyle?.preview)}>
             {sampleWords.map((word, i) => {
               const isActive = i === activeWordIdx
@@ -433,6 +447,7 @@ function LivePreview({
               )
             })}
           </p>
+          )}
         </div>
       )}
 
