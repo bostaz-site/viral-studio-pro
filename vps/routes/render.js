@@ -243,10 +243,22 @@ router.post('/', async (req, res) => {
     // Determine canvas dimensions (must match FFmpeg render output)
     const isSplitScreen = settings.splitScreen?.enabled;
     const targetAspectRatio = settings.format?.aspectRatio || '9:16';
+    const captionAnim = settings.captions?.animation || 'highlight';
+
+    // MEMORY PROTECTION: For word-pop animation, reduce to 720p to avoid OOM on Railway
+    // Word-pop + blur background + ASS rendering is heavy; reducing resolution by ~50% helps significantly
+    const isWordPopAnimation = settings.captions?.enabled && captionAnim === 'word-pop';
+
     const canvasSizes = isSplitScreen
       ? { '9:16': { w: 720, h: 1280 }, '1:1': { w: 720, h: 720 }, '16:9': { w: 1280, h: 720 } }
+      : isWordPopAnimation
+      ? { '9:16': { w: 720, h: 1280 }, '1:1': { w: 720, h: 720 }, '16:9': { w: 1280, h: 720 } }  // Use split-screen sizes for word-pop
       : { '9:16': { w: 1080, h: 1920 }, '1:1': { w: 1080, h: 1080 }, '16:9': { w: 1920, h: 1080 } };
     const { w: canvasW, h: canvasH } = canvasSizes[targetAspectRatio] || canvasSizes['9:16'];
+
+    if (isWordPopAnimation) {
+      trc(`CANVAS reduced to 720p for word-pop animation (memory protection)`);
+    }
 
     // Split-screen info for subtitle positioning
     const splitScreenForCaptions = isSplitScreen ? {

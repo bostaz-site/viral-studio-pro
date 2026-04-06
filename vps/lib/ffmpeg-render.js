@@ -237,6 +237,18 @@ export async function renderClip(inputPath, outputPath, options = {}) {
   };
   const { w: canvasW, h: canvasH } = ratios[aspectRatio] || ratios['9:16'];
 
+  // MEMORY OPTIMIZATION: Detect if filter chain will be too heavy
+  // word-pop ASS + smart zoom + blur background = ~1GB+ memory on Railway
+  // Solution: When word-pop is active with smart zoom, disable smart zoom
+  // (the pop animation IS the visual interest, no need for zoom).
+  // NOTE: Canvas size reduction for word-pop is done upstream in render.js
+  const isWordPopAnimation = captions && captions.animation === 'word-pop';
+  const shouldDisableSmartZoom = isWordPopAnimation && smartZoom && smartZoom.enabled;
+
+  if (shouldDisableSmartZoom) {
+    console.log('[FFmpeg] Word-pop animation detected: disabling smart zoom to prevent OOM');
+  }
+
   // Blur-fill compositing (matches UI preview exactly when no split-screen):
   //   - Background: same video scaled to COVER the canvas, heavily blurred,
   //     brightness reduced 50% (Tailwind: blur-xl brightness-50).
@@ -259,7 +271,8 @@ export async function renderClip(inputPath, outputPath, options = {}) {
   let mapVideo = '[composed]';
 
   // Smart Zoom (applied on composed output, BEFORE captions/tags so they stay crisp)
-  if (smartZoom && smartZoom.enabled) {
+  // DISABLED if word-pop animation is active (memory protection)
+  if (smartZoom && smartZoom.enabled && !shouldDisableSmartZoom) {
     const zoomChain = buildSmartZoomFilter(
       mapVideo, '[zoomed]', canvasW, canvasH, clipDuration, smartZoom.mode || 'micro', audioPeaks
     );
@@ -282,8 +295,9 @@ export async function renderClip(inputPath, outputPath, options = {}) {
     mapVideo = nextLabel;
     extraInputs.push(...inputs);
   } else if (captions && captions.assFilePath) {
-    // Force yuv420p before ASS to halve per-frame memory (avoids yuv444p intermediate)
-    filterComplex += `;${mapVideo}format=yuv420p,ass='${escapePath(captions.assFilePath)}'[captioned]`;
+    // ASS subtitle rendering via libass filter
+    // Format is set to yuv420p upstream (at overlay step), so no need for extra format filter
+    filterComplex += `;${mapVideo}ass='${escapePath(captions.assFilePath)}'[captioned]`;
     mapVideo = '[captioned]';
   }
 
@@ -467,7 +481,8 @@ async function renderSplitScreen(inputPath, outputPath, opts) {
     mapVideo = nextLabel;
     extraInputs.push(...inputs);
   } else if (captions && captions.assFilePath) {
-    filterComplex += `;${mapVideo}format=yuv420p,ass='${escapePath(captions.assFilePath)}'[captioned]`;
+    // ASS subtitle rendering via libass filter
+    filterComplex += `;${mapVideo}ass='${escapePath(captions.assFilePath)}'[captioned]`;
     mapVideo = '[captioned]';
   }
 
