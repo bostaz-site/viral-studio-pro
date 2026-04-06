@@ -81,14 +81,13 @@ async function computeVelocity(
   currentViews: number,
   clipCreatedAt: string
 ): Promise<number> {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: prevSnapshot } = await (admin as any)
+  const { data: prevSnapshot } = await admin
     .from('clip_snapshots')
     .select('view_count, captured_at')
     .eq('clip_id', clipId)
     .order('captured_at', { ascending: false })
     .limit(1)
-    .maybeSingle() as { data: { view_count: number; captured_at: string } | null }
+    .maybeSingle()
 
   if (prevSnapshot) {
     const hoursElapsed = Math.max(
@@ -146,8 +145,7 @@ async function resolveStreamerIds(
     (s, i) => s.twitch_id && !streamers[i].twitch_id
   )
   for (const s of toUpdate) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (admin as any)
+    await admin
       .from('streamers')
       .update({ twitch_id: s.twitch_id })
       .eq('id', s.id)
@@ -171,8 +169,7 @@ export async function fetchAndScoreStreamerClips(
   }
 
   // Load active streamers
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: streamersRaw, error: loadErr } = await (admin as any)
+  const { data: streamersRaw, error: loadErr } = await admin
     .from('streamers')
     .select('id, display_name, twitch_login, twitch_id, kick_slug, priority')
     .eq('active', true)
@@ -233,8 +230,7 @@ export async function fetchAndScoreStreamerClips(
           clip_created_at: clip.created_at,
         }
 
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { data: upserted, error: upsertErr } = await (admin as any)
+        const { data: upserted, error: upsertErr } = await admin
           .from('trending_clips')
           .upsert(clipRow, { onConflict: 'external_url' })
           .select('id')
@@ -265,15 +261,13 @@ export async function fetchAndScoreStreamerClips(
         })
 
         // Write snapshot
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        await (admin as any)
+        await admin
           .from('clip_snapshots')
           .insert({ clip_id: clipId, view_count: clip.view_count })
         result.snapshots++
 
         // Update scoring columns
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        await (admin as any)
+        await admin
           .from('trending_clips')
           .update({
             velocity,
@@ -300,8 +294,7 @@ export async function cleanupOldSnapshots(
   keepDays = 7
 ): Promise<number> {
   const cutoff = new Date(Date.now() - keepDays * 86400 * 1000).toISOString()
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error, count } = await (admin as any)
+  const { error, count } = await admin
     .from('clip_snapshots')
     .delete({ count: 'exact' })
     .lt('captured_at', cutoff)

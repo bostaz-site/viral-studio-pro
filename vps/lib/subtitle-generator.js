@@ -354,62 +354,6 @@ Style: Default,${fontname},${fontsize},${primaryColor},${secondaryColor},${outli
 Format: Layer,Start,End,Style,Name,MarginL,MarginR,MarginV,Effect,Text`;
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Rounded Background Box (vector drawing to simulate CSS rounded-lg)
-// ─────────────────────────────────────────────────────────────────────────────
-
-/** Estimate text pixel width for Liberation Sans Bold (rough heuristic) */
-function estimateTextWidthPx(text, fontsize) {
-  // Bold sans-serif: avg advance ≈ 0.58 × fontsize for mixed case, 0.62 for UPPER
-  const hasLower = /[a-z]/.test(text);
-  const ratio = hasLower ? 0.54 : 0.60;
-  return Math.round(text.length * fontsize * ratio);
-}
-
-/** Build ASS \p drawing commands for a rounded rectangle anchored at bottom-center. */
-function buildRoundedRectDrawing(width, height, radius) {
-  const W = Math.round(width);
-  const H = Math.round(height);
-  const R = Math.max(1, Math.min(radius, Math.floor(Math.min(W, H) / 2)));
-  const hw = Math.round(W / 2);
-  // Drawing space: x in [-hw, hw], y in [-H, 0] (0 = baseline anchor)
-  const L = -hw, Rx = hw, T = -H, B = 0;
-  return [
-    `m ${L + R} ${T}`,
-    `l ${Rx - R} ${T}`,
-    `b ${Rx} ${T} ${Rx} ${T} ${Rx} ${T + R}`,
-    `l ${Rx} ${B - R}`,
-    `b ${Rx} ${B} ${Rx} ${B} ${Rx - R} ${B}`,
-    `l ${L + R} ${B}`,
-    `b ${L} ${B} ${L} ${B} ${L} ${B - R}`,
-    `l ${L} ${T + R}`,
-    `b ${L} ${T} ${L} ${T} ${L + R} ${T}`,
-  ].join(' ');
-}
-
-/**
- * Build a background box dialogue event (rounded rect, black 80% opacity)
- * that sits BEHIND a caption line. Uses Layer 0 so text (Layer 1) renders on top.
- */
-function buildRoundedBgEvent(lineText, styleConfig, lineStart, lineEnd) {
-  const fontsize = styleConfig.fontsize;
-  const padX = Math.round(fontsize * 0.40);
-  const padY = Math.round(fontsize * 0.20);
-  const textW = estimateTextWidthPx(lineText, fontsize);
-  const boxW = textW + 2 * padX;
-  // Total box height accounts for text ascent + descent + vertical padding
-  const boxH = Math.round(fontsize * 1.25) + 2 * padY;
-  const radius = Math.round(fontsize * 0.30);
-  const drawing = buildRoundedRectDrawing(boxW, boxH, radius);
-  // Background: black 80% opaque (bg-black/80 in UI). Alpha &H33& = 0x33 = 51/255 ≈ 20% transparent
-  return `Dialogue: 0,${toASSTime(lineStart)},${toASSTime(lineEnd)},Default,,0,0,0,,{\\an2\\bord0\\shad0\\1c&H000000&\\alpha&H33&\\p1}${drawing}{\\p0}`;
-}
-
-/** Concatenate all words in a line into display text (used for width estimation). */
-function lineWordsText(lineWords) {
-  return lineWords.map((w) => w.word).join(' ');
-}
-
 /**
  * Group words into lines of N words each
  */

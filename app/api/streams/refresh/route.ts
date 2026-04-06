@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { rateLimit } from '@/lib/rate-limit'
-import { fetchAndUpsertTwitchClips } from '@/lib/twitch/fetch-clips'
+import { fetchAndScoreStreamerClips } from '@/lib/twitch/fetch-streamer-clips'
 import { withAuth } from '@/lib/api/withAuth'
 
 /**
@@ -22,12 +22,12 @@ export const POST = withAuth(async (req, user) => {
 
   try {
     const admin = createAdminClient()
-    const result = await fetchAndUpsertTwitchClips(admin)
+    const result = await fetchAndScoreStreamerClips(admin)
 
     return NextResponse.json({
       data: result,
       error: null,
-      message: `${result.upserted} clips Twitch importés`,
+      message: `${result.upserted} clips importés de ${result.streamers_scanned} streamers`,
     })
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Erreur lors du rafraîchissement'

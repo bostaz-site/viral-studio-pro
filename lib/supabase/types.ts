@@ -6,230 +6,693 @@ export type Json =
   | { [key: string]: Json | undefined }
   | Json[]
 
-// Standalone row types to avoid circular references in Database interface
-type ProfileRow = {
-  id: string
-  email: string
-  full_name: string | null
-  avatar_url: string | null
-  plan: string | null
-  monthly_videos_used: number | null
-  monthly_processing_minutes_used: number | null
-  stripe_customer_id: string | null
-  created_at: string | null
-  updated_at: string | null
-}
-
-type VideoRow = {
-  id: string
-  user_id: string | null
-  title: string
-  description: string | null
-  source_url: string | null
-  source_platform: string | null
-  storage_path: string
-  duration_seconds: number | null
-  file_size_bytes: number | null
-  mime_type: string | null
-  status: string | null
-  error_message: string | null
-  created_at: string | null
-  updated_at: string | null
-}
-
-type TranscriptionRow = {
-  id: string
-  video_id: string | null
-  language: string | null
-  full_text: string
-  segments: Json
-  word_timestamps: Json | null
-  speakers: Json | null
-  created_at: string | null
-}
-
-type ClipRow = {
-  id: string
-  video_id: string | null
-  user_id: string | null
-  title: string | null
-  start_time: number
-  end_time: number
-  duration_seconds: number | null
-  storage_path: string | null
-  thumbnail_path: string | null
-  transcript_segment: string | null
-  caption_template: string | null
-  aspect_ratio: string | null
-  status: string | null
-  is_remake: boolean | null
-  parent_clip_id: string | null
-  created_at: string | null
-  updated_at: string | null
-}
-
-type ViralScoreRow = {
-  id: string
-  clip_id: string | null
-  score: number | null
-  hook_strength: number | null
-  emotional_flow: number | null
-  perceived_value: number | null
-  trend_alignment: number | null
-  hook_type: string | null
-  explanation: string | null
-  suggested_hooks: Json | null
-  created_at: string | null
-}
-
-type TrendingClipRow = {
-  id: string
-  external_url: string
-  platform: string
-  author_name: string | null
-  author_handle: string | null
-  title: string | null
-  description: string | null
-  niche: string | null
-  view_count: number | null
-  like_count: number | null
-  velocity_score: number | null
-  thumbnail_url: string | null
-  scraped_at: string | null
-  created_at: string | null
-}
-
-type SocialAccountRow = {
-  id: string
-  user_id: string | null
-  platform: string
-  platform_user_id: string | null
-  access_token: string | null
-  refresh_token: string | null
-  token_expires_at: string | null
-  username: string | null
-  connected_at: string | null
-}
-
-type PublicationRow = {
-  id: string
-  clip_id: string | null
-  social_account_id: string | null
-  platform: string
-  platform_post_id: string | null
-  caption: string | null
-  hashtags: string[] | null
-  scheduled_at: string | null
-  published_at: string | null
-  status: string | null
-  tracking_url: string | null
-  created_at: string | null
-}
-
-type BrandTemplateRow = {
-  id: string
-  user_id: string | null
-  name: string
-  logo_path: string | null
-  primary_color: string | null
-  secondary_color: string | null
-  font_family: string | null
-  intro_video_path: string | null
-  outro_video_path: string | null
-  watermark_path: string | null
-  is_default: boolean | null
-  created_at: string | null
-}
-
-type StripeEventRow = {
-  event_id: string
-  event_type: string
-  processed_at: string | null
-}
-
-export interface Database {
+export type Database = {
+  // Allows to automatically instantiate createClient with right options
+  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
+  __InternalSupabase: {
+    PostgrestVersion: "14.4"
+  }
   public: {
     Tables: {
-      profiles: {
-        Row: ProfileRow
-        Insert: Partial<ProfileRow> & { id: string; email: string }
-        Update: Partial<ProfileRow>
-        Relationships: []
+      brand_templates: {
+        Row: {
+          created_at: string | null
+          font_family: string | null
+          id: string
+          intro_video_path: string | null
+          is_default: boolean | null
+          logo_path: string | null
+          name: string
+          outro_video_path: string | null
+          primary_color: string | null
+          secondary_color: string | null
+          user_id: string | null
+          watermark_path: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          font_family?: string | null
+          id?: string
+          intro_video_path?: string | null
+          is_default?: boolean | null
+          logo_path?: string | null
+          name: string
+          outro_video_path?: string | null
+          primary_color?: string | null
+          secondary_color?: string | null
+          user_id?: string | null
+          watermark_path?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          font_family?: string | null
+          id?: string
+          intro_video_path?: string | null
+          is_default?: boolean | null
+          logo_path?: string | null
+          name?: string
+          outro_video_path?: string | null
+          primary_color?: string | null
+          secondary_color?: string | null
+          user_id?: string | null
+          watermark_path?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "brand_templates_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
-      videos: {
-        Row: VideoRow
-        Insert: Partial<VideoRow> & { title: string; storage_path: string }
-        Update: Partial<VideoRow>
-        Relationships: []
-      }
-      transcriptions: {
-        Row: TranscriptionRow
-        Insert: Partial<TranscriptionRow> & { full_text: string; segments: Json }
-        Update: Partial<TranscriptionRow>
-        Relationships: []
+      clip_snapshots: {
+        Row: {
+          captured_at: string
+          clip_id: string
+          id: number
+          view_count: number
+        }
+        Insert: {
+          captured_at?: string
+          clip_id: string
+          id?: number
+          view_count: number
+        }
+        Update: {
+          captured_at?: string
+          clip_id?: string
+          id?: number
+          view_count?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "clip_snapshots_clip_id_fkey"
+            columns: ["clip_id"]
+            isOneToOne: false
+            referencedRelation: "trending_clips"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       clips: {
-        Row: ClipRow
-        Insert: Partial<ClipRow> & { start_time: number; end_time: number }
-        Update: Partial<ClipRow>
-        Relationships: []
+        Row: {
+          aspect_ratio: string | null
+          caption_template: string | null
+          created_at: string | null
+          duration_seconds: number | null
+          end_time: number
+          error_message: string | null
+          id: string
+          is_remake: boolean | null
+          parent_clip_id: string | null
+          start_time: number
+          status: string | null
+          storage_path: string | null
+          thumbnail_path: string | null
+          title: string | null
+          transcript_segment: string | null
+          updated_at: string | null
+          user_id: string | null
+          video_id: string | null
+        }
+        Insert: {
+          aspect_ratio?: string | null
+          caption_template?: string | null
+          created_at?: string | null
+          duration_seconds?: number | null
+          end_time: number
+          error_message?: string | null
+          id?: string
+          is_remake?: boolean | null
+          parent_clip_id?: string | null
+          start_time: number
+          status?: string | null
+          storage_path?: string | null
+          thumbnail_path?: string | null
+          title?: string | null
+          transcript_segment?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+          video_id?: string | null
+        }
+        Update: {
+          aspect_ratio?: string | null
+          caption_template?: string | null
+          created_at?: string | null
+          duration_seconds?: number | null
+          end_time?: number
+          error_message?: string | null
+          id?: string
+          is_remake?: boolean | null
+          parent_clip_id?: string | null
+          start_time?: number
+          status?: string | null
+          storage_path?: string | null
+          thumbnail_path?: string | null
+          title?: string | null
+          transcript_segment?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+          video_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "clips_parent_clip_id_fkey"
+            columns: ["parent_clip_id"]
+            isOneToOne: false
+            referencedRelation: "clips"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "clips_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "clips_video_id_fkey"
+            columns: ["video_id"]
+            isOneToOne: false
+            referencedRelation: "videos"
+            referencedColumns: ["id"]
+          },
+        ]
       }
-      viral_scores: {
-        Row: ViralScoreRow
-        Insert: Partial<ViralScoreRow>
-        Update: Partial<ViralScoreRow>
-        Relationships: []
-      }
-      trending_clips: {
-        Row: TrendingClipRow
-        Insert: Partial<TrendingClipRow> & { external_url: string; platform: string }
-        Update: Partial<TrendingClipRow>
-        Relationships: []
-      }
-      social_accounts: {
-        Row: SocialAccountRow
-        Insert: Partial<SocialAccountRow> & { platform: string }
-        Update: Partial<SocialAccountRow>
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          created_at: string | null
+          email: string
+          full_name: string | null
+          id: string
+          monthly_processing_minutes_used: number | null
+          monthly_videos_used: number | null
+          plan: string | null
+          stripe_customer_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string | null
+          email: string
+          full_name?: string | null
+          id: string
+          monthly_processing_minutes_used?: number | null
+          monthly_videos_used?: number | null
+          plan?: string | null
+          stripe_customer_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string | null
+          email?: string
+          full_name?: string | null
+          id?: string
+          monthly_processing_minutes_used?: number | null
+          monthly_videos_used?: number | null
+          plan?: string | null
+          stripe_customer_id?: string | null
+          updated_at?: string | null
+        }
         Relationships: []
       }
       publications: {
-        Row: PublicationRow
-        Insert: Partial<PublicationRow> & { platform: string }
-        Update: Partial<PublicationRow>
+        Row: {
+          caption: string | null
+          clip_id: string | null
+          created_at: string | null
+          hashtags: string[] | null
+          id: string
+          platform: string
+          platform_post_id: string | null
+          published_at: string | null
+          scheduled_at: string | null
+          social_account_id: string | null
+          status: string | null
+          tracking_url: string | null
+        }
+        Insert: {
+          caption?: string | null
+          clip_id?: string | null
+          created_at?: string | null
+          hashtags?: string[] | null
+          id?: string
+          platform: string
+          platform_post_id?: string | null
+          published_at?: string | null
+          scheduled_at?: string | null
+          social_account_id?: string | null
+          status?: string | null
+          tracking_url?: string | null
+        }
+        Update: {
+          caption?: string | null
+          clip_id?: string | null
+          created_at?: string | null
+          hashtags?: string[] | null
+          id?: string
+          platform?: string
+          platform_post_id?: string | null
+          published_at?: string | null
+          scheduled_at?: string | null
+          social_account_id?: string | null
+          status?: string | null
+          tracking_url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "publications_clip_id_fkey"
+            columns: ["clip_id"]
+            isOneToOne: false
+            referencedRelation: "clips"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "publications_social_account_id_fkey"
+            columns: ["social_account_id"]
+            isOneToOne: false
+            referencedRelation: "social_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      rate_limit_log: {
+        Row: {
+          created_at: string | null
+          id: number
+          identifier: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: number
+          identifier: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: number
+          identifier?: string
+        }
         Relationships: []
       }
-      brand_templates: {
-        Row: BrandTemplateRow
-        Insert: Partial<BrandTemplateRow> & { name: string }
-        Update: Partial<BrandTemplateRow>
+      render_jobs: {
+        Row: {
+          clip_id: string
+          clip_url: string | null
+          created_at: string | null
+          debug_log: string | null
+          error_message: string | null
+          id: string
+          source: string
+          status: string
+          storage_path: string | null
+          updated_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          clip_id: string
+          clip_url?: string | null
+          created_at?: string | null
+          debug_log?: string | null
+          error_message?: string | null
+          id?: string
+          source?: string
+          status?: string
+          storage_path?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          clip_id?: string
+          clip_url?: string | null
+          created_at?: string | null
+          debug_log?: string | null
+          error_message?: string | null
+          id?: string
+          source?: string
+          status?: string
+          storage_path?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "render_jobs_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      social_accounts: {
+        Row: {
+          access_token: string | null
+          connected_at: string | null
+          id: string
+          platform: string
+          platform_user_id: string | null
+          refresh_token: string | null
+          token_expires_at: string | null
+          user_id: string | null
+          username: string | null
+        }
+        Insert: {
+          access_token?: string | null
+          connected_at?: string | null
+          id?: string
+          platform: string
+          platform_user_id?: string | null
+          refresh_token?: string | null
+          token_expires_at?: string | null
+          user_id?: string | null
+          username?: string | null
+        }
+        Update: {
+          access_token?: string | null
+          connected_at?: string | null
+          id?: string
+          platform?: string
+          platform_user_id?: string | null
+          refresh_token?: string | null
+          token_expires_at?: string | null
+          user_id?: string | null
+          username?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "social_accounts_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      streamers: {
+        Row: {
+          active: boolean | null
+          created_at: string | null
+          display_name: string
+          id: string
+          kick_slug: string | null
+          priority: number | null
+          twitch_id: string | null
+          twitch_login: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          active?: boolean | null
+          created_at?: string | null
+          display_name: string
+          id?: string
+          kick_slug?: string | null
+          priority?: number | null
+          twitch_id?: string | null
+          twitch_login?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          active?: boolean | null
+          created_at?: string | null
+          display_name?: string
+          id?: string
+          kick_slug?: string | null
+          priority?: number | null
+          twitch_id?: string | null
+          twitch_login?: string | null
+          updated_at?: string | null
+        }
         Relationships: []
       }
       stripe_events: {
-        Row: StripeEventRow
-        Insert: Partial<StripeEventRow> & { event_id: string; event_type: string }
-        Update: Partial<StripeEventRow>
+        Row: {
+          event_id: string
+          event_type: string
+          processed_at: string | null
+        }
+        Insert: {
+          event_id: string
+          event_type: string
+          processed_at?: string | null
+        }
+        Update: {
+          event_id?: string
+          event_type?: string
+          processed_at?: string | null
+        }
         Relationships: []
+      }
+      transcriptions: {
+        Row: {
+          created_at: string | null
+          full_text: string
+          id: string
+          language: string | null
+          segments: Json
+          speakers: Json | null
+          video_id: string | null
+          word_timestamps: Json | null
+        }
+        Insert: {
+          created_at?: string | null
+          full_text: string
+          id?: string
+          language?: string | null
+          segments: Json
+          speakers?: Json | null
+          video_id?: string | null
+          word_timestamps?: Json | null
+        }
+        Update: {
+          created_at?: string | null
+          full_text?: string
+          id?: string
+          language?: string | null
+          segments?: Json
+          speakers?: Json | null
+          video_id?: string | null
+          word_timestamps?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "transcriptions_video_id_fkey"
+            columns: ["video_id"]
+            isOneToOne: false
+            referencedRelation: "videos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      trending_clips: {
+        Row: {
+          author_handle: string | null
+          author_name: string | null
+          clip_created_at: string | null
+          created_at: string | null
+          description: string | null
+          duration_seconds: number | null
+          external_url: string
+          id: string
+          like_count: number | null
+          niche: string | null
+          platform: string
+          scraped_at: string | null
+          streamer_id: string | null
+          thumbnail_url: string | null
+          tier: string | null
+          title: string | null
+          twitch_clip_id: string | null
+          velocity: number | null
+          velocity_score: number | null
+          view_count: number | null
+          viral_ratio: number | null
+          viral_score: number | null
+        }
+        Insert: {
+          author_handle?: string | null
+          author_name?: string | null
+          clip_created_at?: string | null
+          created_at?: string | null
+          description?: string | null
+          duration_seconds?: number | null
+          external_url: string
+          id?: string
+          like_count?: number | null
+          niche?: string | null
+          platform: string
+          scraped_at?: string | null
+          streamer_id?: string | null
+          thumbnail_url?: string | null
+          tier?: string | null
+          title?: string | null
+          twitch_clip_id?: string | null
+          velocity?: number | null
+          velocity_score?: number | null
+          view_count?: number | null
+          viral_ratio?: number | null
+          viral_score?: number | null
+        }
+        Update: {
+          author_handle?: string | null
+          author_name?: string | null
+          clip_created_at?: string | null
+          created_at?: string | null
+          description?: string | null
+          duration_seconds?: number | null
+          external_url?: string
+          id?: string
+          like_count?: number | null
+          niche?: string | null
+          platform?: string
+          scraped_at?: string | null
+          streamer_id?: string | null
+          thumbnail_url?: string | null
+          tier?: string | null
+          title?: string | null
+          twitch_clip_id?: string | null
+          velocity?: number | null
+          velocity_score?: number | null
+          view_count?: number | null
+          viral_ratio?: number | null
+          viral_score?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "trending_clips_streamer_id_fkey"
+            columns: ["streamer_id"]
+            isOneToOne: false
+            referencedRelation: "streamers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      videos: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          duration_seconds: number | null
+          error_message: string | null
+          file_size_bytes: number | null
+          id: string
+          mime_type: string | null
+          source_platform: string | null
+          source_url: string | null
+          status: string | null
+          storage_path: string
+          title: string
+          updated_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          duration_seconds?: number | null
+          error_message?: string | null
+          file_size_bytes?: number | null
+          id?: string
+          mime_type?: string | null
+          source_platform?: string | null
+          source_url?: string | null
+          status?: string | null
+          storage_path: string
+          title: string
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          duration_seconds?: number | null
+          error_message?: string | null
+          file_size_bytes?: number | null
+          id?: string
+          mime_type?: string | null
+          source_platform?: string | null
+          source_url?: string | null
+          status?: string | null
+          storage_path?: string
+          title?: string
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "videos_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      viral_scores: {
+        Row: {
+          clip_id: string | null
+          created_at: string | null
+          emotional_flow: number | null
+          explanation: string | null
+          hook_strength: number | null
+          hook_type: string | null
+          id: string
+          perceived_value: number | null
+          score: number | null
+          suggested_hooks: Json | null
+          trend_alignment: number | null
+        }
+        Insert: {
+          clip_id?: string | null
+          created_at?: string | null
+          emotional_flow?: number | null
+          explanation?: string | null
+          hook_strength?: number | null
+          hook_type?: string | null
+          id?: string
+          perceived_value?: number | null
+          score?: number | null
+          suggested_hooks?: Json | null
+          trend_alignment?: number | null
+        }
+        Update: {
+          clip_id?: string | null
+          created_at?: string | null
+          emotional_flow?: number | null
+          explanation?: string | null
+          hook_strength?: number | null
+          hook_type?: string | null
+          id?: string
+          perceived_value?: number | null
+          score?: number | null
+          suggested_hooks?: Json | null
+          trend_alignment?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "viral_scores_clip_id_fkey"
+            columns: ["clip_id"]
+            isOneToOne: false
+            referencedRelation: "clips"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      increment_video_usage: {
-        Args: { p_user_id: string; p_max_videos: number }
-        Returns: boolean
-      }
-      decrement_video_usage: {
-        Args: { p_user_id: string }
-        Returns: boolean
-      }
       check_rate_limit: {
         Args: { p_identifier: string; p_limit: number; p_window_ms: number }
         Returns: boolean
       }
-      cleanup_rate_limit_log: {
-        Args: Record<string, never>
-        Returns: void
+      cleanup_rate_limit_log: { Args: never; Returns: undefined }
+      decrement_video_usage: { Args: { p_user_id: string }; Returns: boolean }
+      increment_video_usage: {
+        Args: { p_max_videos: number; p_user_id: string }
+        Returns: boolean
       }
     }
     Enums: {
@@ -240,3 +703,126 @@ export interface Database {
     }
   }
 }
+
+type DatabaseWithoutInternals = Omit<Database, "__InternalSupabase">
+
+type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, "public">]
+
+export type Tables<
+  DefaultSchemaTableNameOrOptions extends
+    | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+        DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
+    : never = never,
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+      DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])[TableName] extends {
+      Row: infer R
+    }
+    ? R
+    : never
+  : DefaultSchemaTableNameOrOptions extends keyof (DefaultSchema["Tables"] &
+        DefaultSchema["Views"])
+    ? (DefaultSchema["Tables"] &
+        DefaultSchema["Views"])[DefaultSchemaTableNameOrOptions] extends {
+        Row: infer R
+      }
+      ? R
+      : never
+    : never
+
+export type TablesInsert<
+  DefaultSchemaTableNameOrOptions extends
+    | keyof DefaultSchema["Tables"]
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+    : never = never,
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+      Insert: infer I
+    }
+    ? I
+    : never
+  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
+    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
+        Insert: infer I
+      }
+      ? I
+      : never
+    : never
+
+export type TablesUpdate<
+  DefaultSchemaTableNameOrOptions extends
+    | keyof DefaultSchema["Tables"]
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+    : never = never,
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+      Update: infer U
+    }
+    ? U
+    : never
+  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
+    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
+        Update: infer U
+      }
+      ? U
+      : never
+    : never
+
+export type Enums<
+  DefaultSchemaEnumNameOrOptions extends
+    | keyof DefaultSchema["Enums"]
+    | { schema: keyof DatabaseWithoutInternals },
+  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
+    : never = never,
+> = DefaultSchemaEnumNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"][EnumName]
+  : DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema["Enums"]
+    ? DefaultSchema["Enums"][DefaultSchemaEnumNameOrOptions]
+    : never
+
+export type CompositeTypes<
+  PublicCompositeTypeNameOrOptions extends
+    | keyof DefaultSchema["CompositeTypes"]
+    | { schema: keyof DatabaseWithoutInternals },
+  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
+    : never = never,
+> = PublicCompositeTypeNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
+  : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
+    ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
+    : never
+
+export const Constants = {
+  public: {
+    Enums: {},
+  },
+} as const

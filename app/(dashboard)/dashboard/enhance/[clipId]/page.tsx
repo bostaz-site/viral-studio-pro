@@ -1012,6 +1012,27 @@ export default function EnhancePage() {
                         ))}
                       </div>
                     </div>
+
+                    {/* Words per line slider */}
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <Label className="text-xs uppercase tracking-wider text-muted-foreground">Mots par ligne</Label>
+                        <span className="text-xs font-mono text-muted-foreground">{settings.wordsPerLine}</span>
+                      </div>
+                      <input
+                        type="range"
+                        min={2}
+                        max={8}
+                        step={1}
+                        value={settings.wordsPerLine}
+                        onChange={(e) => updateSetting('wordsPerLine', Number(e.target.value))}
+                        className="w-full accent-primary"
+                      />
+                      <div className="flex justify-between text-[10px] text-muted-foreground/60">
+                        <span>2 (gros)</span>
+                        <span>8 (compact)</span>
+                      </div>
+                    </div>
                     </>}
                   </CardContent>
                 )}

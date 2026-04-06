@@ -180,7 +180,6 @@ export async function renderClip(inputPath, outputPath, options = {}) {
     splitScreen = null,
     tag = null,
     cropAnchor = 'center',
-    backgroundBlur = false,
     maxDuration = 300,
     crf = 23,
     timeout = 300000,

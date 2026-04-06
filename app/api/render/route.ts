@@ -180,17 +180,36 @@ export const POST = withAuth(async (request, user) => {
     },
   }
 
-  // Fire-and-forget to VPS
-  fetch(`${vpsUrl}/api/render`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': vpsKey,
-    },
-    body: JSON.stringify(renderPayload),
-  }).catch((err) => {
-    console.error('[render] VPS fire-and-forget error:', err)
-  })
+  // Fire-and-forget to VPS with timeout + 1 retry
+  const sendToVps = async (attempt = 1) => {
+    try {
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 30000) // 30s timeout
+      await fetch(`${vpsUrl}/api/render`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': vpsKey,
+        },
+        body: JSON.stringify(renderPayload),
+        signal: controller.signal,
+      })
+      clearTimeout(timeoutId)
+    } catch (err) {
+      console.error(`[render] VPS attempt ${attempt} failed:`, err)
+      if (attempt < 2) {
+        console.log('[render] Retrying VPS in 2s...')
+        await new Promise(r => setTimeout(r, 2000))
+        return sendToVps(attempt + 1)
+      }
+      // Mark job as error after all retries exhausted
+      await admin.from('render_jobs').update({
+        status: 'error',
+        error_message: `VPS unreachable after ${attempt} attempts`,
+      }).eq('id', job.id)
+    }
+  }
+  sendToVps()
 
   return NextResponse.json({
     data: { clip_id, jobId: job.id, rendered: false, source: foundSource, vpsReady: true, originalUrl: videoUrl },
