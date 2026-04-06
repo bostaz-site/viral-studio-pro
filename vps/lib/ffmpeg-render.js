@@ -251,8 +251,9 @@ export async function renderClip(inputPath, outputPath, options = {}) {
     `[srcbg]scale=${canvasW/2}:${canvasH/2}:force_original_aspect_ratio=increase,crop=${canvasW/2}:${canvasH/2}:(iw-${canvasW/2})/2:(ih-${canvasH/2})/2,gblur=sigma=20,eq=brightness=-0.35:saturation=1.25:contrast=1.1,scale=${canvasW}:${canvasH}:flags=bilinear,setsar=1[bg]`,
     // Foreground: fit inside canvas (contain), preserve full frame
     `[srcfg]scale=${canvasW}:${canvasH}:force_original_aspect_ratio=decrease,setsar=1[fg]`,
-    // Composite fg over bg, centered
-    `[bg][fg]overlay=(W-w)/2:(H-h)/2[composed]`,
+    // Composite fg over bg, centered — force yuv420p early to halve per-frame
+    // memory for all downstream filters (smart zoom, ASS subtitles, tags).
+    `[bg][fg]overlay=(W-w)/2:(H-h)/2,format=yuv420p[composed]`,
   ].join(';');
   let filterComplex = filterComplex_raw;
   let mapVideo = '[composed]';
@@ -281,7 +282,8 @@ export async function renderClip(inputPath, outputPath, options = {}) {
     mapVideo = nextLabel;
     extraInputs.push(...inputs);
   } else if (captions && captions.assFilePath) {
-    filterComplex += `;${mapVideo}ass='${escapePath(captions.assFilePath)}'[captioned]`;
+    // Force yuv420p before ASS to halve per-frame memory (avoids yuv444p intermediate)
+    filterComplex += `;${mapVideo}format=yuv420p,ass='${escapePath(captions.assFilePath)}'[captioned]`;
     mapVideo = '[captioned]';
   }
 
@@ -336,6 +338,7 @@ export async function renderClip(inputPath, outputPath, options = {}) {
   args.push('-b:a', '128k');          // Slightly lower audio bitrate to save memory
   args.push('-movflags', '+faststart');
   args.push('-pix_fmt', 'yuv420p');
+  args.push('-max_muxing_queue_size', '256'); // Limit muxer buffer to prevent OOM
   args.push(outputPath);
 
   return execRender(args, outputPath, timeout);
@@ -464,7 +467,7 @@ async function renderSplitScreen(inputPath, outputPath, opts) {
     mapVideo = nextLabel;
     extraInputs.push(...inputs);
   } else if (captions && captions.assFilePath) {
-    filterComplex += `;${mapVideo}ass='${escapePath(captions.assFilePath)}'[captioned]`;
+    filterComplex += `;${mapVideo}format=yuv420p,ass='${escapePath(captions.assFilePath)}'[captioned]`;
     mapVideo = '[captioned]';
   }
 
@@ -509,10 +512,12 @@ async function renderSplitScreen(inputPath, outputPath, opts) {
   args.push('-c:v', 'libx264');
   args.push('-preset', 'ultrafast');     // Use ultrafast to minimize memory (Railway OOM)
   args.push('-threads', '1');            // Single thread to reduce memory footprint
+  args.push('-filter_threads', '1');
+  args.push('-filter_complex_threads', '1');
   args.push('-crf', String(Math.max(crf, 26))); // Higher CRF for split-screen to save memory
   args.push('-c:a', 'aac');
   args.push('-b:a', '128k');
-  args.push('-max_muxing_queue_size', '512');
+  args.push('-max_muxing_queue_size', '256'); // Limit muxer buffer to prevent OOM
   args.push('-movflags', '+faststart');
   args.push('-pix_fmt', 'yuv420p');
   args.push('-shortest');                // End when shortest input ends
