@@ -310,46 +310,60 @@ router.post('/', async (req, res) => {
         };
 
         if (wordTimestamps.length > 0) {
-          // ── NEW: PNG overlay path (pixel-perfect parity with UI preview) ──
           validateWordTimestamps(wordTimestamps);
-          try {
-            const captionDir = path.join(tempDir, 'captions_png');
-            captionOverlays = await generateCaptionPNGs(wordTimestamps, {
-              style: captionStyle,
-              animation: settings.captions.animation || 'highlight',
-              position: captionPosition,
-              canvasWidth: canvasW,
-              canvasHeight: canvasH,
-              splitScreen: splitScreenForCaptions,
+          const captionAnim = settings.captions.animation || 'highlight';
+
+          // ── Word-Pop requires ASS (frame-by-frame scale animation via \t tags) ──
+          // PNG overlays are static images — they can't do smooth pop-in transitions.
+          if (captionAnim === 'word-pop') {
+            trc(`CAPTIONS using ASS path for word-pop animation (frame-by-frame \t scale)`);
+            assContent = generateASS(wordTimestamps, {
+              ...subtitleOpts,
+              animation: 'word-pop',
               clipStartTime,
-              wordsPerLine: settings.captions.wordsPerLine || 4,
-              outputDir: captionDir,
+              wordsPerLine: 1,
+              customColors: settings.captions.customColors,
             });
-            trc(`CAPTIONS generated ${captionOverlays.length} PNG overlays style=${captionStyle} anim=${settings.captions.animation || 'highlight'}`);
-            // Railway OOM guard: too many simultaneous PNG inputs kills FFmpeg with SIGKILL.
-            // When over threshold, fall back to ASS (single-input libass render, much lighter RAM).
-            const MAX_PNG_OVERLAYS = 35;
-            if (captionOverlays.length > MAX_PNG_OVERLAYS) {
-              trc(`CAPTIONS too many PNG overlays (${captionOverlays.length} > ${MAX_PNG_OVERLAYS}), falling back to ASS to avoid OOM`);
-              captionOverlays = null;
+          } else {
+            // ── PNG overlay path (pixel-perfect parity with UI preview) ──
+            try {
+              const captionDir = path.join(tempDir, 'captions_png');
+              captionOverlays = await generateCaptionPNGs(wordTimestamps, {
+                style: captionStyle,
+                animation: captionAnim,
+                position: captionPosition,
+                canvasWidth: canvasW,
+                canvasHeight: canvasH,
+                splitScreen: splitScreenForCaptions,
+                clipStartTime,
+                wordsPerLine: settings.captions.wordsPerLine || 4,
+                outputDir: captionDir,
+              });
+              trc(`CAPTIONS generated ${captionOverlays.length} PNG overlays style=${captionStyle} anim=${captionAnim}`);
+              // Railway OOM guard: too many simultaneous PNG inputs kills FFmpeg with SIGKILL.
+              // When over threshold, fall back to ASS (single-input libass render, much lighter RAM).
+              const MAX_PNG_OVERLAYS = 35;
+              if (captionOverlays.length > MAX_PNG_OVERLAYS) {
+                trc(`CAPTIONS too many PNG overlays (${captionOverlays.length} > ${MAX_PNG_OVERLAYS}), falling back to ASS to avoid OOM`);
+                captionOverlays = null;
+                assContent = generateASS(wordTimestamps, {
+                  ...subtitleOpts,
+                  animation: captionAnim,
+                  clipStartTime,
+                  wordsPerLine: settings.captions.wordsPerLine || 6,
+                  customColors: settings.captions.customColors,
+                });
+              }
+            } catch (pngErr) {
+              trc(`CAPTIONS PNG gen failed, falling back to ASS: ${pngErr.message}`);
               assContent = generateASS(wordTimestamps, {
                 ...subtitleOpts,
-                animation: settings.captions.animation || 'highlight',
+                animation: captionAnim,
                 clipStartTime,
                 wordsPerLine: settings.captions.wordsPerLine || 6,
                 customColors: settings.captions.customColors,
               });
             }
-          } catch (pngErr) {
-            trc(`CAPTIONS PNG gen failed, falling back to ASS: ${pngErr.message}`);
-            // Fallback to ASS if PNG generation fails
-            assContent = generateASS(wordTimestamps, {
-              ...subtitleOpts,
-              animation: settings.captions.animation || 'highlight',
-              clipStartTime,
-              wordsPerLine: settings.captions.wordsPerLine || 6,
-              customColors: settings.captions.customColors,
-            });
           }
         } else {
           trc(`CAPTIONS SKIPPED - no word timestamps`);
