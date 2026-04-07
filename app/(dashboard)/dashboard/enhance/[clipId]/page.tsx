@@ -403,7 +403,7 @@ function LivePreview({
             {(() => {
               const isSplit = showEnhancements && settings.splitScreenEnabled
               const zoomScale = !isSplit && showEnhancements && settings.videoZoom !== 'contain'
-                ? (settings.videoZoom === 'immersive' ? 1.3 : 1.15)
+                ? (settings.videoZoom === 'immersive' ? 1.15 : 1.08)
                 : undefined
               const objectFit = isSplit || zoomScale ? 'object-cover' : 'object-contain'
               const smartZoomStyle = showEnhancements && settings.smartZoomEnabled ? {
@@ -1338,8 +1338,8 @@ export default function EnhancePage() {
                       <div className="grid grid-cols-3 gap-2">
                         {([
                           { id: 'contain' as const, label: 'Contenir', desc: '100% visible' },
-                          { id: 'fill' as const, label: 'Remplir', desc: '~115% zoom' },
-                          { id: 'immersive' as const, label: 'Immersif', desc: '~130% zoom' },
+                          { id: 'fill' as const, label: 'Remplir', desc: '~108% zoom' },
+                          { id: 'immersive' as const, label: 'Immersif', desc: '~115% zoom' },
                         ]).map((opt) => (
                           <button
                             key={opt.id}
