@@ -264,9 +264,9 @@ export async function renderClip(inputPath, outputPath, options = {}) {
   const filterComplex_raw = [
     `[0:v]fps=30,split=2[srcfg][srcbg]`,
     // Background: cover + blur + brightness down + darken
-    // Blur at 1/2 resolution then upscale — ~4x less memory for the blur pass,
-    // visually equivalent since sigma scales with pixel density.
-    `[srcbg]scale=${canvasW/2}:${canvasH/2}:force_original_aspect_ratio=increase,crop=${canvasW/2}:${canvasH/2}:(iw-${canvasW/2})/2:(ih-${canvasH/2})/2,gblur=sigma=20,eq=brightness=-0.35:saturation=1.25:contrast=1.1,scale=${canvasW}:${canvasH}:flags=bilinear,setsar=1[bg]`,
+    // Blur at 1/4 resolution then upscale — ~16x less memory for the blur pass,
+    // visually indistinguishable since the output is heavily blurred anyway.
+    `[srcbg]scale=${Math.round(canvasW/4)}:${Math.round(canvasH/4)}:force_original_aspect_ratio=increase,crop=${Math.round(canvasW/4)}:${Math.round(canvasH/4)}:(iw-${Math.round(canvasW/4)})/2:(ih-${Math.round(canvasH/4)})/2,gblur=sigma=12,eq=brightness=-0.35:saturation=1.25:contrast=1.1,scale=${canvasW}:${canvasH}:flags=bilinear,setsar=1[bg]`,
     // Foreground: fit inside canvas (contain), preserve full frame
     `[srcfg]scale=${canvasW}:${canvasH}:force_original_aspect_ratio=decrease,setsar=1[fg]`,
     // Composite fg over bg, centered — force yuv420p early to halve per-frame
@@ -349,12 +349,13 @@ export async function renderClip(inputPath, outputPath, options = {}) {
 
   args.push('-c:v', 'libx264');
   args.push('-preset', 'ultrafast');  // Use ultrafast to minimize memory (Railway OOM)
+  args.push('-tune', 'fastdecode');   // Reduce decode complexity = less memory
   args.push('-threads', '1');          // Single thread to reduce memory footprint
   args.push('-filter_threads', '1');
   args.push('-filter_complex_threads', '1');
   args.push('-crf', String(crf));
-  args.push('-maxrate', '2M');         // Cap bitrate for faster streaming from Supabase
-  args.push('-bufsize', '4M');
+  args.push('-maxrate', '1500k');      // Lower bitrate cap to reduce memory pressure
+  args.push('-bufsize', '3M');
   args.push('-c:a', 'aac');
   args.push('-b:a', '96k');           // Lower audio bitrate to save size
   args.push('-movflags', '+faststart');
