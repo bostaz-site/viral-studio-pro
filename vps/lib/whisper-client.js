@@ -23,31 +23,24 @@ export async function transcribeWithWhisper(videoPath, options = {}) {
   const audioPath = path.join(tempDir, `audio-${Date.now()}.mp3`);
 
   try {
-    // Step 1: Extract audio from video with FFmpeg
-    // IMPORTANT: No loudnorm filter — it can shift timestamps by adding silence
-    // during single-pass analysis, causing Whisper to report wrong timing.
-    // Simple extraction: just downsample to 16kHz mono for Whisper.
+    // Step 1: Extract audio — simple downsample, no loudnorm (can shift timestamps)
     console.log('[Whisper] Extracting audio from video...');
     await execFileAsync('ffmpeg', [
       '-y',
-      '-i',
-      videoPath,
+      '-i', videoPath,
       '-vn',
-      '-ar',
-      '16000',
-      '-ac',
-      '1',
-      '-b:a',
-      '96k',
-      '-f',
-      'mp3',
+      '-ar', '16000',
+      '-ac', '1',
+      '-b:a', '96k',
+      '-f', 'mp3',
       audioPath,
     ], { timeout: 30000 });
 
     const stat = await fs.stat(audioPath);
     console.log(`[Whisper] Audio extracted: ${stat.size} bytes`);
 
-    // Check audio duration matches expected clip duration
+    // Log audio duration for debugging
+    let audioDuration = 0;
     try {
       const { stdout } = await execFileAsync('ffprobe', [
         '-v', 'quiet',
@@ -55,19 +48,15 @@ export async function transcribeWithWhisper(videoPath, options = {}) {
         '-of', 'csv=p=0',
         audioPath,
       ]);
-      const audioDuration = parseFloat(stdout.trim()) || 0;
-      console.log(`[Whisper] Audio duration: ${audioDuration.toFixed(2)}s (clip: ${clipDuration}s)`);
+      audioDuration = parseFloat(stdout.trim()) || 0;
+      console.log(`[Whisper] Audio duration: ${audioDuration.toFixed(2)}s (clip expected: ${clipDuration}s)`);
     } catch {
-      // Non-critical, just for debugging
+      // Non-critical
     }
 
-    // Step 2: Send to OpenAI Whisper API with word timestamps
-    const promptText = [
-      'Twitch stream gaming clip. Casual spoken English with gaming slang.',
-      contextPrompt ? `Context: ${contextPrompt}.` : '',
-      'Use proper grammar and punctuation.',
-    ].filter(Boolean).join(' ');
-
+    // Step 2: Send to OpenAI Whisper API
+    // IMPORTANT: Keep prompt minimal — verbose prompts get hallucinated as
+    // transcription when the clip has little/no speech (known Whisper issue).
     const formData = new FormData();
     const audioBuffer = await fs.readFile(audioPath);
     formData.append('file', new Blob([audioBuffer], { type: 'audio/mp3' }), 'audio.mp3');
@@ -75,8 +64,11 @@ export async function transcribeWithWhisper(videoPath, options = {}) {
     formData.append('response_format', 'verbose_json');
     formData.append('timestamp_granularities[]', 'word');
     formData.append('temperature', '0');
-    formData.append('prompt', promptText);
     if (language) formData.append('language', language);
+    // Only use clip title as hint (short, relevant), NOT generic instructions
+    if (contextPrompt && contextPrompt.length > 0 && contextPrompt.length < 100) {
+      formData.append('prompt', contextPrompt);
+    }
 
     console.log('[Whisper] Sending to OpenAI API...');
     const response = await fetch('https://api.openai.com/v1/audio/transcriptions', {
@@ -93,12 +85,12 @@ export async function transcribeWithWhisper(videoPath, options = {}) {
     }
 
     const result = await response.json();
-    const preview = result.text ? result.text.substring(0, 80) : '(no text)';
-    console.log(`[Whisper] Transcription: "${preview}"`);
+    const transcribedText = result.text || '';
+    console.log(`[Whisper] Transcription: "${transcribedText.substring(0, 100)}"`);
 
     // Step 3: Extract word-level timestamps
     const words = result.words || [];
-    const wordTimestamps = words
+    let wordTimestamps = words
       .map(w => ({
         word: w.word ? w.word.trim() : '',
         start: typeof w.start === 'number' ? w.start : 0,
@@ -108,24 +100,35 @@ export async function transcribeWithWhisper(videoPath, options = {}) {
 
     console.log(`[Whisper] Got ${wordTimestamps.length} word timestamps`);
 
-    // Log timing distribution for debugging
-    if (wordTimestamps.length > 0) {
-      const first = wordTimestamps[0];
-      const last = wordTimestamps[wordTimestamps.length - 1];
-      console.log(`[Whisper] Timing: first="${first.word}" @ ${first.start.toFixed(2)}s, last="${last.word}" @ ${last.end.toFixed(2)}s`);
+    if (wordTimestamps.length === 0) {
+      return [];
+    }
 
-      // SANITY CHECK: if all words are clustered in the last 20% of the clip,
-      // something is wrong (likely loudnorm added silence, or yt-dlp downloaded extra content).
-      // In this case, shift all timestamps to start near 0.
-      if (clipDuration > 0 && first.start > clipDuration * 0.8) {
-        const offset = first.start - 0.5; // Shift so first word starts at 0.5s
-        console.warn(`[Whisper] WARNING: All words start after 80% of clip (${first.start.toFixed(2)}s / ${clipDuration}s). Shifting timestamps by -${offset.toFixed(2)}s`);
-        for (const w of wordTimestamps) {
-          w.start = Math.max(0, w.start - offset);
-          w.end = Math.max(w.start + 0.05, w.end - offset);
-        }
-        console.log(`[Whisper] After shift: first="${wordTimestamps[0].word}" @ ${wordTimestamps[0].start.toFixed(2)}s, last="${wordTimestamps[wordTimestamps.length - 1].word}" @ ${wordTimestamps[wordTimestamps.length - 1].end.toFixed(2)}s`);
-      }
+    // Step 4: Anti-hallucination checks
+    const first = wordTimestamps[0];
+    const last = wordTimestamps[wordTimestamps.length - 1];
+    console.log(`[Whisper] Timing: first="${first.word}" @ ${first.start.toFixed(2)}s, last="${last.word}" @ ${last.end.toFixed(2)}s`);
+
+    // CHECK 1: All words crammed into tiny window = hallucination
+    // Real speech: 12 words take at least 2-3 seconds. If all 12 words
+    // fit within 0.5 seconds, Whisper hallucinated.
+    const totalSpan = last.end - first.start;
+    const minExpectedDuration = wordTimestamps.length * 0.15; // ~150ms per word minimum
+    if (totalSpan < minExpectedDuration) {
+      console.warn(`[Whisper] HALLUCINATION DETECTED: ${wordTimestamps.length} words in ${totalSpan.toFixed(2)}s (need ≥${minExpectedDuration.toFixed(1)}s). Rejecting.`);
+      return [];
+    }
+
+    // CHECK 2: All words start after 80% of clip = likely hallucinated at end
+    if (clipDuration > 0 && first.start > clipDuration * 0.8) {
+      console.warn(`[Whisper] HALLUCINATION DETECTED: first word at ${first.start.toFixed(2)}s in ${clipDuration.toFixed(1)}s clip (>80%). Rejecting.`);
+      return [];
+    }
+
+    // CHECK 3: Words extend way past clip duration = hallucination
+    if (clipDuration > 0 && last.end > clipDuration * 1.5) {
+      console.warn(`[Whisper] HALLUCINATION DETECTED: last word at ${last.end.toFixed(2)}s, clip is ${clipDuration.toFixed(1)}s. Rejecting.`);
+      return [];
     }
 
     return wordTimestamps;
@@ -133,7 +136,6 @@ export async function transcribeWithWhisper(videoPath, options = {}) {
     console.warn(`[Whisper] Transcription failed: ${err.message}`);
     return [];
   } finally {
-    // Cleanup audio file
     try {
       await fs.unlink(audioPath);
     } catch {
