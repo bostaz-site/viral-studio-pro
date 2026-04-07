@@ -303,8 +303,10 @@ function LivePreview({
   }, [activeWordIdx, currentAnimation, sampleWords])
 
   // ── Rendered video: show as-is, no CSS effects (everything is baked in) ──
+  // Only show rendered video when NOT in enhanced preview mode (showEnhancements=false)
+  // When user is tweaking options (showEnhancements=true), always show CSS preview so they can see changes
   const [renderedVideoReady, setRenderedVideoReady] = useState(false)
-  if (isRenderedVideo && videoUrl) {
+  if (isRenderedVideo && videoUrl && !showEnhancements) {
     return (
       <div
         className="relative w-full rounded-2xl overflow-hidden bg-black border border-white/10 shadow-2xl mx-auto transition-all duration-500"
@@ -971,7 +973,7 @@ export default function EnhancePage() {
           </div>
 
           {/* ── Preview ── */}
-          <LivePreview clip={clip} videoUrl={videoUrl} settings={settings} showEnhancements={showEnhancements} isRenderedVideo={isRenderedVideo} renderedThumbnailUrl={renderedThumbnailUrl} />
+          <LivePreview clip={clip} videoUrl={showEnhancements && isRenderedVideo && originalVideoUrl ? originalVideoUrl : videoUrl} settings={settings} showEnhancements={showEnhancements} isRenderedVideo={isRenderedVideo} renderedThumbnailUrl={renderedThumbnailUrl} />
 
           {/* Generate button — orange, always visible with preview */}
           <Button
