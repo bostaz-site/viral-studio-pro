@@ -361,6 +361,22 @@ function LivePreview({
         75% { transform: scale(1.0); }
         100% { transform: scale(1.0); }
       }
+      @keyframes emphasisScale {
+        0% { transform: scale(1); }
+        40% { transform: scale(1.35); }
+        100% { transform: scale(1.2); }
+      }
+      @keyframes emphasisBounce {
+        0% { transform: translateY(0) scale(1); }
+        30% { transform: translateY(-40%) scale(1.15); }
+        50% { transform: translateY(0) scale(1.05); }
+        70% { transform: translateY(-15%) scale(1.1); }
+        100% { transform: translateY(0) scale(1.05); }
+      }
+      @keyframes emphasisGlow {
+        0%, 100% { text-shadow: 0 0 4px currentColor; }
+        50% { text-shadow: 0 0 12px currentColor, 0 0 24px currentColor, 0 0 36px currentColor; }
+      }
     `}</style>
     <div
       className="relative w-full rounded-2xl overflow-hidden bg-black border border-white/10 shadow-2xl mx-auto transition-all duration-500"
@@ -484,34 +500,52 @@ function LivePreview({
           }}
         >
           {/* Word Pop mode: show ONLY the active word, large, with pop animation */}
-          {/* Important words appear in RED + bigger; normal words use the style color */}
-          {currentAnimation === 'word-pop' ? (
-            <p className={cn(
-              'font-black text-center uppercase tracking-wide',
-              isImportantWord(sampleWords[activeWordIdx] || '')
-                ? 'text-xl text-red-500'
-                : cn('text-lg', captionStyle?.preview || 'text-white')
-            )}
-              style={{
-                WebkitTextStroke: '1px black',
-                textShadow: isImportantWord(sampleWords[activeWordIdx] || '')
-                  ? '2px 2px 4px rgba(0,0,0,0.8), 0 0 12px rgba(239,68,68,0.4)'
-                  : '2px 2px 4px rgba(0,0,0,0.8)',
-                animation: 'wordPopIn 0.2s ease-out',
-              }}
-              key={activeWordIdx}
-            >
-              {sampleWords[activeWordIdx] || ''}
-            </p>
-          ) : (
+          {/* Important words get emphasis effect (bounce/scale/glow/color) + red color */}
+          {currentAnimation === 'word-pop' ? (() => {
+            const word = sampleWords[activeWordIdx] || ''
+            const important = isImportantWord(word)
+            const emphasis = settings.emphasisEffect
+            // Build animation string: always wordPopIn, plus emphasis if important
+            let anim = 'wordPopIn 0.2s ease-out'
+            if (important && emphasis === 'scale') anim = 'emphasisScale 0.4s ease-out'
+            else if (important && emphasis === 'bounce') anim = 'emphasisBounce 0.5s ease-out'
+            else if (important && emphasis === 'glow') anim = 'emphasisGlow 0.8s ease-in-out infinite'
+            // Color emphasis: important words get bright red, others get style color
+            const colorClass = important
+              ? 'text-red-500 text-xl'
+              : cn('text-lg', captionStyle?.preview || 'text-white')
+            return (
+              <p className={cn('font-black text-center uppercase tracking-wide', colorClass)}
+                style={{
+                  WebkitTextStroke: '1px black',
+                  textShadow: important
+                    ? '2px 2px 4px rgba(0,0,0,0.8), 0 0 12px rgba(239,68,68,0.4)'
+                    : '2px 2px 4px rgba(0,0,0,0.8)',
+                  animation: anim,
+                }}
+                key={`${activeWordIdx}-${emphasis}`}
+              >
+                {word}
+              </p>
+            )
+          })() : (
           <p className={cn('text-sm text-center', captionStyle?.preview)}>
             {sampleWords.map((word, i) => {
               const isActive = i === activeWordIdx
+              const wordIsImportant = isImportantWord(word)
+              const emphasis = settings.emphasisEffect
               // Active-word transform — matches FFmpeg render exactly
               let activeTransform = ''
+              let activeAnimation = ''
               if (isActive) {
                 if (currentAnimation === 'pop') activeTransform = 'scale(1.85)'
                 else if (currentAnimation === 'bounce') activeTransform = 'translateY(-45%) scale(1.3)'
+                // Emphasis effects on important words (overrides/stacks with style animation)
+                if (wordIsImportant && emphasis !== 'none') {
+                  if (emphasis === 'scale') activeAnimation = 'emphasisScale 0.4s ease-out'
+                  else if (emphasis === 'bounce') activeAnimation = 'emphasisBounce 0.5s ease-out'
+                  else if (emphasis === 'glow') activeAnimation = 'emphasisGlow 0.8s ease-in-out infinite'
+                }
               }
               // Glow: colored text-shadow halo on active word — amplified for visibility
               const activeTextShadow = isActive && currentAnimation === 'glow'
@@ -521,17 +555,22 @@ function LivePreview({
               const displayText = isActive && currentAnimation === 'typewriter'
                 ? word.slice(0, typewriterLen) + (typewriterLen < word.length ? '|' : '')
                 : word
+              // Important word color emphasis
+              const importantColorClass = isActive && wordIsImportant && emphasis === 'color'
+                ? 'text-red-500' : ''
               return (
                 <span key={i}>
                   <span
                     className={cn(
                       'inline-block px-0.5 rounded',
                       isActive ? captionStyle?.highlightClass : '',
+                      importantColorClass,
                     )}
                     style={{
-                      transform: activeTransform || undefined,
+                      transform: activeAnimation ? undefined : (activeTransform || undefined),
                       transformOrigin: 'center bottom',
                       textShadow: activeTextShadow,
+                      animation: activeAnimation || undefined,
                     }}
                   >
                     {displayText}
