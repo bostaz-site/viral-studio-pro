@@ -74,49 +74,55 @@ function buildCommand(args) {
 function buildSmartZoomFilter(inLabel, outLabel, canvasW, canvasH, clipDuration, mode = 'micro', peaks = []) {
   if (!clipDuration || clipDuration <= 0) return null;
 
+  // Use zoompan filter for ALL zoom modes — it's much more memory-efficient than
+  // scale(eval=frame)+crop because it operates on a single buffer instead of
+  // allocating a new scaled frame each evaluation. This prevents OOM on Railway.
+  //
+  // zoompan params:
+  //   z = zoom expression (1.0 = no zoom)
+  //   d = total frames (fps * duration)
+  //   s = output size
+  //   x, y = pan position (center crop)
+  //   fps = output framerate
+  const fps = 30;
+  const totalFrames = Math.ceil(fps * clipDuration);
+
   if (mode === 'dynamic' && Array.isArray(peaks) && peaks.length > 0) {
     // Dynamic mode: punch-zoom on each audio peak.
-    //   z(t) = 1.00 + sum over peaks of: 0.15 * max(0, 1 - (t-tp)/0.4)  for tp ≤ t ≤ tp+0.4
-    // Each punch: quick 15% zoom-in at peak, linear decay over 0.4s back to 1.00.
-    // Cooldown (≥2.5s) ensures punches never overlap.
-    const D = clipDuration.toFixed(3);
-    const PUNCH_AMOUNT = 0.15;
-    const PUNCH_DURATION = 0.4;
-    const limited = peaks.slice(0, 6); // cap at 6 to prevent OOM on Railway (was 15)
+    // Each punch: 12% zoom-in at peak, linear decay over 0.4s back to 1.00.
+    const PUNCH_AMOUNT = 0.12;
+    const PUNCH_FRAMES = Math.round(0.4 * fps); // 12 frames at 30fps
+    const limited = peaks.slice(0, 8);
+
+    // Build zoom expression using frame number (on) instead of time
+    // on = current frame number in zoompan
     const terms = limited.map(tp => {
-      const t0 = tp.toFixed(3);
-      const t1 = (tp + PUNCH_DURATION).toFixed(3);
-      return `if(between(t\\,${t0}\\,${t1})\\,${PUNCH_AMOUNT}*(1-(t-${t0})/${PUNCH_DURATION})\\,0)`;
+      const startFrame = Math.round(tp * fps);
+      const endFrame = startFrame + PUNCH_FRAMES;
+      return `if(between(on\\,${startFrame}\\,${endFrame})\\,${PUNCH_AMOUNT}*(1-(on-${startFrame})/${PUNCH_FRAMES})\\,0)`;
     });
-    // Add gentle baseline breathing (smaller than micro) so static shots aren't flat
-    const baseline = `1.00+0.02*sin(2*PI*t/6)+0.03*min(t/${D}\\,1)`;
-    const zExpr = `(${baseline}+${terms.join('+')})`;
-    // Force even dimensions (yuv420p requirement — prevents green-line chroma artifacts)
-    const scaledW = `trunc(${canvasW}*${zExpr}/2)*2`;
-    const scaledH = `trunc(${canvasH}*${zExpr}/2)*2`;
-    return `${inLabel}scale=w='${scaledW}':h='${scaledH}':eval=frame,crop=${canvasW}:${canvasH},setsar=1${outLabel}`;
+
+    // Gentle baseline breathing so static shots aren't flat
+    const baseline = `1.00+0.02*sin(2*PI*on/${fps * 6})+0.03*min(on/${totalFrames}\\,1)`;
+    const zExpr = `${baseline}+${terms.join('+')}`;
+
+    console.log(`[FFmpeg] Smart Zoom dynamic: ${limited.length} peaks, ${totalFrames} frames`);
+
+    return `${inLabel}zoompan=z='${zExpr}':d=${totalFrames}:s=${canvasW}x${canvasH}:x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':fps=${fps}${outLabel}`;
   }
 
   if (mode === 'micro') {
-    // Breathing zoom: oscillates between ~1.05 and ~1.21 on a 5s cycle,
-    // layered with a slow 6% cinematic push over the clip. Highly visible.
-    //
-    //   z(t) = 1.08 + 0.07*sin(2*PI*t/5) + 0.06*min(t/D, 1)
-    //
-    // NOTE: FFmpeg's crop filter cannot use `t` in width/height (init-only).
-    // We use scale(eval=frame) to upscale over time, then center-crop back
-    // to canvas size — equivalent to a time-varying zoom-in.
-    const D = clipDuration.toFixed(3);
-    const zExpr = `(1.08+0.07*sin(2*PI*t/5)+0.06*min(t/${D}\\,1))`;
-    // Scale to canvas*z, then crop canvas from center. eval=frame re-evaluates
-    // the scale expression per frame, enabling time-varying zoom.
-    // Force even dimensions (yuv420p requirement — prevents green-line chroma artifacts)
-    const scaledW = `trunc(${canvasW}*${zExpr}/2)*2`;
-    const scaledH = `trunc(${canvasH}*${zExpr}/2)*2`;
-    return `${inLabel}scale=w='${scaledW}':h='${scaledH}':eval=frame,crop=${canvasW}:${canvasH},setsar=1${outLabel}`;
+    // Breathing zoom: oscillates between ~1.05 and ~1.18 on a 5s cycle,
+    // layered with a slow 5% cinematic push over the clip.
+    //   z(on) = 1.06 + 0.06*sin(2*PI*on/(fps*5)) + 0.05*min(on/totalFrames, 1)
+    const zExpr = `1.06+0.06*sin(2*PI*on/${fps * 5})+0.05*min(on/${totalFrames}\\,1)`;
+
+    console.log(`[FFmpeg] Smart Zoom micro: ${totalFrames} frames`);
+
+    return `${inLabel}zoompan=z='${zExpr}':d=${totalFrames}:s=${canvasW}x${canvasH}:x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':fps=${fps}${outLabel}`;
   }
 
-  // Dynamic requested but no peaks detected → fall back to micro so user still gets movement.
+  // Dynamic requested but no peaks detected → fall back to micro.
   // Follow mode not yet implemented, also falls back to micro.
   if (mode === 'dynamic' || mode === 'follow') {
     return buildSmartZoomFilter(inLabel, outLabel, canvasW, canvasH, clipDuration, 'micro');
@@ -238,12 +244,7 @@ export async function renderClip(inputPath, outputPath, options = {}) {
   const { w: canvasW, h: canvasH } = ratios[aspectRatio] || ratios['9:16'];
 
   // Disable smart zoom for word-pop (the pop animation IS the visual interest).
-  // Force dynamic → micro fallback (dynamic's per-frame if() expressions cause OOM on Railway).
   const shouldDisableSmartZoom = isWordPopAnimation && smartZoom && smartZoom.enabled;
-  if (smartZoom && smartZoom.mode === 'dynamic') {
-    console.log('[FFmpeg] Smart Zoom: forcing dynamic → micro (dynamic causes OOM on Railway)');
-    smartZoom.mode = 'micro';
-  }
 
   // DEBUG: Log captions object structure
   console.log('[FFmpeg] Captions object:', {
