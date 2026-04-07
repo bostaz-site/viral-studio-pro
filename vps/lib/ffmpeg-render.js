@@ -289,9 +289,15 @@ export async function renderClip(inputPath, outputPath, options = {}) {
     }
   }
 
-  // Captions: prefer PNG overlays (pixel-perfect UI parity), fallback to ASS
+  // Captions: drawtext (word-pop) > PNG overlays > ASS fallback
   const extraInputs = [];
-  if (captions && captions.pngOverlays && captions.pngOverlays.length > 0) {
+  if (captions && captions.drawtextFilters && captions.drawtextFilters.length > 0) {
+    // Native FFmpeg drawtext chain — no external dependencies (no libass, no fonts loading)
+    const dtChain = captions.drawtextFilters.join(',');
+    filterComplex += `;${mapVideo}${dtChain}[captioned]`;
+    mapVideo = '[captioned]';
+    console.log(`[FFmpeg] drawtext chain: ${captions.drawtextFilters.length} filters applied`);
+  } else if (captions && captions.pngOverlays && captions.pngOverlays.length > 0) {
     const { chain, nextLabel, inputs } = buildPngCaptionChain(
       captions.pngOverlays,
       mapVideo,
@@ -302,7 +308,6 @@ export async function renderClip(inputPath, outputPath, options = {}) {
     extraInputs.push(...inputs);
   } else if (captions && captions.assFilePath) {
     // ASS subtitle rendering via libass filter
-    // fontsdir ensures libass finds system fonts even if fontconfig cache is stale
     filterComplex += `;${mapVideo}ass='${escapePath(captions.assFilePath)}':fontsdir='/usr/share/fonts'[captioned]`;
     mapVideo = '[captioned]';
   }
@@ -330,11 +335,14 @@ export async function renderClip(inputPath, outputPath, options = {}) {
   }
 
   console.log(`[FFmpeg] Standard render filter_complex (${filterComplex.length} chars):`);
-  if (filterComplex.includes('ass=')) {
+  if (filterComplex.includes('drawtext=')) {
+    const dtCount = (filterComplex.match(/drawtext=/g) || []).length;
+    console.log(`[FFmpeg]   - drawtext filters detected: ${dtCount}`);
+  } else if (filterComplex.includes('ass=')) {
     const assMatch = filterComplex.match(/ass='[^']*'/);
     console.log(`[FFmpeg]   - ASS filter detected: ${assMatch ? assMatch[0] : 'PATTERN NOT FOUND'}`);
   } else {
-    console.log(`[FFmpeg]   - WARNING: No ass= filter in chain!`);
+    console.log(`[FFmpeg]   - No caption filters in chain`);
   }
   console.log(`[FFmpeg] Map video: ${mapVideo}`);
 
@@ -480,9 +488,14 @@ async function renderSplitScreen(inputPath, outputPath, opts) {
     }
   }
 
-  // Apply captions on the composed output — PNG overlays preferred
+  // Apply captions on the composed output — drawtext > PNG > ASS
   const extraInputs = [];
-  if (captions && captions.pngOverlays && captions.pngOverlays.length > 0) {
+  if (captions && captions.drawtextFilters && captions.drawtextFilters.length > 0) {
+    const dtChain = captions.drawtextFilters.join(',');
+    filterComplex += `;${mapVideo}${dtChain}[captioned]`;
+    mapVideo = '[captioned]';
+    console.log(`[FFmpeg-Split] drawtext chain: ${captions.drawtextFilters.length} filters applied`);
+  } else if (captions && captions.pngOverlays && captions.pngOverlays.length > 0) {
     // Main video=0, broll=1, PNGs start at index 2
     const { chain, nextLabel, inputs } = buildPngCaptionChain(
       captions.pngOverlays,

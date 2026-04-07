@@ -7,6 +7,7 @@ import { promisify } from 'util';
 import { renderClip, extractThumbnail, checkFfmpegAvailability } from '../lib/ffmpeg-render.js';
 import { generateASS, generateStaticASS, validateWordTimestamps } from '../lib/subtitle-generator.js';
 import { generateCaptionPNGs } from '../lib/caption-png.js';
+import { buildWordPopDrawtext, buildWordPopDrawtextFromTitle } from '../lib/drawtext-wordpop.js';
 import { transcribeWithWhisper } from '../lib/whisper-client.js';
 import {
   getClip,
@@ -271,6 +272,7 @@ router.post('/', async (req, res) => {
     // IMPORTANT: also skip when style='none' — user explicitly chose no captions.
     let assFilePath = null;
     let captionOverlays = null;
+    let drawtextFilters = null;
     const captionStyleRequested = settings.captions?.style || 'hormozi';
     const captionsRequested = settings.captions?.enabled && captionStyleRequested !== 'none';
     if (captionsRequested) {
@@ -325,17 +327,16 @@ router.post('/', async (req, res) => {
           validateWordTimestamps(wordTimestamps);
           const captionAnim = settings.captions.animation || 'highlight';
 
-          // ── Word-Pop requires ASS (frame-by-frame scale animation via \t tags) ──
-          // PNG overlays are static images — they can't do smooth pop-in transitions.
+          // ── Word-Pop uses native drawtext filters (no ASS/libass dependency) ──
           if (captionAnim === 'word-pop') {
-            trc(`CAPTIONS using ASS path for word-pop animation (frame-by-frame \t scale)`);
-            assContent = generateASS(wordTimestamps, {
-              ...subtitleOpts,
-              animation: 'word-pop',
-              clipStartTime,
-              wordsPerLine: 1,
-              customColors: settings.captions.customColors,
+            trc(`CAPTIONS using drawtext path for word-pop (native FFmpeg, no ASS)`);
+            drawtextFilters = buildWordPopDrawtext(wordTimestamps, clipStartTime, {
+              canvasWidth: canvasW,
+              canvasHeight: canvasH,
+              position: captionPosition,
+              splitScreen: splitScreenForCaptions,
             });
+            trc(`CAPTIONS generated ${drawtextFilters.length} drawtext filters`);
           } else {
             // ── PNG overlay path (pixel-perfect parity with UI preview) ──
             try {
@@ -378,16 +379,18 @@ router.post('/', async (req, res) => {
             }
           }
         } else {
-          // No word timestamps — use static captions from clip title or skip
-          // FALLBACK: If word-pop was requested but no transcription available, generate static ASS
+          // No word timestamps — use fallback
           const captionAnim = settings.captions.animation || 'highlight';
           if (captionAnim === 'word-pop' && clipTitle && duration > 0) {
-            trc(`CAPTIONS FALLBACK: word-pop requested but no word timestamps, generating static ASS from title`);
-            assContent = generateStaticASS(clipTitle, duration, {
-              ...subtitleOpts,
-              wordsPerLine: 2,
+            // Word-pop fallback: generate drawtext from clip title
+            trc(`CAPTIONS FALLBACK: word-pop drawtext from title "${clipTitle.substring(0, 40)}"`);
+            drawtextFilters = buildWordPopDrawtextFromTitle(clipTitle, duration, {
+              canvasWidth: canvasW,
+              canvasHeight: canvasH,
+              position: captionPosition,
+              splitScreen: splitScreenForCaptions,
             });
-            trc(`CAPTIONS generated static ASS from title (${assContent.length} bytes)`);
+            trc(`CAPTIONS generated ${drawtextFilters.length} drawtext filters from title`);
           } else {
             trc(`CAPTIONS SKIPPED - no word timestamps and no fallback applicable`);
           }
@@ -396,7 +399,6 @@ router.post('/', async (req, res) => {
         if (assContent) {
           assFilePath = path.join(tempDir, 'captions.ass');
           await fs.writeFile(assFilePath, assContent, 'utf-8');
-          // DEBUG: Log ASS file size and first lines for verification
           trc(`CAPTIONS wrote ASS ${canvasW}x${canvasH} pos=${captionPosition} split=${!!isSplitScreen} size=${assContent.length} bytes`);
           const assLines = assContent.split('\n');
           trc(`CAPTIONS ASS header lines (first 5): ${assLines.slice(0, 5).join(' | ')}`);
@@ -534,7 +536,9 @@ router.post('/', async (req, res) => {
       endTime: clipEndTime,
       duration,
       aspectRatio: settings.format?.aspectRatio || '9:16',
-      captions: captionOverlays
+      captions: drawtextFilters && drawtextFilters.length > 0
+        ? { drawtextFilters, ...settings.captions }
+        : captionOverlays
         ? { pngOverlays: captionOverlays, ...settings.captions }
         : assFilePath
         ? { assFilePath, ...settings.captions }
@@ -579,7 +583,7 @@ router.post('/', async (req, res) => {
     const elapsedSeconds = (Date.now() - startTime) / 1000;
     console.log(`[Render ${renderSessionId}] Render completed in ${elapsedSeconds.toFixed(1)}s`);
 
-    trc(`DONE elapsed=${elapsedSeconds.toFixed(1)}s captions=${captionOverlays ? `${captionOverlays.length} PNGs` : (assFilePath ? 'ASS' : 'none')} tag=${tagConfig?.style || 'none'}`);
+    trc(`DONE elapsed=${elapsedSeconds.toFixed(1)}s captions=${drawtextFilters ? `${drawtextFilters.length} drawtext` : captionOverlays ? `${captionOverlays.length} PNGs` : (assFilePath ? 'ASS' : 'none')} tag=${tagConfig?.style || 'none'}`);
 
     // Mark render job as done
     await updateRenderJob(req.body.jobId, {
