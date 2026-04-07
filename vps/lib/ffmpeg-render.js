@@ -245,6 +245,14 @@ export async function renderClip(inputPath, outputPath, options = {}) {
   const isWordPopAnimation = captions && captions.animation === 'word-pop';
   const shouldDisableSmartZoom = isWordPopAnimation && smartZoom && smartZoom.enabled;
 
+  // DEBUG: Log captions object structure
+  console.log('[FFmpeg] Captions object:', {
+    hasCaption: !!captions,
+    captionAnimation: captions?.animation,
+    hasAssFilePath: !!captions?.assFilePath,
+    isWordPopAnimation,
+  });
+
   if (shouldDisableSmartZoom) {
     console.log('[FFmpeg] Word-pop animation detected: disabling smart zoom to prevent OOM');
   }
@@ -323,7 +331,13 @@ export async function renderClip(inputPath, outputPath, options = {}) {
     }
   }
 
-  console.log(`[FFmpeg] Standard render filter_complex:\n${filterComplex}`);
+  console.log(`[FFmpeg] Standard render filter_complex (${filterComplex.length} chars):`);
+  if (filterComplex.includes('ass=')) {
+    const assMatch = filterComplex.match(/ass='[^']*'/);
+    console.log(`[FFmpeg]   - ASS filter detected: ${assMatch ? assMatch[0] : 'PATTERN NOT FOUND'}`);
+  } else {
+    console.log(`[FFmpeg]   - WARNING: No ass= filter in chain!`);
+  }
   console.log(`[FFmpeg] Map video: ${mapVideo}`);
 
   // Build FFmpeg command

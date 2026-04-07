@@ -378,13 +378,30 @@ router.post('/', async (req, res) => {
             }
           }
         } else {
-          trc(`CAPTIONS SKIPPED - no word timestamps`);
+          // No word timestamps — use static captions from clip title or skip
+          // FALLBACK: If word-pop was requested but no transcription available, generate static ASS
+          const captionAnim = settings.captions.animation || 'highlight';
+          if (captionAnim === 'word-pop' && clipTitle && duration > 0) {
+            trc(`CAPTIONS FALLBACK: word-pop requested but no word timestamps, generating static ASS from title`);
+            assContent = generateStaticASS(clipTitle, duration, {
+              ...subtitleOpts,
+              wordsPerLine: 2,
+            });
+            trc(`CAPTIONS generated static ASS from title (${assContent.length} bytes)`);
+          } else {
+            trc(`CAPTIONS SKIPPED - no word timestamps and no fallback applicable`);
+          }
         }
 
         if (assContent) {
           assFilePath = path.join(tempDir, 'captions.ass');
           await fs.writeFile(assFilePath, assContent, 'utf-8');
-          trc(`CAPTIONS wrote ASS ${canvasW}x${canvasH} pos=${captionPosition} split=${!!isSplitScreen}`);
+          // DEBUG: Log ASS file size and first lines for verification
+          trc(`CAPTIONS wrote ASS ${canvasW}x${canvasH} pos=${captionPosition} split=${!!isSplitScreen} size=${assContent.length} bytes`);
+          const assLines = assContent.split('\n');
+          trc(`CAPTIONS ASS header lines (first 5): ${assLines.slice(0, 5).join(' | ')}`);
+          const dialogueLines = assLines.filter(l => l.startsWith('Dialogue:'));
+          trc(`CAPTIONS ASS dialogue events: ${dialogueLines.length} events (first: ${dialogueLines[0]?.substring(0, 100) || 'none'})`);
         }
       } catch (err) {
         trc(`CAPTIONS ERROR: ${err.message}`);
