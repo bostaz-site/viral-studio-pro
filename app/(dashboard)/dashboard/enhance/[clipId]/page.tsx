@@ -399,16 +399,15 @@ function LivePreview({
             )}
             {/* Main video layer — zoom makes the element LARGER than container with object-contain */}
             {/* Parent overflow-hidden clips the excess. Video stays landscape, just bigger. */}
-            {/* Contenir: 100%, Remplir: 140%, Immersif: 180% */}
+            {/* Contenir: 100%, Remplir: 115%, Immersif: 135% */}
             {(() => {
               const isSplit = showEnhancements && settings.splitScreenEnabled
               // Zoom: element bigger than container, object-contain keeps video landscape
-              // 140% = video ~40% taller/wider, still horizontal with less blur around
-              // 180% = video ~80% taller/wider, fills most of frame but still landscape
+              // 115% = subtle zoom, video ~15% bigger, still lots of blur
+              // 135% = noticeable zoom, video ~35% bigger, less blur
               const sizePct = !isSplit && showEnhancements && settings.videoZoom !== 'contain'
-                ? (settings.videoZoom === 'immersive' ? 180 : 140)
+                ? (settings.videoZoom === 'immersive' ? 135 : 115)
                 : 100
-              const offsetPct = (100 - sizePct) / 2 // negative for zoom (centers the oversized element)
               const smartZoomStyle = showEnhancements && settings.smartZoomEnabled ? {
                 animation: settings.smartZoomMode === 'dynamic'
                   ? 'smartZoomDynamic 4s ease-in-out infinite'
@@ -417,10 +416,13 @@ function LivePreview({
 
               const objectFit = isSplit ? 'object-cover' : 'object-contain'
               const isZoomed = sizePct > 100
+              // Use transform: scale + translate for clean centering
               const zoomStyle = isZoomed ? {
-                width: `${sizePct}%`, height: `${sizePct}%`,
-                top: `${offsetPct}%`, left: `${offsetPct}%`,
                 position: 'absolute' as const,
+                width: '100%', height: '100%',
+                top: 0, left: 0,
+                transform: `scale(${sizePct / 100})`,
+                transformOrigin: 'center center',
                 ...smartZoomStyle,
               } : (Object.keys(smartZoomStyle).length ? smartZoomStyle : undefined)
 
@@ -1354,8 +1356,8 @@ export default function EnhancePage() {
                       <div className="grid grid-cols-3 gap-2">
                         {([
                           { id: 'contain' as const, label: 'Contenir', desc: '100% visible' },
-                          { id: 'fill' as const, label: 'Remplir', desc: 'Zoom léger' },
-                          { id: 'immersive' as const, label: 'Immersif', desc: 'Zoom fort' },
+                          { id: 'fill' as const, label: 'Remplir', desc: 'Zoom subtil' },
+                          { id: 'immersive' as const, label: 'Immersif', desc: 'Zoom moyen' },
                         ]).map((opt) => (
                           <button
                             key={opt.id}

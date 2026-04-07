@@ -287,10 +287,10 @@ export async function renderClip(inputPath, outputPath, options = {}) {
 
   const smartZoomActive = smartZoom && smartZoom.enabled && !shouldDisableSmartZoom;
 
-  // videoZoom: 'contain' = full video visible, 'fill' = 140% contain, 'immersive' = 180% contain
-  // Fill/Immersive: scale video to contain in a LARGER area than canvas, then crop to canvas
+  // videoZoom: 'contain' = full video visible, 'fill' = 115% contain, 'immersive' = 135% contain
+  // Fill/Immersive: scale video to contain in a LARGER area than canvas, then overlay centered
   // This keeps the video landscape (horizontal) but makes it bigger — matching the CSS preview
-  const zoomFactor = videoZoom === 'immersive' ? 1.8 : videoZoom === 'fill' ? 1.4 : 1.0;
+  const zoomFactor = videoZoom === 'immersive' ? 1.35 : videoZoom === 'fill' ? 1.15 : 1.0;
 
   if (isWordPopAnimation) {
     // WORD-POP PATH: scale to fit + pad with black (no split, no blur)
