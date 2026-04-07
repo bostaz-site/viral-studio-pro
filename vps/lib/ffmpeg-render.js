@@ -74,56 +74,47 @@ function buildCommand(args) {
 function buildSmartZoomFilter(inLabel, outLabel, canvasW, canvasH, clipDuration, mode = 'micro', peaks = []) {
   if (!clipDuration || clipDuration <= 0) return null;
 
-  // Use zoompan filter for ALL zoom modes — it's much more memory-efficient than
-  // scale(eval=frame)+crop because it operates on a single buffer instead of
-  // allocating a new scaled frame each evaluation. This prevents OOM on Railway.
-  //
-  // zoompan params:
-  //   z = zoom expression (1.0 = no zoom)
-  //   d = total frames (fps * duration)
-  //   s = output size
-  //   x, y = pan position (center crop)
-  //   fps = output framerate
-  const fps = 30;
-  const totalFrames = Math.ceil(fps * clipDuration);
+  // All modes use scale(eval=frame)+crop — the only reliable way to do
+  // time-varying zoom on VIDEO (zoompan is for stills only).
+  // Memory safety: 720p canvas + simple expressions + max 3 peaks.
 
   if (mode === 'dynamic' && Array.isArray(peaks) && peaks.length > 0) {
     // Dynamic mode: punch-zoom on each audio peak.
-    // Each punch: 12% zoom-in at peak, linear decay over 0.4s back to 1.00.
-    const PUNCH_AMOUNT = 0.12;
-    const PUNCH_FRAMES = Math.round(0.4 * fps); // 12 frames at 30fps
-    const limited = peaks.slice(0, 8);
+    // Each punch: 10% zoom-in at peak, linear decay over 0.35s.
+    // STRICT limit: 3 peaks max to keep expression small (prevents OOM on Railway).
+    const D = clipDuration.toFixed(3);
+    const limited = peaks.slice(0, 3);
 
-    // Build zoom expression using frame number (on) instead of time
-    // on = current frame number in zoompan
     const terms = limited.map(tp => {
-      const startFrame = Math.round(tp * fps);
-      const endFrame = startFrame + PUNCH_FRAMES;
-      return `if(between(on\\,${startFrame}\\,${endFrame})\\,${PUNCH_AMOUNT}*(1-(on-${startFrame})/${PUNCH_FRAMES})\\,0)`;
+      const t0 = tp.toFixed(3);
+      const t1 = (tp + 0.35).toFixed(3);
+      return `if(between(t\\,${t0}\\,${t1})\\,0.10*(1-(t-${t0})/0.35)\\,0)`;
     });
 
-    // Gentle baseline breathing so static shots aren't flat
-    const baseline = `1.00+0.02*sin(2*PI*on/${fps * 6})+0.03*min(on/${totalFrames}\\,1)`;
-    const zExpr = `${baseline}+${terms.join('+')}`;
+    // Simple baseline breathing
+    const zExpr = `(1.02+0.02*sin(2*PI*t/6)+${terms.join('+')})`;
+    const scaledW = `trunc(${canvasW}*${zExpr}/2)*2`;
+    const scaledH = `trunc(${canvasH}*${zExpr}/2)*2`;
 
-    console.log(`[FFmpeg] Smart Zoom dynamic: ${limited.length} peaks, ${totalFrames} frames`);
+    console.log(`[FFmpeg] Smart Zoom dynamic: ${limited.length} peaks (max 3), expr length=${zExpr.length}`);
 
-    return `${inLabel}zoompan=z='${zExpr}':d=${totalFrames}:s=${canvasW}x${canvasH}:x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':fps=${fps}${outLabel}`;
+    return `${inLabel}scale=w='${scaledW}':h='${scaledH}':eval=frame,crop=${canvasW}:${canvasH},setsar=1${outLabel}`;
   }
 
   if (mode === 'micro') {
-    // Breathing zoom: oscillates between ~1.05 and ~1.18 on a 5s cycle,
-    // layered with a slow 5% cinematic push over the clip.
-    //   z(on) = 1.06 + 0.06*sin(2*PI*on/(fps*5)) + 0.05*min(on/totalFrames, 1)
-    const zExpr = `1.06+0.06*sin(2*PI*on/${fps * 5})+0.05*min(on/${totalFrames}\\,1)`;
+    // Breathing zoom: gentle oscillation on a 5s cycle + slow push.
+    const D = clipDuration.toFixed(3);
+    const zExpr = `(1.06+0.06*sin(2*PI*t/5)+0.05*min(t/${D}\\,1))`;
+    const scaledW = `trunc(${canvasW}*${zExpr}/2)*2`;
+    const scaledH = `trunc(${canvasH}*${zExpr}/2)*2`;
 
-    console.log(`[FFmpeg] Smart Zoom micro: ${totalFrames} frames`);
+    console.log(`[FFmpeg] Smart Zoom micro: duration=${D}s`);
 
-    return `${inLabel}zoompan=z='${zExpr}':d=${totalFrames}:s=${canvasW}x${canvasH}:x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':fps=${fps}${outLabel}`;
+    return `${inLabel}scale=w='${scaledW}':h='${scaledH}':eval=frame,crop=${canvasW}:${canvasH},setsar=1${outLabel}`;
   }
 
-  // Dynamic requested but no peaks detected → fall back to micro.
-  // Follow mode not yet implemented, also falls back to micro.
+  // Dynamic requested but no peaks → fall back to micro.
+  // Follow mode not yet implemented → also micro.
   if (mode === 'dynamic' || mode === 'follow') {
     return buildSmartZoomFilter(inLabel, outLabel, canvasW, canvasH, clipDuration, 'micro');
   }
