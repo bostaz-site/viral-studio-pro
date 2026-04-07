@@ -236,11 +236,13 @@ function LivePreview({
   videoUrl,
   settings,
   showEnhancements,
+  isRenderedVideo,
 }: {
   clip: TrendingClipData
   videoUrl: string | null
   settings: EnhanceSettings
   showEnhancements: boolean
+  isRenderedVideo: boolean
 }) {
   const broll = BROLL_OPTIONS.find((b) => b.id === settings.brollVideo)
   const captionStyle = CAPTION_STYLES.find((s) => s.id === settings.captionStyle)
@@ -275,6 +277,23 @@ function LivePreview({
     }, perChar)
     return () => clearInterval(tick)
   }, [activeWordIdx, settings.captionAnimation, sampleWords])
+
+  // ── Rendered video: show as-is, no CSS effects (everything is baked in) ──
+  if (isRenderedVideo && videoUrl) {
+    return (
+      <div
+        className="relative w-full rounded-2xl overflow-hidden bg-black border border-white/10 shadow-2xl mx-auto transition-all duration-500"
+        style={{ aspectRatio: '9/16', maxWidth: 280 }}
+      >
+        <video
+          key={videoUrl}
+          src={videoUrl}
+          className="w-full h-full object-contain"
+          autoPlay loop muted playsInline
+        />
+      </div>
+    )
+  }
 
   return (
     <>
@@ -503,6 +522,8 @@ export default function EnhancePage() {
   const [renderOriginalUrl, setRenderOriginalUrl] = useState<string | null>(null)
   const [renderDownloadUrl, setRenderDownloadUrl] = useState<string | null>(null)
   const [renderJobId, setRenderJobId] = useState<string | null>(null)
+  const [isRenderedVideo, setIsRenderedVideo] = useState(false)
+  const [originalVideoUrl, setOriginalVideoUrl] = useState<string | null>(null)
   const pollRef = useRef<NodeJS.Timeout | null>(null)
   const [showEnhancements, setShowEnhancements] = useState(true)
   const sectionRefs = {
@@ -655,8 +676,11 @@ export default function EnhancePage() {
           if (pollRef.current) clearInterval(pollRef.current)
           setRenderDownloadUrl(json.data.downloadUrl)
           // Switch the live preview to show the RENDERED video (with subtitles baked in)
+          // Save original URL so user can re-edit later
           if (json.data.publicUrl) {
+            setOriginalVideoUrl(videoUrl)
             setVideoUrl(json.data.publicUrl)
+            setIsRenderedVideo(true)
           }
           setRenderMessage('✅ Clip rendu avec sous-titres ! Regarde la preview ci-dessus.')
           setRendering(false)
@@ -686,6 +710,11 @@ export default function EnhancePage() {
     setRenderMessage('⏳ Lancement du rendu...')
     setRenderDownloadUrl(null)
     setRenderOriginalUrl(null)
+    // Revert to CSS preview mode (restore original video URL if we were showing rendered video)
+    if (isRenderedVideo && originalVideoUrl) {
+      setVideoUrl(originalVideoUrl)
+    }
+    setIsRenderedVideo(false)
 
     try {
       const res = await fetch('/api/render', {
@@ -840,7 +869,7 @@ export default function EnhancePage() {
           </div>
 
           {/* ── Preview ── */}
-          <LivePreview clip={clip} videoUrl={videoUrl} settings={settings} showEnhancements={showEnhancements} />
+          <LivePreview clip={clip} videoUrl={videoUrl} settings={settings} showEnhancements={showEnhancements} isRenderedVideo={isRenderedVideo} />
 
           {/* Generate button — orange, always visible with preview */}
           <Button
