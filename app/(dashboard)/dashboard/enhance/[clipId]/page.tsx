@@ -8,7 +8,7 @@ import {
   ChevronLeft, Loader2, AlertCircle, Sparkles, Download,
   Type, Wand2, Eye, ExternalLink, Play,
   Monitor, Paintbrush, Zap, AtSign,
-  Flame, Focus,
+  Flame, Focus, X, Plus,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -39,7 +39,8 @@ interface TrendingClipData {
 interface EnhanceSettings {
   captionsEnabled: boolean
   captionStyle: string
-  captionAnimation: string
+  emphasisEffect: string
+  customImportantWords: string[]
   captionPosition: 'top' | 'middle' | 'bottom'
   wordsPerLine: number
   splitScreenEnabled: boolean
@@ -54,22 +55,21 @@ interface EnhanceSettings {
 // ─── Scoring Constants ──────────────────────────────────────────────────────
 
 const CAPTION_STYLES = [
-  { id: 'hormozi', label: 'Hormozi', preview: 'text-yellow-400 font-black uppercase', highlightClass: 'text-yellow-400 bg-yellow-400/20', baseScore: 12 },
-  { id: 'mrbeast', label: 'MrBeast', preview: 'text-white font-black', highlightClass: 'text-red-500 bg-red-500/20', baseScore: 14 },
-  { id: 'aliabdaal', label: 'Ali Abdaal', preview: 'text-blue-300 font-semibold', highlightClass: 'text-blue-300 bg-blue-300/20', baseScore: 8 },
-  { id: 'neon', label: 'Neon', preview: 'text-green-400 font-bold', highlightClass: 'text-green-400 bg-green-400/20', baseScore: 10 },
-  { id: 'bold', label: 'Bold', preview: 'text-white font-black text-lg', highlightClass: 'text-white bg-white/20', baseScore: 11 },
-  { id: 'minimal', label: 'Minimal', preview: 'text-white/80 font-medium', highlightClass: 'text-white/80 bg-white/10', baseScore: 6 },
-  { id: 'none', label: 'Aucun', preview: 'text-muted-foreground line-through', highlightClass: '', baseScore: 0 },
+  { id: 'hormozi', label: 'Hormozi', preview: 'text-yellow-400 font-black uppercase', highlightClass: 'text-yellow-400 bg-yellow-400/20', baseScore: 12, animation: 'word-pop', animLabel: 'Word Pop' },
+  { id: 'mrbeast', label: 'MrBeast', preview: 'text-white font-black', highlightClass: 'text-red-500 bg-red-500/20', baseScore: 14, animation: 'highlight', animLabel: 'Highlight' },
+  { id: 'aliabdaal', label: 'Ali Abdaal', preview: 'text-blue-300 font-semibold', highlightClass: 'text-blue-300 bg-blue-300/20', baseScore: 8, animation: 'typewriter', animLabel: 'Typewriter' },
+  { id: 'neon', label: 'Neon', preview: 'text-green-400 font-bold', highlightClass: 'text-green-400 bg-green-400/20', baseScore: 10, animation: 'glow', animLabel: 'Glow' },
+  { id: 'bold', label: 'Bold', preview: 'text-white font-black text-lg', highlightClass: 'text-white bg-white/20', baseScore: 11, animation: 'pop', animLabel: 'Pop' },
+  { id: 'minimal', label: 'Minimal', preview: 'text-white/80 font-medium', highlightClass: 'text-white/80 bg-white/10', baseScore: 6, animation: 'highlight', animLabel: 'Highlight' },
+  { id: 'none', label: 'Aucun', preview: 'text-muted-foreground line-through', highlightClass: '', baseScore: 0, animation: 'highlight', animLabel: '' },
 ]
 
-const CAPTION_ANIMATIONS = [
-  { id: 'word-pop', label: 'Word Pop', baseScore: 16 },
-  { id: 'highlight', label: 'Highlight', baseScore: 10 },
-  { id: 'pop', label: 'Pop', baseScore: 12 },
-  { id: 'bounce', label: 'Bounce', baseScore: 9 },
-  { id: 'typewriter', label: 'Typewriter', baseScore: 7 },
-  { id: 'glow', label: 'Glow', baseScore: 8 },
+const EMPHASIS_EFFECTS = [
+  { id: 'none', label: 'Aucun', description: 'Pas d\'emphase', baseScore: 0 },
+  { id: 'scale', label: 'Scale Up', description: 'Mot clé grossit', baseScore: 14 },
+  { id: 'color', label: 'Couleur', description: 'Mot clé en couleur', baseScore: 12 },
+  { id: 'bounce', label: 'Bounce', description: 'Mot clé rebondit', baseScore: 10 },
+  { id: 'glow', label: 'Glow', description: 'Mot clé brille', baseScore: 8 },
 ]
 
 const BROLL_OPTIONS = [
@@ -123,17 +123,17 @@ function computeScores(clip: TrendingClipData) {
   const maxCaption = Math.max(...captionScores.map((s) => s.score))
   captionScores.forEach((s) => { s.isBest = s.score === maxCaption })
 
-  // Score animations
-  const animScores: ScoredOption[] = CAPTION_ANIMATIONS.map((a) => {
-    let score = a.baseScore
-    if (isHighEnergy && (a.id === 'pop' || a.id === 'bounce')) score += 5
-    if (!isHighEnergy && a.id === 'highlight') score += 4
-    if (niche === 'irl' && a.id === 'highlight') score += 3
-    if (velocity < 30 && a.id === 'typewriter') score += 4
-    return { id: a.id, score, isBest: false }
+  // Score emphasis effects
+  const emphasisScores: ScoredOption[] = EMPHASIS_EFFECTS.map((e) => {
+    let score = e.baseScore
+    if (isHighEnergy && (e.id === 'scale' || e.id === 'bounce')) score += 5
+    if (!isHighEnergy && e.id === 'color') score += 4
+    if (niche === 'gaming' && e.id === 'scale') score += 3
+    if (niche === 'irl' && e.id === 'color') score += 3
+    return { id: e.id, score, isBest: false }
   })
-  const maxAnim = Math.max(...animScores.map((s) => s.score))
-  animScores.forEach((s) => { s.isBest = s.score === maxAnim })
+  const maxEmphasis = Math.max(...emphasisScores.map((s) => s.score))
+  emphasisScores.forEach((s) => { s.isBest = s.score === maxEmphasis })
 
   // Score b-roll
   const brollScores: ScoredOption[] = BROLL_OPTIONS.map((b) => {
@@ -157,16 +157,16 @@ function computeScores(clip: TrendingClipData) {
   const maxTag = Math.max(...tagScores.map((s) => s.score))
   tagScores.forEach((s) => { s.isBest = s.score === maxTag })
 
-  // Normalize scores to /100 — weights: captions 30, animation 20, b-roll 30, tags 20
-  const WEIGHTS = { caption: 30, anim: 20, broll: 30, tag: 20 }
+  // Normalize scores to /100 — weights: captions 35, emphasis 15, b-roll 30, tags 20
+  const WEIGHTS = { caption: 35, emphasis: 15, broll: 30, tag: 20 }
 
   const normCaption = captionScores.map((s) => ({
     ...s,
     score: Math.round((s.score / maxCaption) * WEIGHTS.caption),
   }))
-  const normAnim = animScores.map((s) => ({
+  const normEmphasis = emphasisScores.map((s) => ({
     ...s,
-    score: Math.round((s.score / maxAnim) * WEIGHTS.anim),
+    score: Math.round((s.score / maxEmphasis) * WEIGHTS.emphasis),
   }))
   const normBroll = brollScores.map((s) => ({
     ...s,
@@ -179,16 +179,16 @@ function computeScores(clip: TrendingClipData) {
 
   // Best combo
   const bestCaption = captionScores.find((s) => s.isBest)!.id
-  const bestAnim = animScores.find((s) => s.isBest)!.id
+  const bestEmphasis = emphasisScores.find((s) => s.isBest)!.id
   const bestBroll = brollScores.find((s) => s.isBest)!.id
   const bestTag = tagScores.find((s) => s.isBest)!.id
 
   return {
     captionScores: normCaption,
-    animScores: normAnim,
+    emphasisScores: normEmphasis,
     brollScores: normBroll,
     tagScores: normTag,
-    best: { captionStyle: bestCaption, captionAnimation: bestAnim, brollVideo: bestBroll, tagStyle: bestTag },
+    best: { captionStyle: bestCaption, emphasisEffect: bestEmphasis, brollVideo: bestBroll, tagStyle: bestTag },
     totalBestScore: 100,
   }
 }
@@ -198,10 +198,10 @@ function computeCurrentScore(
   scores: ReturnType<typeof computeScores>
 ) {
   const cs = scores.captionScores.find((s) => s.id === settings.captionStyle)?.score ?? 0
-  const as2 = scores.animScores.find((s) => s.id === settings.captionAnimation)?.score ?? 0
+  const es = scores.emphasisScores.find((s) => s.id === settings.emphasisEffect)?.score ?? 0
   const bs = settings.splitScreenEnabled ? (scores.brollScores.find((s) => s.id === settings.brollVideo)?.score ?? 0) : 0
   const ts = scores.tagScores.find((s) => s.id === settings.tagStyle)?.score ?? 0
-  return (settings.captionsEnabled ? cs + as2 : 0) + bs + ts
+  return (settings.captionsEnabled ? cs + es : 0) + bs + ts
 }
 
 // ─── Score Label ────────────────────────────────────────────────────────────
@@ -250,6 +250,25 @@ function LivePreview({
   const captionStyle = CAPTION_STYLES.find((s) => s.id === settings.captionStyle)
   const tagStyle = TAG_STYLES.find((t) => t.id === settings.tagStyle)
   const streamerName = clip.author_handle ? `@${clip.author_handle}` : clip.author_name ?? ''
+  // Animation is now derived from the selected caption style (not a separate setting)
+  const currentAnimation = captionStyle?.animation ?? 'highlight'
+
+  // Detect important words (mirrors backend logic in subtitle-generator.js)
+  const IMPORTANT_WORDS_SET = useMemo(() => new Set([
+    'crazy', 'insane', 'omg', 'wtf', 'bruh', 'fire', 'goat', 'goated',
+    'clutch', 'cracked', 'broken', 'destroyed', 'killed', 'dead',
+    'impossible', 'legendary', 'epic', 'massive', 'unreal', 'sick', 'nuts',
+    'wild', 'lit', 'god', 'godlike', 'demon', 'monster',
+    'million', 'money', 'free', 'secret', 'hack', 'exposed', 'banned',
+    'never', 'always', 'best', 'worst', 'first', 'last', 'only',
+  ]), [])
+  const isImportantWord = useCallback((word: string) => {
+    const clean = word.replace(/[^a-zA-Z]/g, '')
+    if (clean.length >= 3 && clean === clean.toUpperCase()) return true
+    if (word.includes('!')) return true
+    if (IMPORTANT_WORDS_SET.has(clean.toLowerCase())) return true
+    return false
+  }, [IMPORTANT_WORDS_SET])
 
   // Sample caption sequence — cycles word-by-word to mirror FFmpeg render behavior.
   // Each word is displayed active for ~400ms (matches typical Whisper timestamps),
@@ -270,7 +289,7 @@ function LivePreview({
 
   useEffect(() => {
     // Typewriter progression inside each active-word window
-    if (settings.captionAnimation !== 'typewriter') return
+    if (currentAnimation !== 'typewriter') return
     const activeWord = sampleWords[activeWordIdx] ?? ''
     setTypewriterLen(0)
     const perChar = 400 / Math.max(1, activeWord.length + 1)
@@ -278,7 +297,7 @@ function LivePreview({
       setTypewriterLen((n) => Math.min(n + 1, activeWord.length))
     }, perChar)
     return () => clearInterval(tick)
-  }, [activeWordIdx, settings.captionAnimation, sampleWords])
+  }, [activeWordIdx, currentAnimation, sampleWords])
 
   // ── Rendered video: show as-is, no CSS effects (everything is baked in) ──
   const [renderedVideoReady, setRenderedVideoReady] = useState(false)
@@ -429,7 +448,7 @@ function LivePreview({
         <div
           className={cn(
             'absolute left-1/2 -translate-x-1/2 z-20 rounded-lg px-3 py-1.5 max-w-[85%] transition-all duration-500',
-            settings.captionAnimation === 'glow'
+            currentAnimation === 'glow'
               ? 'bg-black/60 shadow-[0_0_20px_rgba(255,255,255,0.15)]'
               : 'bg-black/80 backdrop-blur-sm'
           )}
@@ -440,11 +459,17 @@ function LivePreview({
           }}
         >
           {/* Word Pop mode: show ONLY the active word, large, with pop animation */}
-          {settings.captionAnimation === 'word-pop' ? (
-            <p className="text-lg font-black text-center uppercase tracking-wide"
+          {/* Important words appear in RED + bigger (matches FFmpeg render) */}
+          {currentAnimation === 'word-pop' ? (
+            <p className={cn(
+              'font-black text-center uppercase tracking-wide',
+              isImportantWord(sampleWords[activeWordIdx] || '') ? 'text-xl text-red-500' : 'text-lg text-white'
+            )}
               style={{
                 WebkitTextStroke: '1px black',
-                textShadow: '2px 2px 4px rgba(0,0,0,0.8)',
+                textShadow: isImportantWord(sampleWords[activeWordIdx] || '')
+                  ? '2px 2px 4px rgba(0,0,0,0.8), 0 0 12px rgba(239,68,68,0.4)'
+                  : '2px 2px 4px rgba(0,0,0,0.8)',
                 animation: 'wordPopIn 0.2s ease-out',
               }}
               key={activeWordIdx}
@@ -458,15 +483,15 @@ function LivePreview({
               // Active-word transform — matches FFmpeg render exactly
               let activeTransform = ''
               if (isActive) {
-                if (settings.captionAnimation === 'pop') activeTransform = 'scale(1.85)'
-                else if (settings.captionAnimation === 'bounce') activeTransform = 'translateY(-45%) scale(1.3)'
+                if (currentAnimation === 'pop') activeTransform = 'scale(1.85)'
+                else if (currentAnimation === 'bounce') activeTransform = 'translateY(-45%) scale(1.3)'
               }
               // Glow: colored text-shadow halo on active word — amplified for visibility
-              const activeTextShadow = isActive && settings.captionAnimation === 'glow'
+              const activeTextShadow = isActive && currentAnimation === 'glow'
                 ? '0 0 8px #fde047, 0 0 18px #fde047, 0 0 32px #facc15, 0 0 48px #eab308'
                 : undefined
               // Typewriter: reveal chars progressively on active word
-              const displayText = isActive && settings.captionAnimation === 'typewriter'
+              const displayText = isActive && currentAnimation === 'typewriter'
                 ? word.slice(0, typewriterLen) + (typewriterLen < word.length ? '|' : '')
                 : word
               return (
@@ -558,7 +583,8 @@ export default function EnhancePage() {
   const [settings, setSettings] = useState<EnhanceSettings>({
     captionsEnabled: true,
     captionStyle: 'hormozi',
-    captionAnimation: 'highlight',
+    emphasisEffect: 'none',
+    customImportantWords: [],
     captionPosition: 'bottom',
     wordsPerLine: 4,
     splitScreenEnabled: true,
@@ -753,7 +779,9 @@ export default function EnhancePage() {
               enabled: settings.captionsEnabled,
               style: settings.captionStyle,
               wordsPerLine: settings.wordsPerLine,
-              animation: settings.captionAnimation,
+              animation: CAPTION_STYLES.find(s => s.id === settings.captionStyle)?.animation ?? 'highlight',
+              emphasisEffect: settings.emphasisEffect,
+              customImportantWords: settings.customImportantWords,
               position: settings.captionPosition,
             },
             splitScreen: {
@@ -811,7 +839,7 @@ export default function EnhancePage() {
     setSettings((s) => ({
       ...s,
       captionStyle: scores.best.captionStyle,
-      captionAnimation: scores.best.captionAnimation,
+      emphasisEffect: scores.best.emphasisEffect,
       brollVideo: scores.best.brollVideo,
       tagStyle: scores.best.tagStyle,
       splitScreenEnabled: true,
@@ -1034,6 +1062,9 @@ export default function EnhancePage() {
                               <span className={cn('text-[10px] block', scored.isBest ? 'text-orange-400 font-bold' : 'text-muted-foreground')}>
                                 {style.label}
                               </span>
+                              {style.animLabel && (
+                                <span className="text-[8px] block text-muted-foreground/60 mt-0.5">{style.animLabel}</span>
+                              )}
                             </button>
                           )
                         })}
@@ -1041,30 +1072,106 @@ export default function EnhancePage() {
                     </div>
 
                     {settings.captionStyle !== 'none' && <>
+                    {/* Animation intégrée au style — affichage info seulement */}
+                    <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-muted/30 border border-border/50">
+                      <Zap className="h-3.5 w-3.5 text-muted-foreground" />
+                      <span className="text-xs text-muted-foreground">Animation :</span>
+                      <span className="text-xs font-semibold text-foreground">{CAPTION_STYLES.find(s => s.id === settings.captionStyle)?.animLabel || 'Highlight'}</span>
+                    </div>
+
+                    {/* Emphase mots clés */}
                     <div className="space-y-2">
-                      <Label className="text-xs uppercase tracking-wider text-muted-foreground">Animation</Label>
+                      <Label className="text-xs uppercase tracking-wider text-muted-foreground">Emphase mots clés</Label>
+                      <p className="text-[10px] text-muted-foreground">Effet appliqué aux mots importants détectés</p>
                       <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
-                        {CAPTION_ANIMATIONS.map((anim) => {
-                          const scored = scores.animScores.find((s) => s.id === anim.id)!
+                        {EMPHASIS_EFFECTS.map((effect) => {
+                          const scored = scores.emphasisScores.find((s) => s.id === effect.id)!
                           return (
                             <button
-                              key={anim.id}
-                              onClick={() => updateSetting('captionAnimation', anim.id)}
+                              key={effect.id}
+                              onClick={() => updateSetting('emphasisEffect', effect.id)}
                               className={cn(
                                 'relative rounded-xl border px-3 py-2.5 text-center transition-all',
-                                settings.captionAnimation === anim.id
+                                settings.emphasisEffect === effect.id
                                   ? 'border-primary bg-primary/10 ring-1 ring-primary/30'
                                   : scored.isBest
                                   ? 'border-orange-500/40 bg-orange-500/5 hover:bg-orange-500/10'
                                   : 'border-border hover:border-primary/40'
                               )}
                             >
-                              <span className={cn('text-[10px] font-medium block', scored.isBest ? 'text-orange-400 font-bold' : 'text-foreground')}>{anim.label}</span>
+                              <span className={cn('text-[10px] font-medium block', scored.isBest ? 'text-orange-400 font-bold' : 'text-foreground')}>{effect.label}</span>
                               <ScoreBadge score={scored.score} isBest={scored.isBest} />
                             </button>
                           )
                         })}
                       </div>
+                    </div>
+
+                    {/* Mots importants — auto-détectés + custom */}
+                    <div className="space-y-2">
+                      <Label className="text-xs uppercase tracking-wider text-muted-foreground">Mots importants</Label>
+                      <p className="text-[10px] text-muted-foreground">
+                        Mots en <span className="text-red-400 font-bold">rouge</span> dans les sous-titres. Auto-détectés (CAPS, mots viraux) + tes propres mots.
+                      </p>
+
+                      {/* Auto-detected words preview */}
+                      <div className="flex flex-wrap gap-1.5">
+                        <span className="text-[9px] text-muted-foreground/50 uppercase tracking-wider mr-1 self-center">Auto</span>
+                        {['CAPS', 'OMG', 'CRAZY', 'INSANE', 'WTF'].map((w) => (
+                          <span key={w} className="inline-flex items-center px-2 py-0.5 rounded-md bg-red-500/10 border border-red-500/20 text-[10px] font-bold text-red-400">
+                            {w}
+                          </span>
+                        ))}
+                        <span className="text-[9px] text-muted-foreground/40 self-center">+ mots viraux</span>
+                      </div>
+
+                      {/* Custom words */}
+                      {settings.customImportantWords.length > 0 && (
+                        <div className="flex flex-wrap gap-1.5">
+                          <span className="text-[9px] text-muted-foreground/50 uppercase tracking-wider mr-1 self-center">Custom</span>
+                          {settings.customImportantWords.map((w) => (
+                            <span key={w} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-red-500/15 border border-red-500/30 text-[10px] font-bold text-red-400">
+                              {w}
+                              <button
+                                onClick={() => setSettings((s) => ({
+                                  ...s,
+                                  customImportantWords: s.customImportantWords.filter((cw) => cw !== w),
+                                }))}
+                                className="hover:text-red-300 transition-colors"
+                              >
+                                <X className="h-2.5 w-2.5" />
+                              </button>
+                            </span>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Add custom word input */}
+                      <form
+                        className="flex gap-2"
+                        onSubmit={(e) => {
+                          e.preventDefault()
+                          const input = (e.currentTarget.elements.namedItem('newWord') as HTMLInputElement)
+                          const word = input.value.trim()
+                          if (word && !settings.customImportantWords.includes(word.toLowerCase())) {
+                            setSettings((s) => ({
+                              ...s,
+                              customImportantWords: [...s.customImportantWords, word.toLowerCase()],
+                            }))
+                            input.value = ''
+                          }
+                        }}
+                      >
+                        <input
+                          name="newWord"
+                          type="text"
+                          placeholder="Ajouter un mot..."
+                          className="flex-1 rounded-lg border border-border bg-background px-3 py-1.5 text-xs text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-1 focus:ring-primary/50"
+                        />
+                        <Button type="submit" size="sm" variant="outline" className="h-7 px-2">
+                          <Plus className="h-3.5 w-3.5" />
+                        </Button>
+                      </form>
                     </div>
 
                     <div className="space-y-2">
@@ -1095,7 +1202,7 @@ export default function EnhancePage() {
                       </div>
                       <input
                         type="range"
-                        min={2}
+                        min={1}
                         max={8}
                         step={1}
                         value={settings.wordsPerLine}
@@ -1103,7 +1210,7 @@ export default function EnhancePage() {
                         className="w-full accent-primary"
                       />
                       <div className="flex justify-between text-[10px] text-muted-foreground/60">
-                        <span>2 (gros)</span>
+                        <span>1 (un mot)</span>
                         <span>8 (compact)</span>
                       </div>
                     </div>

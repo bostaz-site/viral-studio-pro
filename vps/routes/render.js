@@ -343,6 +343,7 @@ router.post('/', async (req, res) => {
             clipStartTime,
             wordsPerLine: settings.captions.wordsPerLine || 4,
             customColors: settings.captions.customColors,
+            customImportantWords: settings.captions.customImportantWords || [],
           });
           trc(`CAPTIONS ASS generated: ${assContent ? assContent.length : 0} bytes`);
         } else {

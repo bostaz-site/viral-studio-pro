@@ -275,6 +275,7 @@ export function generateASS(wordTimestamps, options = {}) {
     clipStartTime = 0,
     wordsPerLine = 6,
     customColors = null,
+    customImportantWords = [],
     position = 'bottom',
     canvasWidth = 1080,
     canvasHeight = 1920,
@@ -313,7 +314,7 @@ export function generateASS(wordTimestamps, options = {}) {
     if (!lineWords || lineWords.length === 0) continue;
 
     if (animation && animation !== 'highlight') {
-      const lineEvents = generateAnimatedEvents(lineWords, clipStartTime, styleConfig, animation);
+      const lineEvents = generateAnimatedEvents(lineWords, clipStartTime, styleConfig, animation, customImportantWords);
       events.push(...lineEvents);
     } else {
       const event = generateKaraokeEvent(lineWords, clipStartTime, styleConfig);
@@ -445,7 +446,7 @@ export function generateAnimatedASS(wordTimestamps, options = {}) {
   const events = [];
 
   for (const lineWords of wordLines) {
-    const lineEvents = generateAnimatedEvents(lineWords, clipStartTime, styleConfig, animation);
+    const lineEvents = generateAnimatedEvents(lineWords, clipStartTime, styleConfig, animation, []);
     events.push(...lineEvents);
   }
 
@@ -455,7 +456,7 @@ export function generateAnimatedASS(wordTimestamps, options = {}) {
 /**
  * Generate animated dialogue events for a single line of words.
  */
-function generateAnimatedEvents(lineWords, clipStartTime, styleConfig, animation) {
+function generateAnimatedEvents(lineWords, clipStartTime, styleConfig, animation, customImportantWords = []) {
   if (!lineWords || lineWords.length === 0) return [];
 
   const firstWord = lineWords[0];
@@ -465,7 +466,7 @@ function generateAnimatedEvents(lineWords, clipStartTime, styleConfig, animation
 
   switch (animation) {
     case 'word-pop':
-      return generateWordPopEvents(lineWords, clipStartTime, lineStart, lineEnd);
+      return generateWordPopEvents(lineWords, clipStartTime, lineStart, lineEnd, customImportantWords);
     case 'pop':
       return generatePopEvents(lineWords, clipStartTime, lineStart, lineEnd);
     case 'bounce':
@@ -514,6 +515,36 @@ function buildLoopedTransforms(lineDurCs, cycleLenCs, builder) {
 }
 
 /**
+ * Detect if a word is "important" (should be emphasized in red).
+ * Heuristics:
+ * - ALL CAPS words (3+ letters): "CRAZY", "OMG", "WTF"
+ * - Words with exclamation marks
+ * - Common hype/viral trigger words
+ */
+const IMPORTANT_WORDS = new Set([
+  'crazy', 'insane', 'omg', 'wtf', 'bruh', 'fire', 'goat', 'goated',
+  'clutch', 'cracked', 'broken', 'destroyed', 'killed', 'dead', 'no way',
+  'impossible', 'legendary', 'epic', 'massive', 'unreal', 'sick', 'nuts',
+  'wild', 'lit', 'god', 'godlike', 'demon', 'monster', 'insane',
+  'million', 'money', 'free', 'secret', 'hack', 'exposed', 'banned',
+  'never', 'always', 'best', 'worst', 'first', 'last', 'only',
+]);
+
+function isImportantWord(rawWord, customWords = []) {
+  const clean = rawWord.replace(/[^a-zA-Z]/g, '');
+  if (clean.length === 0) return false;
+  // ALL CAPS (3+ letters)
+  if (clean.length >= 3 && clean === clean.toUpperCase()) return true;
+  // Exclamation mark
+  if (rawWord.includes('!')) return true;
+  // Known hype words
+  if (IMPORTANT_WORDS.has(clean.toLowerCase())) return true;
+  // User-defined custom important words
+  if (customWords.length > 0 && customWords.includes(clean.toLowerCase())) return true;
+  return false;
+}
+
+/**
  * Word-Pop animation: words appear one by one with a scale-up "pop" effect.
  * Like CapCut/Opus Clip's word-by-word reveal.
  *
@@ -521,10 +552,15 @@ function buildLoopedTransforms(lineDurCs, cycleLenCs, builder) {
  * in at its own timestamp using per-word override blocks {\alpha&HFF&\t(...)}.
  * This keeps all words on a single line (no overlap/stacking).
  *
+ * Important words pop in RED and slightly bigger for emphasis.
  * Uses ASS \t transforms for reliable rendering (replaces old drawtext approach).
  */
-function generateWordPopEvents(lineWords, clipStartTime, lineStart, lineEnd) {
+function generateWordPopEvents(lineWords, clipStartTime, lineStart, lineEnd, customImportantWords = []) {
   if (!lineWords || lineWords.length === 0) return [];
+
+  // Red color in ASS BGR format: &H000000FF& = pure red
+  const RED_COLOR = '\\c&H000000FF&';
+  const EMPHASIS_SCALE = '\\fscx120\\fscy120'; // 120% for important words
 
   // Build a single dialogue line where each word has its own pop-in timing
   const parts = [];
@@ -539,13 +575,24 @@ function generateWordPopEvents(lineWords, clipStartTime, lineStart, lineEnd) {
     // Escape special ASS chars in word text
     const word = w.word.replace(/\\/g, '\\\\').replace(/\{/g, '\\{').replace(/\}/g, '\\}');
 
-    // Each word: start fully transparent, then at its timestamp pop to visible + full scale
-    // \fscx70\fscy70 = start slightly smaller, \t → \fscx100\fscy100 = pop to normal
-    parts.push(
-      `{\\alpha&HFF&\\fscx70\\fscy70` +
-      `\\t(${relStartCs},${popEndCs},\\alpha&H00&\\fscx100\\fscy100)` +
-      `}${word}`
-    );
+    const important = isImportantWord(w.word, customImportantWords);
+
+    if (important) {
+      // Important word: pop in RED + bigger scale (120%)
+      parts.push(
+        `{\\alpha&HFF&\\fscx70\\fscy70` +
+        `\\t(${relStartCs},${popEndCs},\\alpha&H00&${EMPHASIS_SCALE})` +
+        `${RED_COLOR}` +
+        `}${word}`
+      );
+    } else {
+      // Normal word: standard pop to 100%
+      parts.push(
+        `{\\alpha&HFF&\\fscx70\\fscy70` +
+        `\\t(${relStartCs},${popEndCs},\\alpha&H00&\\fscx100\\fscy100)` +
+        `}${word}`
+      );
+    }
   }
 
   // Join words with spaces (space outside override blocks so ASS renders them)
