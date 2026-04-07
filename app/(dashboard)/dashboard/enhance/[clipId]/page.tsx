@@ -361,22 +361,8 @@ function LivePreview({
         75% { transform: scale(1.0); }
         100% { transform: scale(1.0); }
       }
-      @keyframes emphasisScale {
-        0% { transform: scale(1); }
-        40% { transform: scale(1.35); }
-        100% { transform: scale(1.2); }
-      }
-      @keyframes emphasisBounce {
-        0% { transform: translateY(0) scale(1); }
-        30% { transform: translateY(-40%) scale(1.15); }
-        50% { transform: translateY(0) scale(1.05); }
-        70% { transform: translateY(-15%) scale(1.1); }
-        100% { transform: translateY(0) scale(1.05); }
-      }
-      @keyframes emphasisGlow {
-        0%, 100% { text-shadow: 0 0 4px currentColor; }
-        50% { text-shadow: 0 0 12px currentColor, 0 0 24px currentColor, 0 0 36px currentColor; }
-      }
+      /* Emphasis effects use static transforms — no @keyframes to avoid
+         React key-remount + CSS animation interaction that blocks the event loop. */
     `}</style>
     <div
       className="relative w-full rounded-2xl overflow-hidden bg-black border border-white/10 shadow-2xl mx-auto transition-all duration-500"
@@ -505,12 +491,15 @@ function LivePreview({
             const word = sampleWords[activeWordIdx] || ''
             const important = isImportantWord(word)
             const emphasis = settings.emphasisEffect
-            // Build animation string: always wordPopIn, plus emphasis if important
-            let anim = 'wordPopIn 0.2s ease-out'
-            if (important && emphasis === 'scale') anim = 'emphasisScale 0.4s ease-out'
-            else if (important && emphasis === 'bounce') anim = 'emphasisBounce 0.5s ease-out'
-            else if (important && emphasis === 'glow') anim = 'emphasisGlow 0.8s ease-in-out infinite'
-            // Color emphasis: important words get bright red, others get style color
+            // Emphasis effects use STATIC transforms (not CSS @keyframes)
+            // to avoid event-loop blocking when React remounts via key change.
+            let emphasisTransform = ''
+            let emphasisShadow = ''
+            if (important && emphasis !== 'none') {
+              if (emphasis === 'scale') emphasisTransform = 'scale(1.3)'
+              else if (emphasis === 'bounce') emphasisTransform = 'translateY(-25%) scale(1.2)'
+              else if (emphasis === 'glow') emphasisShadow = '0 0 12px rgba(239,68,68,0.6), 0 0 24px rgba(239,68,68,0.3)'
+            }
             const colorClass = important
               ? 'text-red-500 text-xl'
               : cn('text-lg', captionStyle?.preview || 'text-white')
@@ -519,11 +508,12 @@ function LivePreview({
                 style={{
                   WebkitTextStroke: '1px black',
                   textShadow: important
-                    ? '2px 2px 4px rgba(0,0,0,0.8), 0 0 12px rgba(239,68,68,0.4)'
+                    ? `2px 2px 4px rgba(0,0,0,0.8), 0 0 12px rgba(239,68,68,0.4)${emphasisShadow ? ', ' + emphasisShadow : ''}`
                     : '2px 2px 4px rgba(0,0,0,0.8)',
-                  animation: anim,
+                  animation: 'wordPopIn 0.2s ease-out',
+                  transform: emphasisTransform || undefined,
                 }}
-                key={`${activeWordIdx}-${emphasis}`}
+                key={activeWordIdx}
               >
                 {word}
               </p>
@@ -536,20 +526,23 @@ function LivePreview({
               const emphasis = settings.emphasisEffect
               // Active-word transform — matches FFmpeg render exactly
               let activeTransform = ''
-              let activeAnimation = ''
               if (isActive) {
                 if (currentAnimation === 'pop') activeTransform = 'scale(1.85)'
                 else if (currentAnimation === 'bounce') activeTransform = 'translateY(-45%) scale(1.3)'
-                // Emphasis effects on important words (overrides/stacks with style animation)
+                // Emphasis effects on important words — static transforms (no @keyframes)
                 if (wordIsImportant && emphasis !== 'none') {
-                  if (emphasis === 'scale') activeAnimation = 'emphasisScale 0.4s ease-out'
-                  else if (emphasis === 'bounce') activeAnimation = 'emphasisBounce 0.5s ease-out'
-                  else if (emphasis === 'glow') activeAnimation = 'emphasisGlow 0.8s ease-in-out infinite'
+                  if (emphasis === 'scale') activeTransform = 'scale(1.5)'
+                  else if (emphasis === 'bounce') activeTransform = 'translateY(-30%) scale(1.25)'
+                  // glow handled via textShadow below
                 }
               }
               // Glow: colored text-shadow halo on active word — amplified for visibility
-              const activeTextShadow = isActive && currentAnimation === 'glow'
+              const glowFromStyle = isActive && currentAnimation === 'glow'
+              const glowFromEmphasis = isActive && wordIsImportant && emphasis === 'glow'
+              const activeTextShadow = glowFromStyle
                 ? '0 0 8px #fde047, 0 0 18px #fde047, 0 0 32px #facc15, 0 0 48px #eab308'
+                : glowFromEmphasis
+                ? '0 0 8px #ef4444, 0 0 18px #ef4444, 0 0 32px #dc2626'
                 : undefined
               // Typewriter: reveal chars progressively on active word
               const displayText = isActive && currentAnimation === 'typewriter'
@@ -567,10 +560,9 @@ function LivePreview({
                       importantColorClass,
                     )}
                     style={{
-                      transform: activeAnimation ? undefined : (activeTransform || undefined),
+                      transform: activeTransform || undefined,
                       transformOrigin: 'center bottom',
                       textShadow: activeTextShadow,
-                      animation: activeAnimation || undefined,
                     }}
                   >
                     {displayText}
