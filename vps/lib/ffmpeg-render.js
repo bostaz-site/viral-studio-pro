@@ -262,16 +262,10 @@ export async function renderClip(inputPath, outputPath, options = {}) {
   let mapVideo;
 
   if (isWordPopAnimation) {
-    // LIGHTWEIGHT PATH: black background + centered video (no split, no blur)
-    console.log('[FFmpeg] Word-pop: using lightweight black-bg compositing (no blur split)');
-    filterComplex = [
-      // Create solid black background
-      `color=c=black:s=${canvasW}x${canvasH}:r=30:d=${clipDuration},format=yuv420p[bg]`,
-      // Scale video to fit inside canvas (contain)
-      `[0:v]fps=30,scale=${canvasW}:${canvasH}:force_original_aspect_ratio=decrease,setsar=1[fg]`,
-      // Composite centered
-      `[bg][fg]overlay=(W-w)/2:(H-h)/2:shortest=1[composed]`,
-    ].join(';');
+    // LIGHTWEIGHT PATH: scale to fit + pad with black (single chain, no overlay, no split)
+    // This is the absolute minimum memory: one video stream, scaled and padded.
+    console.log('[FFmpeg] Word-pop: using ultra-light pad compositing (no split, no overlay)');
+    filterComplex = `[0:v]fps=30,scale=${canvasW}:${canvasH}:force_original_aspect_ratio=decrease,pad=${canvasW}:${canvasH}:(ow-iw)/2:(oh-ih)/2:black,setsar=1,format=yuv420p[composed]`;
     mapVideo = '[composed]';
   } else {
     // STANDARD PATH: blur-fill compositing (matches UI preview)
