@@ -509,6 +509,7 @@ router.post('/', async (req, res) => {
       tag: tagConfig,
       cropAnchor: settings.format?.cropAnchor || 'center',
       backgroundBlur: settings.format?.backgroundBlur || false,
+      videoZoom: settings.format?.videoZoom || 'fill',
       crf: settings.format?.crf || 23,
       smartZoom: settings.smartZoom?.enabled ? {
         enabled: true,

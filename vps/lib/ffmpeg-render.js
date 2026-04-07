@@ -210,6 +210,7 @@ export async function renderClip(inputPath, outputPath, options = {}) {
     crf = 23,
     timeout = 300000,
     smartZoom = null,
+    videoZoom = 'fill',
   } = options;
 
   if (!inputPath || !outputPath) {
@@ -286,10 +287,27 @@ export async function renderClip(inputPath, outputPath, options = {}) {
 
   const smartZoomActive = smartZoom && smartZoom.enabled && !shouldDisableSmartZoom;
 
+  // videoZoom: 'contain' = 100% visible, 'fill' = 130% zoom, 'immersive' = 150% zoom
+  // When zoomed, the foreground video is scaled larger than "contain" and center-cropped.
+  const zoomFactor = videoZoom === 'immersive' ? 1.5 : videoZoom === 'fill' ? 1.3 : 1.0;
+
   if (isWordPopAnimation) {
     // WORD-POP PATH: scale to fit + pad with black (no split, no blur)
-    console.log('[FFmpeg] Word-pop: pad compositing (no blur)');
-    filterComplex = `[0:v]fps=30,scale=${canvasW}:${canvasH}:force_original_aspect_ratio=decrease,pad=${canvasW}:${canvasH}:(ow-iw)/2:(oh-ih)/2:black,setsar=1,format=yuv420p[composed]`;
+    // Apply videoZoom: scale up then crop instead of pad
+    if (zoomFactor > 1.0) {
+      const zoomW = Math.round(canvasW * zoomFactor);
+      const zoomH = Math.round(canvasH * zoomFactor);
+      console.log(`[FFmpeg] Word-pop + zoom(${zoomFactor}x): scale+crop compositing`);
+      filterComplex = [
+        `[0:v]fps=30,split=2[wpfg][wpbg]`,
+        `[wpbg]scale=${Math.round(canvasW/4)}:${Math.round(canvasH/4)}:force_original_aspect_ratio=increase,crop=${Math.round(canvasW/4)}:${Math.round(canvasH/4)}:(iw-${Math.round(canvasW/4)})/2:(ih-${Math.round(canvasH/4)})/2,gblur=sigma=12,eq=brightness=-0.35:saturation=1.25:contrast=1.1,scale=${canvasW}:${canvasH}:flags=bilinear,setsar=1[wpbgout]`,
+        `[wpfg]scale=${zoomW}:${zoomH}:force_original_aspect_ratio=decrease,setsar=1[wpfgscaled]`,
+        `[wpbgout][wpfgscaled]overlay=(W-w)/2:(H-h)/2,format=yuv420p[composed]`,
+      ].join(';');
+    } else {
+      console.log('[FFmpeg] Word-pop: pad compositing (no blur)');
+      filterComplex = `[0:v]fps=30,scale=${canvasW}:${canvasH}:force_original_aspect_ratio=decrease,pad=${canvasW}:${canvasH}:(ow-iw)/2:(oh-ih)/2:black,setsar=1,format=yuv420p[composed]`;
+    }
     mapVideo = '[composed]';
   } else if (smartZoomActive) {
     // SMART ZOOM PATH: scale to COVER + center crop (no pad, no blur, no split)
@@ -300,11 +318,14 @@ export async function renderClip(inputPath, outputPath, options = {}) {
     mapVideo = '[composed]';
   } else {
     // STANDARD PATH: blur-fill compositing (matches UI preview)
-    // Only used when smart zoom is OFF (blur bg + split=2 is too heavy to combine with zoom)
+    // videoZoom scales the foreground larger so it fills more of the screen
+    const fgScaleW = Math.round(canvasW * zoomFactor);
+    const fgScaleH = Math.round(canvasH * zoomFactor);
+    console.log(`[FFmpeg] Standard blur-fill + zoom(${zoomFactor}x): fg=${fgScaleW}x${fgScaleH}`);
     filterComplex = [
       `[0:v]fps=30,split=2[srcfg][srcbg]`,
       `[srcbg]scale=${Math.round(canvasW/4)}:${Math.round(canvasH/4)}:force_original_aspect_ratio=increase,crop=${Math.round(canvasW/4)}:${Math.round(canvasH/4)}:(iw-${Math.round(canvasW/4)})/2:(ih-${Math.round(canvasH/4)})/2,gblur=sigma=12,eq=brightness=-0.35:saturation=1.25:contrast=1.1,scale=${canvasW}:${canvasH}:flags=bilinear,setsar=1[bg]`,
-      `[srcfg]scale=${canvasW}:${canvasH}:force_original_aspect_ratio=decrease,setsar=1[fg]`,
+      `[srcfg]scale=${fgScaleW}:${fgScaleH}:force_original_aspect_ratio=decrease,setsar=1[fg]`,
       `[bg][fg]overlay=(W-w)/2:(H-h)/2,format=yuv420p[composed]`,
     ].join(';');
     mapVideo = '[composed]';

@@ -33,6 +33,7 @@ const inputSchema = z.object({
     }).optional(),
     format: z.object({
       aspectRatio: z.string().optional(),
+      videoZoom: z.enum(['contain', 'fill', 'immersive']).optional(),
     }).optional(),
     smartZoom: z.object({
       enabled: z.boolean().optional(),
@@ -175,6 +176,7 @@ export const POST = withAuth(async (request, user) => {
       tag: settings?.tag ?? { style: 'none' },
       format: {
         aspectRatio: settings?.format?.aspectRatio ?? '9:16',
+        videoZoom: settings?.format?.videoZoom ?? 'fill',
       },
       smartZoom: settings?.smartZoom ?? { enabled: false, mode: 'micro' },
     },

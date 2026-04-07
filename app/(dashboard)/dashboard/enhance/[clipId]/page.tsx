@@ -46,6 +46,7 @@ interface EnhanceSettings {
   splitScreenEnabled: boolean
   brollVideo: string
   splitRatio: number
+  videoZoom: 'contain' | 'fill' | 'immersive'
   tagStyle: string
   aspectRatio: '9:16' | '1:1' | '16:9'
   smartZoomEnabled: boolean
@@ -395,38 +396,42 @@ function LivePreview({
               )
             )}
             {/* Main layer — object-contain when no split-screen (blur bg), object-cover with split */}
+            {/* videoZoom: contain=1.0, fill=1.3, immersive=1.5 — applied when no split-screen */}
             {/* Smart zoom animation applied when enabled */}
-            {videoUrl ? (
-              <video
-                key={videoUrl}
-                src={videoUrl}
-                className={cn(
-                  'relative w-full h-full z-[1]',
-                  showEnhancements && settings.splitScreenEnabled ? 'object-cover' : 'object-contain'
-                )}
-                style={showEnhancements && settings.smartZoomEnabled ? {
-                  animation: settings.smartZoomMode === 'dynamic'
-                    ? 'smartZoomDynamic 4s ease-in-out infinite'
-                    : 'smartZoomMicro 5s ease-in-out infinite',
-                } : undefined}
-                autoPlay loop muted playsInline
-              />
-            ) : (
-              <img
-                src={clip.thumbnail_url!}
-                alt={clip.title ?? 'Clip'}
-                className={cn(
-                  'relative w-full h-full z-[1]',
-                  showEnhancements && settings.splitScreenEnabled ? 'object-cover' : 'object-contain',
-                  !(showEnhancements && settings.smartZoomEnabled) && 'animate-[kenburns_20s_ease-in-out_infinite_alternate]'
-                )}
-                style={showEnhancements && settings.smartZoomEnabled ? {
-                  animation: settings.smartZoomMode === 'dynamic'
-                    ? 'smartZoomDynamic 4s ease-in-out infinite'
-                    : 'smartZoomMicro 5s ease-in-out infinite',
-                } : undefined}
-              />
-            )}
+            {(() => {
+              const isSplit = showEnhancements && settings.splitScreenEnabled
+              const zoomScale = !isSplit && showEnhancements && settings.videoZoom !== 'contain'
+                ? (settings.videoZoom === 'immersive' ? 1.5 : 1.3)
+                : undefined
+              const objectFit = isSplit || zoomScale ? 'object-cover' : 'object-contain'
+              const smartZoomStyle = showEnhancements && settings.smartZoomEnabled ? {
+                animation: settings.smartZoomMode === 'dynamic'
+                  ? 'smartZoomDynamic 4s ease-in-out infinite'
+                  : 'smartZoomMicro 5s ease-in-out infinite',
+              } : {}
+              const zoomStyle = zoomScale ? { transform: `scale(${zoomScale})` } : {}
+              const combinedStyle = { ...smartZoomStyle, ...zoomStyle }
+              return videoUrl ? (
+                <video
+                  key={videoUrl}
+                  src={videoUrl}
+                  className={cn('relative w-full h-full z-[1] transition-transform duration-500', objectFit)}
+                  style={Object.keys(combinedStyle).length ? combinedStyle : undefined}
+                  autoPlay loop muted playsInline
+                />
+              ) : (
+                <img
+                  src={clip.thumbnail_url!}
+                  alt={clip.title ?? 'Clip'}
+                  className={cn(
+                    'relative w-full h-full z-[1] transition-transform duration-500',
+                    objectFit,
+                    !(showEnhancements && settings.smartZoomEnabled) && !zoomScale && 'animate-[kenburns_20s_ease-in-out_infinite_alternate]'
+                  )}
+                  style={Object.keys(combinedStyle).length ? combinedStyle : undefined}
+                />
+              )
+            })()}
           </>
         ) : (
           <div className="w-full h-full bg-gradient-to-br from-slate-800 to-slate-900 flex items-center justify-center">
@@ -632,6 +637,7 @@ export default function EnhancePage() {
     splitScreenEnabled: true,
     brollVideo: 'subway-surfers',
     splitRatio: 60,
+    videoZoom: 'fill',
     tagStyle: 'badge-top',
     aspectRatio: '9:16',
     smartZoomEnabled: false,
@@ -839,6 +845,7 @@ export default function EnhancePage() {
             },
             format: {
               aspectRatio: settings.aspectRatio,
+              videoZoom: settings.videoZoom,
             },
             smartZoom: {
               enabled: settings.smartZoomEnabled,
@@ -1319,6 +1326,34 @@ export default function EnhancePage() {
                         step={5}
                         className="accent-orange-500 [&::-webkit-slider-thumb]:bg-orange-500 [&::-webkit-slider-thumb]:border-orange-400 [&::-webkit-slider-thumb]:w-5 [&::-webkit-slider-thumb]:h-5 [&::-webkit-slider-thumb]:shadow-lg [&::-webkit-slider-thumb]:shadow-orange-500/30 [&::-moz-range-thumb]:bg-orange-500 [&::-moz-range-thumb]:border-orange-400 [&::-moz-range-thumb]:w-5 [&::-moz-range-thumb]:h-5 h-2 bg-orange-500/20"
                       />
+                    </div>
+                    )}
+
+                    {settings.brollVideo === 'none' && (
+                    <div className="space-y-2">
+                      <Label className="text-xs uppercase tracking-wider text-muted-foreground">Cadrage vidéo</Label>
+                      <p className="text-[10px] text-muted-foreground">Zoom sur la vidéo — fond flou visible autour</p>
+                      <div className="grid grid-cols-3 gap-2">
+                        {([
+                          { id: 'contain' as const, label: 'Contenir', desc: '100% visible' },
+                          { id: 'fill' as const, label: 'Remplir', desc: '~130% zoom' },
+                          { id: 'immersive' as const, label: 'Immersif', desc: '~150% zoom' },
+                        ]).map((opt) => (
+                          <button
+                            key={opt.id}
+                            onClick={() => updateSetting('videoZoom', opt.id)}
+                            className={cn(
+                              'relative rounded-xl border p-3 transition-all text-left',
+                              settings.videoZoom === opt.id
+                                ? 'border-primary bg-primary/10 ring-1 ring-primary/30'
+                                : 'border-border hover:border-primary/40'
+                            )}
+                          >
+                            <span className="text-xs font-semibold block">{opt.label}</span>
+                            <span className="text-[10px] text-muted-foreground">{opt.desc}</span>
+                          </button>
+                        ))}
+                      </div>
                     </div>
                     )}
                   </CardContent>
