@@ -397,28 +397,56 @@ function LivePreview({
                 />
               )
             )}
-            {/* Main layer — object-contain when no split-screen (blur bg), object-cover with split */}
-            {/* videoZoom: contain=1.0, fill=1.3, immersive=1.5 — applied when no split-screen */}
-            {/* Smart zoom animation applied when enabled */}
+            {/* Main video layer — zoom controls how much of the frame the video fills */}
+            {/* Contenir: object-contain full size, Remplir: object-cover 85%, Immersif: object-cover 94% */}
             {(() => {
               const isSplit = showEnhancements && settings.splitScreenEnabled
-              const zoomScale = !isSplit && showEnhancements && settings.videoZoom !== 'contain'
-                ? (settings.videoZoom === 'immersive' ? 1.15 : 1.08)
-                : undefined
-              const objectFit = isSplit || zoomScale ? 'object-cover' : 'object-contain'
+              const isZoomed = !isSplit && showEnhancements && settings.videoZoom !== 'contain'
               const smartZoomStyle = showEnhancements && settings.smartZoomEnabled ? {
                 animation: settings.smartZoomMode === 'dynamic'
                   ? 'smartZoomDynamic 4s ease-in-out infinite'
                   : 'smartZoomMicro 5s ease-in-out infinite',
               } : {}
-              const zoomStyle = zoomScale ? { transform: `scale(${zoomScale})` } : {}
-              const combinedStyle = { ...smartZoomStyle, ...zoomStyle }
+
+              // Zoom: video in a sub-container that's smaller than the frame
+              // object-cover fills the sub-container, blur visible in remaining space
+              if (isZoomed) {
+                const pct = settings.videoZoom === 'immersive' ? 94 : 85
+                const offset = (100 - pct) / 2
+                return videoUrl ? (
+                  <video
+                    key={videoUrl}
+                    src={videoUrl}
+                    className="absolute object-cover z-[1] transition-all duration-500 rounded-sm"
+                    style={{
+                      width: `${pct}%`, height: `${pct}%`,
+                      top: `${offset}%`, left: `${offset}%`,
+                      ...smartZoomStyle,
+                    }}
+                    autoPlay loop muted playsInline
+                  />
+                ) : (
+                  <img
+                    src={clip.thumbnail_url!}
+                    alt={clip.title ?? 'Clip'}
+                    className="absolute object-cover z-[1] transition-all duration-500 rounded-sm"
+                    style={{
+                      width: `${pct}%`, height: `${pct}%`,
+                      top: `${offset}%`, left: `${offset}%`,
+                      ...smartZoomStyle,
+                    }}
+                  />
+                )
+              }
+
+              // Contain or split-screen
+              const objectFit = isSplit ? 'object-cover' : 'object-contain'
               return videoUrl ? (
                 <video
                   key={videoUrl}
                   src={videoUrl}
-                  className={cn('relative w-full h-full z-[1] transition-transform duration-500', objectFit)}
-                  style={Object.keys(combinedStyle).length ? combinedStyle : undefined}
+                  className={cn('relative w-full h-full z-[1] transition-all duration-500', objectFit)}
+                  style={Object.keys(smartZoomStyle).length ? smartZoomStyle : undefined}
                   autoPlay loop muted playsInline
                 />
               ) : (
@@ -426,11 +454,11 @@ function LivePreview({
                   src={clip.thumbnail_url!}
                   alt={clip.title ?? 'Clip'}
                   className={cn(
-                    'relative w-full h-full z-[1] transition-transform duration-500',
+                    'relative w-full h-full z-[1] transition-all duration-500',
                     objectFit,
-                    !(showEnhancements && settings.smartZoomEnabled) && !zoomScale && 'animate-[kenburns_20s_ease-in-out_infinite_alternate]'
+                    !(showEnhancements && settings.smartZoomEnabled) && 'animate-[kenburns_20s_ease-in-out_infinite_alternate]'
                   )}
-                  style={Object.keys(combinedStyle).length ? combinedStyle : undefined}
+                  style={Object.keys(smartZoomStyle).length ? smartZoomStyle : undefined}
                 />
               )
             })()}
@@ -1338,8 +1366,8 @@ export default function EnhancePage() {
                       <div className="grid grid-cols-3 gap-2">
                         {([
                           { id: 'contain' as const, label: 'Contenir', desc: '100% visible' },
-                          { id: 'fill' as const, label: 'Remplir', desc: '~108% zoom' },
-                          { id: 'immersive' as const, label: 'Immersif', desc: '~115% zoom' },
+                          { id: 'fill' as const, label: 'Remplir', desc: '85% du cadre' },
+                          { id: 'immersive' as const, label: 'Immersif', desc: '94% du cadre' },
                         ]).map((opt) => (
                           <button
                             key={opt.id}
