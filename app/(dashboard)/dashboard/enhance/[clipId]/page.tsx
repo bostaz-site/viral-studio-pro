@@ -237,12 +237,14 @@ function LivePreview({
   settings,
   showEnhancements,
   isRenderedVideo,
+  renderedThumbnailUrl,
 }: {
   clip: TrendingClipData
   videoUrl: string | null
   settings: EnhanceSettings
   showEnhancements: boolean
   isRenderedVideo: boolean
+  renderedThumbnailUrl: string | null
 }) {
   const broll = BROLL_OPTIONS.find((b) => b.id === settings.brollVideo)
   const captionStyle = CAPTION_STYLES.find((s) => s.id === settings.captionStyle)
@@ -279,17 +281,36 @@ function LivePreview({
   }, [activeWordIdx, settings.captionAnimation, sampleWords])
 
   // ── Rendered video: show as-is, no CSS effects (everything is baked in) ──
+  const [renderedVideoReady, setRenderedVideoReady] = useState(false)
   if (isRenderedVideo && videoUrl) {
     return (
       <div
         className="relative w-full rounded-2xl overflow-hidden bg-black border border-white/10 shadow-2xl mx-auto transition-all duration-500"
         style={{ aspectRatio: '9/16', maxWidth: 280 }}
       >
+        {/* Show thumbnail as poster while video loads */}
+        {renderedThumbnailUrl && !renderedVideoReady && (
+          <img
+            src={renderedThumbnailUrl}
+            alt="Rendered clip preview"
+            className="absolute inset-0 w-full h-full object-contain z-[1]"
+          />
+        )}
+        {/* Loading spinner overlay */}
+        {!renderedVideoReady && (
+          <div className="absolute inset-0 flex items-center justify-center z-[2]">
+            <div className="bg-black/60 rounded-full p-3">
+              <Loader2 className="h-6 w-6 text-white animate-spin" />
+            </div>
+          </div>
+        )}
         <video
           key={videoUrl}
           src={videoUrl}
-          className="w-full h-full object-contain"
+          className={cn('w-full h-full object-contain', !renderedVideoReady && 'opacity-0')}
           autoPlay loop muted playsInline
+          poster={renderedThumbnailUrl || undefined}
+          onCanPlay={() => setRenderedVideoReady(true)}
         />
       </div>
     )
@@ -523,6 +544,7 @@ export default function EnhancePage() {
   const [renderDownloadUrl, setRenderDownloadUrl] = useState<string | null>(null)
   const [renderJobId, setRenderJobId] = useState<string | null>(null)
   const [isRenderedVideo, setIsRenderedVideo] = useState(false)
+  const [renderedThumbnailUrl, setRenderedThumbnailUrl] = useState<string | null>(null)
   const [originalVideoUrl, setOriginalVideoUrl] = useState<string | null>(null)
   const pollRef = useRef<NodeJS.Timeout | null>(null)
   const [showEnhancements, setShowEnhancements] = useState(true)
@@ -666,7 +688,7 @@ export default function EnhancePage() {
       try {
         const res = await fetch(`/api/render/status?jobId=${jobId}`)
         const json = await res.json() as {
-          data: { status: string; downloadUrl?: string | null; publicUrl?: string | null; errorMessage?: string | null } | null
+          data: { status: string; downloadUrl?: string | null; publicUrl?: string | null; thumbnailUrl?: string | null; errorMessage?: string | null } | null
           message: string
         }
 
@@ -681,6 +703,9 @@ export default function EnhancePage() {
             setOriginalVideoUrl(videoUrl)
             setVideoUrl(json.data.publicUrl)
             setIsRenderedVideo(true)
+            if (json.data.thumbnailUrl) {
+              setRenderedThumbnailUrl(json.data.thumbnailUrl)
+            }
           }
           setRenderMessage('✅ Clip rendu avec sous-titres ! Regarde la preview ci-dessus.')
           setRendering(false)
@@ -869,7 +894,7 @@ export default function EnhancePage() {
           </div>
 
           {/* ── Preview ── */}
-          <LivePreview clip={clip} videoUrl={videoUrl} settings={settings} showEnhancements={showEnhancements} isRenderedVideo={isRenderedVideo} />
+          <LivePreview clip={clip} videoUrl={videoUrl} settings={settings} showEnhancements={showEnhancements} isRenderedVideo={isRenderedVideo} renderedThumbnailUrl={renderedThumbnailUrl} />
 
           {/* Generate button — orange, always visible with preview */}
           <Button

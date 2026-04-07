@@ -41,6 +41,7 @@ export const GET = withAuth(async (request: NextRequest, user) => {
   // If done, generate a signed URL for download AND a public URL for preview
   let downloadUrl: string | null = null
   let publicUrl: string | null = null
+  let thumbnailUrl: string | null = null
   if (job.status === 'done' && job.storage_path) {
     const { data: signedData } = await admin.storage
       .from('clips')
@@ -53,6 +54,13 @@ export const GET = withAuth(async (request: NextRequest, user) => {
       .from('clips')
       .getPublicUrl(job.storage_path)
     publicUrl = pubData?.publicUrl ?? null
+
+    // Get thumbnail URL (extracted from rendered output) — used as poster frame while video loads
+    const thumbPath = job.storage_path.replace(/\.mp4$/, '_thumb.png')
+    const { data: thumbData } = admin.storage
+      .from('thumbnails')
+      .getPublicUrl(thumbPath)
+    thumbnailUrl = thumbData?.publicUrl ?? null
   }
 
   return NextResponse.json({
@@ -62,6 +70,7 @@ export const GET = withAuth(async (request: NextRequest, user) => {
       storagePath: job.storage_path,
       downloadUrl,
       publicUrl,
+      thumbnailUrl,
       errorMessage: job.error_message,
       createdAt: job.created_at,
       updatedAt: job.updated_at,
