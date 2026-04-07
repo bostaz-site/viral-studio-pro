@@ -255,26 +255,39 @@ export async function renderClip(inputPath, outputPath, options = {}) {
     console.log('[FFmpeg] Word-pop animation detected: disabling smart zoom to prevent OOM');
   }
 
-  // Blur-fill compositing (matches UI preview exactly when no split-screen):
-  //   - Background: same video scaled to COVER the canvas, heavily blurred,
-  //     brightness reduced 50% (Tailwind: blur-xl brightness-50).
-  //   - Foreground: same video scaled to FIT inside canvas (object-contain),
-  //     centered. This preserves the full source frame, no content cropped.
-  // This is exactly what the LivePreview component shows users.
-  const filterComplex_raw = [
-    `[0:v]fps=30,split=2[srcfg][srcbg]`,
-    // Background: cover + blur + brightness down + darken
-    // Blur at 1/4 resolution then upscale — ~16x less memory for the blur pass,
-    // visually indistinguishable since the output is heavily blurred anyway.
-    `[srcbg]scale=${Math.round(canvasW/4)}:${Math.round(canvasH/4)}:force_original_aspect_ratio=increase,crop=${Math.round(canvasW/4)}:${Math.round(canvasH/4)}:(iw-${Math.round(canvasW/4)})/2:(ih-${Math.round(canvasH/4)})/2,gblur=sigma=12,eq=brightness=-0.35:saturation=1.25:contrast=1.1,scale=${canvasW}:${canvasH}:flags=bilinear,setsar=1[bg]`,
-    // Foreground: fit inside canvas (contain), preserve full frame
-    `[srcfg]scale=${canvasW}:${canvasH}:force_original_aspect_ratio=decrease,setsar=1[fg]`,
-    // Composite fg over bg, centered — force yuv420p early to halve per-frame
-    // memory for all downstream filters (smart zoom, ASS subtitles, tags).
-    `[bg][fg]overlay=(W-w)/2:(H-h)/2,format=yuv420p[composed]`,
-  ].join(';');
-  let filterComplex = filterComplex_raw;
-  let mapVideo = '[composed]';
+  // Compositing: blur-fill background + centered foreground
+  // For word-pop: skip blur (split=2 doubles RAM) — use black bg + centered video instead.
+  // This halves memory usage and prevents SIGABRT/OOM on Railway.
+  let filterComplex;
+  let mapVideo;
+
+  if (isWordPopAnimation) {
+    // LIGHTWEIGHT PATH: black background + centered video (no split, no blur)
+    console.log('[FFmpeg] Word-pop: using lightweight black-bg compositing (no blur split)');
+    filterComplex = [
+      // Create solid black background
+      `color=c=black:s=${canvasW}x${canvasH}:r=30:d=${clipDuration},format=yuv420p[bg]`,
+      // Scale video to fit inside canvas (contain)
+      `[0:v]fps=30,scale=${canvasW}:${canvasH}:force_original_aspect_ratio=decrease,setsar=1[fg]`,
+      // Composite centered
+      `[bg][fg]overlay=(W-w)/2:(H-h)/2:shortest=1[composed]`,
+    ].join(';');
+    mapVideo = '[composed]';
+  } else {
+    // STANDARD PATH: blur-fill compositing (matches UI preview)
+    //   - Background: same video scaled to COVER the canvas, heavily blurred
+    //   - Foreground: same video scaled to FIT inside canvas (object-contain)
+    filterComplex = [
+      `[0:v]fps=30,split=2[srcfg][srcbg]`,
+      // Background: blur at 1/4 resolution then upscale (16x less memory)
+      `[srcbg]scale=${Math.round(canvasW/4)}:${Math.round(canvasH/4)}:force_original_aspect_ratio=increase,crop=${Math.round(canvasW/4)}:${Math.round(canvasH/4)}:(iw-${Math.round(canvasW/4)})/2:(ih-${Math.round(canvasH/4)})/2,gblur=sigma=12,eq=brightness=-0.35:saturation=1.25:contrast=1.1,scale=${canvasW}:${canvasH}:flags=bilinear,setsar=1[bg]`,
+      // Foreground: fit inside canvas (contain), preserve full frame
+      `[srcfg]scale=${canvasW}:${canvasH}:force_original_aspect_ratio=decrease,setsar=1[fg]`,
+      // Composite fg over bg, centered
+      `[bg][fg]overlay=(W-w)/2:(H-h)/2,format=yuv420p[composed]`,
+    ].join(';');
+    mapVideo = '[composed]';
+  }
 
   // Smart Zoom (applied on composed output, BEFORE captions/tags so they stay crisp)
   // DISABLED if word-pop animation is active (memory protection)
