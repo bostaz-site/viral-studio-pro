@@ -286,13 +286,17 @@ export async function renderClip(inputPath, outputPath, options = {}) {
 
   const smartZoomActive = smartZoom && smartZoom.enabled && !shouldDisableSmartZoom;
 
-  if (isWordPopAnimation || smartZoomActive) {
-    // LIGHTWEIGHT PATH: scale to fit + pad with black (no split, no blur, no overlay)
-    // Used for: word-pop (always) and when smart zoom is on (blur+zoom together = OOM).
-    // Single chain = minimum memory, leaves headroom for scale(eval=frame) zoom.
-    const reason = isWordPopAnimation ? 'word-pop' : 'smart-zoom-active';
-    console.log(`[FFmpeg] Using pad compositing (${reason}) — no blur bg to save memory`);
+  if (isWordPopAnimation) {
+    // WORD-POP PATH: scale to fit + pad with black (no split, no blur)
+    console.log('[FFmpeg] Word-pop: pad compositing (no blur)');
     filterComplex = `[0:v]fps=30,scale=${canvasW}:${canvasH}:force_original_aspect_ratio=decrease,pad=${canvasW}:${canvasH}:(ow-iw)/2:(oh-ih)/2:black,setsar=1,format=yuv420p[composed]`;
+    mapVideo = '[composed]';
+  } else if (smartZoomActive) {
+    // SMART ZOOM PATH: scale to COVER + center crop (no pad, no blur, no split)
+    // Must use "increase" (cover) not "decrease" (contain) so the video fills the
+    // entire canvas with real pixels. With pad/contain, zoom exposes black bars at edges.
+    console.log('[FFmpeg] Smart zoom: cover+crop compositing (no blur, no black bars)');
+    filterComplex = `[0:v]fps=30,scale=${canvasW}:${canvasH}:force_original_aspect_ratio=increase,crop=${canvasW}:${canvasH}:(iw-${canvasW})/2:(ih-${canvasH})/2,setsar=1,format=yuv420p[composed]`;
     mapVideo = '[composed]';
   } else {
     // STANDARD PATH: blur-fill compositing (matches UI preview)
