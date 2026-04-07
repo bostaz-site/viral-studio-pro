@@ -274,7 +274,9 @@ function LivePreview({
   // Each word is displayed active for ~400ms (matches typical Whisper timestamps),
   // then yields to the next word. The active word gets the STATIC peak-state transform
   // (scale/lift/halo) — no CSS loop animation — exactly like each PNG in the render.
-  const sampleWords = ['This', 'is', 'CRAZY', 'bro', 'let\'s', 'go']
+  const allSampleWords = useMemo(() => ['This', 'is', 'CRAZY', 'bro', 'let\'s', 'go'], [])
+  // Show only wordsPerLine words in the preview to reflect the setting
+  const sampleWords = useMemo(() => allSampleWords.slice(0, Math.max(1, settings.wordsPerLine)), [allSampleWords, settings.wordsPerLine])
   const [activeWordIdx, setActiveWordIdx] = useState(0)
   const [typewriterLen, setTypewriterLen] = useState(0)
 
@@ -346,8 +348,19 @@ function LivePreview({
         0%, 100% { box-shadow: 0 0 15px rgba(249, 115, 22, 0.3); }
         50% { box-shadow: 0 0 25px rgba(249, 115, 22, 0.5), 0 0 50px rgba(249, 115, 22, 0.15); }
       }
-      /* No keyframe loops — active-word styles are static snap transitions,
-         matching the per-word PNG baking done by the FFmpeg render. */
+      @keyframes smartZoomMicro {
+        0%, 100% { transform: scale(1.02); }
+        50% { transform: scale(1.10); }
+      }
+      @keyframes smartZoomDynamic {
+        0% { transform: scale(1.0); }
+        15% { transform: scale(1.18); }
+        25% { transform: scale(1.0); }
+        50% { transform: scale(1.0); }
+        65% { transform: scale(1.18); }
+        75% { transform: scale(1.0); }
+        100% { transform: scale(1.0); }
+      }
     `}</style>
     <div
       className="relative w-full rounded-2xl overflow-hidden bg-black border border-white/10 shadow-2xl mx-auto transition-all duration-500"
@@ -382,6 +395,7 @@ function LivePreview({
               )
             )}
             {/* Main layer — object-contain when no split-screen (blur bg), object-cover with split */}
+            {/* Smart zoom animation applied when enabled */}
             {videoUrl ? (
               <video
                 key={videoUrl}
@@ -390,6 +404,11 @@ function LivePreview({
                   'relative w-full h-full z-[1]',
                   showEnhancements && settings.splitScreenEnabled ? 'object-cover' : 'object-contain'
                 )}
+                style={showEnhancements && settings.smartZoomEnabled ? {
+                  animation: settings.smartZoomMode === 'dynamic'
+                    ? 'smartZoomDynamic 4s ease-in-out infinite'
+                    : 'smartZoomMicro 5s ease-in-out infinite',
+                } : undefined}
                 autoPlay loop muted playsInline
               />
             ) : (
@@ -397,9 +416,15 @@ function LivePreview({
                 src={clip.thumbnail_url!}
                 alt={clip.title ?? 'Clip'}
                 className={cn(
-                  'relative w-full h-full animate-[kenburns_20s_ease-in-out_infinite_alternate] z-[1]',
-                  showEnhancements && settings.splitScreenEnabled ? 'object-cover' : 'object-contain'
+                  'relative w-full h-full z-[1]',
+                  showEnhancements && settings.splitScreenEnabled ? 'object-cover' : 'object-contain',
+                  !(showEnhancements && settings.smartZoomEnabled) && 'animate-[kenburns_20s_ease-in-out_infinite_alternate]'
                 )}
+                style={showEnhancements && settings.smartZoomEnabled ? {
+                  animation: settings.smartZoomMode === 'dynamic'
+                    ? 'smartZoomDynamic 4s ease-in-out infinite'
+                    : 'smartZoomMicro 5s ease-in-out infinite',
+                } : undefined}
               />
             )}
           </>
@@ -443,8 +468,8 @@ function LivePreview({
         </>
       )}
 
-      {/* Karaoke subtitle preview */}
-      {showEnhancements && settings.captionsEnabled && (
+      {/* Karaoke subtitle preview — hidden when style is 'none' */}
+      {showEnhancements && settings.captionsEnabled && settings.captionStyle !== 'none' && (
         <div
           className={cn(
             'absolute left-1/2 -translate-x-1/2 z-20 rounded-lg px-3 py-1.5 max-w-[85%] transition-all duration-500',
@@ -455,15 +480,17 @@ function LivePreview({
           style={{
             top: settings.captionPosition === 'top' ? '8%'
               : settings.captionPosition === 'middle' ? (settings.splitScreenEnabled ? `${settings.splitRatio / 2}%` : '42%')
-              : settings.splitScreenEnabled ? `${settings.splitRatio - 10}%` : '72%',
+              : settings.splitScreenEnabled ? `${settings.splitRatio - 6}%` : '72%',
           }}
         >
           {/* Word Pop mode: show ONLY the active word, large, with pop animation */}
-          {/* Important words appear in RED + bigger (matches FFmpeg render) */}
+          {/* Important words appear in RED + bigger; normal words use the style color */}
           {currentAnimation === 'word-pop' ? (
             <p className={cn(
               'font-black text-center uppercase tracking-wide',
-              isImportantWord(sampleWords[activeWordIdx] || '') ? 'text-xl text-red-500' : 'text-lg text-white'
+              isImportantWord(sampleWords[activeWordIdx] || '')
+                ? 'text-xl text-red-500'
+                : cn('text-lg', captionStyle?.preview || 'text-white')
             )}
               style={{
                 WebkitTextStroke: '1px black',
