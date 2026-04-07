@@ -271,10 +271,12 @@ function LivePreview({
   }, [IMPORTANT_WORDS_SET])
 
   // Sample caption sequence — cycles word-by-word to mirror FFmpeg render behavior.
+  // Each word is displayed active for ~400ms (matches typical Whisper timestamps),
+  // then yields to the next word. The active word gets the STATIC peak-state transform
+  // (scale/lift/halo) — no CSS loop animation — exactly like each PNG in the render.
   const allSampleWords = useMemo(() => ['This', 'is', 'CRAZY', 'bro', 'let\'s', 'go'], [])
+  // Show only wordsPerLine words in the preview to reflect the setting
   const sampleWords = useMemo(() => allSampleWords.slice(0, Math.max(1, settings.wordsPerLine)), [allSampleWords, settings.wordsPerLine])
-
-  // Emphasis effect is read inline in JSX — no IIFE to avoid event-loop blocking
   const [activeWordIdx, setActiveWordIdx] = useState(0)
   const [typewriterLen, setTypewriterLen] = useState(0)
 
@@ -483,33 +485,40 @@ function LivePreview({
               : settings.splitScreenEnabled ? `${settings.splitRatio - 6}%` : '72%',
           }}
         >
-          {/* Word Pop mode: show ONLY the active word with emphasis effects */}
-          {currentAnimation === 'word-pop' ? (
-            <p className={cn(
-              'font-black text-center uppercase tracking-wide',
-              isImportantWord(sampleWords[activeWordIdx] || '')
-                ? 'text-xl text-red-500'
-                : cn('text-lg', captionStyle?.preview || 'text-white')
-            )}
-              style={{
-                WebkitTextStroke: '1px black',
-                textShadow: isImportantWord(sampleWords[activeWordIdx] || '')
-                  ? '2px 2px 4px rgba(0,0,0,0.8), 0 0 12px rgba(239,68,68,0.4)'
-                    + (isImportantWord(sampleWords[activeWordIdx] || '') && settings.emphasisEffect === 'glow'
-                      ? ', 0 0 12px rgba(239,68,68,0.6), 0 0 24px rgba(239,68,68,0.3)' : '')
-                  : '2px 2px 4px rgba(0,0,0,0.8)',
-                animation: 'wordPopIn 0.2s ease-out',
-                transform: isImportantWord(sampleWords[activeWordIdx] || '') && settings.emphasisEffect === 'scale'
-                  ? 'scale(1.3)'
-                  : isImportantWord(sampleWords[activeWordIdx] || '') && settings.emphasisEffect === 'bounce'
-                  ? 'translateY(-25%) scale(1.2)'
-                  : undefined,
-              }}
-              key={activeWordIdx}
-            >
-              {sampleWords[activeWordIdx] || ''}
-            </p>
-          ) : (
+          {/* Word Pop mode: show ONLY the active word, large, with pop animation */}
+          {/* Important words get emphasis effect (bounce/scale/glow/color) + red color */}
+          {currentAnimation === 'word-pop' ? (() => {
+            const word = sampleWords[activeWordIdx] || ''
+            const important = isImportantWord(word)
+            const emphasis = settings.emphasisEffect
+            // Emphasis effects use STATIC transforms (not CSS @keyframes)
+            // to avoid event-loop blocking when React remounts via key change.
+            let emphasisTransform = ''
+            let emphasisShadow = ''
+            if (important && emphasis !== 'none') {
+              if (emphasis === 'scale') emphasisTransform = 'scale(1.3)'
+              else if (emphasis === 'bounce') emphasisTransform = 'translateY(-25%) scale(1.2)'
+              else if (emphasis === 'glow') emphasisShadow = '0 0 12px rgba(239,68,68,0.6), 0 0 24px rgba(239,68,68,0.3)'
+            }
+            const colorClass = important
+              ? 'text-red-500 text-xl'
+              : cn('text-lg', captionStyle?.preview || 'text-white')
+            return (
+              <p className={cn('font-black text-center uppercase tracking-wide', colorClass)}
+                style={{
+                  WebkitTextStroke: '1px black',
+                  textShadow: important
+                    ? `2px 2px 4px rgba(0,0,0,0.8), 0 0 12px rgba(239,68,68,0.4)${emphasisShadow ? ', ' + emphasisShadow : ''}`
+                    : '2px 2px 4px rgba(0,0,0,0.8)',
+                  animation: 'wordPopIn 0.2s ease-out',
+                  transform: emphasisTransform || undefined,
+                }}
+                key={activeWordIdx}
+              >
+                {word}
+              </p>
+            )
+          })() : (
           <p className={cn('text-sm text-center', captionStyle?.preview)}>
             {sampleWords.map((word, i) => {
               const isActive = i === activeWordIdx
