@@ -368,8 +368,10 @@ export async function renderClip(inputPath, outputPath, options = {}) {
   args.push('-filter_threads', '1');
   args.push('-filter_complex_threads', '1');
   args.push('-crf', String(crf));
+  args.push('-maxrate', '2M');         // Cap bitrate for faster streaming from Supabase
+  args.push('-bufsize', '4M');
   args.push('-c:a', 'aac');
-  args.push('-b:a', '128k');          // Slightly lower audio bitrate to save memory
+  args.push('-b:a', '96k');           // Lower audio bitrate to save size
   args.push('-movflags', '+faststart');
   args.push('-pix_fmt', 'yuv420p');
   args.push('-max_muxing_queue_size', '256'); // Limit muxer buffer to prevent OOM
@@ -554,9 +556,11 @@ async function renderSplitScreen(inputPath, outputPath, opts) {
   args.push('-threads', '1');            // Single thread to reduce memory footprint
   args.push('-filter_threads', '1');
   args.push('-filter_complex_threads', '1');
-  args.push('-crf', String(Math.max(crf, 26))); // Higher CRF for split-screen to save memory
+  args.push('-crf', String(Math.max(crf, 28))); // Higher CRF for split-screen to save memory + size
+  args.push('-maxrate', '1.5M');         // Cap bitrate for faster streaming from Supabase
+  args.push('-bufsize', '3M');
   args.push('-c:a', 'aac');
-  args.push('-b:a', '128k');
+  args.push('-b:a', '96k');
   args.push('-max_muxing_queue_size', '256'); // Limit muxer buffer to prevent OOM
   args.push('-movflags', '+faststart');
   args.push('-pix_fmt', 'yuv420p');
