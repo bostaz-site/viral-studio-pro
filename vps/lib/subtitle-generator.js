@@ -545,62 +545,47 @@ function isImportantWord(rawWord, customWords = []) {
 }
 
 /**
- * Word-Pop animation: words appear one by one with a scale-up "pop" effect.
- * Like CapCut/Opus Clip's word-by-word reveal.
+ * Word-Pop animation: words appear one by one, centered on screen.
  *
- * Strategy: ONE dialogue event per line. Each word starts transparent and pops
- * in at its own timestamp using per-word override blocks {\alpha&HFF&\t(...)}.
- * This keeps all words on a single line (no overlap/stacking).
+ * Strategy: ONE separate Dialogue event per word with precise start/end timing.
+ * Each word is visible only during its own time window — no \t transforms,
+ * no per-word override blocks. This avoids libass memory corruption that
+ * caused SIGABRT/SIGSEGV on Railway with complex \t chains.
  *
- * Important words pop in RED and slightly bigger for emphasis.
- * Uses ASS \t transforms for reliable rendering (replaces old drawtext approach).
+ * Important words render in RED and at 120% scale for emphasis.
+ * Uses \an5 (middle-center) alignment so each word appears alone, centered.
  */
 function generateWordPopEvents(lineWords, clipStartTime, lineStart, lineEnd, customImportantWords = []) {
   if (!lineWords || lineWords.length === 0) return [];
 
-  // Red color in ASS BGR format: &H000000FF& = pure red
-  const RED_COLOR = '\\c&H000000FF&';
-  const EMPHASIS_SCALE = '\\fscx120\\fscy120'; // 120% for important words
-
-  // Build a single dialogue line where each word has its own pop-in timing
-  const parts = [];
+  const events = [];
 
   for (let i = 0; i < lineWords.length; i++) {
     const w = lineWords[i];
     const wordStart = Math.max(0, w.start - clipStartTime);
-    // Offset relative to the line start (in centiseconds for \t)
-    const relStartCs = Math.max(0, Math.round((wordStart - lineStart) * 100));
-    const popEndCs = relStartCs + 8; // 80ms pop-in duration
+    // Word stays visible until next word starts (or line ends for last word)
+    const nextStart = (i < lineWords.length - 1)
+      ? Math.max(0, lineWords[i + 1].start - clipStartTime)
+      : lineEnd;
+    const wordEnd = Math.max(wordStart + 0.05, nextStart);
 
-    // Escape special ASS chars in word text
+    // Escape special ASS chars
     const word = w.word.replace(/\\/g, '\\\\').replace(/\{/g, '\\{').replace(/\}/g, '\\}');
 
     const important = isImportantWord(w.word, customImportantWords);
 
-    if (important) {
-      // Important word: pop in RED + bigger scale (120%)
-      parts.push(
-        `{\\alpha&HFF&\\fscx70\\fscy70` +
-        `\\t(${relStartCs},${popEndCs},\\alpha&H00&${EMPHASIS_SCALE})` +
-        `${RED_COLOR}` +
-        `}${word}`
-      );
-    } else {
-      // Normal word: standard pop to 100%
-      parts.push(
-        `{\\alpha&HFF&\\fscx70\\fscy70` +
-        `\\t(${relStartCs},${popEndCs},\\alpha&H00&\\fscx100\\fscy100)` +
-        `}${word}`
-      );
-    }
+    // Override: \an5 = middle-center alignment (word appears alone, centered)
+    // Important words: red color + 120% scale
+    const overrides = important
+      ? `{\\an5\\c&H000000FF&\\fscx120\\fscy120}`
+      : `{\\an5}`;
+
+    events.push(
+      `Dialogue: 0,${toASSTime(wordStart)},${toASSTime(wordEnd)},Default,,0,0,0,,${overrides}${word}`
+    );
   }
 
-  // Join words with spaces (space outside override blocks so ASS renders them)
-  const lineText = parts.join(' ');
-
-  return [
-    `Dialogue: 0,${toASSTime(lineStart)},${toASSTime(lineEnd)},Default,,0,0,0,,${lineText}`
-  ];
+  return events;
 }
 
 /**
