@@ -255,23 +255,23 @@ export async function renderClip(inputPath, outputPath, options = {}) {
   let filterComplex;
   let mapVideo;
 
-  if (isWordPopAnimation) {
-    // LIGHTWEIGHT PATH: scale to fit + pad with black (single chain, no overlay, no split)
-    // This is the absolute minimum memory: one video stream, scaled and padded.
-    console.log('[FFmpeg] Word-pop: using ultra-light pad compositing (no split, no overlay)');
+  const smartZoomActive = smartZoom && smartZoom.enabled && !shouldDisableSmartZoom;
+
+  if (isWordPopAnimation || smartZoomActive) {
+    // LIGHTWEIGHT PATH: scale to fit + pad with black (no split, no blur, no overlay)
+    // Used for: word-pop (always) and when smart zoom is on (blur+zoom together = OOM).
+    // Single chain = minimum memory, leaves headroom for scale(eval=frame) zoom.
+    const reason = isWordPopAnimation ? 'word-pop' : 'smart-zoom-active';
+    console.log(`[FFmpeg] Using pad compositing (${reason}) — no blur bg to save memory`);
     filterComplex = `[0:v]fps=30,scale=${canvasW}:${canvasH}:force_original_aspect_ratio=decrease,pad=${canvasW}:${canvasH}:(ow-iw)/2:(oh-ih)/2:black,setsar=1,format=yuv420p[composed]`;
     mapVideo = '[composed]';
   } else {
     // STANDARD PATH: blur-fill compositing (matches UI preview)
-    //   - Background: same video scaled to COVER the canvas, heavily blurred
-    //   - Foreground: same video scaled to FIT inside canvas (object-contain)
+    // Only used when smart zoom is OFF (blur bg + split=2 is too heavy to combine with zoom)
     filterComplex = [
       `[0:v]fps=30,split=2[srcfg][srcbg]`,
-      // Background: blur at 1/4 resolution then upscale (16x less memory)
       `[srcbg]scale=${Math.round(canvasW/4)}:${Math.round(canvasH/4)}:force_original_aspect_ratio=increase,crop=${Math.round(canvasW/4)}:${Math.round(canvasH/4)}:(iw-${Math.round(canvasW/4)})/2:(ih-${Math.round(canvasH/4)})/2,gblur=sigma=12,eq=brightness=-0.35:saturation=1.25:contrast=1.1,scale=${canvasW}:${canvasH}:flags=bilinear,setsar=1[bg]`,
-      // Foreground: fit inside canvas (contain), preserve full frame
       `[srcfg]scale=${canvasW}:${canvasH}:force_original_aspect_ratio=decrease,setsar=1[fg]`,
-      // Composite fg over bg, centered
       `[bg][fg]overlay=(W-w)/2:(H-h)/2,format=yuv420p[composed]`,
     ].join(';');
     mapVideo = '[composed]';
