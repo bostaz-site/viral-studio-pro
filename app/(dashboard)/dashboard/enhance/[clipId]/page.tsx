@@ -485,19 +485,24 @@ function LivePreview({
         >
           {/* Word Pop mode: show ONLY the active word, large, with pop animation */}
           {/* Important words appear in RED + bigger; normal words use the style color */}
+          {/* Emphasis effects add static visual distinction on important words */}
           {currentAnimation === 'word-pop' ? (
             <p className={cn(
               'font-black text-center uppercase tracking-wide',
               isImportantWord(sampleWords[activeWordIdx] || '')
-                ? 'text-xl text-red-500'
+                ? cn('text-xl', settings.emphasisEffect === 'color' ? 'text-yellow-400' : 'text-red-500')
                 : cn('text-lg', captionStyle?.preview || 'text-white')
             )}
               style={{
                 WebkitTextStroke: '1px black',
                 textShadow: isImportantWord(sampleWords[activeWordIdx] || '')
                   ? '2px 2px 4px rgba(0,0,0,0.8), 0 0 12px rgba(239,68,68,0.4)'
+                    + (settings.emphasisEffect === 'glow' ? ', 0 0 16px rgba(239,68,68,0.7), 0 0 32px rgba(239,68,68,0.4)' : '')
                   : '2px 2px 4px rgba(0,0,0,0.8)',
                 animation: 'wordPopIn 0.2s ease-out',
+                transform: isImportantWord(sampleWords[activeWordIdx] || '') && settings.emphasisEffect === 'scale' ? 'scale(1.35)'
+                  : isImportantWord(sampleWords[activeWordIdx] || '') && settings.emphasisEffect === 'bounce' ? 'translateY(-6px) scale(1.15)'
+                  : undefined,
               }}
               key={activeWordIdx}
             >
@@ -507,15 +512,24 @@ function LivePreview({
           <p className={cn('text-sm text-center', captionStyle?.preview)}>
             {sampleWords.map((word, i) => {
               const isActive = i === activeWordIdx
+              const wordImp = isActive && isImportantWord(word)
+              const eff = settings.emphasisEffect
               // Active-word transform — matches FFmpeg render exactly
               let activeTransform = ''
               if (isActive) {
                 if (currentAnimation === 'pop') activeTransform = 'scale(1.85)'
                 else if (currentAnimation === 'bounce') activeTransform = 'translateY(-45%) scale(1.3)'
               }
+              // Emphasis effect overrides on important words
+              if (wordImp && eff === 'scale') activeTransform = 'scale(1.5)'
+              else if (wordImp && eff === 'bounce') activeTransform = 'translateY(-30%) scale(1.25)'
               // Glow: colored text-shadow halo on active word — amplified for visibility
-              const activeTextShadow = isActive && currentAnimation === 'glow'
+              const glowFromStyle = isActive && currentAnimation === 'glow'
+              const glowFromEmphasis = wordImp && eff === 'glow'
+              const activeTextShadow = glowFromStyle
                 ? '0 0 8px #fde047, 0 0 18px #fde047, 0 0 32px #facc15, 0 0 48px #eab308'
+                : glowFromEmphasis
+                ? '0 0 8px #ef4444, 0 0 18px #ef4444, 0 0 32px #dc2626'
                 : undefined
               // Typewriter: reveal chars progressively on active word
               const displayText = isActive && currentAnimation === 'typewriter'
@@ -526,6 +540,7 @@ function LivePreview({
                   <span
                     className={cn(
                       'inline-block px-0.5 rounded',
+                      wordImp && eff === 'color' ? 'text-yellow-400' : '',
                       isActive ? captionStyle?.highlightClass : '',
                     )}
                     style={{
