@@ -12,7 +12,7 @@ const execFileAsync = promisify(execFile);
  * Requires OPENAI_API_KEY environment variable to be set.
  */
 export async function transcribeWithWhisper(videoPath, options = {}) {
-  const { language = 'en', tempDir = '/tmp', contextPrompt = '' } = options;
+  const { language = 'en', tempDir = '/tmp', contextPrompt = '', clipDuration = 0 } = options;
 
   const apiKey = process.env.OPENAI_API_KEY || process.env.OPENAI_KEY;
   if (!apiKey) {
@@ -24,15 +24,15 @@ export async function transcribeWithWhisper(videoPath, options = {}) {
 
   try {
     // Step 1: Extract audio from video with FFmpeg
-    // Use 96kbps + loudnorm to give Whisper cleaner input → better accuracy.
+    // IMPORTANT: No loudnorm filter — it can shift timestamps by adding silence
+    // during single-pass analysis, causing Whisper to report wrong timing.
+    // Simple extraction: just downsample to 16kHz mono for Whisper.
     console.log('[Whisper] Extracting audio from video...');
     await execFileAsync('ffmpeg', [
       '-y',
       '-i',
       videoPath,
       '-vn',
-      '-af',
-      'loudnorm=I=-16:TP=-1.5:LRA=11',
       '-ar',
       '16000',
       '-ac',
@@ -47,10 +47,21 @@ export async function transcribeWithWhisper(videoPath, options = {}) {
     const stat = await fs.stat(audioPath);
     console.log(`[Whisper] Audio extracted: ${stat.size} bytes`);
 
+    // Check audio duration matches expected clip duration
+    try {
+      const { stdout } = await execFileAsync('ffprobe', [
+        '-v', 'quiet',
+        '-show_entries', 'format=duration',
+        '-of', 'csv=p=0',
+        audioPath,
+      ]);
+      const audioDuration = parseFloat(stdout.trim()) || 0;
+      console.log(`[Whisper] Audio duration: ${audioDuration.toFixed(2)}s (clip: ${clipDuration}s)`);
+    } catch {
+      // Non-critical, just for debugging
+    }
+
     // Step 2: Send to OpenAI Whisper API with word timestamps
-    // Context prompt steers Whisper toward the right domain vocabulary
-    // (gaming/streaming slang, proper nouns). Bad grammar like "on his house"
-    // vs "in his house" is typical without context.
     const promptText = [
       'Twitch stream gaming clip. Casual spoken English with gaming slang.',
       contextPrompt ? `Context: ${contextPrompt}.` : '',
@@ -83,19 +94,40 @@ export async function transcribeWithWhisper(videoPath, options = {}) {
 
     const result = await response.json();
     const preview = result.text ? result.text.substring(0, 80) : '(no text)';
-    console.log(`[Whisper] Transcription: "${preview}..."`);
+    console.log(`[Whisper] Transcription: "${preview}"`);
 
     // Step 3: Extract word-level timestamps
     const words = result.words || [];
     const wordTimestamps = words
       .map(w => ({
         word: w.word ? w.word.trim() : '',
-        start: w.start || 0,
-        end: w.end || 0,
+        start: typeof w.start === 'number' ? w.start : 0,
+        end: typeof w.end === 'number' ? w.end : 0,
       }))
       .filter(w => w.word.length > 0);
 
     console.log(`[Whisper] Got ${wordTimestamps.length} word timestamps`);
+
+    // Log timing distribution for debugging
+    if (wordTimestamps.length > 0) {
+      const first = wordTimestamps[0];
+      const last = wordTimestamps[wordTimestamps.length - 1];
+      console.log(`[Whisper] Timing: first="${first.word}" @ ${first.start.toFixed(2)}s, last="${last.word}" @ ${last.end.toFixed(2)}s`);
+
+      // SANITY CHECK: if all words are clustered in the last 20% of the clip,
+      // something is wrong (likely loudnorm added silence, or yt-dlp downloaded extra content).
+      // In this case, shift all timestamps to start near 0.
+      if (clipDuration > 0 && first.start > clipDuration * 0.8) {
+        const offset = first.start - 0.5; // Shift so first word starts at 0.5s
+        console.warn(`[Whisper] WARNING: All words start after 80% of clip (${first.start.toFixed(2)}s / ${clipDuration}s). Shifting timestamps by -${offset.toFixed(2)}s`);
+        for (const w of wordTimestamps) {
+          w.start = Math.max(0, w.start - offset);
+          w.end = Math.max(w.start + 0.05, w.end - offset);
+        }
+        console.log(`[Whisper] After shift: first="${wordTimestamps[0].word}" @ ${wordTimestamps[0].start.toFixed(2)}s, last="${wordTimestamps[wordTimestamps.length - 1].word}" @ ${wordTimestamps[wordTimestamps.length - 1].end.toFixed(2)}s`);
+      }
+    }
+
     return wordTimestamps;
   } catch (err) {
     console.warn(`[Whisper] Transcription failed: ${err.message}`);

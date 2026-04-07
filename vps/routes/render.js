@@ -302,6 +302,7 @@ router.post('/', async (req, res) => {
               tempDir,
               language: 'en', // Most Twitch clips are English
               contextPrompt: clipTitle || '', // Use clip title as context for better vocab
+              clipDuration: duration, // For timestamp sanity check
             });
             trc(`WHISPER returned ${wordTimestamps.length} word timestamps`);
             // Log first & last word timestamps for debugging subtitle timing
