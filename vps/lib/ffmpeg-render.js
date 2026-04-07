@@ -289,7 +289,7 @@ export async function renderClip(inputPath, outputPath, options = {}) {
 
   // videoZoom: 'contain' = 100% visible, 'fill' = 130% zoom, 'immersive' = 150% zoom
   // When zoomed, the foreground video is scaled larger than "contain" and center-cropped.
-  const zoomFactor = videoZoom === 'immersive' ? 1.5 : videoZoom === 'fill' ? 1.3 : 1.0;
+  const zoomFactor = videoZoom === 'immersive' ? 1.3 : videoZoom === 'fill' ? 1.15 : 1.0;
 
   if (isWordPopAnimation) {
     // WORD-POP PATH: scale to fit + pad with black (no split, no blur)
