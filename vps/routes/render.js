@@ -190,6 +190,7 @@ router.post('/', async (req, res) => {
         ]);
         duration = parseFloat(stdout.trim()) || duration;
         clipEndTime = duration;
+        trc(`FFPROBE duration=${duration}s`);
       } catch (err) {
         console.warn(`[Render ${renderSessionId}] Could not determine duration via ffprobe`);
       }
@@ -303,6 +304,14 @@ router.post('/', async (req, res) => {
               contextPrompt: clipTitle || '', // Use clip title as context for better vocab
             });
             trc(`WHISPER returned ${wordTimestamps.length} word timestamps`);
+            // Log first & last word timestamps for debugging subtitle timing
+            if (wordTimestamps.length > 0) {
+              const first = wordTimestamps[0];
+              const last = wordTimestamps[wordTimestamps.length - 1];
+              trc(`WHISPER first="${first.word}" start=${first.start} end=${first.end}`);
+              trc(`WHISPER last="${last.word}" start=${last.start} end=${last.end}`);
+              trc(`WHISPER clipDuration=${duration} clipStartTime=${clipStartTime}`);
+            }
           } catch (err) {
             trc(`WHISPER ERROR: ${err.message}`);
           }
