@@ -176,8 +176,14 @@ function toASSTime(seconds) {
   const s = Math.max(0, seconds);
   const h = Math.floor(s / 3600);
   const m = Math.floor((s % 3600) / 60);
-  const sec = Math.floor(s % 60);
-  const cs = Math.round((s % 1) * 100);
+  let sec = Math.floor(s % 60);
+  let cs = Math.round((s % 1) * 100);
+
+  // Handle rounding overflow: cs can reach 100 when fractional part rounds up
+  if (cs >= 100) {
+    cs = 0;
+    sec += 1;
+  }
 
   return `${h}:${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}.${String(cs).padStart(2, '0')}`;
 }
@@ -297,8 +303,12 @@ export function generateASS(wordTimestamps, options = {}) {
   // "word-pop" is a special mode: 1 word at a time, each with a smooth pop-in.
   // Override wordsPerLine and generate per-word events directly.
   if (animation === 'word-pop') {
+    // Word-pop uses \an5 (middle-center) in each Dialogue event.
+    // The Default style MUST also use alignment=5 + marginV=0, otherwise
+    // the style's MarginV (e.g. 282) applies to the \an5 override and
+    // shifts text into an awkward position or off-screen.
     const header2 = buildASSHeader(
-      { ...styleConfig, fontsize: Math.round(styleConfig.fontsize * 1.2) }, // 20% bigger for impact
+      { ...styleConfig, fontsize: Math.round(styleConfig.fontsize * 1.2), alignment: 5, marginV: 0 },
       canvasWidth,
       canvasHeight
     );
@@ -538,12 +548,13 @@ function generateWordPopEvents(wordTimestamps, clipStartTime) {
       : start + 0.5;
     const end = Math.max(start + 0.1, Math.min(nextStart + 0.05, w.end - clipStartTime + 0.15));
 
-    // Pop-in animation: scale 70% → 108% in 8cs, then 108% → 100% in 6cs
-    // Plus alpha fade from semi-transparent to fully opaque in 6cs
+    // Pop-in animation: scale 70% → 108% in 80ms, then 108% → 100% in 60ms
+    // Plus alpha fade from semi-transparent to fully opaque in 80ms
+    // NOTE: ASS \t(t1,t2,...) uses MILLISECONDS, not centiseconds!
     const popIn = [
-      '\\fscx70\\fscy70\\alpha&H40&',           // Initial state: 70% scale, 25% transparent
-      '\\t(0,8,\\fscx108\\fscy108\\alpha&H00&)', // Overshoot: 108% + fully opaque in 80ms
-      '\\t(8,14,\\fscx100\\fscy100)',             // Settle: 100% in 60ms
+      '\\fscx70\\fscy70\\alpha&H40&',               // Initial state: 70% scale, 25% transparent
+      '\\t(0,80,\\fscx108\\fscy108\\alpha&H00&)',    // Overshoot: 108% + fully opaque in 80ms
+      '\\t(80,140,\\fscx100\\fscy100)',               // Settle: 100% in 60ms
     ].join('');
 
     const word = w.word.toUpperCase(); // ALL CAPS for viral impact

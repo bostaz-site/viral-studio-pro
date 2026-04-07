@@ -230,19 +230,17 @@ export async function renderClip(inputPath, outputPath, options = {}) {
   // Use blur-background compositing: blurred fill + sharp centered video
   // This keeps the original video resolution without cropping content.
 
-  const ratios = {
-    '9:16': { w: 1080, h: 1920 },
-    '1:1': { w: 1080, h: 1080 },
-    '16:9': { w: 1920, h: 1080 },
-  };
+  // MEMORY OPTIMIZATION: Word-pop animation uses 720p canvas to reduce memory
+  // (word-pop ASS + blur background at 1080p = ~1GB+ on Railway).
+  const isWordPopAnimation = captions && captions.animation === 'word-pop';
+
+  const ratios = isWordPopAnimation
+    ? { '9:16': { w: 720, h: 1280 }, '1:1': { w: 720, h: 720 }, '16:9': { w: 1280, h: 720 } }
+    : { '9:16': { w: 1080, h: 1920 }, '1:1': { w: 1080, h: 1080 }, '16:9': { w: 1920, h: 1080 } };
   const { w: canvasW, h: canvasH } = ratios[aspectRatio] || ratios['9:16'];
 
-  // MEMORY OPTIMIZATION: Detect if filter chain will be too heavy
-  // word-pop ASS + smart zoom + blur background = ~1GB+ memory on Railway
-  // Solution: When word-pop is active with smart zoom, disable smart zoom
+  // When word-pop is active with smart zoom, disable smart zoom
   // (the pop animation IS the visual interest, no need for zoom).
-  // NOTE: Canvas size reduction for word-pop is done upstream in render.js
-  const isWordPopAnimation = captions && captions.animation === 'word-pop';
   const shouldDisableSmartZoom = isWordPopAnimation && smartZoom && smartZoom.enabled;
 
   // DEBUG: Log captions object structure
@@ -304,8 +302,8 @@ export async function renderClip(inputPath, outputPath, options = {}) {
     extraInputs.push(...inputs);
   } else if (captions && captions.assFilePath) {
     // ASS subtitle rendering via libass filter
-    // Format is set to yuv420p upstream (at overlay step), so no need for extra format filter
-    filterComplex += `;${mapVideo}ass='${escapePath(captions.assFilePath)}'[captioned]`;
+    // fontsdir ensures libass finds system fonts even if fontconfig cache is stale
+    filterComplex += `;${mapVideo}ass='${escapePath(captions.assFilePath)}':fontsdir='/usr/share/fonts'[captioned]`;
     mapVideo = '[captioned]';
   }
 
@@ -496,7 +494,7 @@ async function renderSplitScreen(inputPath, outputPath, opts) {
     extraInputs.push(...inputs);
   } else if (captions && captions.assFilePath) {
     // ASS subtitle rendering via libass filter
-    filterComplex += `;${mapVideo}ass='${escapePath(captions.assFilePath)}'[captioned]`;
+    filterComplex += `;${mapVideo}ass='${escapePath(captions.assFilePath)}':fontsdir='/usr/share/fonts'[captioned]`;
     mapVideo = '[captioned]';
   }
 
