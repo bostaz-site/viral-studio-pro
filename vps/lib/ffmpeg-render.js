@@ -82,7 +82,7 @@ function buildSmartZoomFilter(inLabel, outLabel, canvasW, canvasH, clipDuration,
     const D = clipDuration.toFixed(3);
     const PUNCH_AMOUNT = 0.15;
     const PUNCH_DURATION = 0.4;
-    const limited = peaks.slice(0, 15); // cap at 15 to keep expression tractable
+    const limited = peaks.slice(0, 6); // cap at 6 to prevent OOM on Railway (was 15)
     const terms = limited.map(tp => {
       const t0 = tp.toFixed(3);
       const t1 = (tp + PUNCH_DURATION).toFixed(3);
@@ -230,18 +230,20 @@ export async function renderClip(inputPath, outputPath, options = {}) {
   // Use blur-background compositing: blurred fill + sharp centered video
   // This keeps the original video resolution without cropping content.
 
-  // MEMORY OPTIMIZATION: Word-pop animation uses 720p canvas to reduce memory
-  // (word-pop ASS + blur background at 1080p = ~1GB+ on Railway).
+  // MEMORY OPTIMIZATION: Use 720p canvas for ALL renders on Railway.
+  // 1080p causes OOM/SIGABRT with blur+ASS+smartzoom combined.
   const isWordPopAnimation = captions && captions.animation === 'word-pop';
 
-  const ratios = isWordPopAnimation
-    ? { '9:16': { w: 720, h: 1280 }, '1:1': { w: 720, h: 720 }, '16:9': { w: 1280, h: 720 } }
-    : { '9:16': { w: 1080, h: 1920 }, '1:1': { w: 1080, h: 1080 }, '16:9': { w: 1920, h: 1080 } };
+  const ratios = { '9:16': { w: 720, h: 1280 }, '1:1': { w: 720, h: 720 }, '16:9': { w: 1280, h: 720 } };
   const { w: canvasW, h: canvasH } = ratios[aspectRatio] || ratios['9:16'];
 
-  // When word-pop is active with smart zoom, disable smart zoom
-  // (the pop animation IS the visual interest, no need for zoom).
+  // Disable smart zoom for word-pop (the pop animation IS the visual interest).
+  // Force dynamic → micro fallback (dynamic's per-frame if() expressions cause OOM on Railway).
   const shouldDisableSmartZoom = isWordPopAnimation && smartZoom && smartZoom.enabled;
+  if (smartZoom && smartZoom.mode === 'dynamic') {
+    console.log('[FFmpeg] Smart Zoom: forcing dynamic → micro (dynamic causes OOM on Railway)');
+    smartZoom.mode = 'micro';
+  }
 
   // DEBUG: Log captions object structure
   console.log('[FFmpeg] Captions object:', {
