@@ -397,56 +397,43 @@ function LivePreview({
                 />
               )
             )}
-            {/* Main video layer — zoom controls how much of the frame the video fills */}
-            {/* Contenir: object-contain full size, Remplir: object-cover 85%, Immersif: object-cover 94% */}
+            {/* Main video layer — zoom makes the element LARGER than container with object-contain */}
+            {/* Parent overflow-hidden clips the excess. Video stays landscape, just bigger. */}
+            {/* Contenir: 100%, Remplir: 140%, Immersif: 180% */}
             {(() => {
               const isSplit = showEnhancements && settings.splitScreenEnabled
-              const isZoomed = !isSplit && showEnhancements && settings.videoZoom !== 'contain'
+              // Zoom: element bigger than container, object-contain keeps video landscape
+              // 140% = video ~40% taller/wider, still horizontal with less blur around
+              // 180% = video ~80% taller/wider, fills most of frame but still landscape
+              const sizePct = !isSplit && showEnhancements && settings.videoZoom !== 'contain'
+                ? (settings.videoZoom === 'immersive' ? 180 : 140)
+                : 100
+              const offsetPct = (100 - sizePct) / 2 // negative for zoom (centers the oversized element)
               const smartZoomStyle = showEnhancements && settings.smartZoomEnabled ? {
                 animation: settings.smartZoomMode === 'dynamic'
                   ? 'smartZoomDynamic 4s ease-in-out infinite'
                   : 'smartZoomMicro 5s ease-in-out infinite',
               } : {}
 
-              // Zoom: video in a sub-container that's smaller than the frame
-              // object-cover fills the sub-container, blur visible in remaining space
-              if (isZoomed) {
-                const pct = settings.videoZoom === 'immersive' ? 94 : 85
-                const offset = (100 - pct) / 2
-                return videoUrl ? (
-                  <video
-                    key={videoUrl}
-                    src={videoUrl}
-                    className="absolute object-cover z-[1] transition-all duration-500 rounded-sm"
-                    style={{
-                      width: `${pct}%`, height: `${pct}%`,
-                      top: `${offset}%`, left: `${offset}%`,
-                      ...smartZoomStyle,
-                    }}
-                    autoPlay loop muted playsInline
-                  />
-                ) : (
-                  <img
-                    src={clip.thumbnail_url!}
-                    alt={clip.title ?? 'Clip'}
-                    className="absolute object-cover z-[1] transition-all duration-500 rounded-sm"
-                    style={{
-                      width: `${pct}%`, height: `${pct}%`,
-                      top: `${offset}%`, left: `${offset}%`,
-                      ...smartZoomStyle,
-                    }}
-                  />
-                )
-              }
-
-              // Contain or split-screen
               const objectFit = isSplit ? 'object-cover' : 'object-contain'
+              const isZoomed = sizePct > 100
+              const zoomStyle = isZoomed ? {
+                width: `${sizePct}%`, height: `${sizePct}%`,
+                top: `${offsetPct}%`, left: `${offsetPct}%`,
+                position: 'absolute' as const,
+                ...smartZoomStyle,
+              } : (Object.keys(smartZoomStyle).length ? smartZoomStyle : undefined)
+
               return videoUrl ? (
                 <video
                   key={videoUrl}
                   src={videoUrl}
-                  className={cn('relative w-full h-full z-[1] transition-all duration-500', objectFit)}
-                  style={Object.keys(smartZoomStyle).length ? smartZoomStyle : undefined}
+                  className={cn(
+                    'z-[1] transition-all duration-500',
+                    objectFit,
+                    !isZoomed && 'relative w-full h-full',
+                  )}
+                  style={zoomStyle}
                   autoPlay loop muted playsInline
                 />
               ) : (
@@ -454,11 +441,12 @@ function LivePreview({
                   src={clip.thumbnail_url!}
                   alt={clip.title ?? 'Clip'}
                   className={cn(
-                    'relative w-full h-full z-[1] transition-all duration-500',
+                    'z-[1] transition-all duration-500',
                     objectFit,
-                    !(showEnhancements && settings.smartZoomEnabled) && 'animate-[kenburns_20s_ease-in-out_infinite_alternate]'
+                    !isZoomed && 'relative w-full h-full',
+                    !isZoomed && !(showEnhancements && settings.smartZoomEnabled) && 'animate-[kenburns_20s_ease-in-out_infinite_alternate]'
                   )}
-                  style={Object.keys(smartZoomStyle).length ? smartZoomStyle : undefined}
+                  style={zoomStyle}
                 />
               )
             })()}
@@ -1366,8 +1354,8 @@ export default function EnhancePage() {
                       <div className="grid grid-cols-3 gap-2">
                         {([
                           { id: 'contain' as const, label: 'Contenir', desc: '100% visible' },
-                          { id: 'fill' as const, label: 'Remplir', desc: '85% du cadre' },
-                          { id: 'immersive' as const, label: 'Immersif', desc: '94% du cadre' },
+                          { id: 'fill' as const, label: 'Remplir', desc: 'Zoom léger' },
+                          { id: 'immersive' as const, label: 'Immersif', desc: 'Zoom fort' },
                         ]).map((opt) => (
                           <button
                             key={opt.id}

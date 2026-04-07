@@ -287,21 +287,22 @@ export async function renderClip(inputPath, outputPath, options = {}) {
 
   const smartZoomActive = smartZoom && smartZoom.enabled && !shouldDisableSmartZoom;
 
-  // videoZoom: 'contain' = full video visible, 'fill' = covers 85% of frame, 'immersive' = covers 94%
-  // Fill/Immersive: video scaled to COVER a sub-area, then overlaid centered on blur bg
-  const zoomPct = videoZoom === 'immersive' ? 0.94 : videoZoom === 'fill' ? 0.85 : 1.0;
+  // videoZoom: 'contain' = full video visible, 'fill' = 140% contain, 'immersive' = 180% contain
+  // Fill/Immersive: scale video to contain in a LARGER area than canvas, then crop to canvas
+  // This keeps the video landscape (horizontal) but makes it bigger — matching the CSS preview
+  const zoomFactor = videoZoom === 'immersive' ? 1.8 : videoZoom === 'fill' ? 1.4 : 1.0;
 
   if (isWordPopAnimation) {
     // WORD-POP PATH: scale to fit + pad with black (no split, no blur)
-    // Apply videoZoom: scale to cover sub-area + blur bg instead of black pad
-    if (zoomPct < 1.0) {
-      const subW = Math.round(canvasW * zoomPct);
-      const subH = Math.round(canvasH * zoomPct);
-      console.log(`[FFmpeg] Word-pop + zoom(${Math.round(zoomPct*100)}%): cover ${subW}x${subH} on blur bg`);
+    if (zoomFactor > 1.0) {
+      // Zoomed word-pop: contain in larger area, then crop to canvas, with blur bg
+      const bigW = Math.round(canvasW * zoomFactor);
+      const bigH = Math.round(canvasH * zoomFactor);
+      console.log(`[FFmpeg] Word-pop + zoom(${Math.round(zoomFactor*100)}%): contain ${bigW}x${bigH} then crop to ${canvasW}x${canvasH}`);
       filterComplex = [
         `[0:v]fps=30,split=2[wpfg][wpbg]`,
         `[wpbg]scale=${Math.round(canvasW/4)}:${Math.round(canvasH/4)}:force_original_aspect_ratio=increase,crop=${Math.round(canvasW/4)}:${Math.round(canvasH/4)}:(iw-${Math.round(canvasW/4)})/2:(ih-${Math.round(canvasH/4)})/2,gblur=sigma=12,eq=brightness=-0.35:saturation=1.25:contrast=1.1,scale=${canvasW}:${canvasH}:flags=bilinear,setsar=1[wpbgout]`,
-        `[wpfg]scale=${subW}:${subH}:force_original_aspect_ratio=increase,crop=${subW}:${subH}:(iw-${subW})/2:(ih-${subH})/2,setsar=1[wpfgscaled]`,
+        `[wpfg]scale=${bigW}:${bigH}:force_original_aspect_ratio=decrease,setsar=1[wpfgscaled]`,
         `[wpbgout][wpfgscaled]overlay=(W-w)/2:(H-h)/2,format=yuv420p[composed]`,
       ].join(';');
     } else {
@@ -316,27 +317,17 @@ export async function renderClip(inputPath, outputPath, options = {}) {
     mapVideo = '[composed]';
   } else {
     // STANDARD PATH: blur-fill compositing (matches UI preview)
-    if (zoomPct < 1.0) {
-      // Zoomed: video covers a sub-area (subW x subH), centered on blur background
-      const subW = Math.round(canvasW * zoomPct);
-      const subH = Math.round(canvasH * zoomPct);
-      console.log(`[FFmpeg] Standard blur-fill + zoom(${Math.round(zoomPct*100)}%): cover ${subW}x${subH}`);
-      filterComplex = [
-        `[0:v]fps=30,split=2[srcfg][srcbg]`,
-        `[srcbg]scale=${Math.round(canvasW/4)}:${Math.round(canvasH/4)}:force_original_aspect_ratio=increase,crop=${Math.round(canvasW/4)}:${Math.round(canvasH/4)}:(iw-${Math.round(canvasW/4)})/2:(ih-${Math.round(canvasH/4)})/2,gblur=sigma=12,eq=brightness=-0.35:saturation=1.25:contrast=1.1,scale=${canvasW}:${canvasH}:flags=bilinear,setsar=1[bg]`,
-        `[srcfg]scale=${subW}:${subH}:force_original_aspect_ratio=increase,crop=${subW}:${subH}:(iw-${subW})/2:(ih-${subH})/2,setsar=1[fg]`,
-        `[bg][fg]overlay=(W-w)/2:(H-h)/2,format=yuv420p[composed]`,
-      ].join(';');
-    } else {
-      // Contain: video fits within canvas (decrease), blur fills the rest
-      console.log(`[FFmpeg] Standard blur-fill contain: fg fits within ${canvasW}x${canvasH}`);
-      filterComplex = [
-        `[0:v]fps=30,split=2[srcfg][srcbg]`,
-        `[srcbg]scale=${Math.round(canvasW/4)}:${Math.round(canvasH/4)}:force_original_aspect_ratio=increase,crop=${Math.round(canvasW/4)}:${Math.round(canvasH/4)}:(iw-${Math.round(canvasW/4)})/2:(ih-${Math.round(canvasH/4)})/2,gblur=sigma=12,eq=brightness=-0.35:saturation=1.25:contrast=1.1,scale=${canvasW}:${canvasH}:flags=bilinear,setsar=1[bg]`,
-        `[srcfg]scale=${canvasW}:${canvasH}:force_original_aspect_ratio=decrease,setsar=1[fg]`,
-        `[bg][fg]overlay=(W-w)/2:(H-h)/2,format=yuv420p[composed]`,
-      ].join(';');
-    }
+    // Zoom: contain in larger area (bigW x bigH), overlay centered on blur bg
+    // Video stays landscape, just bigger — blur visible in remaining space
+    const fgW = Math.round(canvasW * zoomFactor);
+    const fgH = Math.round(canvasH * zoomFactor);
+    console.log(`[FFmpeg] Standard blur-fill + zoom(${Math.round(zoomFactor*100)}%): contain ${fgW}x${fgH}`);
+    filterComplex = [
+      `[0:v]fps=30,split=2[srcfg][srcbg]`,
+      `[srcbg]scale=${Math.round(canvasW/4)}:${Math.round(canvasH/4)}:force_original_aspect_ratio=increase,crop=${Math.round(canvasW/4)}:${Math.round(canvasH/4)}:(iw-${Math.round(canvasW/4)})/2:(ih-${Math.round(canvasH/4)})/2,gblur=sigma=12,eq=brightness=-0.35:saturation=1.25:contrast=1.1,scale=${canvasW}:${canvasH}:flags=bilinear,setsar=1[bg]`,
+      `[srcfg]scale=${fgW}:${fgH}:force_original_aspect_ratio=decrease,setsar=1[fg]`,
+      `[bg][fg]overlay=(W-w)/2:(H-h)/2,format=yuv420p[composed]`,
+    ].join(';');
     mapVideo = '[composed]';
   }
 
