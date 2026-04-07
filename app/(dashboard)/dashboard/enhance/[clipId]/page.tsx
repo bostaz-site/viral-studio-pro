@@ -305,6 +305,7 @@ function LivePreview({
             {!(showEnhancements && settings.splitScreenEnabled) && (
               videoUrl ? (
                 <video
+                  key={videoUrl}
                   src={videoUrl}
                   className="absolute inset-0 w-full h-full object-cover scale-110"
                   style={{ filter: 'blur(12px) brightness(0.65) saturate(1.25) contrast(1.1)' }}
@@ -324,6 +325,7 @@ function LivePreview({
             {/* Main layer — object-contain when no split-screen (blur bg), object-cover with split */}
             {videoUrl ? (
               <video
+                key={videoUrl}
                 src={videoUrl}
                 className={cn(
                   'relative w-full h-full z-[1]',
@@ -643,7 +645,7 @@ export default function EnhancePage() {
       try {
         const res = await fetch(`/api/render/status?jobId=${jobId}`)
         const json = await res.json() as {
-          data: { status: string; downloadUrl?: string | null; errorMessage?: string | null } | null
+          data: { status: string; downloadUrl?: string | null; publicUrl?: string | null; errorMessage?: string | null } | null
           message: string
         }
 
@@ -652,7 +654,11 @@ export default function EnhancePage() {
         if (json.data.status === 'done' && json.data.downloadUrl) {
           if (pollRef.current) clearInterval(pollRef.current)
           setRenderDownloadUrl(json.data.downloadUrl)
-          setRenderMessage('✅ Clip prêt ! Clique pour télécharger.')
+          // Switch the live preview to show the RENDERED video (with subtitles baked in)
+          if (json.data.publicUrl) {
+            setVideoUrl(json.data.publicUrl)
+          }
+          setRenderMessage('✅ Clip rendu avec sous-titres ! Regarde la preview ci-dessus.')
           setRendering(false)
         } else if (json.data.status === 'error') {
           if (pollRef.current) clearInterval(pollRef.current)
@@ -863,12 +869,11 @@ export default function EnhancePage() {
               {renderDownloadUrl && (
                 <a
                   href={renderDownloadUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center justify-center gap-2 w-full h-10 rounded-lg bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white font-semibold text-sm shadow-lg shadow-green-500/20 transition-all"
+                  download="viral-clip.mp4"
+                  className="inline-flex items-center justify-center gap-2 w-full h-12 rounded-lg bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white font-bold text-base shadow-lg shadow-green-500/20 transition-all animate-pulse"
                 >
-                  <Download className="h-4 w-4" />
-                  Télécharger le clip
+                  <Download className="h-5 w-5" />
+                  Télécharger le clip (avec sous-titres)
                 </a>
               )}
               {renderOriginalUrl && !renderDownloadUrl && (

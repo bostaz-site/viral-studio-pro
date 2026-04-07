@@ -562,16 +562,31 @@ router.post('/', async (req, res) => {
     console.log(`[Render ${renderSessionId}] Uploading rendered clip...`);
     const uploadResult = await uploadClip(outputPath, clipStoragePath);
 
-    // Extract and upload thumbnail
+    // Extract and upload thumbnail FROM RENDERED OUTPUT (not input!)
+    // This proves the rendered video actually has subtitles baked in.
     let thumbnailPath = null;
     try {
       const thumbnailFileName = path.join(tempDir, 'thumbnail.png');
-      await extractThumbnail(inputPath, thumbnailFileName, clipStartTime + 1);
-      const thumbStoragePath = `${userId}/${clipId}_thumb.png`;
+      // Extract thumbnail from the RENDERED video at 1 second in (should show subtitles)
+      await extractThumbnail(outputPath, thumbnailFileName, 1);
+      const thumbStoragePath = source === 'trending'
+        ? `trending/${clipId}_${renderTs}_thumb.png`
+        : `${userId}/${clipId}_${renderTs}_thumb.png`;
       const thumbUpload = await uploadThumbnail(thumbnailFileName, thumbStoragePath);
       thumbnailPath = thumbUpload.path;
+      trc(`THUMBNAIL extracted from rendered output at t=1s → ${thumbStoragePath}`);
     } catch (err) {
       console.warn(`[Render ${renderSessionId}] Warning: Failed to create thumbnail:`, err.message);
+      // Fallback: try from input
+      try {
+        const thumbnailFileName = path.join(tempDir, 'thumbnail.png');
+        await extractThumbnail(inputPath, thumbnailFileName, clipStartTime + 1);
+        const thumbStoragePath = `${userId}/${clipId}_thumb.png`;
+        const thumbUpload = await uploadThumbnail(thumbnailFileName, thumbStoragePath);
+        thumbnailPath = thumbUpload.path;
+      } catch (err2) {
+        console.warn(`[Render ${renderSessionId}] Warning: Fallback thumbnail also failed:`, err2.message);
+      }
     }
 
     // Update database (only for user clips)

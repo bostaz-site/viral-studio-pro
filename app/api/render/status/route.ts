@@ -38,14 +38,21 @@ export const GET = withAuth(async (request: NextRequest, user) => {
     )
   }
 
-  // If done, generate a signed URL for download
+  // If done, generate a signed URL for download AND a public URL for preview
   let downloadUrl: string | null = null
+  let publicUrl: string | null = null
   if (job.status === 'done' && job.storage_path) {
     const { data: signedData } = await admin.storage
       .from('clips')
       .createSignedUrl(job.storage_path, 3600) // 1 hour expiry
 
     downloadUrl = signedData?.signedUrl ?? null
+
+    // Also get public URL (clips bucket is public) — used for live preview replacement
+    const { data: pubData } = admin.storage
+      .from('clips')
+      .getPublicUrl(job.storage_path)
+    publicUrl = pubData?.publicUrl ?? null
   }
 
   return NextResponse.json({
@@ -54,6 +61,7 @@ export const GET = withAuth(async (request: NextRequest, user) => {
       status: job.status,
       storagePath: job.storage_path,
       downloadUrl,
+      publicUrl,
       errorMessage: job.error_message,
       createdAt: job.created_at,
       updatedAt: job.updated_at,
