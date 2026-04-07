@@ -300,8 +300,7 @@ export function generateASS(wordTimestamps, options = {}) {
   // Generate ASS header with correct canvas dimensions
   const header = buildASSHeader(styleConfig, canvasWidth, canvasHeight);
 
-  // NOTE: "word-pop" animation is now handled by native FFmpeg drawtext filters
-  // (see vps/lib/drawtext-wordpop.js). This function is no longer called for word-pop.
+  // All animations (including word-pop) now use ASS subtitles — no more drawtext filters.
 
   // Group words into lines
   const wordLines = groupWords(wordTimestamps, wordsPerLine);
@@ -465,6 +464,8 @@ function generateAnimatedEvents(lineWords, clipStartTime, styleConfig, animation
   const lineEnd = Math.max(lineStart + 0.1, lastWord.end - clipStartTime);
 
   switch (animation) {
+    case 'word-pop':
+      return generateWordPopEvents(lineWords, clipStartTime, lineStart, lineEnd);
     case 'pop':
       return generatePopEvents(lineWords, clipStartTime, lineStart, lineEnd);
     case 'bounce':
@@ -512,8 +513,48 @@ function buildLoopedTransforms(lineDurCs, cycleLenCs, builder) {
   return tags.join('');
 }
 
-// NOTE: generateWordPopEvents() removed — word-pop is now handled by
-// native FFmpeg drawtext filters in vps/lib/drawtext-wordpop.js
+/**
+ * Word-Pop animation: words appear one by one with a scale-up "pop" effect.
+ * Like CapCut/Opus Clip's word-by-word reveal.
+ *
+ * Strategy: ONE dialogue event per line. Each word starts transparent and pops
+ * in at its own timestamp using per-word override blocks {\alpha&HFF&\t(...)}.
+ * This keeps all words on a single line (no overlap/stacking).
+ *
+ * Uses ASS \t transforms for reliable rendering (replaces old drawtext approach).
+ */
+function generateWordPopEvents(lineWords, clipStartTime, lineStart, lineEnd) {
+  if (!lineWords || lineWords.length === 0) return [];
+
+  // Build a single dialogue line where each word has its own pop-in timing
+  const parts = [];
+
+  for (let i = 0; i < lineWords.length; i++) {
+    const w = lineWords[i];
+    const wordStart = Math.max(0, w.start - clipStartTime);
+    // Offset relative to the line start (in centiseconds for \t)
+    const relStartCs = Math.max(0, Math.round((wordStart - lineStart) * 100));
+    const popEndCs = relStartCs + 8; // 80ms pop-in duration
+
+    // Escape special ASS chars in word text
+    const word = w.word.replace(/\\/g, '\\\\').replace(/\{/g, '\\{').replace(/\}/g, '\\}');
+
+    // Each word: start fully transparent, then at its timestamp pop to visible + full scale
+    // \fscx70\fscy70 = start slightly smaller, \t → \fscx100\fscy100 = pop to normal
+    parts.push(
+      `{\\alpha&HFF&\\fscx70\\fscy70` +
+      `\\t(${relStartCs},${popEndCs},\\alpha&H00&\\fscx100\\fscy100)` +
+      `}${word}`
+    );
+  }
+
+  // Join words with spaces (space outside override blocks so ASS renders them)
+  const lineText = parts.join(' ');
+
+  return [
+    `Dialogue: 0,${toASSTime(lineStart)},${toASSTime(lineEnd)},Default,,0,0,0,,${lineText}`
+  ];
+}
 
 /**
  * Pop animation: whole line pulses opacity 100% → 50% → 100% every 2s (matches

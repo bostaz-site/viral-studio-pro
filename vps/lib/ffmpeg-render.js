@@ -289,27 +289,12 @@ export async function renderClip(inputPath, outputPath, options = {}) {
     }
   }
 
-  // Captions: drawtext (word-pop) > PNG overlays > ASS fallback
+  // Captions: ASS subtitle rendering (all animations including word-pop)
   const extraInputs = [];
-  if (captions && captions.drawtextFilters && captions.drawtextFilters.length > 0) {
-    // Native FFmpeg drawtext chain — no external dependencies (no libass, no fonts loading)
-    const dtChain = captions.drawtextFilters.join(',');
-    filterComplex += `;${mapVideo}${dtChain}[captioned]`;
-    mapVideo = '[captioned]';
-    console.log(`[FFmpeg] drawtext chain: ${captions.drawtextFilters.length} filters applied`);
-  } else if (captions && captions.pngOverlays && captions.pngOverlays.length > 0) {
-    const { chain, nextLabel, inputs } = buildPngCaptionChain(
-      captions.pngOverlays,
-      mapVideo,
-      extraInputs.length + 1 // first PNG input index = 1 (0 is main video)
-    );
-    filterComplex += `;${chain}`;
-    mapVideo = nextLabel;
-    extraInputs.push(...inputs);
-  } else if (captions && captions.assFilePath) {
-    // ASS subtitle rendering via libass filter
+  if (captions && captions.assFilePath) {
     filterComplex += `;${mapVideo}ass='${escapePath(captions.assFilePath)}':fontsdir='/usr/share/fonts'[captioned]`;
     mapVideo = '[captioned]';
+    console.log(`[FFmpeg] ASS captions applied: ${captions.assFilePath}`);
   }
 
   // Tag / Credit overlay
@@ -490,27 +475,12 @@ async function renderSplitScreen(inputPath, outputPath, opts) {
     }
   }
 
-  // Apply captions on the composed output — drawtext > PNG > ASS
+  // Apply captions on the composed output — ASS subtitle rendering (all animations)
   const extraInputs = [];
-  if (captions && captions.drawtextFilters && captions.drawtextFilters.length > 0) {
-    const dtChain = captions.drawtextFilters.join(',');
-    filterComplex += `;${mapVideo}${dtChain}[captioned]`;
-    mapVideo = '[captioned]';
-    console.log(`[FFmpeg-Split] drawtext chain: ${captions.drawtextFilters.length} filters applied`);
-  } else if (captions && captions.pngOverlays && captions.pngOverlays.length > 0) {
-    // Main video=0, broll=1, PNGs start at index 2
-    const { chain, nextLabel, inputs } = buildPngCaptionChain(
-      captions.pngOverlays,
-      mapVideo,
-      2
-    );
-    filterComplex += `;${chain}`;
-    mapVideo = nextLabel;
-    extraInputs.push(...inputs);
-  } else if (captions && captions.assFilePath) {
-    // ASS subtitle rendering via libass filter
+  if (captions && captions.assFilePath) {
     filterComplex += `;${mapVideo}ass='${escapePath(captions.assFilePath)}':fontsdir='/usr/share/fonts'[captioned]`;
     mapVideo = '[captioned]';
+    console.log(`[FFmpeg-Split] ASS captions applied: ${captions.assFilePath}`);
   }
 
   // Apply tag / credit overlay on composed output
