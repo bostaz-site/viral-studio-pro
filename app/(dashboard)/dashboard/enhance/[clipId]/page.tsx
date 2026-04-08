@@ -534,13 +534,9 @@ function LivePreview({
           <div
             className="px-3 py-1.5 rounded-md text-center whitespace-nowrap overflow-hidden mx-auto w-fit"
             style={{
-              background: 'rgba(0,0,0,0.7)',
-              border: settings.hookStyle === 'choc' ? '2px solid #FF4444'
-                : settings.hookStyle === 'curiosite' ? '2px solid #FFB800'
-                : '2px solid #8B5CF6',
-              boxShadow: settings.hookStyle === 'choc' ? '0 0 12px #FF444466'
-                : settings.hookStyle === 'curiosite' ? '0 0 12px #FFB80066'
-                : '0 0 12px #8B5CF666',
+              background: 'rgba(0,0,0,0.75)',
+              border: '2px solid #9146FF',
+              boxShadow: '0 0 10px #9146FF88, 0 0 24px #9146FF44',
               maxWidth: '100%',
             }}
           >

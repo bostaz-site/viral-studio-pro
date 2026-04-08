@@ -75,13 +75,8 @@ function buildHookTextFilter(hookText, hookLength, style, canvasW, canvasH, text
   const fontSize = Math.round(canvasW * 0.055); // ~40px at 720w
   const boxPad = Math.round(fontSize * 0.4);
 
-  // Style-specific colors
-  const styles = {
-    choc:      { fontColor: 'white', boxColor: 'black@0.7', borderColor: '#FF4444' },
-    curiosite: { fontColor: 'white', boxColor: 'black@0.7', borderColor: '#FFB800' },
-    suspense:  { fontColor: 'white', boxColor: 'black@0.7', borderColor: '#8B5CF6' },
-  };
-  const s = styles[style] || styles.choc;
+  // Twitch purple neon — same accent as tag badge
+  const s = { fontColor: 'white', boxColor: 'black@0.75', borderColor: '#9146FF' };
 
   // Position: vertical % from top (5-85), centered horizontally
   const posPercent = Math.max(5, Math.min(85, textPosition)) / 100;
