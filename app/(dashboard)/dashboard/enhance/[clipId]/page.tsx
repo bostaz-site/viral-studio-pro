@@ -1680,25 +1680,17 @@ export default function EnhancePage() {
                         ]).map((mode) => (
                           <button
                             key={mode.id}
-                            onClick={() => !mode.disabled && updateSetting('smartZoomMode', mode.id)}
-                            disabled={mode.disabled}
+                            onClick={() => updateSetting('smartZoomMode', mode.id)}
                             className={cn(
                               'rounded-xl border p-3 text-left transition-all',
-                              mode.disabled
-                                ? 'border-border/50 bg-muted/20 opacity-50 cursor-not-allowed'
-                                : settings.smartZoomMode === mode.id
+                              settings.smartZoomMode === mode.id
                                 ? 'border-primary bg-primary/10 ring-1 ring-primary/30'
                                 : 'border-border hover:border-primary/40'
                             )}
                           >
                             <div className="flex items-center gap-2 mb-1">
                               <span className="text-xs font-semibold text-foreground flex-1">{mode.label}</span>
-                              <span className={cn(
-                                'text-[9px] font-bold px-2 py-0.5 rounded-full',
-                                mode.disabled
-                                  ? 'bg-muted text-muted-foreground'
-                                  : 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/20'
-                              )}>
+                              <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/20">
                                 {mode.badge}
                               </span>
                             </div>
