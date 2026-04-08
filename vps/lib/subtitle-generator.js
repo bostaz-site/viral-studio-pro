@@ -238,36 +238,18 @@ function adjustPositioning(styleConfig, { position = 'bottom', canvasWidth = 108
     : 72; // 'bottom' default
 
   if (splitScreen && splitScreen.enabled && splitScreen.layout === 'top-bottom') {
-    // Split-screen: place captions INSIDE the main video (top portion)
+    // Split-screen: clamp position within the top video portion
     const ratio = (splitScreen.ratio || 50) / 100;
-    const topH = Math.round(canvasHeight * ratio);
-    const botH = canvasHeight - topH;
-    // Clamp position within the top portion
     const clampedPct = Math.min(numericPos, (ratio * 100) - 6);
-    // ASS alignment 8 = top-center, marginV = distance from top
-    config.alignment = 8;
+    config.alignment = 8; // top-center
     config.marginV = Math.round(canvasHeight * (clampedPct / 100));
-  } else if (numericPos <= 20) {
-    // Top zone: alignment 8 (top center), marginV from top
+  } else {
+    // ── SIMPLE: always use \an8 (top-center), marginV = top offset ──
+    // This matches CSS `top: X%` exactly — the TOP of the text sits at X% from top.
+    // Previous approach used 3 zones (top/middle/bottom) with different alignments
+    // which caused mismatches with the CSS preview.
     config.alignment = 8;
     config.marginV = Math.round(canvasHeight * (numericPos / 100));
-  } else if (numericPos <= 60) {
-    // Middle zone: alignment 5 (middle center), marginV adjusts offset from center
-    // At 42%, marginV = 0 (true center). Above/below shifts with marginV.
-    config.alignment = 5;
-    const centerOffset = (numericPos - 42) / 100;
-    config.marginV = Math.round(canvasHeight * Math.abs(centerOffset));
-    // ASS middle alignment: positive marginV always pushes down, negative not supported
-    // So for above-center, use top alignment instead
-    if (centerOffset < -0.05) {
-      config.alignment = 8;
-      config.marginV = Math.round(canvasHeight * (numericPos / 100));
-    }
-  } else {
-    // Bottom zone: alignment 2 (bottom center), marginV from bottom
-    const fromBottom = (100 - numericPos) / 100;
-    config.alignment = 2;
-    config.marginV = Math.round(canvasHeight * fromBottom);
   }
 
   return config;
