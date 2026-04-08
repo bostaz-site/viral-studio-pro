@@ -440,6 +440,7 @@ function LivePreview({
                   zoomStyle.transform = `scale(${baseZoom})`
                 }
               }
+              const styleOrUndefined = Object.keys(zoomStyle).length ? zoomStyle : undefined
               return videoUrl ? (
                 <video
                   key={videoUrl}
@@ -449,7 +450,7 @@ function LivePreview({
                     objectFit,
                     !needsAbsolute && 'relative w-full h-full',
                   )}
-                  style={Object.keys(zoomStyle).length ? zoomStyle : undefined}
+                  style={styleOrUndefined}
                   autoPlay loop muted playsInline
                 />
               ) : (
@@ -460,9 +461,8 @@ function LivePreview({
                     'z-[1] transition-all duration-500',
                     objectFit,
                     !needsAbsolute && 'relative w-full h-full',
-                    !needsAbsolute && 'animate-[kenburns_20s_ease-in-out_infinite_alternate]'
                   )}
-                  style={Object.keys(zoomStyle).length ? zoomStyle : undefined}
+                  style={styleOrUndefined}
                 />
               )
             })()}
