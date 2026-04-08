@@ -865,23 +865,31 @@ function buildTagFilter(tagConfig, canvasW = 720, canvasH = 1280, inputLabel = n
   const marginY = Math.round(canvasH * 0.015);
   const boxPad = Math.round(fontSize * 0.50);
   const logoGap = Math.round(fontSize * 0.40);
-  const leftPad = Math.round(boxPad + logoH + logoGap);
+  // boxborderw only supports a single uniform value in FFmpeg
+  // We use boxPad as uniform padding, and position text further right to leave logo room
+  const logoSpace = logoH + logoGap;
   // If split-screen, position badge above the broll area; else at bottom of canvas
   const bottomEdge = contentAreaH || canvasH;
   const badgeY = bottomEdge - marginY - logoH - boxPad * 2;
-  const textX = marginX + logoH + logoGap + boxPad;
+  const textX = marginX + boxPad + logoSpace;
   const textY = badgeY + boxPad + Math.round((logoH - fontSize) / 2);
   const logoX = marginX + boxPad;
   const logoY = badgeY + boxPad;
 
+  // Badge dimensions: drawbox for background, then drawtext on top, then logo overlay
+  // This avoids boxborderw multi-value issues (FFmpeg only supports single value)
+  const badgeX = marginX;
+  // Badge width: logo + gap + text approx + padding. We use a generous fixed width.
+  // Text width is unknown, so we make the box wide enough and let it extend right.
+  // drawbox is drawn first, then text and logo on top.
+  const badgeH = logoH + boxPad * 2;
+
   switch (tagConfig.style) {
     case 'viral-glow': {
       // Capsule noire 75% + bordure violet néon #9146FF + glow
-      // FFmpeg: drawtext with box=dark, then borderw for violet outline effect,
-      // then overlay Twitch logo (purple). Glow simulated via shadowcolor.
       const chain = [
         `movie=${twitchLogoFile},scale=-1:${logoH},format=yuva420p[twvg]`,
-        `${inputLabel}drawtext=text='${displayText}':fontfile=${fontFile}:fontcolor=white:fontsize=${fontSize}:x=${textX}:y=${textY}:box=1:boxcolor=0x000000@0.75:boxborderw=${boxPad}|${boxPad}|${boxPad}|${leftPad}:borderw=1:bordercolor=0x9146FF@0.9:shadowcolor=0x9146FF@0.5:shadowx=0:shadowy=0[vgtxt]`,
+        `${inputLabel}drawtext=text='${displayText}':fontfile=${fontFile}:fontcolor=white:fontsize=${fontSize}:x=${textX}:y=${textY}:box=1:boxcolor=0x000000@0.75:boxborderw=${boxPad}:borderw=1:bordercolor=0x9146FF@0.9:shadowcolor=0x9146FF@0.5:shadowx=0:shadowy=0,drawbox=x=${badgeX}:y=${badgeY}:w=${logoSpace + boxPad}:h=${badgeH}:color=0x000000@0.75:t=fill[vgtxt]`,
         `[vgtxt][twvg]overlay=${logoX}:${logoY}:format=auto`,
       ].join(';');
       return { chain, complex: true };
@@ -891,7 +899,7 @@ function buildTagFilter(tagConfig, canvasW = 720, canvasH = 1280, inputLabel = n
       // Fond violet plein #9146FF, outline blanc, texte blanc
       const chain = [
         `movie=${twitchLogoFile},scale=-1:${logoH},format=yuva420p,colorchannelmixer=rr=1:gg=1:bb=1:ra=0:ga=0:ba=0[twpc]`,
-        `${inputLabel}drawtext=text='${displayText}':fontfile=${fontFile}:fontcolor=white:fontsize=${fontSize}:x=${textX}:y=${textY}:box=1:boxcolor=0x9146FF@0.95:boxborderw=${boxPad}|${boxPad}|${boxPad}|${leftPad}:borderw=1:bordercolor=white@0.35:shadowcolor=0x000000@0.35:shadowx=2:shadowy=2[pctxt]`,
+        `${inputLabel}drawtext=text='${displayText}':fontfile=${fontFile}:fontcolor=white:fontsize=${fontSize}:x=${textX}:y=${textY}:box=1:boxcolor=0x9146FF@0.95:boxborderw=${boxPad}:borderw=1:bordercolor=white@0.35:shadowcolor=0x000000@0.35:shadowx=2:shadowy=2,drawbox=x=${badgeX}:y=${badgeY}:w=${logoSpace + boxPad}:h=${badgeH}:color=0x9146FF@0.95:t=fill[pctxt]`,
         `[pctxt][twpc]overlay=${logoX}:${logoY}:format=auto`,
       ].join(';');
       return { chain, complex: true };
@@ -901,7 +909,7 @@ function buildTagFilter(tagConfig, canvasW = 720, canvasH = 1280, inputLabel = n
       // Noir très léger 55%, pas de bordure, logo Twitch discret, clean
       const chain = [
         `movie=${twitchLogoFile},scale=-1:${logoH},format=yuva420p,colorlevels=rimin=0.4:gimin=0.4:bimin=0.4[twmp]`,
-        `${inputLabel}drawtext=text='${displayText}':fontfile=${fontFile}:fontcolor=white@0.85:fontsize=${fontSize}:x=${textX}:y=${textY}:box=1:boxcolor=0x000000@0.55:boxborderw=${boxPad}|${boxPad}|${boxPad}|${leftPad}[mptxt]`,
+        `${inputLabel}drawtext=text='${displayText}':fontfile=${fontFile}:fontcolor=white@0.85:fontsize=${fontSize}:x=${textX}:y=${textY}:box=1:boxcolor=0x000000@0.55:boxborderw=${boxPad},drawbox=x=${badgeX}:y=${badgeY}:w=${logoSpace + boxPad}:h=${badgeH}:color=0x000000@0.55:t=fill[mptxt]`,
         `[mptxt][twmp]overlay=${logoX}:${logoY}:format=auto`,
       ].join(';');
       return { chain, complex: true };
@@ -910,10 +918,9 @@ function buildTagFilter(tagConfig, canvasW = 720, canvasH = 1280, inputLabel = n
     // Legacy support for old style IDs
     case 'badge-top':
     case 'banner-bottom': {
-      // Fallback to viral-glow behavior
       const chain = [
         `movie=${twitchLogoFile},scale=-1:${logoH},format=yuva420p[twfb]`,
-        `${inputLabel}drawtext=text='${displayText}':fontfile=${fontFile}:fontcolor=white:fontsize=${fontSize}:x=${textX}:y=${textY}:box=1:boxcolor=0x000000@0.75:boxborderw=${boxPad}|${boxPad}|${boxPad}|${leftPad}:shadowcolor=0x9146FF@0.4:shadowx=0:shadowy=0[fbtxt]`,
+        `${inputLabel}drawtext=text='${displayText}':fontfile=${fontFile}:fontcolor=white:fontsize=${fontSize}:x=${textX}:y=${textY}:box=1:boxcolor=0x000000@0.75:boxborderw=${boxPad}:shadowcolor=0x9146FF@0.4:shadowx=0:shadowy=0,drawbox=x=${badgeX}:y=${badgeY}:w=${logoSpace + boxPad}:h=${badgeH}:color=0x000000@0.75:t=fill[fbtxt]`,
         `[fbtxt][twfb]overlay=${logoX}:${logoY}:format=auto`,
       ].join(';');
       return { chain, complex: true };
