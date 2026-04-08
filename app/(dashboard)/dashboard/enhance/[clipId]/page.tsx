@@ -1258,13 +1258,16 @@ export default function EnhancePage() {
                     </div>
 
                     <div className="space-y-2">
-                      <Label className="text-xs uppercase tracking-wider text-muted-foreground">Position verticale</Label>
+                      <div className="flex items-center justify-between">
+                        <Label className="text-xs uppercase tracking-wider text-muted-foreground">Position verticale</Label>
+                        <span className="text-xs font-semibold text-foreground">{settings.captionPosition}%</span>
+                      </div>
                       <div className="flex items-center gap-3">
                         <span className="text-[10px] text-muted-foreground whitespace-nowrap">Haut</span>
                         <input
                           type="range"
-                          min={5}
-                          max={90}
+                          min={0}
+                          max={100}
                           step={1}
                           value={settings.captionPosition}
                           onChange={(e) => updateSetting('captionPosition', Number(e.target.value))}
