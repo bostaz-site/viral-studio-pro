@@ -706,8 +706,9 @@ function buildTagFilter(tagConfig, canvasW = 720, canvasH = 1280, inputLabel = n
   const fontFile = '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf';
   const twitchLogoFile = path.join(__dirname, '..', 'assets', 'twitch-logo.png');
 
-  // Common dimensions
-  const fontSize = Math.round(canvasW * 0.034);
+  // Common dimensions — scaled by tagSize (50-150%, default 100)
+  const sizeScale = Math.max(0.5, Math.min(1.5, (tagConfig.size || 100) / 100));
+  const fontSize = Math.round(canvasW * 0.034 * sizeScale);
   const logoH = Math.round(fontSize * 1.2);
   const marginX = Math.round(canvasW * 0.04);
   const marginY = Math.round(canvasH * 0.015);

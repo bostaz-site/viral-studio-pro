@@ -49,6 +49,7 @@ interface EnhanceSettings {
   splitRatio: number
   videoZoom: 'contain' | 'fill' | 'immersive'
   tagStyle: string
+  tagSize: number // 50-150, percentage scale
   aspectRatio: '9:16' | '1:1' | '16:9'
   smartZoomEnabled: boolean
   smartZoomMode: 'micro' | 'dynamic' | 'follow'
@@ -496,11 +497,12 @@ function LivePreview({
       {/* Streamer Tag — 3 viral styles */}
       {showEnhancements && tagStyle && tagStyle.id !== 'none' && streamerName && (
         <div
-          className="absolute z-20 pointer-events-none flex justify-start px-3"
+          className="absolute z-20 pointer-events-none flex justify-start px-3 origin-bottom-left"
           style={{
             bottom: showEnhancements && settings.splitScreenEnabled
               ? `calc(${100 - settings.splitRatio}% + 10px)` : '10px',
             left: 0,
+            transform: `scale(${(settings.tagSize || 100) / 100})`,
           }}
         >
           {/* VIRAL GLOW — capsule noire, bordure violet néon, glow */}
@@ -727,6 +729,7 @@ export default function EnhancePage() {
     splitRatio: 60,
     videoZoom: 'fill',
     tagStyle: 'viral-glow',
+    tagSize: 100,
     aspectRatio: '9:16',
     smartZoomEnabled: false,
     smartZoomMode: 'micro',
@@ -929,6 +932,7 @@ export default function EnhancePage() {
             },
             tag: {
               style: settings.tagStyle,
+              size: settings.tagSize || 100,
               authorName: clip.author_name || null,
               authorHandle: clip.author_handle || null,
             },
@@ -1532,6 +1536,30 @@ export default function EnhancePage() {
                         })}
                       </div>
                     </div>
+
+                    {/* Taille du tag — slider 50-150% */}
+                    {settings.tagStyle !== 'none' && (
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <Label className="text-xs uppercase tracking-wider text-muted-foreground">Taille du tag</Label>
+                          <span className="text-xs font-mono text-muted-foreground">{settings.tagSize || 100}%</span>
+                        </div>
+                        <input
+                          type="range"
+                          min={50}
+                          max={150}
+                          step={5}
+                          value={settings.tagSize || 100}
+                          onChange={(e) => updateSetting('tagSize', Number(e.target.value))}
+                          className="w-full accent-primary"
+                        />
+                        <div className="flex justify-between text-[10px] text-muted-foreground">
+                          <span>50%</span>
+                          <span>100%</span>
+                          <span>150%</span>
+                        </div>
+                      </div>
+                    )}
                   </CardContent>
                 )}
               </Card>

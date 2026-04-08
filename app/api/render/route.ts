@@ -31,6 +31,7 @@ const inputSchema = z.object({
     }).optional(),
     tag: z.object({
       style: z.string().optional(),
+      size: z.number().optional(),
       authorName: z.string().nullable().optional(),
       authorHandle: z.string().nullable().optional(),
     }).optional(),
