@@ -533,7 +533,8 @@ async function renderSplitScreen(inputPath, outputPath, opts) {
 
   // Apply tag / credit overlay on composed output
   if (tag) {
-    const tagFilter = buildTagFilter(tag, canvasW, canvasH, mapVideo);
+    const splitContentH = Math.round(canvasH * ratio);
+    const tagFilter = buildTagFilter(tag, canvasW, canvasH, mapVideo, splitContentH);
     if (tagFilter) {
       if (typeof tagFilter === 'string') {
         filterComplex += `;${mapVideo}${tagFilter}[tagged]`;
@@ -693,7 +694,7 @@ function buildPngCaptionChain(overlays, inputLabel, firstInputIdx) {
  * @param {number} canvasH - Canvas height
  * @returns {string|null} FFmpeg filter string or null
  */
-function buildTagFilter(tagConfig, canvasW = 720, canvasH = 1280, inputLabel = null) {
+function buildTagFilter(tagConfig, canvasW = 720, canvasH = 1280, inputLabel = null, contentAreaH = null) {
   if (!tagConfig || tagConfig.style === 'none' || (!tagConfig.authorName && !tagConfig.authorHandle)) {
     return null;
   }
@@ -703,69 +704,65 @@ function buildTagFilter(tagConfig, canvasW = 720, canvasH = 1280, inputLabel = n
     : tagConfig.authorName || '';
   const displayText = escapeDrawtext(handle);
   const fontFile = '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf';
-  const twitchLogoPath = path.join(__dirname, '..', 'assets', 'twitch-logo.png');
-
-  // Twitch logo path for overlay (PNG shipped with VPS)
   const twitchLogoFile = path.join(__dirname, '..', 'assets', 'twitch-logo.png');
 
+  // Common dimensions
+  const fontSize = Math.round(canvasW * 0.034);
+  const logoH = Math.round(fontSize * 1.2);
+  const marginX = Math.round(canvasW * 0.04);
+  const marginY = Math.round(canvasH * 0.015);
+  const boxPad = Math.round(fontSize * 0.50);
+  const logoGap = Math.round(fontSize * 0.40);
+  const leftPad = Math.round(boxPad + logoH + logoGap);
+  // If split-screen, position badge above the broll area; else at bottom of canvas
+  const bottomEdge = contentAreaH || canvasH;
+  const badgeY = bottomEdge - marginY - logoH - boxPad * 2;
+  const textX = marginX + logoH + logoGap + boxPad;
+  const textY = badgeY + boxPad + Math.round((logoH - fontSize) / 2);
+  const logoX = marginX + boxPad;
+  const logoY = badgeY + boxPad;
+
   switch (tagConfig.style) {
-    case 'badge-top': {
-      // Twitch-style badge: dark box with Twitch logo + streamer name, top-right
-      // Position is top-right but text anchored from right using drawtext x=W-tw-pad
-      // Logo placed at fixed offset from right edge (works because we know approximate text width)
-      const fontSize = Math.round(canvasW * 0.030);
-      const padRight = Math.round(canvasW * 0.025);
-      const padTop = Math.round(canvasH * 0.018);
-      const boxPad = Math.round(fontSize * 0.55);
-      const logoH = Math.round(fontSize * 1.1);
-      const logoGap = Math.round(fontSize * 0.35);
-      const leftPad = Math.round(boxPad + logoH + logoGap);
-      // drawtext x=W-tw-padRight-boxPad anchors text to the right.
-      // The box extends leftPad to the left of text, creating room for the logo.
-      // overlay uses drawtext's saved x via a two-pass approach.
-      // Simpler: position everything from the LEFT side instead.
-      const marginL = Math.round(canvasW * 0.04);
-      const textX = marginL + logoH + logoGap + boxPad;
-      const textY = padTop + boxPad + Math.round((logoH - fontSize) / 2);
-      const logoX = marginL + boxPad;
-      const logoY = padTop + boxPad;
+    case 'viral-glow': {
+      // Capsule noire 75% + bordure violet néon #9146FF + glow
+      // FFmpeg: drawtext with box=dark, then borderw for violet outline effect,
+      // then overlay Twitch logo (purple). Glow simulated via shadowcolor.
       const chain = [
-        `movie=${twitchLogoFile},scale=-1:${logoH},format=yuva420p[twbadge]`,
-        `${inputLabel}drawtext=text='${displayText}':fontfile=${fontFile}:fontcolor=white:fontsize=${fontSize}:x=${textX}:y=${textY}:box=1:boxcolor=0x18181B@0.85:boxborderw=${boxPad}|${boxPad}|${boxPad}|${leftPad}[tagtxt]`,
-        `[tagtxt][twbadge]overlay=${logoX}:${logoY}:format=auto`,
+        `movie=${twitchLogoFile},scale=-1:${logoH},format=yuva420p[twvg]`,
+        `${inputLabel}drawtext=text='${displayText}':fontfile=${fontFile}:fontcolor=white:fontsize=${fontSize}:x=${textX}:y=${textY}:box=1:boxcolor=0x000000@0.75:boxborderw=${boxPad}|${boxPad}|${boxPad}|${leftPad}:borderw=1:bordercolor=0x9146FF@0.9:shadowcolor=0x9146FF@0.5:shadowx=0:shadowy=0[vgtxt]`,
+        `[vgtxt][twvg]overlay=${logoX}:${logoY}:format=auto`,
       ].join(';');
       return { chain, complex: true };
     }
 
-    case 'watermark-center': {
-      // Rotated semi-transparent watermark
-      const fontSize = Math.round(canvasW * 0.13);
-      const angleRad = '-0.349066'; // -20 degrees
-      const canvasSize = `${canvasW}x${Math.round(canvasH * 0.35)}`;
+    case 'pop-creator': {
+      // Fond violet plein #9146FF, outline blanc, texte blanc
       const chain = [
-        `color=c=0x000000@0.0:s=${canvasSize}:r=30:d=600,format=yuva420p[wcbg]`,
-        `[wcbg]drawtext=text='${displayText}':fontfile=${fontFile}:fontcolor=white@0.40:fontsize=${fontSize}:x=(w-text_w)/2:y=(h-text_h)/2:shadowcolor=black@0.7:shadowx=4:shadowy=4:borderw=2:bordercolor=black@0.5[wctxt]`,
-        `[wctxt]rotate=${angleRad}:c=none:ow=rotw(${angleRad}):oh=roth(${angleRad})[wcrot]`,
-        `${inputLabel}[wcrot]overlay=(W-w)/2:(H-h)/2:format=auto`,
+        `movie=${twitchLogoFile},scale=-1:${logoH},format=yuva420p,colorchannelmixer=rr=1:gg=1:bb=1:ra=0:ga=0:ba=0[twpc]`,
+        `${inputLabel}drawtext=text='${displayText}':fontfile=${fontFile}:fontcolor=white:fontsize=${fontSize}:x=${textX}:y=${textY}:box=1:boxcolor=0x9146FF@0.95:boxborderw=${boxPad}|${boxPad}|${boxPad}|${leftPad}:borderw=1:bordercolor=white@0.35:shadowcolor=0x000000@0.35:shadowx=2:shadowy=2[pctxt]`,
+        `[pctxt][twpc]overlay=${logoX}:${logoY}:format=auto`,
       ].join(';');
       return { chain, complex: true };
     }
 
+    case 'minimal-pro': {
+      // Noir très léger 55%, pas de bordure, logo Twitch discret, clean
+      const chain = [
+        `movie=${twitchLogoFile},scale=-1:${logoH},format=yuva420p,colorlevels=rimin=0.4:gimin=0.4:bimin=0.4[twmp]`,
+        `${inputLabel}drawtext=text='${displayText}':fontfile=${fontFile}:fontcolor=white@0.85:fontsize=${fontSize}:x=${textX}:y=${textY}:box=1:boxcolor=0x000000@0.55:boxborderw=${boxPad}|${boxPad}|${boxPad}|${leftPad}[mptxt]`,
+        `[mptxt][twmp]overlay=${logoX}:${logoY}:format=auto`,
+      ].join(';');
+      return { chain, complex: true };
+    }
+
+    // Legacy support for old style IDs
+    case 'badge-top':
     case 'banner-bottom': {
-      // Twitch-style badge: dark box with Twitch logo + streamer name, bottom-left
-      // Matches preview: bg-[#18181b]/85, Twitch purple logo, white bold text
-      const fontSize = Math.round(canvasW * 0.034);
-      const logoH = Math.round(fontSize * 1.3);
-      const marginX = Math.round(canvasW * 0.04);
-      const marginY = Math.round(canvasH * 0.015);
-      const boxPad = Math.round(fontSize * 0.50);
-      const logoGap = Math.round(fontSize * 0.45);
-      const badgeY = canvasH - marginY - logoH - boxPad * 2;
-      // movie= for logo overlay, drawtext with extended left box padding for logo space
+      // Fallback to viral-glow behavior
       const chain = [
-        `movie=${twitchLogoFile},scale=-1:${logoH},format=yuva420p[twban]`,
-        `${inputLabel}drawtext=text='${displayText}':fontfile=${fontFile}:fontcolor=white:fontsize=${fontSize}:x=${marginX}+${logoH}+${logoGap}+${boxPad}:y=${badgeY}+${boxPad}+${Math.round((logoH - fontSize) / 2)}:box=1:boxcolor=0x18181B@0.85:boxborderw=${boxPad}|${boxPad}|${boxPad}|${Math.round(boxPad + logoH + logoGap)}[bantxt]`,
-        `[bantxt][twban]overlay=${marginX}+${boxPad}:${badgeY}+${boxPad}:format=auto`,
+        `movie=${twitchLogoFile},scale=-1:${logoH},format=yuva420p[twfb]`,
+        `${inputLabel}drawtext=text='${displayText}':fontfile=${fontFile}:fontcolor=white:fontsize=${fontSize}:x=${textX}:y=${textY}:box=1:boxcolor=0x000000@0.75:boxborderw=${boxPad}|${boxPad}|${boxPad}|${leftPad}:shadowcolor=0x9146FF@0.4:shadowx=0:shadowy=0[fbtxt]`,
+        `[fbtxt][twfb]overlay=${logoX}:${logoY}:format=auto`,
       ].join(';');
       return { chain, complex: true };
     }

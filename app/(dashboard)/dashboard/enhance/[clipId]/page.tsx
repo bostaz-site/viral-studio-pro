@@ -93,9 +93,9 @@ const BROLL_OPTIONS = [
 ]
 
 const TAG_STYLES = [
-  { id: 'badge-top', label: 'Badge haut', description: 'Badge Twitch en haut à gauche', icon: '🏷️', baseScore: 10, position: 'top-right' as const },
-  { id: 'watermark-center', label: 'Watermark', description: 'Semi-transparent au centre', icon: '💧', baseScore: 6, position: 'center' as const },
-  { id: 'banner-bottom', label: 'Badge bas', description: 'Badge Twitch en bas à gauche', icon: '🎮', baseScore: 12, position: 'bottom' as const },
+  { id: 'viral-glow', label: 'Viral Glow', description: 'Capsule noire + bordure violet néon + glow', icon: '🔥', baseScore: 14, position: 'bottom-left' as const },
+  { id: 'pop-creator', label: 'Pop Creator', description: 'Fond violet plein, outline blanc, effet pop', icon: '⚡', baseScore: 12, position: 'bottom-left' as const },
+  { id: 'minimal-pro', label: 'Minimal Pro', description: 'Clean noir, logo Twitch, ultra discret', icon: '🧠', baseScore: 10, position: 'bottom-left' as const },
   { id: 'none', label: 'Aucun', description: 'Pas de tag visible', icon: '🚫', baseScore: 0, position: 'none' as const },
 ]
 
@@ -161,8 +161,8 @@ function computeScores(clip: TrendingClipData) {
   // Score tag styles
   const tagScores: ScoredOption[] = TAG_STYLES.map((t) => {
     let score = t.baseScore
-    if (t.id === 'banner-bottom' && clip.author_handle) score += 5
-    if (t.id === 'badge-top') score += 3
+    if (t.id === 'viral-glow' && clip.author_handle) score += 5
+    if (t.id === 'pop-creator') score += 2
     return { id: t.id, score, isBest: false }
   })
   const maxTag = Math.max(...tagScores.map((s) => s.score))
@@ -493,34 +493,66 @@ function LivePreview({
       </div>
 
       {/* ── Tag overlays ── */}
+      {/* Streamer Tag — 3 viral styles */}
       {showEnhancements && tagStyle && tagStyle.id !== 'none' && streamerName && (
-        <>
-          {tagStyle.position === 'top-right' && (
-            <div className="absolute top-3 left-3 z-20 bg-[#18181b]/85 backdrop-blur-sm rounded-md px-2.5 py-1.5 transition-all duration-300 pointer-events-none flex items-center gap-1.5">
-              <svg className="h-3.5 w-3.5 text-[#9146FF] flex-shrink-0" viewBox="0 0 24 24" fill="currentColor">
+        <div
+          className="absolute z-20 pointer-events-none flex justify-start px-3"
+          style={{
+            bottom: showEnhancements && settings.splitScreenEnabled
+              ? `calc(${100 - settings.splitRatio}% + 10px)` : '10px',
+            left: 0,
+          }}
+        >
+          {/* VIRAL GLOW — capsule noire, bordure violet néon, glow */}
+          {tagStyle.id === 'viral-glow' && (
+            <div
+              className="flex items-center gap-1.5 rounded-full px-2.5 py-1.5 animate-in fade-in slide-in-from-left-2 duration-300"
+              style={{
+                background: 'rgba(0,0,0,0.75)',
+                border: '1.5px solid #9146FF',
+                boxShadow: '0 0 8px #9146FF88, 0 0 20px #9146FF44, 0 2px 8px rgba(0,0,0,0.5)',
+              }}
+            >
+              <svg className="h-3.5 w-3.5 flex-shrink-0" viewBox="0 0 24 24" fill="#9146FF">
                 <path d="M11.571 4.714h1.715v5.143H11.57zm4.715 0H18v5.143h-1.714zM6 0L1.714 4.286v15.428h5.143V24l4.286-4.286h3.428L22.286 12V0zm14.571 11.143l-3.428 3.428h-3.429l-3 3v-3H6.857V1.714h13.714Z"/>
               </svg>
               <span className="text-[11px] font-bold text-white tracking-wide">{streamerName}</span>
             </div>
           )}
-          {tagStyle.position === 'center' && (
-            <div className="absolute inset-0 flex items-center justify-center z-10 pointer-events-none">
-              <span className="text-2xl font-black text-white/15 rotate-[-20deg]">{streamerName}</span>
+
+          {/* POP CREATOR — fond violet plein, outline blanc, pop effect */}
+          {tagStyle.id === 'pop-creator' && (
+            <div
+              className="flex items-center gap-1.5 rounded-full px-3 py-1.5 animate-in zoom-in-95 duration-200"
+              style={{
+                background: '#9146FF',
+                border: '1.5px solid rgba(255,255,255,0.3)',
+                boxShadow: '0 2px 12px rgba(145,70,255,0.5), 0 1px 4px rgba(0,0,0,0.3)',
+              }}
+            >
+              <svg className="h-3 w-3 flex-shrink-0" viewBox="0 0 24 24" fill="white">
+                <path d="M11.571 4.714h1.715v5.143H11.57zm4.715 0H18v5.143h-1.714zM6 0L1.714 4.286v15.428h5.143V24l4.286-4.286h3.428L22.286 12V0zm14.571 11.143l-3.428 3.428h-3.429l-3 3v-3H6.857V1.714h13.714Z"/>
+              </svg>
+              <span className="text-[11px] font-bold text-white tracking-wide">{streamerName}</span>
             </div>
           )}
-          {tagStyle.position === 'bottom' && (
-            <div className="absolute inset-x-0 z-20 pointer-events-none flex justify-start px-3"
-              style={{ bottom: showEnhancements && settings.splitScreenEnabled ? `calc(${100 - settings.splitRatio}% + 8px)` : '8px' }}>
-              <div className="flex items-center gap-1.5 bg-[#18181b]/85 backdrop-blur-sm rounded-md px-2.5 py-1.5">
-                {/* Twitch logo */}
-                <svg className="h-3.5 w-3.5 text-[#9146FF] flex-shrink-0" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M11.571 4.714h1.715v5.143H11.57zm4.715 0H18v5.143h-1.714zM6 0L1.714 4.286v15.428h5.143V24l4.286-4.286h3.428L22.286 12V0zm14.571 11.143l-3.428 3.428h-3.429l-3 3v-3H6.857V1.714h13.714Z"/>
-                </svg>
-                <span className="text-[11px] font-bold text-white tracking-wide">{streamerName}</span>
-              </div>
+
+          {/* MINIMAL PRO — noir clean, logo Twitch discret, ultra pro */}
+          {tagStyle.id === 'minimal-pro' && (
+            <div
+              className="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 animate-in fade-in duration-300"
+              style={{
+                background: 'rgba(0,0,0,0.55)',
+                backdropFilter: 'blur(8px)',
+              }}
+            >
+              <svg className="h-3 w-3 flex-shrink-0 opacity-60" viewBox="0 0 24 24" fill="#9146FF">
+                <path d="M11.571 4.714h1.715v5.143H11.57zm4.715 0H18v5.143h-1.714zM6 0L1.714 4.286v15.428h5.143V24l4.286-4.286h3.428L22.286 12V0zm14.571 11.143l-3.428 3.428h-3.429l-3 3v-3H6.857V1.714h13.714Z"/>
+              </svg>
+              <span className="text-[11px] font-medium text-white/85 tracking-wide">{streamerName}</span>
             </div>
           )}
-        </>
+        </div>
       )}
 
       {/* Karaoke subtitle preview — hidden when style is 'none' */}
@@ -694,7 +726,7 @@ export default function EnhancePage() {
     brollVideo: 'subway-surfers',
     splitRatio: 60,
     videoZoom: 'fill',
-    tagStyle: 'badge-top',
+    tagStyle: 'viral-glow',
     aspectRatio: '9:16',
     smartZoomEnabled: false,
     smartZoomMode: 'micro',
@@ -1490,7 +1522,7 @@ export default function EnhancePage() {
                               )}
                             >
                               <div className="flex items-center gap-2 mb-1">
-                                <span className="text-base">{tag.icon === 'discord' ? '📢' : tag.icon}</span>
+                                <span className="text-base">{tag.icon}</span>
                                 <span className={cn('text-xs font-semibold flex-1', scored.isBest ? 'text-orange-400' : 'text-foreground')}>{tag.label}</span>
                                 <ScoreBadge score={scored.score} isBest={scored.isBest} />
                               </div>
