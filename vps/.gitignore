@@ -37,6 +37,7 @@ dist/
 build/
 *.mp4
 *.png
+!assets/*.png
 *.jpg
 *.mkv
 

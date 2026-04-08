@@ -703,25 +703,43 @@ function buildTagFilter(tagConfig, canvasW = 720, canvasH = 1280, inputLabel = n
     : tagConfig.authorName || '';
   const displayText = escapeDrawtext(handle);
   const fontFile = '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf';
+  const twitchLogoPath = path.join(__dirname, '..', 'assets', 'twitch-logo.png');
+
+  // Twitch logo path for overlay (PNG shipped with VPS)
+  const twitchLogoFile = path.join(__dirname, '..', 'assets', 'twitch-logo.png');
 
   switch (tagConfig.style) {
     case 'badge-top': {
-      // Rounded pill: small dark semi-transparent badge in top-right
-      // UI: bg-black/60 rounded-full px-2.5 py-1, text-xs font-bold white
-      const fontSize = Math.round(canvasW * 0.028); // matches text-xs scaled
-      const padX = Math.round(canvasW * 0.025);
-      const padY = Math.round(canvasH * 0.018);
-      // boxborderw gives us the rounded-ish padding illusion
-      return `drawtext=text='${displayText}':fontfile=${fontFile}:fontcolor=white:fontsize=${fontSize}:x=W-tw-${padX * 2}-${padX}:y=${padY}:box=1:boxcolor=0x000000@0.70:boxborderw=${Math.round(fontSize * 0.55)}:shadowcolor=0x000000@0.5:shadowx=1:shadowy=2`;
+      // Twitch-style badge: dark box with Twitch logo + streamer name, top-right
+      // Position is top-right but text anchored from right using drawtext x=W-tw-pad
+      // Logo placed at fixed offset from right edge (works because we know approximate text width)
+      const fontSize = Math.round(canvasW * 0.030);
+      const padRight = Math.round(canvasW * 0.025);
+      const padTop = Math.round(canvasH * 0.018);
+      const boxPad = Math.round(fontSize * 0.55);
+      const logoH = Math.round(fontSize * 1.1);
+      const logoGap = Math.round(fontSize * 0.35);
+      const leftPad = Math.round(boxPad + logoH + logoGap);
+      // drawtext x=W-tw-padRight-boxPad anchors text to the right.
+      // The box extends leftPad to the left of text, creating room for the logo.
+      // overlay uses drawtext's saved x via a two-pass approach.
+      // Simpler: position everything from the LEFT side instead.
+      const marginL = Math.round(canvasW * 0.04);
+      const textX = marginL + logoH + logoGap + boxPad;
+      const textY = padTop + boxPad + Math.round((logoH - fontSize) / 2);
+      const logoX = marginL + boxPad;
+      const logoY = padTop + boxPad;
+      const chain = [
+        `movie=${twitchLogoFile},scale=-1:${logoH},format=yuva420p[twbadge]`,
+        `${inputLabel}drawtext=text='${displayText}':fontfile=${fontFile}:fontcolor=white:fontsize=${fontSize}:x=${textX}:y=${textY}:box=1:boxcolor=0x18181B@0.85:boxborderw=${boxPad}|${boxPad}|${boxPad}|${leftPad}[tagtxt]`,
+        `[tagtxt][twbadge]overlay=${logoX}:${logoY}:format=auto`,
+      ].join(';');
+      return { chain, complex: true };
     }
 
     case 'watermark-center': {
-      // UI: text-2xl font-black text-white/15 rotate-[-20deg]
-      // Render a rotated semi-transparent watermark via a synthetic canvas +
-      // rotate + overlay chain. We need a multi-filter graph fragment here.
-      const fontSize = Math.round(canvasW * 0.13); // bigger so clearly visible in video
-      // Rotation of -20 degrees = -0.349 rad.
-      // 0.30 opacity + shadow for visibility against any background.
+      // Rotated semi-transparent watermark
+      const fontSize = Math.round(canvasW * 0.13);
       const angleRad = '-0.349066'; // -20 degrees
       const canvasSize = `${canvasW}x${Math.round(canvasH * 0.35)}`;
       const chain = [
@@ -734,23 +752,22 @@ function buildTagFilter(tagConfig, canvasW = 720, canvasH = 1280, inputLabel = n
     }
 
     case 'banner-bottom': {
-      // UI: bg-gradient-to-t from-black/80 to-transparent, discord icon + handle
-      // Fake a gradient with 3 stacked boxes of decreasing opacity (top→bottom fade-in)
-      const barH = Math.round(canvasH * 0.07); // 7% of height
-      const fontSize = Math.round(canvasW * 0.04);
-      const textY = canvasH - barH + Math.round((barH - fontSize) / 2) - Math.round(fontSize * 0.1);
-      const topY = canvasH - barH;
-      const band = Math.round(barH / 3);
-      return [
-        // Top band (lightest, fades in)
-        `drawbox=x=0:y=${topY}:w=iw:h=${band}:color=0x000000@0.35:thickness=fill`,
-        // Middle band
-        `drawbox=x=0:y=${topY + band}:w=iw:h=${band}:color=0x000000@0.60:thickness=fill`,
-        // Bottom band (darkest)
-        `drawbox=x=0:y=${topY + band * 2}:w=iw:h=${barH - band * 2}:color=0x000000@0.85:thickness=fill`,
-        // Handle text centered
-        `drawtext=text='${displayText}':fontfile=${fontFile}:fontcolor=white:fontsize=${fontSize}:x=(W-tw)/2:y=${textY}:shadowcolor=0x000000@0.6:shadowx=2:shadowy=2`,
-      ].join(',');
+      // Twitch-style badge: dark box with Twitch logo + streamer name, bottom-left
+      // Matches preview: bg-[#18181b]/85, Twitch purple logo, white bold text
+      const fontSize = Math.round(canvasW * 0.034);
+      const logoH = Math.round(fontSize * 1.3);
+      const marginX = Math.round(canvasW * 0.04);
+      const marginY = Math.round(canvasH * 0.015);
+      const boxPad = Math.round(fontSize * 0.50);
+      const logoGap = Math.round(fontSize * 0.45);
+      const badgeY = canvasH - marginY - logoH - boxPad * 2;
+      // movie= for logo overlay, drawtext with extended left box padding for logo space
+      const chain = [
+        `movie=${twitchLogoFile},scale=-1:${logoH},format=yuva420p[twban]`,
+        `${inputLabel}drawtext=text='${displayText}':fontfile=${fontFile}:fontcolor=white:fontsize=${fontSize}:x=${marginX}+${logoH}+${logoGap}+${boxPad}:y=${badgeY}+${boxPad}+${Math.round((logoH - fontSize) / 2)}:box=1:boxcolor=0x18181B@0.85:boxborderw=${boxPad}|${boxPad}|${boxPad}|${Math.round(boxPad + logoH + logoGap)}[bantxt]`,
+        `[bantxt][twban]overlay=${marginX}+${boxPad}:${badgeY}+${boxPad}:format=auto`,
+      ].join(';');
+      return { chain, complex: true };
     }
 
     default:
