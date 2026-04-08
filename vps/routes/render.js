@@ -6,8 +6,7 @@ import { execFile } from 'child_process';
 import { promisify } from 'util';
 import { renderClip, extractThumbnail, checkFfmpegAvailability } from '../lib/ffmpeg-render.js';
 import { generateASS, generateStaticASS, validateWordTimestamps } from '../lib/subtitle-generator.js';
-import { generateCaptionPNGs } from '../lib/caption-png.js';
-// drawtext-wordpop.js removed — word-pop now uses ASS subtitles like all other animations
+// caption-png.js and drawtext-wordpop.js removed — all animations now use ASS subtitles
 import { transcribeWithWhisper } from '../lib/whisper-client.js';
 import {
   getClip,
@@ -344,6 +343,7 @@ router.post('/', async (req, res) => {
             wordsPerLine: settings.captions.wordsPerLine || 4,
             customColors: settings.captions.customColors,
             customImportantWords: settings.captions.customImportantWords || [],
+            emphasisEffect: settings.captions.emphasisEffect || 'none',
           });
           trc(`CAPTIONS ASS generated: ${assContent ? assContent.length : 0} bytes`);
         } else {

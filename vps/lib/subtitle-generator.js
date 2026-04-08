@@ -292,6 +292,7 @@ export function generateASS(wordTimestamps, options = {}) {
     wordsPerLine = 6,
     customColors = null,
     customImportantWords = [],
+    emphasisEffect = 'none',
     position = 'bottom',
     canvasWidth = 1080,
     canvasHeight = 1920,
@@ -345,7 +346,7 @@ export function generateASS(wordTimestamps, options = {}) {
       const word = w.word.replace(/\\/g, '\\\\').replace(/\{/g, '\\{').replace(/\}/g, '\\}');
       const important = isImportantWord(w.word, customImportantWords);
       const overrides = important
-        ? `{\\an${an}\\c&H000000FF&\\fscx120\\fscy120}`
+        ? `{\\an${an}${getEmphasisASS(emphasisEffect)}}`
         : `{\\an${an}}`;
       events.push(
         `Dialogue: 0,${toASSTime(wordStart)},${toASSTime(wordEnd)},Default,,0,0,0,,${overrides}${word}`
@@ -572,6 +573,31 @@ const IMPORTANT_WORDS = new Set([
   'million', 'money', 'free', 'secret', 'hack', 'exposed', 'banned',
   'never', 'always', 'best', 'worst', 'first', 'last', 'only',
 ]);
+
+/**
+ * Convert emphasisEffect name to ASS override tags for important words.
+ * Effects: scale (bigger), color (red), bounce (Y shift), glow (border glow), none (red+scale default)
+ */
+function getEmphasisASS(effect) {
+  switch (effect) {
+    case 'scale':
+      // 140% scale + yellow color
+      return '\\fscx140\\fscy140\\c&H00FFFF&';
+    case 'color':
+      // Red color, normal size
+      return '\\c&H0000FF&';
+    case 'bounce':
+      // 130% scale + orange color + slight Y shift
+      return '\\fscx130\\fscy130\\c&H0080FF&\\shad3';
+    case 'glow':
+      // Normal size + glow border effect (thick outline + bright color)
+      return '\\c&H00FF00&\\bord4\\3c&H00FF80&';
+    case 'none':
+    default:
+      // Default: red + 120% (legacy behavior)
+      return '\\c&H000000FF&\\fscx120\\fscy120';
+  }
+}
 
 function isImportantWord(rawWord, customWords = []) {
   const clean = rawWord.replace(/[^a-zA-Z]/g, '');

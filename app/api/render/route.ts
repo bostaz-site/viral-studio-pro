@@ -15,6 +15,8 @@ const inputSchema = z.object({
       position: z.union([z.string(), z.number()]).optional(),
       wordsPerLine: z.number().optional(),
       animation: z.string().optional(),
+      emphasisEffect: z.string().optional(),
+      customImportantWords: z.array(z.string()).optional(),
     }).optional(),
     splitScreen: z.object({
       enabled: z.boolean().optional(),
@@ -142,8 +144,7 @@ export const POST = withAuth(async (request, user) => {
   }
 
   // ── Create render job for tracking ──
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: job, error: jobError } = await (admin as any)
+  const { data: job, error: jobError } = await admin
     .from('render_jobs')
     .insert({
       clip_id,
@@ -152,7 +153,7 @@ export const POST = withAuth(async (request, user) => {
       status: 'pending',
     })
     .select('id')
-    .single() as { data: { id: string } | null; error: unknown }
+    .single()
 
   if (jobError || !job) {
     return NextResponse.json(
