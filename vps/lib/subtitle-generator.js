@@ -329,16 +329,18 @@ export function generateASS(wordTimestamps, options = {}) {
 
   if (animation === 'word-pop') {
     // WORD-POP SPECIAL: process ALL words flat (not per-line) to avoid cross-line overlap.
-    // Each word shows from its start until the next word starts — strictly sequential.
+    // Each word ends EXACTLY when the next starts — zero overlap, no minimum duration.
+    // This prevents libass from stacking words vertically when speech is fast.
     const allWords = wordLines.flat().filter(Boolean);
     const an = styleConfig.alignment || 2;
     for (let i = 0; i < allWords.length; i++) {
       const w = allWords[i];
       const wordStart = Math.max(0, w.start - clipStartTime);
-      const nextStart = (i < allWords.length - 1)
+      // Strict sequential: word ends exactly when next word starts
+      // Last word: stays until its natural end (min 0.3s)
+      const wordEnd = (i < allWords.length - 1)
         ? Math.max(0, allWords[i + 1].start - clipStartTime)
         : Math.max(wordStart + 0.3, w.end - clipStartTime);
-      const wordEnd = Math.max(wordStart + 0.05, nextStart);
 
       const word = w.word.replace(/\\/g, '\\\\').replace(/\{/g, '\\{').replace(/\}/g, '\\}');
       const important = isImportantWord(w.word, customImportantWords);
