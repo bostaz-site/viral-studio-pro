@@ -576,13 +576,13 @@ function LivePreview({
               // Emphasis effect overrides on important words
               if (wordImp && eff === 'scale') activeTransform = 'scale(1.5)'
               else if (wordImp && eff === 'bounce') activeTransform = 'translateY(-30%) scale(1.25)'
-              // Glow: colored text-shadow halo on active word — amplified for visibility
+              // Glow: colored text-shadow halo on active word — uses empColor
               const glowFromStyle = isActive && currentAnimation === 'glow'
               const glowFromEmphasis = wordImp && eff === 'glow'
               const activeTextShadow = glowFromStyle
-                ? '0 0 8px #fde047, 0 0 18px #fde047, 0 0 32px #facc15, 0 0 48px #eab308'
+                ? `0 0 8px ${empColor}, 0 0 18px ${empColor}, 0 0 32px ${empColor}AA, 0 0 48px ${empColor}66`
                 : glowFromEmphasis
-                ? '0 0 8px #ef4444, 0 0 18px #ef4444, 0 0 32px #dc2626'
+                ? `0 0 8px ${empColor}, 0 0 18px ${empColor}, 0 0 32px ${empColor}AA`
                 : undefined
               // Typewriter: reveal chars progressively on active word
               const displayText = isActive && currentAnimation === 'typewriter'
@@ -593,10 +593,10 @@ function LivePreview({
                   <span
                     className={cn(
                       'inline-block px-0.5 rounded',
-                      wordImp && eff === 'color' ? 'text-yellow-400' : '',
                       isActive ? captionStyle?.highlightClass : '',
                     )}
                     style={{
+                      color: wordImp && hasEffect ? empColor : undefined,
                       transform: activeTransform || undefined,
                       transformOrigin: 'center bottom',
                       textShadow: activeTextShadow,
