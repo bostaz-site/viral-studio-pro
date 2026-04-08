@@ -9,9 +9,12 @@ import { execFile } from 'child_process';
 import { promisify } from 'util';
 import path from 'path';
 import fs from 'fs';
+import { fileURLToPath } from 'url';
 
 const execFileAsync = promisify(execFile);
-const SCRIPT_PATH = path.join(import.meta.dirname || path.dirname(new URL(import.meta.url).pathname), 'face-detect.py');
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const SCRIPT_PATH = path.join(__dirname, 'face-detect.py');
 
 /**
  * Detect faces in a video and return smoothed tracking keyframes.
