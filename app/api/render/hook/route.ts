@@ -13,6 +13,7 @@ const inputSchema = z.object({
     amplitude: z.number(),
   })).optional().default([]),
   duration: z.number().optional().default(30),
+  title: z.string().optional().default(''),
   streamerName: z.string().optional().default(''),
   niche: z.string().optional().default('irl'),
   hookLength: z.number().min(1).max(3).optional().default(1.5),

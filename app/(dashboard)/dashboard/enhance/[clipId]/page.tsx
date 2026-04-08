@@ -1065,10 +1065,11 @@ export default function EnhancePage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          transcript: clip.description || clip.title || '',
+          transcript: clip.description || '',
+          title: clip.title || '',
           wordTimestamps: [],
           audioPeaks: [],
-          duration: 30, // default clip duration estimate
+          duration: 30,
           streamerName: clip.author_name || clip.author_handle || '',
           niche: clip.niche || 'irl',
           hookLength: settings.hookLength,

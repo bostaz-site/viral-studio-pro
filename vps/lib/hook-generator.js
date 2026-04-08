@@ -1,11 +1,11 @@
 /**
  * Hook Generator — Detects the peak viral moment in a clip and generates
- * hook text overlays + reorder instructions for seamless looping.
+ * contextual hook text overlays + reorder instructions for seamless looping.
  *
  * Pipeline:
  *   1. Score each second of the clip (audio peaks + viral keywords)
  *   2. Pick the top moment (1-2s)
- *   3. Generate 3 hook text variants (choc, curiosité, suspense)
+ *   3. Generate 3 hook text variants via Claude API (contextual, French, emojis)
  *   4. Output reorder timestamps for FFmpeg concat
  */
 
@@ -30,62 +30,6 @@ const VIRAL_KEYWORDS = {
   mild: [
     'okay', 'right', 'like', 'think', 'know', 'feel', 'gonna',
     'wanna', 'gotta', 'need', 'want', 'try', 'big', 'huge',
-  ],
-};
-
-// ─── Hook Text Templates ────────────────────────────────────────────────────
-// {word} = injected keyword from transcript, {streamer} = author name
-const HOOK_TEMPLATES = {
-  choc: [
-    'IL A VRAIMENT FAIT ÇA 💀',
-    'PERSONNE S\'ATTENDAIT À ÇA',
-    'REGARDEZ SA RÉACTION 😱',
-    'ÇA A DÉGÉNÉRÉ EN 2 SECONDES',
-    'IL A PÉTÉ UN CÂBLE 🤯',
-    'LE MOMENT OÙ TOUT BASCULE',
-    'ATTENDEZ LA FIN...',
-    '{streamer} A PERDU LA TÊTE',
-    'IL PEUT PAS ÊTRE SÉRIEUX LÀ',
-    'MOMENT LÉGENDAIRE 🔥',
-    'C\'EST ALLÉ TROP LOIN',
-    'LA RÉACTION EST INCROYABLE',
-    'IL A CASSÉ LE STREAM',
-    'ÇA C\'EST DU CONTENU 💀',
-    'JE SUIS MORT 😂',
-  ],
-  curiosite: [
-    'ATTENDEZ DE VOIR CE QUI ARRIVE...',
-    'REGARDEZ BIEN CE QU\'IL FAIT',
-    'VOUS ALLEZ PAS CROIRE LA SUITE',
-    'IL SAVAIT PAS CE QUI L\'ATTENDAIT',
-    'PERSONNE AVAIT VU ÇA VENIR',
-    'DEVINEZ CE QUI SE PASSE APRÈS',
-    'LA SUITE EST INCROYABLE',
-    'RESTEZ JUSQU\'À LA FIN',
-    'COMMENT C\'EST POSSIBLE ?!',
-    '{streamer} SAVAIT PAS QUE...',
-    'LE PLOT TWIST 😳',
-    'TOUT LE MONDE A RATÉ ÇA',
-    'PERSONNE EN PARLE DE ÇA',
-    'FAITES PAUSE ET REGARDEZ BIEN',
-    'C\'EST LÀ QUE ÇA DEVIENT FOU',
-  ],
-  suspense: [
-    'WAIT FOR IT... 👀',
-    'WATCH WHAT HAPPENS NEXT',
-    'HE THOUGHT IT WAS OVER',
-    'THIS IS WHERE IT GETS CRAZY',
-    'NOBODY SAW THIS COMING',
-    'THE ENDING THO 💀',
-    'KEEP WATCHING...',
-    'IT GETS WORSE 😭',
-    'PAY ATTENTION TO THIS PART',
-    '{streamer} DIDN\'T EXPECT THIS',
-    'THE TIMING IS INSANE',
-    'JUST WAIT FOR IT',
-    'DON\'T SKIP THIS',
-    'THIS CLIP IS UNREAL',
-    'BEST MOMENT OF THE STREAM',
   ],
 };
 
@@ -115,14 +59,12 @@ export function detectPeakMoment(opts = {}) {
   const scores = new Array(numWindows).fill(0);
 
   // ── Audio peak scoring ──
-  // Normalize audio peaks to 0-10 range
   if (audioPeaks.length > 0) {
     const maxAmp = Math.max(...audioPeaks.map(p => p.amplitude || p.a || 0), 0.01);
     for (const peak of audioPeaks) {
       const t = peak.time || peak.t || 0;
       const amp = peak.amplitude || peak.a || 0;
       const windowIdx = Math.min(Math.floor(t / windowSize), numWindows - 1);
-      // Audio peaks get score 0-10 based on relative amplitude
       scores[windowIdx] += (amp / maxAmp) * 10;
     }
   }
@@ -134,7 +76,6 @@ export function detectPeakMoment(opts = {}) {
       const t = wt.start || wt.s || 0;
       const windowIdx = Math.min(Math.floor(t / windowSize), numWindows - 1);
 
-      // Check against viral keywords
       for (const kw of VIRAL_KEYWORDS.high) {
         if (word.includes(kw) || kw.includes(word)) {
           scores[windowIdx] += 3;
@@ -158,7 +99,6 @@ export function detectPeakMoment(opts = {}) {
   // ── Fallback: transcript keyword scan ──
   if (wordTimestamps.length === 0 && transcript) {
     const words = transcript.toLowerCase().split(/\s+/);
-    // Distribute score evenly across the clip based on word position
     words.forEach((word, i) => {
       const approxTime = (i / words.length) * duration;
       const windowIdx = Math.min(Math.floor(approxTime / windowSize), numWindows - 1);
@@ -178,7 +118,7 @@ export function detectPeakMoment(opts = {}) {
     return sum / (end - start);
   });
 
-  // ── Bias against first/last 1s (bad for hooks — too early or too late) ──
+  // ── Bias against first/last 1s ──
   const biasWindows = Math.ceil(1.0 / windowSize);
   for (let i = 0; i < biasWindows && i < smoothed.length; i++) {
     smoothed[i] *= 0.3;
@@ -207,61 +147,148 @@ export function detectPeakMoment(opts = {}) {
   };
 }
 
+// ─── Fallback Templates (used when Claude API is unavailable) ───────────────
+const FALLBACK_HOOKS = {
+  choc: [
+    'IL A VRAIMENT FAIT ÇA 💀',
+    'PERSONNE S\'ATTENDAIT À ÇA 😱',
+    'ÇA A DÉGÉNÉRÉ EN 2 SECONDES 🤯',
+    'MOMENT LÉGENDAIRE 🔥',
+    'JE SUIS MORT 😂💀',
+  ],
+  curiosite: [
+    'ATTENDEZ DE VOIR CE QUI ARRIVE... 👀',
+    'VOUS ALLEZ PAS CROIRE LA SUITE',
+    'PERSONNE AVAIT VU ÇA VENIR 😳',
+    'LA SUITE EST INCROYABLE',
+    'C\'EST LÀ QUE ÇA DEVIENT FOU 🤯',
+  ],
+  suspense: [
+    'ATTENDEZ LA FIN... 👀',
+    'ÇA PART EN VRILLE',
+    'PERSONNE A VU ÇA VENIR 💀',
+    'REGARDEZ BIEN CE QUI SE PASSE...',
+    'LE TIMING EST PARFAIT 😭',
+  ],
+};
+
 /**
- * Generate 3 hook text variants for a clip.
+ * Generate 3 contextual hook text variants using Claude API.
+ * Hooks are in French, with emojis, based on the actual clip content.
+ * Falls back to generic templates if Claude API is unavailable.
  *
  * @param {Object} opts
  * @param {string} opts.transcript   - Clip transcript
  * @param {string} opts.streamerName - Streamer display name
  * @param {string} opts.niche        - Content niche (gaming, irl, etc.)
- * @returns {Array} [{style, text, emoji}]
+ * @param {string} opts.title        - Clip title
+ * @returns {Promise<Array>} [{style, label, text}]
  */
-export function generateHookTexts(opts = {}) {
-  const { transcript = '', streamerName = '', niche = '' } = opts;
+export async function generateHookTexts(opts = {}) {
+  const { transcript = '', streamerName = '', niche = '', title = '' } = opts;
 
-  // Pick a contextual keyword from transcript for injection
-  const words = transcript.toLowerCase().split(/\s+/);
-  let contextWord = '';
-  for (const kw of [...VIRAL_KEYWORDS.high, ...VIRAL_KEYWORDS.medium]) {
-    if (words.some(w => w.includes(kw))) {
-      contextWord = kw.toUpperCase();
-      break;
-    }
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+
+  // If no API key or no content to analyze, use fallback templates
+  if (!apiKey || (!transcript && !title)) {
+    console.log('[Hook] No API key or content — using fallback templates');
+    return generateFallbackHooks(streamerName);
   }
 
+  try {
+    console.log(`[Hook] Calling Claude API for contextual hooks (transcript: ${transcript.length} chars, title: "${title}")`);
+
+    const contentDescription = [
+      title ? `Titre du clip: "${title}"` : '',
+      transcript ? `Transcription: "${transcript.slice(0, 500)}"` : '',
+      streamerName ? `Streamer: ${streamerName}` : '',
+      niche ? `Catégorie: ${niche}` : '',
+    ].filter(Boolean).join('\n');
+
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+      },
+      body: JSON.stringify({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 300,
+        messages: [{
+          role: 'user',
+          content: `Tu es un expert TikTok/Reels. Génère exactement 3 hooks viraux EN FRANÇAIS pour ce clip de stream.
+
+${contentDescription}
+
+RÈGLES STRICTES:
+- Chaque hook doit décrire ce qui se passe VRAIMENT dans la vidéo (pas générique)
+- En français québécois/jeune, ton TikTok viral
+- MAX 50 caractères par hook (c'est un overlay vidéo, doit être court)
+- Ajoute 1-2 emojis pertinents par hook (💀🔥😱👀🤯😂⚡😭)
+- TOUT EN MAJUSCULES
+- Pas de guillemets autour du texte
+
+Réponds EXACTEMENT dans ce format JSON, rien d'autre:
+[
+  {"style": "choc", "label": "Choc", "text": "LE HOOK ICI 💀"},
+  {"style": "curiosite", "label": "Curiosité", "text": "LE HOOK ICI 👀"},
+  {"style": "suspense", "label": "Suspense", "text": "LE HOOK ICI 😱"}
+]`
+        }],
+      }),
+    });
+
+    if (!response.ok) {
+      const errText = await response.text();
+      console.warn(`[Hook] Claude API error ${response.status}: ${errText.slice(0, 200)}`);
+      return generateFallbackHooks(streamerName);
+    }
+
+    const data = await response.json();
+    const text = data.content?.[0]?.text || '';
+
+    // Parse JSON from response — handle potential markdown wrapping
+    const jsonMatch = text.match(/\[[\s\S]*\]/);
+    if (!jsonMatch) {
+      console.warn('[Hook] Could not parse JSON from Claude response:', text.slice(0, 200));
+      return generateFallbackHooks(streamerName);
+    }
+
+    const hooks = JSON.parse(jsonMatch[0]);
+
+    // Validate structure
+    if (!Array.isArray(hooks) || hooks.length < 3) {
+      console.warn('[Hook] Invalid hooks array from Claude');
+      return generateFallbackHooks(streamerName);
+    }
+
+    // Ensure proper structure and truncate if needed
+    const result = hooks.slice(0, 3).map(h => ({
+      style: h.style || 'choc',
+      label: h.label || h.style || 'Hook',
+      text: (h.text || '').slice(0, 60),
+    }));
+
+    console.log(`[Hook] Claude generated: ${result.map(h => `[${h.style}] ${h.text}`).join(' | ')}`);
+    return result;
+
+  } catch (err) {
+    console.warn('[Hook] Claude API call failed:', err.message);
+    return generateFallbackHooks(streamerName);
+  }
+}
+
+/**
+ * Fallback: pick random templates when Claude API is unavailable
+ */
+function generateFallbackHooks(streamerName = '') {
   const pickRandom = (arr) => arr[Math.floor(Math.random() * arr.length)];
 
-  const processTemplate = (template) => {
-    let text = template;
-    if (streamerName) {
-      text = text.replace('{streamer}', streamerName.toUpperCase());
-    } else {
-      // Remove templates that need streamer name
-      if (text.includes('{streamer}')) return null;
-    }
-    if (contextWord && text.includes('{word}')) {
-      text = text.replace('{word}', contextWord);
-    } else if (text.includes('{word}')) {
-      return null;
-    }
-    return text;
-  };
-
-  const getHook = (style) => {
-    const templates = HOOK_TEMPLATES[style];
-    // Try up to 10 times to get a valid template
-    for (let i = 0; i < 10; i++) {
-      const result = processTemplate(pickRandom(templates));
-      if (result) return result;
-    }
-    // Fallback
-    return templates[0].replace('{streamer}', 'LE STREAMER').replace('{word}', '');
-  };
-
   return [
-    { style: 'choc', label: 'Choc', text: getHook('choc') },
-    { style: 'curiosite', label: 'Curiosité', text: getHook('curiosite') },
-    { style: 'suspense', label: 'Suspense', text: getHook('suspense') },
+    { style: 'choc', label: 'Choc', text: pickRandom(FALLBACK_HOOKS.choc) },
+    { style: 'curiosite', label: 'Curiosité', text: pickRandom(FALLBACK_HOOKS.curiosite) },
+    { style: 'suspense', label: 'Suspense', text: pickRandom(FALLBACK_HOOKS.suspense) },
   ];
 }
 
@@ -278,31 +305,25 @@ export function generateHookTexts(opts = {}) {
  * @returns {Object} { segments: [{start, end, label}], totalDuration }
  */
 export function calculateReorderTimestamps(peakTime, duration, hookLength = 1.5, maxContext = 8) {
-  // Clamp peak within valid range
   const peak = Math.max(0, Math.min(peakTime, duration - hookLength));
 
-  // Hook segment: the peak moment (1-2s)
   const hookStart = peak;
   const hookEnd = Math.min(peak + hookLength, duration);
 
-  // Context: everything from the start up to the peak, capped at maxContext
   const contextStart = Math.max(0, hookStart - maxContext);
   const contextEnd = hookStart;
 
-  // After-peak: from hook end to clip end (or a bit more for payoff)
   const afterStart = hookEnd;
-  const afterEnd = Math.min(hookEnd + 3, duration); // max 3s after peak
+  const afterEnd = Math.min(hookEnd + 3, duration);
 
   const segments = [
     { start: hookStart, end: hookEnd, label: 'hook' },
   ];
 
-  // Add context if there's enough
   if (contextEnd - contextStart > 0.5) {
     segments.push({ start: contextStart, end: contextEnd, label: 'context' });
   }
 
-  // Add payoff after peak
   if (afterEnd - afterStart > 0.3) {
     segments.push({ start: afterStart, end: afterEnd, label: 'payoff' });
   }

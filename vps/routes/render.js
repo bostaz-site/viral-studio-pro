@@ -785,6 +785,7 @@ router.post('/hook', async (req, res) => {
       duration = 30,
       streamerName = '',
       niche = '',
+      title = '',
       hookLength = 1.5,
       maxContext = 8,
     } = req.body;
@@ -799,11 +800,12 @@ router.post('/hook', async (req, res) => {
       duration,
     });
 
-    // 2. Generate 3 hook text variants
-    const hooks = generateHookTexts({
+    // 2. Generate 3 hook text variants (Claude API — contextual, French, emojis)
+    const hooks = await generateHookTexts({
       transcript,
       streamerName,
       niche,
+      title,
     });
 
     // 3. Calculate reorder timestamps
