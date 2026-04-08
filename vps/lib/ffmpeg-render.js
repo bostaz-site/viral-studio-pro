@@ -135,13 +135,128 @@ function buildSmartZoomFilter(inLabel, outLabel, canvasW, canvasH, clipDuration,
   }
 
   // Dynamic requested but no peaks → fall back to micro.
-  // Follow mode not yet implemented → also micro.
-  if (mode === 'dynamic' || mode === 'follow') {
+  if (mode === 'dynamic') {
+    return buildSmartZoomFilter(inLabel, outLabel, canvasW, canvasH, clipDuration, 'micro');
+  }
+
+  // Follow mode without face data → fall back to micro.
+  if (mode === 'follow') {
     return buildSmartZoomFilter(inLabel, outLabel, canvasW, canvasH, clipDuration, 'micro');
   }
 
   return null;
 }
+
+
+/**
+ * Build a follow-face smart zoom filter from pre-detected face keyframes.
+ *
+ * Takes smoothed keyframes [{t, cx, cy, zoom}] from face-detect.py
+ * and generates an FFmpeg crop filter that pans to follow the face.
+ *
+ * Strategy:
+ *   1. Scale up the video by ~20% (zoom in) so we have room to pan
+ *   2. Crop at canvas size, moving the crop window to follow the face
+ *   3. Interpolate linearly between keyframes for smooth camera motion
+ *
+ * @param {string} inLabel       - Input stream label
+ * @param {string} outLabel      - Output stream label
+ * @param {number} canvasW       - Target width
+ * @param {number} canvasH       - Target height
+ * @param {Array}  keyframes     - [{t, cx, cy, zoom}] smoothed face positions
+ * @param {number} clipDuration  - Clip duration in seconds
+ * @returns {string|null} FFmpeg filter string
+ */
+function buildFollowFaceFilter(inLabel, outLabel, canvasW, canvasH, keyframes, clipDuration) {
+  if (!keyframes || keyframes.length < 2) {
+    console.log('[FFmpeg] Follow face: not enough keyframes, falling back to micro');
+    return null;
+  }
+
+  // ── Zoom factor: scale video up 20% so we have pan room ──
+  const ZOOM = 1.20;
+  const scaledW = Math.round(canvasW * ZOOM);
+  const scaledH = Math.round(canvasH * ZOOM);
+  // Max pan range (how far the crop window can move)
+  const maxPanX = scaledW - canvasW;
+  const maxPanY = scaledH - canvasH;
+  const halfW = canvasW / 2;
+  const halfH = canvasH / 2;
+
+  // ── Downsample keyframes to max ~20 for FFmpeg expression sanity ──
+  // Too many nested if() expressions can make FFmpeg choke
+  const MAX_KF = 20;
+  let kf = keyframes;
+  if (kf.length > MAX_KF) {
+    const step = Math.floor(kf.length / MAX_KF);
+    kf = keyframes.filter((_, i) => i % step === 0);
+    // Always include the last keyframe
+    if (kf[kf.length - 1].t !== keyframes[keyframes.length - 1].t) {
+      kf.push(keyframes[keyframes.length - 1]);
+    }
+  }
+
+  // ── Build piecewise linear interpolation for X and Y ──
+  // For each pair of consecutive keyframes, generate:
+  //   if(between(t, t0, t1), lerp(cx0, cx1, (t-t0)/(t1-t0)), ...)
+  // The crop x/y is: face_center - canvas_half, clamped to [0, maxPan]
+
+  function buildLerpExpr(pts, axis) {
+    // axis: 'cx' or 'cy'
+    const maxPan = axis === 'cx' ? maxPanX : maxPanY;
+
+    // Convert face center to crop offset
+    const getOffset = (pt) => {
+      const center = pt[axis];
+      const canvasSize = axis === 'cx' ? canvasW : canvasH;
+      const norm = center / canvasSize;
+      const offset = Math.round((norm - 0.5) * maxPan + maxPan / 2);
+      return Math.max(0, Math.min(maxPan, offset));
+    };
+
+    if (pts.length === 1) {
+      return String(getOffset(pts[0]));
+    }
+
+    // Build nested if/between for piecewise lerp
+    const segments = [];
+    for (let i = 0; i < pts.length - 1; i++) {
+      const t0 = pts[i].t.toFixed(4);
+      const t1 = pts[i + 1].t.toFixed(4);
+      const v0 = getOffset(pts[i]);
+      const v1 = getOffset(pts[i + 1]);
+
+      if (v0 === v1) {
+        segments.push(`if(between(t\\,${t0}\\,${t1})\\,${v0}\\,0)`);
+      } else {
+        const dt = (pts[i + 1].t - pts[i].t).toFixed(4);
+        if (parseFloat(dt) <= 0) continue;
+        segments.push(
+          `if(between(t\\,${t0}\\,${t1})\\,${v0}+(${v1 - v0})*(t-${t0})/${dt}\\,0)`
+        );
+      }
+    }
+
+    // Hold last value after last keyframe
+    const lastVal = getOffset(pts[pts.length - 1]);
+    const lastT = pts[pts.length - 1].t.toFixed(4);
+    segments.push(`if(gte(t\\,${lastT})\\,${lastVal}\\,0)`);
+
+    return segments.join('+');
+  }
+
+  const xExpr = buildLerpExpr(kf, 'cx');
+  const yExpr = buildLerpExpr(kf, 'cy');
+
+  console.log(`[FFmpeg] Follow face: ${kfArr.length} keyframes, ${ZOOM}x zoom, piecewise lerp pan`);
+
+  // Scale up → crop with moving window → set SAR
+  return `${inLabel}scale=${scaledW}:${scaledH},crop=${canvasW}:${canvasH}:x='${xExpr}':y='${yExpr}':exact=1,setsar=1${outLabel}`;
+}
+
+
+// Re-export for use in render pipeline
+export { buildFollowFaceFilter };
 
 /**
  * Build FFmpeg filter chain for reframing to target aspect ratio
@@ -326,9 +441,26 @@ export async function renderClip(inputPath, outputPath, options = {}) {
   // Smart Zoom (applied on composed output, BEFORE captions/tags so they stay crisp)
   // DISABLED if word-pop animation is active (memory protection)
   if (smartZoom && smartZoom.enabled && !shouldDisableSmartZoom) {
-    const zoomChain = buildSmartZoomFilter(
-      mapVideo, '[zoomed]', canvasW, canvasH, clipDuration, smartZoom.mode || 'micro', audioPeaks
-    );
+    let zoomChain = null;
+
+    // Follow mode with face keyframes → use face-tracking crop
+    if (smartZoom.mode === 'follow' && Array.isArray(smartZoom.faceKeyframes) && smartZoom.faceKeyframes.length >= 2) {
+      zoomChain = buildFollowFaceFilter(
+        mapVideo, '[zoomed]', canvasW, canvasH, smartZoom.faceKeyframes, clipDuration
+      );
+      if (zoomChain) {
+        console.log(`[FFmpeg] Follow Face applied: ${smartZoom.faceKeyframes.length} keyframes`);
+      }
+    }
+
+    // Fallback to standard smart zoom (micro/dynamic)
+    if (!zoomChain) {
+      const fallbackMode = (smartZoom.mode === 'follow') ? 'micro' : (smartZoom.mode || 'micro');
+      zoomChain = buildSmartZoomFilter(
+        mapVideo, '[zoomed]', canvasW, canvasH, clipDuration, fallbackMode, audioPeaks
+      );
+    }
+
     if (zoomChain) {
       filterComplex += `;${zoomChain}`;
       mapVideo = '[zoomed]';
@@ -513,9 +645,25 @@ async function renderSplitScreen(inputPath, outputPath, opts) {
 
   // Smart Zoom (applied on composed output, BEFORE captions/tags so they stay crisp)
   if (smartZoom && smartZoom.enabled) {
-    const zoomChain = buildSmartZoomFilter(
-      mapVideo, '[zoomed]', canvasW, canvasH, clipDuration, smartZoom.mode || 'micro', audioPeaks
-    );
+    let zoomChain = null;
+
+    // Follow mode with face keyframes → face-tracking crop
+    if (smartZoom.mode === 'follow' && Array.isArray(smartZoom.faceKeyframes) && smartZoom.faceKeyframes.length >= 2) {
+      zoomChain = buildFollowFaceFilter(
+        mapVideo, '[zoomed]', canvasW, canvasH, smartZoom.faceKeyframes, clipDuration
+      );
+      if (zoomChain) {
+        console.log(`[FFmpeg-Split] Follow Face applied: ${smartZoom.faceKeyframes.length} keyframes`);
+      }
+    }
+
+    if (!zoomChain) {
+      const fallbackMode = (smartZoom.mode === 'follow') ? 'micro' : (smartZoom.mode || 'micro');
+      zoomChain = buildSmartZoomFilter(
+        mapVideo, '[zoomed]', canvasW, canvasH, clipDuration, fallbackMode, audioPeaks
+      );
+    }
+
     if (zoomChain) {
       filterComplex += `;${zoomChain}`;
       mapVideo = '[zoomed]';

@@ -375,6 +375,15 @@ function LivePreview({
         75% { transform: scale(var(--sz-from)); }
         100% { transform: scale(var(--sz-from)); }
       }
+      @keyframes smartZoomFollow {
+        0%   { transform: scale(var(--sz-to)) translate(0%, 0%); }
+        15%  { transform: scale(var(--sz-to)) translate(-2%, 1%); }
+        30%  { transform: scale(var(--sz-to)) translate(1%, -1%); }
+        50%  { transform: scale(var(--sz-to)) translate(3%, 0.5%); }
+        70%  { transform: scale(var(--sz-to)) translate(-1%, -0.5%); }
+        85%  { transform: scale(var(--sz-to)) translate(2%, 1.5%); }
+        100% { transform: scale(var(--sz-to)) translate(0%, 0%); }
+      }
     `}</style>
     <div
       className="relative w-full rounded-2xl overflow-hidden bg-black border border-white/10 shadow-2xl mx-auto transition-all duration-500"
@@ -441,9 +450,13 @@ function LivePreview({
                   // Animated: keyframes handle the transform via CSS vars
                   // eslint-disable-next-line @typescript-eslint/no-explicit-any
                   ;(zoomStyle as any)['--sz-from'] = baseZoom
+                  // Follow mode zooms in 20% (matching FFmpeg 1.2x) for pan room
+                  const followZoom = settings.smartZoomMode === 'follow' ? 1.20 : smartZoomExtra
                   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                  ;(zoomStyle as any)['--sz-to'] = baseZoom * smartZoomExtra
-                  zoomStyle.animation = settings.smartZoomMode === 'dynamic'
+                  ;(zoomStyle as any)['--sz-to'] = baseZoom * followZoom
+                  zoomStyle.animation = settings.smartZoomMode === 'follow'
+                    ? 'smartZoomFollow 8s ease-in-out infinite'
+                    : settings.smartZoomMode === 'dynamic'
                     ? 'smartZoomDynamic 4s ease-in-out infinite'
                     : 'smartZoomMicro 5s ease-in-out forwards'
                 } else {
@@ -1661,9 +1674,8 @@ export default function EnhancePage() {
                           {
                             id: 'follow' as const,
                             label: 'Follow face',
-                            desc: 'Suit le visage en continu avec lissage.',
-                            badge: 'Bientôt',
-                            disabled: true,
+                            desc: 'Suit le visage avec lissage cinématique. Détection auto + pan smooth.',
+                            badge: 'New',
                           },
                         ]).map((mode) => (
                           <button

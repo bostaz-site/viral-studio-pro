@@ -4,8 +4,9 @@ import path from 'path';
 import { v4 as uuidv4 } from 'uuid';
 import { execFile } from 'child_process';
 import { promisify } from 'util';
-import { renderClip, extractThumbnail, checkFfmpegAvailability } from '../lib/ffmpeg-render.js';
+import { renderClip, extractThumbnail, checkFfmpegAvailability, buildFollowFaceFilter } from '../lib/ffmpeg-render.js';
 import { generateASS, generateStaticASS, validateWordTimestamps } from '../lib/subtitle-generator.js';
+import { detectFaces } from '../lib/face-tracker.js';
 // caption-png.js and drawtext-wordpop.js removed — all animations now use ASS subtitles
 import { transcribeWithWhisper } from '../lib/whisper-client.js';
 import {
@@ -491,6 +492,28 @@ router.post('/', async (req, res) => {
       trc(`TAG skipped (style=${settings.tag?.style || 'undefined'})`);
     }
 
+    // ─── Face Detection (for follow mode) ───
+    let faceKeyframes = null;
+    if (settings.smartZoom?.enabled && settings.smartZoom?.mode === 'follow') {
+      try {
+        trc('FACE DETECTION starting...');
+        const faceResult = await detectFaces(inputPath, {
+          canvasW: 720,
+          canvasH: 1280,
+          everyN: 8,
+          timeoutMs: 25000,
+        });
+        if (faceResult.smoothed && faceResult.smoothed.length >= 2 && faceResult.detected_count > 0) {
+          faceKeyframes = faceResult.smoothed;
+          trc(`FACE DETECTION done: ${faceResult.detected_count} detections → ${faceKeyframes.length} smoothed keyframes`);
+        } else {
+          trc(`FACE DETECTION: no faces found or too few keyframes (${faceResult.detected_count || 0} detections), falling back to micro zoom`);
+        }
+      } catch (faceErr) {
+        trc(`FACE DETECTION error: ${faceErr.message}, falling back to micro zoom`);
+      }
+    }
+
     // Render clip with FFmpeg
     const outputPath = path.join(tempDir, 'output.mp4');
     console.log(`[Render ${renderSessionId}] Starting FFmpeg render...`);
@@ -516,6 +539,7 @@ router.post('/', async (req, res) => {
       smartZoom: settings.smartZoom?.enabled ? {
         enabled: true,
         mode: settings.smartZoom.mode || 'micro',
+        faceKeyframes: faceKeyframes,
       } : null,
     });
 
