@@ -1207,10 +1207,12 @@ export default function EnhancePage() {
                       </div>
                     </div>
 
-                    {/* Couleur d'emphase — visible quand un effet est sélectionné */}
-                    {settings.emphasisEffect !== 'none' && (
-                    <div className="space-y-2 animate-in fade-in slide-in-from-top-1">
+                    {/* Couleur d'emphase — toujours visible, grisé si aucun effet */}
+                    <div className={cn('space-y-2 transition-opacity', settings.emphasisEffect === 'none' && 'opacity-40 pointer-events-none')}>
                       <Label className="text-xs uppercase tracking-wider text-muted-foreground">Couleur d&apos;emphase</Label>
+                      {settings.emphasisEffect === 'none' && (
+                        <p className="text-[10px] text-muted-foreground">Sélectionne un effet ci-dessus pour choisir la couleur</p>
+                      )}
                       <div className="flex gap-2">
                         {EMPHASIS_COLORS.map((c) => (
                           <button
@@ -1228,7 +1230,6 @@ export default function EnhancePage() {
                         ))}
                       </div>
                     </div>
-                    )}
 
                     {/* Mots importants — auto-détectés + custom */}
                     <div className="space-y-2">
