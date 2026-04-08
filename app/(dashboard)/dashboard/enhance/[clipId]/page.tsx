@@ -377,11 +377,10 @@ function LivePreview({
       }
       @keyframes smartZoomFollow {
         0%   { transform: scale(var(--sz-to)) translate(0%, 0%); }
-        15%  { transform: scale(var(--sz-to)) translate(-2%, 1%); }
-        30%  { transform: scale(var(--sz-to)) translate(1%, -1%); }
-        50%  { transform: scale(var(--sz-to)) translate(3%, 0.5%); }
-        70%  { transform: scale(var(--sz-to)) translate(-1%, -0.5%); }
-        85%  { transform: scale(var(--sz-to)) translate(2%, 1.5%); }
+        20%  { transform: scale(var(--sz-to)) translate(-0.8%, 0.3%); }
+        40%  { transform: scale(var(--sz-to)) translate(0.5%, -0.4%); }
+        60%  { transform: scale(var(--sz-to)) translate(1%, 0.2%); }
+        80%  { transform: scale(var(--sz-to)) translate(-0.3%, -0.2%); }
         100% { transform: scale(var(--sz-to)) translate(0%, 0%); }
       }
     `}</style>
