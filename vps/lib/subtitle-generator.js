@@ -337,11 +337,13 @@ export function generateASS(wordTimestamps, options = {}) {
     for (let i = 0; i < allWords.length; i++) {
       const w = allWords[i];
       const wordStart = Math.max(0, w.start - clipStartTime);
-      // Strict sequential: word ends exactly when next word starts
-      // Last word: stays until its natural end (min 0.3s)
-      const wordEnd = (i < allWords.length - 1)
+      // Word duration: natural end or next word start, but CAPPED at 1.5s
+      // Without cap, sparse speech makes words linger on screen way too long
+      const MAX_WORD_DISPLAY = 1.5; // seconds
+      const naturalEnd = (i < allWords.length - 1)
         ? Math.max(0, allWords[i + 1].start - clipStartTime)
         : Math.max(wordStart + 0.3, w.end - clipStartTime);
+      const wordEnd = Math.min(naturalEnd, wordStart + MAX_WORD_DISPLAY);
 
       const word = w.word.replace(/\\/g, '\\\\').replace(/\{/g, '\\{').replace(/\}/g, '\\}');
       const important = isImportantWord(w.word, customImportantWords);
@@ -639,9 +641,9 @@ function generateWordPopEvents(lineWords, clipStartTime, lineStart, lineEnd, cus
     const nextStart = (i < lineWords.length - 1)
       ? Math.max(0, lineWords[i + 1].start - clipStartTime)
       : lineEnd;
-    // Strict: word ends exactly when next word starts (min 0.05s display)
-    // Use min() with lineEnd to never extend beyond the line boundary
-    const wordEnd = Math.min(lineEnd, Math.max(wordStart + 0.05, nextStart));
+    // Cap word display at 1.5s so sparse speech doesn't linger on screen
+    const MAX_WORD_DISPLAY = 1.5;
+    const wordEnd = Math.min(lineEnd, Math.min(wordStart + MAX_WORD_DISPLAY, Math.max(wordStart + 0.05, nextStart)));
 
     const word = w.word.replace(/\\/g, '\\\\').replace(/\{/g, '\\{').replace(/\}/g, '\\}');
     const important = isImportantWord(w.word, customImportantWords);
