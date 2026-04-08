@@ -1036,7 +1036,12 @@ export default function EnhancePage() {
     }
   }, [clip, settings, startPolling])
 
-  const applyBestCombo = useCallback(() => {
+  const [makeViralLoading, setMakeViralLoading] = useState(false)
+
+  const applyBestCombo = useCallback(async () => {
+    if (!clip) return
+
+    // 1. Apply all optimal settings immediately
     setSettings((s) => ({
       ...s,
       // Sous-titres: Hormozi word-pop, scale up rouge, 1 mot/ligne, 60%
@@ -1064,7 +1069,48 @@ export default function EnhancePage() {
       hookTextPosition: 15,
       hookLength: 1.5,
     }))
-  }, [])
+
+    // 2. Generate hook in parallel (Claude API)
+    setMakeViralLoading(true)
+    setHookGenerating(true)
+    setHookError(null)
+    try {
+      const res = await fetch('/api/render/hook', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          transcript: clip.description || '',
+          title: clip.title || '',
+          wordTimestamps: [],
+          audioPeaks: [],
+          duration: 30,
+          streamerName: clip.author_name || clip.author_handle || '',
+          niche: clip.niche || 'irl',
+          hookLength: 1.5,
+          maxContext: 8,
+        }),
+      })
+      const json = await res.json()
+      if (res.ok && !json.error && json.data) {
+        setHookAnalysis(json.data)
+        // Auto-select suspense hook
+        const suspenseHook = json.data.hooks.find((h: HookVariant) => h.style === 'suspense')
+        const bestHook = suspenseHook || json.data.hooks[0]
+        if (bestHook) {
+          setSettings((s) => ({
+            ...s,
+            hookText: bestHook.text,
+            hookStyle: bestHook.style as 'choc' | 'curiosite' | 'suspense',
+            hookReorder: json.data.reorder,
+          }))
+        }
+      }
+    } catch {
+      // Silent fail — hook text stays empty but everything else works
+    }
+    setHookGenerating(false)
+    setMakeViralLoading(false)
+  }, [clip])
 
   // ── Hook Generator ────────────────────────────────────────────────────
   const generateHook = useCallback(async () => {
@@ -1238,21 +1284,28 @@ export default function EnhancePage() {
         {/* Right: Actions + Settings — scrollable */}
         <div className="space-y-6">
           {/* ── Make it viral button ── */}
-          {(
-            <button
-              onClick={applyBestCombo}
-              className="group relative w-full rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-orange-600 p-[1px] shadow-lg shadow-orange-500/25 hover:shadow-orange-500/40 transition-all duration-300 animate-[glow_3s_ease-in-out_infinite]"
-            >
-              <div className="relative flex items-center justify-center gap-3 rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-orange-600 px-4 py-3.5">
+          <button
+            onClick={applyBestCombo}
+            disabled={makeViralLoading}
+            className="group relative w-full rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-orange-600 p-[1px] shadow-lg shadow-orange-500/25 hover:shadow-orange-500/40 transition-all duration-300 animate-[glow_3s_ease-in-out_infinite] disabled:opacity-80"
+          >
+            <div className="relative flex items-center justify-center gap-3 rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-orange-600 px-4 py-3.5">
+              {makeViralLoading ? (
+                <Loader2 className="h-5 w-5 text-white animate-spin" />
+              ) : (
                 <Zap className="h-5 w-5 text-white drop-shadow-lg" />
-                <div className="text-left">
-                  <span className="text-base font-black text-white tracking-tight block leading-tight">Make it viral</span>
-                  <span className="text-[10px] font-medium text-white/70 block">1 click = viral clip</span>
-                </div>
-                <Sparkles className="h-4 w-4 text-white/80 ml-auto group-hover:animate-spin" />
+              )}
+              <div className="text-left">
+                <span className="text-base font-black text-white tracking-tight block leading-tight">
+                  {makeViralLoading ? 'Analyse en cours...' : 'Make it viral'}
+                </span>
+                <span className="text-[10px] font-medium text-white/70 block">
+                  {makeViralLoading ? 'Hook IA + paramètres optimaux' : '1 click = viral clip'}
+                </span>
               </div>
-            </button>
-          )}
+              <Sparkles className={cn('h-4 w-4 text-white/80 ml-auto', makeViralLoading ? 'animate-spin' : 'group-hover:animate-spin')} />
+            </div>
+          </button>
 
           {/* ── Settings ── */}
           <div className="opacity-90 hover:opacity-100 transition-opacity duration-300">
