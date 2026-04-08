@@ -198,11 +198,11 @@ export async function generateHookTexts(opts = {}) {
   try {
     console.log(`[Hook] Calling Claude API for contextual hooks (transcript: ${transcript.length} chars, title: "${title}")`);
 
-    const contentDescription = [
-      title ? `Titre du clip: "${title}"` : '',
-      transcript ? `Transcription: "${transcript.slice(0, 500)}"` : '',
-      streamerName ? `Streamer: ${streamerName}` : '',
-      niche ? `Catégorie: ${niche}` : '',
+    const contentParts = [
+      title ? `TITRE DU CLIP: "${title}"` : '',
+      transcript ? `CE QUI SE DIT: "${transcript.slice(0, 500)}"` : '',
+      streamerName ? `STREAMER: ${streamerName}` : '',
+      niche ? `CATÉGORIE: ${niche}` : '',
     ].filter(Boolean).join('\n');
 
     const response = await fetch('https://api.anthropic.com/v1/messages', {
@@ -217,23 +217,31 @@ export async function generateHookTexts(opts = {}) {
         max_tokens: 300,
         messages: [{
           role: 'user',
-          content: `Tu es un expert TikTok/Reels. Génère exactement 3 hooks viraux EN FRANÇAIS pour ce clip de stream.
+          content: `Tu génères des hooks pour des clips TikTok/Reels de streamers. Voici le clip:
 
-${contentDescription}
+${contentParts}
 
-RÈGLES STRICTES:
-- Chaque hook doit décrire ce qui se passe VRAIMENT dans la vidéo (pas générique)
-- En français québécois/jeune, ton TikTok viral
-- MAX 50 caractères par hook (c'est un overlay vidéo, doit être court)
-- Ajoute 1-2 emojis pertinents par hook (💀🔥😱👀🤯😂⚡😭)
+MISSION: Écris 3 hooks courts EN FRANÇAIS qui RÉSUMENT ce qui se passe dans le clip. Le hook doit donner envie de regarder.
+
+EXEMPLES de bons hooks basés sur le contenu:
+- Clip titre "He sends his friend to Dagestan" → "IL ENVOIE SON AMI AU DAGESTAN 💀🔥"
+- Clip titre "Speed breaks his TV again" → "IL RECASSE SA TV EN LIVE 😭💀"
+- Clip titre "Kai Cenat meets a crazy fan" → "LE FAN LUI SAUTE DESSUS 😱🔥"
+- Clip titre "xQc rage quits ranked" → "IL RAGE QUIT EN RANKED 💀😂"
+
+RÈGLES:
+- BASÉ SUR LE TITRE/CONTENU DU CLIP (pas générique!!)
+- Français casual/québécois, style TikTok
+- MAX 45 caractères
+- 1-2 emojis (💀🔥😱👀🤯😂⚡😭)
 - TOUT EN MAJUSCULES
-- Pas de guillemets autour du texte
+- Le hook "choc" = résumé brutal, "curiosité" = tease la suite, "suspense" = crée l'attente
 
-Réponds EXACTEMENT dans ce format JSON, rien d'autre:
+JSON seulement, pas de texte autour:
 [
-  {"style": "choc", "label": "Choc", "text": "LE HOOK ICI 💀"},
-  {"style": "curiosite", "label": "Curiosité", "text": "LE HOOK ICI 👀"},
-  {"style": "suspense", "label": "Suspense", "text": "LE HOOK ICI 😱"}
+  {"style": "choc", "label": "Choc", "text": "HOOK BASÉ SUR LE CLIP 💀"},
+  {"style": "curiosite", "label": "Curiosité", "text": "HOOK BASÉ SUR LE CLIP 👀"},
+  {"style": "suspense", "label": "Suspense", "text": "HOOK BASÉ SUR LE CLIP 😱"}
 ]`
         }],
       }),
