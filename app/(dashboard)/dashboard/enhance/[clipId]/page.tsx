@@ -405,7 +405,7 @@ function LivePreview({
               // Zoom: element bigger than container, object-contain keeps video landscape
               // 115% = subtle zoom, video ~15% bigger, still lots of blur
               // 135% = noticeable zoom, video ~35% bigger, less blur
-              const sizePct = !isSplit && showEnhancements && settings.videoZoom !== 'contain'
+              const sizePct = showEnhancements && settings.videoZoom !== 'contain'
                 ? (settings.videoZoom === 'immersive' ? 135 : 115)
                 : 100
               const baseZoom = sizePct / 100
@@ -1380,10 +1380,9 @@ export default function EnhancePage() {
                     </div>
                     )}
 
-                    {settings.brollVideo === 'none' && (
                     <div className="space-y-2">
                       <Label className="text-xs uppercase tracking-wider text-muted-foreground">Cadrage vidéo</Label>
-                      <p className="text-[10px] text-muted-foreground">Zoom sur la vidéo — fond flou visible autour</p>
+                      <p className="text-[10px] text-muted-foreground">Zoom sur la vidéo principale</p>
                       <div className="grid grid-cols-3 gap-2">
                         {([
                           { id: 'contain' as const, label: 'Contenir', desc: '100% visible' },
@@ -1406,7 +1405,6 @@ export default function EnhancePage() {
                         ))}
                       </div>
                     </div>
-                    )}
                   </CardContent>
                 )}
               </Card>
