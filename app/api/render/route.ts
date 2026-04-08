@@ -28,6 +28,18 @@ const inputSchema = z.object({
     hook: z.object({
       enabled: z.boolean().optional(),
       text: z.string().optional(),
+      style: z.enum(['choc', 'curiosite', 'suspense']).optional(),
+      length: z.number().optional(),
+      reorder: z.object({
+        segments: z.array(z.object({
+          start: z.number(),
+          end: z.number(),
+          duration: z.number(),
+          label: z.string(),
+        })),
+        totalDuration: z.number(),
+        peakTime: z.number(),
+      }).nullable().optional(),
     }).optional(),
     tag: z.object({
       style: z.string().optional(),

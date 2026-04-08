@@ -53,6 +53,23 @@ interface EnhanceSettings {
   aspectRatio: '9:16' | '1:1' | '16:9'
   smartZoomEnabled: boolean
   smartZoomMode: 'micro' | 'dynamic' | 'follow'
+  hookEnabled: boolean
+  hookText: string
+  hookStyle: 'choc' | 'curiosite' | 'suspense'
+  hookLength: number // 1-3 seconds
+  hookReorder: { segments: { start: number; end: number; duration: number; label: string }[]; totalDuration: number; peakTime: number } | null
+}
+
+interface HookVariant {
+  style: string
+  label: string
+  text: string
+}
+
+interface HookAnalysis {
+  peak: { peakTime: number; peakScore: number; scores: number[]; windowSize: number }
+  hooks: HookVariant[]
+  reorder: { segments: { start: number; end: number; duration: number; label: string }[]; totalDuration: number; peakTime: number }
 }
 
 // ─── Scoring Constants ──────────────────────────────────────────────────────
@@ -505,6 +522,28 @@ function LivePreview({
         </div>
       </div>
 
+      {/* ── Hook text overlay ── */}
+      {showEnhancements && settings.hookEnabled && settings.hookText && (
+        <div className="absolute top-[15%] left-1/2 -translate-x-1/2 z-30 pointer-events-none animate-in fade-in zoom-in-95 duration-300">
+          <div
+            className="px-4 py-2 rounded-lg text-center max-w-[90%]"
+            style={{
+              background: 'rgba(0,0,0,0.7)',
+              border: settings.hookStyle === 'choc' ? '2px solid #FF4444'
+                : settings.hookStyle === 'curiosite' ? '2px solid #FFB800'
+                : '2px solid #8B5CF6',
+              boxShadow: settings.hookStyle === 'choc' ? '0 0 12px #FF444466'
+                : settings.hookStyle === 'curiosite' ? '0 0 12px #FFB80066'
+                : '0 0 12px #8B5CF666',
+            }}
+          >
+            <span className="text-xs font-black text-white uppercase tracking-wider leading-tight">
+              {settings.hookText}
+            </span>
+          </div>
+        </div>
+      )}
+
       {/* ── Tag overlays ── */}
       {/* Streamer Tag — 3 viral styles */}
       {showEnhancements && tagStyle && tagStyle.id !== 'none' && streamerName && (
@@ -721,6 +760,9 @@ export default function EnhancePage() {
   const [originalVideoUrl, setOriginalVideoUrl] = useState<string | null>(null)
   const pollRef = useRef<NodeJS.Timeout | null>(null)
   const [showEnhancements, setShowEnhancements] = useState(true)
+  const [hookAnalysis, setHookAnalysis] = useState<HookAnalysis | null>(null)
+  const [hookGenerating, setHookGenerating] = useState(false)
+  const [hookError, setHookError] = useState<string | null>(null)
   const sectionRefs = {
     captions: useRef<HTMLDivElement>(null),
     splitscreen: useRef<HTMLDivElement>(null),
@@ -745,6 +787,11 @@ export default function EnhancePage() {
     aspectRatio: '9:16',
     smartZoomEnabled: false,
     smartZoomMode: 'micro',
+    hookEnabled: false,
+    hookText: '',
+    hookStyle: 'choc',
+    hookLength: 1.5,
+    hookReorder: null,
   })
 
   // Load clip data — try trending store first, then Supabase
@@ -956,6 +1003,13 @@ export default function EnhancePage() {
               enabled: settings.smartZoomEnabled,
               mode: settings.smartZoomMode,
             },
+            hook: {
+              enabled: settings.hookEnabled,
+              text: settings.hookText,
+              style: settings.hookStyle,
+              length: settings.hookLength,
+              reorder: settings.hookReorder,
+            },
           },
         }),
       })
@@ -1000,6 +1054,48 @@ export default function EnhancePage() {
       captionsEnabled: true,
     }))
   }, [scores])
+
+  // ── Hook Generator ────────────────────────────────────────────────────
+  const generateHook = useCallback(async () => {
+    if (!clip) return
+    setHookGenerating(true)
+    setHookError(null)
+    try {
+      const res = await fetch('/api/render/hook', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          transcript: clip.description || clip.title || '',
+          wordTimestamps: [],
+          audioPeaks: [],
+          duration: 30, // default clip duration estimate
+          streamerName: clip.author_name || clip.author_handle || '',
+          niche: clip.niche || 'irl',
+          hookLength: settings.hookLength,
+          maxContext: 8,
+        }),
+      })
+      const json = await res.json()
+      if (!res.ok || json.error) {
+        setHookError(json.message || json.error || 'Erreur lors de la génération')
+        setHookGenerating(false)
+        return
+      }
+      setHookAnalysis(json.data)
+      // Auto-select the first hook matching current style
+      const matchingHook = json.data.hooks.find((h: HookVariant) => h.style === settings.hookStyle)
+      if (matchingHook) {
+        setSettings((s) => ({
+          ...s,
+          hookText: matchingHook.text,
+          hookReorder: json.data.reorder,
+        }))
+      }
+    } catch {
+      setHookError('Erreur réseau')
+    }
+    setHookGenerating(false)
+  }, [clip, settings.hookLength, settings.hookStyle])
 
   // ── Loading / Error ────────────────────────────────────────────────────
 
@@ -1697,6 +1793,225 @@ export default function EnhancePage() {
                           </button>
                         ))}
                       </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* ─── Hook Viral Section ─── */}
+            <div className="scroll-mt-32">
+              <Card className="bg-card/60 border-border">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <Flame className="h-4 w-4 text-orange-500" />
+                    Hook Viral
+                    <span className="ml-auto text-[10px] font-normal text-muted-foreground bg-orange-500/10 text-orange-400 px-2 py-0.5 rounded-full border border-orange-500/20">
+                      Nouveau
+                    </span>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {/* Master toggle */}
+                  <button
+                    onClick={() => updateSetting('hookEnabled', !settings.hookEnabled)}
+                    className={cn(
+                      'w-full rounded-xl border p-3 text-left transition-all flex items-center justify-between',
+                      settings.hookEnabled
+                        ? 'border-orange-500 bg-orange-500/10 ring-1 ring-orange-500/30'
+                        : 'border-border hover:border-orange-500/40'
+                    )}
+                  >
+                    <div>
+                      <span className="text-sm font-semibold text-foreground block">
+                        {settings.hookEnabled ? 'Activé' : 'Désactivé'}
+                      </span>
+                      <span className="text-[10px] text-muted-foreground block mt-0.5">
+                        Gros moment en premier → contexte après. Loop parfait pour TikTok.
+                      </span>
+                    </div>
+                    <div className={cn(
+                      'w-10 h-5 rounded-full relative transition-all',
+                      settings.hookEnabled ? 'bg-orange-500' : 'bg-border'
+                    )}>
+                      <div className={cn(
+                        'absolute top-0.5 w-4 h-4 rounded-full bg-white transition-all',
+                        settings.hookEnabled ? 'left-[22px]' : 'left-0.5'
+                      )} />
+                    </div>
+                  </button>
+
+                  {/* Hook controls — only shown when enabled */}
+                  {settings.hookEnabled && (
+                    <div className="space-y-4 animate-in fade-in slide-in-from-top-1">
+
+                      {/* Hook length slider */}
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <Label className="text-xs uppercase tracking-wider text-muted-foreground">Durée du hook</Label>
+                          <span className="text-xs font-bold text-orange-400">{settings.hookLength}s</span>
+                        </div>
+                        <Slider
+                          value={[settings.hookLength]}
+                          onValueChange={([v]) => updateSetting('hookLength', v)}
+                          min={1}
+                          max={3}
+                          step={0.5}
+                          className="w-full"
+                        />
+                        <div className="flex justify-between text-[9px] text-muted-foreground">
+                          <span>1s</span>
+                          <span>2s</span>
+                          <span>3s</span>
+                        </div>
+                      </div>
+
+                      {/* Generate button */}
+                      <Button
+                        onClick={generateHook}
+                        disabled={hookGenerating}
+                        className="w-full h-10 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white font-bold text-sm gap-2 rounded-xl"
+                      >
+                        {hookGenerating ? (
+                          <><Loader2 className="h-4 w-4 animate-spin" /> Analyse en cours&hellip;</>
+                        ) : hookAnalysis ? (
+                          <><Wand2 className="h-4 w-4" /> Regénérer les hooks</>
+                        ) : (
+                          <><Wand2 className="h-4 w-4" /> Détecter le moment viral</>
+                        )}
+                      </Button>
+
+                      {hookError && (
+                        <p className="text-xs text-destructive flex items-center gap-1">
+                          <AlertCircle className="h-3 w-3" />
+                          {hookError}
+                        </p>
+                      )}
+
+                      {/* Hook analysis results */}
+                      {hookAnalysis && (
+                        <div className="space-y-3 animate-in fade-in slide-in-from-top-1">
+                          {/* Peak info */}
+                          <div className="rounded-lg bg-orange-500/5 border border-orange-500/20 p-3">
+                            <div className="flex items-center justify-between mb-1">
+                              <span className="text-[10px] uppercase tracking-wider text-orange-400 font-bold">Moment viral détecté</span>
+                              <span className="text-xs font-mono font-bold text-orange-300">
+                                {hookAnalysis.peak.peakTime.toFixed(1)}s
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <div className="flex-1 h-1.5 bg-white/5 rounded-full overflow-hidden">
+                                <div
+                                  className="h-full bg-gradient-to-r from-orange-500 to-amber-400 rounded-full transition-all"
+                                  style={{ width: `${Math.min(100, hookAnalysis.peak.peakScore * 5)}%` }}
+                                />
+                              </div>
+                              <span className="text-[10px] text-muted-foreground">
+                                Score: {hookAnalysis.peak.peakScore}
+                              </span>
+                            </div>
+                            {/* Reorder structure */}
+                            <div className="mt-2 flex gap-1">
+                              {hookAnalysis.reorder.segments.map((seg, i) => (
+                                <div
+                                  key={i}
+                                  className={cn(
+                                    'flex-1 rounded px-1.5 py-1 text-center',
+                                    seg.label === 'hook' && 'bg-orange-500/20 border border-orange-500/30',
+                                    seg.label === 'context' && 'bg-blue-500/10 border border-blue-500/20',
+                                    seg.label === 'payoff' && 'bg-emerald-500/10 border border-emerald-500/20',
+                                  )}
+                                  style={{ flex: seg.duration }}
+                                >
+                                  <span className={cn(
+                                    'text-[9px] font-bold block',
+                                    seg.label === 'hook' && 'text-orange-400',
+                                    seg.label === 'context' && 'text-blue-400',
+                                    seg.label === 'payoff' && 'text-emerald-400',
+                                  )}>
+                                    {seg.label === 'hook' ? 'HOOK' : seg.label === 'context' ? 'CONTEXTE' : 'PAYOFF'}
+                                  </span>
+                                  <span className="text-[8px] text-muted-foreground block">{seg.duration.toFixed(1)}s</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+
+                          {/* Style selector */}
+                          <Label className="text-xs uppercase tracking-wider text-muted-foreground">Style du hook</Label>
+                          <div className="grid grid-cols-3 gap-2">
+                            {([
+                              { id: 'choc' as const, label: 'Choc', emoji: '💀', desc: 'Max impact' },
+                              { id: 'curiosite' as const, label: 'Curiosité', emoji: '👀', desc: 'Tease la suite' },
+                              { id: 'suspense' as const, label: 'Suspense', emoji: '⏳', desc: 'Wait for it' },
+                            ]).map((style) => (
+                              <button
+                                key={style.id}
+                                onClick={() => {
+                                  updateSetting('hookStyle', style.id)
+                                  // Auto-select matching hook text
+                                  const match = hookAnalysis?.hooks.find((h) => h.style === style.id)
+                                  if (match) updateSetting('hookText', match.text)
+                                }}
+                                className={cn(
+                                  'rounded-xl border p-2.5 text-center transition-all',
+                                  settings.hookStyle === style.id
+                                    ? 'border-orange-500 bg-orange-500/10 ring-1 ring-orange-500/30'
+                                    : 'border-border hover:border-orange-500/40'
+                                )}
+                              >
+                                <span className="text-lg block">{style.emoji}</span>
+                                <span className="text-[10px] font-bold text-foreground block mt-1">{style.label}</span>
+                                <span className="text-[8px] text-muted-foreground block">{style.desc}</span>
+                              </button>
+                            ))}
+                          </div>
+
+                          {/* Hook text variants */}
+                          <Label className="text-xs uppercase tracking-wider text-muted-foreground">Texte du hook</Label>
+                          <div className="space-y-2">
+                            {hookAnalysis.hooks.map((hook, i) => (
+                              <button
+                                key={i}
+                                onClick={() => {
+                                  updateSetting('hookText', hook.text)
+                                  updateSetting('hookStyle', hook.style as 'choc' | 'curiosite' | 'suspense')
+                                }}
+                                className={cn(
+                                  'w-full rounded-xl border p-3 text-left transition-all',
+                                  settings.hookText === hook.text
+                                    ? 'border-orange-500 bg-orange-500/10 ring-1 ring-orange-500/30'
+                                    : 'border-border hover:border-orange-500/40'
+                                )}
+                              >
+                                <div className="flex items-center gap-2 mb-1">
+                                  <span className="text-[9px] font-bold text-orange-400 uppercase">{hook.label}</span>
+                                  {settings.hookText === hook.text && (
+                                    <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-orange-500/20 text-orange-300">
+                                      Sélectionné
+                                    </span>
+                                  )}
+                                </div>
+                                <span className="text-xs font-bold text-foreground">{hook.text}</span>
+                              </button>
+                            ))}
+                          </div>
+
+                          {/* Custom hook text input */}
+                          <div className="space-y-1.5">
+                            <Label className="text-[10px] text-muted-foreground">Ou écris ton propre hook :</Label>
+                            <input
+                              type="text"
+                              value={settings.hookText}
+                              onChange={(e) => updateSetting('hookText', e.target.value)}
+                              placeholder="VOTRE HOOK PERSONNALISÉ..."
+                              className="w-full rounded-lg border border-border bg-background/50 px-3 py-2 text-xs font-bold text-foreground placeholder:text-muted-foreground/50 focus:border-orange-500 focus:ring-1 focus:ring-orange-500/30 outline-none transition-all"
+                              maxLength={60}
+                            />
+                            <span className="text-[9px] text-muted-foreground">{settings.hookText.length}/60</span>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   )}
                 </CardContent>

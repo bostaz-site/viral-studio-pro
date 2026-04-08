@@ -7,6 +7,7 @@ import { promisify } from 'util';
 import { renderClip, extractThumbnail, checkFfmpegAvailability, buildFollowFaceFilter } from '../lib/ffmpeg-render.js';
 import { generateASS, generateStaticASS, validateWordTimestamps } from '../lib/subtitle-generator.js';
 import { detectFaces } from '../lib/face-tracker.js';
+import { detectPeakMoment, generateHookTexts, calculateReorderTimestamps } from '../lib/hook-generator.js';
 // caption-png.js and drawtext-wordpop.js removed — all animations now use ASS subtitles
 import { transcribeWithWhisper } from '../lib/whisper-client.js';
 import {
@@ -514,16 +515,72 @@ router.post('/', async (req, res) => {
       }
     }
 
+    // ─── Hook Reorder (pre-processing) ───
+    // If hook reorder is enabled with segments, trim+concat the input video
+    // to put the peak moment first: Hook → Context → Payoff
+    let reorderedInputPath = inputPath;
+    let reorderedStartTime = clipStartTime;
+    let reorderedDuration = duration;
+    if (settings.hook?.enabled && settings.hook?.reorder?.segments?.length >= 2) {
+      try {
+        const segments = settings.hook.reorder.segments;
+        trc(`HOOK REORDER: ${segments.length} segments — ${segments.map(s => `${s.label}(${s.start}-${s.end}s)`).join(' → ')}`);
+
+        // Build FFmpeg trim+concat filter to reorder segments
+        const reorderOutputPath = path.join(tempDir, 'reordered.mp4');
+
+        // Build filter: split input into N copies, trim each, concat
+        const n = segments.length;
+        const splitLabels = segments.map((_, i) => `[s${i}]`).join('');
+        let reorderFilter = `[0:v]split=${n}${splitLabels};`;
+        let reorderFilterAudio = `[0:a]asplit=${n}${segments.map((_, i) => `[a${i}]`).join('')};`;
+
+        segments.forEach((seg, i) => {
+          // Offset segments by clipStartTime since input may not start at 0
+          const segStart = clipStartTime + seg.start;
+          const segEnd = clipStartTime + seg.end;
+          reorderFilter += `[s${i}]trim=start=${segStart}:end=${segEnd},setpts=PTS-STARTPTS[v${i}];`;
+          reorderFilterAudio += `[a${i}]atrim=start=${segStart}:end=${segEnd},asetpts=PTS-STARTPTS[va${i}];`;
+        });
+
+        const concatInputs = segments.map((_, i) => `[v${i}][va${i}]`).join('');
+        reorderFilter += reorderFilterAudio;
+        reorderFilter += `${concatInputs}concat=n=${n}:v=1:a=1[outv][outa]`;
+
+        const reorderArgs = [
+          '-y', '-i', inputPath,
+          '-filter_complex', reorderFilter,
+          '-map', '[outv]', '-map', '[outa]',
+          '-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '18',
+          '-c:a', 'aac', '-b:a', '128k',
+          '-threads', '1',
+          '-movflags', '+faststart',
+          reorderOutputPath,
+        ];
+
+        const ffmpegPath = process.env.FFMPEG_PATH || 'ffmpeg';
+        await execFileAsync(ffmpegPath, reorderArgs, { timeout: 60000, maxBuffer: 10 * 1024 * 1024 });
+
+        reorderedInputPath = reorderOutputPath;
+        reorderedStartTime = 0; // reordered file starts at 0
+        reorderedDuration = settings.hook.reorder.totalDuration;
+        trc(`HOOK REORDER done: ${reorderedDuration}s reordered clip created`);
+      } catch (reorderErr) {
+        trc(`HOOK REORDER error: ${reorderErr.message}, using original order`);
+        // Fallback: use original input, no reorder
+      }
+    }
+
     // Render clip with FFmpeg
     const outputPath = path.join(tempDir, 'output.mp4');
     console.log(`[Render ${renderSessionId}] Starting FFmpeg render...`);
 
     const userPlan = source === 'trending' ? 'pro' : (await getUserProfile(userId))?.plan || 'free';
 
-    await renderClip(inputPath, outputPath, {
-      startTime: clipStartTime,
-      endTime: clipEndTime,
-      duration,
+    await renderClip(reorderedInputPath, outputPath, {
+      startTime: reorderedStartTime,
+      endTime: reorderedStartTime + reorderedDuration,
+      duration: reorderedDuration,
       aspectRatio: settings.format?.aspectRatio || '9:16',
       captions: assFilePath
         ? { assFilePath, ...settings.captions }
@@ -540,6 +597,13 @@ router.post('/', async (req, res) => {
         enabled: true,
         mode: settings.smartZoom.mode || 'micro',
         faceKeyframes: faceKeyframes,
+      } : null,
+      hook: settings.hook?.enabled ? {
+        enabled: true,
+        text: settings.hook.text || '',
+        style: settings.hook.style || 'choc',
+        length: settings.hook.length || 1.5,
+        reorder: settings.hook.reorder || null,
       } : null,
     });
 
@@ -705,6 +769,67 @@ router.post('/caption', async (req, res) => {
       success: false,
       error: err.message,
       message: 'Failed to generate captions',
+    });
+  }
+});
+
+// ─── Hook Generator Endpoint ────────────────────────────────────────────────
+// POST /api/render/hook
+// Analyzes a clip and returns peak moment + 3 hook text variants + reorder timestamps
+router.post('/hook', async (req, res) => {
+  try {
+    const {
+      transcript = '',
+      wordTimestamps = [],
+      audioPeaks = [],
+      duration = 30,
+      streamerName = '',
+      niche = '',
+      hookLength = 1.5,
+      maxContext = 8,
+    } = req.body;
+
+    console.log(`[Hook] Generating hooks: duration=${duration}s, words=${wordTimestamps.length}, peaks=${audioPeaks.length}`);
+
+    // 1. Detect peak moment
+    const peak = detectPeakMoment({
+      audioPeaks,
+      wordTimestamps,
+      transcript,
+      duration,
+    });
+
+    // 2. Generate 3 hook text variants
+    const hooks = generateHookTexts({
+      transcript,
+      streamerName,
+      niche,
+    });
+
+    // 3. Calculate reorder timestamps
+    const reorder = calculateReorderTimestamps(
+      peak.peakTime,
+      duration,
+      hookLength,
+      maxContext,
+    );
+
+    console.log(`[Hook] Peak at ${peak.peakTime}s (score ${peak.peakScore}), ${reorder.segments.length} segments, total ${reorder.totalDuration}s`);
+
+    res.json({
+      data: {
+        peak,
+        hooks,
+        reorder,
+      },
+      error: null,
+    });
+  } catch (err) {
+    console.error('[Hook] Error:', err.message);
+    res.status(500).json({
+      data: null,
+      error: err.message,
+      message: 'Failed to generate hooks',
     });
   }
 });

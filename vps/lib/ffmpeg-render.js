@@ -53,6 +53,48 @@ function buildCommand(args) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Hook Text Overlay
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Build a drawtext filter for the hook text overlay.
+ * Shows the hook text with a bold style during the first `hookLength` seconds,
+ * with a fade-in and fade-out animation.
+ *
+ * @param {string} hookText   - The hook text to display
+ * @param {number} hookLength - Duration in seconds to show the text
+ * @param {string} style      - Hook style: 'choc', 'curiosite', 'suspense'
+ * @param {number} canvasW    - Canvas width
+ * @param {number} canvasH    - Canvas height
+ * @returns {string|null} - drawtext filter string or null
+ */
+function buildHookTextFilter(hookText, hookLength, style, canvasW, canvasH) {
+  if (!hookText || hookLength <= 0) return null;
+
+  const escaped = escapeDrawtext(hookText);
+  const fontSize = Math.round(canvasW * 0.055); // ~40px at 720w
+  const boxPad = Math.round(fontSize * 0.4);
+
+  // Style-specific colors
+  const styles = {
+    choc:      { fontColor: 'white', boxColor: 'black@0.7', borderColor: '#FF4444' },
+    curiosite: { fontColor: 'white', boxColor: 'black@0.7', borderColor: '#FFB800' },
+    suspense:  { fontColor: 'white', boxColor: 'black@0.7', borderColor: '#8B5CF6' },
+  };
+  const s = styles[style] || styles.choc;
+
+  // Position: top area (15% from top), centered horizontally
+  const yPos = Math.round(canvasH * 0.15);
+
+  // Fade-in 0.3s, hold, fade-out 0.3s before end
+  const fadeIn = 0.3;
+  const fadeOut = 0.3;
+  const alphaExpr = `if(lt(t\\,${fadeIn})\\,t/${fadeIn}\\,if(gt(t\\,${hookLength - fadeOut})\\,max(0\\,(${hookLength}-t)/${fadeOut})\\,1))`;
+
+  return `drawtext=text='${escaped}':fontfile=/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf:fontsize=${fontSize}:fontcolor=${s.fontColor}:x=(w-text_w)/2:y=${yPos}:box=1:boxcolor=${s.boxColor}:boxborderw=${boxPad}:borderw=2:bordercolor=${s.borderColor}:alpha='${alphaExpr}':enable='between(t\\,0\\,${hookLength})'`;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Render Pipeline
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -321,6 +363,7 @@ export async function renderClip(inputPath, outputPath, options = {}) {
     timeout = 300000,
     smartZoom = null,
     videoZoom = 'fill',
+    hook = null,
   } = options;
 
   if (!inputPath || !outputPath) {
@@ -360,6 +403,7 @@ export async function renderClip(inputPath, outputPath, options = {}) {
       timeout,
       smartZoom,
       audioPeaks,
+      hook,
     });
   }
 
@@ -492,6 +536,16 @@ export async function renderClip(inputPath, outputPath, options = {}) {
     }
   }
 
+  // Hook text overlay (shown during first hookLength seconds)
+  if (hook && hook.enabled && hook.text) {
+    const hookFilter = buildHookTextFilter(hook.text, hook.length || 1.5, hook.style || 'choc', canvasW, canvasH);
+    if (hookFilter) {
+      filterComplex += `;${mapVideo}${hookFilter}[hooked]`;
+      mapVideo = '[hooked]';
+      console.log(`[FFmpeg] Hook text overlay applied: "${hook.text}" (${hook.length}s, style=${hook.style})`);
+    }
+  }
+
   // Watermark
   if (watermark && (plan === 'free' || (plan !== 'free' && watermark.logoPath))) {
     const watermarkFilter = buildWatermarkFilter(watermark, watermarkPosition, plan);
@@ -579,6 +633,7 @@ async function renderSplitScreen(inputPath, outputPath, opts) {
     timeout,
     smartZoom,
     audioPeaks = [],
+    hook = null,
   } = opts;
 
   const layout = splitScreen.layout || 'top-bottom';
@@ -693,6 +748,16 @@ async function renderSplitScreen(inputPath, outputPath, opts) {
         filterComplex += `;${tagFilter.chain}[tagged]`;
       }
       mapVideo = '[tagged]';
+    }
+  }
+
+  // Hook text overlay (split-screen path)
+  if (hook && hook.enabled && hook.text) {
+    const hookFilter = buildHookTextFilter(hook.text, hook.length || 1.5, hook.style || 'choc', canvasW, canvasH);
+    if (hookFilter) {
+      filterComplex += `;${mapVideo}${hookFilter}[hooked]`;
+      mapVideo = '[hooked]';
+      console.log(`[FFmpeg] Split-screen hook text overlay: "${hook.text}" (${hook.length}s)`);
     }
   }
 
