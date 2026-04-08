@@ -230,28 +230,44 @@ function adjustPositioning(styleConfig, { position = 'bottom', canvasWidth = 108
   const scaleFactor = Math.max(0.75, canvasHeight / 1920);
   config.fontsize = Math.round(config.fontsize * scaleFactor);
 
+  // Convert numeric position (0-100, % from top) to ASS alignment + marginV
+  // Also support legacy string values ('top', 'middle', 'bottom')
+  const numericPos = typeof position === 'number' ? position
+    : position === 'top' ? 8
+    : position === 'middle' ? 42
+    : 72; // 'bottom' default
+
   if (splitScreen && splitScreen.enabled && splitScreen.layout === 'top-bottom') {
-    // Split-screen: place captions INSIDE the main video (top portion), near bottom of it
+    // Split-screen: place captions INSIDE the main video (top portion)
     const ratio = (splitScreen.ratio || 50) / 100;
     const topH = Math.round(canvasHeight * ratio);
     const botH = canvasHeight - topH;
-
-    // marginV = distance from bottom of canvas. We want captions near the bottom
-    // of the TOP clip (just above the B-roll divider), not drifting toward the top.
-    // So marginV = botH (height of B-roll) + small inner padding (~6% of top height).
-    config.alignment = 2;
-    config.marginV = botH + Math.round(topH * 0.06);
-  } else if (position === 'top') {
-    config.alignment = 8; // top center
-    config.marginV = Math.round(canvasHeight * 0.05);
-  } else if (position === 'middle') {
-    config.alignment = 5; // middle center
-    config.marginV = 0;
+    // Clamp position within the top portion
+    const clampedPct = Math.min(numericPos, (ratio * 100) - 6);
+    // ASS alignment 8 = top-center, marginV = distance from top
+    config.alignment = 8;
+    config.marginV = Math.round(canvasHeight * (clampedPct / 100));
+  } else if (numericPos <= 20) {
+    // Top zone: alignment 8 (top center), marginV from top
+    config.alignment = 8;
+    config.marginV = Math.round(canvasHeight * (numericPos / 100));
+  } else if (numericPos <= 60) {
+    // Middle zone: alignment 5 (middle center), marginV adjusts offset from center
+    // At 42%, marginV = 0 (true center). Above/below shifts with marginV.
+    config.alignment = 5;
+    const centerOffset = (numericPos - 42) / 100;
+    config.marginV = Math.round(canvasHeight * Math.abs(centerOffset));
+    // ASS middle alignment: positive marginV always pushes down, negative not supported
+    // So for above-center, use top alignment instead
+    if (centerOffset < -0.05) {
+      config.alignment = 8;
+      config.marginV = Math.round(canvasHeight * (numericPos / 100));
+    }
   } else {
-    // bottom (default) — match UI preview: ~72% from top = ~28% from bottom
-    // but keep above banner-bottom tag bar (which is 7% of height)
+    // Bottom zone: alignment 2 (bottom center), marginV from bottom
+    const fromBottom = (100 - numericPos) / 100;
     config.alignment = 2;
-    config.marginV = Math.round(canvasHeight * 0.22);
+    config.marginV = Math.round(canvasHeight * fromBottom);
   }
 
   return config;

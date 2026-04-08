@@ -12,7 +12,7 @@ const inputSchema = z.object({
       style: z.string().optional(),
       fontSize: z.number().optional(),
       color: z.string().optional(),
-      position: z.string().optional(),
+      position: z.union([z.string(), z.number()]).optional(),
       wordsPerLine: z.number().optional(),
       animation: z.string().optional(),
     }).optional(),

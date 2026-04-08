@@ -41,7 +41,7 @@ interface EnhanceSettings {
   captionStyle: string
   emphasisEffect: string
   customImportantWords: string[]
-  captionPosition: 'top' | 'middle' | 'bottom'
+  captionPosition: number // 0-100, vertical % from top
   wordsPerLine: number
   splitScreenEnabled: boolean
   brollVideo: string
@@ -503,9 +503,9 @@ function LivePreview({
               : 'bg-black/80 backdrop-blur-sm'
           )}
           style={{
-            top: settings.captionPosition === 'top' ? '8%'
-              : settings.captionPosition === 'middle' ? (settings.splitScreenEnabled ? `${settings.splitRatio / 2}%` : '42%')
-              : settings.splitScreenEnabled ? `${settings.splitRatio - 6}%` : '72%',
+            top: settings.splitScreenEnabled
+              ? `${Math.min(settings.captionPosition, settings.splitRatio - 6)}%`
+              : `${settings.captionPosition}%`,
           }}
         >
           {/* Word Pop mode: show ONLY the active word, large, with pop animation */}
@@ -652,7 +652,7 @@ export default function EnhancePage() {
     captionStyle: 'hormozi',
     emphasisEffect: 'none',
     customImportantWords: [],
-    captionPosition: 'bottom',
+    captionPosition: 72,
     wordsPerLine: 4,
     splitScreenEnabled: true,
     brollVideo: 'subway-surfers',
@@ -1244,20 +1244,37 @@ export default function EnhancePage() {
                     </div>
 
                     <div className="space-y-2">
-                      <Label className="text-xs uppercase tracking-wider text-muted-foreground">Position</Label>
-                      <div className="grid grid-cols-3 gap-2">
-                        {([['top', 'Haut'], ['middle', 'Milieu'], ['bottom', 'Bas']] as const).map(([pos, label]) => (
+                      <Label className="text-xs uppercase tracking-wider text-muted-foreground">Position verticale</Label>
+                      <div className="flex items-center gap-3">
+                        <span className="text-[10px] text-muted-foreground whitespace-nowrap">Haut</span>
+                        <input
+                          type="range"
+                          min={5}
+                          max={90}
+                          step={1}
+                          value={settings.captionPosition}
+                          onChange={(e) => updateSetting('captionPosition', Number(e.target.value))}
+                          className="w-full h-1.5 bg-border rounded-full appearance-none cursor-pointer accent-primary [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3.5 [&::-webkit-slider-thumb]:h-3.5 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-primary [&::-webkit-slider-thumb]:shadow-md"
+                        />
+                        <span className="text-[10px] text-muted-foreground whitespace-nowrap">Bas</span>
+                      </div>
+                      <div className="flex justify-center gap-2">
+                        {([
+                          { label: 'Haut', value: 8 },
+                          { label: 'Milieu', value: 42 },
+                          { label: 'Bas', value: 72 },
+                        ]).map((preset) => (
                           <button
-                            key={pos}
-                            onClick={() => updateSetting('captionPosition', pos)}
+                            key={preset.label}
+                            onClick={() => updateSetting('captionPosition', preset.value)}
                             className={cn(
-                              'rounded-xl border px-3 py-2 text-center text-xs font-medium transition-all',
-                              settings.captionPosition === pos
-                                ? 'border-primary bg-primary/10 ring-1 ring-primary/30 text-foreground'
+                              'rounded-lg border px-2.5 py-1 text-[10px] font-medium transition-all',
+                              Math.abs(settings.captionPosition - preset.value) <= 3
+                                ? 'border-primary bg-primary/10 text-foreground'
                                 : 'border-border hover:border-primary/40 text-muted-foreground'
                             )}
                           >
-                            {label}
+                            {preset.label}
                           </button>
                         ))}
                       </div>
