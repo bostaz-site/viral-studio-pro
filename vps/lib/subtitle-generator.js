@@ -482,7 +482,7 @@ function generateAnimatedEvents(lineWords, clipStartTime, styleConfig, animation
 
   switch (animation) {
     case 'word-pop':
-      return generateWordPopEvents(lineWords, clipStartTime, lineStart, lineEnd, customImportantWords);
+      return generateWordPopEvents(lineWords, clipStartTime, lineStart, lineEnd, customImportantWords, styleConfig.alignment || 2);
     case 'pop':
       return generatePopEvents(lineWords, clipStartTime, lineStart, lineEnd);
     case 'bounce':
@@ -571,10 +571,14 @@ function isImportantWord(rawWord, customWords = []) {
  * Important words render in RED and at 120% scale for emphasis.
  * Uses \an5 (middle-center) alignment so each word appears alone, centered.
  */
-function generateWordPopEvents(lineWords, clipStartTime, lineStart, lineEnd, customImportantWords = []) {
+function generateWordPopEvents(lineWords, clipStartTime, lineStart, lineEnd, customImportantWords = [], alignment = 2) {
   if (!lineWords || lineWords.length === 0) return [];
 
   const events = [];
+  // Use the style's alignment (set by adjustPositioning based on user's slider)
+  // This ensures word-pop respects the vertical position setting
+  // alignment 2=bottom-center, 5=middle-center, 8=top-center
+  const an = alignment;
 
   for (let i = 0; i < lineWords.length; i++) {
     const w = lineWords[i];
@@ -590,11 +594,11 @@ function generateWordPopEvents(lineWords, clipStartTime, lineStart, lineEnd, cus
 
     const important = isImportantWord(w.word, customImportantWords);
 
-    // Override: \an5 = middle-center alignment (word appears alone, centered)
+    // Use alignment from style (respects user position slider) instead of hardcoded \an5
     // Important words: red color + 120% scale
     const overrides = important
-      ? `{\\an5\\c&H000000FF&\\fscx120\\fscy120}`
-      : `{\\an5}`;
+      ? `{\\an${an}\\c&H000000FF&\\fscx120\\fscy120}`
+      : `{\\an${an}}`;
 
     events.push(
       `Dialogue: 0,${toASSTime(wordStart)},${toASSTime(wordEnd)},Default,,0,0,0,,${overrides}${word}`
