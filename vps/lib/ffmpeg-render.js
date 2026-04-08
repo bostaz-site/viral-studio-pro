@@ -3,6 +3,7 @@ import { promisify } from 'util';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { analyzeAudioPeaks } from './audio-peaks.js';
+import { generateHookOverlayPNG } from './hook-overlay.js';
 
 const execFileAsync = promisify(execFile);
 const __filename = fileURLToPath(import.meta.url);
@@ -68,41 +69,27 @@ function buildCommand(args) {
  * @param {number} canvasH    - Canvas height
  * @returns {string|null} - drawtext filter string or null
  */
-function buildHookTextFilter(hookText, hookLength, style, canvasW, canvasH, textPosition = 15) {
+/**
+ * Generate a hook overlay PNG and return FFmpeg input/filter info.
+ * This replaces the old drawtext approach with a pixel-perfect PNG overlay
+ * that exactly matches the CSS live preview (rounded corners, glow, etc.).
+ *
+ * @returns {Promise<{pngPath: string, hookLength: number} | null>}
+ */
+async function prepareHookOverlay(hookText, hookLength, canvasW, canvasH, textPosition = 15, jobDir) {
   if (!hookText || hookLength <= 0) return null;
 
-  const escaped = escapeDrawtext(hookText);
-  // Match preview: text-[10px] on 280px preview = 3.57%.
-  // On 720p canvas: 3.57% = ~26px. Use 3.5% for clean match.
-  const fontSize = Math.round(canvasW * 0.035);
-  // Preview padding: px-3 py-1.5 on 280px ≈ 12px H, 6px V → ratio ~4.3% H, 2.1% V
-  // Since boxborderw is uniform, use the average
-  const boxPad = Math.round(fontSize * 0.55);
-  // Border thickness: 2px on 280px = 0.7% → on 720px = ~5px
-  const borderThick = Math.max(3, Math.round(canvasW * 0.004));
+  const pngPath = path.join(jobDir, 'hook-overlay.png');
 
-  // Position: vertical % from top
-  const posPercent = Math.max(5, Math.min(85, textPosition)) / 100;
-  const yPos = Math.round(canvasH * posPercent);
+  await generateHookOverlayPNG({
+    text: hookText,
+    canvasW,
+    canvasH,
+    positionPct: textPosition,
+    outputPath: pngPath,
+  });
 
-  // Fade-in/out
-  const fadeIn = 0.3;
-  const fadeOut = 0.3;
-  const alphaExpr = `if(lt(t\\,${fadeIn})\\,t/${fadeIn}\\,if(gt(t\\,${hookLength - fadeOut})\\,max(0\\,(${hookLength}-t)/${fadeOut})\\,1))`;
-  const enableExpr = `between(t\\,0\\,${hookLength})`;
-
-  // Two-pass drawtext to simulate CSS border:
-  // Pass 1: #9146FF purple box with (padding + borderThick) = outer shell
-  // Pass 2: black box with (padding) = inner fill, sits on top → purple only visible as thin border
-  const outerPad = boxPad + borderThick;
-  const innerPad = boxPad;
-
-  return [
-    // Pass 1: purple outer shell — invisible text (alpha 0), purple box
-    `drawtext=text='${escaped}':fontfile=/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf:fontsize=${fontSize}:fontcolor=#00000000:x=(w-text_w)/2:y=${yPos}:box=1:boxcolor=#9146FF:boxborderw=${outerPad}:alpha='${alphaExpr}':enable='${enableExpr}'`,
-    // Pass 2: black inner fill + white text — exact same position, smaller padding
-    `drawtext=text='${escaped}':fontfile=/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf:fontsize=${fontSize}:fontcolor=white:x=(w-text_w)/2:y=${yPos}:box=1:boxcolor=#000000BF:boxborderw=${innerPad}:alpha='${alphaExpr}':enable='${enableExpr}'`,
-  ].join(',');
+  return { pngPath, hookLength };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -547,13 +534,21 @@ export async function renderClip(inputPath, outputPath, options = {}) {
     }
   }
 
-  // Hook text overlay (shown during first hookLength seconds)
+  // Hook text overlay — PNG overlay (pixel-perfect match to CSS preview)
+  let hookOverlayData = null;
   if (hook && hook.enabled && hook.textEnabled !== false && hook.text) {
-    const hookFilter = buildHookTextFilter(hook.text, hook.length || 1.5, hook.style || 'choc', canvasW, canvasH, hook.textPosition || 15);
-    if (hookFilter) {
-      filterComplex += `;${mapVideo}${hookFilter}[hooked]`;
-      mapVideo = '[hooked]';
-      console.log(`[FFmpeg] Hook text overlay applied: "${hook.text}" (${hook.length}s, style=${hook.style})`);
+    const jobDir = path.dirname(outputPath);
+    hookOverlayData = await prepareHookOverlay(hook.text, hook.length || 1.5, canvasW, canvasH, hook.textPosition || 15, jobDir);
+    if (hookOverlayData) {
+      // Add as extra input — will be wired in the args section below
+      extraInputs.push({
+        pngPath: hookOverlayData.pngPath,
+        startTime: 0,
+        endTime: hookOverlayData.hookLength,
+        isHookOverlay: true,
+        hookLength: hookOverlayData.hookLength,
+      });
+      console.log(`[FFmpeg] Hook PNG overlay prepared: "${hook.text}" (${hook.length}s)`);
     }
   }
 
@@ -565,6 +560,11 @@ export async function renderClip(inputPath, outputPath, options = {}) {
       mapVideo = '[watermarked]';
     }
   }
+
+  // Wire hook PNG overlay into filter chain (must happen after all other filters)
+  // The hook PNG is a full-canvas transparent PNG — we overlay it with fade in/out
+  const hookOverlayEntry = extraInputs.find(e => e.isHookOverlay);
+  let hookInputIndex = -1;
 
   console.log(`[FFmpeg] Standard render filter_complex (${filterComplex.length} chars):`);
   if (filterComplex.includes('drawtext=')) {
@@ -582,13 +582,31 @@ export async function renderClip(inputPath, outputPath, options = {}) {
   const args = ['-y'];
   args.push('-ss', String(startTime));
   args.push('-i', inputPath);
-  // PNG caption overlay inputs (gated by -itsoffset + -t so each PNG only
-  // occupies the decode pipeline during its active window — memory friendly).
+  // PNG overlay inputs (captions + hook)
+  let inputIdx = 1; // 0 is main video
   for (const overlay of extraInputs) {
     const ts = Math.max(0, overlay.startTime);
     const td = Math.max(0.01, overlay.endTime - overlay.startTime);
+    if (overlay.isHookOverlay) {
+      hookInputIndex = inputIdx;
+    }
     args.push('-loop', '1', '-t', td.toFixed(3), '-itsoffset', ts.toFixed(3), '-i', overlay.pngPath);
+    inputIdx++;
   }
+
+  // Append hook overlay filter to the filter_complex chain
+  if (hookOverlayEntry && hookInputIndex >= 0) {
+    const hl = hookOverlayEntry.hookLength;
+    const fadeIn = 0.3;
+    const fadeOut = 0.3;
+    const fadeOutStart = Math.max(0, hl - fadeOut);
+    // fade alpha=1 means: only affect the alpha channel (transparency), not the colors
+    filterComplex += `;[${hookInputIndex}:v]format=rgba,fade=t=in:st=0:d=${fadeIn}:alpha=1,fade=t=out:st=${fadeOutStart.toFixed(3)}:d=${fadeOut}:alpha=1[hookalpha]`;
+    filterComplex += `;${mapVideo}[hookalpha]overlay=0:0:format=auto:shortest=0[hooked]`;
+    mapVideo = '[hooked]';
+    console.log(`[FFmpeg] Hook PNG overlay wired: input ${hookInputIndex}, duration ${hl}s`);
+  }
+
   args.push('-t', String(clipDuration));
   args.push('-filter_complex', filterComplex);
   args.push('-map', mapVideo);
@@ -762,13 +780,20 @@ async function renderSplitScreen(inputPath, outputPath, opts) {
     }
   }
 
-  // Hook text overlay (split-screen path)
+  // Hook text overlay — PNG overlay (split-screen path)
+  let hookOverlayDataSplit = null;
   if (hook && hook.enabled && hook.textEnabled !== false && hook.text) {
-    const hookFilter = buildHookTextFilter(hook.text, hook.length || 1.5, hook.style || 'choc', canvasW, canvasH, hook.textPosition || 15);
-    if (hookFilter) {
-      filterComplex += `;${mapVideo}${hookFilter}[hooked]`;
-      mapVideo = '[hooked]';
-      console.log(`[FFmpeg] Split-screen hook text overlay: "${hook.text}" (${hook.length}s)`);
+    const jobDir = path.dirname(outputPath);
+    hookOverlayDataSplit = await prepareHookOverlay(hook.text, hook.length || 1.5, canvasW, canvasH, hook.textPosition || 15, jobDir);
+    if (hookOverlayDataSplit) {
+      extraInputs.push({
+        pngPath: hookOverlayDataSplit.pngPath,
+        startTime: 0,
+        endTime: hookOverlayDataSplit.hookLength,
+        isHookOverlay: true,
+        hookLength: hookOverlayDataSplit.hookLength,
+      });
+      console.log(`[FFmpeg-Split] Hook PNG overlay prepared: "${hook.text}" (${hook.length}s)`);
     }
   }
 
@@ -781,18 +806,39 @@ async function renderSplitScreen(inputPath, outputPath, opts) {
     }
   }
 
+  // Wire hook PNG overlay into filter chain (split-screen)
+  const hookOverlayEntrySplit = extraInputs.find(e => e.isHookOverlay);
+  let hookInputIndexSplit = -1;
+
   // Build args
   const args = ['-y'];
   args.push('-ss', String(startTime));
   args.push('-i', inputPath);           // Input 0: main video
   args.push('-i', brollPath);           // Input 1: B-roll video
-  // PNG caption overlay inputs (gated by -itsoffset + -t so each PNG only
-  // occupies the decode pipeline during its active window — memory friendly).
+  // PNG overlay inputs (captions + hook)
+  let splitInputIdx = 2; // 0=main, 1=broll
   for (const overlay of extraInputs) {
     const ts = Math.max(0, overlay.startTime);
     const td = Math.max(0.01, overlay.endTime - overlay.startTime);
+    if (overlay.isHookOverlay) {
+      hookInputIndexSplit = splitInputIdx;
+    }
     args.push('-loop', '1', '-t', td.toFixed(3), '-itsoffset', ts.toFixed(3), '-i', overlay.pngPath);
+    splitInputIdx++;
   }
+
+  // Append hook overlay filter
+  if (hookOverlayEntrySplit && hookInputIndexSplit >= 0) {
+    const hl = hookOverlayEntrySplit.hookLength;
+    const fadeIn = 0.3;
+    const fadeOut = 0.3;
+    const fadeOutStart = Math.max(0, hl - fadeOut);
+    filterComplex += `;[${hookInputIndexSplit}:v]format=rgba,fade=t=in:st=0:d=${fadeIn}:alpha=1,fade=t=out:st=${fadeOutStart.toFixed(3)}:d=${fadeOut}:alpha=1[hookalpha]`;
+    filterComplex += `;${mapVideo}[hookalpha]overlay=0:0:format=auto:shortest=0[hooked]`;
+    mapVideo = '[hooked]';
+    console.log(`[FFmpeg-Split] Hook PNG overlay wired: input ${hookInputIndexSplit}, duration ${hl}s`);
+  }
+
   args.push('-t', String(clipDuration));
   args.push('-filter_complex', filterComplex);
   args.push('-map', mapVideo);
