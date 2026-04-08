@@ -79,65 +79,57 @@ function buildSmartZoomFilter(inLabel, outLabel, canvasW, canvasH, clipDuration,
   // Memory safety: 720p canvas + simple expressions + max 3 peaks.
 
   if (mode === 'dynamic' && Array.isArray(peaks) && peaks.length > 0) {
-    // ── VIRAL PUNCH ZOOM (CapCut/Opus Clip style) ──
-    // Based on pro viral editing research:
-    //   - Zoom amount: 15-20% (1.15-1.20x) — noticeable but not jarring
-    //   - Zoom-in: 300ms with ease-out (fast start, smooth stop)
-    //   - Hold: ~150ms at peak
-    //   - Zoom-out: 200ms quick snap back
-    //   - Total punch cycle: ~650ms
-    //   - Max 4 punches per clip (more = amateur)
-    //   - Minimum 2.5s between punches
-    //
-    // FFmpeg ease-out approximation using smoothstep:
-    //   For zoom-in (0→peak over 0.3s):  pow(min((t-t0)/0.3, 1), 0.5) = sqrt curve (ease-out)
-    //   For zoom-out (peak→0 over 0.2s): 1 - pow(min((t-t0-0.45)/0.2, 1), 2) = ease-in
-    //   Combined: ramp up with sqrt, hold, ramp down with square
+    // ── SUBTLE PUNCH ZOOM ──
+    // Inspired by CapCut/pro editors but toned down for natural feel:
+    //   - Zoom amount: 8% (just enough to feel the hit, not distracting)
+    //   - Zoom-in: 200ms ease-out (fast start, smooth stop)
+    //   - Hold: 100ms at peak
+    //   - Zoom-out: 400ms slow ease-out (smooth return, no snap)
+    //   - Total cycle: ~700ms
+    //   - Max 3 punches per clip (less = more pro)
+    //   - No baseline breathing (stays still between punches)
     const D = clipDuration.toFixed(3);
-    const ZOOM_AMOUNT = 0.18;       // 18% punch zoom
-    const RAMP_IN = 0.30;           // 300ms zoom-in
-    const HOLD = 0.15;              // 150ms hold at peak
-    const RAMP_OUT = 0.20;          // 200ms zoom-out
-    const TOTAL = RAMP_IN + HOLD + RAMP_OUT; // 650ms total cycle
+    const ZOOM_AMOUNT = 0.08;       // 8% punch zoom (subtle)
+    const RAMP_IN = 0.20;           // 200ms zoom-in
+    const HOLD = 0.10;              // 100ms hold at peak
+    const RAMP_OUT = 0.40;          // 400ms smooth zoom-out
+    const TOTAL = RAMP_IN + HOLD + RAMP_OUT; // 700ms total cycle
 
-    const limited = peaks.slice(0, 3); // max 3 punches (memory safe on Railway)
+    const limited = peaks.slice(0, 3); // max 3 punches
 
-    // Each punch: ease-out zoom-in → hold → quick snap-out
-    // Using FFmpeg expression: sqrt for ease-out in, squared for ease-in out
     const terms = limited.map(tp => {
       const t0 = tp.toFixed(3);
       const tHoldStart = (tp + RAMP_IN).toFixed(3);
       const tHoldEnd = (tp + RAMP_IN + HOLD).toFixed(3);
       const tEnd = (tp + TOTAL).toFixed(3);
-      // Phase 1: zoom-in with ease-out (sqrt curve)
       const zoomIn = `if(between(t\\,${t0}\\,${tHoldStart})\\,${ZOOM_AMOUNT}*sqrt((t-${t0})/${RAMP_IN})\\,0)`;
-      // Phase 2: hold at peak
       const hold = `if(between(t\\,${tHoldStart}\\,${tHoldEnd})\\,${ZOOM_AMOUNT}\\,0)`;
-      // Phase 3: zoom-out with ease-in (quick snap back)
-      const zoomOut = `if(between(t\\,${tHoldEnd}\\,${tEnd})\\,${ZOOM_AMOUNT}*(1-pow((t-${tHoldEnd})/${RAMP_OUT}\\,2))\\,0)`;
+      // Smooth ease-out return (sqrt instead of squared = no snap)
+      const zoomOut = `if(between(t\\,${tHoldEnd}\\,${tEnd})\\,${ZOOM_AMOUNT}*(1-sqrt((t-${tHoldEnd})/${RAMP_OUT}))\\,0)`;
       return `${zoomIn}+${hold}+${zoomOut}`;
     });
 
-    // Subtle baseline breathing between punches (keeps it alive)
-    const zExpr = `(1.01+0.015*sin(2*PI*t/5)+${terms.join('+')})`;
+    // No baseline breathing — completely still between punches for pro look
+    const zExpr = `(1+${terms.join('+')})`;
     const scaledW = `trunc(${canvasW}*${zExpr}/2)*2`;
     const scaledH = `trunc(${canvasH}*${zExpr}/2)*2`;
 
-    console.log(`[FFmpeg] Smart Zoom dynamic: ${limited.length} peaks, 18% punch, ease-out curve`);
+    console.log(`[FFmpeg] Smart Zoom dynamic: ${limited.length} peaks, 8% punch, smooth ease`);
 
     return `${inLabel}scale=w='${scaledW}':h='${scaledH}':eval=frame,crop=${canvasW}:${canvasH},setsar=1${outLabel}`;
   }
 
   if (mode === 'micro') {
-    // ── CINEMATIC BREATHING ZOOM ──
-    // Gentle oscillation on 5s cycle + slow cinematic push.
-    // Keeps static shots feeling alive without being distracting.
+    // ── SLOW CINEMATIC PUSH ──
+    // Single slow push-in 1.0 → 1.05 over the entire clip.
+    // No oscillation/breathing — just a clean, barely noticeable drift.
+    // This is what Netflix/documentary editors use on talking heads.
     const D = clipDuration.toFixed(3);
-    const zExpr = `(1.04+0.05*sin(2*PI*t/5)+0.04*min(t/${D}\\,1))`;
+    const zExpr = `(1+0.05*min(t/${D}\\,1))`;
     const scaledW = `trunc(${canvasW}*${zExpr}/2)*2`;
     const scaledH = `trunc(${canvasH}*${zExpr}/2)*2`;
 
-    console.log(`[FFmpeg] Smart Zoom micro: breathing + push, duration=${D}s`);
+    console.log(`[FFmpeg] Smart Zoom micro: slow push 0→5%, duration=${D}s`);
 
     return `${inLabel}scale=w='${scaledW}':h='${scaledH}':eval=frame,crop=${canvasW}:${canvasH},setsar=1${outLabel}`;
   }
