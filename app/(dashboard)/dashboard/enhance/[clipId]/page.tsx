@@ -524,9 +524,9 @@ function LivePreview({
 
       {/* ── Hook text overlay ── */}
       {showEnhancements && settings.hookEnabled && settings.hookText && (
-        <div className="absolute top-[15%] left-1/2 -translate-x-1/2 z-30 pointer-events-none animate-in fade-in zoom-in-95 duration-300">
+        <div className="absolute top-[15%] left-1/2 -translate-x-1/2 z-30 pointer-events-none animate-in fade-in zoom-in-95 duration-300 w-full px-2">
           <div
-            className="px-4 py-2 rounded-lg text-center max-w-[90%]"
+            className="px-3 py-1.5 rounded-md text-center whitespace-nowrap overflow-hidden mx-auto w-fit"
             style={{
               background: 'rgba(0,0,0,0.7)',
               border: settings.hookStyle === 'choc' ? '2px solid #FF4444'
@@ -535,9 +535,10 @@ function LivePreview({
               boxShadow: settings.hookStyle === 'choc' ? '0 0 12px #FF444466'
                 : settings.hookStyle === 'curiosite' ? '0 0 12px #FFB80066'
                 : '0 0 12px #8B5CF666',
+              maxWidth: '100%',
             }}
           >
-            <span className="text-xs font-black text-white uppercase tracking-wider leading-tight">
+            <span className="text-[10px] font-black text-white uppercase tracking-wide leading-none">
               {settings.hookText}
             </span>
           </div>
