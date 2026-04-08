@@ -57,7 +57,7 @@ import crypto from 'crypto';
 
 const authenticateApiKey = (req, res, next) => {
   const apiKey = req.headers['x-api-key'];
-  const expectedKey = process.env.API_SECRET;
+  const expectedKey = process.env.VPS_RENDER_API_KEY || process.env.API_SECRET;
 
   if (!apiKey || !expectedKey) {
     return res.status(401).json({
@@ -142,13 +142,13 @@ app.listen(PORT, () => {
 ║  Viral Studio Pro Render API                                   ║
 ║  Environment: ${(process.env.NODE_ENV || 'development').padEnd(44)} ║
 ║  Port: ${String(PORT).padEnd(55)} ║
-║  API Secret: ${process.env.API_SECRET ? '✓ Configured' : '✗ NOT SET'.padEnd(42)} ║
+║  API Secret: ${(process.env.VPS_RENDER_API_KEY || process.env.API_SECRET) ? '✓ Configured' : '✗ NOT SET'.padEnd(42)} ║
 ║  Supabase URL: ${process.env.SUPABASE_URL ? '✓ Configured' : '✗ NOT SET'.padEnd(36)} ║
 ╚════════════════════════════════════════════════════════════════╝
   `);
 
-  if (!process.env.API_SECRET) {
-    console.warn('⚠️  Warning: API_SECRET not set! API requests will fail.');
+  if (!process.env.VPS_RENDER_API_KEY && !process.env.API_SECRET) {
+    console.warn('⚠️  Warning: VPS_RENDER_API_KEY / API_SECRET not set! API requests will fail.');
   }
   if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
     console.warn('⚠️  Warning: SUPABASE_SERVICE_ROLE_KEY not set! Database operations will fail.');

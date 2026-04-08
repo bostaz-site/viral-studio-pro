@@ -1086,6 +1086,7 @@ export default function ClipEditorPage() {
           clip={{
             id: state.clip.id,
             video_id: state.clip.video_id,
+            user_id: state.clip.user_id ?? null,
             title: state.clip.title,
             start_time: state.clip.start_time,
             end_time: state.clip.end_time,
@@ -1094,9 +1095,14 @@ export default function ClipEditorPage() {
             thumbnail_path: state.clip.thumbnail_path,
             thumbnail_url: null,
             transcript_segment: state.clip.transcript_segment,
+            caption_template: state.clip.caption_template ?? null,
             aspect_ratio: state.clip.aspect_ratio,
             status: state.clip.status as 'pending' | 'rendering' | 'done' | 'error',
+            error_message: state.clip.error_message ?? null,
             is_remake: state.clip.is_remake,
+            parent_clip_id: state.clip.parent_clip_id ?? null,
+            created_at: state.clip.created_at ?? null,
+            updated_at: state.clip.updated_at ?? null,
             viral_scores: state.viralScore
               ? [{
                   score: state.viralScore.score,
