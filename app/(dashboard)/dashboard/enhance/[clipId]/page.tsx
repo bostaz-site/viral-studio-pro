@@ -774,23 +774,23 @@ export default function EnhancePage() {
   }
 
   const [settings, setSettings] = useState<EnhanceSettings>({
-    captionsEnabled: true,
-    captionStyle: 'hormozi',
-    emphasisEffect: 'scale',
+    captionsEnabled: false,
+    captionStyle: 'none',
+    emphasisEffect: 'none',
     emphasisColor: 'red',
     customImportantWords: [],
-    captionPosition: 60,
-    wordsPerLine: 1,
+    captionPosition: 72,
+    wordsPerLine: 4,
     splitScreenEnabled: false,
     brollVideo: 'none',
     splitRatio: 60,
-    videoZoom: 'fill',
-    tagStyle: 'viral-glow',
-    tagSize: 85,
+    videoZoom: 'contain',
+    tagStyle: 'none',
+    tagSize: 100,
     aspectRatio: '9:16',
-    smartZoomEnabled: true,
-    smartZoomMode: 'dynamic',
-    hookEnabled: true,
+    smartZoomEnabled: false,
+    smartZoomMode: 'micro',
+    hookEnabled: false,
     hookTextEnabled: true,
     hookReorderEnabled: true,
     hookText: '',
@@ -823,14 +823,6 @@ export default function EnhancePage() {
           thumbnail_url: storeClip.thumbnail_url,
         }
         setClip(clipData)
-
-        // Auto-enable split-screen for long descriptions or low view counts
-        const descriptionWordCount = clipData.description?.split(/\s+/).length ?? 0
-        const shouldAutoEnableSplitScreen = descriptionWordCount > 20 || (clipData.view_count ?? 0) < 1000
-        if (shouldAutoEnableSplitScreen) {
-          setSettings((s) => ({ ...s, splitScreenEnabled: true }))
-        }
-
         setLoading(false)
         return
       }
@@ -849,13 +841,6 @@ export default function EnhancePage() {
 
         const clipData = data as TrendingClipData
         setClip(clipData)
-
-        // Auto-enable split-screen for long descriptions or low view counts
-        const descriptionWordCount = clipData.description?.split(/\s+/).length ?? 0
-        const shouldAutoEnableSplitScreen = descriptionWordCount > 20 || (clipData.view_count ?? 0) < 1000
-        if (shouldAutoEnableSplitScreen) {
-          setSettings((s) => ({ ...s, splitScreenEnabled: true }))
-        }
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Erreur de chargement')
       } finally {
@@ -1052,17 +1037,34 @@ export default function EnhancePage() {
   }, [clip, settings, startPolling])
 
   const applyBestCombo = useCallback(() => {
-    if (!scores) return
     setSettings((s) => ({
       ...s,
-      captionStyle: scores.best.captionStyle,
-      emphasisEffect: scores.best.emphasisEffect,
-      brollVideo: scores.best.brollVideo,
-      tagStyle: scores.best.tagStyle,
-      splitScreenEnabled: true,
+      // Sous-titres: Hormozi word-pop, scale up rouge, 1 mot/ligne, 60%
       captionsEnabled: true,
+      captionStyle: 'hormozi',
+      emphasisEffect: 'scale',
+      emphasisColor: 'red',
+      captionPosition: 60,
+      wordsPerLine: 1,
+      // Pas de split-screen, zoom remplir
+      splitScreenEnabled: false,
+      brollVideo: 'none',
+      videoZoom: 'fill',
+      // Tag Viral Glow 85%
+      tagStyle: 'viral-glow',
+      tagSize: 85,
+      // Smart zoom dynamique
+      smartZoomEnabled: true,
+      smartZoomMode: 'dynamic',
+      // Hook viral: suspense, texte + reorder, 15%, 1.5s
+      hookEnabled: true,
+      hookTextEnabled: true,
+      hookReorderEnabled: true,
+      hookStyle: 'suspense',
+      hookTextPosition: 15,
+      hookLength: 1.5,
     }))
-  }, [scores])
+  }, [])
 
   // ── Hook Generator ────────────────────────────────────────────────────
   const generateHook = useCallback(async () => {
@@ -1236,7 +1238,7 @@ export default function EnhancePage() {
         {/* Right: Actions + Settings — scrollable */}
         <div className="space-y-6">
           {/* ── Make it viral button ── */}
-          {scores && (
+          {(
             <button
               onClick={applyBestCombo}
               className="group relative w-full rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-orange-600 p-[1px] shadow-lg shadow-orange-500/25 hover:shadow-orange-500/40 transition-all duration-300 animate-[glow_3s_ease-in-out_infinite]"
