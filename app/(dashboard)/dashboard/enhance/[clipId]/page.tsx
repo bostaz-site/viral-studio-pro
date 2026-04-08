@@ -58,6 +58,7 @@ interface EnhanceSettings {
   hookReorderEnabled: boolean // put peak moment first
   hookText: string
   hookStyle: 'choc' | 'curiosite' | 'suspense'
+  hookTextPosition: number // 5-90, vertical % from top
   hookLength: number // 1-3 seconds
   hookReorder: { segments: { start: number; end: number; duration: number; label: string }[]; totalDuration: number; peakTime: number } | null
 }
@@ -526,7 +527,10 @@ function LivePreview({
 
       {/* ── Hook text overlay ── */}
       {showEnhancements && settings.hookEnabled && settings.hookTextEnabled && settings.hookText && (
-        <div className="absolute top-[15%] left-1/2 -translate-x-1/2 z-30 pointer-events-none animate-in fade-in zoom-in-95 duration-300 w-full px-2">
+        <div
+          className="absolute left-1/2 -translate-x-1/2 z-30 pointer-events-none animate-in fade-in zoom-in-95 duration-300 w-full px-2"
+          style={{ top: `${settings.hookTextPosition}%` }}
+        >
           <div
             className="px-3 py-1.5 rounded-md text-center whitespace-nowrap overflow-hidden mx-auto w-fit"
             style={{
@@ -795,6 +799,7 @@ export default function EnhancePage() {
     hookReorderEnabled: true,
     hookText: '',
     hookStyle: 'choc',
+    hookTextPosition: 15,
     hookLength: 1.5,
     hookReorder: null,
   })
@@ -1014,6 +1019,7 @@ export default function EnhancePage() {
               reorderEnabled: settings.hookReorderEnabled,
               text: settings.hookText,
               style: settings.hookStyle,
+              textPosition: settings.hookTextPosition,
               length: settings.hookLength,
               reorder: settings.hookReorder,
             },
@@ -1882,6 +1888,29 @@ export default function EnhancePage() {
                           <span className="text-[8px] text-muted-foreground block">Réordonne le clip</span>
                         </button>
                       </div>
+
+                      {/* Hook text position slider */}
+                      {settings.hookTextEnabled && (
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <Label className="text-xs uppercase tracking-wider text-muted-foreground">Position du texte</Label>
+                            <span className="text-xs font-bold text-orange-400">{settings.hookTextPosition}%</span>
+                          </div>
+                          <Slider
+                            value={[settings.hookTextPosition]}
+                            onValueChange={([v]) => updateSetting('hookTextPosition', v)}
+                            min={5}
+                            max={85}
+                            step={1}
+                            className="w-full"
+                          />
+                          <div className="flex justify-between text-[9px] text-muted-foreground">
+                            <span>Haut</span>
+                            <span>Centre</span>
+                            <span>Bas</span>
+                          </div>
+                        </div>
+                      )}
 
                       {/* Hook length slider */}
                       <div className="space-y-2">

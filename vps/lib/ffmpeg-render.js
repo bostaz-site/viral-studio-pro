@@ -68,7 +68,7 @@ function buildCommand(args) {
  * @param {number} canvasH    - Canvas height
  * @returns {string|null} - drawtext filter string or null
  */
-function buildHookTextFilter(hookText, hookLength, style, canvasW, canvasH) {
+function buildHookTextFilter(hookText, hookLength, style, canvasW, canvasH, textPosition = 15) {
   if (!hookText || hookLength <= 0) return null;
 
   const escaped = escapeDrawtext(hookText);
@@ -83,8 +83,9 @@ function buildHookTextFilter(hookText, hookLength, style, canvasW, canvasH) {
   };
   const s = styles[style] || styles.choc;
 
-  // Position: top area (15% from top), centered horizontally
-  const yPos = Math.round(canvasH * 0.15);
+  // Position: vertical % from top (5-85), centered horizontally
+  const posPercent = Math.max(5, Math.min(85, textPosition)) / 100;
+  const yPos = Math.round(canvasH * posPercent);
 
   // Fade-in 0.3s, hold, fade-out 0.3s before end
   const fadeIn = 0.3;
@@ -538,7 +539,7 @@ export async function renderClip(inputPath, outputPath, options = {}) {
 
   // Hook text overlay (shown during first hookLength seconds)
   if (hook && hook.enabled && hook.textEnabled !== false && hook.text) {
-    const hookFilter = buildHookTextFilter(hook.text, hook.length || 1.5, hook.style || 'choc', canvasW, canvasH);
+    const hookFilter = buildHookTextFilter(hook.text, hook.length || 1.5, hook.style || 'choc', canvasW, canvasH, hook.textPosition || 15);
     if (hookFilter) {
       filterComplex += `;${mapVideo}${hookFilter}[hooked]`;
       mapVideo = '[hooked]';
@@ -753,7 +754,7 @@ async function renderSplitScreen(inputPath, outputPath, opts) {
 
   // Hook text overlay (split-screen path)
   if (hook && hook.enabled && hook.textEnabled !== false && hook.text) {
-    const hookFilter = buildHookTextFilter(hook.text, hook.length || 1.5, hook.style || 'choc', canvasW, canvasH);
+    const hookFilter = buildHookTextFilter(hook.text, hook.length || 1.5, hook.style || 'choc', canvasW, canvasH, hook.textPosition || 15);
     if (hookFilter) {
       filterComplex += `;${mapVideo}${hookFilter}[hooked]`;
       mapVideo = '[hooked]';

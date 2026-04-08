@@ -603,6 +603,7 @@ router.post('/', async (req, res) => {
         textEnabled: settings.hook.textEnabled !== false,
         text: settings.hook.text || '',
         style: settings.hook.style || 'choc',
+        textPosition: settings.hook.textPosition || 15,
         length: settings.hook.length || 1.5,
       } : null,
     });
