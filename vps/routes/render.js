@@ -344,6 +344,7 @@ router.post('/', async (req, res) => {
             customColors: settings.captions.customColors,
             customImportantWords: settings.captions.customImportantWords || [],
             emphasisEffect: settings.captions.emphasisEffect || 'none',
+            emphasisColor: settings.captions.emphasisColor || 'red',
           });
           trc(`CAPTIONS ASS generated: ${assContent ? assContent.length : 0} bytes`);
         } else {

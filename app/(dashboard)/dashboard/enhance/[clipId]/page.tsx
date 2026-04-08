@@ -40,6 +40,7 @@ interface EnhanceSettings {
   captionsEnabled: boolean
   captionStyle: string
   emphasisEffect: string
+  emphasisColor: string
   customImportantWords: string[]
   captionPosition: number // 0-100, vertical % from top
   wordsPerLine: number
@@ -68,9 +69,18 @@ const CAPTION_STYLES = [
 const EMPHASIS_EFFECTS = [
   { id: 'none', label: 'Aucun', description: 'Pas d\'emphase', baseScore: 0 },
   { id: 'scale', label: 'Scale Up', description: 'Mot clé grossit', baseScore: 14 },
-  { id: 'color', label: 'Couleur', description: 'Mot clé en couleur', baseScore: 12 },
   { id: 'bounce', label: 'Bounce', description: 'Mot clé rebondit', baseScore: 10 },
   { id: 'glow', label: 'Glow', description: 'Mot clé brille', baseScore: 8 },
+]
+
+const EMPHASIS_COLORS = [
+  { id: 'red', label: 'Rouge', tw: 'bg-red-500', hex: '#EF4444' },
+  { id: 'yellow', label: 'Jaune', tw: 'bg-yellow-400', hex: '#FACC15' },
+  { id: 'cyan', label: 'Cyan', tw: 'bg-cyan-400', hex: '#22D3EE' },
+  { id: 'green', label: 'Vert', tw: 'bg-green-400', hex: '#4ADE80' },
+  { id: 'orange', label: 'Orange', tw: 'bg-orange-500', hex: '#F97316' },
+  { id: 'pink', label: 'Rose', tw: 'bg-pink-500', hex: '#EC4899' },
+  { id: 'white', label: 'Blanc', tw: 'bg-white', hex: '#FFFFFF' },
 ]
 
 const BROLL_OPTIONS = [
@@ -525,29 +535,33 @@ function LivePreview({
           {/* Word Pop mode: show ONLY the active word, large, with pop animation */}
           {/* Important words appear in RED + bigger; normal words use the style color */}
           {/* Emphasis effects add static visual distinction on important words */}
-          {currentAnimation === 'word-pop' ? (
-            <p className={cn(
-              'font-black text-center uppercase tracking-wide',
-              isImportantWord(sampleWords[activeWordIdx] || '')
-                ? cn('text-xl', settings.emphasisEffect === 'color' ? 'text-yellow-400' : 'text-red-500')
-                : cn('text-lg', captionStyle?.preview || 'text-white')
-            )}
-              style={{
-                WebkitTextStroke: '1px black',
-                textShadow: isImportantWord(sampleWords[activeWordIdx] || '')
-                  ? '2px 2px 4px rgba(0,0,0,0.8), 0 0 12px rgba(239,68,68,0.4)'
-                    + (settings.emphasisEffect === 'glow' ? ', 0 0 16px rgba(239,68,68,0.7), 0 0 32px rgba(239,68,68,0.4)' : '')
-                  : '2px 2px 4px rgba(0,0,0,0.8)',
-                animation: 'wordPopIn 0.2s ease-out',
-                transform: isImportantWord(sampleWords[activeWordIdx] || '') && settings.emphasisEffect === 'scale' ? 'scale(1.35)'
-                  : isImportantWord(sampleWords[activeWordIdx] || '') && settings.emphasisEffect === 'bounce' ? 'translateY(-6px) scale(1.15)'
-                  : undefined,
-              }}
-              key={activeWordIdx}
-            >
-              {sampleWords[activeWordIdx] || ''}
-            </p>
-          ) : (
+          {(() => {
+            const isImp = isImportantWord(sampleWords[activeWordIdx] || '')
+            const empColor = EMPHASIS_COLORS.find((c) => c.id === settings.emphasisColor)?.hex ?? '#EF4444'
+            const hasEffect = settings.emphasisEffect !== 'none'
+            if (currentAnimation === 'word-pop') return (
+              <p className={cn(
+                'font-black text-center uppercase tracking-wide',
+                isImp && hasEffect ? 'text-xl' : cn('text-lg', captionStyle?.preview || 'text-white'),
+              )}
+                style={{
+                  WebkitTextStroke: '1px black',
+                  color: isImp && hasEffect ? empColor : undefined,
+                  textShadow: isImp && hasEffect
+                    ? `2px 2px 4px rgba(0,0,0,0.8), 0 0 12px ${empColor}66`
+                      + (settings.emphasisEffect === 'glow' ? `, 0 0 16px ${empColor}AA, 0 0 32px ${empColor}66` : '')
+                    : '2px 2px 4px rgba(0,0,0,0.8)',
+                  animation: 'wordPopIn 0.2s ease-out',
+                  transform: isImp && settings.emphasisEffect === 'scale' ? 'scale(1.35)'
+                    : isImp && settings.emphasisEffect === 'bounce' ? 'translateY(-6px) scale(1.15)'
+                    : undefined,
+                }}
+                key={activeWordIdx}
+              >
+                {sampleWords[activeWordIdx] || ''}
+              </p>
+            )
+            return (
           <p className={cn('text-sm text-center', captionStyle?.preview)}>
             {sampleWords.map((word, i) => {
               const isActive = i === activeWordIdx
@@ -595,7 +609,8 @@ function LivePreview({
               )
             })}
           </p>
-          )}
+            )
+          })()}
         </div>
       )}
 
@@ -665,6 +680,7 @@ export default function EnhancePage() {
     captionsEnabled: true,
     captionStyle: 'hormozi',
     emphasisEffect: 'none',
+    emphasisColor: 'red',
     customImportantWords: [],
     captionPosition: 72,
     wordsPerLine: 4,
@@ -863,6 +879,7 @@ export default function EnhancePage() {
               wordsPerLine: settings.wordsPerLine,
               animation: CAPTION_STYLES.find(s => s.id === settings.captionStyle)?.animation ?? 'highlight',
               emphasisEffect: settings.emphasisEffect,
+              emphasisColor: settings.emphasisColor,
               customImportantWords: settings.customImportantWords,
               position: settings.captionPosition,
             },
@@ -1189,6 +1206,29 @@ export default function EnhancePage() {
                         })}
                       </div>
                     </div>
+
+                    {/* Couleur d'emphase — visible quand un effet est sélectionné */}
+                    {settings.emphasisEffect !== 'none' && (
+                    <div className="space-y-2 animate-in fade-in slide-in-from-top-1">
+                      <Label className="text-xs uppercase tracking-wider text-muted-foreground">Couleur d&apos;emphase</Label>
+                      <div className="flex gap-2">
+                        {EMPHASIS_COLORS.map((c) => (
+                          <button
+                            key={c.id}
+                            onClick={() => updateSetting('emphasisColor', c.id)}
+                            className={cn(
+                              'w-7 h-7 rounded-full transition-all',
+                              c.tw,
+                              settings.emphasisColor === c.id
+                                ? 'ring-2 ring-primary ring-offset-2 ring-offset-background scale-110'
+                                : 'opacity-60 hover:opacity-100 hover:scale-105'
+                            )}
+                            title={c.label}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                    )}
 
                     {/* Mots importants — auto-détectés + custom */}
                     <div className="space-y-2">

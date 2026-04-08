@@ -275,6 +275,7 @@ export function generateASS(wordTimestamps, options = {}) {
     customColors = null,
     customImportantWords = [],
     emphasisEffect = 'none',
+    emphasisColor = 'red',
     position = 'bottom',
     canvasWidth = 1080,
     canvasHeight = 1920,
@@ -330,7 +331,7 @@ export function generateASS(wordTimestamps, options = {}) {
       const word = w.word.replace(/\\/g, '\\\\').replace(/\{/g, '\\{').replace(/\}/g, '\\}');
       const important = isImportantWord(w.word, customImportantWords);
       const overrides = important
-        ? `{\\an${an}${getEmphasisASS(emphasisEffect)}}`
+        ? `{\\an${an}${getEmphasisASS(emphasisEffect, emphasisColor)}}`
         : `{\\an${an}}`;
       events.push(
         `Dialogue: 0,${toASSTime(wordStart)},${toASSTime(wordEnd)},Default,,0,0,0,,${overrides}${word}`
@@ -559,27 +560,36 @@ const IMPORTANT_WORDS = new Set([
 ]);
 
 /**
- * Convert emphasisEffect name to ASS override tags for important words.
- * Effects: scale (bigger), color (red), bounce (Y shift), glow (border glow), none (red+scale default)
+ * Convert hex color name to ASS BGR color format.
+ * ASS uses &HBBGGRR& format (blue, green, red — reversed).
  */
-function getEmphasisASS(effect) {
+const EMPHASIS_COLOR_MAP = {
+  red:    '&H0000FF&',   // #EF4444 → simplified red
+  yellow: '&H0015CCFA&', // #FACC15
+  cyan:   '&H00FFFF00&', // #00FFFF → BGR
+  green:  '&H0080DE4A&', // #4ADE80
+  orange: '&H001673F9&', // #F97316
+  pink:   '&H009948EC&', // #EC4899
+  white:  '&H00FFFFFF&', // #FFFFFF
+};
+
+/**
+ * Convert emphasisEffect name to ASS override tags for important words.
+ * The color parameter controls what color is used for emphasis.
+ * Effects: scale (bigger), bounce (Y shift), glow (border glow), none (scale default)
+ */
+function getEmphasisASS(effect, color = 'red') {
+  const assColor = EMPHASIS_COLOR_MAP[color] || EMPHASIS_COLOR_MAP.red;
   switch (effect) {
     case 'scale':
-      // 140% scale + yellow color
-      return '\\fscx140\\fscy140\\c&H00FFFF&';
-    case 'color':
-      // Red color, normal size
-      return '\\c&H0000FF&';
+      return `\\fscx140\\fscy140\\c${assColor}`;
     case 'bounce':
-      // 130% scale + orange color + slight Y shift
-      return '\\fscx130\\fscy130\\c&H0080FF&\\shad3';
+      return `\\fscx130\\fscy130\\c${assColor}\\shad3`;
     case 'glow':
-      // Normal size + glow border effect (thick outline + bright color)
-      return '\\c&H00FF00&\\bord4\\3c&H00FF80&';
+      return `\\c${assColor}\\bord4\\3c${assColor}`;
     case 'none':
     default:
-      // Default: red + 120% (legacy behavior)
-      return '\\c&H000000FF&\\fscx120\\fscy120';
+      return `\\c${assColor}\\fscx120\\fscy120`;
   }
 }
 

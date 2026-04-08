@@ -16,6 +16,7 @@ const inputSchema = z.object({
       wordsPerLine: z.number().optional(),
       animation: z.string().optional(),
       emphasisEffect: z.string().optional(),
+      emphasisColor: z.string().optional(),
       customImportantWords: z.array(z.string()).optional(),
     }).optional(),
     splitScreen: z.object({
