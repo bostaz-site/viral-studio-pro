@@ -72,11 +72,14 @@ function buildHookTextFilter(hookText, hookLength, style, canvasW, canvasH, text
   if (!hookText || hookLength <= 0) return null;
 
   const escaped = escapeDrawtext(hookText);
-  // Smaller font to match preview (text-[10px] on 280px preview ≈ 3.6% of width)
-  const fontSize = Math.round(canvasW * 0.038);
-  const padX = Math.round(fontSize * 0.7); // horizontal padding
-  const padY = Math.round(fontSize * 0.45); // vertical padding
-  const borderW = Math.max(2, Math.round(canvasW * 0.003)); // ~2px border
+  // Match preview: text-[10px] on 280px preview = 3.57%.
+  // On 720p canvas: 3.57% = ~26px. Use 3.5% for clean match.
+  const fontSize = Math.round(canvasW * 0.035);
+  // Preview padding: px-3 py-1.5 on 280px ≈ 12px H, 6px V → ratio ~4.3% H, 2.1% V
+  // Since boxborderw is uniform, use the average
+  const boxPad = Math.round(fontSize * 0.55);
+  // Border thickness: 2px on 280px = 0.7% → on 720px = ~5px
+  const borderThick = Math.max(3, Math.round(canvasW * 0.004));
 
   // Position: vertical % from top
   const posPercent = Math.max(5, Math.min(85, textPosition)) / 100;
@@ -88,17 +91,17 @@ function buildHookTextFilter(hookText, hookLength, style, canvasW, canvasH, text
   const alphaExpr = `if(lt(t\\,${fadeIn})\\,t/${fadeIn}\\,if(gt(t\\,${hookLength - fadeOut})\\,max(0\\,(${hookLength}-t)/${fadeOut})\\,1))`;
   const enableExpr = `between(t\\,0\\,${hookLength})`;
 
-  // Two-pass approach to create purple border + black fill:
-  // Pass 1: purple box (larger padding = acts as border)
-  // Pass 2: black box + white text (smaller padding = inner fill)
-  const outerPad = padX + borderW; // purple border layer
-  const innerPad = padX;           // black fill layer
+  // Two-pass drawtext to simulate CSS border:
+  // Pass 1: #9146FF purple box with (padding + borderThick) = outer shell
+  // Pass 2: black box with (padding) = inner fill, sits on top → purple only visible as thin border
+  const outerPad = boxPad + borderThick;
+  const innerPad = boxPad;
 
   return [
-    // Pass 1: purple border — transparent text, purple box, bigger padding
-    `drawtext=text='${escaped}':fontfile=/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf:fontsize=${fontSize}:fontcolor=white@0:x=(w-text_w)/2:y=${yPos}:box=1:boxcolor=#9146FF@0.9:boxborderw=${outerPad}:alpha='${alphaExpr}':enable='${enableExpr}'`,
-    // Pass 2: black inner fill + white text
-    `drawtext=text='${escaped}':fontfile=/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf:fontsize=${fontSize}:fontcolor=white:x=(w-text_w)/2:y=${yPos}:box=1:boxcolor=black@0.75:boxborderw=${innerPad}:alpha='${alphaExpr}':enable='${enableExpr}'`,
+    // Pass 1: purple outer shell — invisible text (alpha 0), purple box
+    `drawtext=text='${escaped}':fontfile=/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf:fontsize=${fontSize}:fontcolor=#00000000:x=(w-text_w)/2:y=${yPos}:box=1:boxcolor=#9146FF:boxborderw=${outerPad}:alpha='${alphaExpr}':enable='${enableExpr}'`,
+    // Pass 2: black inner fill + white text — exact same position, smaller padding
+    `drawtext=text='${escaped}':fontfile=/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf:fontsize=${fontSize}:fontcolor=white:x=(w-text_w)/2:y=${yPos}:box=1:boxcolor=#000000BF:boxborderw=${innerPad}:alpha='${alphaExpr}':enable='${enableExpr}'`,
   ].join(',');
 }
 
