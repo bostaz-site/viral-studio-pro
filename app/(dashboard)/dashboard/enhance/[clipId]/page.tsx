@@ -54,6 +54,8 @@ interface EnhanceSettings {
   smartZoomEnabled: boolean
   smartZoomMode: 'micro' | 'dynamic' | 'follow'
   hookEnabled: boolean
+  hookTextEnabled: boolean   // show text overlay
+  hookReorderEnabled: boolean // put peak moment first
   hookText: string
   hookStyle: 'choc' | 'curiosite' | 'suspense'
   hookLength: number // 1-3 seconds
@@ -523,7 +525,7 @@ function LivePreview({
       </div>
 
       {/* ── Hook text overlay ── */}
-      {showEnhancements && settings.hookEnabled && settings.hookText && (
+      {showEnhancements && settings.hookEnabled && settings.hookTextEnabled && settings.hookText && (
         <div className="absolute top-[15%] left-1/2 -translate-x-1/2 z-30 pointer-events-none animate-in fade-in zoom-in-95 duration-300 w-full px-2">
           <div
             className="px-3 py-1.5 rounded-md text-center whitespace-nowrap overflow-hidden mx-auto w-fit"
@@ -789,6 +791,8 @@ export default function EnhancePage() {
     smartZoomEnabled: false,
     smartZoomMode: 'micro',
     hookEnabled: false,
+    hookTextEnabled: true,
+    hookReorderEnabled: true,
     hookText: '',
     hookStyle: 'choc',
     hookLength: 1.5,
@@ -1006,6 +1010,8 @@ export default function EnhancePage() {
             },
             hook: {
               enabled: settings.hookEnabled,
+              textEnabled: settings.hookTextEnabled,
+              reorderEnabled: settings.hookReorderEnabled,
               text: settings.hookText,
               style: settings.hookStyle,
               length: settings.hookLength,
@@ -1846,6 +1852,36 @@ export default function EnhancePage() {
                   {/* Hook controls — only shown when enabled */}
                   {settings.hookEnabled && (
                     <div className="space-y-4 animate-in fade-in slide-in-from-top-1">
+
+                      {/* Sub-toggles: text overlay + reorder */}
+                      <div className="grid grid-cols-2 gap-2">
+                        <button
+                          onClick={() => updateSetting('hookTextEnabled', !settings.hookTextEnabled)}
+                          className={cn(
+                            'rounded-xl border p-2.5 text-center transition-all',
+                            settings.hookTextEnabled
+                              ? 'border-orange-500 bg-orange-500/10 ring-1 ring-orange-500/30'
+                              : 'border-border hover:border-orange-500/40'
+                          )}
+                        >
+                          <Type className="h-4 w-4 mx-auto mb-1 text-orange-400" />
+                          <span className="text-[10px] font-bold text-foreground block">Texte hook</span>
+                          <span className="text-[8px] text-muted-foreground block">Overlay au début</span>
+                        </button>
+                        <button
+                          onClick={() => updateSetting('hookReorderEnabled', !settings.hookReorderEnabled)}
+                          className={cn(
+                            'rounded-xl border p-2.5 text-center transition-all',
+                            settings.hookReorderEnabled
+                              ? 'border-orange-500 bg-orange-500/10 ring-1 ring-orange-500/30'
+                              : 'border-border hover:border-orange-500/40'
+                          )}
+                        >
+                          <Zap className="h-4 w-4 mx-auto mb-1 text-orange-400" />
+                          <span className="text-[10px] font-bold text-foreground block">Moment fort 1er</span>
+                          <span className="text-[8px] text-muted-foreground block">Réordonne le clip</span>
+                        </button>
+                      </div>
 
                       {/* Hook length slider */}
                       <div className="space-y-2">

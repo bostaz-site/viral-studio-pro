@@ -521,7 +521,7 @@ router.post('/', async (req, res) => {
     let reorderedInputPath = inputPath;
     let reorderedStartTime = clipStartTime;
     let reorderedDuration = duration;
-    if (settings.hook?.enabled && settings.hook?.reorder?.segments?.length >= 2) {
+    if (settings.hook?.enabled && settings.hook?.reorderEnabled !== false && settings.hook?.reorder?.segments?.length >= 2) {
       try {
         const segments = settings.hook.reorder.segments;
         trc(`HOOK REORDER: ${segments.length} segments — ${segments.map(s => `${s.label}(${s.start}-${s.end}s)`).join(' → ')}`);
@@ -600,10 +600,10 @@ router.post('/', async (req, res) => {
       } : null,
       hook: settings.hook?.enabled ? {
         enabled: true,
+        textEnabled: settings.hook.textEnabled !== false,
         text: settings.hook.text || '',
         style: settings.hook.style || 'choc',
         length: settings.hook.length || 1.5,
-        reorder: settings.hook.reorder || null,
       } : null,
     });
 

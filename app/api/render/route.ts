@@ -27,6 +27,8 @@ const inputSchema = z.object({
     }).optional(),
     hook: z.object({
       enabled: z.boolean().optional(),
+      textEnabled: z.boolean().optional(),
+      reorderEnabled: z.boolean().optional(),
       text: z.string().optional(),
       style: z.enum(['choc', 'curiosite', 'suspense']).optional(),
       length: z.number().optional(),

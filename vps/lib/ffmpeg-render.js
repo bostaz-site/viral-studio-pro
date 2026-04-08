@@ -537,7 +537,7 @@ export async function renderClip(inputPath, outputPath, options = {}) {
   }
 
   // Hook text overlay (shown during first hookLength seconds)
-  if (hook && hook.enabled && hook.text) {
+  if (hook && hook.enabled && hook.textEnabled !== false && hook.text) {
     const hookFilter = buildHookTextFilter(hook.text, hook.length || 1.5, hook.style || 'choc', canvasW, canvasH);
     if (hookFilter) {
       filterComplex += `;${mapVideo}${hookFilter}[hooked]`;
@@ -752,7 +752,7 @@ async function renderSplitScreen(inputPath, outputPath, opts) {
   }
 
   // Hook text overlay (split-screen path)
-  if (hook && hook.enabled && hook.text) {
+  if (hook && hook.enabled && hook.textEnabled !== false && hook.text) {
     const hookFilter = buildHookTextFilter(hook.text, hook.length || 1.5, hook.style || 'choc', canvasW, canvasH);
     if (hookFilter) {
       filterComplex += `;${mapVideo}${hookFilter}[hooked]`;
