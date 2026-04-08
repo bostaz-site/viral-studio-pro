@@ -1902,7 +1902,7 @@ export default function EnhancePage() {
                             min={5}
                             max={85}
                             step={1}
-                            className="w-full"
+                            className="w-full accent-orange-500 [&::-webkit-slider-thumb]:border-orange-500/50 [&::-moz-range-thumb]:border-orange-500/50"
                           />
                           <div className="flex justify-between text-[9px] text-muted-foreground">
                             <span>Haut</span>
@@ -1924,7 +1924,7 @@ export default function EnhancePage() {
                           min={1}
                           max={3}
                           step={0.5}
-                          className="w-full"
+                          className="w-full accent-orange-500 [&::-webkit-slider-thumb]:border-orange-500/50 [&::-moz-range-thumb]:border-orange-500/50"
                         />
                         <div className="flex justify-between text-[9px] text-muted-foreground">
                           <span>1s</span>
