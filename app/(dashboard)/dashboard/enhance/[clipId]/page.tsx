@@ -352,17 +352,17 @@ function LivePreview({
         50% { box-shadow: 0 0 25px rgba(249, 115, 22, 0.5), 0 0 50px rgba(249, 115, 22, 0.15); }
       }
       @keyframes smartZoomMicro {
-        0% { transform: scale(var(--base-zoom, 1)); }
-        100% { transform: scale(calc(var(--base-zoom, 1) * 1.05)); }
+        0% { transform: scale(var(--sz-from)); }
+        100% { transform: scale(var(--sz-to)); }
       }
       @keyframes smartZoomDynamic {
-        0% { transform: scale(var(--base-zoom, 1)); }
-        15% { transform: scale(calc(var(--base-zoom, 1) * 1.08)); }
-        25% { transform: scale(var(--base-zoom, 1)); }
-        50% { transform: scale(var(--base-zoom, 1)); }
-        65% { transform: scale(calc(var(--base-zoom, 1) * 1.08)); }
-        75% { transform: scale(var(--base-zoom, 1)); }
-        100% { transform: scale(var(--base-zoom, 1)); }
+        0% { transform: scale(var(--sz-from)); }
+        15% { transform: scale(var(--sz-to)); }
+        25% { transform: scale(var(--sz-from)); }
+        50% { transform: scale(var(--sz-from)); }
+        65% { transform: scale(var(--sz-to)); }
+        75% { transform: scale(var(--sz-from)); }
+        100% { transform: scale(var(--sz-from)); }
       }
     `}</style>
     <div
@@ -410,28 +410,36 @@ function LivePreview({
                 : 100
               const baseZoom = sizePct / 100
               const hasSmartZoom = showEnhancements && settings.smartZoomEnabled
-              const smartZoomAnim = hasSmartZoom
-                ? (settings.smartZoomMode === 'dynamic'
-                    ? 'smartZoomDynamic 4s ease-in-out infinite'
-                    : 'smartZoomMicro 5s ease-in-out forwards')
-                : undefined
-
               const objectFit = isSplit ? 'object-cover' : 'object-contain'
               const isZoomed = sizePct > 100
-              // Combine base zoom (cadrage) + smart zoom (animation) via CSS var
-              // The keyframes read --base-zoom and multiply on top of it
-              const zoomStyle: React.CSSProperties = (isZoomed || hasSmartZoom) ? {
-                position: 'absolute' as const,
-                width: '100%', height: '100%',
-                top: 0, left: 0,
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                ['--base-zoom' as any]: baseZoom,
-                transform: hasSmartZoom ? undefined : `scale(${baseZoom})`,
-                transformOrigin: 'center center',
-                animation: smartZoomAnim,
-              } : {}
-
               const needsAbsolute = isZoomed || hasSmartZoom
+
+              // Build style: cadrage (static scale) + optional smart zoom (animated scale)
+              // Smart zoom keyframes use --sz-from and --sz-to CSS vars so they
+              // combine properly with the cadrage level.
+              let zoomStyle: React.CSSProperties = {}
+              if (needsAbsolute) {
+                const smartZoomExtra = 1.05 // smart zoom adds 5% on top of cadrage
+                zoomStyle = {
+                  position: 'absolute' as const,
+                  width: '100%', height: '100%',
+                  top: 0, left: 0,
+                  transformOrigin: 'center center',
+                }
+                if (hasSmartZoom) {
+                  // Animated: keyframes handle the transform via CSS vars
+                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                  ;(zoomStyle as any)['--sz-from'] = baseZoom
+                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                  ;(zoomStyle as any)['--sz-to'] = baseZoom * smartZoomExtra
+                  zoomStyle.animation = settings.smartZoomMode === 'dynamic'
+                    ? 'smartZoomDynamic 4s ease-in-out infinite'
+                    : 'smartZoomMicro 5s ease-in-out forwards'
+                } else {
+                  // Static cadrage only
+                  zoomStyle.transform = `scale(${baseZoom})`
+                }
+              }
               return videoUrl ? (
                 <video
                   key={videoUrl}
