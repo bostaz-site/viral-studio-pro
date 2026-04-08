@@ -15,8 +15,8 @@ const CAPTION_STYLES = {
     fontname: 'Liberation Sans',
     fontsize: 78,
     fontweight: true,
-    primaryColor: '&H0015CCFA', // yellow-400 #FACC15 (active / all words)
-    secondaryColor: '&H0015CCFA',
+    primaryColor: '&H00FFFFFF', // white (active / all words)
+    secondaryColor: '&H00FFFFFF',
     outlineColor: '&H00000000', // Opaque black stroke around letters
     backColor: '&H80000000', // Shadow: 50% opaque black
     bold: -1,

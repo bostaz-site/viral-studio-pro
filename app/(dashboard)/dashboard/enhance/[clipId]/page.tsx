@@ -56,7 +56,7 @@ interface EnhanceSettings {
 // ─── Scoring Constants ──────────────────────────────────────────────────────
 
 const CAPTION_STYLES = [
-  { id: 'hormozi', label: 'Hormozi', preview: 'text-yellow-400 font-black uppercase', highlightClass: 'text-yellow-400 bg-yellow-400/20', baseScore: 12, animation: 'word-pop', animLabel: 'Word Pop' },
+  { id: 'hormozi', label: 'Hormozi', preview: 'text-white font-black uppercase', highlightClass: 'text-white bg-white/20', baseScore: 12, animation: 'word-pop', animLabel: 'Word Pop' },
   { id: 'mrbeast', label: 'MrBeast', preview: 'text-white font-black', highlightClass: 'text-red-500 bg-red-500/20', baseScore: 14, animation: 'highlight', animLabel: 'Highlight' },
   { id: 'aliabdaal', label: 'Ali Abdaal', preview: 'text-blue-300 font-semibold', highlightClass: 'text-blue-300 bg-blue-300/20', baseScore: 8, animation: 'typewriter', animLabel: 'Typewriter' },
   { id: 'neon', label: 'Neon', preview: 'text-green-400 font-bold', highlightClass: 'text-green-400 bg-green-400/20', baseScore: 10, animation: 'glow', animLabel: 'Glow' },
