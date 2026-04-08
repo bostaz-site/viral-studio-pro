@@ -326,15 +326,40 @@ export function generateASS(wordTimestamps, options = {}) {
   // Modern viral style: no background box — text with thick stroke + drop shadow
   // handles contrast against any video background.
   const events = [];
-  for (const lineWords of wordLines) {
-    if (!lineWords || lineWords.length === 0) continue;
 
-    if (animation && animation !== 'highlight') {
-      const lineEvents = generateAnimatedEvents(lineWords, clipStartTime, styleConfig, animation, customImportantWords);
-      events.push(...lineEvents);
-    } else {
-      const event = generateKaraokeEvent(lineWords, clipStartTime, styleConfig);
-      if (event) events.push(event);
+  if (animation === 'word-pop') {
+    // WORD-POP SPECIAL: process ALL words flat (not per-line) to avoid cross-line overlap.
+    // Each word shows from its start until the next word starts — strictly sequential.
+    const allWords = wordLines.flat().filter(Boolean);
+    const an = styleConfig.alignment || 2;
+    for (let i = 0; i < allWords.length; i++) {
+      const w = allWords[i];
+      const wordStart = Math.max(0, w.start - clipStartTime);
+      const nextStart = (i < allWords.length - 1)
+        ? Math.max(0, allWords[i + 1].start - clipStartTime)
+        : Math.max(wordStart + 0.3, w.end - clipStartTime);
+      const wordEnd = Math.max(wordStart + 0.05, nextStart);
+
+      const word = w.word.replace(/\\/g, '\\\\').replace(/\{/g, '\\{').replace(/\}/g, '\\}');
+      const important = isImportantWord(w.word, customImportantWords);
+      const overrides = important
+        ? `{\\an${an}\\c&H000000FF&\\fscx120\\fscy120}`
+        : `{\\an${an}}`;
+      events.push(
+        `Dialogue: 0,${toASSTime(wordStart)},${toASSTime(wordEnd)},Default,,0,0,0,,${overrides}${word}`
+      );
+    }
+  } else {
+    for (const lineWords of wordLines) {
+      if (!lineWords || lineWords.length === 0) continue;
+
+      if (animation && animation !== 'highlight') {
+        const lineEvents = generateAnimatedEvents(lineWords, clipStartTime, styleConfig, animation, customImportantWords);
+        events.push(...lineEvents);
+      } else {
+        const event = generateKaraokeEvent(lineWords, clipStartTime, styleConfig);
+        if (event) events.push(event);
+      }
     }
   }
 
@@ -574,28 +599,25 @@ function isImportantWord(rawWord, customWords = []) {
 function generateWordPopEvents(lineWords, clipStartTime, lineStart, lineEnd, customImportantWords = [], alignment = 2) {
   if (!lineWords || lineWords.length === 0) return [];
 
+  // NOTE: This is called per-line, but we need strict non-overlapping timing.
+  // Each word shows from its start until the NEXT word's start (no overlap).
+  // The last word shows until lineEnd.
   const events = [];
-  // Use the style's alignment (set by adjustPositioning based on user's slider)
-  // This ensures word-pop respects the vertical position setting
-  // alignment 2=bottom-center, 5=middle-center, 8=top-center
   const an = alignment;
 
   for (let i = 0; i < lineWords.length; i++) {
     const w = lineWords[i];
     const wordStart = Math.max(0, w.start - clipStartTime);
-    // Word stays visible until next word starts (or line ends for last word)
     const nextStart = (i < lineWords.length - 1)
       ? Math.max(0, lineWords[i + 1].start - clipStartTime)
       : lineEnd;
-    const wordEnd = Math.max(wordStart + 0.05, nextStart);
+    // Strict: word ends exactly when next word starts (min 0.05s display)
+    // Use min() with lineEnd to never extend beyond the line boundary
+    const wordEnd = Math.min(lineEnd, Math.max(wordStart + 0.05, nextStart));
 
-    // Escape special ASS chars
     const word = w.word.replace(/\\/g, '\\\\').replace(/\{/g, '\\{').replace(/\}/g, '\\}');
-
     const important = isImportantWord(w.word, customImportantWords);
 
-    // Use alignment from style (respects user position slider) instead of hardcoded \an5
-    // Important words: red color + 120% scale
     const overrides = important
       ? `{\\an${an}\\c&H000000FF&\\fscx120\\fscy120}`
       : `{\\an${an}}`;
