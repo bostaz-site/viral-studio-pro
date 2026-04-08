@@ -835,6 +835,7 @@ export function validateWordTimestamps(words) {
 export function generateStaticASS(text, duration, options = {}) {
   const {
     style = 'hormozi',
+    animation = 'highlight',
     wordsPerLine = 4,
     position = 'bottom',
     canvasWidth = 1080,
@@ -848,10 +849,31 @@ export function generateStaticASS(text, duration, options = {}) {
   styleConfig = adjustPositioning(styleConfig, { position, canvasWidth, canvasHeight, splitScreen });
   const header = buildASSHeader(styleConfig, canvasWidth, canvasHeight);
 
-  // Split text into words, then group into lines
+  // Split text into words
   const words = text.trim().split(/\s+/).filter(w => w.length > 0);
   if (words.length === 0) return '';
 
+  const an = styleConfig.alignment || 2;
+
+  // ── Word-pop mode: show one word at a time, evenly distributed ──
+  if (animation === 'word-pop') {
+    const events = [];
+    // Estimate ~0.4s per word for natural reading speed, cap to fit duration
+    const wordDuration = Math.min(1.2, Math.max(0.3, duration / words.length));
+    // Center the words in the clip duration
+    const totalWordsTime = wordDuration * words.length;
+    const startOffset = Math.max(0, (duration - totalWordsTime) / 2);
+
+    for (let i = 0; i < words.length; i++) {
+      const wordStart = startOffset + i * wordDuration;
+      const wordEnd = Math.min(wordStart + wordDuration, duration);
+      const word = words[i].toUpperCase();
+      events.push(`Dialogue: 0,${toASSTime(wordStart)},${toASSTime(wordEnd)},Default,,0,0,0,,{\\an${an}}${word}`);
+    }
+    return [header, ...events].join('\n');
+  }
+
+  // ── Default: group into lines and show sequentially ──
   const lines = [];
   for (let i = 0; i < words.length; i += wordsPerLine) {
     lines.push(words.slice(i, i + wordsPerLine).join(' '));

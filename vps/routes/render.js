@@ -347,12 +347,13 @@ router.post('/', async (req, res) => {
           });
           trc(`CAPTIONS ASS generated: ${assContent ? assContent.length : 0} bytes`);
         } else {
-          // No word timestamps — use static ASS from title
+          // No word timestamps — use static ASS from title (with animation support)
           const captionAnim = settings.captions.animation || 'highlight';
           if (clipTitle && duration > 0) {
-            trc(`CAPTIONS FALLBACK: static ASS from title "${clipTitle.substring(0, 40)}"`);
+            trc(`CAPTIONS FALLBACK: static ASS from title "${clipTitle.substring(0, 40)}" animation="${captionAnim}"`);
             assContent = generateStaticASS(clipTitle, duration, {
               ...subtitleOpts,
+              animation: captionAnim,
               wordsPerLine: settings.captions.wordsPerLine || 4,
             });
           } else {
