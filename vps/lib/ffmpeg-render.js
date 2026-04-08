@@ -72,22 +72,34 @@ function buildHookTextFilter(hookText, hookLength, style, canvasW, canvasH, text
   if (!hookText || hookLength <= 0) return null;
 
   const escaped = escapeDrawtext(hookText);
-  const fontSize = Math.round(canvasW * 0.055); // ~40px at 720w
-  const boxPad = Math.round(fontSize * 0.4);
+  // Smaller font to match preview (text-[10px] on 280px preview ≈ 3.6% of width)
+  const fontSize = Math.round(canvasW * 0.038);
+  const padX = Math.round(fontSize * 0.7); // horizontal padding
+  const padY = Math.round(fontSize * 0.45); // vertical padding
+  const borderW = Math.max(2, Math.round(canvasW * 0.003)); // ~2px border
 
-  // Twitch purple neon — same accent as tag badge
-  const s = { fontColor: 'white', boxColor: 'black@0.75', borderColor: '#9146FF' };
-
-  // Position: vertical % from top (5-85), centered horizontally
+  // Position: vertical % from top
   const posPercent = Math.max(5, Math.min(85, textPosition)) / 100;
   const yPos = Math.round(canvasH * posPercent);
 
-  // Fade-in 0.3s, hold, fade-out 0.3s before end
+  // Fade-in/out
   const fadeIn = 0.3;
   const fadeOut = 0.3;
   const alphaExpr = `if(lt(t\\,${fadeIn})\\,t/${fadeIn}\\,if(gt(t\\,${hookLength - fadeOut})\\,max(0\\,(${hookLength}-t)/${fadeOut})\\,1))`;
+  const enableExpr = `between(t\\,0\\,${hookLength})`;
 
-  return `drawtext=text='${escaped}':fontfile=/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf:fontsize=${fontSize}:fontcolor=${s.fontColor}:x=(w-text_w)/2:y=${yPos}:box=1:boxcolor=${s.boxColor}:boxborderw=${boxPad}:borderw=2:bordercolor=${s.borderColor}:alpha='${alphaExpr}':enable='between(t\\,0\\,${hookLength})'`;
+  // Two-pass approach to create purple border + black fill:
+  // Pass 1: purple box (larger padding = acts as border)
+  // Pass 2: black box + white text (smaller padding = inner fill)
+  const outerPad = padX + borderW; // purple border layer
+  const innerPad = padX;           // black fill layer
+
+  return [
+    // Pass 1: purple border — transparent text, purple box, bigger padding
+    `drawtext=text='${escaped}':fontfile=/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf:fontsize=${fontSize}:fontcolor=white@0:x=(w-text_w)/2:y=${yPos}:box=1:boxcolor=#9146FF@0.9:boxborderw=${outerPad}:alpha='${alphaExpr}':enable='${enableExpr}'`,
+    // Pass 2: black inner fill + white text
+    `drawtext=text='${escaped}':fontfile=/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf:fontsize=${fontSize}:fontcolor=white:x=(w-text_w)/2:y=${yPos}:box=1:boxcolor=black@0.75:boxborderw=${innerPad}:alpha='${alphaExpr}':enable='${enableExpr}'`,
+  ].join(',');
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
