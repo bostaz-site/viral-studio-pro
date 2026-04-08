@@ -28,50 +28,61 @@ import path from 'path';
  */
 export async function generateHookOverlayPNG({ text, canvasW, canvasH, positionPct = 15, outputPath }) {
   // ── Scale ratios ──
-  // Preview: 280px wide, text is 10px, padding is px-3 (12px) py-1.5 (6px), border 2px, radius 6px
-  // Scale everything proportionally to the actual video width
+  // Preview: ~280px wide container, CSS values in px
+  // Scale proportionally to actual video width
   const scale = canvasW / 280;
 
-  const fontSize = Math.round(10 * scale);         // 10px on 280px preview
-  const paddingX = Math.round(12 * scale);          // px-3 = 12px
-  const paddingY = Math.round(6 * scale);           // py-1.5 = 6px
-  const borderW = Math.round(2 * scale);            // 2px border
-  const borderRadius = Math.round(6 * scale);       // rounded-md = 6px
-  const letterSpacing = Math.round(0.5 * scale);    // tracking-wide
-  const glowBlur1 = Math.round(10 * scale);         // box-shadow blur 1
-  const glowBlur2 = Math.round(24 * scale);         // box-shadow blur 2
+  const fontSize = Math.round(10 * scale);           // 10px on 280px preview
+  const paddingX = Math.round(12 * scale);            // px-3 = 12px
+  const paddingY = Math.round(6 * scale);             // py-1.5 = 6px
+  const borderW = Math.max(2, Math.round(2 * scale)); // 2px border — keep thin
+  const borderRadius = Math.round(6 * scale);         // rounded-md = 6px
+  const letterSpacing = Math.round(0.5 * scale);      // tracking-wide
+
+  // Glow: keep subtle — CSS box-shadow blur is visual, SVG stdDeviation is Gaussian
+  // CSS 10px blur ≈ stdDeviation 3-4 at preview scale, scale up but cap it
+  const glowStd1 = Math.min(8, Math.round(3 * scale));   // subtle inner glow
+  const glowStd2 = Math.min(14, Math.round(6 * scale));  // wider outer glow
 
   // ── Measure text width ──
-  // Approximate: uppercase bold chars are roughly 0.65 * fontSize wide
-  // This is close enough for SVG — resvg handles the actual rendering
+  // Approximate: uppercase bold chars are roughly 0.62 * fontSize wide
   const upperText = text.toUpperCase();
   const charWidth = fontSize * 0.62;
   const textWidth = Math.round(upperText.length * charWidth);
 
-  // ── Box dimensions ──
-  const boxWidth = textWidth + (paddingX * 2) + (borderW * 2);
-  const boxHeight = fontSize + (paddingY * 2) + (borderW * 2);
+  // ── Box dimensions (stroke is centered on edge, so inset by half) ──
+  const boxWidth = textWidth + (paddingX * 2);
+  const boxHeight = fontSize + (paddingY * 2);
 
   // ── Position ──
+  // Center horizontally, vertical % from top
   const boxX = Math.round((canvasW - boxWidth) / 2);
   const boxY = Math.round(canvasH * (Math.max(5, Math.min(90, positionPct)) / 100));
 
   // Text position: centered in box
   const textX = Math.round(canvasW / 2);
-  const textY = Math.round(boxY + borderW + paddingY + fontSize * 0.82); // baseline offset
+  const textY = Math.round(boxY + paddingY + fontSize * 0.78); // baseline offset (~78% of fontSize)
 
   // ── Build SVG ──
+  // IMPORTANT: use fill="#000000" fill-opacity="0.75" instead of rgba() — resvg doesn't support CSS rgba
   const svg = `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="${canvasW}" height="${canvasH}" viewBox="0 0 ${canvasW} ${canvasH}">
   <defs>
-    <!-- Glow filter matching box-shadow: 0 0 10px #9146FF88, 0 0 24px #9146FF44 -->
-    <filter id="hookGlow" x="-50%" y="-50%" width="200%" height="200%">
-      <feDropShadow dx="0" dy="0" stdDeviation="${glowBlur1 / 2}" flood-color="#9146FF" flood-opacity="0.533"/>
-      <feDropShadow dx="0" dy="0" stdDeviation="${glowBlur2 / 2}" flood-color="#9146FF" flood-opacity="0.267"/>
+    <!-- Subtle glow matching CSS box-shadow: 0 0 10px #9146FF88, 0 0 24px #9146FF44 -->
+    <filter id="hookGlow" x="-30%" y="-50%" width="160%" height="200%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="${glowStd1}" result="blur1"/>
+      <feColorMatrix in="blur1" type="matrix" values="0 0 0 0 0.569  0 0 0 0 0.275  0 0 0 0 1  0 0 0 0.35 0" result="glow1"/>
+      <feGaussianBlur in="SourceGraphic" stdDeviation="${glowStd2}" result="blur2"/>
+      <feColorMatrix in="blur2" type="matrix" values="0 0 0 0 0.569  0 0 0 0 0.275  0 0 0 0 1  0 0 0 0.18 0" result="glow2"/>
+      <feMerge>
+        <feMergeNode in="glow2"/>
+        <feMergeNode in="glow1"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
     </filter>
   </defs>
 
-  <!-- Capsule: black bg + purple border + neon glow -->
+  <!-- Capsule: black bg 75% opacity + thin purple border + subtle neon glow -->
   <rect
     x="${boxX}"
     y="${boxY}"
@@ -79,7 +90,8 @@ export async function generateHookOverlayPNG({ text, canvasW, canvasH, positionP
     height="${boxHeight}"
     rx="${borderRadius}"
     ry="${borderRadius}"
-    fill="rgba(0,0,0,0.75)"
+    fill="#000000"
+    fill-opacity="0.75"
     stroke="#9146FF"
     stroke-width="${borderW}"
     filter="url(#hookGlow)"
@@ -105,7 +117,6 @@ export async function generateHookOverlayPNG({ text, canvasW, canvasH, positionP
       mode: 'original',
     },
     font: {
-      // Use system fonts for text rendering
       loadSystemFonts: true,
     },
     logLevel: 'off',
