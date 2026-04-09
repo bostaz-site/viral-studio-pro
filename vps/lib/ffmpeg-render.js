@@ -90,10 +90,8 @@ function buildHookTextFilter(hookText, hookLength, canvasW, canvasH, textPositio
 
   const text = hookText.replace(/'/g, "'\\''").replace(/:/g, '\\:').replace(/%/g, '%%');
   const fontSize = Math.round(canvasW * 0.042); // ~30px at 720w
-  const padX = Math.round(fontSize * 1.2);
-  const padY = Math.round(fontSize * 0.6);
+  const pad = Math.round(fontSize * 0.9); // uniform padding (boxborderw doesn't support | separator)
   const borderW = Math.max(2, Math.round(canvasW * 0.003));
-  const boxRadius = Math.round(fontSize * 0.4);
   const yPos = `h*${textPosition}/100`;
 
   const fadeIn = 0.3;
@@ -107,7 +105,7 @@ function buildHookTextFilter(hookText, hookLength, canvasW, canvasH, textPositio
   // Pass 1: Black capsule background with purple border
   const bgFilter = `drawtext=text='${text}':fontsize=${fontSize}:fontcolor=white@0:` +
     `x=(w-text_w)/2:y=${yPos}-text_h/2:` +
-    `box=1:boxcolor=black@0.75:boxborderw=${padX}|${padY}:` +
+    `box=1:boxcolor=black@0.75:boxborderw=${pad}:` +
     `borderw=${borderW}:bordercolor=0x9146FF@1:` +
     `alpha='${alphaExpr}':` +
     `font='DejaVu Sans':fix_bounds=1`;
