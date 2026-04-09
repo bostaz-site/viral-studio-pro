@@ -543,47 +543,71 @@ router.post('/', async (req, res) => {
         const segments = settings.hook.reorder.segments;
         trc(`HOOK REORDER: ${segments.length} segments — ${segments.map(s => `${s.label}(${s.start}-${s.end}s)`).join(' → ')}`);
 
-        // Build FFmpeg trim+concat filter to reorder segments
+        const ffmpegPath = process.env.FFMPEG_PATH || 'ffmpeg';
         const reorderOutputPath = path.join(tempDir, 'reordered.mp4');
 
-        // Build filter: split input into N copies, trim each, concat
-        const n = segments.length;
-        const splitLabels = segments.map((_, i) => `[s${i}]`).join('');
-        let reorderFilter = `[0:v]split=${n}${splitLabels};`;
-        let reorderFilterAudio = `[0:a]asplit=${n}${segments.map((_, i) => `[a${i}]`).join('')};`;
+        // ── Reliable approach: extract each segment to a temp file, then concat ──
+        // This avoids the split/asplit filter which crashes when there's no audio track.
+        const segmentFiles = [];
 
-        segments.forEach((seg, i) => {
-          // Offset segments by clipStartTime since input may not start at 0
+        for (let i = 0; i < segments.length; i++) {
+          const seg = segments[i];
           const segStart = clipStartTime + seg.start;
-          const segEnd = clipStartTime + seg.end;
-          reorderFilter += `[s${i}]trim=start=${segStart}:end=${segEnd},setpts=PTS-STARTPTS[v${i}];`;
-          reorderFilterAudio += `[a${i}]atrim=start=${segStart}:end=${segEnd},asetpts=PTS-STARTPTS[va${i}];`;
-        });
+          const segDuration = seg.end - seg.start;
+          const segFile = path.join(tempDir, `seg_${i}.ts`);
+          segmentFiles.push(segFile);
 
-        const concatInputs = segments.map((_, i) => `[v${i}][va${i}]`).join('');
-        reorderFilter += reorderFilterAudio;
-        reorderFilter += `${concatInputs}concat=n=${n}:v=1:a=1[outv][outa]`;
+          trc(`HOOK REORDER: extracting segment ${i} (${seg.label}): ${segStart}s → ${segStart + segDuration}s (${segDuration}s)`);
 
-        const reorderArgs = [
-          '-y', '-i', inputPath,
-          '-filter_complex', reorderFilter,
-          '-map', '[outv]', '-map', '[outa]',
-          '-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '18',
-          '-c:a', 'aac', '-b:a', '128k',
-          '-threads', '1',
+          const segArgs = [
+            '-y',
+            '-ss', String(segStart),
+            '-i', inputPath,
+            '-t', String(segDuration),
+            '-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '18',
+            '-c:a', 'aac', '-b:a', '128k',
+            '-threads', '1',
+            // Use mpegts container for seamless concat
+            '-f', 'mpegts',
+            segFile,
+          ];
+
+          await execFileAsync(ffmpegPath, segArgs, { timeout: 30000, maxBuffer: 10 * 1024 * 1024 });
+          trc(`HOOK REORDER: segment ${i} extracted OK`);
+        }
+
+        // Concat all segments using concat protocol (pipe)
+        const concatInput = `concat:${segmentFiles.join('|')}`;
+        const concatArgs = [
+          '-y',
+          '-i', concatInput,
+          '-c', 'copy',
           '-movflags', '+faststart',
           reorderOutputPath,
         ];
 
-        const ffmpegPath = process.env.FFMPEG_PATH || 'ffmpeg';
-        await execFileAsync(ffmpegPath, reorderArgs, { timeout: 60000, maxBuffer: 10 * 1024 * 1024 });
+        await execFileAsync(ffmpegPath, concatArgs, { timeout: 30000, maxBuffer: 10 * 1024 * 1024 });
+
+        // Verify output exists and has size
+        const reorderStat = await fs.stat(reorderOutputPath);
+        trc(`HOOK REORDER: output file size = ${reorderStat.size} bytes`);
+
+        if (reorderStat.size < 1000) {
+          throw new Error(`Reordered file too small: ${reorderStat.size} bytes`);
+        }
 
         reorderedInputPath = reorderOutputPath;
         reorderedStartTime = 0; // reordered file starts at 0
         reorderedDuration = settings.hook.reorder.totalDuration;
-        trc(`HOOK REORDER done: ${reorderedDuration}s reordered clip created`);
+        trc(`HOOK REORDER done: ${reorderedDuration}s reordered clip at ${reorderOutputPath}`);
+
+        // Cleanup segment temp files
+        for (const f of segmentFiles) {
+          fs.unlink(f).catch(() => {});
+        }
       } catch (reorderErr) {
-        trc(`HOOK REORDER error: ${reorderErr.message}, using original order`);
+        trc(`HOOK REORDER FAILED: ${reorderErr.message}`);
+        trc(`HOOK REORDER stderr: ${reorderErr.stderr || 'none'}`);
         // Fallback: use original input, no reorder
       }
     }
