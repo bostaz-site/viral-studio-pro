@@ -18,8 +18,6 @@ import { Badge } from '@/components/ui/badge'
 import { createClient } from '@/lib/supabase/client'
 import { useTrendingStore } from '@/stores/trending-store'
 import { cn } from '@/lib/utils'
-import { captureHookOverlayPNG } from '@/lib/capture-hook-overlay'
-
 // ─── Types ──────────────────────────────────────────────────────────────────
 
 interface TrendingClipData {
@@ -958,20 +956,7 @@ export default function EnhancePage() {
     setIsRenderedVideo(false)
 
     try {
-      // Capture hook overlay as PNG from browser (pixel-perfect match to preview)
-      let hookOverlayData: { png: string; capsuleW: number; capsuleH: number; positionPct: number } | null = null
-      console.log('[handleRender] Hook state:', { hookEnabled: settings.hookEnabled, hookTextEnabled: settings.hookTextEnabled, hookText: settings.hookText })
-      if (settings.hookEnabled && settings.hookTextEnabled && settings.hookText) {
-        setRenderMessage('📸 Capture du hook overlay...')
-        hookOverlayData = await captureHookOverlayPNG({
-          text: settings.hookText,
-          positionPct: settings.hookTextPosition,
-          videoWidth: 720,
-          videoHeight: 1280,
-        })
-        console.log('[handleRender] Hook overlay capture result:', hookOverlayData ? `PNG ${hookOverlayData.png.length} chars, ${hookOverlayData.capsuleW}x${hookOverlayData.capsuleH}` : 'NULL — capture failed!')
-      }
-
+      // Hook text is now rendered server-side via FFmpeg drawtext (no browser capture needed)
       setRenderMessage('⏳ Lancement du rendu...')
       const res = await fetch('/api/render', {
         method: 'POST',
@@ -1019,9 +1004,7 @@ export default function EnhancePage() {
               textPosition: settings.hookTextPosition,
               length: settings.hookLength,
               reorder: settings.hookReorder,
-              overlayPng: hookOverlayData?.png || null,
-              overlayCapsuleW: hookOverlayData?.capsuleW || null,
-              overlayCapsuleH: hookOverlayData?.capsuleH || null,
+              // Hook text rendered server-side via FFmpeg drawtext
             },
           },
         }),
