@@ -606,6 +606,8 @@ router.post('/', async (req, res) => {
         textPosition: settings.hook.textPosition || 15,
         length: settings.hook.length || 1.5,
         overlayPng: settings.hook.overlayPng || null,
+        overlayCapsuleW: settings.hook.overlayCapsuleW || null,
+        overlayCapsuleH: settings.hook.overlayCapsuleH || null,
       } : null,
     });
 

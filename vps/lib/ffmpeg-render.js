@@ -79,18 +79,24 @@ function buildCommand(args) {
  *
  * @returns {Promise<{pngPath: string, hookLength: number} | null>}
  */
-async function prepareHookOverlay(hookText, hookLength, canvasW, canvasH, textPosition = 15, jobDir, overlayPng = null) {
+async function prepareHookOverlay(hookText, hookLength, canvasW, canvasH, textPosition = 15, jobDir, hook = {}) {
   if (!hookText || hookLength <= 0) return null;
 
   const pngPath = path.join(jobDir, 'hook-overlay.png');
+  const overlayPng = hook.overlayPng;
+  let isCapsuleOnly = false;
+  let capsuleW = 0, capsuleH = 0;
 
   if (overlayPng && typeof overlayPng === 'string' && overlayPng.startsWith('data:image/png')) {
     // Browser-captured PNG — pixel-perfect match to CSS preview
     const base64Data = overlayPng.replace(/^data:image\/png;base64,/, '');
     fs.writeFileSync(pngPath, Buffer.from(base64Data, 'base64'));
-    console.log(`[hook-overlay] Using browser-captured PNG: ${pngPath}`);
+    capsuleW = hook.overlayCapsuleW || 0;
+    capsuleH = hook.overlayCapsuleH || 0;
+    isCapsuleOnly = capsuleW > 0 && capsuleH > 0 && capsuleW < canvasW;
+    console.log(`[hook-overlay] Using browser-captured PNG: ${pngPath} (capsule: ${capsuleW}x${capsuleH}, isCapsuleOnly: ${isCapsuleOnly})`);
   } else {
-    // Fallback: generate via SVG + resvg
+    // Fallback: generate via SVG + resvg (full canvas size)
     await generateHookOverlayPNG({
       text: hookText,
       canvasW,
@@ -100,7 +106,7 @@ async function prepareHookOverlay(hookText, hookLength, canvasW, canvasH, textPo
     });
   }
 
-  return { pngPath, hookLength };
+  return { pngPath, hookLength, isCapsuleOnly, capsuleW, capsuleH, textPosition };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -549,7 +555,7 @@ export async function renderClip(inputPath, outputPath, options = {}) {
   let hookOverlayData = null;
   if (hook && hook.enabled && hook.textEnabled !== false && hook.text) {
     const jobDir = path.dirname(outputPath);
-    hookOverlayData = await prepareHookOverlay(hook.text, hook.length || 1.5, canvasW, canvasH, hook.textPosition || 15, jobDir, hook.overlayPng || null);
+    hookOverlayData = await prepareHookOverlay(hook.text, hook.length || 1.5, canvasW, canvasH, hook.textPosition || 15, jobDir, hook);
     if (hookOverlayData) {
       // Add as extra input — will be wired in the args section below
       extraInputs.push({
@@ -558,8 +564,10 @@ export async function renderClip(inputPath, outputPath, options = {}) {
         endTime: hookOverlayData.hookLength,
         isHookOverlay: true,
         hookLength: hookOverlayData.hookLength,
+        isCapsuleOnly: hookOverlayData.isCapsuleOnly,
+        textPosition: hookOverlayData.textPosition,
       });
-      console.log(`[FFmpeg] Hook PNG overlay prepared: "${hook.text}" (${hook.length}s)`);
+      console.log(`[FFmpeg] Hook PNG overlay prepared: "${hook.text}" (${hook.length}s, capsule=${hookOverlayData.isCapsuleOnly})`);
     }
   }
 
@@ -611,11 +619,15 @@ export async function renderClip(inputPath, outputPath, options = {}) {
     const fadeIn = 0.3;
     const fadeOut = 0.3;
     const fadeOutStart = Math.max(0, hl - fadeOut);
-    // fade alpha=1 means: only affect the alpha channel (transparency), not the colors
     filterComplex += `;[${hookInputIndex}:v]format=rgba,fade=t=in:st=0:d=${fadeIn}:alpha=1,fade=t=out:st=${fadeOutStart.toFixed(3)}:d=${fadeOut}:alpha=1[hookalpha]`;
-    filterComplex += `;${mapVideo}[hookalpha]overlay=0:0:format=auto:shortest=0[hooked]`;
+    // Position: capsule-only PNGs need centering, full-canvas PNGs go at 0:0
+    const isCapsule = hookOverlayEntry.isCapsuleOnly;
+    const posPct = hookOverlayEntry.textPosition || 15;
+    const overlayX = isCapsule ? '(W-w)/2' : '0';
+    const overlayY = isCapsule ? `H*${posPct}/100-h/2` : '0';
+    filterComplex += `;${mapVideo}[hookalpha]overlay=${overlayX}:${overlayY}:format=auto:shortest=0[hooked]`;
     mapVideo = '[hooked]';
-    console.log(`[FFmpeg] Hook PNG overlay wired: input ${hookInputIndex}, duration ${hl}s`);
+    console.log(`[FFmpeg] Hook PNG overlay wired: input ${hookInputIndex}, duration ${hl}s, capsule=${isCapsule}`);
   }
 
   args.push('-t', String(clipDuration));
@@ -795,7 +807,7 @@ async function renderSplitScreen(inputPath, outputPath, opts) {
   let hookOverlayDataSplit = null;
   if (hook && hook.enabled && hook.textEnabled !== false && hook.text) {
     const jobDir = path.dirname(outputPath);
-    hookOverlayDataSplit = await prepareHookOverlay(hook.text, hook.length || 1.5, canvasW, canvasH, hook.textPosition || 15, jobDir, hook.overlayPng || null);
+    hookOverlayDataSplit = await prepareHookOverlay(hook.text, hook.length || 1.5, canvasW, canvasH, hook.textPosition || 15, jobDir, hook);
     if (hookOverlayDataSplit) {
       extraInputs.push({
         pngPath: hookOverlayDataSplit.pngPath,
@@ -803,8 +815,10 @@ async function renderSplitScreen(inputPath, outputPath, opts) {
         endTime: hookOverlayDataSplit.hookLength,
         isHookOverlay: true,
         hookLength: hookOverlayDataSplit.hookLength,
+        isCapsuleOnly: hookOverlayDataSplit.isCapsuleOnly,
+        textPosition: hookOverlayDataSplit.textPosition,
       });
-      console.log(`[FFmpeg-Split] Hook PNG overlay prepared: "${hook.text}" (${hook.length}s)`);
+      console.log(`[FFmpeg-Split] Hook PNG overlay prepared: "${hook.text}" (${hook.length}s, capsule=${hookOverlayDataSplit.isCapsuleOnly})`);
     }
   }
 
@@ -845,9 +859,13 @@ async function renderSplitScreen(inputPath, outputPath, opts) {
     const fadeOut = 0.3;
     const fadeOutStart = Math.max(0, hl - fadeOut);
     filterComplex += `;[${hookInputIndexSplit}:v]format=rgba,fade=t=in:st=0:d=${fadeIn}:alpha=1,fade=t=out:st=${fadeOutStart.toFixed(3)}:d=${fadeOut}:alpha=1[hookalpha]`;
-    filterComplex += `;${mapVideo}[hookalpha]overlay=0:0:format=auto:shortest=0[hooked]`;
+    const isCapsule = hookOverlayEntrySplit.isCapsuleOnly;
+    const posPct = hookOverlayEntrySplit.textPosition || 15;
+    const overlayX = isCapsule ? '(W-w)/2' : '0';
+    const overlayY = isCapsule ? `H*${posPct}/100-h/2` : '0';
+    filterComplex += `;${mapVideo}[hookalpha]overlay=${overlayX}:${overlayY}:format=auto:shortest=0[hooked]`;
     mapVideo = '[hooked]';
-    console.log(`[FFmpeg-Split] Hook PNG overlay wired: input ${hookInputIndexSplit}, duration ${hl}s`);
+    console.log(`[FFmpeg-Split] Hook PNG overlay wired: input ${hookInputIndexSplit}, duration ${hl}s, capsule=${isCapsule}`);
   }
 
   args.push('-t', String(clipDuration));

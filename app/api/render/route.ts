@@ -38,6 +38,8 @@ const inputSchema = z.object({
       length: z.number().optional(),
       textPosition: z.number().optional(),
       overlayPng: z.string().nullable().optional(), // base64 PNG from browser capture
+      overlayCapsuleW: z.number().nullable().optional(),
+      overlayCapsuleH: z.number().nullable().optional(),
       reorder: z.object({
         segments: z.array(z.object({
           start: z.number(),

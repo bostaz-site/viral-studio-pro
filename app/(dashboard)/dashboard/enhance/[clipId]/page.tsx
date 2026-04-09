@@ -959,10 +959,10 @@ export default function EnhancePage() {
 
     try {
       // Capture hook overlay as PNG from browser (pixel-perfect match to preview)
-      let hookOverlayBase64: string | null = null
+      let hookOverlayData: { png: string; capsuleW: number; capsuleH: number; positionPct: number } | null = null
       if (settings.hookEnabled && settings.hookTextEnabled && settings.hookText) {
         setRenderMessage('📸 Capture du hook overlay...')
-        hookOverlayBase64 = await captureHookOverlayPNG({
+        hookOverlayData = await captureHookOverlayPNG({
           text: settings.hookText,
           positionPct: settings.hookTextPosition,
           videoWidth: 720,
@@ -1017,7 +1017,9 @@ export default function EnhancePage() {
               textPosition: settings.hookTextPosition,
               length: settings.hookLength,
               reorder: settings.hookReorder,
-              overlayPng: hookOverlayBase64,
+              overlayPng: hookOverlayData?.png || null,
+              overlayCapsuleW: hookOverlayData?.capsuleW || null,
+              overlayCapsuleH: hookOverlayData?.capsuleH || null,
             },
           },
         }),
