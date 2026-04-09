@@ -526,6 +526,16 @@ router.post('/', async (req, res) => {
     let reorderedInputPath = inputPath;
     let reorderedStartTime = clipStartTime;
     let reorderedDuration = duration;
+    // If reorder is requested but no segments provided, calculate them on the fly
+    if (settings.hook?.enabled && settings.hook?.reorderEnabled !== false && (!settings.hook?.reorder || !settings.hook?.reorder?.segments?.length)) {
+      trc(`HOOK REORDER: no segments provided, calculating from duration=${duration}s`);
+      const fallbackPeak = detectPeakMoment({ transcript: '', duration, wordTimestamps: [], audioPeaks: [] });
+      // Use 60% of duration as fallback peak if detection returns 0
+      const peakT = fallbackPeak.peakTime > 0 ? fallbackPeak.peakTime : Math.min(duration * 0.6, duration - 2);
+      const hookLen = settings.hook?.length || 1.5;
+      settings.hook.reorder = calculateReorderTimestamps(peakT, duration, hookLen, 8);
+      trc(`HOOK REORDER fallback: peak=${peakT}s, ${settings.hook.reorder.segments.length} segments`);
+    }
     trc(`HOOK REORDER check: enabled=${settings.hook?.enabled} reorderEnabled=${settings.hook?.reorderEnabled} hasReorder=${!!settings.hook?.reorder} segments=${settings.hook?.reorder?.segments?.length || 0}`);
     if (settings.hook?.enabled && settings.hook?.reorderEnabled !== false && settings.hook?.reorder?.segments?.length >= 2) {
       try {

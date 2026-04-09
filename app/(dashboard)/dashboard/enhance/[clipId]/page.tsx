@@ -1132,17 +1132,17 @@ export default function EnhancePage() {
       const json = await res.json()
       if (res.ok && !json.error && json.data) {
         setHookAnalysis(json.data)
-        // Auto-select suspense hook
+        // Auto-select suspense hook + always store reorder data
         const suspenseHook = json.data.hooks.find((h: HookVariant) => h.style === 'suspense')
         const bestHook = suspenseHook || json.data.hooks[0]
-        if (bestHook) {
-          setSettings((s) => ({
-            ...s,
+        setSettings((s) => ({
+          ...s,
+          ...(bestHook ? {
             hookText: bestHook.text,
             hookStyle: bestHook.style as 'choc' | 'curiosite' | 'suspense',
-            hookReorder: json.data.reorder,
-          }))
-        }
+          } : {}),
+          hookReorder: json.data.reorder,
+        }))
       }
     } catch {
       // Silent fail — hook text stays empty but everything else works
@@ -1179,15 +1179,14 @@ export default function EnhancePage() {
         return
       }
       setHookAnalysis(json.data)
-      // Auto-select the first hook matching current style
+      // Always store reorder data (even if no matching hook text)
       const matchingHook = json.data.hooks.find((h: HookVariant) => h.style === settings.hookStyle)
-      if (matchingHook) {
-        setSettings((s) => ({
-          ...s,
-          hookText: matchingHook.text,
-          hookReorder: json.data.reorder,
-        }))
-      }
+      const bestHook = matchingHook || json.data.hooks?.[0]
+      setSettings((s) => ({
+        ...s,
+        ...(bestHook ? { hookText: bestHook.text } : {}),
+        hookReorder: json.data.reorder,
+      }))
     } catch {
       setHookError('Erreur réseau')
     }
@@ -1965,7 +1964,14 @@ export default function EnhancePage() {
                           <span className="text-[8px] text-muted-foreground block">Overlay au début</span>
                         </button>
                         <button
-                          onClick={() => updateSetting('hookReorderEnabled', !settings.hookReorderEnabled)}
+                          onClick={() => {
+                            const newVal = !settings.hookReorderEnabled
+                            updateSetting('hookReorderEnabled', newVal)
+                            // Auto-generate hook analysis if toggling ON with no reorder data
+                            if (newVal && !settings.hookReorder) {
+                              generateHook()
+                            }
+                          }}
                           className={cn(
                             'rounded-xl border p-2.5 text-center transition-all',
                             settings.hookReorderEnabled
