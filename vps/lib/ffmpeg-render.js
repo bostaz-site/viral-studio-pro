@@ -5,13 +5,20 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { analyzeAudioPeaks } from './audio-peaks.js';
 
-// Lazy import — resvg may not be available in all environments
-let generateHookOverlayPNG = null;
-try {
-  const mod = await import('./hook-overlay.js');
-  generateHookOverlayPNG = mod.generateHookOverlayPNG;
-} catch (err) {
-  console.warn('[ffmpeg-render] hook-overlay.js not available (resvg missing?), SVG fallback disabled:', err.message);
+// Lazy-load hook-overlay to avoid crash if @resvg/resvg-js is missing
+let _hookOverlayModule = null;
+async function getHookOverlayGenerator() {
+  if (_hookOverlayModule === undefined) return null; // already failed
+  if (_hookOverlayModule) return _hookOverlayModule;
+  try {
+    const mod = await import('./hook-overlay.js');
+    _hookOverlayModule = mod.generateHookOverlayPNG;
+    return _hookOverlayModule;
+  } catch (err) {
+    console.warn('[ffmpeg-render] hook-overlay.js unavailable:', err.message);
+    _hookOverlayModule = undefined; // mark as failed, don't retry
+    return null;
+  }
 }
 
 const execFileAsync = promisify(execFile);
@@ -103,18 +110,20 @@ async function prepareHookOverlay(hookText, hookLength, canvasW, canvasH, textPo
     capsuleH = hook.overlayCapsuleH || 0;
     isCapsuleOnly = capsuleW > 0 && capsuleH > 0 && capsuleW < canvasW;
     console.log(`[hook-overlay] Using browser-captured PNG: ${pngPath} (capsule: ${capsuleW}x${capsuleH}, isCapsuleOnly: ${isCapsuleOnly})`);
-  } else if (generateHookOverlayPNG) {
+  } else {
+    const genFn = await getHookOverlayGenerator();
+    if (!genFn) {
+      console.warn('[hook-overlay] No browser PNG and no SVG fallback — skipping hook overlay');
+      return null;
+    }
     // Fallback: generate via SVG + resvg (full canvas size)
-    await generateHookOverlayPNG({
+    await genFn({
       text: hookText,
       canvasW,
       canvasH,
       positionPct: textPosition,
       outputPath: pngPath,
     });
-  } else {
-    console.warn('[hook-overlay] No browser PNG and no SVG fallback available — skipping hook overlay');
-    return null;
   }
 
   return { pngPath, hookLength, isCapsuleOnly, capsuleW, capsuleH, textPosition };
