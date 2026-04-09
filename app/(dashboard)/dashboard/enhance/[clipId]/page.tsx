@@ -19,6 +19,7 @@ import { createClient } from '@/lib/supabase/client'
 import { useTrendingStore } from '@/stores/trending-store'
 import { cn } from '@/lib/utils'
 import { captureHookOverlayPNG } from '@/lib/capture-hook-overlay'
+import { captureTagOverlayPNG } from '@/lib/capture-tag-overlay'
 // ─── Types ──────────────────────────────────────────────────────────────────
 
 interface TrendingClipData {
@@ -957,10 +958,11 @@ export default function EnhancePage() {
     setIsRenderedVideo(false)
 
     try {
-      // Capture hook overlay as PNG from browser (pixel-perfect match to CSS preview)
+      // Capture overlays as PNGs from browser (pixel-perfect match to CSS preview)
+      setRenderMessage('📸 Capture des overlays...')
+
       let hookOverlayData: { png: string; capsuleW: number; capsuleH: number; positionPct: number } | null = null
       if (settings.hookEnabled && settings.hookTextEnabled && settings.hookText) {
-        setRenderMessage('📸 Capture du hook overlay...')
         hookOverlayData = await captureHookOverlayPNG({
           text: settings.hookText,
           positionPct: settings.hookTextPosition,
@@ -969,6 +971,22 @@ export default function EnhancePage() {
         })
         console.log('[handleRender] Hook capture:', hookOverlayData ? `OK ${hookOverlayData.capsuleW}x${hookOverlayData.capsuleH}` : 'FAILED')
       }
+
+      let tagOverlayData: { png: string; w: number; h: number; anchorX: number; anchorY: number } | null = null
+      const streamerName = clip.author_handle ? `@${clip.author_handle}` : (clip.author_name || null)
+      if (settings.tagStyle && settings.tagStyle !== 'none' && streamerName) {
+        tagOverlayData = await captureTagOverlayPNG({
+          streamerName,
+          style: settings.tagStyle as 'viral-glow' | 'pop-creator' | 'minimal-pro',
+          tagSize: settings.tagSize || 100,
+          videoWidth: 720,
+          videoHeight: 1280,
+          splitScreenEnabled: settings.splitScreenEnabled,
+          splitRatio: settings.splitRatio,
+        })
+        console.log('[handleRender] Tag capture:', tagOverlayData ? `OK ${tagOverlayData.w}x${tagOverlayData.h}` : 'FAILED/skipped')
+      }
+
       setRenderMessage('⏳ Lancement du rendu...')
       const res = await fetch('/api/render', {
         method: 'POST',
@@ -998,6 +1016,9 @@ export default function EnhancePage() {
               size: settings.tagSize || 100,
               authorName: clip.author_name || null,
               authorHandle: clip.author_handle || null,
+              overlayPng: tagOverlayData?.png || null,
+              overlayAnchorX: tagOverlayData?.anchorX || null,
+              overlayAnchorY: tagOverlayData?.anchorY || null,
             },
             format: {
               aspectRatio: settings.aspectRatio,

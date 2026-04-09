@@ -536,8 +536,26 @@ export async function renderClip(inputPath, outputPath, options = {}) {
     console.log(`[FFmpeg] ASS captions applied: ${captions.assFilePath}`);
   }
 
-  // Tag / Credit overlay
-  if (tag) {
+  // Tag / Credit overlay — use browser PNG if available, else fallback to drawtext
+  if (tag && tag.overlayPng && typeof tag.overlayPng === 'string' && tag.overlayPng.startsWith('data:image/png')) {
+    // Browser-captured PNG — pixel-perfect match to CSS preview
+    const jobDir = path.dirname(outputPath);
+    const tagPngPath = path.join(jobDir, 'tag-overlay.png');
+    const base64Data = tag.overlayPng.replace(/^data:image\/png;base64,/, '');
+    fs.writeFileSync(tagPngPath, Buffer.from(base64Data, 'base64'));
+    const anchorX = tag.overlayAnchorX || 0;
+    const anchorY = tag.overlayAnchorY || 0;
+    extraInputs.push({
+      pngPath: tagPngPath,
+      startTime: 0,
+      endTime: clipDuration,
+      isTagOverlay: true,
+      anchorX,
+      anchorY,
+    });
+    console.log(`[FFmpeg] Tag PNG overlay saved: ${tagPngPath}, anchor=(${anchorX},${anchorY})`);
+  } else if (tag) {
+    // Fallback: FFmpeg drawtext
     const tagFilter = buildTagFilter(tag, canvasW, canvasH, mapVideo);
     if (tagFilter) {
       if (typeof tagFilter === 'string') {
@@ -576,9 +594,11 @@ export async function renderClip(inputPath, outputPath, options = {}) {
     }
   }
 
-  // Find hook overlay entry for filter wiring
+  // Find overlay entries for filter wiring
   const hookOverlayEntry = extraInputs.find(e => e.isHookOverlay);
+  const tagOverlayEntry = extraInputs.find(e => e.isTagOverlay);
   let hookInputIndex = -1;
+  let tagInputIndex = -1;
 
   console.log(`[FFmpeg] Standard render filter_complex (${filterComplex.length} chars)`);
   console.log(`[FFmpeg] Map video: ${mapVideo}`);
@@ -587,23 +607,30 @@ export async function renderClip(inputPath, outputPath, options = {}) {
   const args = ['-y'];
   args.push('-ss', String(startTime));
   args.push('-i', inputPath);
-  // PNG overlay inputs (captions + hook)
+  // PNG overlay inputs (captions + tag + hook)
   let inputIdx = 1; // 0 is main video
   for (const overlay of extraInputs) {
     const ts = Math.max(0, overlay.startTime);
     const td = Math.max(0.01, overlay.endTime - overlay.startTime);
-    if (overlay.isHookOverlay) {
-      hookInputIndex = inputIdx;
-    }
+    if (overlay.isHookOverlay) hookInputIndex = inputIdx;
+    if (overlay.isTagOverlay) tagInputIndex = inputIdx;
     args.push('-loop', '1', '-t', td.toFixed(3), '-itsoffset', ts.toFixed(3), '-i', overlay.pngPath);
     inputIdx++;
   }
 
-  // Wire hook PNG overlay into filter chain (after all other filters, including smart zoom)
-  // The hook is a separate overlay input → NOT affected by smart zoom
+  // Wire tag PNG overlay (static, full duration, bottom-left positioned)
+  if (tagOverlayEntry && tagInputIndex >= 0) {
+    const anchorX = tagOverlayEntry.anchorX || 0;
+    const anchorY = tagOverlayEntry.anchorY || 0;
+    filterComplex += `;[${tagInputIndex}:v]format=rgba[tagalpha]`;
+    filterComplex += `;${mapVideo}[tagalpha]overlay=${anchorX}:${anchorY}:format=auto[tagged]`;
+    mapVideo = '[tagged]';
+    console.log(`[FFmpeg] Tag PNG overlay wired: input ${tagInputIndex}, pos=(${anchorX},${anchorY})`);
+  }
+
+  // Wire hook PNG overlay (static, full duration, NOT affected by smart zoom)
   if (hookOverlayEntry && hookInputIndex >= 0) {
     const fadeIn = 0.3;
-    // Only fade in, no fade out — hook stays visible for the entire clip
     filterComplex += `;[${hookInputIndex}:v]format=rgba,fade=t=in:st=0:d=${fadeIn}:alpha=1[hookalpha]`;
     const isCapsule = hookOverlayEntry.isCapsuleOnly;
     const posPct = hookOverlayEntry.textPosition || 15;
@@ -611,7 +638,7 @@ export async function renderClip(inputPath, outputPath, options = {}) {
     const overlayY = isCapsule ? `H*${posPct}/100-h/2` : '0';
     filterComplex += `;${mapVideo}[hookalpha]overlay=${overlayX}:${overlayY}:format=auto[hooked]`;
     mapVideo = '[hooked]';
-    console.log(`[FFmpeg] Hook PNG overlay wired: input ${hookInputIndex}, full duration, capsule=${isCapsule}, y=${overlayY}`);
+    console.log(`[FFmpeg] Hook PNG overlay wired: input ${hookInputIndex}, full duration, capsule=${isCapsule}`);
   }
 
   args.push('-t', String(clipDuration));
@@ -773,8 +800,22 @@ async function renderSplitScreen(inputPath, outputPath, opts) {
     console.log(`[FFmpeg-Split] ASS captions applied: ${captions.assFilePath}`);
   }
 
-  // Apply tag / credit overlay on composed output
-  if (tag) {
+  // Apply tag / credit overlay — browser PNG if available, else drawtext
+  if (tag && tag.overlayPng && typeof tag.overlayPng === 'string' && tag.overlayPng.startsWith('data:image/png')) {
+    const jobDir = path.dirname(outputPath);
+    const tagPngPath = path.join(jobDir, 'tag-overlay.png');
+    const base64Data = tag.overlayPng.replace(/^data:image\/png;base64,/, '');
+    fs.writeFileSync(tagPngPath, Buffer.from(base64Data, 'base64'));
+    extraInputs.push({
+      pngPath: tagPngPath,
+      startTime: 0,
+      endTime: clipDuration,
+      isTagOverlay: true,
+      anchorX: tag.overlayAnchorX || 0,
+      anchorY: tag.overlayAnchorY || 0,
+    });
+    console.log(`[FFmpeg-Split] Tag PNG overlay saved`);
+  } else if (tag) {
     const splitContentH = Math.round(canvasH * ratio);
     const tagFilter = buildTagFilter(tag, canvasW, canvasH, mapVideo, splitContentH);
     if (tagFilter) {
@@ -813,28 +854,39 @@ async function renderSplitScreen(inputPath, outputPath, opts) {
     }
   }
 
-  // Find hook overlay for filter wiring
+  // Find overlay entries for filter wiring
   const hookOverlayEntrySplit = extraInputs.find(e => e.isHookOverlay);
+  const tagOverlayEntrySplit = extraInputs.find(e => e.isTagOverlay);
   let hookInputIndexSplit = -1;
+  let tagInputIndexSplit = -1;
 
   // Build args
   const args = ['-y'];
   args.push('-ss', String(startTime));
   args.push('-i', inputPath);           // Input 0: main video
   args.push('-i', brollPath);           // Input 1: B-roll video
-  // PNG overlay inputs (captions + hook)
+  // PNG overlay inputs (captions + tag + hook)
   let splitInputIdx = 2; // 0=main, 1=broll
   for (const overlay of extraInputs) {
     const ts = Math.max(0, overlay.startTime);
     const td = Math.max(0.01, overlay.endTime - overlay.startTime);
-    if (overlay.isHookOverlay) {
-      hookInputIndexSplit = splitInputIdx;
-    }
+    if (overlay.isHookOverlay) hookInputIndexSplit = splitInputIdx;
+    if (overlay.isTagOverlay) tagInputIndexSplit = splitInputIdx;
     args.push('-loop', '1', '-t', td.toFixed(3), '-itsoffset', ts.toFixed(3), '-i', overlay.pngPath);
     splitInputIdx++;
   }
 
-  // Wire hook PNG overlay (split-screen, not affected by zoom, full duration)
+  // Wire tag PNG overlay (split-screen)
+  if (tagOverlayEntrySplit && tagInputIndexSplit >= 0) {
+    const anchorX = tagOverlayEntrySplit.anchorX || 0;
+    const anchorY = tagOverlayEntrySplit.anchorY || 0;
+    filterComplex += `;[${tagInputIndexSplit}:v]format=rgba[tagalpha]`;
+    filterComplex += `;${mapVideo}[tagalpha]overlay=${anchorX}:${anchorY}:format=auto[tagged]`;
+    mapVideo = '[tagged]';
+    console.log(`[FFmpeg-Split] Tag PNG overlay wired: input ${tagInputIndexSplit}`);
+  }
+
+  // Wire hook PNG overlay (split-screen, static, full duration)
   if (hookOverlayEntrySplit && hookInputIndexSplit >= 0) {
     const fadeIn = 0.3;
     filterComplex += `;[${hookInputIndexSplit}:v]format=rgba,fade=t=in:st=0:d=${fadeIn}:alpha=1[hookalpha]`;
@@ -844,7 +896,7 @@ async function renderSplitScreen(inputPath, outputPath, opts) {
     const overlayY = isCapsule ? `H*${posPct}/100-h/2` : '0';
     filterComplex += `;${mapVideo}[hookalpha]overlay=${overlayX}:${overlayY}:format=auto[hooked]`;
     mapVideo = '[hooked]';
-    console.log(`[FFmpeg-Split] Hook PNG overlay wired: input ${hookInputIndexSplit}, ${hl}s, capsule=${isCapsule}`);
+    console.log(`[FFmpeg-Split] Hook PNG overlay wired: input ${hookInputIndexSplit}`);
   }
 
   args.push('-t', String(clipDuration));

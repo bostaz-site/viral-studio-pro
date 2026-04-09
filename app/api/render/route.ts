@@ -56,6 +56,9 @@ const inputSchema = z.object({
       size: z.number().optional(),
       authorName: z.string().nullable().optional(),
       authorHandle: z.string().nullable().optional(),
+      overlayPng: z.string().nullable().optional(),
+      overlayAnchorX: z.number().nullable().optional(),
+      overlayAnchorY: z.number().nullable().optional(),
     }).optional(),
     format: z.object({
       aspectRatio: z.string().optional(),

@@ -486,8 +486,12 @@ router.post('/', async (req, res) => {
     if (settings.tag && settings.tag.style && settings.tag.style !== 'none') {
       tagConfig = {
         style: settings.tag.style,
+        size: settings.tag.size || 100,
         authorName: settings.tag.authorName || null,
         authorHandle: settings.tag.authorHandle || null,
+        overlayPng: settings.tag.overlayPng || null,
+        overlayAnchorX: settings.tag.overlayAnchorX || null,
+        overlayAnchorY: settings.tag.overlayAnchorY || null,
       };
       trc(`TAG applied style=${tagConfig.style} author=${tagConfig.authorHandle || tagConfig.authorName || 'none'}`);
     } else {
