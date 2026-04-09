@@ -5,21 +5,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { analyzeAudioPeaks } from './audio-peaks.js';
 
-// Lazy-load hook-overlay to avoid crash if @resvg/resvg-js is missing
-let _hookOverlayModule = null;
-async function getHookOverlayGenerator() {
-  if (_hookOverlayModule === undefined) return null; // already failed
-  if (_hookOverlayModule) return _hookOverlayModule;
-  try {
-    const mod = await import('./hook-overlay.js');
-    _hookOverlayModule = mod.generateHookOverlayPNG;
-    return _hookOverlayModule;
-  } catch (err) {
-    console.warn('[ffmpeg-render] hook-overlay.js unavailable:', err.message);
-    _hookOverlayModule = undefined; // mark as failed, don't retry
-    return null;
-  }
-}
+// Hook overlay: only browser-captured PNGs are used (no server-side SVG fallback)
 
 const execFileAsync = promisify(execFile);
 const __filename = fileURLToPath(import.meta.url);
@@ -111,19 +97,8 @@ async function prepareHookOverlay(hookText, hookLength, canvasW, canvasH, textPo
     isCapsuleOnly = capsuleW > 0 && capsuleH > 0 && capsuleW < canvasW;
     console.log(`[hook-overlay] Using browser-captured PNG: ${pngPath} (capsule: ${capsuleW}x${capsuleH}, isCapsuleOnly: ${isCapsuleOnly})`);
   } else {
-    const genFn = await getHookOverlayGenerator();
-    if (!genFn) {
-      console.warn('[hook-overlay] No browser PNG and no SVG fallback — skipping hook overlay');
-      return null;
-    }
-    // Fallback: generate via SVG + resvg (full canvas size)
-    await genFn({
-      text: hookText,
-      canvasW,
-      canvasH,
-      positionPct: textPosition,
-      outputPath: pngPath,
-    });
+    console.warn('[hook-overlay] No browser PNG provided — skipping hook overlay');
+    return null;
   }
 
   return { pngPath, hookLength, isCapsuleOnly, capsuleW, capsuleH, textPosition };
