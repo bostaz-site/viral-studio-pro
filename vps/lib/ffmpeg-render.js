@@ -81,7 +81,11 @@ function buildCommand(args) {
  * @returns {Promise<{pngPath: string, hookLength: number} | null>}
  */
 async function prepareHookOverlay(hookText, hookLength, canvasW, canvasH, textPosition = 15, jobDir, hook = {}) {
-  if (!hookText || hookLength <= 0) return null;
+  console.log(`[prepareHookOverlay] Called: text="${hookText}", length=${hookLength}, canvas=${canvasW}x${canvasH}, hasOverlayPng=${!!hook.overlayPng}, pngType=${typeof hook.overlayPng}, pngLen=${hook.overlayPng?.length || 0}`);
+  if (!hookText || hookLength <= 0) {
+    console.warn(`[prepareHookOverlay] Skipping: hookText="${hookText}", hookLength=${hookLength}`);
+    return null;
+  }
 
   const pngPath = path.join(jobDir, 'hook-overlay.png');
   const overlayPng = hook.overlayPng;

@@ -960,6 +960,7 @@ export default function EnhancePage() {
     try {
       // Capture hook overlay as PNG from browser (pixel-perfect match to preview)
       let hookOverlayData: { png: string; capsuleW: number; capsuleH: number; positionPct: number } | null = null
+      console.log('[handleRender] Hook state:', { hookEnabled: settings.hookEnabled, hookTextEnabled: settings.hookTextEnabled, hookText: settings.hookText })
       if (settings.hookEnabled && settings.hookTextEnabled && settings.hookText) {
         setRenderMessage('📸 Capture du hook overlay...')
         hookOverlayData = await captureHookOverlayPNG({
@@ -968,6 +969,7 @@ export default function EnhancePage() {
           videoWidth: 720,
           videoHeight: 1280,
         })
+        console.log('[handleRender] Hook overlay capture result:', hookOverlayData ? `PNG ${hookOverlayData.png.length} chars, ${hookOverlayData.capsuleW}x${hookOverlayData.capsuleH}` : 'NULL — capture failed!')
       }
 
       setRenderMessage('⏳ Lancement du rendu...')
