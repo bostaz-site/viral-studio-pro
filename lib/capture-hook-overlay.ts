@@ -1,14 +1,16 @@
 /**
- * Captures the hook text overlay as a transparent PNG using Canvas API.
+ * Captures the hook text overlay as a transparent PNG.
  *
- * Uses Canvas 2D API directly (no html2canvas) for pixel-perfect control.
- * Draws the exact same visual as the CSS live preview:
- *   - Black capsule rgba(0,0,0,0.75) with rounded corners
- *   - Thin 2px #9146FF purple border
- *   - Purple neon glow (box-shadow)
- *   - White bold uppercase text with emojis
+ * HYBRID approach for pixel-perfect results:
+ *   - Canvas 2D API for capsule background, border, glow (exact CSS match)
+ *   - SVG foreignObject + HTML for text (supports color emojis natively)
  *
- * The result is a base64 PNG sent to VPS → FFmpeg overlay.
+ * Matches the CSS live preview exactly:
+ *   background: rgba(0,0,0,0.75)
+ *   border: 2px solid #9146FF
+ *   box-shadow: 0 0 10px #9146FF88, 0 0 24px #9146FF44
+ *   border-radius: 6px (rounded-md)
+ *   text: 10px font-black white uppercase tracking-wide
  */
 export async function captureHookOverlayPNG({
   text,
@@ -23,7 +25,6 @@ export async function captureHookOverlayPNG({
 }): Promise<string | null> {
   if (!text) return null;
 
-  // Scale factor: CSS values designed for ~280px preview width
   const scale = videoWidth / 280;
 
   const canvas = document.createElement('canvas');
@@ -38,18 +39,13 @@ export async function captureHookOverlayPNG({
   const paddingY = Math.round(6 * scale);
   const borderW = Math.max(2, Math.round(2 * scale));
   const borderRadius = Math.round(6 * scale);
-  const letterSpacing = 0.5 * scale;
 
-  // ── Measure text ──
+  // ── Measure text using a temp canvas with emoji-capable font ──
+  const fontStr = `900 ${fontSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif`;
+  ctx.font = fontStr;
   const upperText = text.toUpperCase();
-  ctx.font = `900 ${fontSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
-
-  // Measure with letter spacing
-  let textWidth = 0;
-  for (let i = 0; i < upperText.length; i++) {
-    textWidth += ctx.measureText(upperText[i]).width;
-    if (i < upperText.length - 1) textWidth += letterSpacing;
-  }
+  const textMetrics = ctx.measureText(upperText);
+  const textWidth = textMetrics.width;
 
   // ── Box dimensions ──
   const boxW = textWidth + paddingX * 2;
@@ -57,37 +53,33 @@ export async function captureHookOverlayPNG({
   const boxX = (videoWidth - boxW) / 2;
   const boxY = videoHeight * (Math.max(5, Math.min(90, positionPct)) / 100);
 
-  // ── Draw glow (box-shadow: 0 0 10px #9146FF88, 0 0 24px #9146FF44) ──
-  // Layer 1: wide outer glow
+  // ── Draw glow layers (CSS box-shadow) ──
+  // Outer glow: 0 0 24px #9146FF44
   ctx.save();
-  ctx.shadowColor = '#9146FF44';
+  ctx.shadowColor = 'rgba(145, 70, 255, 0.27)';
   ctx.shadowBlur = Math.round(24 * scale);
-  ctx.shadowOffsetX = 0;
-  ctx.shadowOffsetY = 0;
-  ctx.fillStyle = 'rgba(0,0,0,0)'; // invisible fill just to trigger shadow
-  roundRect(ctx, boxX - 1, boxY - 1, boxW + 2, boxH + 2, borderRadius);
+  ctx.fillStyle = 'rgba(0,0,0,0.01)';
+  roundRect(ctx, boxX, boxY, boxW, boxH, borderRadius);
   ctx.fill();
   ctx.restore();
 
-  // Layer 2: tight inner glow
+  // Inner glow: 0 0 10px #9146FF88
   ctx.save();
-  ctx.shadowColor = '#9146FF88';
+  ctx.shadowColor = 'rgba(145, 70, 255, 0.53)';
   ctx.shadowBlur = Math.round(10 * scale);
-  ctx.shadowOffsetX = 0;
-  ctx.shadowOffsetY = 0;
-  ctx.fillStyle = 'rgba(0,0,0,0)';
-  roundRect(ctx, boxX - 1, boxY - 1, boxW + 2, boxH + 2, borderRadius);
+  ctx.fillStyle = 'rgba(0,0,0,0.01)';
+  roundRect(ctx, boxX, boxY, boxW, boxH, borderRadius);
   ctx.fill();
   ctx.restore();
 
-  // ── Draw capsule background: rgba(0,0,0,0.75) ──
+  // ── Draw capsule background ──
   ctx.save();
   ctx.fillStyle = 'rgba(0,0,0,0.75)';
   roundRect(ctx, boxX, boxY, boxW, boxH, borderRadius);
   ctx.fill();
   ctx.restore();
 
-  // ── Draw border: 2px solid #9146FF ──
+  // ── Draw border ──
   ctx.save();
   ctx.strokeStyle = '#9146FF';
   ctx.lineWidth = borderW;
@@ -95,23 +87,77 @@ export async function captureHookOverlayPNG({
   ctx.stroke();
   ctx.restore();
 
-  // ── Draw text: white, bold, uppercase, with letter-spacing ──
-  ctx.save();
-  ctx.fillStyle = 'white';
-  ctx.font = `900 ${fontSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
-  ctx.textBaseline = 'middle';
-
-  // Draw each character individually for letter-spacing support
-  let x = boxX + paddingX;
-  const y = boxY + boxH / 2;
-  for (let i = 0; i < upperText.length; i++) {
-    ctx.fillText(upperText[i], x, y);
-    x += ctx.measureText(upperText[i]).width + letterSpacing;
+  // ── Draw text via SVG foreignObject (supports color emojis) ──
+  const textImg = await renderTextToImage(upperText, fontSize, textWidth, boxH);
+  if (textImg) {
+    // Center text in capsule
+    const textX = boxX + paddingX;
+    const textY = boxY;
+    ctx.drawImage(textImg, textX, textY, textWidth, boxH);
   }
-  ctx.restore();
 
-  // ── Export as PNG base64 ──
   return canvas.toDataURL('image/png');
+}
+
+/**
+ * Render text (with emoji support) to an Image using SVG foreignObject.
+ * This is the only reliable way to get color emojis on Canvas.
+ */
+async function renderTextToImage(
+  text: string,
+  fontSize: number,
+  width: number,
+  height: number,
+): Promise<HTMLImageElement | null> {
+  // Build SVG with foreignObject containing HTML text
+  const svgStr = `
+    <svg xmlns="http://www.w3.org/2000/svg" width="${Math.ceil(width)}" height="${Math.ceil(height)}">
+      <foreignObject width="100%" height="100%">
+        <div xmlns="http://www.w3.org/1999/xhtml" style="
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 100%;
+          height: 100%;
+          font-size: ${fontSize}px;
+          font-weight: 900;
+          color: white;
+          text-transform: uppercase;
+          letter-spacing: ${fontSize * 0.05}px;
+          line-height: 1;
+          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', sans-serif;
+          white-space: nowrap;
+          text-align: center;
+        ">${escapeHtml(text)}</div>
+      </foreignObject>
+    </svg>`;
+
+  const blob = new Blob([svgStr], { type: 'image/svg+xml;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      resolve(img);
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      resolve(null);
+    };
+    img.src = url;
+  });
+}
+
+/**
+ * Escape HTML special characters.
+ */
+function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
 }
 
 /**
@@ -123,7 +169,7 @@ function roundRect(
   y: number,
   w: number,
   h: number,
-  r: number
+  r: number,
 ) {
   ctx.beginPath();
   ctx.moveTo(x + r, y);
