@@ -83,41 +83,28 @@ function buildCommand(args) {
  * Style: black capsule (rgba) + purple border + white bold uppercase text
  * with fade in/out on alpha channel.
  *
- * @returns {string|null} - drawtext filter segment or null
+ * Prepares hook overlay PNG for FFmpeg.
+ * Uses browser-captured PNG (pixel-perfect match to CSS preview).
+ * @returns {Promise<{pngPath: string, hookLength: number, isCapsuleOnly: boolean, capsuleW: number, capsuleH: number, textPosition: number} | null>}
  */
-function buildHookTextFilter(hookText, hookLength, canvasW, canvasH, textPosition = 15) {
+async function prepareHookOverlay(hookText, hookLength, canvasW, canvasH, textPosition = 15, jobDir, hook = {}) {
   if (!hookText || hookLength <= 0) return null;
 
-  const text = hookText.replace(/'/g, "'\\''").replace(/:/g, '\\:').replace(/%/g, '%%');
-  const fontSize = Math.round(canvasW * 0.042); // ~30px at 720w
-  const pad = Math.round(fontSize * 0.9); // uniform padding (boxborderw doesn't support | separator)
-  const borderW = Math.max(2, Math.round(canvasW * 0.003));
-  const yPos = `h*${textPosition}/100`;
+  const pngPath = path.join(jobDir, 'hook-overlay.png');
+  const overlayPng = hook.overlayPng;
 
-  const fadeIn = 0.3;
-  const fadeOut = 0.3;
-  const fadeOutStart = Math.max(0, hookLength - fadeOut);
+  if (overlayPng && typeof overlayPng === 'string' && overlayPng.startsWith('data:image/png')) {
+    const base64Data = overlayPng.replace(/^data:image\/png;base64,/, '');
+    fs.writeFileSync(pngPath, Buffer.from(base64Data, 'base64'));
+    const capsuleW = hook.overlayCapsuleW || 0;
+    const capsuleH = hook.overlayCapsuleH || 0;
+    const isCapsuleOnly = capsuleW > 0 && capsuleH > 0 && capsuleW < canvasW;
+    console.log(`[hook-overlay] Browser PNG saved: ${pngPath} (${capsuleW}x${capsuleH}, capsule=${isCapsuleOnly})`);
+    return { pngPath, hookLength, isCapsuleOnly, capsuleW, capsuleH, textPosition };
+  }
 
-  // Alpha expression: fade in 0→1 over fadeIn seconds, hold, fade out 1→0
-  const alphaExpr = `if(lt(t\\,${fadeIn})\\,t/${fadeIn}\\,if(gt(t\\,${fadeOutStart.toFixed(2)})\\,max(0\\,(${hookLength}-t)/${fadeOut})\\,1))`;
-
-  // 2-pass drawtext: 1st = black background box, 2nd = white text on top
-  // Pass 1: Black capsule background with purple border
-  const bgFilter = `drawtext=text='${text}':fontsize=${fontSize}:fontcolor=white@0:` +
-    `x=(w-text_w)/2:y=${yPos}-text_h/2:` +
-    `box=1:boxcolor=black@0.75:boxborderw=${pad}:` +
-    `borderw=${borderW}:bordercolor=0x9146FF@1:` +
-    `alpha='${alphaExpr}':` +
-    `font='DejaVu Sans':fix_bounds=1`;
-
-  // Pass 2: White text (same position)
-  const textFilter = `drawtext=text='${text}':fontsize=${fontSize}:fontcolor=white:` +
-    `x=(w-text_w)/2:y=${yPos}-text_h/2:` +
-    `alpha='${alphaExpr}':` +
-    `font='DejaVu Sans':fix_bounds=1`;
-
-  console.log(`[hook-text] Built drawtext filter: "${hookText}" fontSize=${fontSize} pos=${textPosition}% duration=${hookLength}s`);
-  return { bgFilter, textFilter, hookLength };
+  console.warn('[hook-overlay] No browser PNG provided — skipping hook overlay');
+  return null;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -562,14 +549,21 @@ export async function renderClip(inputPath, outputPath, options = {}) {
     }
   }
 
-  // Hook text overlay — FFmpeg drawtext (black capsule + purple border + white text)
+  // Hook text overlay — PNG from browser capture
+  let hookOverlayData = null;
   if (hook && hook.enabled && hook.textEnabled !== false && hook.text) {
-    const hookFilter = buildHookTextFilter(hook.text, hook.length || 1.5, canvasW, canvasH, hook.textPosition || 15);
-    if (hookFilter) {
-      filterComplex += `;${mapVideo}${hookFilter.bgFilter}[hookbg]`;
-      filterComplex += `;[hookbg]${hookFilter.textFilter}[hooked]`;
-      mapVideo = '[hooked]';
-      console.log(`[FFmpeg] Hook drawtext applied: "${hook.text}" (${hookFilter.hookLength}s)`);
+    const jobDir = path.dirname(outputPath);
+    hookOverlayData = await prepareHookOverlay(hook.text, hook.length || 1.5, canvasW, canvasH, hook.textPosition || 15, jobDir, hook);
+    if (hookOverlayData) {
+      extraInputs.push({
+        pngPath: hookOverlayData.pngPath,
+        startTime: 0,
+        endTime: hookOverlayData.hookLength,
+        isHookOverlay: true,
+        hookLength: hookOverlayData.hookLength,
+        isCapsuleOnly: hookOverlayData.isCapsuleOnly,
+        textPosition: hookOverlayData.textPosition,
+      });
     }
   }
 
@@ -582,6 +576,10 @@ export async function renderClip(inputPath, outputPath, options = {}) {
     }
   }
 
+  // Find hook overlay entry for filter wiring
+  const hookOverlayEntry = extraInputs.find(e => e.isHookOverlay);
+  let hookInputIndex = -1;
+
   console.log(`[FFmpeg] Standard render filter_complex (${filterComplex.length} chars)`);
   console.log(`[FFmpeg] Map video: ${mapVideo}`);
 
@@ -589,13 +587,32 @@ export async function renderClip(inputPath, outputPath, options = {}) {
   const args = ['-y'];
   args.push('-ss', String(startTime));
   args.push('-i', inputPath);
-  // PNG overlay inputs (captions only — hook uses drawtext now)
+  // PNG overlay inputs (captions + hook)
   let inputIdx = 1; // 0 is main video
   for (const overlay of extraInputs) {
     const ts = Math.max(0, overlay.startTime);
     const td = Math.max(0.01, overlay.endTime - overlay.startTime);
+    if (overlay.isHookOverlay) {
+      hookInputIndex = inputIdx;
+    }
     args.push('-loop', '1', '-t', td.toFixed(3), '-itsoffset', ts.toFixed(3), '-i', overlay.pngPath);
     inputIdx++;
+  }
+
+  // Wire hook PNG overlay into filter chain (after all other filters)
+  if (hookOverlayEntry && hookInputIndex >= 0) {
+    const hl = hookOverlayEntry.hookLength;
+    const fadeIn = 0.3;
+    const fadeOut = 0.3;
+    const fadeOutStart = Math.max(0, hl - fadeOut);
+    filterComplex += `;[${hookInputIndex}:v]format=rgba,fade=t=in:st=0:d=${fadeIn}:alpha=1,fade=t=out:st=${fadeOutStart.toFixed(3)}:d=${fadeOut}:alpha=1[hookalpha]`;
+    const isCapsule = hookOverlayEntry.isCapsuleOnly;
+    const posPct = hookOverlayEntry.textPosition || 15;
+    const overlayX = isCapsule ? '(W-w)/2' : '0';
+    const overlayY = isCapsule ? `H*${posPct}/100-h/2` : '0';
+    filterComplex += `;${mapVideo}[hookalpha]overlay=${overlayX}:${overlayY}:format=auto:shortest=0[hooked]`;
+    mapVideo = '[hooked]';
+    console.log(`[FFmpeg] Hook PNG overlay wired: input ${hookInputIndex}, ${hl}s, capsule=${isCapsule}`);
   }
 
   args.push('-t', String(clipDuration));
@@ -771,14 +788,20 @@ async function renderSplitScreen(inputPath, outputPath, opts) {
     }
   }
 
-  // Hook text overlay — FFmpeg drawtext (split-screen path)
+  // Hook text overlay — PNG from browser capture (split-screen path)
   if (hook && hook.enabled && hook.textEnabled !== false && hook.text) {
-    const hookFilter = buildHookTextFilter(hook.text, hook.length || 1.5, canvasW, canvasH, hook.textPosition || 15);
-    if (hookFilter) {
-      filterComplex += `;${mapVideo}${hookFilter.bgFilter}[hookbg]`;
-      filterComplex += `;[hookbg]${hookFilter.textFilter}[hooked]`;
-      mapVideo = '[hooked]';
-      console.log(`[FFmpeg-Split] Hook drawtext applied: "${hook.text}" (${hookFilter.hookLength}s)`);
+    const jobDir = path.dirname(outputPath);
+    const hookData = await prepareHookOverlay(hook.text, hook.length || 1.5, canvasW, canvasH, hook.textPosition || 15, jobDir, hook);
+    if (hookData) {
+      extraInputs.push({
+        pngPath: hookData.pngPath,
+        startTime: 0,
+        endTime: hookData.hookLength,
+        isHookOverlay: true,
+        hookLength: hookData.hookLength,
+        isCapsuleOnly: hookData.isCapsuleOnly,
+        textPosition: hookData.textPosition,
+      });
     }
   }
 
@@ -791,18 +814,41 @@ async function renderSplitScreen(inputPath, outputPath, opts) {
     }
   }
 
+  // Find hook overlay for filter wiring
+  const hookOverlayEntrySplit = extraInputs.find(e => e.isHookOverlay);
+  let hookInputIndexSplit = -1;
+
   // Build args
   const args = ['-y'];
   args.push('-ss', String(startTime));
   args.push('-i', inputPath);           // Input 0: main video
   args.push('-i', brollPath);           // Input 1: B-roll video
-  // PNG overlay inputs (captions only — hook uses drawtext now)
+  // PNG overlay inputs (captions + hook)
   let splitInputIdx = 2; // 0=main, 1=broll
   for (const overlay of extraInputs) {
     const ts = Math.max(0, overlay.startTime);
     const td = Math.max(0.01, overlay.endTime - overlay.startTime);
+    if (overlay.isHookOverlay) {
+      hookInputIndexSplit = splitInputIdx;
+    }
     args.push('-loop', '1', '-t', td.toFixed(3), '-itsoffset', ts.toFixed(3), '-i', overlay.pngPath);
     splitInputIdx++;
+  }
+
+  // Wire hook PNG overlay (split-screen)
+  if (hookOverlayEntrySplit && hookInputIndexSplit >= 0) {
+    const hl = hookOverlayEntrySplit.hookLength;
+    const fadeIn = 0.3;
+    const fadeOut = 0.3;
+    const fadeOutStart = Math.max(0, hl - fadeOut);
+    filterComplex += `;[${hookInputIndexSplit}:v]format=rgba,fade=t=in:st=0:d=${fadeIn}:alpha=1,fade=t=out:st=${fadeOutStart.toFixed(3)}:d=${fadeOut}:alpha=1[hookalpha]`;
+    const isCapsule = hookOverlayEntrySplit.isCapsuleOnly;
+    const posPct = hookOverlayEntrySplit.textPosition || 15;
+    const overlayX = isCapsule ? '(W-w)/2' : '0';
+    const overlayY = isCapsule ? `H*${posPct}/100-h/2` : '0';
+    filterComplex += `;${mapVideo}[hookalpha]overlay=${overlayX}:${overlayY}:format=auto:shortest=0[hooked]`;
+    mapVideo = '[hooked]';
+    console.log(`[FFmpeg-Split] Hook PNG overlay wired: input ${hookInputIndexSplit}, ${hl}s, capsule=${isCapsule}`);
   }
 
   args.push('-t', String(clipDuration));

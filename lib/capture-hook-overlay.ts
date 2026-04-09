@@ -1,11 +1,10 @@
 /**
  * Captures ONLY the hook capsule as a small transparent PNG.
  *
- * Instead of a full 720x1280 canvas (mostly transparent, huge file),
- * we capture just the capsule+glow area and send position data separately.
- * The VPS overlays it at the correct position.
+ * Uses Canvas 2D only (no SVG foreignObject — that taints the canvas
+ * and makes toDataURL() throw SecurityError).
  *
- * Uses Canvas 2D for capsule + SVG foreignObject for emoji text.
+ * Color emojis work natively with canvas fillText on Chrome/Edge/Safari.
  */
 export async function captureHookOverlayPNG({
   text,
@@ -36,7 +35,8 @@ export async function captureHookOverlayPNG({
     const measureCanvas = document.createElement('canvas');
     const measureCtx = measureCanvas.getContext('2d');
     if (!measureCtx) return null;
-    measureCtx.font = `900 ${fontSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
+    const fontStr = `900 ${fontSize}px "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
+    measureCtx.font = fontStr;
     const textWidth = measureCtx.measureText(upperText).width;
 
     // ── Capsule dimensions ──
@@ -88,28 +88,14 @@ export async function captureHookOverlayPNG({
     ctx.stroke();
     ctx.restore();
 
-    // ── Text via SVG foreignObject (emoji support) ──
-    let textDrawn = false;
-    try {
-      const textImg = await renderTextToImage(upperText, fontSize, textWidth, capsuleH);
-      if (textImg) {
-        ctx.drawImage(textImg, boxX + paddingX, boxY, textWidth, capsuleH);
-        textDrawn = true;
-      }
-    } catch {
-      // SVG foreignObject failed — fallback to canvas fillText
-    }
-
-    // Fallback: plain canvas text (no color emojis but at least shows text)
-    if (!textDrawn) {
-      ctx.save();
-      ctx.fillStyle = 'white';
-      ctx.font = `900 ${fontSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Apple Color Emoji", "Segoe UI Emoji", sans-serif`;
-      ctx.textBaseline = 'middle';
-      ctx.textAlign = 'center';
-      ctx.fillText(upperText, boxX + capsuleW / 2, boxY + capsuleH / 2);
-      ctx.restore();
-    }
+    // ── Text (direct canvas fillText — supports color emojis natively) ──
+    ctx.save();
+    ctx.fillStyle = 'white';
+    ctx.font = fontStr;
+    ctx.textBaseline = 'middle';
+    ctx.textAlign = 'center';
+    ctx.fillText(upperText, boxX + capsuleW / 2, boxY + capsuleH / 2);
+    ctx.restore();
 
     const png = canvas.toDataURL('image/png');
 
@@ -119,6 +105,7 @@ export async function captureHookOverlayPNG({
       return null;
     }
 
+    console.log(`[captureHookOverlay] OK: ${canvasW}x${canvasH}, ${png.length} chars`);
     return {
       png,
       capsuleW: canvasW,
@@ -129,54 +116,6 @@ export async function captureHookOverlayPNG({
     console.error('[captureHookOverlay] Error:', err);
     return null;
   }
-}
-
-/**
- * Render text with color emojis via SVG foreignObject → Image.
- */
-function renderTextToImage(
-  text: string,
-  fontSize: number,
-  width: number,
-  height: number,
-): Promise<HTMLImageElement | null> {
-  const svgStr = `<svg xmlns="http://www.w3.org/2000/svg" width="${Math.ceil(width)}" height="${Math.ceil(height)}">
-<foreignObject width="100%" height="100%">
-<div xmlns="http://www.w3.org/1999/xhtml" style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;font-size:${fontSize}px;font-weight:900;color:white;text-transform:uppercase;letter-spacing:${Math.round(fontSize * 0.05)}px;line-height:1;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Apple Color Emoji','Segoe UI Emoji','Noto Color Emoji',sans-serif;white-space:nowrap;text-align:center;">${escapeHtml(text)}</div>
-</foreignObject>
-</svg>`;
-
-  const blob = new Blob([svgStr], { type: 'image/svg+xml;charset=utf-8' });
-  const url = URL.createObjectURL(blob);
-
-  return new Promise((resolve) => {
-    const img = new Image();
-    // Timeout after 2s — don't block render if SVG fails
-    const timeout = setTimeout(() => {
-      URL.revokeObjectURL(url);
-      resolve(null);
-    }, 2000);
-
-    img.onload = () => {
-      clearTimeout(timeout);
-      URL.revokeObjectURL(url);
-      resolve(img);
-    };
-    img.onerror = () => {
-      clearTimeout(timeout);
-      URL.revokeObjectURL(url);
-      resolve(null);
-    };
-    img.src = url;
-  });
-}
-
-function escapeHtml(text: string): string {
-  return text
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
 }
 
 function roundRect(

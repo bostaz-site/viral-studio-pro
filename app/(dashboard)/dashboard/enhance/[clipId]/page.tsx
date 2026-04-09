@@ -18,6 +18,7 @@ import { Badge } from '@/components/ui/badge'
 import { createClient } from '@/lib/supabase/client'
 import { useTrendingStore } from '@/stores/trending-store'
 import { cn } from '@/lib/utils'
+import { captureHookOverlayPNG } from '@/lib/capture-hook-overlay'
 // ─── Types ──────────────────────────────────────────────────────────────────
 
 interface TrendingClipData {
@@ -956,7 +957,18 @@ export default function EnhancePage() {
     setIsRenderedVideo(false)
 
     try {
-      // Hook text is now rendered server-side via FFmpeg drawtext (no browser capture needed)
+      // Capture hook overlay as PNG from browser (pixel-perfect match to CSS preview)
+      let hookOverlayData: { png: string; capsuleW: number; capsuleH: number; positionPct: number } | null = null
+      if (settings.hookEnabled && settings.hookTextEnabled && settings.hookText) {
+        setRenderMessage('📸 Capture du hook overlay...')
+        hookOverlayData = await captureHookOverlayPNG({
+          text: settings.hookText,
+          positionPct: settings.hookTextPosition,
+          videoWidth: 720,
+          videoHeight: 1280,
+        })
+        console.log('[handleRender] Hook capture:', hookOverlayData ? `OK ${hookOverlayData.capsuleW}x${hookOverlayData.capsuleH}` : 'FAILED')
+      }
       setRenderMessage('⏳ Lancement du rendu...')
       const res = await fetch('/api/render', {
         method: 'POST',
@@ -1004,7 +1016,9 @@ export default function EnhancePage() {
               textPosition: settings.hookTextPosition,
               length: settings.hookLength,
               reorder: settings.hookReorder,
-              // Hook text rendered server-side via FFmpeg drawtext
+              overlayPng: hookOverlayData?.png || null,
+              overlayCapsuleW: hookOverlayData?.capsuleW || null,
+              overlayCapsuleH: hookOverlayData?.capsuleH || null,
             },
           },
         }),
