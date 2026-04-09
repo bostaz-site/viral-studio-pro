@@ -549,18 +549,18 @@ export async function renderClip(inputPath, outputPath, options = {}) {
     }
   }
 
-  // Hook text overlay — PNG from browser capture
+  // Hook text overlay — PNG from browser capture (displayed for ENTIRE clip)
   let hookOverlayData = null;
   if (hook && hook.enabled && hook.textEnabled !== false && hook.text) {
     const jobDir = path.dirname(outputPath);
-    hookOverlayData = await prepareHookOverlay(hook.text, hook.length || 1.5, canvasW, canvasH, hook.textPosition || 15, jobDir, hook);
+    hookOverlayData = await prepareHookOverlay(hook.text, clipDuration, canvasW, canvasH, hook.textPosition || 15, jobDir, hook);
     if (hookOverlayData) {
       extraInputs.push({
         pngPath: hookOverlayData.pngPath,
         startTime: 0,
-        endTime: hookOverlayData.hookLength,
+        endTime: clipDuration,
         isHookOverlay: true,
-        hookLength: hookOverlayData.hookLength,
+        hookLength: clipDuration,
         isCapsuleOnly: hookOverlayData.isCapsuleOnly,
         textPosition: hookOverlayData.textPosition,
       });
@@ -599,20 +599,19 @@ export async function renderClip(inputPath, outputPath, options = {}) {
     inputIdx++;
   }
 
-  // Wire hook PNG overlay into filter chain (after all other filters)
+  // Wire hook PNG overlay into filter chain (after all other filters, including smart zoom)
+  // The hook is a separate overlay input → NOT affected by smart zoom
   if (hookOverlayEntry && hookInputIndex >= 0) {
-    const hl = hookOverlayEntry.hookLength;
     const fadeIn = 0.3;
-    const fadeOut = 0.3;
-    const fadeOutStart = Math.max(0, hl - fadeOut);
-    filterComplex += `;[${hookInputIndex}:v]format=rgba,fade=t=in:st=0:d=${fadeIn}:alpha=1,fade=t=out:st=${fadeOutStart.toFixed(3)}:d=${fadeOut}:alpha=1[hookalpha]`;
+    // Only fade in, no fade out — hook stays visible for the entire clip
+    filterComplex += `;[${hookInputIndex}:v]format=rgba,fade=t=in:st=0:d=${fadeIn}:alpha=1[hookalpha]`;
     const isCapsule = hookOverlayEntry.isCapsuleOnly;
     const posPct = hookOverlayEntry.textPosition || 15;
     const overlayX = isCapsule ? '(W-w)/2' : '0';
     const overlayY = isCapsule ? `H*${posPct}/100-h/2` : '0';
-    filterComplex += `;${mapVideo}[hookalpha]overlay=${overlayX}:${overlayY}:format=auto:shortest=0[hooked]`;
+    filterComplex += `;${mapVideo}[hookalpha]overlay=${overlayX}:${overlayY}:format=auto[hooked]`;
     mapVideo = '[hooked]';
-    console.log(`[FFmpeg] Hook PNG overlay wired: input ${hookInputIndex}, ${hl}s, capsule=${isCapsule}`);
+    console.log(`[FFmpeg] Hook PNG overlay wired: input ${hookInputIndex}, full duration, capsule=${isCapsule}, y=${overlayY}`);
   }
 
   args.push('-t', String(clipDuration));
@@ -788,17 +787,17 @@ async function renderSplitScreen(inputPath, outputPath, opts) {
     }
   }
 
-  // Hook text overlay — PNG from browser capture (split-screen path)
+  // Hook text overlay — PNG from browser capture (split-screen, full duration)
   if (hook && hook.enabled && hook.textEnabled !== false && hook.text) {
     const jobDir = path.dirname(outputPath);
-    const hookData = await prepareHookOverlay(hook.text, hook.length || 1.5, canvasW, canvasH, hook.textPosition || 15, jobDir, hook);
+    const hookData = await prepareHookOverlay(hook.text, clipDuration, canvasW, canvasH, hook.textPosition || 15, jobDir, hook);
     if (hookData) {
       extraInputs.push({
         pngPath: hookData.pngPath,
         startTime: 0,
-        endTime: hookData.hookLength,
+        endTime: clipDuration,
         isHookOverlay: true,
-        hookLength: hookData.hookLength,
+        hookLength: clipDuration,
         isCapsuleOnly: hookData.isCapsuleOnly,
         textPosition: hookData.textPosition,
       });
@@ -835,18 +834,15 @@ async function renderSplitScreen(inputPath, outputPath, opts) {
     splitInputIdx++;
   }
 
-  // Wire hook PNG overlay (split-screen)
+  // Wire hook PNG overlay (split-screen, not affected by zoom, full duration)
   if (hookOverlayEntrySplit && hookInputIndexSplit >= 0) {
-    const hl = hookOverlayEntrySplit.hookLength;
     const fadeIn = 0.3;
-    const fadeOut = 0.3;
-    const fadeOutStart = Math.max(0, hl - fadeOut);
-    filterComplex += `;[${hookInputIndexSplit}:v]format=rgba,fade=t=in:st=0:d=${fadeIn}:alpha=1,fade=t=out:st=${fadeOutStart.toFixed(3)}:d=${fadeOut}:alpha=1[hookalpha]`;
+    filterComplex += `;[${hookInputIndexSplit}:v]format=rgba,fade=t=in:st=0:d=${fadeIn}:alpha=1[hookalpha]`;
     const isCapsule = hookOverlayEntrySplit.isCapsuleOnly;
     const posPct = hookOverlayEntrySplit.textPosition || 15;
     const overlayX = isCapsule ? '(W-w)/2' : '0';
     const overlayY = isCapsule ? `H*${posPct}/100-h/2` : '0';
-    filterComplex += `;${mapVideo}[hookalpha]overlay=${overlayX}:${overlayY}:format=auto:shortest=0[hooked]`;
+    filterComplex += `;${mapVideo}[hookalpha]overlay=${overlayX}:${overlayY}:format=auto[hooked]`;
     mapVideo = '[hooked]';
     console.log(`[FFmpeg-Split] Hook PNG overlay wired: input ${hookInputIndexSplit}, ${hl}s, capsule=${isCapsule}`);
   }
