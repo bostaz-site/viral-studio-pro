@@ -135,7 +135,7 @@ router.post('/', async (req, res) => {
     trc(`settings.captions=${JSON.stringify(settings.captions)}`);
     trc(`settings.splitScreen=${JSON.stringify(settings.splitScreen)}`);
     trc(`settings.format=${JSON.stringify(settings.format)}`);
-    trc(`settings.hook=${JSON.stringify({ enabled: settings.hook?.enabled, textEnabled: settings.hook?.textEnabled, text: settings.hook?.text?.substring(0, 30), hasOverlayPng: !!(settings.hook?.overlayPng), pngLen: settings.hook?.overlayPng?.length || 0, capsuleW: settings.hook?.overlayCapsuleW, capsuleH: settings.hook?.overlayCapsuleH })}`);
+    trc(`settings.hook=${JSON.stringify({ enabled: settings.hook?.enabled, textEnabled: settings.hook?.textEnabled, reorderEnabled: settings.hook?.reorderEnabled, text: settings.hook?.text?.substring(0, 30), hasOverlayPng: !!(settings.hook?.overlayPng), hasReorder: !!(settings.hook?.reorder), reorderSegments: settings.hook?.reorder?.segments?.length || 0 })}`);
     const envHasOpenAI = !!process.env.OPENAI_API_KEY;
     const envHasOpenAIKey = !!process.env.OPENAI_KEY;
     trc(`env OPENAI_API_KEY=${envHasOpenAI} OPENAI_KEY=${envHasOpenAIKey}`);
@@ -526,6 +526,7 @@ router.post('/', async (req, res) => {
     let reorderedInputPath = inputPath;
     let reorderedStartTime = clipStartTime;
     let reorderedDuration = duration;
+    trc(`HOOK REORDER check: enabled=${settings.hook?.enabled} reorderEnabled=${settings.hook?.reorderEnabled} hasReorder=${!!settings.hook?.reorder} segments=${settings.hook?.reorder?.segments?.length || 0}`);
     if (settings.hook?.enabled && settings.hook?.reorderEnabled !== false && settings.hook?.reorder?.segments?.length >= 2) {
       try {
         const segments = settings.hook.reorder.segments;

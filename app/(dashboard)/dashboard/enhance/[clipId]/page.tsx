@@ -1028,7 +1028,9 @@ export default function EnhancePage() {
               enabled: settings.smartZoomEnabled,
               mode: settings.smartZoomMode,
             },
-            hook: {
+            hook: (() => {
+              console.log('[handleRender] Hook reorder data:', { reorderEnabled: settings.hookReorderEnabled, hasReorder: !!settings.hookReorder, segments: settings.hookReorder?.segments?.length || 0 })
+              return {
               enabled: settings.hookEnabled,
               textEnabled: settings.hookTextEnabled,
               reorderEnabled: settings.hookReorderEnabled,
@@ -1040,7 +1042,7 @@ export default function EnhancePage() {
               overlayPng: hookOverlayData?.png || null,
               overlayCapsuleW: hookOverlayData?.capsuleW || null,
               overlayCapsuleH: hookOverlayData?.capsuleH || null,
-            },
+            }})(),
           },
         }),
       })
