@@ -605,6 +605,7 @@ router.post('/', async (req, res) => {
         style: settings.hook.style || 'choc',
         textPosition: settings.hook.textPosition || 15,
         length: settings.hook.length || 1.5,
+        overlayPng: settings.hook.overlayPng || null,
       } : null,
     });
 

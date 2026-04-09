@@ -1,5 +1,6 @@
 import { execFile } from 'child_process';
 import { promisify } from 'util';
+import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { analyzeAudioPeaks } from './audio-peaks.js';
@@ -70,24 +71,34 @@ function buildCommand(args) {
  * @returns {string|null} - drawtext filter string or null
  */
 /**
- * Generate a hook overlay PNG and return FFmpeg input/filter info.
- * This replaces the old drawtext approach with a pixel-perfect PNG overlay
- * that exactly matches the CSS live preview (rounded corners, glow, etc.).
+ * Prepare a hook overlay PNG for FFmpeg overlay.
+ *
+ * Priority:
+ *   1. If overlayPng (base64 from browser) is provided → use it directly (pixel-perfect)
+ *   2. Otherwise → fall back to SVG generation via resvg
  *
  * @returns {Promise<{pngPath: string, hookLength: number} | null>}
  */
-async function prepareHookOverlay(hookText, hookLength, canvasW, canvasH, textPosition = 15, jobDir) {
+async function prepareHookOverlay(hookText, hookLength, canvasW, canvasH, textPosition = 15, jobDir, overlayPng = null) {
   if (!hookText || hookLength <= 0) return null;
 
   const pngPath = path.join(jobDir, 'hook-overlay.png');
 
-  await generateHookOverlayPNG({
-    text: hookText,
-    canvasW,
-    canvasH,
-    positionPct: textPosition,
-    outputPath: pngPath,
-  });
+  if (overlayPng && typeof overlayPng === 'string' && overlayPng.startsWith('data:image/png')) {
+    // Browser-captured PNG — pixel-perfect match to CSS preview
+    const base64Data = overlayPng.replace(/^data:image\/png;base64,/, '');
+    fs.writeFileSync(pngPath, Buffer.from(base64Data, 'base64'));
+    console.log(`[hook-overlay] Using browser-captured PNG: ${pngPath}`);
+  } else {
+    // Fallback: generate via SVG + resvg
+    await generateHookOverlayPNG({
+      text: hookText,
+      canvasW,
+      canvasH,
+      positionPct: textPosition,
+      outputPath: pngPath,
+    });
+  }
 
   return { pngPath, hookLength };
 }
@@ -538,7 +549,7 @@ export async function renderClip(inputPath, outputPath, options = {}) {
   let hookOverlayData = null;
   if (hook && hook.enabled && hook.textEnabled !== false && hook.text) {
     const jobDir = path.dirname(outputPath);
-    hookOverlayData = await prepareHookOverlay(hook.text, hook.length || 1.5, canvasW, canvasH, hook.textPosition || 15, jobDir);
+    hookOverlayData = await prepareHookOverlay(hook.text, hook.length || 1.5, canvasW, canvasH, hook.textPosition || 15, jobDir, hook.overlayPng || null);
     if (hookOverlayData) {
       // Add as extra input — will be wired in the args section below
       extraInputs.push({
@@ -784,7 +795,7 @@ async function renderSplitScreen(inputPath, outputPath, opts) {
   let hookOverlayDataSplit = null;
   if (hook && hook.enabled && hook.textEnabled !== false && hook.text) {
     const jobDir = path.dirname(outputPath);
-    hookOverlayDataSplit = await prepareHookOverlay(hook.text, hook.length || 1.5, canvasW, canvasH, hook.textPosition || 15, jobDir);
+    hookOverlayDataSplit = await prepareHookOverlay(hook.text, hook.length || 1.5, canvasW, canvasH, hook.textPosition || 15, jobDir, hook.overlayPng || null);
     if (hookOverlayDataSplit) {
       extraInputs.push({
         pngPath: hookOverlayDataSplit.pngPath,

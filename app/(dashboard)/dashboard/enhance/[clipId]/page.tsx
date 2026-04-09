@@ -18,6 +18,7 @@ import { Badge } from '@/components/ui/badge'
 import { createClient } from '@/lib/supabase/client'
 import { useTrendingStore } from '@/stores/trending-store'
 import { cn } from '@/lib/utils'
+import { captureHookOverlayPNG } from '@/lib/capture-hook-overlay'
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -957,6 +958,19 @@ export default function EnhancePage() {
     setIsRenderedVideo(false)
 
     try {
+      // Capture hook overlay as PNG from browser (pixel-perfect match to preview)
+      let hookOverlayBase64: string | null = null
+      if (settings.hookEnabled && settings.hookTextEnabled && settings.hookText) {
+        setRenderMessage('📸 Capture du hook overlay...')
+        hookOverlayBase64 = await captureHookOverlayPNG({
+          text: settings.hookText,
+          positionPct: settings.hookTextPosition,
+          videoWidth: 720,
+          videoHeight: 1280,
+        })
+      }
+
+      setRenderMessage('⏳ Lancement du rendu...')
       const res = await fetch('/api/render', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -1003,6 +1017,7 @@ export default function EnhancePage() {
               textPosition: settings.hookTextPosition,
               length: settings.hookLength,
               reorder: settings.hookReorder,
+              overlayPng: hookOverlayBase64,
             },
           },
         }),

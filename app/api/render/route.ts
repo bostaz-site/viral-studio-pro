@@ -3,6 +3,10 @@ import { z } from 'zod'
 import { withAuth } from '@/lib/api/withAuth'
 import { createAdminClient } from '@/lib/supabase/admin'
 
+// Allow larger request body for hook overlay PNG (base64 ~500KB-2MB)
+export const maxDuration = 60
+export const dynamic = 'force-dynamic'
+
 const inputSchema = z.object({
   clip_id: z.string().uuid(),
   source: z.enum(['clips', 'trending']).optional().default('trending'),
@@ -32,6 +36,8 @@ const inputSchema = z.object({
       text: z.string().optional(),
       style: z.enum(['choc', 'curiosite', 'suspense']).optional(),
       length: z.number().optional(),
+      textPosition: z.number().optional(),
+      overlayPng: z.string().nullable().optional(), // base64 PNG from browser capture
       reorder: z.object({
         segments: z.array(z.object({
           start: z.number(),
