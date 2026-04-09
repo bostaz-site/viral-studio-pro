@@ -313,27 +313,29 @@ function generateFallbackHooks(streamerName = '') {
  * @returns {Object} { segments: [{start, end, label}], totalDuration }
  */
 export function calculateReorderTimestamps(peakTime, duration, hookLength = 1.5, maxContext = 8) {
+  // Keep the FULL clip, just reorder: Peak first → After peak → Before peak
+  // This preserves the entire video duration instead of cutting it short.
   const peak = Math.max(0, Math.min(peakTime, duration - hookLength));
 
-  const hookStart = peak;
-  const hookEnd = Math.min(peak + hookLength, duration);
-
-  const contextStart = Math.max(0, hookStart - maxContext);
-  const contextEnd = hookStart;
-
-  const afterStart = hookEnd;
-  const afterEnd = Math.min(hookEnd + 3, duration);
-
-  const segments = [
-    { start: hookStart, end: hookEnd, label: 'hook' },
-  ];
-
-  if (contextEnd - contextStart > 0.5) {
-    segments.push({ start: contextStart, end: contextEnd, label: 'context' });
+  // If peak is near the start (< 2s), reorder is pointless — return empty
+  if (peak < 2) {
+    return {
+      segments: [],
+      totalDuration: duration,
+      peakTime: 0,
+    };
   }
 
-  if (afterEnd - afterStart > 0.3) {
-    segments.push({ start: afterStart, end: afterEnd, label: 'payoff' });
+  const segments = [];
+
+  // 1. Peak moment → end of clip (the "hook" that grabs attention + everything after)
+  if (peak < duration) {
+    segments.push({ start: peak, end: duration, label: 'hook' });
+  }
+
+  // 2. Start of clip → peak moment (context that comes after in the reordered version)
+  if (peak > 0.5) {
+    segments.push({ start: 0, end: peak, label: 'context' });
   }
 
   const totalDuration = segments.reduce((sum, s) => sum + (s.end - s.start), 0);
