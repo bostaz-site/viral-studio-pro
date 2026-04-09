@@ -431,8 +431,8 @@ export async function renderClip(inputPath, outputPath, options = {}) {
   const ratios = { '9:16': { w: 720, h: 1280 }, '1:1': { w: 720, h: 720 }, '16:9': { w: 1280, h: 720 } };
   const { w: canvasW, h: canvasH } = ratios[aspectRatio] || ratios['9:16'];
 
-  // Disable smart zoom for word-pop (the pop animation IS the visual interest).
-  const shouldDisableSmartZoom = isWordPopAnimation && smartZoom && smartZoom.enabled;
+  // Smart zoom is now always allowed (720p canvas keeps memory safe)
+  const shouldDisableSmartZoom = false;
 
   // DEBUG: Log captions object structure
   console.log('[FFmpeg] Captions object:', {
@@ -440,11 +440,9 @@ export async function renderClip(inputPath, outputPath, options = {}) {
     captionAnimation: captions?.animation,
     hasAssFilePath: !!captions?.assFilePath,
     isWordPopAnimation,
+    smartZoomEnabled: smartZoom?.enabled,
+    smartZoomMode: smartZoom?.mode,
   });
-
-  if (shouldDisableSmartZoom) {
-    console.log('[FFmpeg] Word-pop animation detected: disabling smart zoom to prevent OOM');
-  }
 
   // Compositing: blur-fill background + centered foreground
   // For word-pop: skip blur (split=2 doubles RAM) — use black bg + centered video instead.

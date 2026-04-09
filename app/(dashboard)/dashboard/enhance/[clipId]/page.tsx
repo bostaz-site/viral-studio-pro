@@ -1029,7 +1029,16 @@ export default function EnhancePage() {
               mode: settings.smartZoomMode,
             },
             hook: (() => {
-              console.log('[handleRender] Hook reorder data:', { reorderEnabled: settings.hookReorderEnabled, hasReorder: !!settings.hookReorder, segments: settings.hookReorder?.segments?.length || 0 })
+              console.log('[handleRender] Hook settings:', {
+                enabled: settings.hookEnabled,
+                textEnabled: settings.hookTextEnabled,
+                reorderEnabled: settings.hookReorderEnabled,
+                hasReorder: !!settings.hookReorder,
+                segments: settings.hookReorder?.segments?.length || 0,
+                segmentDetails: settings.hookReorder?.segments?.map(s => `${s.label}(${s.start}-${s.end}s)`) || [],
+                totalDuration: settings.hookReorder?.totalDuration || 0,
+                hookText: settings.hookText?.substring(0, 30) || '(empty)',
+              })
               return {
               enabled: settings.hookEnabled,
               textEnabled: settings.hookTextEnabled,
