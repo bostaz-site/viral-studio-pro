@@ -174,7 +174,7 @@ router.post('/', async (req, res) => {
     await fs.mkdir(tempDir, { recursive: true });
     console.log(`[Render ${renderSessionId}] Created temp directory: ${tempDir}`);
 
-    const inputPath = path.join(tempDir, 'input.mp4');
+    let inputPath = path.join(tempDir, 'input.mp4');
     let duration = clipDuration || 0;
     let userId = 'trending'; // default for trending clips
     let videoId = null;
@@ -629,8 +629,25 @@ router.post('/', async (req, res) => {
     trc(`HOOK REORDER check: enabled=${settings.hook?.enabled} reorderEnabled=${settings.hook?.reorderEnabled} hasReorder=${!!settings.hook?.reorder} segments=${settings.hook?.reorder?.segments?.length || 0}`);
     if (settings.hook?.reorderEnabled && settings.hook?.reorder?.segments?.length >= 2) {
       try {
-        const segments = settings.hook.reorder.segments;
-        trc(`HOOK REORDER: ${segments.length} segments — ${segments.map(s => `${s.label}(${s.start}-${s.end}s)`).join(' → ')}`);
+        // CRITICAL: clamp any segment whose end exceeds the actual video
+        // duration. The frontend sometimes sends segments with rounded
+        // durations (e.g. context end=30s for a 26.38s clip). Without this
+        // clamp, FFmpeg is asked to read past EOF, writes the last decoded
+        // frame to pad the gap, and the output visibly "freezes" for
+        // several seconds at the end. See render_jobs debug_log
+        // 0c3e6582-e3d5-4434-9fd0-c76e133cc25f for the reference incident.
+        const maxT = Math.max(0.1, duration);
+        const segments = settings.hook.reorder.segments
+          .map((s) => {
+            const start = Math.max(0, Math.min(Number(s.start) || 0, maxT));
+            const end = Math.max(start, Math.min(Number(s.end) || 0, maxT));
+            return { ...s, start, end };
+          })
+          .filter((s) => (s.end - s.start) >= 0.2); // drop degenerate segments
+        if (segments.length < 2) {
+          throw new Error(`reorder segments collapsed after clamp (<2 valid segments, maxT=${maxT.toFixed(2)}s)`);
+        }
+        trc(`HOOK REORDER: ${segments.length} segments — ${segments.map(s => `${s.label}(${s.start.toFixed(2)}-${s.end.toFixed(2)}s)`).join(' → ')}`);
 
         const ffmpegPath = process.env.FFMPEG_PATH || 'ffmpeg';
         const reorderOutputPath = path.join(tempDir, 'reordered.mp4');
@@ -687,7 +704,26 @@ router.post('/', async (req, res) => {
 
         reorderedInputPath = reorderOutputPath;
         reorderedStartTime = 0; // reordered file starts at 0
-        reorderedDuration = settings.hook.reorder.totalDuration;
+        // IMPORTANT: compute totalDuration from the *clamped* segments, not
+        // from settings.hook.reorder.totalDuration (which reflects the
+        // un-clamped frontend values and would re-introduce the freeze).
+        reorderedDuration = segments.reduce((sum, s) => sum + (s.end - s.start), 0);
+        // Re-probe the concat output to be 100% sure we match the real
+        // video stream (concat + copy can shave/add a few frames).
+        try {
+          const probe = await execFileAsync('ffprobe', [
+            '-v', 'quiet',
+            '-select_streams', 'v:0',
+            '-show_entries', 'stream=duration',
+            '-of', 'csv=p=0',
+            reorderOutputPath,
+          ]);
+          const probed = parseFloat(probe.stdout.trim());
+          if (Number.isFinite(probed) && probed > 0) {
+            reorderedDuration = Math.max(0.1, probed - 0.05);
+            trc(`HOOK REORDER: re-probed stream duration=${probed.toFixed(3)}s → reorderedDuration=${reorderedDuration.toFixed(3)}s`);
+          }
+        } catch {}
         trc(`HOOK REORDER done: ${reorderedDuration}s reordered clip at ${reorderOutputPath}`);
 
         // ── Remap subtitles to match new segment order ──
