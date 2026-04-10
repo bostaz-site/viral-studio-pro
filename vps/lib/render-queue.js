@@ -10,6 +10,8 @@
 const MAX_CONCURRENT = 1; // Railway has limited memory — 1 at a time is safest
 let running = 0;
 const queue = [];
+// Track job IDs currently running so /health and /status can report them
+const runningJobIds = new Set();
 
 /**
  * Enqueue a render job. Returns a promise that resolves when the job completes.
@@ -33,6 +35,7 @@ export function enqueueRender(jobId, fn) {
 
 async function runJob(job) {
   running++;
+  runningJobIds.add(job.jobId);
   console.log(`[Queue] Job ${job.jobId} started (${running} running, ${queue.length} waiting)`);
 
   try {
@@ -42,6 +45,7 @@ async function runJob(job) {
     job.reject(err);
   } finally {
     running--;
+    runningJobIds.delete(job.jobId);
     console.log(`[Queue] Job ${job.jobId} done (${running} running, ${queue.length} waiting)`);
 
     // Process next job in queue
@@ -53,6 +57,17 @@ async function runJob(job) {
 }
 
 /**
+ * Return the 0-indexed position of a jobId in the waiting queue, or -1 if
+ * the job is currently running or not known. Used by /status to show the
+ * user "3rd in line" progress.
+ */
+export function getJobPosition(jobId) {
+  if (runningJobIds.has(jobId)) return 0; // "your turn"
+  const idx = queue.findIndex((j) => j.jobId === jobId);
+  return idx === -1 ? -1 : idx + 1;
+}
+
+/**
  * Get current queue status.
  */
 export function getQueueStatus() {
@@ -60,5 +75,7 @@ export function getQueueStatus() {
     running,
     waiting: queue.length,
     maxConcurrent: MAX_CONCURRENT,
+    runningJobIds: Array.from(runningJobIds),
+    waitingJobIds: queue.map((j) => j.jobId),
   };
 }

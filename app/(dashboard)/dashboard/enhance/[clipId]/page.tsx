@@ -217,7 +217,14 @@ export default function EnhancePage() {
       try {
         const res = await fetch(`/api/render/status?jobId=${jobId}`)
         const json = await res.json() as {
-          data: { status: string; downloadUrl?: string | null; publicUrl?: string | null; thumbnailUrl?: string | null; errorMessage?: string | null } | null
+          data: {
+            status: string
+            downloadUrl?: string | null
+            publicUrl?: string | null
+            thumbnailUrl?: string | null
+            errorMessage?: string | null
+            queuePosition?: number | null
+          } | null
           message: string
         }
 
@@ -243,7 +250,12 @@ export default function EnhancePage() {
           setRenderMessage(`❌ Erreur : ${json.data.errorMessage || 'Erreur inconnue'}`)
           setRendering(false)
         } else if (json.data.status === 'rendering') {
-          setRenderMessage('⏳ Rendu en cours... ça peut prendre 30-60 secondes.')
+          const pos = json.data.queuePosition
+          if (typeof pos === 'number' && pos > 0) {
+            setRenderMessage(`⏳ En file d'attente — position ${pos}. Ton clip sera traité sous peu…`)
+          } else {
+            setRenderMessage('⏳ Rendu en cours... ça peut prendre 30-60 secondes.')
+          }
         }
       } catch {
         // Silently retry on network errors

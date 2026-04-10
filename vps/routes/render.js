@@ -786,13 +786,16 @@ router.post('/', async (req, res) => {
     }
 
 
-    // Render clip with FFmpeg
+    // Render clip with FFmpeg — serialize via the render queue so concurrent
+    // requests don't OOM Railway. The queue is in-memory (process-local),
+    // which is fine for a single-VPS deployment. Migrate to BullMQ + Redis
+    // when we scale beyond one worker.
     const outputPath = path.join(tempDir, 'output.mp4');
-    console.log(`[Render ${renderSessionId}] Starting FFmpeg render...`);
+    console.log(`[Render ${renderSessionId}] Enqueueing FFmpeg render...`);
 
     const userPlan = source === 'trending' ? 'pro' : (await getUserProfile(userId))?.plan || 'free';
 
-    await renderClip(inputPath, outputPath, {
+    await enqueueRender(jobId || renderSessionId, () => renderClip(inputPath, outputPath, {
       startTime: clipStartTime,
       endTime: clipStartTime + duration,
       duration: duration,
@@ -825,7 +828,7 @@ router.post('/', async (req, res) => {
         overlayCapsuleH: settings.hook.overlayCapsuleH || null,
       } : null,
       audioEnhance: settings.audioEnhance?.enabled || false,
-    });
+    }));
 
     // Upload rendered clip to Supabase Storage (unique path per render to avoid CDN cache)
     const renderTs = Date.now();

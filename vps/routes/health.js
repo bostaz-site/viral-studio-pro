@@ -3,7 +3,7 @@ import { promises as fs } from 'fs';
 import { checkFfmpegAvailability } from '../lib/ffmpeg-render.js';
 import { checkYtdlpAvailability } from '../lib/yt-dlp-wrapper.js';
 import { checkSupabaseHealth } from '../lib/supabase-client.js';
-import { getQueueStatus } from '../lib/render-queue.js';
+import { getQueueStatus, getJobPosition } from '../lib/render-queue.js';
 
 const router = express.Router();
 const startTime = Date.now();
@@ -80,6 +80,24 @@ router.get('/', async (req, res) => {
       message: 'Health check failed',
     });
   }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// GET /api/health/queue — Lightweight queue stats + per-job position
+//
+// Unlike `/` above, this endpoint does NOT ffprobe or ping Supabase, so it's
+// cheap enough to poll every few seconds while a render is in flight. If a
+// `jobId` query param is provided, returns its position in the queue
+// (0 = running, N = waiting position, -1 = unknown/finished).
+// ─────────────────────────────────────────────────────────────────────────────
+
+router.get('/queue', (req, res) => {
+  const jobId = typeof req.query.jobId === 'string' ? req.query.jobId : null;
+  const queue = getQueueStatus();
+  res.json({
+    queue,
+    jobPosition: jobId ? getJobPosition(jobId) : null,
+  });
 });
 
 export default router;

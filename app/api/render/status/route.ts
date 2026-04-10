@@ -38,6 +38,30 @@ export const GET = withAuth(async (request: NextRequest, user) => {
     )
   }
 
+  // If the job is still pending/rendering, ask the VPS queue where it sits.
+  // 0 = "your turn, running right now", N = N-th in line, -1 = unknown.
+  let queuePosition: number | null = null
+  if (job.status === 'pending' || job.status === 'rendering') {
+    try {
+      const vpsUrl = process.env.VPS_RENDER_URL
+      if (vpsUrl) {
+        const controller = new AbortController()
+        const timer = setTimeout(() => controller.abort(), 2500)
+        const res = await fetch(
+          `${vpsUrl.replace(/\/$/, '')}/api/health/queue?jobId=${encodeURIComponent(jobId)}`,
+          { signal: controller.signal, cache: 'no-store' },
+        )
+        clearTimeout(timer)
+        if (res.ok) {
+          const json = (await res.json()) as { jobPosition: number | null }
+          queuePosition = json.jobPosition
+        }
+      }
+    } catch {
+      // Swallow — queue position is a nice-to-have, not required for correctness.
+    }
+  }
+
   // If done, generate a signed URL for download AND a public URL for preview
   let downloadUrl: string | null = null
   let publicUrl: string | null = null
@@ -63,6 +87,20 @@ export const GET = withAuth(async (request: NextRequest, user) => {
     thumbnailUrl = thumbData?.publicUrl ?? null
   }
 
+  // Contextual message that reflects queue position when available
+  let message: string
+  if (job.status === 'done') {
+    message = 'Rendu terminé !'
+  } else if (job.status === 'error') {
+    message = `Erreur : ${job.error_message}`
+  } else if (queuePosition !== null && queuePosition > 0) {
+    message = `En file d'attente — position ${queuePosition}`
+  } else if (job.status === 'rendering') {
+    message = 'Rendu en cours...'
+  } else {
+    message = 'En attente...'
+  }
+
   return NextResponse.json({
     data: {
       jobId: job.id,
@@ -72,13 +110,11 @@ export const GET = withAuth(async (request: NextRequest, user) => {
       publicUrl,
       thumbnailUrl,
       errorMessage: job.error_message,
+      queuePosition,
       createdAt: job.created_at,
       updatedAt: job.updated_at,
     },
     error: null,
-    message: job.status === 'done' ? 'Rendu terminé !' :
-             job.status === 'error' ? `Erreur : ${job.error_message}` :
-             job.status === 'rendering' ? 'Rendu en cours...' :
-             'En attente...',
+    message,
   })
 })
