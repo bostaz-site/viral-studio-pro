@@ -86,14 +86,14 @@ const jsonLd = {
       price: '29',
       priceCurrency: 'EUR',
       name: 'Pro',
-      description: '50 vidéos par mois, sans watermark, brand template',
+      description: '50 vidéos par mois, clips jusqu\'à 2 min, sans watermark, brand template',
     },
     {
       '@type': 'Offer',
       price: '79',
       priceCurrency: 'EUR',
       name: 'Studio',
-      description: 'Vidéos illimitées, split-screen, distribution multi-plateforme',
+      description: '300 vidéos par mois, split-screen, distribution multi-plateforme',
     },
   ],
   aggregateRating: {

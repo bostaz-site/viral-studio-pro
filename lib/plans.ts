@@ -53,7 +53,7 @@ export const PLANS: Record<PlanId, PlanConfig> = {
     price: 29,
     limits: {
       maxVideosPerMonth: 50,
-      maxClipDurationSeconds: 600,
+      maxClipDurationSeconds: 120,
       maxUploadSizeMB: 500,
       watermarkForced: false,
       customBranding: true,
@@ -71,8 +71,8 @@ export const PLANS: Record<PlanId, PlanConfig> = {
     name: 'Studio',
     price: 79,
     limits: {
-      maxVideosPerMonth: -1, // unlimited
-      maxClipDurationSeconds: -1,
+      maxVideosPerMonth: 300, // soft cap to protect margins — was "unlimited"
+      maxClipDurationSeconds: 120,
       maxUploadSizeMB: 500,
       watermarkForced: false,
       customBranding: true,
@@ -126,6 +126,37 @@ export function checkVideoLimit(
   }
 
   return { allowed: true, currentUsage: used, limit, plan: config.id }
+}
+
+/**
+ * Check if the requested clip duration is allowed on the user's plan.
+ * Called by the render API before kicking off an FFmpeg job — this is the
+ * real cost gate (Whisper bills by the minute of audio).
+ */
+export function checkClipDuration(
+  plan: string | null | undefined,
+  durationSeconds: number,
+): UsageCheckResult {
+  const config = getPlanConfig(plan)
+  const limit = config.limits.maxClipDurationSeconds
+
+  // -1 would mean unlimited, but we cap everything at 120s now
+  if (limit === -1) {
+    return { allowed: true, currentUsage: durationSeconds, limit: -1, plan: config.id }
+  }
+
+  if (durationSeconds > limit) {
+    const planLabel = config.id === 'free' ? 'Pro' : 'Studio'
+    return {
+      allowed: false,
+      reason: `Ce clip fait ${Math.round(durationSeconds)}s, la limite de ton plan ${config.name} est de ${limit}s. Passe au plan ${planLabel} ou raccourcis le clip.`,
+      currentUsage: durationSeconds,
+      limit,
+      plan: config.id,
+    }
+  }
+
+  return { allowed: true, currentUsage: durationSeconds, limit, plan: config.id }
 }
 
 /**

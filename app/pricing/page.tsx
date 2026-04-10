@@ -61,7 +61,7 @@ const TIERS: PricingTier[] = [
     icon: Zap,
     features: [
       '50 vidéos par mois',
-      'Clips jusqu\u2019à 10 minutes',
+      'Clips jusqu\u2019à 2 minutes',
       'Split-screen automatique',
       'Sans watermark',
       'Branding personnalisé (logo, couleurs)',
@@ -82,7 +82,7 @@ const TIERS: PricingTier[] = [
     description: 'L\u2019arsenal complet pour les agences et power users.',
     icon: Crown,
     features: [
-      'Vidéos illimitées',
+      '300 vidéos par mois',
       'Tout le plan Pro inclus',
       'Distribution multi-plateforme',
       'Voix-off IA (ElevenLabs)',

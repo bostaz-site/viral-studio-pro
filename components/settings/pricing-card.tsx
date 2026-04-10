@@ -53,7 +53,7 @@ const PLANS: PlanConfig[] = [
     highlighted: true,
     features: [
       '50 vidéos / mois',
-      'Clips jusqu\'à 10 min',
+      'Clips jusqu\'à 2 min',
       'Split-screen automatique',
       'Virality Score + Remake This',
       'Sans watermark',
@@ -71,7 +71,7 @@ const PLANS: PlanConfig[] = [
     icon: Sparkles,
     color: 'text-violet-400',
     features: [
-      'Vidéos illimitées',
+      '300 vidéos / mois',
       'Tout Pro inclus',
       'Distribution multi-plateforme',
       'Voix-off ElevenLabs',

@@ -38,7 +38,7 @@ const PLANS: PlanConfig[] = [
     highlighted: true,
     features: [
       '50 vid\u00e9os / mois',
-      'Clips jusqu\'\u00e0 10 min',
+      'Clips jusqu\'\u00e0 2 min',
       'Split-screen automatique',
       'Score viral + Remake This',
       'Sans watermark',
@@ -52,7 +52,7 @@ const PLANS: PlanConfig[] = [
     price: '79\u20ac',
     priceNote: '/mois',
     features: [
-      'Vid\u00e9os illimit\u00e9es',
+      '300 vid\u00e9os / mois',
       'Tout Pro inclus',
       'Distribution multi-plateforme',
       'Voix-off ElevenLabs',

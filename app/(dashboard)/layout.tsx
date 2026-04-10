@@ -141,7 +141,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             {currentPlan === 'free' && (
               <Link href="/settings" className="flex items-center gap-1.5 text-xs text-amber-400 hover:text-amber-300 transition-colors font-medium">
                 <Zap className="h-3 w-3" />
-                Passer à Pro — vidéos illimitées
+                Passer à Pro — 50 clips/mois
               </Link>
             )}
           </div>

@@ -57,8 +57,8 @@ export default function TermsPage() {
             <h2 className="text-xl font-semibold text-foreground mb-3">4. Plans et paiements</h2>
             <ul className="list-disc list-inside space-y-1.5 text-muted-foreground">
               <li><strong className="text-foreground">Plan Free</strong> : 3 vidéos par mois, clips jusqu&apos;à 60 secondes, watermark inclus</li>
-              <li><strong className="text-foreground">Plan Pro (29€/mois)</strong> : 50 vidéos par mois, sans watermark, branding personnalisé</li>
-              <li><strong className="text-foreground">Plan Studio (79€/mois)</strong> : vidéos illimitées, split-screen, distribution multi-plateforme</li>
+              <li><strong className="text-foreground">Plan Pro (29€/mois)</strong> : 50 vidéos par mois, clips jusqu&apos;à 2 minutes, sans watermark, branding personnalisé</li>
+              <li><strong className="text-foreground">Plan Studio (79€/mois)</strong> : 300 vidéos par mois, clips jusqu&apos;à 2 minutes, split-screen, distribution multi-plateforme</li>
               <li>Les abonnements sont facturés mensuellement via Stripe</li>
               <li>Vous pouvez annuler à tout moment, l&apos;accès reste actif jusqu&apos;à la fin de la période payée</li>
             </ul>
