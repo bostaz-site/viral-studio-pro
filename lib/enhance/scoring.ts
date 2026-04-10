@@ -152,8 +152,10 @@ export const CAPTION_STYLES: CaptionStyle[] = [
   {
     id: 'hormozi-purple',
     label: 'Hormozi Purple',
-    preview: 'text-white font-black uppercase',
-    highlightClass: 'text-purple-400 bg-purple-400/20',
+    // Arbitrary hex matches the render exactly (#C77DFF — same as
+    // viral-glow tag/hook). Using text-purple-400 would shift the tone.
+    preview: 'text-[#C77DFF] font-black uppercase',
+    highlightClass: 'text-[#C77DFF] bg-[#C77DFF]/20',
     baseScore: 13,
     animation: 'word-pop',
     animLabel: 'Word Pop',
