@@ -40,16 +40,30 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    // Simple GQL query — reliable and returns direct MP4 URLs via CloudFront
+    // Use Twitch's persisted query `VideoAccessToken_Clip` — it returns both
+    // the video qualities AND the playback access token (sig + value) needed
+    // to authorize the CloudFront CDN. Without the token, CloudFront returns
+    // 401 Unauthorized for all clip MP4 URLs.
+    const cleanSlug = slug.replace(/"/g, '')
     const gqlResponse = await fetch(TWITCH_GQL_URL, {
       method: 'POST',
       headers: {
         'Client-ID': TWITCH_PUBLIC_CLIENT_ID,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        query: `{ clip(slug: "${slug.replace(/"/g, '')}") { videoQualities { frameRate quality sourceURL } } }`,
-      }),
+      body: JSON.stringify([
+        {
+          operationName: 'VideoAccessToken_Clip',
+          variables: { slug: cleanSlug, platform: 'web' },
+          extensions: {
+            persistedQuery: {
+              version: 1,
+              sha256Hash:
+                '6fd3af2b22989506269b9ac02dd87eb4a6688392d67d94e41a6886f1e9f5c00f',
+            },
+          },
+        },
+      ]),
     })
 
     if (!gqlResponse.ok) {
@@ -59,8 +73,12 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    const data = await gqlResponse.json()
-    const qualities = data?.data?.clip?.videoQualities as VideoQuality[] | undefined
+    const json = await gqlResponse.json()
+    const clipData = Array.isArray(json) ? json[0]?.data?.clip : json?.data?.clip
+    const qualities = clipData?.videoQualities as VideoQuality[] | undefined
+    const token = clipData?.playbackAccessToken as
+      | { signature: string; value: string }
+      | undefined
 
     if (!qualities || qualities.length === 0) {
       return NextResponse.json(
@@ -74,10 +92,17 @@ export async function GET(request: NextRequest) {
       (a, b) => parseInt(b.quality) - parseInt(a.quality)
     )[0]
 
-    cache.set(slug, { url: best.sourceURL, ts: Date.now() })
+    // Append playback access token to authorize CloudFront CDN
+    let signedUrl = best.sourceURL
+    if (token?.signature && token?.value) {
+      const sep = signedUrl.includes('?') ? '&' : '?'
+      signedUrl = `${signedUrl}${sep}sig=${token.signature}&token=${encodeURIComponent(token.value)}`
+    }
+
+    cache.set(slug, { url: signedUrl, ts: Date.now() })
 
     return NextResponse.json(
-      { video_url: best.sourceURL },
+      { video_url: signedUrl },
       { headers: { 'Cache-Control': 'public, max-age=3600' } }
     )
   } catch (err) {
