@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { User, Palette, CreditCard, Plus, Trash2, Star, CheckCircle2, AlertCircle, Loader2, Bell, Activity, Film, Clock } from 'lucide-react'
+import { User, Palette, CreditCard, Plus, Trash2, Star, CheckCircle2, AlertCircle, Loader2, Bell, Activity, Film, Clock, Gift, Copy, Check } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -32,6 +32,7 @@ interface Profile {
   plan: string | null
   monthly_videos_used: number | null
   monthly_processing_minutes_used: number | null
+  referral_code: string | null
   updated_at?: string | null
 }
 
@@ -82,6 +83,8 @@ function SettingsPageInner() {
   const [showBrandEditor, setShowBrandEditor] = useState(false)
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [upgradeError, setUpgradeError] = useState<string | null>(null)
+  const [referralCount, setReferralCount] = useState<number>(0)
+  const [referralCopied, setReferralCopied] = useState(false)
 
   // Profile editing
   const [fullName, setFullName] = useState('')
@@ -111,15 +114,36 @@ function SettingsPageInner() {
     const templatesRes = await fetch('/api/brand-templates').then((r) => r.json())
 
     // Fetch profile from Supabase directly
-    const { data: profileData } = await supabase
-      .from('profiles')
-      .select('id, email, full_name, plan, monthly_videos_used, monthly_processing_minutes_used, updated_at')
+    // referral_code / referred_by aren't in the generated Database types yet,
+    // so we cast to `any` for the select string and coerce the result manually.
+    const { data: rawProfile } = await (supabase.from('profiles') as unknown as {
+      select: (cols: string) => {
+        eq: (col: string, val: string) => {
+          single: () => Promise<{ data: Profile | null }>
+        }
+      }
+    })
+      .select('id, email, full_name, plan, monthly_videos_used, monthly_processing_minutes_used, referral_code, updated_at')
       .eq('id', currentUser.id)
       .single()
 
-    setProfile(profileData as Profile | null)
+    const profileData = rawProfile
+    setProfile(profileData)
     setFullName(profileData?.full_name ?? currentUser.user_metadata?.full_name ?? '')
     setTemplates((templatesRes?.data as BrandTemplate[]) ?? [])
+
+    // Count how many users this profile has referred
+    if (profileData?.id) {
+      const { count } = await (supabase.from('profiles') as unknown as {
+        select: (cols: string, opts: { count: 'exact'; head: boolean }) => {
+          eq: (col: string, val: string) => Promise<{ count: number | null }>
+        }
+      })
+        .select('id', { count: 'exact', head: true })
+        .eq('referred_by', profileData.id)
+      setReferralCount(count ?? 0)
+    }
+
     setLoading(false)
   }, [router])
 
@@ -473,6 +497,84 @@ function SettingsPageInner() {
                   </div>
                 </div>
               </>
+            )}
+          </CardContent>
+        </Card>
+      </Section>
+
+      <Separator />
+
+      {/* ── Referral Program ── */}
+      <Section
+        icon={Gift}
+        title="Parrainage"
+        description="Invite des créateurs et gagne des clips gratuits"
+      >
+        <Card className="bg-card/50 border-border">
+          <CardContent className="p-5 space-y-4">
+            {profile?.referral_code ? (
+              <>
+                <div>
+                  <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1.5 block">
+                    Ton lien d&apos;invitation
+                  </Label>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      readOnly
+                      value={`${typeof window !== 'undefined' ? window.location.origin : 'https://viral-studio-pro.netlify.app'}/signup?ref=${profile.referral_code}`}
+                      onFocus={(e) => e.currentTarget.select()}
+                      className="font-mono text-xs"
+                    />
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="gap-1.5 shrink-0"
+                      onClick={() => {
+                        const link = `${window.location.origin}/signup?ref=${profile.referral_code}`
+                        navigator.clipboard.writeText(link).then(() => {
+                          setReferralCopied(true)
+                          setTimeout(() => setReferralCopied(false), 2000)
+                        })
+                      }}
+                    >
+                      {referralCopied ? (
+                        <>
+                          <Check className="h-3.5 w-3.5" />
+                          Copié
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="h-3.5 w-3.5" />
+                          Copier
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3 pt-2">
+                  <div className="rounded-lg border border-border/60 bg-background/40 p-3">
+                    <p className="text-[11px] text-muted-foreground uppercase tracking-wider">Code</p>
+                    <p className="text-xl font-black font-mono tracking-wider text-primary mt-0.5">
+                      {profile.referral_code}
+                    </p>
+                  </div>
+                  <div className="rounded-lg border border-border/60 bg-background/40 p-3">
+                    <p className="text-[11px] text-muted-foreground uppercase tracking-wider">Invités</p>
+                    <p className="text-xl font-black text-foreground mt-0.5">
+                      {referralCount}
+                    </p>
+                  </div>
+                </div>
+
+                <p className="text-xs text-muted-foreground pt-1">
+                  Chaque ami qui s&apos;inscrit avec ton lien te rapporte des clips bonus. On te préviendra quand ils rejoignent.
+                </p>
+              </>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                Ton code de parrainage sera disponible d&apos;ici quelques instants.
+              </p>
             )}
           </CardContent>
         </Card>

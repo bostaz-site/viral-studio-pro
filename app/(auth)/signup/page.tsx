@@ -1,23 +1,47 @@
 "use client"
 
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useEffect, useState } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
-import { Loader2, Mail, Lock, User, ArrowRight, CheckCircle2 } from 'lucide-react'
+import { Loader2, Mail, Lock, User, ArrowRight, CheckCircle2, Gift } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card'
 
+const REFERRAL_STORAGE_KEY = 'vsp:referral_code'
+
 export default function SignupPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [fullName, setFullName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
+  const [referralCode, setReferralCode] = useState<string | null>(null)
+
+  // Capture ?ref= once on mount and stash it so it survives email confirmation
+  useEffect(() => {
+    const fromUrl = searchParams?.get('ref')?.trim().toUpperCase()
+    if (fromUrl && /^[A-Z0-9]{4,16}$/.test(fromUrl)) {
+      setReferralCode(fromUrl)
+      try {
+        localStorage.setItem(REFERRAL_STORAGE_KEY, fromUrl)
+      } catch {
+        // localStorage disabled / private mode — carry on
+      }
+      return
+    }
+    try {
+      const stored = localStorage.getItem(REFERRAL_STORAGE_KEY)
+      if (stored && /^[A-Z0-9]{4,16}$/.test(stored)) setReferralCode(stored)
+    } catch {
+      // ignore
+    }
+  }, [searchParams])
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -32,7 +56,12 @@ export default function SignupPage() {
     const { error: authError } = await supabase.auth.signUp({
       email,
       password,
-      options: { data: { full_name: fullName } },
+      options: {
+        data: {
+          full_name: fullName,
+          ...(referralCode ? { referred_by_code: referralCode } : {}),
+        },
+      },
     })
 
     if (authError) {
@@ -43,6 +72,11 @@ export default function SignupPage() {
 
     setSuccess(true)
     setLoading(false)
+    try {
+      localStorage.removeItem(REFERRAL_STORAGE_KEY)
+    } catch {
+      // ignore
+    }
 
     // If email confirmation is disabled in Supabase, redirect immediately
     setTimeout(() => router.push('/dashboard'), 2000)
@@ -82,6 +116,14 @@ export default function SignupPage() {
       </CardHeader>
       <form onSubmit={handleSignup}>
         <CardContent className="space-y-4">
+          {referralCode && (
+            <div className="text-xs bg-primary/10 border border-primary/20 text-primary rounded-lg px-3 py-2.5 flex items-center gap-2">
+              <Gift className="h-3.5 w-3.5 shrink-0" />
+              <span>
+                Invité par <span className="font-bold font-mono">{referralCode}</span> — bienvenue&nbsp;!
+              </span>
+            </div>
+          )}
           {error && (
             <div className="text-sm text-destructive bg-destructive/10 border border-destructive/20 rounded-lg px-3 py-2.5 flex items-start gap-2">
               <span className="shrink-0 mt-0.5">!</span>
