@@ -30,7 +30,7 @@ const PLANS: PlanConfig[] = [
   {
     id: 'free',
     name: 'Free',
-    price: '0€',
+    price: '$0',
     priceNote: '/mois',
     icon: Zap,
     color: 'text-muted-foreground',
@@ -46,13 +46,13 @@ const PLANS: PlanConfig[] = [
   {
     id: 'pro',
     name: 'Pro',
-    price: '29€',
+    price: '$19',
     priceNote: '/mois',
     icon: Crown,
     color: 'text-blue-400',
     highlighted: true,
     features: [
-      '50 vidéos / mois',
+      '30 vidéos / mois',
       'Clips jusqu\'à 2 min',
       'Split-screen automatique',
       'Virality Score + Remake This',
@@ -66,12 +66,12 @@ const PLANS: PlanConfig[] = [
   {
     id: 'studio',
     name: 'Studio',
-    price: '79€',
+    price: '$24',
     priceNote: '/mois',
     icon: Sparkles,
     color: 'text-violet-400',
     features: [
-      '300 vidéos / mois',
+      '120 vidéos / mois (90 + 30 bonus)',
       'Tout Pro inclus',
       'Distribution multi-plateforme',
       'Voix-off ElevenLabs',

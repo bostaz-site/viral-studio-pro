@@ -13,20 +13,45 @@ describe('Plan enforcement', () => {
     expect(result.allowed).toBe(false)
   })
 
-  it('pro plan allows 50 videos', () => {
-    const result = checkVideoLimit('pro', 49)
+  it('pro plan allows 30 videos', () => {
+    const result = checkVideoLimit('pro', 29)
     expect(result.allowed).toBe(true)
+    expect(result.limit).toBe(30)
   })
 
-  it('studio plan allows 300 videos', () => {
-    const result = checkVideoLimit('studio', 299)
-    expect(result.allowed).toBe(true)
-    expect(result.limit).toBe(300)
-  })
-
-  it('studio plan blocks at 300 videos (soft cap to protect margins)', () => {
-    const result = checkVideoLimit('studio', 300)
+  it('pro plan blocks at 30 videos', () => {
+    const result = checkVideoLimit('pro', 30)
     expect(result.allowed).toBe(false)
+  })
+
+  it('studio plan allows 120 videos (90 baseline + 30 bonus)', () => {
+    const result = checkVideoLimit('studio', 119)
+    expect(result.allowed).toBe(true)
+    expect(result.limit).toBe(120)
+  })
+
+  it('studio plan blocks at 120 videos (soft cap to protect margins)', () => {
+    const result = checkVideoLimit('studio', 120)
+    expect(result.allowed).toBe(false)
+  })
+
+  it('studio plan exposes baseline + bonus breakdown', () => {
+    const config = getPlanConfig('studio')
+    expect(config.baselineVideosPerMonth).toBe(90)
+    expect(config.bonusVideosPerMonth).toBe(30)
+    expect(config.limits.maxVideosPerMonth).toBe(120)
+  })
+
+  it('pro plan is $19 USD', () => {
+    const config = getPlanConfig('pro')
+    expect(config.price).toBe(19)
+    expect(config.currency).toBe('USD')
+  })
+
+  it('studio plan is $24 USD', () => {
+    const config = getPlanConfig('studio')
+    expect(config.price).toBe(24)
+    expect(config.currency).toBe('USD')
   })
 
   it('unknown plan defaults to free', () => {

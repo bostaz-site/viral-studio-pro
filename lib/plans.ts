@@ -23,7 +23,14 @@ export interface PlanLimits {
 export interface PlanConfig {
   id: PlanId
   name: string
-  price: number // €/month
+  price: number // $/month (USD)
+  currency: 'USD'
+  /**
+   * Baseline monthly quota actually charged for.
+   * Studio tier gets `bonusVideosPerMonth` on top as a welcome/value bump.
+   */
+  baselineVideosPerMonth: number
+  bonusVideosPerMonth: number
   limits: PlanLimits
 }
 
@@ -32,6 +39,9 @@ export const PLANS: Record<PlanId, PlanConfig> = {
     id: 'free',
     name: 'Free',
     price: 0,
+    currency: 'USD',
+    baselineVideosPerMonth: 3,
+    bonusVideosPerMonth: 0,
     limits: {
       maxVideosPerMonth: 3,
       maxClipDurationSeconds: 60,
@@ -50,9 +60,12 @@ export const PLANS: Record<PlanId, PlanConfig> = {
   pro: {
     id: 'pro',
     name: 'Pro',
-    price: 29,
+    price: 19,
+    currency: 'USD',
+    baselineVideosPerMonth: 30,
+    bonusVideosPerMonth: 0,
     limits: {
-      maxVideosPerMonth: 50,
+      maxVideosPerMonth: 30,
       maxClipDurationSeconds: 120,
       maxUploadSizeMB: 500,
       watermarkForced: false,
@@ -69,9 +82,12 @@ export const PLANS: Record<PlanId, PlanConfig> = {
   studio: {
     id: 'studio',
     name: 'Studio',
-    price: 79,
+    price: 24,
+    currency: 'USD',
+    baselineVideosPerMonth: 90,
+    bonusVideosPerMonth: 30, // welcome bonus → effective cap of 120/mois
     limits: {
-      maxVideosPerMonth: 300, // soft cap to protect margins — was "unlimited"
+      maxVideosPerMonth: 120, // 90 baseline + 30 bonus
       maxClipDurationSeconds: 120,
       maxUploadSizeMB: 500,
       watermarkForced: false,

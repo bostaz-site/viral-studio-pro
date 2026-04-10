@@ -55,12 +55,12 @@ const TIERS: PricingTier[] = [
   {
     id: 'pro',
     name: 'Pro',
-    price: 29,
+    price: 19,
     period: '/mois',
     description: 'Pour les créateurs sérieux qui veulent scaler leur contenu.',
     icon: Zap,
     features: [
-      '50 vidéos par mois',
+      '30 vidéos par mois',
       'Clips jusqu\u2019à 2 minutes',
       'Split-screen automatique',
       'Sans watermark',
@@ -77,12 +77,12 @@ const TIERS: PricingTier[] = [
   {
     id: 'studio',
     name: 'Studio',
-    price: 79,
+    price: 24,
     period: '/mois',
     description: 'L\u2019arsenal complet pour les agences et power users.',
     icon: Crown,
     features: [
-      '300 vidéos par mois',
+      '120 vidéos par mois (90 + 30 bonus de bienvenue)',
       'Tout le plan Pro inclus',
       'Distribution multi-plateforme',
       'Voix-off IA (ElevenLabs)',
@@ -209,7 +209,7 @@ export default function PricingPage() {
 
                   {/* Price */}
                   <div className="mb-4">
-                    <span className="text-4xl font-black tracking-tight">{tier.price}€</span>
+                    <span className="text-4xl font-black tracking-tight">${tier.price}</span>
                     <span className="text-muted-foreground ml-1">{tier.period}</span>
                     {tier.trialNote && (
                       <p className="text-xs text-emerald-400 font-medium mt-1.5">{tier.trialNote}</p>

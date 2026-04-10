@@ -19,7 +19,7 @@ interface PlanConfig {
 const PLANS: PlanConfig[] = [
   {
     name: 'Free',
-    price: '0\u20ac',
+    price: '$0',
     priceNote: '/mois',
     features: [
       '3 vid\u00e9os / mois',
@@ -32,12 +32,12 @@ const PLANS: PlanConfig[] = [
   },
   {
     name: 'Pro',
-    price: '29\u20ac',
+    price: '$19',
     priceNote: '/mois',
     trialNote: '7 jours gratuits, annule quand tu veux',
     highlighted: true,
     features: [
-      '50 vid\u00e9os / mois',
+      '30 vid\u00e9os / mois',
       'Clips jusqu\'\u00e0 2 min',
       'Split-screen automatique',
       'Score viral + Remake This',
@@ -49,10 +49,10 @@ const PLANS: PlanConfig[] = [
   },
   {
     name: 'Studio',
-    price: '79\u20ac',
+    price: '$24',
     priceNote: '/mois',
     features: [
-      '300 vid\u00e9os / mois',
+      '120 vid\u00e9os / mois (90 + 30 bonus)',
       'Tout Pro inclus',
       'Distribution multi-plateforme',
       'Voix-off ElevenLabs',

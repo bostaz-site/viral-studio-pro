@@ -5,7 +5,7 @@ import { ChevronDown } from 'lucide-react'
 export const FAQ_ITEMS = [
   {
     q: 'Comment marche le plan gratuit ?',
-    a: 'Le plan Free te donne 3 vid\u00e9os gratuites par mois, remises \u00e0 z\u00e9ro le 1er du mois suivant. Pas de carte bancaire demand\u00e9e \u00e0 l\'inscription. Clips jusqu\'\u00e0 60 secondes, watermark Viral Studio inclus. Tu peux passer Pro quand tu veux pour 29\u20ac/mois et d\u00e9bloquer 50 clips/mois sans watermark.',
+    a: 'Le plan Free te donne 3 vid\u00e9os gratuites par mois, remises \u00e0 z\u00e9ro le 1er du mois suivant. Pas de carte bancaire demand\u00e9e \u00e0 l\'inscription. Clips jusqu\'\u00e0 60 secondes, watermark Viral Studio inclus. Tu peux passer Pro quand tu veux pour $19/mois et d\u00e9bloquer 30 clips/mois sans watermark.',
   },
   {
     q: 'C\'est vraiment diff\u00e9rent d\'OpusClip et Eklipse ?',

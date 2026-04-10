@@ -311,7 +311,7 @@ export default function AnalyticsPage() {
           {usage.plan === 'free' && (videoPct >= 70 || minutePct >= 70) && (
             <div className="flex items-center justify-between gap-4 pt-2 border-t border-border">
               <p className="text-sm text-muted-foreground">
-                Tu approches de tes limites. Passe à Pro pour débloquer 50 vidéos/mois.
+                Tu approches de tes limites. Passe à Pro pour débloquer 30 vidéos/mois.
               </p>
               <Link href="/settings">
                 <Button size="sm" className="shrink-0">

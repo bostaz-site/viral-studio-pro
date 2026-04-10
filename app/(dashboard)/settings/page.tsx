@@ -346,7 +346,7 @@ function SettingsPageInner() {
                   </div>
                   {videosPct >= 90 && currentPlan === 'free' && (
                     <p className="text-xs text-amber-400 font-medium">
-                      Tu approches de ta limite mensuelle — passe à Pro pour 50 clips/mois.
+                      Tu approches de ta limite mensuelle — passe à Pro pour 30 clips/mois.
                     </p>
                   )}
                 </div>
