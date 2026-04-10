@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useRef, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { Bell, Flame, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -23,14 +24,29 @@ function timeAgo(dateStr: string): string {
 export function NotificationBell() {
   const { notifications, notificationsRead, markNotificationsRead } = useTrendingStore()
   const [open, setOpen] = useState(false)
-  const dropdownRef = useRef<HTMLDivElement>(null)
+  const [mounted, setMounted] = useState(false)
+  const triggerRef = useRef<HTMLDivElement>(null)
+  const panelRef = useRef<HTMLDivElement>(null)
 
   const unreadCount = notificationsRead ? 0 : notifications.length
+  const [isDesktop, setIsDesktop] = useState(false)
 
-  // Close on outside click
+  // Portal requires client mount + track viewport width
+  useEffect(() => {
+    setMounted(true)
+    const check = () => setIsDesktop(window.innerWidth >= 768)
+    check()
+    window.addEventListener('resize', check)
+    return () => window.removeEventListener('resize', check)
+  }, [])
+
+  // Close on outside click (check both trigger and portal panel)
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+      const target = e.target as Node
+      const inTrigger = triggerRef.current?.contains(target)
+      const inPanel = panelRef.current?.contains(target)
+      if (!inTrigger && !inPanel) {
         setOpen(false)
       }
     }
@@ -47,8 +63,77 @@ export function NotificationBell() {
     }
   }
 
+  const panel = open && mounted
+    ? createPortal(
+        <div
+          ref={panelRef}
+          style={{
+            position: 'fixed',
+            top: '80px',
+            left: isDesktop ? '272px' : '16px',
+            right: isDesktop ? 'auto' : '16px',
+            width: isDesktop ? '320px' : 'auto',
+            maxWidth: 'calc(100vw - 32px)',
+            zIndex: 2147483000,
+          }}
+          className="animate-in slide-in-from-top-2 fade-in duration-200"
+        >
+          <Card className="bg-card border-border shadow-2xl">
+            <CardContent className="p-0">
+              <div className="flex items-center justify-between px-4 py-3 border-b border-border">
+                <h3 className="text-sm font-semibold">Alertes virales</h3>
+                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setOpen(false)}>
+                  <X className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+
+              <div className="max-h-72 overflow-y-auto">
+                {notifications.length === 0 ? (
+                  <div className="p-6 text-center">
+                    <Bell className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
+                    <p className="text-sm text-muted-foreground">Aucune alerte pour le moment</p>
+                    <p className="text-xs text-muted-foreground/60 mt-1">
+                      Les clips avec un velocity score &ge; 80 apparaîtront ici
+                    </p>
+                  </div>
+                ) : (
+                  notifications.map((notif) => (
+                    <div
+                      key={notif.id}
+                      className="flex items-start gap-3 px-4 py-3 hover:bg-muted/30 transition-colors border-b border-border/50 last:border-0"
+                    >
+                      <div className="p-1.5 rounded-lg bg-orange-500/15 shrink-0 mt-0.5">
+                        <Flame className="h-3.5 w-3.5 text-orange-400" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-foreground leading-tight truncate">
+                          {notif.clipTitle}
+                        </p>
+                        <div className="flex items-center gap-2 mt-1">
+                          <span className={cn('text-xs font-medium', PLATFORM_COLORS[notif.platform] ?? 'text-muted-foreground')}>
+                            {notif.platform}
+                          </span>
+                          <span className="text-[10px] text-orange-400 font-bold">
+                            {notif.velocityScore.toFixed(0)}
+                          </span>
+                          <span className="text-[10px] text-muted-foreground/60 ml-auto">
+                            {timeAgo(notif.timestamp)}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </div>,
+        document.body
+      )
+    : null
+
   return (
-    <div className="relative" ref={dropdownRef}>
+    <div className="relative" ref={triggerRef}>
       <Button
         variant="ghost"
         size="icon"
@@ -62,58 +147,7 @@ export function NotificationBell() {
           </span>
         )}
       </Button>
-
-      {open && (
-        <Card className="absolute right-0 top-full mt-2 w-80 bg-card border-border shadow-xl z-50 animate-in slide-in-from-top-2 fade-in duration-200">
-          <CardContent className="p-0">
-            <div className="flex items-center justify-between px-4 py-3 border-b border-border">
-              <h3 className="text-sm font-semibold">Alertes virales</h3>
-              <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setOpen(false)}>
-                <X className="h-3.5 w-3.5" />
-              </Button>
-            </div>
-
-            <div className="max-h-72 overflow-y-auto">
-              {notifications.length === 0 ? (
-                <div className="p-6 text-center">
-                  <Bell className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
-                  <p className="text-sm text-muted-foreground">Aucune alerte pour le moment</p>
-                  <p className="text-xs text-muted-foreground/60 mt-1">
-                    Les clips avec un velocity score &ge; 80 apparaîtront ici
-                  </p>
-                </div>
-              ) : (
-                notifications.map((notif) => (
-                  <div
-                    key={notif.id}
-                    className="flex items-start gap-3 px-4 py-3 hover:bg-muted/30 transition-colors border-b border-border/50 last:border-0"
-                  >
-                    <div className="p-1.5 rounded-lg bg-orange-500/15 shrink-0 mt-0.5">
-                      <Flame className="h-3.5 w-3.5 text-orange-400" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-foreground leading-tight truncate">
-                        {notif.clipTitle}
-                      </p>
-                      <div className="flex items-center gap-2 mt-1">
-                        <span className={cn('text-xs font-medium', PLATFORM_COLORS[notif.platform] ?? 'text-muted-foreground')}>
-                          {notif.platform}
-                        </span>
-                        <span className="text-[10px] text-orange-400 font-bold">
-                          {notif.velocityScore.toFixed(0)}
-                        </span>
-                        <span className="text-[10px] text-muted-foreground/60 ml-auto">
-                          {timeAgo(notif.timestamp)}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      )}
+      {panel}
     </div>
   )
 }
