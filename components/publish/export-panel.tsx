@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from 'react'
+import Link from 'next/link'
 import {
   Download,
   Copy,
@@ -12,6 +13,8 @@ import {
   CheckCircle2,
   FileVideo,
   Clock,
+  ArrowRight,
+  Wand2,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -167,12 +170,26 @@ export function ExportPanel() {
             <Loader2 className="h-4 w-4 animate-spin" /> Chargement…
           </div>
         ) : clips.length === 0 ? (
-          <Card className="border-border bg-card/30">
-            <CardContent className="p-6 text-center">
-              <FileVideo className="h-10 w-10 text-muted-foreground/30 mx-auto mb-2" />
-              <p className="text-sm text-muted-foreground">
-                Aucun clip rendu disponible. Créez des clips dans l&apos;onglet Créer d&apos;abord.
-              </p>
+          <Card className="border-dashed border-2 border-border/60 bg-card/30">
+            <CardContent className="p-10 text-center space-y-5">
+              <div className="flex justify-center">
+                <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-orange-500/10 to-amber-500/10 border border-orange-500/20">
+                  <FileVideo className="h-8 w-8 text-orange-400/80" />
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <h3 className="text-lg font-bold text-foreground">Aucun clip rendu pour l&apos;instant</h3>
+                <p className="text-sm text-muted-foreground max-w-md mx-auto">
+                  Choisis un clip dans la bibliothèque, clique sur <span className="text-orange-400 font-semibold">&laquo;&nbsp;Make it viral&nbsp;&raquo;</span>, puis reviens ici pour le télécharger.
+                </p>
+              </div>
+              <Link href="/dashboard">
+                <Button className="gap-2 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white font-bold h-11 px-6">
+                  <Wand2 className="h-4 w-4" />
+                  Parcourir la bibliothèque
+                  <ArrowRight className="h-4 w-4" />
+                </Button>
+              </Link>
             </CardContent>
           </Card>
         ) : (
@@ -341,8 +358,8 @@ export function ExportPanel() {
                 <CheckCircle2 className="h-4 w-4 text-green-400 shrink-0" />
                 <p className="text-sm text-green-400">Lien de téléchargement prêt (valide 1h)</p>
               </div>
-              <a href={downloadUrl} download>
-                <Button className="w-full gap-2 h-11 text-base">
+              <a href={downloadUrl} download="viral-clip.mp4" className="block">
+                <Button className="w-full gap-2 h-14 text-base font-bold bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white shadow-lg shadow-green-500/25 animate-pulse">
                   <Download className="h-5 w-5" />
                   Télécharger le clip (.mp4)
                 </Button>

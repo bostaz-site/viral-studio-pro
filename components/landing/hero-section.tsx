@@ -1,24 +1,12 @@
 /* eslint-disable @next/next/no-img-element */
 "use client"
 
-import { useEffect, useRef, useState, useMemo } from 'react'
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { useInView } from 'framer-motion'
 import {
-  TrendingUp, MonitorPlay, ArrowRight, Play, Users, Film,
+  MonitorPlay, ArrowRight, Play, Clock, Sparkles, Zap,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-
-/** Weekly-seeded scarcity counter: changes every Monday, range 40-160 */
-function useWeeklyScarcity() {
-  return useMemo(() => {
-    const now = new Date()
-    const weekSeed = Math.floor(now.getTime() / (7 * 24 * 60 * 60 * 1000))
-    // Simple hash from seed
-    const hash = ((weekSeed * 2654435761) >>> 0) % 121 // 0-120
-    return 40 + hash // 40-160
-  }, [])
-}
 
 // ─── Platform SVG Icons ─────────────────────────────────────────────────────
 
@@ -54,61 +42,40 @@ function InstagramLogo({ className }: { className?: string }) {
   )
 }
 
-// ─── useCountUp ─────────────────────────────────────────────────────────────
-
-function useCountUp(target: number, duration = 1500) {
-  const [count, setCount] = useState(0)
-  const ref = useRef<HTMLDivElement>(null)
-  const inView = useInView(ref, { once: true })
-
-  useEffect(() => {
-    if (!inView) return
-    const start = performance.now()
-    const step = (now: number) => {
-      const progress = Math.min((now - start) / duration, 1)
-      const eased = 1 - Math.pow(1 - progress, 3)
-      setCount(Math.floor(eased * target))
-      if (progress < 1) requestAnimationFrame(step)
-    }
-    requestAnimationFrame(step)
-  }, [inView, target, duration])
-
-  return { count, ref }
-}
-
 // ─── Hero Demo (shared animation) ───────────────────────────────────────────
 
 import { ClipTransformAnimation } from '@/components/shared/clip-transform-animation'
 
-// ─── (URL input removed — flow is Browse → Enhance → Post) ─────────────────
+// ─── ValueProps (replaces fake StatsCounter) ───────────────────────────────
 
-// ─── StatsCounter ───────────────────────────────────────────────────────────
-
-function StatsCounter() {
-  const clips = useCountUp(12847)
-  const creators = useCountUp(2340)
-
+function ValueProps() {
   return (
-    <div ref={clips.ref} className="flex flex-wrap items-center justify-center gap-8 mt-12 pt-8 border-t border-border/20">
-      <div className="flex items-center gap-2">
-        <Film className="h-5 w-5 text-blue-400" />
+    <div className="flex flex-wrap items-center justify-center gap-6 mt-12 pt-8 border-t border-border/20">
+      <div className="flex items-center gap-2.5">
+        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-orange-500/10 border border-orange-500/20">
+          <Zap className="h-4 w-4 text-orange-400" />
+        </div>
         <div className="text-left">
-          <p className="text-2xl font-black text-foreground">{clips.count.toLocaleString('fr-FR')}</p>
-          <p className="text-xs text-muted-foreground">clips cr&eacute;&eacute;s</p>
+          <p className="text-sm font-bold text-foreground leading-tight">1 clic</p>
+          <p className="text-xs text-muted-foreground">setup viral auto</p>
         </div>
       </div>
-      <div ref={creators.ref} className="flex items-center gap-2">
-        <Users className="h-5 w-5 text-indigo-400" />
+      <div className="flex items-center gap-2.5">
+        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-blue-500/10 border border-blue-500/20">
+          <Clock className="h-4 w-4 text-blue-400" />
+        </div>
         <div className="text-left">
-          <p className="text-2xl font-black text-foreground">{creators.count.toLocaleString('fr-FR')}+</p>
-          <p className="text-xs text-muted-foreground">cr&eacute;ateurs actifs</p>
+          <p className="text-sm font-bold text-foreground leading-tight">&lt; 90 sec</p>
+          <p className="text-xs text-muted-foreground">par clip rendu</p>
         </div>
       </div>
-      <div className="flex items-center gap-2">
-        <TrendingUp className="h-5 w-5 text-emerald-400" />
+      <div className="flex items-center gap-2.5">
+        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-purple-500/10 border border-purple-500/20">
+          <Sparkles className="h-4 w-4 text-purple-400" />
+        </div>
         <div className="text-left">
-          <p className="text-2xl font-black text-foreground">x8.5</p>
-          <p className="text-xs text-muted-foreground">vues vs clips classiques</p>
+          <p className="text-sm font-bold text-foreground leading-tight">Hook IA</p>
+          <p className="text-xs text-muted-foreground">gros moment en 1er</p>
         </div>
       </div>
     </div>
@@ -135,10 +102,10 @@ function StickyBar() {
     <div className="fixed bottom-0 left-0 right-0 z-50 bg-background/95 backdrop-blur-md border-t border-border/50 py-2.5 px-4">
       <div className="max-w-4xl mx-auto flex items-center justify-between gap-4">
         <p className="text-sm text-muted-foreground hidden sm:block">
-          <span className="font-semibold text-foreground">30 clips offerts</span> &middot; Sans carte bancaire
+          <span className="font-semibold text-foreground">Essai gratuit</span> &middot; Sans carte bancaire
         </p>
         <Link href="/signup">
-          <Button size="sm" className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-semibold gap-1.5 h-9 px-6">
+          <Button size="sm" className="bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white font-bold gap-1.5 h-9 px-6">
             Commencer gratuitement
             <ArrowRight className="h-3.5 w-3.5" />
           </Button>
@@ -151,8 +118,6 @@ function StickyBar() {
 // ─── HeroSection (main export) ──────────────────────────────────────────────
 
 export function HeroSection() {
-  const freeSlots = useWeeklyScarcity()
-
   return (
     <>
       <StickyBar />
@@ -166,44 +131,40 @@ export function HeroSection() {
 
         <div className="relative z-10 max-w-5xl mx-auto">
           <div className="text-center">
-            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-emerald-500/20 bg-emerald-500/5 text-sm text-emerald-400 mb-8">
+            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-orange-500/20 bg-orange-500/5 text-sm text-orange-400 mb-8">
               <MonitorPlay className="h-3.5 w-3.5" />
-              Le seul outil avec split-screen automatique
+              Clip Twitch &rarr; TikTok viral en 1 clic
             </div>
 
             <h1 className="text-4xl sm:text-5xl md:text-6xl font-black tracking-tight leading-[1.1]">
-              Clips viraux en{' '}
-              <span className="bg-gradient-to-r from-blue-400 via-indigo-400 to-purple-400 bg-clip-text text-transparent">
-                split-screen
+              Transforme tes clips Twitch en{' '}
+              <span className="bg-gradient-to-r from-orange-400 via-amber-400 to-yellow-400 bg-clip-text text-transparent">
+                clips viraux
               </span>{' '}
-              depuis tes streams
+              en 90&nbsp;secondes
             </h1>
 
             <p className="text-lg sm:text-xl text-muted-foreground mt-6 max-w-2xl mx-auto leading-relaxed">
-              Stream + Subway Surfers/Minecraft en bas + sous-titres karaok&eacute; = la formule qui explose sur TikTok.
-              Le seul outil qui fait &ccedil;a automatiquement &agrave; partir de Twitch et YouTube Gaming.
+              Sous-titres karaok&eacute;, split-screen gameplay, hook automatique, tag streamer.
+              Un bouton &laquo;&nbsp;Make it viral&nbsp;&raquo; applique la formule qui marche sur TikTok &mdash; sans CapCut, sans montage.
             </p>
 
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mt-10">
               <Link href="/signup">
-                <Button size="lg" className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-lg shadow-blue-500/25 h-12 px-8 text-base font-semibold gap-2">
-                  Commencer gratuitement &mdash; 30 clips offerts
+                <Button size="lg" className="bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white shadow-lg shadow-orange-500/25 h-12 px-8 text-base font-bold gap-2">
+                  Essayer gratuitement
                   <ArrowRight className="h-4 w-4" />
                 </Button>
               </Link>
               <Link href="/blog/creer-clips-viraux-twitch-guide-2026">
                 <Button variant="ghost" size="lg" className="h-12 px-6 text-base text-muted-foreground hover:text-foreground gap-2">
                   <Play className="h-4 w-4" />
-                  Voir comment &ccedil;a marche
+                  Voir une d&eacute;mo
                 </Button>
               </Link>
             </div>
 
-            <p className="text-xs text-amber-400/70 mt-3 font-medium">
-              Offre de lancement : {freeSlots} comptes gratuits restants cette semaine
-            </p>
-
-            <p className="text-xs text-muted-foreground/60 mt-3">
+            <p className="text-xs text-muted-foreground/60 mt-4">
               Sans carte bancaire &middot; Aucune installation &middot; Annulable en 1 clic
             </p>
           </div>
@@ -219,14 +180,8 @@ export function HeroSection() {
             C&apos;est termin&eacute;.
           </p>
 
-          {/* Stats */}
-          <StatsCounter />
-
-          {/* Live activity */}
-          <div className="flex items-center justify-center gap-2 mt-4">
-            <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-            <span className="text-xs text-muted-foreground/60">47 clips cr&eacute;&eacute;s dans les derni&egrave;res 24h</span>
-          </div>
+          {/* Value props (replaces fake counter stats) */}
+          <ValueProps />
 
           {/* Platform logos */}
           <div className="mt-10 text-center">

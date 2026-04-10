@@ -397,6 +397,7 @@ export default function EnhancePage() {
   }, [clip, settings, startPolling])
 
   const [makeViralLoading, setMakeViralLoading] = useState(false)
+  const pendingAutoRenderRef = useRef(false)
 
   const applyBestCombo = useCallback(async () => {
     if (!clip) return
@@ -404,11 +405,11 @@ export default function EnhancePage() {
     // 1. Apply all optimal settings immediately
     setSettings((s) => ({
       ...s,
-      // Sous-titres: Hormozi word-pop, scale up rouge, 1 mot/ligne, 60%
+      // Sous-titres: Hormozi Purple word-pop (brand neon violet), scale up rouge, 1 mot/ligne, 60%
       captionsEnabled: true,
-      captionStyle: 'hormozi',
+      captionStyle: 'hormozi-purple',
       emphasisEffect: 'scale',
-      emphasisColor: 'red',
+      emphasisColor: 'purple',
       captionPosition: 60,
       wordsPerLine: 1,
       // Pas de split-screen, zoom remplir
@@ -473,8 +474,24 @@ export default function EnhancePage() {
       // Silent fail — hook text stays empty but everything else works
     }
     setHookGenerating(false)
+    // 3. Mark auto-render pending — useEffect below will fire handleRender
+    // once React has committed the new settings (closure must see them).
+    pendingAutoRenderRef.current = true
     setMakeViralLoading(false)
   }, [clip])
+
+  // Auto-trigger render once applyBestCombo has propagated the new settings.
+  // We wait until settings.captionStyle matches the applied preset AND
+  // (if reorder enabled) the reorder data has been populated.
+  useEffect(() => {
+    if (!pendingAutoRenderRef.current) return
+    if (rendering) return
+    if (settings.captionStyle !== 'hormozi-purple') return
+    // Hook reorder must be ready if we expect it
+    if (settings.hookReorderEnabled && !settings.hookReorder) return
+    pendingAutoRenderRef.current = false
+    handleRender()
+  }, [settings, rendering, handleRender])
 
   // ── Hook Generator ────────────────────────────────────────────────────
   const generateHook = useCallback(async () => {
@@ -647,28 +664,43 @@ export default function EnhancePage() {
         {/* Right: Actions + Settings — scrollable */}
         <div className="space-y-6">
           {/* ── Make it viral button ── */}
-          <button
-            onClick={applyBestCombo}
-            disabled={makeViralLoading}
-            className="group relative w-full rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-orange-600 p-[1px] shadow-lg shadow-orange-500/25 hover:shadow-orange-500/40 transition-all duration-300 animate-[glow_3s_ease-in-out_infinite] disabled:opacity-80"
-          >
-            <div className="relative flex items-center justify-center gap-3 rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-orange-600 px-4 py-3.5">
-              {makeViralLoading ? (
-                <Loader2 className="h-5 w-5 text-white animate-spin" />
-              ) : (
-                <Zap className="h-5 w-5 text-white drop-shadow-lg" />
-              )}
-              <div className="text-left">
-                <span className="text-base font-black text-white tracking-tight block leading-tight">
-                  {makeViralLoading ? 'Analyse en cours...' : 'Make it viral'}
-                </span>
-                <span className="text-[10px] font-medium text-white/70 block">
-                  {makeViralLoading ? 'Hook IA + paramètres optimaux' : '1 click = viral clip'}
-                </span>
-              </div>
-              <Sparkles className={cn('h-4 w-4 text-white/80 ml-auto', makeViralLoading ? 'animate-spin' : 'group-hover:animate-spin')} />
-            </div>
-          </button>
+          {(() => {
+            const viralBusy = makeViralLoading || pendingAutoRenderRef.current || rendering
+            const viralLabel = makeViralLoading
+              ? 'Analyse du clip...'
+              : rendering
+                ? 'Rendu en cours...'
+                : 'Make it viral'
+            const viralSubLabel = makeViralLoading
+              ? 'Hook IA + paramètres optimaux'
+              : rendering
+                ? 'Sous-titres + hook + smart zoom'
+                : '1 click = viral clip'
+            return (
+              <button
+                onClick={applyBestCombo}
+                disabled={viralBusy}
+                className="group relative w-full rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-orange-600 p-[1px] shadow-lg shadow-orange-500/25 hover:shadow-orange-500/40 transition-all duration-300 animate-[glow_3s_ease-in-out_infinite] disabled:opacity-80"
+              >
+                <div className="relative flex items-center justify-center gap-3 rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-orange-600 px-4 py-3.5">
+                  {viralBusy ? (
+                    <Loader2 className="h-5 w-5 text-white animate-spin" />
+                  ) : (
+                    <Zap className="h-5 w-5 text-white drop-shadow-lg" />
+                  )}
+                  <div className="text-left">
+                    <span className="text-base font-black text-white tracking-tight block leading-tight">
+                      {viralLabel}
+                    </span>
+                    <span className="text-[10px] font-medium text-white/70 block">
+                      {viralSubLabel}
+                    </span>
+                  </div>
+                  <Sparkles className={cn('h-4 w-4 text-white/80 ml-auto', viralBusy ? 'animate-spin' : 'group-hover:animate-spin')} />
+                </div>
+              </button>
+            )
+          })()}
 
           {/* ── Settings ── */}
           <div className="opacity-90 hover:opacity-100 transition-opacity duration-300">
