@@ -593,8 +593,13 @@ export default function EnhancePage() {
 
       {/* Two-column layout: Sticky Preview | Scrollable Settings */}
       <div className="grid lg:grid-cols-[300px_1fr] gap-6">
-        {/* Left: Preview only — truly sticky, fits in viewport */}
-        <div className="lg:sticky lg:top-4 lg:self-start space-y-3">
+        {/* Left: Preview only — truly sticky with its own overflow so it
+            never clips behind the viewport even when the preview block
+            (toggle + 9:16 video + generate button + status) is taller
+            than the available space. */}
+        <div
+          className="lg:sticky lg:top-4 lg:self-start space-y-3 lg:max-h-[calc(100vh-2rem)] lg:overflow-y-auto lg:pr-1 lg:[scrollbar-width:thin]"
+        >
           {/* ── Before/After Preview Toggle ── */}
           <div className="flex gap-2">
             <Button
