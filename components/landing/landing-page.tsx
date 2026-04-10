@@ -12,6 +12,7 @@ import { TestimonialsSection } from '@/components/landing/testimonials-section'
 import { ComparisonSection } from '@/components/landing/comparison-section'
 import { FaqSection, FAQ_ITEMS } from '@/components/landing/faq-section'
 import { PricingSection } from '@/components/landing/pricing-section'
+import { RoiCalculatorSection } from '@/components/landing/roi-calculator-section'
 
 export function LandingPage() {
   // Inject FAQ + HowTo structured data for SEO
@@ -87,6 +88,7 @@ export function LandingPage() {
       <FeaturesGrid />
       <TestimonialsSection />
       <ComparisonSection />
+      <RoiCalculatorSection />
       <FaqSection />
       <PricingSection />
 
