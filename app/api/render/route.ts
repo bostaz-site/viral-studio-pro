@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { withAuth } from '@/lib/api/withAuth'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { rateLimit, RATE_LIMITS } from '@/lib/rate-limit'
+import { resolveTwitchClipFromUrlOrSlug } from '@/lib/twitch/resolve-clip-url'
 
 // Allow larger request body for hook overlay PNG (base64 ~500KB-2MB)
 export const maxDuration = 60
@@ -160,6 +161,29 @@ export const POST = withAuth(async (request, user) => {
       { data: null, error: 'Clip not found', message: 'Clip introuvable' },
       { status: 404 }
     )
+  }
+
+  // ── Resolve Twitch webpage URLs to signed CloudFront MP4s ──
+  //
+  // trending_clips.external_url is the Twitch webpage (e.g.
+  // https://www.twitch.tv/ishowspeed/clip/Endearing...) — downloading that
+  // with yt-dlp or fetch returns HTML, not video bytes. We need to hit the
+  // Twitch GQL API to get a signed MP4 URL before handing it to the VPS.
+  //
+  // If resolution fails (Twitch changed their API, clip was deleted, network
+  // error), fall back to the raw URL and let the VPS try yt-dlp — it may
+  // still succeed for non-Twitch sources or if yt-dlp was updated recently.
+  if (foundSource === 'trending' && videoUrl.includes('twitch.tv')) {
+    try {
+      const resolved = await resolveTwitchClipFromUrlOrSlug(videoUrl)
+      console.log(`[render] Resolved Twitch clip to signed CDN URL`)
+      videoUrl = resolved
+    } catch (err) {
+      console.warn(
+        '[render] Twitch clip resolution failed, falling back to raw URL:',
+        err instanceof Error ? err.message : err,
+      )
+    }
   }
 
   // ── VPS render ──
