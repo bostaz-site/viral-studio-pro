@@ -400,18 +400,56 @@ export function computeScores(clip: TrendingClipData): ComputedScores {
 }
 
 /**
+ * Baseline viral score for an unmodified clip, derived from its own metrics
+ * (velocity, views, niche). A trending clip from the library should feel
+ * "already somewhat viral" before the user touches anything — otherwise the
+ * progress bar sits at 0/100 and feels punishing. Returns 10–30.
+ */
+export function computeBaselineScore(clip: TrendingClipData): number {
+  const velocity = clip.velocity_score ?? 0
+  const views = clip.view_count ?? 0
+
+  let base = 10
+  if (velocity >= 80 || views >= 5_000_000) base = 30
+  else if (velocity >= 60 || views >= 1_000_000) base = 24
+  else if (velocity >= 40 || views >= 250_000) base = 18
+  else if (velocity >= 20 || views >= 50_000) base = 14
+
+  // Tiny nudge: clips with a recognizable author_handle get +2 because
+  // they're easier to credit, which marginally helps reach.
+  if (clip.author_handle) base += 2
+
+  return Math.min(30, base)
+}
+
+/**
  * Compute the current viral score based on user's enhancement settings.
- * Combines scores for captions, emphasis effects, b-roll, and tags.
+ * Combines a baseline (from clip metrics) with the modifications score
+ * (captions, emphasis, b-roll, tags). The modifications score is scaled
+ * so that baseline + modifications can never exceed 100.
+ *
+ *   total = baseline + modifications * ((100 - baseline) / 100)
+ *
+ * So a clip with baseline=20 starts at 20 and maxes at 100, a clip with
+ * baseline=30 starts at 30 and still maxes at 100. The user always sees
+ * an upward trajectory from their first interaction.
  */
 export function computeCurrentScore(
   settings: EnhanceSettings,
-  scores: ComputedScores
+  scores: ComputedScores,
+  baseline = 0
 ): number {
   const cs = scores.captionScores.find((s) => s.id === settings.captionStyle)?.score ?? 0
   const es = scores.emphasisScores.find((s) => s.id === settings.emphasisEffect)?.score ?? 0
   const bs = settings.splitScreenEnabled ? (scores.brollScores.find((s) => s.id === settings.brollVideo)?.score ?? 0) : 0
   const ts = scores.tagScores.find((s) => s.id === settings.tagStyle)?.score ?? 0
-  return (settings.captionsEnabled ? cs + es : 0) + bs + ts
+  const modifications = (settings.captionsEnabled ? cs + es : 0) + bs + ts
+
+  if (baseline <= 0) return Math.min(100, modifications)
+
+  const headroom = Math.max(0, 100 - baseline)
+  const scaledMods = (modifications / 100) * headroom
+  return Math.min(100, Math.round(baseline + scaledMods))
 }
 
 // ─── Score Label ────────────────────────────────────────────────────────────

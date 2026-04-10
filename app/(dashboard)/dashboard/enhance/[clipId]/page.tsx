@@ -23,7 +23,7 @@ import { captureHookOverlayPNG } from '@/lib/capture-hook-overlay'
 import { captureTagOverlayPNG } from '@/lib/capture-tag-overlay'
 import {
   CAPTION_STYLES, EMPHASIS_EFFECTS, EMPHASIS_COLORS, BROLL_OPTIONS, TAG_STYLES,
-  formatCount, computeScores, computeCurrentScore, getScoreLabel,
+  formatCount, computeScores, computeCurrentScore, computeBaselineScore, getScoreLabel,
   type TrendingClipData, type EnhanceSettings, type ScoredOption,
 } from '@/lib/enhance/scoring'
 import { LivePreview, ScoreBadge } from '@/components/enhance/live-preview'
@@ -182,10 +182,15 @@ export default function EnhancePage() {
     return computeScores(clip)
   }, [clip])
 
+  const baselineScore = useMemo(() => {
+    if (!clip) return 0
+    return computeBaselineScore(clip)
+  }, [clip])
+
   const currentScore = useMemo(() => {
-    if (!scores) return 0
-    return computeCurrentScore(settings, scores)
-  }, [settings, scores])
+    if (!scores) return baselineScore
+    return computeCurrentScore(settings, scores, baselineScore)
+  }, [settings, scores, baselineScore])
 
   // ── Polling for render job status ──
   const startPolling = useCallback((jobId: string) => {
