@@ -559,9 +559,185 @@ router.post('/', async (req, res) => {
       }
     }
 
+    // ─── Hook Reorder (pre-processing) ───
+    // MUST run BEFORE Auto-Cut because reorder segments reference the ORIGINAL
+    // timeline. If Auto-Cut runs first and shrinks a 35s clip to 5.2s, the
+    // reorder segments would then reference times past EOF and collapse to
+    // degenerate segments (see render_jobs debug_log — "reorder segments
+    // collapsed after clamp").
+    //
+    // After reorder: inputPath points to the reordered file, clipStartTime=0,
+    // duration is the reordered duration, and captionWordTimestamps are
+    // remapped to the new timeline. Auto-Cut then runs on this fresh state.
+    // If reorder is requested but no segments provided, calculate them on the fly
+    if (settings.hook?.reorderEnabled && (!settings.hook?.reorder || !settings.hook?.reorder?.segments?.length)) {
+      trc(`HOOK REORDER: no segments provided, calculating from duration=${duration}s`);
+      const fallbackPeak = detectPeakMoment({ transcript: '', duration, wordTimestamps: [], audioPeaks: [] });
+      const peakT = fallbackPeak.peakTime > 0 ? fallbackPeak.peakTime : Math.min(duration * 0.6, duration - 2);
+      const hookLen = settings.hook?.length || 1.5;
+      settings.hook.reorder = calculateReorderTimestamps(peakT, duration, hookLen, 8);
+      trc(`HOOK REORDER fallback: peak=${peakT}s, ${settings.hook.reorder.segments.length} segments`);
+    }
+    trc(`HOOK REORDER check: enabled=${settings.hook?.enabled} reorderEnabled=${settings.hook?.reorderEnabled} hasReorder=${!!settings.hook?.reorder} segments=${settings.hook?.reorder?.segments?.length || 0}`);
+    if (settings.hook?.reorderEnabled && settings.hook?.reorder?.segments?.length >= 2) {
+      try {
+        // Clamp any segment whose end exceeds the actual video duration.
+        const maxT = Math.max(0.1, duration);
+        const segments = settings.hook.reorder.segments
+          .map((s) => {
+            const start = Math.max(0, Math.min(Number(s.start) || 0, maxT));
+            const end = Math.max(start, Math.min(Number(s.end) || 0, maxT));
+            return { ...s, start, end };
+          })
+          .filter((s) => (s.end - s.start) >= 0.2);
+        if (segments.length < 2) {
+          throw new Error(`reorder segments collapsed after clamp (<2 valid segments, maxT=${maxT.toFixed(2)}s)`);
+        }
+        trc(`HOOK REORDER: ${segments.length} segments — ${segments.map(s => `${s.label}(${s.start.toFixed(2)}-${s.end.toFixed(2)}s)`).join(' → ')}`);
+
+        const ffmpegPath = process.env.FFMPEG_PATH || 'ffmpeg';
+        const reorderOutputPath = path.join(tempDir, 'reordered.mp4');
+        const segmentFiles = [];
+
+        for (let i = 0; i < segments.length; i++) {
+          const seg = segments[i];
+          const segStart = clipStartTime + seg.start;
+          const segDuration = seg.end - seg.start;
+          const segFile = path.join(tempDir, `seg_${i}.ts`);
+          segmentFiles.push(segFile);
+
+          trc(`HOOK REORDER: extracting segment ${i} (${seg.label}): ${segStart}s → ${segStart + segDuration}s (${segDuration}s)`);
+
+          const segArgs = [
+            '-y',
+            '-ss', String(segStart),
+            '-i', inputPath,
+            '-t', String(segDuration),
+            '-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '18',
+            '-c:a', 'aac', '-b:a', '128k',
+            '-threads', '1',
+            '-f', 'mpegts',
+            segFile,
+          ];
+
+          await execFileAsync(ffmpegPath, segArgs, { timeout: 30000, maxBuffer: 10 * 1024 * 1024 });
+          trc(`HOOK REORDER: segment ${i} extracted OK`);
+        }
+
+        const concatInput = `concat:${segmentFiles.join('|')}`;
+        const concatArgs = [
+          '-y',
+          '-i', concatInput,
+          '-c', 'copy',
+          '-movflags', '+faststart',
+          reorderOutputPath,
+        ];
+
+        await execFileAsync(ffmpegPath, concatArgs, { timeout: 30000, maxBuffer: 10 * 1024 * 1024 });
+
+        const reorderStat = await fs.stat(reorderOutputPath);
+        trc(`HOOK REORDER: output file size = ${reorderStat.size} bytes`);
+
+        if (reorderStat.size < 1000) {
+          throw new Error(`Reordered file too small: ${reorderStat.size} bytes`);
+        }
+
+        // ── Remap caption word timestamps to match new segment order ──
+        // Build offset map: each segment's new start in the reordered video
+        let newOffset = 0;
+        const segmentMap = segments.map(seg => {
+          const entry = { origStart: seg.start, origEnd: seg.end, newStart: newOffset };
+          newOffset += (seg.end - seg.start);
+          return entry;
+        });
+        trc(`REORDER SUBS: remapping ${captionWordTimestamps.length} words across ${segmentMap.length} segments`);
+
+        const remappedWords = [];
+        for (const w of captionWordTimestamps) {
+          const wStart = w.start - clipStartTime;
+          const wEnd = w.end - clipStartTime;
+          for (const seg of segmentMap) {
+            if (wStart >= seg.origStart && wStart < seg.origEnd) {
+              const offset = wStart - seg.origStart;
+              const endOffset = Math.min(wEnd - seg.origStart, seg.origEnd - seg.origStart);
+              remappedWords.push({
+                ...w,
+                start: Math.round((seg.newStart + offset) * 100) / 100,
+                end: Math.round((seg.newStart + endOffset) * 100) / 100,
+              });
+              break;
+            }
+          }
+        }
+        remappedWords.sort((a, b) => a.start - b.start);
+        trc(`REORDER SUBS: ${remappedWords.length}/${captionWordTimestamps.length} words remapped`);
+
+        // ── Commit reorder: mutate the pipeline state ──
+        inputPath = reorderOutputPath;
+        clipStartTime = 0;
+        duration = segments.reduce((sum, s) => sum + (s.end - s.start), 0);
+        // Re-probe to be 100% sure we match the real video stream
+        try {
+          const probe = await execFileAsync('ffprobe', [
+            '-v', 'quiet',
+            '-select_streams', 'v:0',
+            '-show_entries', 'stream=duration',
+            '-of', 'csv=p=0',
+            reorderOutputPath,
+          ]);
+          const probed = parseFloat(probe.stdout.trim());
+          if (Number.isFinite(probed) && probed > 0) {
+            duration = Math.max(0.1, probed - 0.05);
+            trc(`HOOK REORDER: re-probed stream duration=${probed.toFixed(3)}s → duration=${duration.toFixed(3)}s`);
+          }
+        } catch {}
+        clipEndTime = duration;
+        captionWordTimestamps = remappedWords;
+        trc(`HOOK REORDER done: ${duration}s reordered clip at ${reorderOutputPath}`);
+
+        // Rewrite ASS with remapped timestamps (clipStartTime=0 since already rebased)
+        if (assFilePath && remappedWords.length > 0) {
+          try {
+            const captionStyle = settings.captions?.style || 'hormozi';
+            const captionPosition = settings.captions?.position || 'bottom';
+            const captionAnim = settings.captions?.animation || 'highlight';
+            const remappedASS = generateASS(remappedWords, {
+              style: captionStyle,
+              position: captionPosition,
+              canvasWidth: canvasW,
+              canvasHeight: canvasH,
+              splitScreen: splitScreenForCaptions,
+              animation: captionAnim,
+              clipStartTime: 0,
+              wordsPerLine: settings.captions?.wordsPerLine || 4,
+              customColors: settings.captions?.customColors,
+              customImportantWords: settings.captions?.customImportantWords || [],
+              emphasisEffect: settings.captions?.emphasisEffect || 'none',
+              emphasisColor: settings.captions?.emphasisColor || 'red',
+            });
+            if (remappedASS) {
+              await fs.writeFile(assFilePath, remappedASS, 'utf-8');
+              trc(`REORDER SUBS: rewrote ASS file with remapped timestamps (${remappedASS.length} bytes)`);
+            }
+          } catch (subErr) {
+            trc(`REORDER SUBS error: ${subErr.message} — using original subtitle timing`);
+          }
+        }
+
+        // Cleanup segment temp files
+        for (const f of segmentFiles) {
+          fs.unlink(f).catch(() => {});
+        }
+      } catch (reorderErr) {
+        trc(`HOOK REORDER FAILED: ${reorderErr.message}`);
+        trc(`HOOK REORDER stderr: ${reorderErr.stderr || 'none'}`);
+        // Fallback: continue with original input (inputPath/clipStartTime/duration unchanged)
+      }
+    }
+
     // ─── Auto-Cut Silences (pre-processing) ───
-    // If enabled, detect silence gaps in word timestamps and cut them out.
-    // Must run BEFORE reorder so the tighter clip gets reordered correctly.
+    // Runs AFTER Hook Reorder so it operates on the reordered timeline with
+    // already-remapped word timestamps.
     if (settings.autoCut?.enabled && captionWordTimestamps.length > 0) {
       try {
         const threshold = settings.autoCut.silenceThreshold || 0.7;
@@ -609,207 +785,6 @@ router.post('/', async (req, res) => {
       }
     }
 
-    // ─── Hook Reorder (pre-processing) ───
-    // If hook reorder is enabled with segments, trim+concat the input video
-    // to put the peak moment first: Hook → Context → Payoff
-    let reorderedInputPath = inputPath;
-    let reorderedStartTime = clipStartTime;
-    let reorderedDuration = duration;
-    // If reorder is requested but no segments provided, calculate them on the fly
-    // Note: reorder works independently of hook.enabled (hook text overlay)
-    if (settings.hook?.reorderEnabled && (!settings.hook?.reorder || !settings.hook?.reorder?.segments?.length)) {
-      trc(`HOOK REORDER: no segments provided, calculating from duration=${duration}s`);
-      const fallbackPeak = detectPeakMoment({ transcript: '', duration, wordTimestamps: [], audioPeaks: [] });
-      // Use 60% of duration as fallback peak if detection returns 0
-      const peakT = fallbackPeak.peakTime > 0 ? fallbackPeak.peakTime : Math.min(duration * 0.6, duration - 2);
-      const hookLen = settings.hook?.length || 1.5;
-      settings.hook.reorder = calculateReorderTimestamps(peakT, duration, hookLen, 8);
-      trc(`HOOK REORDER fallback: peak=${peakT}s, ${settings.hook.reorder.segments.length} segments`);
-    }
-    trc(`HOOK REORDER check: enabled=${settings.hook?.enabled} reorderEnabled=${settings.hook?.reorderEnabled} hasReorder=${!!settings.hook?.reorder} segments=${settings.hook?.reorder?.segments?.length || 0}`);
-    if (settings.hook?.reorderEnabled && settings.hook?.reorder?.segments?.length >= 2) {
-      try {
-        // CRITICAL: clamp any segment whose end exceeds the actual video
-        // duration. The frontend sometimes sends segments with rounded
-        // durations (e.g. context end=30s for a 26.38s clip). Without this
-        // clamp, FFmpeg is asked to read past EOF, writes the last decoded
-        // frame to pad the gap, and the output visibly "freezes" for
-        // several seconds at the end. See render_jobs debug_log
-        // 0c3e6582-e3d5-4434-9fd0-c76e133cc25f for the reference incident.
-        const maxT = Math.max(0.1, duration);
-        const segments = settings.hook.reorder.segments
-          .map((s) => {
-            const start = Math.max(0, Math.min(Number(s.start) || 0, maxT));
-            const end = Math.max(start, Math.min(Number(s.end) || 0, maxT));
-            return { ...s, start, end };
-          })
-          .filter((s) => (s.end - s.start) >= 0.2); // drop degenerate segments
-        if (segments.length < 2) {
-          throw new Error(`reorder segments collapsed after clamp (<2 valid segments, maxT=${maxT.toFixed(2)}s)`);
-        }
-        trc(`HOOK REORDER: ${segments.length} segments — ${segments.map(s => `${s.label}(${s.start.toFixed(2)}-${s.end.toFixed(2)}s)`).join(' → ')}`);
-
-        const ffmpegPath = process.env.FFMPEG_PATH || 'ffmpeg';
-        const reorderOutputPath = path.join(tempDir, 'reordered.mp4');
-
-        // ── Reliable approach: extract each segment to a temp file, then concat ──
-        // This avoids the split/asplit filter which crashes when there's no audio track.
-        const segmentFiles = [];
-
-        for (let i = 0; i < segments.length; i++) {
-          const seg = segments[i];
-          const segStart = clipStartTime + seg.start;
-          const segDuration = seg.end - seg.start;
-          const segFile = path.join(tempDir, `seg_${i}.ts`);
-          segmentFiles.push(segFile);
-
-          trc(`HOOK REORDER: extracting segment ${i} (${seg.label}): ${segStart}s → ${segStart + segDuration}s (${segDuration}s)`);
-
-          const segArgs = [
-            '-y',
-            '-ss', String(segStart),
-            '-i', inputPath,
-            '-t', String(segDuration),
-            '-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '18',
-            '-c:a', 'aac', '-b:a', '128k',
-            '-threads', '1',
-            // Use mpegts container for seamless concat
-            '-f', 'mpegts',
-            segFile,
-          ];
-
-          await execFileAsync(ffmpegPath, segArgs, { timeout: 30000, maxBuffer: 10 * 1024 * 1024 });
-          trc(`HOOK REORDER: segment ${i} extracted OK`);
-        }
-
-        // Concat all segments using concat protocol (pipe)
-        const concatInput = `concat:${segmentFiles.join('|')}`;
-        const concatArgs = [
-          '-y',
-          '-i', concatInput,
-          '-c', 'copy',
-          '-movflags', '+faststart',
-          reorderOutputPath,
-        ];
-
-        await execFileAsync(ffmpegPath, concatArgs, { timeout: 30000, maxBuffer: 10 * 1024 * 1024 });
-
-        // Verify output exists and has size
-        const reorderStat = await fs.stat(reorderOutputPath);
-        trc(`HOOK REORDER: output file size = ${reorderStat.size} bytes`);
-
-        if (reorderStat.size < 1000) {
-          throw new Error(`Reordered file too small: ${reorderStat.size} bytes`);
-        }
-
-        reorderedInputPath = reorderOutputPath;
-        reorderedStartTime = 0; // reordered file starts at 0
-        // IMPORTANT: compute totalDuration from the *clamped* segments, not
-        // from settings.hook.reorder.totalDuration (which reflects the
-        // un-clamped frontend values and would re-introduce the freeze).
-        reorderedDuration = segments.reduce((sum, s) => sum + (s.end - s.start), 0);
-        // Re-probe the concat output to be 100% sure we match the real
-        // video stream (concat + copy can shave/add a few frames).
-        try {
-          const probe = await execFileAsync('ffprobe', [
-            '-v', 'quiet',
-            '-select_streams', 'v:0',
-            '-show_entries', 'stream=duration',
-            '-of', 'csv=p=0',
-            reorderOutputPath,
-          ]);
-          const probed = parseFloat(probe.stdout.trim());
-          if (Number.isFinite(probed) && probed > 0) {
-            reorderedDuration = Math.max(0.1, probed - 0.05);
-            trc(`HOOK REORDER: re-probed stream duration=${probed.toFixed(3)}s → reorderedDuration=${reorderedDuration.toFixed(3)}s`);
-          }
-        } catch {}
-        trc(`HOOK REORDER done: ${reorderedDuration}s reordered clip at ${reorderOutputPath}`);
-
-        // ── Remap subtitles to match new segment order ──
-        // The ASS file was generated with original timestamps. Now the video is
-        // reordered so subtitles need remapping: for each word, find which segment
-        // it belongs to and calculate its new position in the reordered timeline.
-        if (assFilePath && captionWordTimestamps.length > 0) {
-          try {
-            // Build offset map: each segment's new start in the reordered video
-            let newOffset = 0;
-            const segmentMap = segments.map(seg => {
-              const entry = { origStart: seg.start, origEnd: seg.end, newStart: newOffset };
-              newOffset += (seg.end - seg.start);
-              return entry;
-            });
-            trc(`REORDER SUBS: remapping ${captionWordTimestamps.length} words across ${segmentMap.length} segments`);
-
-            // Remap each word timestamp
-            const remappedWords = [];
-            for (const w of captionWordTimestamps) {
-              // Word time relative to clip start (subtract clipStartTime for user clips)
-              const wStart = w.start - clipStartTime;
-              const wEnd = w.end - clipStartTime;
-
-              // Find which segment this word belongs to
-              let mapped = false;
-              for (const seg of segmentMap) {
-                if (wStart >= seg.origStart && wStart < seg.origEnd) {
-                  const offset = wStart - seg.origStart;
-                  const endOffset = Math.min(wEnd - seg.origStart, seg.origEnd - seg.origStart);
-                  remappedWords.push({
-                    ...w,
-                    start: Math.round((seg.newStart + offset) * 100) / 100,
-                    end: Math.round((seg.newStart + endOffset) * 100) / 100,
-                  });
-                  mapped = true;
-                  break;
-                }
-              }
-              if (!mapped) {
-                trc(`REORDER SUBS: word "${w.word}" at ${wStart}s doesn't fit any segment, skipping`);
-              }
-            }
-
-            // Sort by new start time
-            remappedWords.sort((a, b) => a.start - b.start);
-            trc(`REORDER SUBS: ${remappedWords.length}/${captionWordTimestamps.length} words remapped`);
-
-            // Regenerate ASS with remapped timestamps (clipStartTime=0 since times are already rebased)
-            const captionStyle = settings.captions?.style || 'hormozi';
-            const captionPosition = settings.captions?.position || 'bottom';
-            const captionAnim = settings.captions?.animation || 'highlight';
-            const remappedASS = generateASS(remappedWords, {
-              style: captionStyle,
-              position: captionPosition,
-              canvasWidth: canvasW,
-              canvasHeight: canvasH,
-              splitScreen: splitScreenForCaptions,
-              animation: captionAnim,
-              clipStartTime: 0, // already rebased
-              wordsPerLine: settings.captions?.wordsPerLine || 4,
-              customColors: settings.captions?.customColors,
-              customImportantWords: settings.captions?.customImportantWords || [],
-              emphasisEffect: settings.captions?.emphasisEffect || 'none',
-              emphasisColor: settings.captions?.emphasisColor || 'red',
-            });
-
-            if (remappedASS) {
-              await fs.writeFile(assFilePath, remappedASS, 'utf-8');
-              trc(`REORDER SUBS: rewrote ASS file with remapped timestamps (${remappedASS.length} bytes)`);
-            }
-          } catch (subErr) {
-            trc(`REORDER SUBS error: ${subErr.message} — using original subtitle timing`);
-          }
-        }
-
-        // Cleanup segment temp files
-        for (const f of segmentFiles) {
-          fs.unlink(f).catch(() => {});
-        }
-      } catch (reorderErr) {
-        trc(`HOOK REORDER FAILED: ${reorderErr.message}`);
-        trc(`HOOK REORDER stderr: ${reorderErr.stderr || 'none'}`);
-        // Fallback: use original input, no reorder
-      }
-    }
 
     // Render clip with FFmpeg
     const outputPath = path.join(tempDir, 'output.mp4');
@@ -817,10 +792,10 @@ router.post('/', async (req, res) => {
 
     const userPlan = source === 'trending' ? 'pro' : (await getUserProfile(userId))?.plan || 'free';
 
-    await renderClip(reorderedInputPath, outputPath, {
-      startTime: reorderedStartTime,
-      endTime: reorderedStartTime + reorderedDuration,
-      duration: reorderedDuration,
+    await renderClip(inputPath, outputPath, {
+      startTime: clipStartTime,
+      endTime: clipStartTime + duration,
+      duration: duration,
       aspectRatio: settings.format?.aspectRatio || '9:16',
       captions: assFilePath
         ? { assFilePath, ...settings.captions }
