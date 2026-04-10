@@ -87,13 +87,36 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    // Pick the best quality (highest resolution)
-    const best = [...qualities].sort(
-      (a, b) => parseInt(b.quality) - parseInt(a.quality)
-    )[0]
+    // The playback access token is bound to a SPECIFIC clip_uri/quality
+    // (usually 720p). Using the token with a mismatched quality (e.g. 1080p)
+    // makes CloudFront accept the handshake then stall mid-stream. We must
+    // pick the quality whose sourceURL matches the clip_uri inside the token.
+    let chosenQuality: VideoQuality | undefined
+    let tokenClipUri: string | null = null
+    if (token?.value) {
+      try {
+        const parsed = JSON.parse(token.value) as { clip_uri?: string }
+        tokenClipUri = parsed.clip_uri ?? null
+      } catch {
+        tokenClipUri = null
+      }
+    }
+    if (tokenClipUri) {
+      chosenQuality = qualities.find((q) => q.sourceURL === tokenClipUri)
+    }
+    // Fallback: if no exact match, match by resolution in the URL, else take
+    // the quality closest to 720p (which is what Twitch's access token
+    // typically authorizes for unauthenticated clip playback).
+    if (!chosenQuality) {
+      chosenQuality = [...qualities].sort(
+        (a, b) =>
+          Math.abs(parseInt(a.quality) - 720) -
+          Math.abs(parseInt(b.quality) - 720)
+      )[0]
+    }
 
     // Append playback access token to authorize CloudFront CDN
-    let signedUrl = best.sourceURL
+    let signedUrl = chosenQuality.sourceURL
     if (token?.signature && token?.value) {
       const sep = signedUrl.includes('?') ? '&' : '?'
       signedUrl = `${signedUrl}${sep}sig=${token.signature}&token=${encodeURIComponent(token.value)}`
