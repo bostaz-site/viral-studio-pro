@@ -313,12 +313,13 @@ function generateFallbackHooks(streamerName = '') {
  * @returns {Object} { segments: [{start, end, label}], totalDuration }
  */
 export function calculateReorderTimestamps(peakTime, duration, hookLength = 1.5, maxContext = 8) {
-  // Keep the FULL clip, just reorder: Peak first → After peak → Before peak
-  // This preserves the entire video duration instead of cutting it short.
+  // TikTok-style reorder: short teaser of peak moment first, then full clip from start.
+  // Structure: [peak teaser 2-3s] → [full clip from 0 to end]
+  // The teaser hooks the viewer, then the clip plays normally building up to the payoff.
   const peak = Math.max(0, Math.min(peakTime, duration - hookLength));
 
-  // If peak is near the start (< 2s), reorder is pointless — return empty
-  if (peak < 2) {
+  // If peak is near the start (< 3s), reorder is pointless — return empty
+  if (peak < 3) {
     return {
       segments: [],
       totalDuration: duration,
@@ -326,17 +327,17 @@ export function calculateReorderTimestamps(peakTime, duration, hookLength = 1.5,
     };
   }
 
-  const segments = [];
+  // Hook teaser: 2-3s centered around the peak moment
+  const teaserLength = Math.min(3, duration - peak, peak); // max 3s, don't go past clip bounds
+  const teaserStart = Math.max(0, peak - 0.5); // start slightly before peak for impact
+  const teaserEnd = Math.min(duration, teaserStart + teaserLength);
 
-  // 1. Peak moment → end of clip (the "hook" that grabs attention + everything after)
-  if (peak < duration) {
-    segments.push({ start: peak, end: duration, label: 'hook' });
-  }
-
-  // 2. Start of clip → peak moment (context that comes after in the reordered version)
-  if (peak > 0.5) {
-    segments.push({ start: 0, end: peak, label: 'context' });
-  }
+  const segments = [
+    // 1. Short teaser of the peak moment (2-3s max)
+    { start: teaserStart, end: teaserEnd, label: 'hook' },
+    // 2. Full clip from beginning to end (viewer sees the full story)
+    { start: 0, end: duration, label: 'context' },
+  ];
 
   const totalDuration = segments.reduce((sum, s) => sum + (s.end - s.start), 0);
 
