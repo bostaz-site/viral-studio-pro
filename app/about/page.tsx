@@ -90,7 +90,7 @@ export default function AboutPage() {
                 <ArrowRight className="h-4 w-4" />
               </Button>
             </Link>
-            <p className="text-xs text-muted-foreground/60 mt-3">30 clips offerts, sans carte bancaire</p>
+            <p className="text-xs text-muted-foreground/60 mt-3">3 clips gratuits par mois, sans carte bancaire</p>
           </div>
         </div>
       </main>

@@ -27,7 +27,7 @@ export function AuthClipsPanel() {
 
       {/* Sans carte bancaire */}
       <p className="mt-6 text-xs text-blue-200/50">
-        Sans carte bancaire &middot; 30 clips offerts
+        Sans carte bancaire &middot; 3 clips gratuits par mois
       </p>
     </div>
   )

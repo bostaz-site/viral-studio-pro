@@ -122,7 +122,7 @@ export default function ArticlePage() {
 
           <div className="mt-12 p-6 rounded-xl bg-primary/5 border border-primary/20 text-center">
             <p className="text-foreground font-semibold mb-3">Prêt à créer ton premier clip split-screen ?</p>
-            <p className="text-sm text-muted-foreground mb-4">30 clips offerts · Sans carte bancaire · Prêt en 30 secondes</p>
+            <p className="text-sm text-muted-foreground mb-4">3 clips gratuits par mois · Sans carte bancaire · Prêt en 30 secondes</p>
             <Link href="/signup">
               <Button className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-semibold">
                 Commencer gratuitement

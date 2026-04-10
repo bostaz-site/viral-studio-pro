@@ -14,7 +14,7 @@ export default function ArticlePage() {
     { name: 'Sous-titres karaoké', vs: [true, true, true], note: '9 styles vs 3-5 chez les concurrents' },
     { name: 'Score viral IA', vs: [true, true, false], note: 'Claude (Anthropic) vs GPT basique' },
     { name: 'Remake This', vs: [true, false, false], note: 'Clone le format d\'un clip trending' },
-    { name: 'Plan gratuit', vs: [true, false, true], note: '30 clips offerts' },
+    { name: 'Plan gratuit', vs: [true, false, true], note: '3 clips/mois sans carte' },
     { name: 'Clips Twitch', vs: [true, true, true], note: '' },
     { name: 'Clips YouTube Gaming', vs: [true, true, false], note: '' },
     { name: 'Export 9:16 + 1:1 + 16:9', vs: [true, true, true], note: '3 formats vs 1 en free' },
@@ -111,7 +111,7 @@ export default function ArticlePage() {
             <li><strong className="text-foreground">9 styles de sous-titres</strong> : Hormozi, MrBeast, Gaming, etc.</li>
             <li><strong className="text-foreground">Score viral Claude IA</strong> : analyse hook, rétention, émotion (0-100)</li>
             <li><strong className="text-foreground">Remake This</strong> : copie le format d&apos;un clip trending</li>
-            <li><strong className="text-foreground">Plan gratuit</strong> : 30 clips offerts, sans carte bancaire</li>
+            <li><strong className="text-foreground">Plan gratuit</strong> : 3 clips par mois, sans carte bancaire</li>
           </ul>
 
           <h2 className="text-2xl font-bold text-foreground mt-10 mb-4">Verdict : lequel choisir ?</h2>
@@ -123,7 +123,7 @@ export default function ArticlePage() {
 
           <div className="mt-12 p-6 rounded-xl bg-primary/5 border border-primary/20 text-center">
             <p className="text-foreground font-semibold mb-3">Teste Viral Studio Pro gratuitement</p>
-            <p className="text-sm text-muted-foreground mb-4">30 clips offerts · Sans carte · Le seul avec split-screen</p>
+            <p className="text-sm text-muted-foreground mb-4">3 clips gratuits par mois · Sans carte · Le seul avec split-screen</p>
             <Link href="/signup">
               <Button className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-semibold">
                 Commencer gratuitement

@@ -47,3 +47,18 @@ Thumbs.db
 
 # ── Supabase temp ─────────────────────────────────────────────────────────────
 supabase/.temp/
+
+# ── Claude Code / local notes (never commit: may contain secrets) ─────────────
+.claude/
+MES-API-KEYS.md
+DEBUG_WORDPOP_FIXES.md
+GIT_COMMIT_SUMMARY.md
+INTEGRATION_TEST_WORDPOP.md
+PROJECT_REVIEW.md
+PROMPT-CLAUDE-CODE-WORDPOP.md
+PROMPT-GEMINI-AUDIT.md
+PROMPT-WORDPOP-DRAWTEXT.md
+WORDPOP_BUGFIX_REPORT.md
+WORDPOP_DOCUMENTATION_INDEX.md
+WORDPOP_FIXES_SUMMARY.md
+WORDPOP_QUICK_REFERENCE.md

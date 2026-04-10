@@ -79,7 +79,7 @@ const jsonLd = {
       price: '0',
       priceCurrency: 'EUR',
       name: 'Free',
-      description: '3 vidéos par mois, 90 crédits offerts',
+      description: '3 vidéos par mois, watermark, 1 plateforme',
     },
     {
       '@type': 'Offer',

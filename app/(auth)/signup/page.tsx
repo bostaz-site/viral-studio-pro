@@ -109,7 +109,7 @@ export default function SignupPage() {
     <Card className="bg-card/80 border-border backdrop-blur-sm shadow-xl shadow-black/5">
       <CardHeader className="space-y-1 pb-2">
         <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 w-fit mb-2">
-          <span className="text-xs font-medium text-emerald-400">30 clips offerts</span>
+          <span className="text-xs font-medium text-emerald-400">3 clips gratuits par mois</span>
         </div>
         <h2 className="text-2xl font-bold tracking-tight">Créer votre studio</h2>
         <p className="text-sm text-muted-foreground">Sans carte bancaire · Aucune installation · Annulable en 1 clic</p>

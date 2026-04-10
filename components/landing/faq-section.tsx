@@ -4,8 +4,8 @@ import { ChevronDown } from 'lucide-react'
 
 export const FAQ_ITEMS = [
   {
-    q: 'Est-ce que mes cr\u00e9dits vont expirer si je n\'utilise pas l\'outil ?',
-    a: 'Non. Tes 90 cr\u00e9dits (= ~30 clips complets) n\'expirent jamais tant que ton compte est actif. Chaque clip co\u00fbte environ 3 cr\u00e9dits. Pas de pression, tu clips \u00e0 ton rythme.',
+    q: 'Comment marche le plan gratuit ?',
+    a: 'Le plan Free te donne 3 vid\u00e9os gratuites par mois, remises \u00e0 z\u00e9ro le 1er du mois suivant. Pas de carte bancaire demand\u00e9e \u00e0 l\'inscription. Clips jusqu\'\u00e0 60 secondes, watermark Viral Studio inclus. Tu peux passer Pro quand tu veux pour 29\u20ac/mois et d\u00e9bloquer 50 clips/mois sans watermark.',
   },
   {
     q: 'C\'est vraiment diff\u00e9rent d\'OpusClip et Eklipse ?',

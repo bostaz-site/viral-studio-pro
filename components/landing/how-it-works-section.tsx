@@ -182,7 +182,7 @@ export function HowItWorksSection() {
               <ArrowRight className="h-4 w-4" />
             </Button>
           </Link>
-          <p className="text-xs text-muted-foreground/50 mt-3">90 cr&eacute;dits offerts = ~30 clips complets</p>
+          <p className="text-xs text-muted-foreground/50 mt-3">3 clips gratuits par mois &middot; Sans carte bancaire</p>
         </div>
       </div>
     </section>
