@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { User, Palette, CreditCard, Plus, Trash2, Star, CheckCircle2, AlertCircle, Loader2, Bell } from 'lucide-react'
+import { User, Palette, CreditCard, Plus, Trash2, Star, CheckCircle2, AlertCircle, Loader2, Bell, Activity, Film, Clock } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -30,9 +30,16 @@ interface Profile {
   email: string
   full_name: string | null
   plan: string | null
+  monthly_videos_used: number | null
+  monthly_processing_minutes_used: number | null
+  updated_at?: string | null
 }
 
 type Plan = 'free' | 'pro' | 'studio'
+
+// Plan quotas — keep in sync with app/(dashboard)/layout.tsx and server enforcement
+const PLAN_VIDEO_LIMITS: Record<Plan, number> = { free: 3, pro: 50, studio: 999 }
+const PLAN_MINUTES_LIMITS: Record<Plan, number> = { free: 30, pro: 500, studio: 5000 }
 
 // ── Section wrapper ───────────────────────────────────────────────────────────
 
@@ -105,7 +112,7 @@ function SettingsPageInner() {
     // Fetch profile from Supabase directly
     const { data: profileData } = await supabase
       .from('profiles')
-      .select('id, email, full_name, plan')
+      .select('id, email, full_name, plan, monthly_videos_used, monthly_processing_minutes_used, updated_at')
       .eq('id', currentUser.id)
       .single()
 
@@ -255,6 +262,86 @@ function SettingsPageInner() {
             </div>
           </CardContent>
         </Card>
+      </Section>
+
+      <Separator />
+
+      {/* ── Usage ── */}
+      <Section
+        icon={Activity}
+        title="Utilisation ce mois-ci"
+        description="Tes compteurs se réinitialisent au début de chaque mois"
+      >
+        {(() => {
+          const videosUsed = profile?.monthly_videos_used ?? 0
+          const videosLimit = PLAN_VIDEO_LIMITS[currentPlan]
+          const minutesUsed = profile?.monthly_processing_minutes_used ?? 0
+          const minutesLimit = PLAN_MINUTES_LIMITS[currentPlan]
+          const videosPct = Math.min(100, Math.round((videosUsed / videosLimit) * 100))
+          const minutesPct = Math.min(100, Math.round((minutesUsed / minutesLimit) * 100))
+          const videosColor =
+            videosPct >= 90 ? 'from-red-500 to-rose-500' :
+            videosPct >= 70 ? 'from-amber-500 to-orange-500' :
+            'from-blue-500 to-indigo-500'
+          const minutesColor =
+            minutesPct >= 90 ? 'from-red-500 to-rose-500' :
+            minutesPct >= 70 ? 'from-amber-500 to-orange-500' :
+            'from-blue-500 to-indigo-500'
+          return (
+            <Card className="bg-card/50 border-border">
+              <CardContent className="p-5 space-y-5">
+                {/* Videos counter */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Film className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-sm font-medium text-foreground">Clips générés</span>
+                    </div>
+                    <span className="text-sm tabular-nums text-muted-foreground">
+                      <span className="font-semibold text-foreground">{videosUsed}</span>
+                      {' / '}
+                      {videosLimit === 999 ? '∞' : videosLimit}
+                    </span>
+                  </div>
+                  <div className="h-2 bg-muted/40 rounded-full overflow-hidden">
+                    <div
+                      className={`h-full bg-gradient-to-r ${videosColor} rounded-full transition-all duration-500`}
+                      style={{ width: `${videosPct}%` }}
+                    />
+                  </div>
+                  {videosPct >= 90 && currentPlan === 'free' && (
+                    <p className="text-xs text-amber-400 font-medium">
+                      Tu approches de ta limite mensuelle — passe à Pro pour des clips illimités.
+                    </p>
+                  )}
+                </div>
+
+                <Separator />
+
+                {/* Minutes counter */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Clock className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-sm font-medium text-foreground">Minutes de rendu</span>
+                    </div>
+                    <span className="text-sm tabular-nums text-muted-foreground">
+                      <span className="font-semibold text-foreground">{minutesUsed}</span>
+                      {' / '}
+                      {minutesLimit === 5000 ? '∞' : minutesLimit} min
+                    </span>
+                  </div>
+                  <div className="h-2 bg-muted/40 rounded-full overflow-hidden">
+                    <div
+                      className={`h-full bg-gradient-to-r ${minutesColor} rounded-full transition-all duration-500`}
+                      style={{ width: `${minutesPct}%` }}
+                    />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )
+        })()}
       </Section>
 
       <Separator />
