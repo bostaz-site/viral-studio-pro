@@ -274,6 +274,7 @@ router.post('/', async (req, res) => {
     // Prepare captions if enabled
     // IMPORTANT: also skip when style='none' — user explicitly chose no captions.
     let assFilePath = null;
+    let captionWordTimestamps = []; // hoisted so reorder can remap them
     const captionStyleRequested = settings.captions?.style || 'hormozi';
     const captionsRequested = settings.captions?.enabled && captionStyleRequested !== 'none';
     if (captionsRequested) {
@@ -335,6 +336,7 @@ router.post('/', async (req, res) => {
 
         if (wordTimestamps.length > 0) {
           validateWordTimestamps(wordTimestamps);
+          captionWordTimestamps = wordTimestamps; // save for potential reorder remap
           const captionAnim = settings.captions.animation || 'highlight';
 
           // ── ALL animations use ASS subtitles (reliable, single-file, like CapCut/Opus) ──
@@ -600,6 +602,80 @@ router.post('/', async (req, res) => {
         reorderedStartTime = 0; // reordered file starts at 0
         reorderedDuration = settings.hook.reorder.totalDuration;
         trc(`HOOK REORDER done: ${reorderedDuration}s reordered clip at ${reorderOutputPath}`);
+
+        // ── Remap subtitles to match new segment order ──
+        // The ASS file was generated with original timestamps. Now the video is
+        // reordered so subtitles need remapping: for each word, find which segment
+        // it belongs to and calculate its new position in the reordered timeline.
+        if (assFilePath && captionWordTimestamps.length > 0) {
+          try {
+            // Build offset map: each segment's new start in the reordered video
+            let newOffset = 0;
+            const segmentMap = segments.map(seg => {
+              const entry = { origStart: seg.start, origEnd: seg.end, newStart: newOffset };
+              newOffset += (seg.end - seg.start);
+              return entry;
+            });
+            trc(`REORDER SUBS: remapping ${captionWordTimestamps.length} words across ${segmentMap.length} segments`);
+
+            // Remap each word timestamp
+            const remappedWords = [];
+            for (const w of captionWordTimestamps) {
+              // Word time relative to clip start (subtract clipStartTime for user clips)
+              const wStart = w.start - clipStartTime;
+              const wEnd = w.end - clipStartTime;
+
+              // Find which segment this word belongs to
+              let mapped = false;
+              for (const seg of segmentMap) {
+                if (wStart >= seg.origStart && wStart < seg.origEnd) {
+                  const offset = wStart - seg.origStart;
+                  const endOffset = Math.min(wEnd - seg.origStart, seg.origEnd - seg.origStart);
+                  remappedWords.push({
+                    ...w,
+                    start: Math.round((seg.newStart + offset) * 100) / 100,
+                    end: Math.round((seg.newStart + endOffset) * 100) / 100,
+                  });
+                  mapped = true;
+                  break;
+                }
+              }
+              if (!mapped) {
+                trc(`REORDER SUBS: word "${w.word}" at ${wStart}s doesn't fit any segment, skipping`);
+              }
+            }
+
+            // Sort by new start time
+            remappedWords.sort((a, b) => a.start - b.start);
+            trc(`REORDER SUBS: ${remappedWords.length}/${captionWordTimestamps.length} words remapped`);
+
+            // Regenerate ASS with remapped timestamps (clipStartTime=0 since times are already rebased)
+            const captionStyle = settings.captions?.style || 'hormozi';
+            const captionPosition = settings.captions?.position || 'bottom';
+            const captionAnim = settings.captions?.animation || 'highlight';
+            const remappedASS = generateASS(remappedWords, {
+              style: captionStyle,
+              position: captionPosition,
+              canvasWidth: canvasW,
+              canvasHeight: canvasH,
+              splitScreen: splitScreenForCaptions,
+              animation: captionAnim,
+              clipStartTime: 0, // already rebased
+              wordsPerLine: settings.captions?.wordsPerLine || 4,
+              customColors: settings.captions?.customColors,
+              customImportantWords: settings.captions?.customImportantWords || [],
+              emphasisEffect: settings.captions?.emphasisEffect || 'none',
+              emphasisColor: settings.captions?.emphasisColor || 'red',
+            });
+
+            if (remappedASS) {
+              await fs.writeFile(assFilePath, remappedASS, 'utf-8');
+              trc(`REORDER SUBS: rewrote ASS file with remapped timestamps (${remappedASS.length} bytes)`);
+            }
+          } catch (subErr) {
+            trc(`REORDER SUBS error: ${subErr.message} — using original subtitle timing`);
+          }
+        }
 
         // Cleanup segment temp files
         for (const f of segmentFiles) {
