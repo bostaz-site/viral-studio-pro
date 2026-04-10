@@ -17,6 +17,13 @@ const bodySchema = z.object({
   plan: z.enum(['pro', 'studio']),
 })
 
+// 7-day free trial on Pro only (Studio is explicitly a committed tier).
+// Null means "no trial" — Stripe rejects 0.
+const TRIAL_DAYS: Record<'pro' | 'studio', number | null> = {
+  pro: 7,
+  studio: null,
+}
+
 export const POST = withAuth(async (req, user) => {
   let body: unknown
   try {
@@ -59,6 +66,8 @@ export const POST = withAuth(async (req, user) => {
         .eq('id', user.id)
     }
 
+    const trialDays = TRIAL_DAYS[plan]
+
     const session = await stripe.checkout.sessions.create({
       mode: 'subscription',
       customer: customerId,
@@ -69,6 +78,17 @@ export const POST = withAuth(async (req, user) => {
       metadata: { user_id: user.id, plan },
       subscription_data: {
         metadata: { user_id: user.id, plan },
+        ...(trialDays
+          ? {
+              trial_period_days: trialDays,
+              // If the card ever fails at the end of the trial, don't
+              // silently cancel — pause the sub so the user gets a clear
+              // "payment failed" mail and can fix it.
+              trial_settings: {
+                end_behavior: { missing_payment_method: 'pause' },
+              },
+            }
+          : {}),
       },
     })
 

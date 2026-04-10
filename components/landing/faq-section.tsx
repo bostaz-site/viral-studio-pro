@@ -35,6 +35,14 @@ export const FAQ_ITEMS = [
     q: 'Je peux annuler mon abonnement quand je veux ?',
     a: 'Oui, en 1 clic depuis tes param\u00e8tres. Pas de contrat, pas d\'engagement. Tu gardes l\'acc\u00e8s jusqu\'\u00e0 la fin de ta p\u00e9riode de facturation.',
   },
+  {
+    q: 'L\'essai 7 jours gratuit, c\'est pour de vrai ? Je vais me faire facturer en douce ?',
+    a: 'L\'essai est r\u00e9ellement gratuit. Tu renseignes ta carte pour d\u00e9marrer, mais rien n\'est pr\u00e9lev\u00e9 pendant 7 jours. Si tu annules avant la fin du 7e jour depuis Param\u00e8tres, tu n\'es jamais factur\u00e9. Stripe envoie un email de rappel 3 jours avant la fin.',
+  },
+  {
+    q: 'Est-ce que je garde les droits sur mes clips ?',
+    a: '100%. Les clips que tu g\u00e9n\u00e8res t\'appartiennent enti\u00e8rement. On ne r\u00e9utilise pas tes vid\u00e9os, on ne les montre \u00e0 personne, on n\'entra\u00eene pas d\'IA dessus. Pour les clips de streamers depuis la biblioth\u00e8que, on ajoute automatiquement le cr\u00e9dit au cr\u00e9ateur original.',
+  },
 ]
 
 export function FaqSection() {

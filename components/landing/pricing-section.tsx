@@ -10,6 +10,7 @@ interface PlanConfig {
   name: string
   price: string
   priceNote: string
+  trialNote?: string
   features: string[]
   highlighted?: boolean
   cta: string
@@ -33,6 +34,7 @@ const PLANS: PlanConfig[] = [
     name: 'Pro',
     price: '29\u20ac',
     priceNote: '/mois',
+    trialNote: '7 jours gratuits, annule quand tu veux',
     highlighted: true,
     features: [
       '50 vid\u00e9os / mois',
@@ -43,7 +45,7 @@ const PLANS: PlanConfig[] = [
       'Export 9:16 + 1:1 + 16:9',
       'Dashboard Streams complet',
     ],
-    cta: 'Essai 7 jours gratuit',
+    cta: 'D\u00e9marrer les 7 jours gratuits',
   },
   {
     name: 'Studio',
@@ -98,6 +100,9 @@ export function PricingSection() {
                   <span className="text-3xl font-black text-foreground">{plan.price}</span>
                   <CardDescription>{plan.priceNote}</CardDescription>
                 </div>
+                {plan.trialNote && (
+                  <p className="text-[11px] text-emerald-400 font-medium mt-1.5">{plan.trialNote}</p>
+                )}
               </CardHeader>
 
               <CardContent className="flex-1 space-y-2">

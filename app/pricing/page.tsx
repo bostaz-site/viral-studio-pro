@@ -26,6 +26,7 @@ interface PricingTier {
   icon: typeof Zap
   features: string[]
   highlighted: boolean
+  trialNote?: string
   cta: string
   accentColor: string
 }
@@ -68,7 +69,8 @@ const TIERS: PricingTier[] = [
       'Suppression des silences auto',
     ],
     highlighted: true,
-    cta: 'Essai 7 jours gratuit',
+    trialNote: '7 jours gratuits, sans engagement',
+    cta: 'D\u00e9marrer les 7 jours gratuits',
     accentColor: 'from-blue-500 to-indigo-600',
   },
   {
@@ -209,6 +211,9 @@ export default function PricingPage() {
                   <div className="mb-4">
                     <span className="text-4xl font-black tracking-tight">{tier.price}€</span>
                     <span className="text-muted-foreground ml-1">{tier.period}</span>
+                    {tier.trialNote && (
+                      <p className="text-xs text-emerald-400 font-medium mt-1.5">{tier.trialNote}</p>
+                    )}
                   </div>
 
                   {/* Description */}
