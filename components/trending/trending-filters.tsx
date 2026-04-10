@@ -19,11 +19,39 @@ interface TrendingFiltersProps {
   onChange: (filters: TrendingFiltersState) => void
   totalCount: number
   filteredCount: number
+  /**
+   * Niches derived from live clips (e.g. from `stats.games`).
+   * Keys are lowercased niche ids, values are counts. The component
+   * renders the top N as clickable pills. Pass an empty object to hide.
+   */
+  availableNiches?: Record<string, number>
+  /** Max niche pills to show (default 6) */
+  maxNichePills?: number
 }
 
-const GAMES: { id: string; label: string }[] = [
-  // IRL-only — no gaming categories
-]
+// Friendly labels for common niches — falls back to capitalized key.
+const NICHE_LABELS: Record<string, string> = {
+  irl: 'IRL',
+  just_chatting: 'Just Chatting',
+  fps: 'FPS',
+  moba: 'MOBA',
+  rpg: 'RPG',
+  slots: 'Slots',
+  music: 'Music',
+  sports: 'Sports',
+  fighting: 'Fighting',
+  racing: 'Racing',
+  creative: 'Creative',
+  variety: 'Variety',
+}
+
+function formatNicheLabel(id: string): string {
+  if (NICHE_LABELS[id]) return NICHE_LABELS[id]
+  return id
+    .split(/[_\s-]+/)
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(' ')
+}
 
 const PLATFORMS = [
   { id: 'twitch',         label: 'Twitch' },
@@ -36,9 +64,24 @@ const SORT_OPTIONS: { value: SortOption; label: string }[] = [
   { value: 'date',     label: 'Date' },
 ]
 
-export function TrendingFilters({ filters, onChange, totalCount, filteredCount }: TrendingFiltersProps) {
+export function TrendingFilters({
+  filters,
+  onChange,
+  totalCount,
+  filteredCount,
+  availableNiches,
+  maxNichePills = 6,
+}: TrendingFiltersProps) {
   const toggle = <T extends string>(arr: T[], item: T): T[] =>
     arr.includes(item) ? arr.filter((x) => x !== item) : [...arr, item]
+
+  // Top niches, sorted by count descending, capped at maxNichePills
+  const topNiches: { id: string; label: string; count: number }[] = availableNiches
+    ? Object.entries(availableNiches)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, maxNichePills)
+        .map(([id, count]) => ({ id, label: formatNicheLabel(id), count }))
+    : []
 
   const hasActiveFilters =
     filters.search !== '' || filters.games.length > 0 || filters.platforms.length > 0
@@ -122,24 +165,30 @@ export function TrendingFilters({ filters, onChange, totalCount, filteredCount }
           )
         })}
 
-        {/* Game pills — hidden when no categories configured */}
-        {GAMES.length > 0 && (
+        {/* Niche pills — derived from live clip stats */}
+        {topNiches.length > 0 && (
           <>
             <div className="w-px h-5 bg-border self-center mx-1" />
-            {GAMES.map((game) => {
-              const active = filters.games.includes(game.id)
+            {topNiches.map((niche) => {
+              const active = filters.games.includes(niche.id)
               return (
                 <button
-                  key={game.id}
-                  onClick={() => onChange({ ...filters, games: toggle(filters.games, game.id) })}
+                  key={niche.id}
+                  onClick={() => onChange({ ...filters, games: toggle(filters.games, niche.id) })}
                   className={cn(
-                    'px-3 py-1 rounded-full text-xs font-medium border transition-all',
+                    'px-3 py-1 rounded-full text-xs font-medium border transition-all flex items-center gap-1.5',
                     active
                       ? 'bg-indigo-500/15 text-indigo-400 border-indigo-500/30'
                       : 'bg-muted/30 text-muted-foreground border-border hover:border-indigo-500/30 hover:text-foreground'
                   )}
                 >
-                  {game.label}
+                  {niche.label}
+                  <span className={cn(
+                    'text-[10px] tabular-nums',
+                    active ? 'text-indigo-400/80' : 'text-muted-foreground/60'
+                  )}>
+                    {niche.count}
+                  </span>
                 </button>
               )
             })}

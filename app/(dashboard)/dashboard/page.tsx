@@ -4,7 +4,7 @@ import { useEffect, useCallback, useRef, useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   TrendingUp, RefreshCw, AlertCircle, Loader2, Sparkles,
-  Wifi, WifiOff, Download, Upload, Flame, Zap, Clock,
+  Wifi, WifiOff, Download, Upload, Flame, Zap, Clock, X,
 } from 'lucide-react'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
@@ -31,6 +31,7 @@ export default function DashboardPage() {
     autoRefreshEnabled,
     autoRefreshInterval,
     clips,
+    stats,
     setFilters,
     setAutoRefresh,
     fetchClips,
@@ -235,6 +236,7 @@ export default function DashboardPage() {
         onChange={setFilters}
         totalCount={clips.length}
         filteredCount={filteredClips.length}
+        availableNiches={stats.games}
       />
 
       {/* Error */}
@@ -249,25 +251,96 @@ export default function DashboardPage() {
 
       {/* Clip Grid */}
       {loading ? (
-        <div className="flex items-center justify-center py-24 gap-3">
-          <Loader2 className="h-6 w-6 animate-spin text-primary" />
-          <p className="text-muted-foreground">Chargement des clips\u2026</p>
+        // Skeleton grid matching the real card layout
+        <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4">
+          {Array.from({ length: 10 }).map((_, i) => (
+            <div
+              key={i}
+              className="rounded-xl border border-border bg-card/40 overflow-hidden animate-pulse"
+            >
+              <div className="aspect-[9/16] bg-muted/40" />
+              <div className="p-3 space-y-2">
+                <div className="h-3 w-3/4 rounded bg-muted/50" />
+                <div className="h-3 w-1/2 rounded bg-muted/40" />
+                <div className="flex items-center gap-2 pt-1">
+                  <div className="h-5 w-12 rounded-full bg-muted/40" />
+                  <div className="h-5 w-16 rounded-full bg-muted/40" />
+                </div>
+              </div>
+            </div>
+          ))}
         </div>
       ) : displayClips.length === 0 ? (
-        <Card className="border-border bg-card/50">
-          <CardContent className="p-12 text-center">
-            <TrendingUp className="h-12 w-12 text-muted-foreground/30 mx-auto mb-3" />
-            <p className="text-muted-foreground">Aucun clip trouv&eacute; pour ces filtres.</p>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="mt-3"
-              onClick={() => setFilters({ search: '', games: [], platforms: [], sort: 'velocity' })}
-            >
-              Effacer les filtres
-            </Button>
-          </CardContent>
-        </Card>
+        // Context-aware empty state
+        (() => {
+          const hasFilters =
+            filters.search !== '' ||
+            filters.games.length > 0 ||
+            filters.platforms.length > 0 ||
+            quickFilter !== 'all'
+          const noClipsAtAll = clips.length === 0
+          return (
+            <Card className="border-border bg-card/50">
+              <CardContent className="p-10 md:p-14 text-center">
+                <div className="inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-orange-500/15 to-amber-500/15 border border-orange-500/20 mb-4">
+                  {noClipsAtAll ? (
+                    <Download className="h-8 w-8 text-orange-400" />
+                  ) : (
+                    <TrendingUp className="h-8 w-8 text-orange-400" />
+                  )}
+                </div>
+                <h3 className="text-lg font-bold text-foreground mb-1">
+                  {noClipsAtAll
+                    ? 'Aucun clip dans la bibliothèque'
+                    : 'Aucun clip ne correspond à tes filtres'}
+                </h3>
+                <p className="text-sm text-muted-foreground max-w-md mx-auto mb-5">
+                  {noClipsAtAll
+                    ? "Importe des clips Twitch pour commencer, ou uploade ta propre vidéo."
+                    : hasFilters
+                      ? 'Essaie de retirer un filtre ou une niche, ou cherche un autre streamer.'
+                      : 'Rafraîchis la bibliothèque — de nouveaux clips arrivent en continu.'}
+                </p>
+                <div className="flex flex-wrap items-center justify-center gap-2">
+                  {hasFilters && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setFilters({ search: '', games: [], platforms: [], sort: 'velocity' })
+                        setQuickFilter('all')
+                      }}
+                    >
+                      <X className="h-3.5 w-3.5 mr-1.5" />
+                      Effacer les filtres
+                    </Button>
+                  )}
+                  {noClipsAtAll && (
+                    <Button
+                      size="sm"
+                      className="bg-purple-500 hover:bg-purple-600 text-white"
+                      onClick={handleTwitchRefresh}
+                      disabled={twitchRefreshing}
+                    >
+                      {twitchRefreshing ? (
+                        <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                      ) : (
+                        <Download className="h-3.5 w-3.5 mr-1.5" />
+                      )}
+                      Importer depuis Twitch
+                    </Button>
+                  )}
+                  <Link href="/create">
+                    <Button variant="outline" size="sm" className="border-blue-500/30 text-blue-400 hover:bg-blue-500/10">
+                      <Upload className="h-3.5 w-3.5 mr-1.5" />
+                      Importer ma vidéo
+                    </Button>
+                  </Link>
+                </div>
+              </CardContent>
+            </Card>
+          )
+        })()
       ) : (
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4">
           {displayClips.map((clip) => (
