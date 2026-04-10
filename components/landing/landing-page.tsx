@@ -159,21 +159,34 @@ export function LandingPage() {
 function FooterNewsletter() {
   const [email, setEmail] = useState('')
   const [status, setStatus] = useState<'idle' | 'loading' | 'done' | 'error'>('idle')
+  const [errorMsg, setErrorMsg] = useState<string | null>(null)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!email.trim()) return
+    const trimmed = email.trim()
+    if (!trimmed) return
     setStatus('loading')
-    // For now, store in localStorage as a simple lead capture
-    // In production, replace with Supabase insert or email service
+    setErrorMsg(null)
     try {
-      const leads = JSON.parse(localStorage.getItem('newsletter_leads') || '[]') as string[]
-      if (!leads.includes(email.trim())) leads.push(email.trim())
-      localStorage.setItem('newsletter_leads', JSON.stringify(leads))
+      const res = await fetch('/api/newsletter/subscribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: trimmed, source: 'landing_footer' }),
+      })
+      const json = (await res.json().catch(() => null)) as
+        | { data: unknown; error: string | null; message: string }
+        | null
+
+      if (!res.ok) {
+        setStatus('error')
+        setErrorMsg(json?.message ?? 'Erreur, réessaie.')
+        return
+      }
       setStatus('done')
       setEmail('')
     } catch {
       setStatus('error')
+      setErrorMsg('Connexion impossible, réessaie.')
     }
   }
 
@@ -212,7 +225,7 @@ function FooterNewsletter() {
           </form>
         )}
         {status === 'error' && (
-          <p className="mt-2 text-xs text-red-400">Erreur, r&eacute;essaie.</p>
+          <p className="mt-2 text-xs text-red-400">{errorMsg ?? 'Erreur, réessaie.'}</p>
         )}
         <p className="text-[10px] text-muted-foreground/40 mt-3">
           D&eacute;sinscription en 1 clic. On respecte ta boite.
