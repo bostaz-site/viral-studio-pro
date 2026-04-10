@@ -23,7 +23,13 @@ export interface PlanLimits {
 export interface PlanConfig {
   id: PlanId
   name: string
-  price: number // $/month (USD)
+  price: number // $/month (USD) — what the user actually pays
+  /**
+   * Regular (pre-promo) price used for strikethrough display.
+   * When `priceRegular > price`, the UI shows the higher price crossed out
+   * next to the current (launch/promo) price.
+   */
+  priceRegular?: number
   currency: 'USD'
   /**
    * Baseline monthly quota actually charged for.
@@ -82,7 +88,8 @@ export const PLANS: Record<PlanId, PlanConfig> = {
   studio: {
     id: 'studio',
     name: 'Studio',
-    price: 24,
+    price: 24, // prix de lancement
+    priceRegular: 29,
     currency: 'USD',
     baselineVideosPerMonth: 90,
     bonusVideosPerMonth: 30, // welcome bonus → effective cap of 120/mois

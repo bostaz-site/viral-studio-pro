@@ -9,6 +9,7 @@ import { cn } from '@/lib/utils'
 interface PlanConfig {
   name: string
   price: string
+  priceOriginal?: string
   priceNote: string
   trialNote?: string
   features: string[]
@@ -50,6 +51,7 @@ const PLANS: PlanConfig[] = [
   {
     name: 'Studio',
     price: '$24',
+    priceOriginal: '$29',
     priceNote: '/mois',
     features: [
       '120 vid\u00e9os / mois (90 + 30 bonus)',
@@ -95,10 +97,16 @@ export function PricingSection() {
 
               <CardHeader className="pb-3 pt-6">
                 <CardTitle className="text-lg">{plan.name}</CardTitle>
-                <div className="flex items-baseline gap-1 mt-2">
+                <div className="flex items-baseline gap-2 mt-2">
+                  {plan.priceOriginal && (
+                    <span className="text-lg text-muted-foreground/60 line-through">{plan.priceOriginal}</span>
+                  )}
                   <span className="text-3xl font-black text-foreground">{plan.price}</span>
                   <CardDescription>{plan.priceNote}</CardDescription>
                 </div>
+                {plan.priceOriginal && (
+                  <p className="text-[11px] text-amber-400 font-medium mt-1">Prix de lancement</p>
+                )}
                 {plan.trialNote && (
                   <p className="text-[11px] text-emerald-400 font-medium mt-1.5">{plan.trialNote}</p>
                 )}

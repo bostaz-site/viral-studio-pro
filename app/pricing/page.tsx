@@ -21,6 +21,7 @@ interface PricingTier {
   id: string
   name: string
   price: number
+  priceOriginal?: number
   period: string
   description: string
   icon: typeof Zap
@@ -78,6 +79,7 @@ const TIERS: PricingTier[] = [
     id: 'studio',
     name: 'Studio',
     price: 24,
+    priceOriginal: 29,
     period: '/mois',
     description: 'L\u2019arsenal complet pour les agences et power users.',
     icon: Crown,
@@ -209,8 +211,16 @@ export default function PricingPage() {
 
                   {/* Price */}
                   <div className="mb-4">
-                    <span className="text-4xl font-black tracking-tight">${tier.price}</span>
-                    <span className="text-muted-foreground ml-1">{tier.period}</span>
+                    <div className="flex items-baseline gap-2">
+                      {tier.priceOriginal && (
+                        <span className="text-xl text-muted-foreground/60 line-through">${tier.priceOriginal}</span>
+                      )}
+                      <span className="text-4xl font-black tracking-tight">${tier.price}</span>
+                      <span className="text-muted-foreground ml-1">{tier.period}</span>
+                    </div>
+                    {tier.priceOriginal && (
+                      <p className="text-xs text-amber-400 font-medium mt-1">Prix de lancement — offre limitée</p>
+                    )}
                     {tier.trialNote && (
                       <p className="text-xs text-emerald-400 font-medium mt-1.5">{tier.trialNote}</p>
                     )}

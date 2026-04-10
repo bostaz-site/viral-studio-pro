@@ -93,7 +93,7 @@ const jsonLd = {
       price: '24',
       priceCurrency: 'USD',
       name: 'Studio',
-      description: '120 vidéos par mois (90 + 30 bonus), split-screen, distribution multi-plateforme',
+      description: 'Prix de lancement $24 (au lieu de $29). 120 vidéos par mois (90 + 30 bonus), split-screen, distribution multi-plateforme',
     },
   ],
   aggregateRating: {

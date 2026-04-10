@@ -18,6 +18,7 @@ interface PlanConfig {
   id: Plan
   name: string
   price: string | null
+  priceOriginal?: string
   priceNote: string
   icon: React.ElementType
   color: string
@@ -67,6 +68,7 @@ const PLANS: PlanConfig[] = [
     id: 'studio',
     name: 'Studio',
     price: '$24',
+    priceOriginal: '$29',
     priceNote: '/mois',
     icon: Sparkles,
     color: 'text-violet-400',
@@ -141,10 +143,16 @@ export function PricingCard({ currentPlan, onUpgrade, onManageBilling }: Pricing
                   </span>
                 )}
               </div>
-              <div className="flex items-baseline gap-1">
+              <div className="flex items-baseline gap-2">
+                {plan.priceOriginal && (
+                  <span className="text-lg text-muted-foreground/60 line-through">{plan.priceOriginal}</span>
+                )}
                 <span className="text-3xl font-black text-foreground">{plan.price}</span>
                 <CardDescription>{plan.priceNote}</CardDescription>
               </div>
+              {plan.priceOriginal && (
+                <p className="text-[11px] text-amber-400 font-medium">Prix de lancement</p>
+              )}
             </CardHeader>
 
             <CardContent className="flex-1 space-y-2">

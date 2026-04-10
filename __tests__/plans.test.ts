@@ -48,10 +48,16 @@ describe('Plan enforcement', () => {
     expect(config.currency).toBe('USD')
   })
 
-  it('studio plan is $24 USD', () => {
+  it('studio plan is $24 USD (prix de lancement, regular $29)', () => {
     const config = getPlanConfig('studio')
     expect(config.price).toBe(24)
+    expect(config.priceRegular).toBe(29)
     expect(config.currency).toBe('USD')
+  })
+
+  it('pro plan has no priceRegular (no promo)', () => {
+    const config = getPlanConfig('pro')
+    expect(config.priceRegular).toBeUndefined()
   })
 
   it('unknown plan defaults to free', () => {
