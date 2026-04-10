@@ -2,11 +2,12 @@
 
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { Share, Settings, Menu, X, LogOut, Upload, Zap, Compass, Wand2, BarChart3 } from 'lucide-react'
+import { Share, Settings, Menu, X, LogOut, Upload, Zap, Compass, Wand2, BarChart3, Crown } from 'lucide-react'
 import { useUiStore } from '@/stores/ui-store'
 import { Button } from '@/components/ui/button'
 import { NotificationBell } from '@/components/trending/notification-bell'
 import { createClient } from '@/lib/supabase/client'
+import { isAdminEmail } from '@/lib/auth/admin-emails'
 import { useEffect, useState } from 'react'
 import type { User } from '@supabase/supabase-js'
 
@@ -47,11 +48,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     router.push('/login')
   }
 
+  const isAdmin = isAdminEmail(user?.email)
+
   const navigation = [
     { name: 'Browse', href: '/dashboard', icon: Compass },
     { name: 'Enhance', href: '/dashboard/enhance', icon: Wand2 },
     { name: 'Publier', href: '/publish', icon: Share },
     { name: 'Analytics', href: '/analytics', icon: BarChart3 },
+    ...(isAdmin ? [{ name: 'Growth (admin)', href: '/admin/growth', icon: Crown }] : []),
     { name: 'Paramètres', href: '/settings', icon: Settings },
   ]
 
