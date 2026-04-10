@@ -187,17 +187,49 @@ router.post('/', async (req, res) => {
       await downloadFromUrl(videoUrl, inputPath);
       console.log(`[Render ${renderSessionId}] Downloaded trending clip successfully`);
 
-      // Get actual duration from FFprobe
+      // Get actual duration from FFprobe.
+      //
+      // IMPORTANT: we probe the VIDEO STREAM duration, not the container
+      // (format=duration). The container-level metadata from Twitch CDN is
+      // typically a few hundred milliseconds longer than the actual last
+      // video frame PTS. Feeding that inflated number to FFmpeg as `-t` on
+      // the output causes the last frame to be held/duplicated to pad the
+      // gap — which looks exactly like the video "freezing" at the end.
+      //
+      // Strategy:
+      //  1) Try stream=duration on the first video stream (most accurate)
+      //  2) Fall back to format=duration if the stream reports N/A
+      //  3) Last resort: keep the caller-provided clipDuration
       try {
-        const { stdout } = await execFileAsync('ffprobe', [
+        const probeStream = await execFileAsync('ffprobe', [
           '-v', 'quiet',
-          '-show_entries', 'format=duration',
+          '-select_streams', 'v:0',
+          '-show_entries', 'stream=duration',
           '-of', 'csv=p=0',
           inputPath,
         ]);
-        duration = parseFloat(stdout.trim()) || duration;
+        const streamDur = parseFloat(probeStream.stdout.trim());
+        if (Number.isFinite(streamDur) && streamDur > 0) {
+          duration = streamDur;
+          trc(`FFPROBE stream=duration=${duration}s`);
+        } else {
+          const probeFormat = await execFileAsync('ffprobe', [
+            '-v', 'quiet',
+            '-show_entries', 'format=duration',
+            '-of', 'csv=p=0',
+            inputPath,
+          ]);
+          const fmtDur = parseFloat(probeFormat.stdout.trim());
+          if (Number.isFinite(fmtDur) && fmtDur > 0) {
+            duration = fmtDur;
+            trc(`FFPROBE format=duration=${duration}s (stream N/A)`);
+          }
+        }
+        // Shave 50ms off the end to guarantee we never cut past the last
+        // real video frame — prevents the "frozen last frame" artifact if
+        // the container metadata is still slightly ahead of the stream.
+        duration = Math.max(0.1, duration - 0.05);
         clipEndTime = duration;
-        trc(`FFPROBE duration=${duration}s`);
       } catch (err) {
         console.warn(`[Render ${renderSessionId}] Could not determine duration via ffprobe`);
       }
