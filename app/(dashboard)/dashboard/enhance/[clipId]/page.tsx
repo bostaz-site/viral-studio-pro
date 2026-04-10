@@ -422,9 +422,15 @@ export default function EnhancePage() {
       // Smart zoom dynamique
       smartZoomEnabled: true,
       smartZoomMode: 'dynamic',
-      // Audio enhancement + auto-cut silences
+      // Audio enhancement
       audioEnhanceEnabled: true,
-      autoCutEnabled: true,
+      // Auto-cut DISABLED for Make it Viral: Twitch clips are already
+      // short (~30s) and auto-cut with a 0.7s threshold destroys any
+      // clip where the streamer isn't talking constantly. It also breaks
+      // hook reorder (segments clamp to a video that's been shrunk) and
+      // leaves ASS subtitle timestamps referring to the pre-cut timeline.
+      // Users with long uploaded videos can still enable it manually.
+      autoCutEnabled: false,
       autoCutThreshold: 0.7,
       // Hook viral: suspense, texte + reorder, 15%, 1.5s
       hookEnabled: true,
