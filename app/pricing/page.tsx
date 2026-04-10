@@ -16,6 +16,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
+import { LaunchCountdown } from '@/components/landing/launch-countdown'
 
 interface PricingTier {
   id: string
@@ -219,7 +220,10 @@ export default function PricingPage() {
                       <span className="text-muted-foreground ml-1">{tier.period}</span>
                     </div>
                     {tier.priceOriginal && (
-                      <p className="text-xs text-amber-400 font-medium mt-1">Prix de lancement — offre limitée</p>
+                      <div className="mt-1 flex flex-col gap-0.5">
+                        <p className="text-xs text-amber-400 font-semibold">Prix de lancement — offre limitée</p>
+                        <LaunchCountdown />
+                      </div>
                     )}
                     {tier.trialNote && (
                       <p className="text-xs text-emerald-400 font-medium mt-1.5">{tier.trialNote}</p>

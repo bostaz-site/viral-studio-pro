@@ -5,6 +5,21 @@
 
 export type PlanId = 'free' | 'pro' | 'studio'
 
+/**
+ * When the Studio "Prix de lancement" ($24 instead of $29) expires.
+ * Past this date, isStudioLaunchActive() returns false and the UI
+ * should stop showing the crossed-out $29 + countdown.
+ *
+ * When this date passes, Samy should either:
+ * 1. Update lib/plans.ts studio price to 29 and remove priceRegular, OR
+ * 2. Extend STUDIO_LAUNCH_ENDS_AT to keep the promo running.
+ */
+export const STUDIO_LAUNCH_ENDS_AT = new Date('2026-05-10T23:59:59Z')
+
+export function isStudioLaunchActive(now: Date = new Date()): boolean {
+  return now.getTime() < STUDIO_LAUNCH_ENDS_AT.getTime()
+}
+
 export interface PlanLimits {
   maxVideosPerMonth: number
   maxClipDurationSeconds: number

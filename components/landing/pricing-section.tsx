@@ -5,8 +5,10 @@ import { Check } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
+import { LaunchCountdown } from '@/components/landing/launch-countdown'
 
 interface PlanConfig {
+  id: string
   name: string
   price: string
   priceOriginal?: string
@@ -19,6 +21,7 @@ interface PlanConfig {
 
 const PLANS: PlanConfig[] = [
   {
+    id: 'free',
     name: 'Free',
     price: '$0',
     priceNote: '/mois',
@@ -32,6 +35,7 @@ const PLANS: PlanConfig[] = [
     cta: 'Commencer gratuitement',
   },
   {
+    id: 'pro',
     name: 'Pro',
     price: '$19',
     priceNote: '/mois',
@@ -49,6 +53,7 @@ const PLANS: PlanConfig[] = [
     cta: 'D\u00e9marrer les 7 jours gratuits',
   },
   {
+    id: 'studio',
     name: 'Studio',
     price: '$24',
     priceOriginal: '$29',
@@ -104,8 +109,11 @@ export function PricingSection() {
                   <span className="text-3xl font-black text-foreground">{plan.price}</span>
                   <CardDescription>{plan.priceNote}</CardDescription>
                 </div>
-                {plan.priceOriginal && (
-                  <p className="text-[11px] text-amber-400 font-medium mt-1">Prix de lancement</p>
+                {plan.id === 'studio' && plan.priceOriginal && (
+                  <div className="mt-1 flex flex-col gap-0.5">
+                    <p className="text-[11px] text-amber-400 font-semibold">Prix de lancement</p>
+                    <LaunchCountdown />
+                  </div>
                 )}
                 {plan.trialNote && (
                   <p className="text-[11px] text-emerald-400 font-medium mt-1.5">{plan.trialNote}</p>

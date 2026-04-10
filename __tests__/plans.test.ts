@@ -1,5 +1,12 @@
 import { describe, it, expect } from 'vitest'
-import { checkVideoLimit, getPlanConfig, checkFeatureAccess, checkClipDuration } from '@/lib/plans'
+import {
+  checkVideoLimit,
+  getPlanConfig,
+  checkFeatureAccess,
+  checkClipDuration,
+  isStudioLaunchActive,
+  STUDIO_LAUNCH_ENDS_AT,
+} from '@/lib/plans'
 
 describe('Plan enforcement', () => {
   it('free plan allows 3 videos', () => {
@@ -58,6 +65,22 @@ describe('Plan enforcement', () => {
   it('pro plan has no priceRegular (no promo)', () => {
     const config = getPlanConfig('pro')
     expect(config.priceRegular).toBeUndefined()
+  })
+
+  // ─── Studio launch price countdown ──────────────────────────────────────
+
+  it('isStudioLaunchActive is true 1ms before end date', () => {
+    const justBefore = new Date(STUDIO_LAUNCH_ENDS_AT.getTime() - 1)
+    expect(isStudioLaunchActive(justBefore)).toBe(true)
+  })
+
+  it('isStudioLaunchActive is false at exact end date', () => {
+    expect(isStudioLaunchActive(STUDIO_LAUNCH_ENDS_AT)).toBe(false)
+  })
+
+  it('isStudioLaunchActive is false 1 day after end date', () => {
+    const dayAfter = new Date(STUDIO_LAUNCH_ENDS_AT.getTime() + 86_400_000)
+    expect(isStudioLaunchActive(dayAfter)).toBe(false)
   })
 
   it('unknown plan defaults to free', () => {
