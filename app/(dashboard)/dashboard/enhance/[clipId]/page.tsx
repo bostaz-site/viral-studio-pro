@@ -202,14 +202,21 @@ export default function EnhancePage() {
     setRenderJobId(jobId)
     setRenderDownloadUrl(null)
 
+    // Persist the jobId so a refresh / accidental navigation can resume polling
+    try { sessionStorage.setItem(`render-job:${clipId}`, jobId) } catch { /* ignore */ }
+
     let pollCount = 0
-    const maxPolls = 60 // 60 × 3s = 3 minutes max
+    // 200 × 3s = 10 minutes — long clips + a couple of slots ahead in the
+    // render queue can legitimately take 5-8 minutes. After 10 we stop
+    // polling but leave the jobId in sessionStorage so the user can refresh
+    // and resume.
+    const maxPolls = 200
 
     pollRef.current = setInterval(async () => {
       pollCount++
       if (pollCount > maxPolls) {
         if (pollRef.current) clearInterval(pollRef.current)
-        setRenderMessage('⚠️ Le rendu prend plus longtemps que prévu. Reviens vérifier plus tard.')
+        setRenderMessage('⚠️ Le rendu prend plus de 10 min — rafraîchis la page pour reprendre le suivi, il est probablement toujours en cours.')
         setRendering(false)
         return
       }
@@ -232,6 +239,7 @@ export default function EnhancePage() {
 
         if (json.data.status === 'done' && json.data.downloadUrl) {
           if (pollRef.current) clearInterval(pollRef.current)
+          try { sessionStorage.removeItem(`render-job:${clipId}`) } catch { /* ignore */ }
           setRenderDownloadUrl(json.data.downloadUrl)
           // Switch the live preview to show the RENDERED video (with subtitles baked in)
           // Save original URL so user can re-edit later
@@ -247,6 +255,7 @@ export default function EnhancePage() {
           setRendering(false)
         } else if (json.data.status === 'error') {
           if (pollRef.current) clearInterval(pollRef.current)
+          try { sessionStorage.removeItem(`render-job:${clipId}`) } catch { /* ignore */ }
           setRenderMessage(`❌ Erreur : ${json.data.errorMessage || 'Erreur inconnue'}`)
           setRendering(false)
         } else if (json.data.status === 'rendering') {
@@ -261,7 +270,7 @@ export default function EnhancePage() {
         // Silently retry on network errors
       }
     }, 3000) // Poll every 3 seconds
-  }, [])
+  }, [clipId, videoUrl])
 
   // Cleanup polling on unmount
   useEffect(() => {
@@ -269,6 +278,37 @@ export default function EnhancePage() {
       if (pollRef.current) clearInterval(pollRef.current)
     }
   }, [])
+
+  // Resume polling on mount if a render is already in flight for this clip
+  // (user refreshed the page mid-render, or came back after the previous
+  // polling window timed out).
+  useEffect(() => {
+    if (!clip) return
+    let storedJobId: string | null = null
+    try { storedJobId = sessionStorage.getItem(`render-job:${clipId}`) } catch { /* ignore */ }
+    if (!storedJobId) return
+    // Quick status probe — if the job is already done/error, skip polling
+    // and show the final state immediately.
+    fetch(`/api/render/status?jobId=${storedJobId}`)
+      .then((r) => r.ok ? r.json() : null)
+      .then((json: { data: { status: string } | null } | null) => {
+        if (!json?.data) {
+          try { sessionStorage.removeItem(`render-job:${clipId}`) } catch { /* ignore */ }
+          return
+        }
+        if (json.data.status === 'done' || json.data.status === 'error') {
+          // Let startPolling handle the terminal state + cleanup in one tick
+          setRendering(true)
+          setRenderMessage('⏳ Reprise du suivi…')
+          startPolling(storedJobId!)
+        } else {
+          setRendering(true)
+          setRenderMessage('⏳ Reprise du suivi du rendu en cours…')
+          startPolling(storedJobId!)
+        }
+      })
+      .catch(() => { /* silent */ })
+  }, [clip, clipId, startPolling])
 
   const handleRender = useCallback(async () => {
     if (!clip) return
