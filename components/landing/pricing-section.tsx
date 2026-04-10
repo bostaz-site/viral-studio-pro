@@ -23,8 +23,8 @@ const PLANS: PlanConfig[] = [
     priceNote: '/mois',
     features: [
       '3 vid\u00e9os / mois',
-      '90 cr\u00e9dits offerts',
       'Clips jusqu\'\u00e0 60s',
+      'Split-screen automatique',
       'Score viral IA',
       'Watermark Viral Studio',
     ],
@@ -39,11 +39,11 @@ const PLANS: PlanConfig[] = [
     features: [
       '50 vid\u00e9os / mois',
       'Clips jusqu\'\u00e0 10 min',
+      'Split-screen automatique',
       'Score viral + Remake This',
       'Sans watermark',
       'Brand Template custom',
       'Export 9:16 + 1:1 + 16:9',
-      'Dashboard Streams complet',
     ],
     cta: 'D\u00e9marrer les 7 jours gratuits',
   },
@@ -54,7 +54,6 @@ const PLANS: PlanConfig[] = [
     features: [
       'Vid\u00e9os illimit\u00e9es',
       'Tout Pro inclus',
-      'Split-screen automatique',
       'Distribution multi-plateforme',
       'Voix-off ElevenLabs',
       'API access',

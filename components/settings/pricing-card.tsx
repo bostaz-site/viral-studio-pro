@@ -37,9 +37,9 @@ const PLANS: PlanConfig[] = [
     features: [
       '3 vidéos / mois',
       'Clips jusqu\'à 60s',
+      'Split-screen automatique',
       'Virality Score',
       'Watermark Viral Studio',
-      'Transcription Whisper',
     ],
     cta: 'Plan actuel',
   },
@@ -54,11 +54,11 @@ const PLANS: PlanConfig[] = [
     features: [
       '50 vidéos / mois',
       'Clips jusqu\'à 10 min',
+      'Split-screen automatique',
       'Virality Score + Remake This',
       'Sans watermark',
       'Brand Template custom',
       'Export 9:16 + 1:1 + 16:9',
-      'Suppression mots de remplissage',
       'Dashboard Trending',
     ],
     cta: 'Passer Pro',
@@ -73,7 +73,6 @@ const PLANS: PlanConfig[] = [
     features: [
       'Vidéos illimitées',
       'Tout Pro inclus',
-      'Split-screen automatique',
       'Distribution multi-plateforme',
       'Voix-off ElevenLabs',
       'API access',

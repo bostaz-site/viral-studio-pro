@@ -42,6 +42,7 @@ const TIERS: PricingTier[] = [
     features: [
       '3 vidéos par mois',
       'Clips jusqu\u2019à 60 secondes',
+      'Split-screen automatique',
       'Transcription IA (Whisper)',
       'Score viral + analyse hooks',
       '1 format (9:16 vertical)',
@@ -61,12 +62,12 @@ const TIERS: PricingTier[] = [
     features: [
       '50 vidéos par mois',
       'Clips jusqu\u2019à 10 minutes',
+      'Split-screen automatique',
       'Sans watermark',
       'Branding personnalisé (logo, couleurs)',
       '3 formats d\u2019export',
       'Dashboard Trending complet',
       'Remake This illimité',
-      'Suppression des silences auto',
     ],
     highlighted: true,
     trialNote: '7 jours gratuits, sans engagement',
@@ -83,7 +84,6 @@ const TIERS: PricingTier[] = [
     features: [
       'Vidéos illimitées',
       'Tout le plan Pro inclus',
-      'Split-screen automatique',
       'Distribution multi-plateforme',
       'Voix-off IA (ElevenLabs)',
       'Accès API',

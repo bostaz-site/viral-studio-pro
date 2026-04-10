@@ -35,9 +35,16 @@ describe('Plan enforcement', () => {
     expect(config.limits.maxVideosPerMonth).toBe(3)
   })
 
-  it('free plan cannot access split-screen', () => {
+  // Split-screen is the core differentiator — available on ALL plans (the
+  // marketing promise) including Free. Higher tiers just get more quota.
+  it('free plan can access split-screen', () => {
     const result = checkFeatureAccess('free', 'splitScreen')
-    expect(result.allowed).toBe(false)
+    expect(result.allowed).toBe(true)
+  })
+
+  it('pro plan can access split-screen', () => {
+    const result = checkFeatureAccess('pro', 'splitScreen')
+    expect(result.allowed).toBe(true)
   })
 
   it('studio plan can access split-screen', () => {
