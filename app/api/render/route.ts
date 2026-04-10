@@ -229,11 +229,24 @@ export const POST = withAuth(async (request, user) => {
     },
   }
 
-  // Fire-and-forget to VPS with timeout + 1 retry
-  const sendToVps = async (attempt = 1) => {
+  // Fire-and-forget to VPS.
+  //
+  // The VPS /api/render endpoint is SYNCHRONOUS — it runs the full render
+  // (download + FFmpeg + Supabase upload, 30-90s) before responding. We
+  // don't wait for that response: we only care that the POST body was
+  // delivered. The VPS writes status updates directly to the render_jobs
+  // table, which is the single source of truth for the polling UI.
+  //
+  // We abort the fetch after 15s — that is plenty of time to deliver a
+  // multi-MB POST body (hook/tag overlay PNGs can be ~2 MB each) but well
+  // short of the render time. On AbortError we KEEP the job in its
+  // current state and let the VPS drive it to 'done'/'error'. On any
+  // other error (DNS failure, connection refused, non-2xx response on
+  // the handshake) we mark the job as errored so the UI surfaces it.
+  const sendToVps = async () => {
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 15000)
     try {
-      const controller = new AbortController()
-      const timeoutId = setTimeout(() => controller.abort(), 30000) // 30s timeout
       await fetch(`${vpsUrl}/api/render`, {
         method: 'POST',
         headers: {
@@ -245,17 +258,25 @@ export const POST = withAuth(async (request, user) => {
       })
       clearTimeout(timeoutId)
     } catch (err) {
-      console.error(`[render] VPS attempt ${attempt} failed:`, err)
-      if (attempt < 2) {
-        console.log('[render] Retrying VPS in 2s...')
-        await new Promise(r => setTimeout(r, 2000))
-        return sendToVps(attempt + 1)
+      clearTimeout(timeoutId)
+      // AbortError = our own timeout kicked in, which means the POST body
+      // was already flushed to the VPS. The render is in progress and the
+      // VPS will update the job status itself. Do NOT overwrite the row.
+      const isAbort =
+        err instanceof Error &&
+        (err.name === 'AbortError' || err.name === 'TimeoutError')
+      if (isAbort) {
+        console.log('[render] VPS POST body delivered, letting VPS drive the job')
+        return
       }
-      // Mark job as error after all retries exhausted
-      await admin.from('render_jobs').update({
-        status: 'error',
-        error_message: `VPS unreachable after ${attempt} attempts`,
-      }).eq('id', job.id)
+      console.error('[render] VPS unreachable:', err)
+      await admin
+        .from('render_jobs')
+        .update({
+          status: 'error',
+          error_message: `VPS unreachable: ${err instanceof Error ? err.message : 'unknown error'}`,
+        })
+        .eq('id', job.id)
     }
   }
   sendToVps()
