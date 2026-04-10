@@ -81,6 +81,7 @@ function SettingsPageInner() {
   const [loading, setLoading] = useState(true)
   const [showBrandEditor, setShowBrandEditor] = useState(false)
   const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [upgradeError, setUpgradeError] = useState<string | null>(null)
 
   // Profile editing
   const [fullName, setFullName] = useState('')
@@ -165,13 +166,22 @@ function SettingsPageInner() {
   }
 
   const handleUpgrade = async (plan: 'pro' | 'studio') => {
-    const res = await fetch('/api/stripe/checkout', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ plan }),
-    })
-    const data = await res.json() as { data: { url: string } | null }
-    if (data.data?.url) window.location.href = data.data.url
+    setUpgradeError(null)
+    try {
+      const res = await fetch('/api/stripe/checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ plan }),
+      })
+      const data = await res.json() as { data: { url: string } | null; message?: string }
+      if (data.data?.url) {
+        window.location.href = data.data.url
+        return
+      }
+      setUpgradeError(data.message ?? 'Impossible de créer la session de paiement. Réessaie dans quelques secondes.')
+    } catch {
+      setUpgradeError('Erreur réseau. Vérifie ta connexion et réessaie.')
+    }
   }
 
   const handleManageBilling = async () => {
@@ -481,6 +491,21 @@ function SettingsPageInner() {
           onUpgrade={handleUpgrade}
           onManageBilling={handleManageBilling}
         />
+        {upgradeError && (
+          <div className="mt-3 flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm">
+            <AlertCircle className="h-4 w-4 text-destructive mt-0.5 shrink-0" />
+            <div className="flex-1">
+              <p className="font-medium text-foreground">Échec de la redirection vers Stripe</p>
+              <p className="text-muted-foreground mt-0.5">{upgradeError}</p>
+            </div>
+            <button
+              onClick={() => setUpgradeError(null)}
+              className="text-muted-foreground hover:text-foreground text-xs"
+            >
+              Fermer
+            </button>
+          </div>
+        )}
       </Section>
     </div>
   )
