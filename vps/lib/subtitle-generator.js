@@ -28,6 +28,27 @@ const CAPTION_STYLES = {
     marginV: 120,
   },
 
+  // Same mechanics as hormozi (thick white outline + shadow) but the
+  // ACTIVE word pops in neon purple to match the viral-glow tag/hook
+  // overlays — creates a consistent "branded" look across the video.
+  // Purple tone: #C77DFF → ASS BGR = FF7DC7
+  'hormozi-purple': {
+    fontname: 'Liberation Sans',
+    fontsize: 78,
+    fontweight: true,
+    primaryColor: '&H00FF7DC7', // neon purple (active word)
+    secondaryColor: '&H00FFFFFF', // white (inactive words)
+    outlineColor: '&H00000000',
+    backColor: '&H80000000',
+    bold: -1,
+    italic: 0,
+    outline: 5,
+    shadow: 2,
+    borderStyle: 1,
+    alignment: 2,
+    marginV: 120,
+  },
+
   mrbeast: {
     fontname: 'Liberation Sans',
     fontsize: 78,
@@ -570,6 +591,7 @@ const EMPHASIS_COLOR_MAP = {
   green:  '&H0080DE4A&', // #4ADE80
   orange: '&H001673F9&', // #F97316
   pink:   '&H009948EC&', // #EC4899
+  purple: '&H00FF7DC7&', // #C77DFF → neon purple (matches viral-glow tag/hook)
   white:  '&H00FFFFFF&', // #FFFFFF
 };
 

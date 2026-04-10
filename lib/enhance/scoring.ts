@@ -150,6 +150,15 @@ export const CAPTION_STYLES: CaptionStyle[] = [
     animLabel: 'Word Pop',
   },
   {
+    id: 'hormozi-purple',
+    label: 'Hormozi Purple',
+    preview: 'text-white font-black uppercase',
+    highlightClass: 'text-purple-400 bg-purple-400/20',
+    baseScore: 13,
+    animation: 'word-pop',
+    animLabel: 'Word Pop',
+  },
+  {
     id: 'mrbeast',
     label: 'MrBeast',
     preview: 'text-white font-black',
@@ -219,6 +228,7 @@ export const EMPHASIS_COLORS: EmphasisColor[] = [
   { id: 'green', label: 'Vert', tw: 'bg-green-400', hex: '#4ADE80' },
   { id: 'orange', label: 'Orange', tw: 'bg-orange-500', hex: '#F97316' },
   { id: 'pink', label: 'Rose', tw: 'bg-pink-500', hex: '#EC4899' },
+  { id: 'purple', label: 'Violet', tw: 'bg-purple-400', hex: '#C77DFF' },
   { id: 'white', label: 'Blanc', tw: 'bg-white', hex: '#FFFFFF' },
 ]
 
