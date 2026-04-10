@@ -56,7 +56,21 @@ export async function POST(req: NextRequest) {
   }
 }
 
-// Also expose GET for easy manual triggering from browser (with query param auth)
+// GET for manual triggering — requires ?key= query param for auth
 export async function GET(req: NextRequest) {
-  return POST(req)
+  const key = req.nextUrl.searchParams.get('key')
+  if (!key) {
+    return NextResponse.json(
+      { data: null, error: 'Unauthorized', message: 'Clé API manquante (utilisez ?key=...)' },
+      { status: 401 }
+    )
+  }
+  // Inject key into headers so POST auth check works
+  const headers = new Headers(req.headers)
+  headers.set('x-api-key', key)
+  const patchedReq = new NextRequest(req.url, {
+    method: 'POST',
+    headers,
+  })
+  return POST(patchedReq)
 }

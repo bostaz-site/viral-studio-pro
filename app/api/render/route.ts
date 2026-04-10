@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { z } from 'zod'
 import { withAuth } from '@/lib/api/withAuth'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { rateLimit, RATE_LIMITS } from '@/lib/rate-limit'
 
 // Allow larger request body for hook overlay PNG (base64 ~500KB-2MB)
 export const maxDuration = 60
@@ -74,6 +75,15 @@ const inputSchema = z.object({
 // ── Route handler — Proxy to VPS Render API ──────────────────────────────────
 
 export const POST = withAuth(async (request, user) => {
+  // Rate limit: max 5 renders per minute per user
+  const rl = rateLimit(`render:${user.id}`, RATE_LIMITS.ai.limit, RATE_LIMITS.ai.windowMs)
+  if (!rl.allowed) {
+    return NextResponse.json(
+      { data: null, error: 'Rate limited', message: `Trop de rendus. Réessaie dans ${Math.ceil((rl.retryAfterMs || 60000) / 1000)}s` },
+      { status: 429 }
+    )
+  }
+
   let body: unknown
   try {
     body = await request.json()

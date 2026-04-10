@@ -10,6 +10,7 @@ import { detectFaces } from '../lib/face-tracker.js';
 import { detectPeakMoment, generateHookTexts, calculateReorderTimestamps } from '../lib/hook-generator.js';
 // caption-png.js and drawtext-wordpop.js removed — all animations now use ASS subtitles
 import { transcribeWithWhisper } from '../lib/whisper-client.js';
+import { enqueueRender, getQueueStatus } from '../lib/render-queue.js';
 import {
   getClip,
   getVideo,
@@ -149,7 +150,8 @@ router.post('/', async (req, res) => {
     }
 
     clipId = reqClipId;
-    console.log(`[Render ${renderSessionId}] Starting render for ${source} clip ${clipId} (job: ${jobId || 'none'})`);
+    const queueStatus = getQueueStatus();
+    console.log(`[Render ${renderSessionId}] Starting render for ${source} clip ${clipId} (job: ${jobId || 'none'}) [queue: ${queueStatus.running} running, ${queueStatus.waiting} waiting]`);
 
     // Mark job as rendering
     await updateRenderJob(jobId, { status: 'rendering' });

@@ -306,7 +306,7 @@ function buildFollowFaceFilter(inLabel, outLabel, canvasW, canvasH, keyframes, c
   const xExpr = buildLerpExpr(kf, 'cx');
   const yExpr = buildLerpExpr(kf, 'cy');
 
-  console.log(`[FFmpeg] Follow face: ${kfArr.length} keyframes, ${ZOOM}x zoom, piecewise lerp pan`);
+  console.log(`[FFmpeg] Follow face: ${kf.length} keyframes, ${ZOOM}x zoom, piecewise lerp pan`);
 
   // Scale up → crop with moving window → set SAR
   return `${inLabel}scale=${scaledW}:${scaledH},crop=${canvasW}:${canvasH}:x='${xExpr}':y='${yExpr}':exact=1,setsar=1${outLabel}`;

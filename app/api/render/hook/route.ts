@@ -1,5 +1,6 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
+import { withAuth } from '@/lib/api/withAuth'
 
 const inputSchema = z.object({
   transcript: z.string().optional().default(''),
@@ -20,9 +21,9 @@ const inputSchema = z.object({
   maxContext: z.number().optional().default(8),
 })
 
-export async function POST(request: Request) {
+export const POST = withAuth(async (req: NextRequest) => {
   try {
-    const body = await request.json()
+    const body = await req.json()
     const parsed = inputSchema.safeParse(body)
 
     if (!parsed.success) {
@@ -68,4 +69,4 @@ export async function POST(request: Request) {
       { status: 500 }
     )
   }
-}
+})

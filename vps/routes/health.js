@@ -3,6 +3,7 @@ import { promises as fs } from 'fs';
 import { checkFfmpegAvailability } from '../lib/ffmpeg-render.js';
 import { checkYtdlpAvailability } from '../lib/yt-dlp-wrapper.js';
 import { checkSupabaseHealth } from '../lib/supabase-client.js';
+import { getQueueStatus } from '../lib/render-queue.js';
 
 const router = express.Router();
 const startTime = Date.now();
@@ -37,7 +38,8 @@ router.get('/', async (req, res) => {
       status: allHealthy ? 'healthy' : 'degraded',
       timestamp: new Date().toISOString(),
       uptime: `${uptime}s`,
-      version: '1.1.0',
+      version: '1.2.0',
+      renderQueue: getQueueStatus(),
       environment: process.env.NODE_ENV || 'development',
       components: {
         ffmpeg: {

@@ -7,6 +7,7 @@ import { uploadReelToInstagram } from '@/lib/social/instagram'
 import { uploadVideoToYouTube, refreshYouTubeToken } from '@/lib/social/youtube'
 import { safeDecrypt, safeEncrypt } from '@/lib/crypto'
 import { withAuth } from '@/lib/api/withAuth'
+import { rateLimit, RATE_LIMITS } from '@/lib/rate-limit'
 
 const platformCaptionSchema = z.object({
   caption: z.string(),
@@ -27,6 +28,14 @@ interface PublishResult {
 }
 
 export const POST = withAuth(async (req, user) => {
+  // Rate limit: max 10 publishes per minute per user
+  const rl = rateLimit(`publish:${user.id}`, RATE_LIMITS.upload.limit, RATE_LIMITS.upload.windowMs)
+  if (!rl.allowed) {
+    return NextResponse.json(
+      { data: null, error: 'Rate limited', message: `Trop de publications. Réessaie dans ${Math.ceil((rl.retryAfterMs || 60000) / 1000)}s` },
+      { status: 429 }
+    )
+  }
   let body: unknown
   try {
     body = await req.json()
