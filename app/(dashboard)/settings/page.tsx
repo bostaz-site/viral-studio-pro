@@ -33,6 +33,7 @@ interface Profile {
   monthly_videos_used: number | null
   monthly_processing_minutes_used: number | null
   referral_code: string | null
+  bonus_videos: number | null
   updated_at?: string | null
 }
 
@@ -123,7 +124,7 @@ function SettingsPageInner() {
         }
       }
     })
-      .select('id, email, full_name, plan, monthly_videos_used, monthly_processing_minutes_used, referral_code, updated_at')
+      .select('id, email, full_name, plan, monthly_videos_used, monthly_processing_minutes_used, referral_code, bonus_videos, updated_at')
       .eq('id', currentUser.id)
       .single()
 
@@ -552,10 +553,10 @@ function SettingsPageInner() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3 pt-2">
+                <div className="grid grid-cols-3 gap-3 pt-2">
                   <div className="rounded-lg border border-border/60 bg-background/40 p-3">
                     <p className="text-[11px] text-muted-foreground uppercase tracking-wider">Code</p>
-                    <p className="text-xl font-black font-mono tracking-wider text-primary mt-0.5">
+                    <p className="text-lg font-black font-mono tracking-wider text-primary mt-0.5 truncate">
                       {profile.referral_code}
                     </p>
                   </div>
@@ -565,11 +566,23 @@ function SettingsPageInner() {
                       {referralCount}
                     </p>
                   </div>
+                  <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-3">
+                    <p className="text-[11px] text-emerald-400 uppercase tracking-wider font-semibold">Clips bonus</p>
+                    <p className="text-xl font-black text-emerald-400 mt-0.5">
+                      {profile.bonus_videos ?? 0}
+                    </p>
+                  </div>
                 </div>
 
-                <p className="text-xs text-muted-foreground pt-1">
-                  Chaque ami qui s&apos;inscrit avec ton lien te rapporte des clips bonus. On te préviendra quand ils rejoignent.
-                </p>
+                <div className="text-xs text-muted-foreground pt-1 space-y-1">
+                  <p>
+                    <span className="text-emerald-400 font-semibold">+5 clips bonus</span> pour toi à chaque ami inscrit,
+                    et <span className="text-emerald-400 font-semibold">+2 clips</span> pour lui en bienvenue.
+                  </p>
+                  <p className="text-muted-foreground/70">
+                    Les clips bonus s&apos;appliquent automatiquement quand tu dépasses ton quota mensuel.
+                  </p>
+                </div>
               </>
             ) : (
               <p className="text-sm text-muted-foreground">

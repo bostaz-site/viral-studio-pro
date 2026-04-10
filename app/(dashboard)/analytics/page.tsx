@@ -32,6 +32,7 @@ interface AnalyticsData {
     plan: string
     videos: number
     videosLimit: number
+    bonusVideos: number
     minutes: number
     minutesLimit: number
   }
@@ -249,7 +250,11 @@ export default function AnalyticsPage() {
           icon={Zap}
           label="Plan actuel"
           value={usage.plan.charAt(0).toUpperCase() + usage.plan.slice(1)}
-          sub={`${usage.videos}/${usage.videosLimit} vidéos ce mois-ci`}
+          sub={
+            usage.bonusVideos > 0
+              ? `${usage.videos}/${usage.videosLimit} + ${usage.bonusVideos} bonus`
+              : `${usage.videos}/${usage.videosLimit} vidéos ce mois-ci`
+          }
           iconBg="bg-amber-500/10"
           iconColor="text-amber-400"
         />
@@ -263,6 +268,9 @@ export default function AnalyticsPage() {
               <span className="text-sm font-medium text-foreground">Vidéos ce mois-ci</span>
               <span className="text-xs font-mono text-muted-foreground">
                 {usage.videos}/{usage.videosLimit}
+                {usage.bonusVideos > 0 && (
+                  <span className="ml-1.5 text-emerald-400">+{usage.bonusVideos} bonus</span>
+                )}
               </span>
             </div>
             <div className="h-2 rounded-full bg-muted overflow-hidden">

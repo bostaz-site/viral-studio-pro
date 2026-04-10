@@ -30,6 +30,7 @@ interface ProfileRow {
   plan: string | null
   monthly_videos_used: number | null
   monthly_processing_minutes_used: number | null
+  bonus_videos: number | null
 }
 
 const PLAN_VIDEO_LIMITS: Record<string, number> = { free: 3, pro: 50, studio: 999 }
@@ -105,15 +106,17 @@ export const GET = withAuth(async (_req, user) => {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: profile } = await (admin as any)
     .from('profiles')
-    .select('plan, monthly_videos_used, monthly_processing_minutes_used')
+    .select('plan, monthly_videos_used, monthly_processing_minutes_used, bonus_videos')
     .eq('id', user.id)
     .single() as { data: ProfileRow | null }
 
   const plan = (profile?.plan ?? 'free') as string
+  const bonusVideos = profile?.bonus_videos ?? 0
   const usage = {
     plan,
     videos: profile?.monthly_videos_used ?? 0,
     videosLimit: PLAN_VIDEO_LIMITS[plan] ?? 3,
+    bonusVideos,
     minutes: profile?.monthly_processing_minutes_used ?? 0,
     minutesLimit: PLAN_MINUTES_LIMITS[plan] ?? 30,
   }
