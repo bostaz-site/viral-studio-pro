@@ -68,40 +68,99 @@ ensureDirs();
 // Download clip via yt-dlp or direct fetch (for trending clips)
 // ─────────────────────────────────────────────────────────────────────────────
 
+/**
+ * Probe a file with ffprobe to make sure it's a real, playable MP4 with a
+ * moov atom. Returns true if valid, false otherwise. We check for the
+ * presence of at least one video stream with a positive duration — a
+ * truncated download (yt-dlp killed mid-stream, fetch got a partial body)
+ * will fail this check because the moov atom lives at the end of the file.
+ */
+async function isValidVideoFile(filePath) {
+  try {
+    const { stdout } = await execFileAsync('ffprobe', [
+      '-v', 'error',
+      '-select_streams', 'v:0',
+      '-show_entries', 'stream=codec_type,duration',
+      '-of', 'csv=p=0',
+      filePath,
+    ], { timeout: 10_000 });
+    const line = stdout.trim();
+    if (!line) return false;
+    // Expect something like "video,5.200000" or "video,N/A"
+    const [codecType, duration] = line.split(',');
+    if (codecType !== 'video') return false;
+    const dur = parseFloat(duration);
+    return Number.isFinite(dur) && dur > 0;
+  } catch {
+    return false;
+  }
+}
+
+async function safeUnlink(path) {
+  try { await fs.unlink(path); } catch { /* ignore */ }
+}
+
 async function downloadFromUrl(url, outputPath) {
-  // Try yt-dlp first (handles Twitch clips well)
+  const attempts = [];
+
+  // ── Attempt 1: yt-dlp (best for Twitch clips, handles HLS/redirects) ──
   try {
     console.log(`[download] Trying yt-dlp for: ${url}`);
     await execFileAsync('yt-dlp', [
       '-o', outputPath,
       '--no-check-certificates',
+      '--no-part',        // write directly to outputPath, no .part rename race
+      '--force-overwrites',
       '--quiet',
       '--no-warnings',
       url,
-    ], { timeout: 60_000 }); // 60s timeout (was 120s)
+    ], { timeout: 120_000 }); // 2 min — was 60s, too short for long clips
 
-    const stat = await fs.stat(outputPath);
-    if (stat.size > 0) {
-      console.log(`[download] yt-dlp success: ${stat.size} bytes`);
-      return true;
+    const stat = await fs.stat(outputPath).catch(() => null);
+    if (stat && stat.size > 0) {
+      if (await isValidVideoFile(outputPath)) {
+        console.log(`[download] yt-dlp success: ${stat.size} bytes, valid MP4`);
+        return true;
+      }
+      console.warn(`[download] yt-dlp produced a ${stat.size} byte file but ffprobe rejected it (truncated / wrong format). Retrying with direct fetch…`);
+      attempts.push(`yt-dlp: corrupt output (${stat.size} bytes, no moov atom)`);
+      await safeUnlink(outputPath);
+    } else {
+      attempts.push('yt-dlp: empty output');
     }
   } catch (err) {
-    console.warn(`[yt-dlp] Failed: ${err.message}, trying direct fetch...`);
+    console.warn(`[yt-dlp] Failed: ${err.message}`);
+    attempts.push(`yt-dlp: ${err.message}`);
+    await safeUnlink(outputPath);
   }
 
-  // Fallback: direct HTTP fetch
+  // ── Attempt 2: direct HTTP fetch with content-type check ──
   try {
     const response = await fetch(url, { redirect: 'follow' });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+    const contentType = response.headers.get('content-type') || '';
+    // Reject obvious HTML/JSON error pages disguised as .mp4
+    if (contentType.startsWith('text/') || contentType.includes('json')) {
+      throw new Error(`unexpected content-type: ${contentType}`);
+    }
+
     const buffer = Buffer.from(await response.arrayBuffer());
+    if (buffer.length === 0) throw new Error('empty response body');
+
     await fs.writeFile(outputPath, buffer);
-    const stat = await fs.stat(outputPath);
-    if (stat.size > 0) return true;
+    if (!(await isValidVideoFile(outputPath))) {
+      throw new Error(`downloaded file is not a valid MP4 (${buffer.length} bytes, content-type=${contentType})`);
+    }
+    console.log(`[download] direct fetch success: ${buffer.length} bytes, valid MP4`);
+    return true;
   } catch (err) {
     console.warn(`[fetch] Failed: ${err.message}`);
+    attempts.push(`fetch: ${err.message}`);
+    await safeUnlink(outputPath);
   }
 
-  throw new Error('Failed to download clip from URL');
+  throw new Error(`Failed to download clip from URL after ${attempts.length} attempts — ${attempts.join(' | ')}`);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
