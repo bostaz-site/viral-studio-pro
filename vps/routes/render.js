@@ -10,6 +10,7 @@ import { detectFaces } from '../lib/face-tracker.js';
 import { detectPeakMoment, generateHookTexts, calculateReorderTimestamps } from '../lib/hook-generator.js';
 // caption-png.js and drawtext-wordpop.js removed — all animations now use ASS subtitles
 import { transcribeWithWhisper } from '../lib/whisper-client.js';
+import { applyAutoCut } from '../lib/auto-cut.js';
 import { enqueueRender, getQueueStatus } from '../lib/render-queue.js';
 import {
   getClip,
@@ -137,6 +138,8 @@ router.post('/', async (req, res) => {
     trc(`settings.splitScreen=${JSON.stringify(settings.splitScreen)}`);
     trc(`settings.format=${JSON.stringify(settings.format)}`);
     trc(`settings.hook=${JSON.stringify({ enabled: settings.hook?.enabled, textEnabled: settings.hook?.textEnabled, reorderEnabled: settings.hook?.reorderEnabled, text: settings.hook?.text?.substring(0, 30), hasOverlayPng: !!(settings.hook?.overlayPng), hasReorder: !!(settings.hook?.reorder), reorderSegments: settings.hook?.reorder?.segments?.length || 0 })}`);
+    trc(`settings.audioEnhance=${JSON.stringify(settings.audioEnhance)}`);
+    trc(`settings.autoCut=${JSON.stringify(settings.autoCut)}`);
     const envHasOpenAI = !!process.env.OPENAI_API_KEY;
     const envHasOpenAIKey = !!process.env.OPENAI_KEY;
     trc(`env OPENAI_API_KEY=${envHasOpenAI} OPENAI_KEY=${envHasOpenAIKey}`);
@@ -524,6 +527,56 @@ router.post('/', async (req, res) => {
       }
     }
 
+    // ─── Auto-Cut Silences (pre-processing) ───
+    // If enabled, detect silence gaps in word timestamps and cut them out.
+    // Must run BEFORE reorder so the tighter clip gets reordered correctly.
+    if (settings.autoCut?.enabled && captionWordTimestamps.length > 0) {
+      try {
+        const threshold = settings.autoCut.silenceThreshold || 0.7;
+        trc(`AUTO-CUT: enabled with threshold=${threshold}s, ${captionWordTimestamps.length} words`);
+        const cutResult = await applyAutoCut(inputPath, tempDir, captionWordTimestamps, duration, {
+          silenceThreshold: threshold,
+          clipStartTime,
+          trc,
+        });
+        if (cutResult) {
+          inputPath = cutResult.outputPath;
+          clipStartTime = 0; // cut file starts at 0
+          duration = cutResult.cutDuration;
+          clipEndTime = cutResult.cutDuration;
+          captionWordTimestamps = cutResult.wordTimestamps;
+          trc(`AUTO-CUT: applied — new duration=${duration}s, new input=${inputPath}`);
+
+          // Regenerate ASS file with remapped timestamps
+          if (assFilePath && captionWordTimestamps.length > 0) {
+            const captionStyle = settings.captions?.style || 'hormozi';
+            const captionPosition = settings.captions?.position || 'bottom';
+            const captionAnim = settings.captions?.animation || 'highlight';
+            const cutASS = generateASS(captionWordTimestamps, {
+              style: captionStyle,
+              position: captionPosition,
+              canvasWidth: canvasW,
+              canvasHeight: canvasH,
+              splitScreen: splitScreenForCaptions,
+              animation: captionAnim,
+              clipStartTime: 0,
+              wordsPerLine: settings.captions?.wordsPerLine || 4,
+              customColors: settings.captions?.customColors,
+              customImportantWords: settings.captions?.customImportantWords || [],
+              emphasisEffect: settings.captions?.emphasisEffect || 'none',
+              emphasisColor: settings.captions?.emphasisColor || 'red',
+            });
+            if (cutASS) {
+              await fs.writeFile(assFilePath, cutASS, 'utf-8');
+              trc(`AUTO-CUT: regenerated ASS subtitles (${cutASS.length} bytes)`);
+            }
+          }
+        }
+      } catch (cutErr) {
+        trc(`AUTO-CUT FAILED: ${cutErr.message} — using original clip`);
+      }
+    }
+
     // ─── Hook Reorder (pre-processing) ───
     // If hook reorder is enabled with segments, trim+concat the input video
     // to put the peak moment first: Hook → Context → Payoff
@@ -728,6 +781,7 @@ router.post('/', async (req, res) => {
         overlayCapsuleW: settings.hook.overlayCapsuleW || null,
         overlayCapsuleH: settings.hook.overlayCapsuleH || null,
       } : null,
+      audioEnhance: settings.audioEnhance?.enabled || false,
     });
 
     // Upload rendered clip to Supabase Storage (unique path per render to avoid CDN cache)

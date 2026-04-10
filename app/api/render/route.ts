@@ -69,6 +69,13 @@ const inputSchema = z.object({
       enabled: z.boolean().optional(),
       mode: z.enum(['micro', 'dynamic', 'follow']).optional(),
     }).optional(),
+    audioEnhance: z.object({
+      enabled: z.boolean().optional(),
+    }).optional(),
+    autoCut: z.object({
+      enabled: z.boolean().optional(),
+      silenceThreshold: z.number().min(0.3).max(2).optional(),
+    }).optional(),
   }).optional(),
 })
 
@@ -217,6 +224,8 @@ export const POST = withAuth(async (request, user) => {
         videoZoom: settings?.format?.videoZoom ?? 'fill',
       },
       smartZoom: settings?.smartZoom ?? { enabled: false, mode: 'micro' },
+      audioEnhance: settings?.audioEnhance ?? { enabled: false },
+      autoCut: settings?.autoCut ?? { enabled: false },
     },
   }
 

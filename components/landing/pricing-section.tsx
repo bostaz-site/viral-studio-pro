@@ -43,7 +43,7 @@ const PLANS: PlanConfig[] = [
       'Export 9:16 + 1:1 + 16:9',
       'Dashboard Streams complet',
     ],
-    cta: 'Passer Pro',
+    cta: 'Essai 7 jours gratuit',
   },
   {
     name: 'Studio',

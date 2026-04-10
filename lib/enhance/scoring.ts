@@ -25,6 +25,9 @@ export interface EnhanceSettings {
   aspectRatio: '9:16' | '1:1' | '16:9'
   smartZoomEnabled: boolean
   smartZoomMode: 'micro' | 'dynamic' | 'follow'
+  audioEnhanceEnabled: boolean
+  autoCutEnabled: boolean
+  autoCutThreshold: number
   hookEnabled: boolean
   hookTextEnabled: boolean
   hookReorderEnabled: boolean

@@ -23,6 +23,18 @@ export const FAQ_ITEMS = [
     q: 'Faut-il installer un logiciel ou c\'est dans le navigateur ?',
     a: 'Tout se passe dans ton navigateur. Z\u00e9ro installation, z\u00e9ro logiciel. Tu cr\u00e9es un compte, tu clips, tu exportes. C\'est aussi simple que \u00e7a.',
   },
+  {
+    q: 'Mes vid\u00e9os sont stock\u00e9es o\u00f9 ? C\'est s\u00e9curis\u00e9 ?',
+    a: 'Tes vid\u00e9os sont stock\u00e9es sur des serveurs s\u00e9curis\u00e9s (Supabase / AWS). Personne d\'autre que toi n\'y a acc\u00e8s. Tu peux les supprimer \u00e0 tout moment depuis ton dashboard. On est conforme RGPD.',
+  },
+  {
+    q: 'Combien de temps \u00e7a prend pour g\u00e9n\u00e9rer un clip ?',
+    a: 'En g\u00e9n\u00e9ral 30 \u00e0 60 secondes selon la dur\u00e9e du clip et les options activ\u00e9es (sous-titres, split-screen, etc.). Tu re\u00e7ois une preview d\u00e8s que c\'est pr\u00eat.',
+  },
+  {
+    q: 'Je peux annuler mon abonnement quand je veux ?',
+    a: 'Oui, en 1 clic depuis tes param\u00e8tres. Pas de contrat, pas d\'engagement. Tu gardes l\'acc\u00e8s jusqu\'\u00e0 la fin de ta p\u00e9riode de facturation.',
+  },
 ]
 
 export function FaqSection() {

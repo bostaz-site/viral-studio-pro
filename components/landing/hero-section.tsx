@@ -1,13 +1,24 @@
 /* eslint-disable @next/next/no-img-element */
 "use client"
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, useMemo } from 'react'
 import Link from 'next/link'
 import { useInView } from 'framer-motion'
 import {
   TrendingUp, MonitorPlay, ArrowRight, Play, Users, Film,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+
+/** Weekly-seeded scarcity counter: changes every Monday, range 40-160 */
+function useWeeklyScarcity() {
+  return useMemo(() => {
+    const now = new Date()
+    const weekSeed = Math.floor(now.getTime() / (7 * 24 * 60 * 60 * 1000))
+    // Simple hash from seed
+    const hash = ((weekSeed * 2654435761) >>> 0) % 121 // 0-120
+    return 40 + hash // 40-160
+  }, [])
+}
 
 // ─── Platform SVG Icons ─────────────────────────────────────────────────────
 
@@ -140,6 +151,8 @@ function StickyBar() {
 // ─── HeroSection (main export) ──────────────────────────────────────────────
 
 export function HeroSection() {
+  const freeSlots = useWeeklyScarcity()
+
   return (
     <>
       <StickyBar />
@@ -187,7 +200,7 @@ export function HeroSection() {
             </div>
 
             <p className="text-xs text-amber-400/70 mt-3 font-medium">
-              Offre de lancement : 127 comptes gratuits restants cette semaine
+              Offre de lancement : {freeSlots} comptes gratuits restants cette semaine
             </p>
 
             <p className="text-xs text-muted-foreground/60 mt-3">

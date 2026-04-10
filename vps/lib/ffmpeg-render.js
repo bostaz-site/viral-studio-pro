@@ -377,6 +377,7 @@ export async function renderClip(inputPath, outputPath, options = {}) {
     smartZoom = null,
     videoZoom = 'fill',
     hook = null,
+    audioEnhance = false, // loudnorm + highpass + denoise
   } = options;
 
   if (!inputPath || !outputPath) {
@@ -417,6 +418,7 @@ export async function renderClip(inputPath, outputPath, options = {}) {
       smartZoom,
       audioPeaks,
       hook,
+      audioEnhance,
     });
   }
 
@@ -653,8 +655,20 @@ export async function renderClip(inputPath, outputPath, options = {}) {
   args.push('-crf', String(crf));
   args.push('-maxrate', '1500k');      // Lower bitrate cap to reduce memory pressure
   args.push('-bufsize', '3M');
-  args.push('-c:a', 'aac');
-  args.push('-b:a', '96k');           // Lower audio bitrate to save size
+
+  // Audio: enhance or passthrough
+  if (audioEnhance) {
+    // highpass=80 → remove low rumble/mic handling noise
+    // afftdn=nf=-20 → FFT-based denoise (light, preserves voice)
+    // loudnorm → EBU R128 normalization (consistent volume)
+    args.push('-af', 'highpass=f=80,afftdn=nf=-20,loudnorm=I=-16:TP=-1.5:LRA=11');
+    args.push('-c:a', 'aac');
+    args.push('-b:a', '128k');  // Higher bitrate for enhanced audio quality
+    console.log('[FFmpeg] Audio enhancement enabled: highpass + denoise + loudnorm');
+  } else {
+    args.push('-c:a', 'aac');
+    args.push('-b:a', '96k');
+  }
   args.push('-movflags', '+faststart');
   args.push('-pix_fmt', 'yuv420p');
   args.push('-max_muxing_queue_size', '256'); // Limit muxer buffer to prevent OOM
@@ -695,6 +709,7 @@ async function renderSplitScreen(inputPath, outputPath, opts) {
     smartZoom,
     audioPeaks = [],
     hook = null,
+    audioEnhance = false,
   } = opts;
 
   const layout = splitScreen.layout || 'top-bottom';
@@ -909,8 +924,17 @@ async function renderSplitScreen(inputPath, outputPath, opts) {
   args.push('-crf', String(Math.max(crf, 28))); // Higher CRF for split-screen to save memory + size
   args.push('-maxrate', '1.5M');         // Cap bitrate for faster streaming from Supabase
   args.push('-bufsize', '3M');
-  args.push('-c:a', 'aac');
-  args.push('-b:a', '96k');
+
+  // Audio: enhance or passthrough
+  if (audioEnhance) {
+    args.push('-af', 'highpass=f=80,afftdn=nf=-20,loudnorm=I=-16:TP=-1.5:LRA=11');
+    args.push('-c:a', 'aac');
+    args.push('-b:a', '128k');
+    console.log('[FFmpeg-Split] Audio enhancement enabled');
+  } else {
+    args.push('-c:a', 'aac');
+    args.push('-b:a', '96k');
+  }
   args.push('-max_muxing_queue_size', '256'); // Limit muxer buffer to prevent OOM
   args.push('-movflags', '+faststart');
   args.push('-pix_fmt', 'yuv420p');
@@ -1122,7 +1146,7 @@ function buildWatermarkFilter(watermark, position, plan) {
 
   if (plan === 'free') {
     const posCoords = getWatermarkCoordinates(position);
-    return `drawtext=text='Viral Studio Pro':fontsize=28:fontcolor=white@0.75:shadowcolor=black@0.5:shadowx=1:shadowy=1:x=${posCoords.x}:y=${posCoords.y}`;
+    return `drawtext=text='viralstudio.pro':fontsize=24:fontcolor=white@0.8:shadowcolor=black@0.6:shadowx=1:shadowy=1:x=${posCoords.x}:y=${posCoords.y}`;
   }
 
   return null;

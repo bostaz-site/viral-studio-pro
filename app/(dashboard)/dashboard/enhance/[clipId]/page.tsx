@@ -8,7 +8,7 @@ import {
   ChevronLeft, Loader2, AlertCircle, Sparkles, Download,
   Type, Wand2, Eye, ExternalLink, Play,
   Monitor, Paintbrush, Zap, AtSign,
-  Flame, Focus, X, Plus,
+  Flame, Focus, X, Plus, Volume2, Scissors,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -93,6 +93,9 @@ export default function EnhancePage() {
     aspectRatio: '9:16',
     smartZoomEnabled: false,
     smartZoomMode: 'micro',
+    audioEnhanceEnabled: false,
+    autoCutEnabled: false,
+    autoCutThreshold: 0.7,
     hookEnabled: false,
     hookTextEnabled: true,
     hookReorderEnabled: true,
@@ -330,6 +333,13 @@ export default function EnhancePage() {
               enabled: settings.smartZoomEnabled,
               mode: settings.smartZoomMode,
             },
+            audioEnhance: {
+              enabled: settings.audioEnhanceEnabled,
+            },
+            autoCut: {
+              enabled: settings.autoCutEnabled,
+              silenceThreshold: settings.autoCutThreshold,
+            },
             hook: (() => {
               console.log('[handleRender] Hook settings:', {
                 enabled: settings.hookEnabled,
@@ -411,6 +421,10 @@ export default function EnhancePage() {
       // Smart zoom dynamique
       smartZoomEnabled: true,
       smartZoomMode: 'dynamic',
+      // Audio enhancement + auto-cut silences
+      audioEnhanceEnabled: true,
+      autoCutEnabled: true,
+      autoCutThreshold: 0.7,
       // Hook viral: suspense, texte + reorder, 15%, 1.5s
       hookEnabled: true,
       hookTextEnabled: true,
@@ -1206,6 +1220,129 @@ export default function EnhancePage() {
                             <span className="text-[10px] text-muted-foreground">{mode.desc}</span>
                           </button>
                         ))}
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* ─── Audio Enhancement Section ─── */}
+            <div className="scroll-mt-32">
+              <Card className="bg-card/60 border-border">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <Volume2 className="h-4 w-4 text-primary" />
+                    Audio Enhancement
+                    <span className="ml-auto text-[10px] font-normal text-muted-foreground bg-primary/10 text-primary px-2 py-0.5 rounded-full border border-primary/20">
+                      Nouveau
+                    </span>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <button
+                    onClick={() => updateSetting('audioEnhanceEnabled', !settings.audioEnhanceEnabled)}
+                    className={cn(
+                      'w-full rounded-xl border p-3 text-left transition-all flex items-center justify-between',
+                      settings.audioEnhanceEnabled
+                        ? 'border-primary bg-primary/10 ring-1 ring-primary/30'
+                        : 'border-border hover:border-primary/40'
+                    )}
+                  >
+                    <div>
+                      <span className="text-sm font-semibold text-foreground block">
+                        {settings.audioEnhanceEnabled ? 'Activé' : 'Désactivé'}
+                      </span>
+                      <span className="text-[10px] text-muted-foreground block mt-0.5">
+                        Supprime le bruit de fond, normalise le volume (EBU R128)
+                      </span>
+                    </div>
+                    <div className={cn(
+                      'w-10 h-5 rounded-full relative transition-all',
+                      settings.audioEnhanceEnabled ? 'bg-primary' : 'bg-border'
+                    )}>
+                      <div className={cn(
+                        'absolute top-0.5 w-4 h-4 rounded-full bg-white transition-all',
+                        settings.audioEnhanceEnabled ? 'left-[22px]' : 'left-0.5'
+                      )} />
+                    </div>
+                  </button>
+                  {settings.audioEnhanceEnabled && (
+                    <div className="animate-in fade-in slide-in-from-top-1 text-[10px] text-muted-foreground bg-muted/50 rounded-lg p-3 space-y-1">
+                      <p className="font-medium text-foreground text-xs">Ce que ça fait :</p>
+                      <p>• Filtre passe-haut (80Hz) — supprime les grondements & bruit de fond</p>
+                      <p>• Débruitage FFT — nettoie le bruit résiduel</p>
+                      <p>• Normalisation loudness — volume constant style broadcast</p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* ─── Auto-Cut Silences Section ─── */}
+            <div className="scroll-mt-32">
+              <Card className="bg-card/60 border-border">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <Scissors className="h-4 w-4 text-primary" />
+                    Auto-Cut Silences
+                    <span className="ml-auto text-[10px] font-normal text-muted-foreground bg-primary/10 text-primary px-2 py-0.5 rounded-full border border-primary/20">
+                      Nouveau
+                    </span>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <button
+                    onClick={() => updateSetting('autoCutEnabled', !settings.autoCutEnabled)}
+                    className={cn(
+                      'w-full rounded-xl border p-3 text-left transition-all flex items-center justify-between',
+                      settings.autoCutEnabled
+                        ? 'border-primary bg-primary/10 ring-1 ring-primary/30'
+                        : 'border-border hover:border-primary/40'
+                    )}
+                  >
+                    <div>
+                      <span className="text-sm font-semibold text-foreground block">
+                        {settings.autoCutEnabled ? 'Activé' : 'Désactivé'}
+                      </span>
+                      <span className="text-[10px] text-muted-foreground block mt-0.5">
+                        Coupe automatiquement les silences pour un clip plus punchy
+                      </span>
+                    </div>
+                    <div className={cn(
+                      'w-10 h-5 rounded-full relative transition-all',
+                      settings.autoCutEnabled ? 'bg-primary' : 'bg-border'
+                    )}>
+                      <div className={cn(
+                        'absolute top-0.5 w-4 h-4 rounded-full bg-white transition-all',
+                        settings.autoCutEnabled ? 'left-[22px]' : 'left-0.5'
+                      )} />
+                    </div>
+                  </button>
+                  {settings.autoCutEnabled && (
+                    <div className="space-y-3 animate-in fade-in slide-in-from-top-1">
+                      <div>
+                        <Label className="text-xs uppercase tracking-wider text-muted-foreground">
+                          Seuil de silence — {settings.autoCutThreshold.toFixed(1)}s
+                        </Label>
+                        <Slider
+                          value={[settings.autoCutThreshold]}
+                          onValueChange={([v]) => updateSetting('autoCutThreshold', v)}
+                          min={0.3}
+                          max={2}
+                          step={0.1}
+                          className="mt-2"
+                        />
+                        <div className="flex justify-between text-[9px] text-muted-foreground mt-1">
+                          <span>Agressif (0.3s)</span>
+                          <span>Doux (2s)</span>
+                        </div>
+                      </div>
+                      <div className="text-[10px] text-muted-foreground bg-muted/50 rounded-lg p-3 space-y-1">
+                        <p className="font-medium text-foreground text-xs">Ce que ça fait :</p>
+                        <p>• Détecte les silences entre les mots (via timestamps Whisper)</p>
+                        <p>• Coupe les pauses plus longues que le seuil</p>
+                        <p>• Recale les sous-titres automatiquement</p>
                       </div>
                     </div>
                   )}

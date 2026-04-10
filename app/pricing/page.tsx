@@ -68,7 +68,7 @@ const TIERS: PricingTier[] = [
       'Suppression des silences auto',
     ],
     highlighted: true,
-    cta: 'Passer au Pro',
+    cta: 'Essai 7 jours gratuit',
     accentColor: 'from-blue-500 to-indigo-600',
   },
   {
