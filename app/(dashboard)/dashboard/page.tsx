@@ -12,6 +12,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { TrendingCard } from '@/components/trending/trending-card'
 import { TrendingFilters } from '@/components/trending/trending-filters'
 import { WelcomeModal } from '@/components/onboarding/welcome-modal'
+import { ReferralBonusBanner } from '@/components/onboarding/referral-bonus-banner'
 import { useTrendingStore, type TrendingClip } from '@/stores/trending-store'
 import { cn } from '@/lib/utils'
 
@@ -108,6 +109,7 @@ export default function DashboardPage() {
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
       <WelcomeModal />
+      <ReferralBonusBanner />
       {/* Header */}
       <div className="flex items-start justify-between gap-4">
         <div>
