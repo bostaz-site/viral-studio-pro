@@ -1,7 +1,7 @@
 "use client"
 
 import { Suspense } from 'react'
-import { Download, Loader2 } from 'lucide-react'
+import { Download } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { ExportPanel } from '@/components/publish/export-panel'
 
@@ -39,8 +39,24 @@ export default function PublishPage() {
   return (
     <Suspense
       fallback={
-        <div className="flex items-center justify-center h-[60vh] gap-3">
-          <Loader2 className="h-5 w-5 animate-spin text-primary" />
+        <div className="space-y-8 max-w-3xl animate-in fade-in duration-300">
+          {/* Header skeleton */}
+          <div className="flex items-center gap-4">
+            <div className="w-14 h-14 rounded-xl bg-muted/40 animate-pulse" />
+            <div className="flex-1 space-y-2">
+              <div className="h-7 w-1/2 rounded bg-muted/40 animate-pulse" />
+              <div className="h-4 w-2/3 rounded bg-muted/30 animate-pulse" />
+            </div>
+          </div>
+          {/* Body skeleton */}
+          <div className="rounded-xl border border-border bg-card/50 p-6 space-y-4 animate-pulse">
+            <div className="aspect-[9/16] max-w-xs mx-auto rounded-lg bg-muted/40" />
+            <div className="space-y-2">
+              <div className="h-4 w-1/3 rounded bg-muted/40" />
+              <div className="h-10 rounded-md bg-muted/30" />
+            </div>
+            <div className="h-11 rounded-md bg-muted/40" />
+          </div>
         </div>
       }
     >

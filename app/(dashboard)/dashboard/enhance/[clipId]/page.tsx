@@ -551,9 +551,42 @@ export default function EnhancePage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-24 gap-3">
-        <Loader2 className="h-6 w-6 animate-spin text-primary" />
-        <p className="text-muted-foreground">Chargement du clip&hellip;</p>
+      <div className="animate-in fade-in duration-300">
+        {/* Header skeleton */}
+        <div className="flex items-start gap-4 mb-6">
+          <div className="w-10 h-10 rounded-md bg-muted/40 animate-pulse" />
+          <div className="flex-1 space-y-2">
+            <div className="h-6 w-2/3 rounded bg-muted/40 animate-pulse" />
+            <div className="h-4 w-1/3 rounded bg-muted/30 animate-pulse" />
+          </div>
+        </div>
+
+        {/* 2-column skeleton matching real layout */}
+        <div className="grid lg:grid-cols-[minmax(0,1fr)_360px] gap-6">
+          {/* Left: settings panels */}
+          <div className="space-y-4">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="rounded-xl border border-border bg-card/40 p-4 space-y-3 animate-pulse">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-lg bg-muted/40" />
+                  <div className="flex-1 space-y-1.5">
+                    <div className="h-4 w-1/3 rounded bg-muted/40" />
+                    <div className="h-3 w-1/2 rounded bg-muted/30" />
+                  </div>
+                  <div className="w-10 h-6 rounded-full bg-muted/40" />
+                </div>
+                <div className="h-20 rounded-md bg-muted/20" />
+              </div>
+            ))}
+          </div>
+
+          {/* Right: sticky preview */}
+          <div className="space-y-3">
+            <div className="aspect-[9/16] rounded-xl bg-muted/40 animate-pulse" />
+            <div className="h-10 rounded-md bg-muted/30 animate-pulse" />
+            <div className="h-10 rounded-md bg-muted/30 animate-pulse" />
+          </div>
+        </div>
       </div>
     )
   }
