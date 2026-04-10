@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { Share, Settings, Menu, X, LogOut, Upload, Zap, Compass, Wand2 } from 'lucide-react'
+import { Share, Settings, Menu, X, LogOut, Upload, Zap, Compass, Wand2, BarChart3 } from 'lucide-react'
 import { useUiStore } from '@/stores/ui-store'
 import { Button } from '@/components/ui/button'
 import { NotificationBell } from '@/components/trending/notification-bell'
@@ -51,6 +51,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     { name: 'Browse', href: '/dashboard', icon: Compass },
     { name: 'Enhance', href: '/dashboard/enhance', icon: Wand2 },
     { name: 'Publier', href: '/publish', icon: Share },
+    { name: 'Analytics', href: '/analytics', icon: BarChart3 },
     { name: 'Paramètres', href: '/settings', icon: Settings },
   ]
 
