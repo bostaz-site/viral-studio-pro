@@ -2,7 +2,7 @@
 
 import { useEffect, useCallback, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { TrendingUp, RefreshCw, AlertCircle, Loader2, Sparkles, Wifi, WifiOff, Download } from 'lucide-react'
+import { TrendingUp, RefreshCw, AlertCircle, Loader2, Sparkles, Wifi, WifiOff, Download, Crown } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { TrendingCard } from '@/components/trending/trending-card'
@@ -25,6 +25,8 @@ export default function TrendingPage() {
 
   const {
     filteredClips,
+    megaViralClips,
+    trendingClips,
     stats,
     filters,
     loading,
@@ -247,16 +249,78 @@ export default function TrendingPage() {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4">
-          {filteredClips.map((clip) => (
-            <div key={clip.id} onClick={() => handleCardClick(clip)} className="cursor-pointer">
-              <TrendingCard
-                clip={clip}
-                onRemix={handleRemix}
-                remixing={remixingId === clip.id}
-              />
-            </div>
-          ))}
+        <div className="space-y-8">
+          {/* Mega Viral Section — proven hits, 7 day window */}
+          {megaViralClips.length > 0 && (
+            <section className="space-y-3">
+              <div className="flex items-end justify-between gap-4 border-b border-yellow-500/20 pb-2">
+                <div>
+                  <h2 className="text-xl font-bold tracking-tight flex items-center gap-2 text-yellow-400">
+                    <Crown className="h-5 w-5 fill-yellow-400/20" />
+                    Ultra Viral
+                  </h2>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Les hits prouvés des 7 derniers jours — minimum 500 vues
+                  </p>
+                </div>
+                <span className="text-xs text-muted-foreground shrink-0">
+                  {megaViralClips.length} clip{megaViralClips.length > 1 ? 's' : ''}
+                </span>
+              </div>
+              <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                {megaViralClips.map((clip) => (
+                  <div
+                    key={clip.id}
+                    onClick={() => handleCardClick(clip)}
+                    className="cursor-pointer relative rounded-lg ring-2 ring-yellow-500/30 hover:ring-yellow-500/60 transition"
+                  >
+                    <div className="absolute -top-2 -right-2 z-10 flex items-center gap-1 px-2 py-0.5 rounded-full bg-gradient-to-r from-yellow-500 to-amber-500 text-black text-[10px] font-bold shadow-lg">
+                      <Crown className="h-3 w-3" />
+                      VIRAL
+                    </div>
+                    <TrendingCard
+                      clip={clip}
+                      onRemix={handleRemix}
+                      remixing={remixingId === clip.id}
+                    />
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
+
+          {/* Regular Trending Section */}
+          {trendingClips.length > 0 && (
+            <section className="space-y-3">
+              {megaViralClips.length > 0 && (
+                <div className="flex items-end justify-between gap-4 border-b border-border pb-2">
+                  <div>
+                    <h2 className="text-xl font-bold tracking-tight flex items-center gap-2">
+                      <TrendingUp className="h-5 w-5 text-primary" />
+                      Fraîchement scrapé
+                    </h2>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Clips récents — velocity score en temps réel
+                    </p>
+                  </div>
+                  <span className="text-xs text-muted-foreground shrink-0">
+                    {trendingClips.length} clip{trendingClips.length > 1 ? 's' : ''}
+                  </span>
+                </div>
+              )}
+              <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4">
+                {trendingClips.map((clip) => (
+                  <div key={clip.id} onClick={() => handleCardClick(clip)} className="cursor-pointer">
+                    <TrendingCard
+                      clip={clip}
+                      onRemix={handleRemix}
+                      remixing={remixingId === clip.id}
+                    />
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
         </div>
       )}
 

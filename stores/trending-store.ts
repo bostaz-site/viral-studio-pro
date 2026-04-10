@@ -100,6 +100,8 @@ interface TrendingState {
   // Data
   clips: TrendingClip[]
   filteredClips: TrendingClip[]
+  megaViralClips: TrendingClip[]
+  trendingClips: TrendingClip[]
   stats: TrendingStats
 
   // Filters
@@ -132,6 +134,8 @@ interface TrendingState {
 export const useTrendingStore = create<TrendingState>((set, get) => ({
   clips: [],
   filteredClips: [],
+  megaViralClips: [],
+  trendingClips: [],
   stats: EMPTY_STATS,
   filters: DEFAULT_FILTERS,
   loading: true,
@@ -228,6 +232,9 @@ export const useTrendingStore = create<TrendingState>((set, get) => ({
 
   applyFilters: () => {
     const { clips, filters } = get()
-    set({ filteredClips: filterAndSortClips(clips, filters) })
+    const filtered = filterAndSortClips(clips, filters)
+    const megaViralClips = filtered.filter((c) => c.tier === 'mega_viral')
+    const trendingClips = filtered.filter((c) => c.tier !== 'mega_viral')
+    set({ filteredClips: filtered, megaViralClips, trendingClips })
   },
 }))

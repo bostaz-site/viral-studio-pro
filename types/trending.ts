@@ -13,6 +13,14 @@ export interface TrendingClip {
   thumbnail_url: string | null
   scraped_at: string | null
   created_at: string | null
+  duration_seconds: number | null
+  velocity: number | null
+  viral_ratio: number | null
+  viral_score: number | null
+  clip_created_at: string | null
+  streamer_id: string | null
+  twitch_clip_id: string | null
+  tier: string | null
 }
 
 export interface TrendingStats {

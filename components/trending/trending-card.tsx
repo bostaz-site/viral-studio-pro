@@ -7,23 +7,9 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { VelocityBadge } from '@/components/trending/velocity-badge'
 import { cn } from '@/lib/utils'
+import type { TrendingClip } from '@/types/trending'
 
-export interface TrendingClip {
-  id: string
-  external_url: string
-  platform: string
-  author_name: string | null
-  author_handle: string | null
-  title: string | null
-  description: string | null
-  niche: string | null
-  view_count: number | null
-  like_count: number | null
-  velocity_score: number | null
-  thumbnail_url: string | null
-  scraped_at: string | null
-  created_at: string | null
-}
+export type { TrendingClip }
 
 interface TrendingCardProps {
   clip: TrendingClip
@@ -166,12 +152,14 @@ export function TrendingCard({ clip, onRemix, remixing = false, isPremiumUser = 
       }
     }
 
+    // Show video immediately if we already have a URL (fast path), otherwise wait briefly
+    const delay = initialVideoUrl ? 100 : 250
     hoverTimerRef.current = setTimeout(() => {
       setShowVideo(true)
       setTimeout(() => {
         videoRef.current?.play().catch(() => {/* autoplay blocked, that's ok */})
-      }, 50)
-    }, 300)
+      }, 30)
+    }, delay)
   }, [isLocked, clip.platform, getClipSlug])
 
   const handleMouseLeave = useCallback(() => {
