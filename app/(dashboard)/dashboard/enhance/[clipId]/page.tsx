@@ -7,7 +7,7 @@ import Link from 'next/link'
 import {
   ChevronLeft, Loader2, AlertCircle, Sparkles, Download,
   Type, Wand2, Eye, ExternalLink, Play,
-  Monitor, Paintbrush, Zap, AtSign,
+  Monitor, Zap,
   Flame, Focus, X, Plus, Volume2, Scissors,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -22,11 +22,13 @@ import { cn } from '@/lib/utils'
 import { captureHookOverlayPNG } from '@/lib/capture-hook-overlay'
 import { captureTagOverlayPNG } from '@/lib/capture-tag-overlay'
 import {
-  CAPTION_STYLES, EMPHASIS_EFFECTS, EMPHASIS_COLORS, BROLL_OPTIONS, TAG_STYLES,
+  CAPTION_STYLES, EMPHASIS_EFFECTS, EMPHASIS_COLORS, BROLL_OPTIONS,
   formatCount, computeScores, computeCurrentScore, computeBaselineScore, getScoreLabel,
   type TrendingClipData, type EnhanceSettings, type ScoredOption,
 } from '@/lib/enhance/scoring'
 import { LivePreview, ScoreBadge } from '@/components/enhance/live-preview'
+import { TagPanel } from '@/components/enhance/tag-panel'
+import { FormatPanel } from '@/components/enhance/format-panel'
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -1154,106 +1156,19 @@ export default function EnhancePage() {
             </div>
 
             {/* ─── Tags Section ─── */}
-            <div ref={sectionRefs.tags} className="scroll-mt-32">
-              <Card className="bg-card/60 border-border">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-base flex items-center gap-2">
-                    <AtSign className="h-4 w-4 text-primary" />
-                    Tag du streamer
-                  </CardTitle>
-                </CardHeader>
-                {scores && (
-                  <CardContent className="space-y-5">
-                    <div className="space-y-2">
-                      <Label className="text-xs uppercase tracking-wider text-muted-foreground">Style du tag</Label>
-                      <div className="grid grid-cols-2 gap-2">
-                        {TAG_STYLES.map((tag) => {
-                          const scored = scores.tagScores.find((s) => s.id === tag.id)!
-                          return (
-                            <button
-                              key={tag.id}
-                              onClick={() => updateSetting('tagStyle', tag.id)}
-                              className={cn(
-                                'relative rounded-xl border p-3 text-left transition-all group',
-                                settings.tagStyle === tag.id
-                                  ? 'border-primary bg-primary/10 ring-1 ring-primary/30'
-                                  : scored.isBest
-                                  ? 'border-orange-500/40 bg-orange-500/5 hover:bg-orange-500/10'
-                                  : 'border-border hover:border-primary/40'
-                              )}
-                            >
-                              <div className="flex items-center gap-2 mb-1">
-                                <span className="text-base">{tag.icon}</span>
-                                <span className={cn('text-xs font-semibold flex-1', scored.isBest ? 'text-orange-400' : 'text-foreground')}>{tag.label}</span>
-                                <ScoreBadge score={scored.score} isBest={scored.isBest} />
-                              </div>
-                              <span className="text-[10px] text-muted-foreground pl-7">{tag.description}</span>
-                            </button>
-                          )
-                        })}
-                      </div>
-                    </div>
-
-                    {/* Taille du tag — slider 50-150% */}
-                    {settings.tagStyle !== 'none' && (
-                      <div className="space-y-2">
-                        <div className="flex items-center justify-between">
-                          <Label className="text-xs uppercase tracking-wider text-muted-foreground">Taille du tag</Label>
-                          <span className="text-xs font-mono text-muted-foreground">{settings.tagSize || 100}%</span>
-                        </div>
-                        <input
-                          type="range"
-                          min={50}
-                          max={150}
-                          step={5}
-                          value={settings.tagSize || 100}
-                          onChange={(e) => updateSetting('tagSize', Number(e.target.value))}
-                          className="w-full accent-primary"
-                        />
-                        <div className="flex justify-between text-[10px] text-muted-foreground">
-                          <span>50%</span>
-                          <span>100%</span>
-                          <span>150%</span>
-                        </div>
-                      </div>
-                    )}
-                  </CardContent>
-                )}
-              </Card>
-            </div>
+            <TagPanel
+              ref={sectionRefs.tags}
+              settings={settings}
+              updateSetting={updateSetting}
+              scores={scores}
+            />
 
             {/* ─── Style Section ─── */}
-            <div ref={sectionRefs.style} className="scroll-mt-32">
-              <Card className="bg-card/60 border-border">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-base flex items-center gap-2">
-                    <Paintbrush className="h-4 w-4 text-primary" />
-                    Format
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="grid grid-cols-3 gap-2">
-                    {(['9:16', '1:1', '16:9'] as const).map((ratio) => (
-                      <button
-                        key={ratio}
-                        onClick={() => updateSetting('aspectRatio', ratio)}
-                        className={cn(
-                          'rounded-xl border p-3 text-center transition-all',
-                          settings.aspectRatio === ratio
-                            ? 'border-primary bg-primary/10 ring-1 ring-primary/30'
-                            : 'border-border hover:border-primary/40'
-                        )}
-                      >
-                        <span className="text-sm font-semibold text-foreground">{ratio}</span>
-                        <span className="text-[10px] text-muted-foreground block mt-0.5">
-                          {ratio === '9:16' ? 'TikTok / Reels' : ratio === '1:1' ? 'Instagram' : 'YouTube'}
-                        </span>
-                      </button>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
+            <FormatPanel
+              ref={sectionRefs.style}
+              settings={settings}
+              updateSetting={updateSetting}
+            />
 
             {/* ─── Smart Zoom Section ─── */}
             <div className="scroll-mt-32">
