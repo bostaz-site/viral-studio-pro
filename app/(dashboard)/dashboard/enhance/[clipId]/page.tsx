@@ -15,6 +15,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Slider } from '@/components/ui/slider'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
+import { ErrorCard, classifyError } from '@/components/ui/error-card'
 import { createClient } from '@/lib/supabase/client'
 import { useTrendingStore } from '@/stores/trending-store'
 import { cn } from '@/lib/utils'
@@ -637,39 +638,78 @@ export default function EnhancePage() {
           </Button>
 
           {/* Render status messages */}
-          {renderMessage && (
-            <div className="text-center space-y-3">
-              <p className={cn(
-                'text-sm font-medium',
-                renderMessage.includes('Erreur') || renderMessage.includes('❌') ? 'text-destructive' :
-                renderMessage.includes('⚠️') ? 'text-amber-400' :
-                renderMessage.includes('⏳') ? 'text-blue-400' : 'text-green-400'
-              )}>
-                {renderMessage}
-              </p>
-              {renderDownloadUrl && (
-                <a
-                  href={renderDownloadUrl}
-                  download="viral-clip.mp4"
-                  className="inline-flex items-center justify-center gap-2 w-full h-12 rounded-lg bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white font-bold text-base shadow-lg shadow-green-500/20 transition-all animate-pulse"
-                >
-                  <Download className="h-5 w-5" />
-                  Télécharger le clip (avec sous-titres)
-                </a>
-              )}
-              {renderOriginalUrl && !renderDownloadUrl && (
-                <a
-                  href={renderOriginalUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 text-xs text-blue-400 hover:text-blue-300 underline"
-                >
-                  <ExternalLink className="h-3 w-3" />
-                  Télécharger le clip original
-                </a>
-              )}
-            </div>
-          )}
+          {renderMessage && (() => {
+            const isError = renderMessage.includes('Erreur') || renderMessage.includes('❌')
+            const isWarning = renderMessage.includes('⚠️')
+            const isProgress = renderMessage.includes('⏳') || renderMessage.includes('📸')
+            const isSuccess = !isError && !isWarning && !isProgress
+
+            // Error state → structured ErrorCard with retry
+            if (isError) {
+              const cleaned = renderMessage.replace(/^❌\s*/, '').replace(/^Erreur\s*:\s*/, '')
+              const kind = classifyError(cleaned)
+              return (
+                <ErrorCard
+                  kind={kind}
+                  title="Le rendu a échoué"
+                  description={
+                    kind === 'timeout'
+                      ? "Le serveur de rendu a pris trop de temps. Ton clip est peut-être trop long — réessaie, ou raccourcis-le."
+                      : kind === 'quota'
+                        ? 'Tu as atteint la limite de rendus de ton plan.'
+                        : kind === 'network'
+                          ? 'Vérifie ta connexion internet et réessaie.'
+                          : 'Nos serveurs ont rencontré un problème. Réessaie — si ça persiste, on regarde.'
+                  }
+                  details={cleaned}
+                  onRetry={() => {
+                    setRenderMessage(null)
+                    handleRender()
+                  }}
+                  secondaryAction={
+                    kind === 'quota'
+                      ? { label: 'Passer à Pro', href: '/settings' }
+                      : undefined
+                  }
+                />
+              )
+            }
+
+            // Non-error: keep the existing compact inline feedback
+            return (
+              <div className="text-center space-y-3">
+                <p className={cn(
+                  'text-sm font-medium',
+                  isWarning ? 'text-amber-400' :
+                  isProgress ? 'text-blue-400' :
+                  isSuccess ? 'text-green-400' : 'text-muted-foreground'
+                )}>
+                  {renderMessage}
+                </p>
+                {renderDownloadUrl && (
+                  <a
+                    href={renderDownloadUrl}
+                    download="viral-clip.mp4"
+                    className="inline-flex items-center justify-center gap-2 w-full h-12 rounded-lg bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white font-bold text-base shadow-lg shadow-green-500/20 transition-all animate-pulse"
+                  >
+                    <Download className="h-5 w-5" />
+                    Télécharger le clip (avec sous-titres)
+                  </a>
+                )}
+                {renderOriginalUrl && !renderDownloadUrl && (
+                  <a
+                    href={renderOriginalUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 text-xs text-blue-400 hover:text-blue-300 underline"
+                  >
+                    <ExternalLink className="h-3 w-3" />
+                    Télécharger le clip original
+                  </a>
+                )}
+              </div>
+            )
+          })()}
         </div>
 
         {/* Right: Actions + Settings — scrollable */}

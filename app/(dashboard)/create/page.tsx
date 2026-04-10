@@ -2,10 +2,11 @@
 
 import { useState, useCallback, useRef, useEffect, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
-import { Sparkles, CheckCircle2, Circle, Loader2, AlertCircle, RotateCcw, Scissors, Download, Trash2, CheckSquare, FileText } from 'lucide-react'
+import { Sparkles, CheckCircle2, Circle, Loader2, AlertCircle, RotateCcw, Scissors, Download, Trash2, CheckSquare, FileText, CreditCard } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { UploadZone } from '@/components/video/upload-zone'
+import { ErrorCard, classifyError } from '@/components/ui/error-card'
 import { ClipCard } from '@/components/clips/clip-card'
 import { VideoPlayer, type VideoPlayerHandle } from '@/components/video/video-player'
 import { useVideoStore } from '@/stores/video-store'
@@ -309,17 +310,43 @@ function CreatePage() {
       )}
 
       {/* ── Error message ── */}
-      {hasError && errorMessage && (
-        <Card className="border-destructive/50 bg-destructive/5">
-          <CardContent className="p-4 flex items-start gap-3">
-            <AlertCircle className="h-5 w-5 text-destructive shrink-0 mt-0.5" />
-            <div>
-              <p className="text-sm font-medium text-destructive">Erreur</p>
-              <p className="text-sm text-muted-foreground mt-0.5">{errorMessage}</p>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+      {hasError && errorMessage && (() => {
+        const kind = classifyError(errorMessage)
+        const titleMap: Record<string, string> = {
+          network: 'Problème de connexion',
+          server: 'Erreur serveur',
+          auth: 'Session expirée',
+          quota: 'Limite atteinte',
+          timeout: 'Le traitement a pris trop de temps',
+          validation: 'Fichier invalide',
+          generic: 'Une erreur est survenue',
+        }
+        const descriptionMap: Record<string, string> = {
+          network: "Vérifie ta connexion internet et réessaie. Ton fichier n'a pas été perdu.",
+          server: 'Nos serveurs ont rencontré un problème. Réessaie dans quelques instants.',
+          auth: 'Tu as été déconnecté. Reconnecte-toi pour continuer.',
+          quota: 'Tu as atteint la limite de ton plan. Passe à Pro pour continuer à générer des clips.',
+          timeout: "Le rendu peut prendre jusqu'à une minute pour les vidéos longues. Tu peux réessayer.",
+          validation: 'Vérifie que ton fichier est bien une vidéo (mp4, mov, mkv, avi).',
+          generic: "Quelque chose s'est mal passé. Tu peux réessayer, ou nous contacter si ça persiste.",
+        }
+        const secondaryAction = kind === 'quota'
+          ? { label: 'Passer à Pro', href: '/settings', icon: CreditCard }
+          : kind === 'auth'
+            ? { label: 'Se reconnecter', href: '/login', icon: AlertCircle }
+            : undefined
+        return (
+          <ErrorCard
+            kind={kind}
+            title={titleMap[kind]}
+            description={descriptionMap[kind]}
+            details={errorMessage}
+            onRetry={handleReset}
+            retryLabel="Recommencer"
+            secondaryAction={secondaryAction}
+          />
+        )
+      })()}
 
       {/* ── Options + Generate button ── */}
       {!isProcessing && !isDone && (
