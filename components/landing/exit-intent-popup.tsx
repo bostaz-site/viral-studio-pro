@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { X, Sparkles, Check, Loader2, Download } from 'lucide-react'
+import { track } from '@/lib/analytics'
 
 const GUIDE_URL = '/guides/10-hooks-viraux.pdf'
 
@@ -45,6 +46,7 @@ export function ExitIntentPopup() {
       // tab switches or reaching for a scrollbar, not leaving the page.
       if (event.clientY > 0) return
       setOpen(true)
+      track('exit_intent_shown')
       try {
         sessionStorage.setItem(SESSION_KEY, '1')
       } catch {
@@ -89,6 +91,9 @@ export function ExitIntentPopup() {
       }
       if (res.ok) {
         setStatus('success')
+        track('exit_intent_submitted', {
+          already_subscribed: Boolean(data.data?.alreadySubscribed),
+        })
         setMessage(
           data.data?.alreadySubscribed
             ? 'Tu es déjà dans la liste. Télécharge le guide direct ci-dessous.'
@@ -119,7 +124,10 @@ export function ExitIntentPopup() {
       <div className="relative w-full max-w-md rounded-2xl border border-border bg-card p-8 shadow-2xl animate-in zoom-in-95 slide-in-from-bottom-4 duration-300">
         <button
           type="button"
-          onClick={() => setOpen(false)}
+          onClick={() => {
+            setOpen(false)
+            track('exit_intent_dismissed')
+          }}
           aria-label="Fermer"
           className="absolute top-4 right-4 text-muted-foreground hover:text-foreground transition-colors"
         >

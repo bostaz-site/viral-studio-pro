@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import { Sparkles, Zap, Wrench, Gift, ArrowLeft } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { PageViewTracker } from '@/components/analytics/page-view-tracker'
 
 export const metadata: Metadata = {
   title: 'Changelog — ce qu\'on a shippé',
@@ -248,6 +249,7 @@ export default function ChangelogPage() {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
+      <PageViewTracker event="changelog_view" />
 
       {/* Nav */}
       <header className="border-b border-border bg-card/50 backdrop-blur-md sticky top-0 z-50">

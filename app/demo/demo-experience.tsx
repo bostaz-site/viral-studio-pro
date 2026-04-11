@@ -1,7 +1,8 @@
 "use client"
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import Link from 'next/link'
+import { track } from '@/lib/analytics'
 import {
   ArrowLeft,
   Sparkles,
@@ -115,6 +116,24 @@ export function DemoExperience() {
   const [splitScreen, setSplitScreen] = useState(true)
   const [showScore, setShowScore] = useState(true)
 
+  // Fire once when the demo mounts, so we can measure page→interaction rate.
+  useEffect(() => {
+    track('demo_view')
+  }, [])
+
+  const handleClipChange = (id: string) => {
+    setClipId(id)
+    track('demo_clip_switch', { clip_id: id })
+  }
+  const handleCaptionChange = (id: CaptionStyleId) => {
+    setCaptionStyleId(id)
+    track('demo_caption_switch', { style: id })
+  }
+  const handleSplitToggle = (next: boolean) => {
+    setSplitScreen(next)
+    track('demo_split_toggle', { enabled: next })
+  }
+
   const clip = useMemo(
     () => DEMO_CLIPS.find((c) => c.id === clipId) ?? DEMO_CLIPS[0]!,
     [clipId],
@@ -206,7 +225,7 @@ export function DemoExperience() {
                   <button
                     key={c.id}
                     type="button"
-                    onClick={() => setClipId(c.id)}
+                    onClick={() => handleClipChange(c.id)}
                     className={`w-full text-left rounded-lg border px-3 py-2.5 transition-all ${
                       c.id === clipId
                         ? 'border-primary bg-primary/10 ring-1 ring-primary/40'
@@ -242,7 +261,7 @@ export function DemoExperience() {
                   <button
                     key={s.id}
                     type="button"
-                    onClick={() => setCaptionStyleId(s.id)}
+                    onClick={() => handleCaptionChange(s.id)}
                     className={`rounded-lg border px-3 py-2.5 text-left transition-all ${
                       s.id === captionStyleId
                         ? 'border-primary bg-primary/10 ring-1 ring-primary/40'
@@ -269,7 +288,7 @@ export function DemoExperience() {
                   label="Split-screen (Subway Surfers)"
                   description="Gameplay satisfaisant en bas"
                   value={splitScreen}
-                  onChange={setSplitScreen}
+                  onChange={handleSplitToggle}
                 />
                 <ToggleRow
                   label="Score viral IA"
@@ -294,7 +313,11 @@ export function DemoExperience() {
                   </p>
                 </div>
               </div>
-              <Link href="/signup" className="block">
+              <Link
+                href="/signup"
+                className="block"
+                onClick={() => track('demo_cta_click', { location: 'sidebar' })}
+              >
                 <Button size="sm" className="w-full gap-1.5">
                   Commencer gratuitement
                   <ChevronRight className="h-3.5 w-3.5" />

@@ -1,6 +1,7 @@
 "use client"
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { track } from '@/lib/analytics'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import {
@@ -103,7 +104,12 @@ export default function PricingPage() {
   const router = useRouter()
   const [loadingPlan, setLoadingPlan] = useState<string | null>(null)
 
+  useEffect(() => {
+    track('pricing_view')
+  }, [])
+
   const handleSelectPlan = async (planId: string) => {
+    track('cta_pricing_click', { plan_id: planId })
     if (planId === 'free') {
       router.push('/login')
       return

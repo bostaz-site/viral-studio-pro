@@ -7,6 +7,7 @@ import {
   MonitorPlay, ArrowRight, Play, Clock, Sparkles, Zap,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { track } from '@/lib/analytics'
 
 // ─── Platform SVG Icons ─────────────────────────────────────────────────────
 
@@ -104,7 +105,7 @@ function StickyBar() {
         <p className="text-sm text-muted-foreground hidden sm:block">
           <span className="font-semibold text-foreground">Essai gratuit</span> &middot; Sans carte bancaire
         </p>
-        <Link href="/signup">
+        <Link href="/signup" onClick={() => track('cta_hero_click', { location: 'sticky_bar' })}>
           <Button size="sm" className="bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white font-bold gap-1.5 h-9 px-6">
             Commencer gratuitement
             <ArrowRight className="h-3.5 w-3.5" />
@@ -150,7 +151,7 @@ export function HeroSection() {
             </p>
 
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mt-10">
-              <Link href="/signup">
+              <Link href="/signup" onClick={() => track('cta_hero_click', { location: 'hero_primary' })}>
                 <Button size="lg" className="bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white shadow-lg shadow-orange-500/25 h-12 px-8 text-base font-bold gap-2">
                   Essayer gratuitement
                   <ArrowRight className="h-4 w-4" />
