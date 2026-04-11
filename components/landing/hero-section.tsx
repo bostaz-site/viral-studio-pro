@@ -156,7 +156,7 @@ export function HeroSection() {
                   <ArrowRight className="h-4 w-4" />
                 </Button>
               </Link>
-              <Link href="/blog/creer-clips-viraux-twitch-guide-2026">
+              <Link href="/demo">
                 <Button variant="ghost" size="lg" className="h-12 px-6 text-base text-muted-foreground hover:text-foreground gap-2">
                   <Play className="h-4 w-4" />
                   Voir une d&eacute;mo

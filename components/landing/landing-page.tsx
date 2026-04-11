@@ -131,6 +131,7 @@ export function LandingPage() {
                 <Link href="/signup" className="block hover:text-foreground transition-colors">Cr&eacute;er un compte</Link>
                 <Link href="/login" className="block hover:text-foreground transition-colors">Se connecter</Link>
                 <Link href="/pricing" className="block hover:text-foreground transition-colors">Tarifs</Link>
+                <Link href="/demo" className="block hover:text-foreground transition-colors">Démo live</Link>
                 <Link href="/changelog" className="block hover:text-foreground transition-colors">Changelog</Link>
                 <Link href="/blog" className="block hover:text-foreground transition-colors">Blog</Link>
               </div>
