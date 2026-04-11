@@ -55,7 +55,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     { name: 'Enhance', href: '/dashboard/enhance', icon: Wand2 },
     { name: 'Publier', href: '/publish', icon: Share },
     { name: 'Analytics', href: '/analytics', icon: BarChart3 },
-    ...(isAdmin ? [{ name: 'Growth (admin)', href: '/admin/growth', icon: Crown }] : []),
+    ...(isAdmin
+      ? [
+          { name: 'Growth (admin)', href: '/admin/growth', icon: Crown },
+          { name: 'Analytics (admin)', href: '/admin/analytics', icon: Crown },
+        ]
+      : []),
     { name: 'Paramètres', href: '/settings', icon: Settings },
   ]
 
