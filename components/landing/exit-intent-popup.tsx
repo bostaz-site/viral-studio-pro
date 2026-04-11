@@ -1,7 +1,9 @@
 "use client"
 
 import { useEffect, useRef, useState, type FormEvent } from 'react'
-import { X, Sparkles, Check, Loader2 } from 'lucide-react'
+import { X, Sparkles, Check, Loader2, Download } from 'lucide-react'
+
+const GUIDE_URL = '/guides/10-hooks-viraux.pdf'
 
 const SESSION_KEY = 'vsp:exit_intent_seen'
 
@@ -89,8 +91,8 @@ export function ExitIntentPopup() {
         setStatus('success')
         setMessage(
           data.data?.alreadySubscribed
-            ? 'Tu es déjà dans la liste — merci !'
-            : 'Guide envoyé ! Check ta boîte mail (et les spams).',
+            ? 'Tu es déjà dans la liste. Télécharge le guide direct ci-dessous.'
+            : 'Merci ! Le guide est prêt à télécharger ci-dessous.',
         )
       } else {
         setStatus('error')
@@ -125,12 +127,22 @@ export function ExitIntentPopup() {
         </button>
 
         {status === 'success' ? (
-          <div className="text-center space-y-3 py-4">
+          <div className="text-center space-y-4 py-4">
             <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-emerald-500/15">
               <Check className="h-6 w-6 text-emerald-400" />
             </div>
-            <h2 className="text-xl font-bold">C&apos;est parti !</h2>
-            <p className="text-sm text-muted-foreground">{message}</p>
+            <div className="space-y-1">
+              <h2 className="text-xl font-bold">C&apos;est parti !</h2>
+              <p className="text-sm text-muted-foreground">{message}</p>
+            </div>
+            <a
+              href={GUIDE_URL}
+              download
+              className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 px-4 py-2.5 text-sm font-semibold text-white hover:from-blue-700 hover:to-indigo-700"
+            >
+              <Download className="h-4 w-4" />
+              Télécharger le guide (PDF)
+            </a>
           </div>
         ) : (
           <>
