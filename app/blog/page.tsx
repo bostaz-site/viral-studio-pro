@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { Scissors, ArrowRight, Clock, User } from 'lucide-react'
 import type { Metadata } from 'next'
+import { blogIndexJsonLd } from '@/lib/blog-schema'
 
 export const metadata: Metadata = {
   title: 'Blog — Guides et astuces pour créer des clips viraux',
@@ -37,6 +38,10 @@ const ARTICLES = [
 export default function BlogPage() {
   return (
     <div className="min-h-screen bg-background text-foreground">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(blogIndexJsonLd()) }}
+      />
       <header className="border-b border-border bg-card/50 backdrop-blur-md sticky top-0 z-50">
         <div className="max-w-4xl mx-auto px-6 h-16 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2">
@@ -83,6 +88,8 @@ export default function BlogPage() {
           <div className="flex gap-4">
             <Link href="/" className="hover:text-foreground transition-colors">Accueil</Link>
             <Link href="/pricing" className="hover:text-foreground transition-colors">Tarifs</Link>
+            <Link href="/demo" className="hover:text-foreground transition-colors">Démo</Link>
+            <Link href="/changelog" className="hover:text-foreground transition-colors">Changelog</Link>
           </div>
         </div>
       </footer>

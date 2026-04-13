@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { Scissors, ArrowLeft, Clock, User } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import type { Metadata } from 'next'
+import { articleJsonLd } from '@/lib/blog-schema'
 
 export const metadata: Metadata = {
   title: 'Comment créer des clips viraux depuis Twitch en 2026',
@@ -12,9 +13,22 @@ export const metadata: Metadata = {
   },
 }
 
+const ARTICLE_META = {
+  slug: 'creer-clips-viraux-twitch-guide-2026',
+  title: 'Comment créer des clips viraux depuis Twitch en 2026 — Le guide complet',
+  description: 'Guide complet : split-screen automatique, sous-titres karaoké, score viral IA. Toutes les techniques pour transformer tes streams Twitch en clips TikTok viraux.',
+  datePublished: '2026-03-28',
+  author: 'Samy',
+  readTimeMinutes: 8,
+}
+
 export default function ArticlePage() {
   return (
     <div className="min-h-screen bg-background text-foreground">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(articleJsonLd(ARTICLE_META)) }}
+      />
       <header className="border-b border-border bg-card/50 backdrop-blur-md sticky top-0 z-50">
         <div className="max-w-3xl mx-auto px-6 h-16 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2">
@@ -139,6 +153,7 @@ export default function ArticlePage() {
             <Link href="/blog" className="hover:text-foreground transition-colors">Blog</Link>
             <Link href="/" className="hover:text-foreground transition-colors">Accueil</Link>
             <Link href="/pricing" className="hover:text-foreground transition-colors">Tarifs</Link>
+            <Link href="/demo" className="hover:text-foreground transition-colors">Démo</Link>
           </div>
         </div>
       </footer>

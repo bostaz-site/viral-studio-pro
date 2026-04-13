@@ -2,10 +2,20 @@ import Link from 'next/link'
 import { Scissors, ArrowLeft, Clock, User, Check, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import type { Metadata } from 'next'
+import { articleJsonLd } from '@/lib/blog-schema'
 
 export const metadata: Metadata = {
   title: 'Alternative à OpusClip et Eklipse en 2026 — Comparatif complet',
   description: 'Comparatif détaillé OpusClip vs Eklipse vs Viral Studio Pro. Split-screen, sous-titres karaoké, score viral IA, prix. Quel outil choisir pour tes clips ?',
+}
+
+const ARTICLE_META = {
+  slug: 'alternative-opusclip-eklipse-2026',
+  title: 'Alternative à OpusClip et Eklipse en 2026 — Comparatif complet',
+  description: 'Comparatif détaillé OpusClip vs Eklipse vs Viral Studio Pro. Split-screen, sous-titres karaoké, score viral IA, prix. Quel outil choisir pour tes clips ?',
+  datePublished: '2026-03-30',
+  author: 'Samy',
+  readTimeMinutes: 7,
 }
 
 export default function ArticlePage() {
@@ -24,6 +34,10 @@ export default function ArticlePage() {
 
   return (
     <div className="min-h-screen bg-background text-foreground">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(articleJsonLd(ARTICLE_META)) }}
+      />
       <header className="border-b border-border bg-card/50 backdrop-blur-md sticky top-0 z-50">
         <div className="max-w-3xl mx-auto px-6 h-16 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2">
@@ -139,6 +153,8 @@ export default function ArticlePage() {
           <div className="flex gap-4">
             <Link href="/blog" className="hover:text-foreground transition-colors">Blog</Link>
             <Link href="/" className="hover:text-foreground transition-colors">Accueil</Link>
+            <Link href="/pricing" className="hover:text-foreground transition-colors">Tarifs</Link>
+            <Link href="/demo" className="hover:text-foreground transition-colors">Démo</Link>
           </div>
         </div>
       </footer>
