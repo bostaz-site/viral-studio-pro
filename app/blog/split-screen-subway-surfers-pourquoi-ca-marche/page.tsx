@@ -3,6 +3,7 @@ import { Scissors, ArrowLeft, Clock, User } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import type { Metadata } from 'next'
 import { articleJsonLd } from '@/lib/blog-schema'
+import { RelatedArticles } from '@/components/blog/related-articles'
 
 export const metadata: Metadata = {
   title: 'Split-screen Subway Surfers : pourquoi ça explose sur TikTok',
@@ -103,6 +104,8 @@ export default function ArticlePage() {
               </Button>
             </Link>
           </div>
+
+          <RelatedArticles currentSlug="split-screen-subway-surfers-pourquoi-ca-marche" />
         </div>
       </main>
 

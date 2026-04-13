@@ -3,6 +3,7 @@ import { Scissors, ArrowLeft, Clock, User, Check, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import type { Metadata } from 'next'
 import { articleJsonLd } from '@/lib/blog-schema'
+import { RelatedArticles } from '@/components/blog/related-articles'
 
 export const metadata: Metadata = {
   title: 'Alternative à OpusClip et Eklipse en 2026 — Comparatif complet',
@@ -144,6 +145,8 @@ export default function ArticlePage() {
               </Button>
             </Link>
           </div>
+
+          <RelatedArticles currentSlug="alternative-opusclip-eklipse-2026" />
         </div>
       </main>
 

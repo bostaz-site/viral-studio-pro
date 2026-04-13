@@ -3,6 +3,7 @@ import { Scissors, ArrowLeft, Clock, User } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import type { Metadata } from 'next'
 import { articleJsonLd } from '@/lib/blog-schema'
+import { RelatedArticles } from '@/components/blog/related-articles'
 
 export const metadata: Metadata = {
   title: 'Comment créer des clips viraux depuis Twitch en 2026',
@@ -143,6 +144,8 @@ export default function ArticlePage() {
               </Button>
             </Link>
           </div>
+
+          <RelatedArticles currentSlug="creer-clips-viraux-twitch-guide-2026" />
         </div>
       </main>
 
