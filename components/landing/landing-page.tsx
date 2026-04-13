@@ -135,6 +135,7 @@ export function LandingPage() {
                 <Link href="/changelog" className="block hover:text-foreground transition-colors">Changelog</Link>
                 <Link href="/blog" className="block hover:text-foreground transition-colors">Blog</Link>
                 <Link href="/pour-streamers-twitch" className="block hover:text-foreground transition-colors">Pour streamers Twitch</Link>
+                <Link href="/pour-clippeurs-youtube" className="block hover:text-foreground transition-colors">Pour clippeurs YouTube</Link>
               </div>
             </div>
             <div>

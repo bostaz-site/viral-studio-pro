@@ -53,6 +53,12 @@ export default function sitemap(): MetadataRoute.Sitemap {
       priority: 0.9,
     },
     {
+      url: `${baseUrl}/pour-clippeurs-youtube`,
+      lastModified: new Date('2026-04-13'),
+      changeFrequency: 'monthly',
+      priority: 0.9,
+    },
+    {
       url: `${baseUrl}/demo`,
       lastModified: new Date('2026-04-10'),
       changeFrequency: 'monthly',
