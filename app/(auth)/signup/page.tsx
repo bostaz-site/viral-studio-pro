@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from 'react'
+import { Suspense, useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { Loader2, Mail, Lock, User, ArrowRight, CheckCircle2, Gift } from 'lucide-react'
@@ -13,6 +13,24 @@ import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card'
 const REFERRAL_STORAGE_KEY = 'vsp:referral_code'
 
 export default function SignupPage() {
+  return (
+    <Suspense fallback={<SignupSkeleton />}>
+      <SignupForm />
+    </Suspense>
+  )
+}
+
+function SignupSkeleton() {
+  return (
+    <Card className="bg-card/80 border-border backdrop-blur-sm shadow-xl shadow-black/5">
+      <CardContent className="pt-8 pb-8 flex items-center justify-center">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      </CardContent>
+    </Card>
+  )
+}
+
+function SignupForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const [fullName, setFullName] = useState('')
