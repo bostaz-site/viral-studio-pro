@@ -1,12 +1,14 @@
 "use client"
 
-import { useState, useRef, useCallback } from 'react'
+import { useState, useRef, useCallback, useEffect, memo } from 'react'
 import Link from 'next/link'
 import { ExternalLink, Crown, Lock, Zap, TrendingUp, Flame } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { VelocityBadge } from '@/components/trending/velocity-badge'
 import { cn } from '@/lib/utils'
+import { formatCount, timeAgo } from '@/lib/trending/utils'
+import { PLATFORM_STYLES, NICHE_LABELS } from '@/lib/trending/constants'
 import type { TrendingClip } from '@/types/trending'
 
 export type { TrendingClip }
@@ -20,17 +22,8 @@ interface TrendingCardProps {
 
 const PREMIUM_THRESHOLD = 85
 
-const PLATFORM_STYLES: Record<string, { label: string; colorClass: string }> = {
-  twitch:         { label: 'Twitch',         colorClass: 'text-purple-400 bg-purple-500/15 border-purple-500/30' },
-  youtube_gaming: { label: 'YouTube Gaming', colorClass: 'text-red-400 bg-red-500/15 border-red-500/30' },
-}
-
 const GAME_COLORS: Record<string, string> = {
   irl: 'text-blue-400 bg-blue-500/10',
-}
-
-const GAME_LABELS: Record<string, string> = {
-  irl: 'IRL',
 }
 
 // Gradient colors per streamer for nicer placeholders
@@ -46,80 +39,43 @@ const STREAMER_GRADIENTS: Record<string, string> = {
   marlon: 'from-amber-600 via-orange-500 to-red-500',
 }
 
-function formatCount(n: number | null): string {
-  if (n === null) return '--'
-  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`
-  if (n >= 1_000)     return `${(n / 1_000).toFixed(0)}K`
-  return String(n)
-}
-
-function timeAgo(dateStr: string | null): string {
-  if (!dateStr) return ''
-  const diff = (Date.now() - new Date(dateStr).getTime()) / 1000
-  if (diff < 3600)  return `${Math.floor(diff / 60)}m`
-  if (diff < 86400) return `${Math.floor(diff / 3600)}h`
-  return `${Math.floor(diff / 86400)}j`
-}
-
-/**
- * Derive a direct MP4 video URL from a Twitch clip thumbnail URL.
- *
- * New CDN format (twitch-video-assets / VAP):
- *   Thumbnail: https://static-cdn.jtvnw.net/twitch-video-assets/.../UUID/landscape/thumb/thumb-000-480x272.jpg
- *   Video:     Replace "/thumb/thumb-...-480x272.jpg" with ".mp4" at the UUID level
- *
- * Old CDN format (clips-media-assets):
- *   Thumbnail: https://clips-media-assets2.twitch.tv/SLUG-preview-480x272.jpg
- *   Video:     https://clips-media-assets2.twitch.tv/SLUG.mp4
- */
-function thumbnailToVideoUrl(thumbnailUrl: string | null): string | null {
-  if (!thumbnailUrl) return null
-
-  // New VAP format: ...twitch-video-assets/.../UUID/landscape/thumb/thumb-XXX-WxH.jpg
-  // → ...twitch-video-assets/.../UUID/720.mp4
-  const vapMatch = thumbnailUrl.match(
-    /(https:\/\/static-cdn\.jtvnw\.net\/twitch-video-assets\/[^/]+\/[^/]+)\/landscape\/thumb\/.*$/
-  )
-  if (vapMatch) {
-    return `${vapMatch[1]}/720.mp4`
-  }
-
-  // Old format: .../SLUG-preview-WxH.jpg → .../SLUG.mp4
-  const oldMatch = thumbnailUrl.match(/^(https:\/\/clips-media-assets2\.twitch\.tv\/.+)-preview-\d+x\d+\.jpg$/)
-  if (oldMatch) {
-    return `${oldMatch[1]}.mp4`
-  }
-
-  return null
-}
-
-export function TrendingCard({ clip, onRemix, remixing = false, isPremiumUser = false }: TrendingCardProps) {
+export const TrendingCard = memo(function TrendingCard({ clip, onRemix, remixing = false, isPremiumUser = false }: TrendingCardProps) {
   const [imgError, setImgError] = useState(false)
   const [hovered, setHovered] = useState(false)
   const [showVideo, setShowVideo] = useState(false)
   const [videoPlaying, setVideoPlaying] = useState(false)
   const [resolvedVideoUrl, setResolvedVideoUrl] = useState<string | null>(null)
-  const hoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const videoRef = useRef<HTMLVideoElement | null>(null)
   const fetchedRef = useRef(false)
 
   const isLocked = !isPremiumUser && (clip.velocity_score ?? 0) >= PREMIUM_THRESHOLD
 
-  const platformStyle = PLATFORM_STYLES[clip.platform.toLowerCase()] ?? {
-    label: clip.platform,
-    colorClass: 'text-muted-foreground bg-muted border-border',
+  const ps = PLATFORM_STYLES[clip.platform.toLowerCase()]
+  const platformStyle = {
+    label: ps?.label ?? clip.platform,
+    colorClass: ps?.badgeClass ?? 'text-muted-foreground bg-muted border-border',
   }
 
   const gameKey = clip.niche?.toLowerCase() ?? ''
   const gameColor = GAME_COLORS[gameKey] ?? 'text-muted-foreground bg-muted'
-  const gameLabel = GAME_LABELS[gameKey] ?? clip.niche
+  const gameLabel = NICHE_LABELS[gameKey] ?? clip.niche
   const streamerGradient = STREAMER_GRADIENTS[clip.author_handle?.toLowerCase() ?? ''] ?? 'from-slate-700 via-slate-600 to-slate-500'
 
-  // Fast-path: derive direct MP4 URL from thumbnail; fallback to GQL resolution via API
-  const initialVideoUrl = clip.platform === 'twitch' ? thumbnailToVideoUrl(clip.thumbnail_url) : null
-  const videoUrl = resolvedVideoUrl ?? initialVideoUrl
+  // We always resolve the clip MP4 via the GQL-backed API.
+  // Deriving URLs directly from the thumbnail path was unreliable: it could
+  // silently return a URL pointing to the wrong clip (or the underlying VOD
+  // segment), so users were seeing a "fuckall" clip on hover. The API route
+  // caches resolutions for an hour, so re-hovers are instant.
+  const videoUrl = resolvedVideoUrl
 
-  // Resolve slug from external_url for GQL lookup fallback
+  // Reset resolved URL when the clip prop changes (avoids showing stale URL
+  // from a recycled card instance in a virtualized list).
+  useEffect(() => {
+    setResolvedVideoUrl(null)
+    fetchedRef.current = false
+  }, [clip.id, clip.external_url])
+
+  // Resolve slug from external_url for GQL lookup
   const getClipSlug = useCallback((): string | null => {
     try {
       const u = new URL(clip.external_url)
@@ -135,7 +91,7 @@ export function TrendingCard({ clip, onRemix, remixing = false, isPremiumUser = 
     return null
   }, [clip.external_url])
 
-  // Hover handlers — show video after 300ms hover
+  // Hover handlers — fetch the real MP4 URL on first hover, then play it.
   const handleMouseEnter = useCallback(() => {
     setHovered(true)
     if (isLocked) return
@@ -151,15 +107,6 @@ export function TrendingCard({ clip, onRemix, remixing = false, isPremiumUser = 
           .catch(() => {/* ignore */})
       }
     }
-
-    // Show video immediately if we already have a URL (fast path), otherwise wait briefly
-    const delay = initialVideoUrl ? 100 : 250
-    hoverTimerRef.current = setTimeout(() => {
-      setShowVideo(true)
-      setTimeout(() => {
-        videoRef.current?.play().catch(() => {/* autoplay blocked, that's ok */})
-      }, 30)
-    }, delay)
   }, [isLocked, clip.platform, getClipSlug])
 
   const handleMouseLeave = useCallback(() => {
@@ -170,11 +117,21 @@ export function TrendingCard({ clip, onRemix, remixing = false, isPremiumUser = 
       videoRef.current.pause()
       videoRef.current.currentTime = 0
     }
-    if (hoverTimerRef.current) {
-      clearTimeout(hoverTimerRef.current)
-      hoverTimerRef.current = null
-    }
   }, [])
+
+  // Show the video as soon as we're hovering AND the URL is resolved.
+  // Splitting this from handleMouseEnter means: if the user keeps hovering
+  // while the fetch is in flight, playback kicks in the moment we have
+  // the correct URL (no arbitrary timers, no wrong clip flashing first).
+  useEffect(() => {
+    if (!hovered || isLocked || !videoUrl) return
+    setShowVideo(true)
+    // Give React a tick to mount the <video>, then play.
+    const t = setTimeout(() => {
+      videoRef.current?.play().catch(() => {/* autoplay blocked, that's ok */})
+    }, 30)
+    return () => clearTimeout(t)
+  }, [hovered, isLocked, videoUrl])
 
   return (
     <Card
@@ -201,12 +158,6 @@ export function TrendingCard({ clip, onRemix, remixing = false, isPremiumUser = 
             playsInline
             loop
             onPlaying={() => setVideoPlaying(true)}
-            onError={() => {
-              // If the fast-path thumbnail→MP4 fails, retry with GQL-resolved URL
-              if (resolvedVideoUrl && videoRef.current) {
-                videoRef.current.load()
-              }
-            }}
           />
         )}
 
@@ -248,7 +199,7 @@ export function TrendingCard({ clip, onRemix, remixing = false, isPremiumUser = 
             <div className="w-10 h-10 rounded-full bg-gradient-to-br from-yellow-500 to-amber-600 flex items-center justify-center shadow-lg shadow-amber-500/30 mb-2">
               <Crown className="h-5 w-5 text-white" />
             </div>
-            <span className="text-xs font-bold text-white">Premium requis</span>
+            <span className="text-xs font-bold text-white">Premium required</span>
           </div>
         )}
 
@@ -279,7 +230,7 @@ export function TrendingCard({ clip, onRemix, remixing = false, isPremiumUser = 
         {!isLocked && (clip.velocity_score ?? 0) >= 70 && !videoPlaying && (
           <div className="absolute bottom-2 left-2 z-[6] flex items-center gap-1 bg-gradient-to-r from-orange-500 to-red-500 text-white text-[10px] font-black px-2 py-0.5 rounded-full shadow-lg animate-in fade-in">
             <Flame className="h-2.5 w-2.5" />
-            VIRAL
+            TRENDING
           </div>
         )}
 
@@ -291,7 +242,7 @@ export function TrendingCard({ clip, onRemix, remixing = false, isPremiumUser = 
             rel="noopener noreferrer"
             className="absolute bottom-2 right-2 p-1.5 rounded-lg bg-black/60 backdrop-blur-sm text-white/70 hover:text-white transition-colors opacity-0 group-hover:opacity-100"
             onClick={(e) => e.stopPropagation()}
-            title="Voir l'original"
+            title="View original"
           >
             <ExternalLink className="h-3.5 w-3.5" />
           </a>
@@ -300,7 +251,7 @@ export function TrendingCard({ clip, onRemix, remixing = false, isPremiumUser = 
         {/* Scraped time */}
         {!isLocked && !videoPlaying && clip.scraped_at && (
           <span className="absolute bottom-2 left-2 text-[10px] text-white/50 bg-black/40 px-1.5 py-0.5 rounded-md backdrop-blur-sm">
-            il y a {timeAgo(clip.scraped_at)}
+            {timeAgo(clip.scraped_at)}
           </span>
         )}
       </div>
@@ -312,7 +263,7 @@ export function TrendingCard({ clip, onRemix, remixing = false, isPremiumUser = 
           isLocked ? 'text-muted-foreground' : 'text-foreground',
           (hovered || showVideo || videoPlaying) && !isLocked ? 'opacity-0' : 'opacity-100'
         )}>
-          {clip.title ?? clip.author_name ?? 'Clip de stream'}
+          {clip.title ?? clip.author_name ?? 'Stream clip'}
         </p>
 
         {/* Streamer */}
@@ -330,13 +281,13 @@ export function TrendingCard({ clip, onRemix, remixing = false, isPremiumUser = 
           {(clip.velocity_score ?? 0) >= 70 && (
             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-orange-500/15 text-orange-400 border border-orange-500/20">
               <Flame className="h-2.5 w-2.5" />
-              Viral
+              Trending
             </span>
           )}
           {(clip.velocity_score ?? 0) >= 50 && (clip.velocity_score ?? 0) < 70 && (
             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/20">
               <TrendingUp className="h-2.5 w-2.5" />
-              High potential
+              Rising
             </span>
           )}
           {clip.niche && (
@@ -355,7 +306,7 @@ export function TrendingCard({ clip, onRemix, remixing = false, isPremiumUser = 
               className="w-full h-8 text-xs gap-1.5 mt-1 border-amber-500/30 text-amber-400 hover:bg-amber-500/10"
             >
               <Lock className="h-3 w-3" />
-              Passe à Premium
+              Upgrade to Pro
             </Button>
           </Link>
         ) : (
@@ -366,10 +317,10 @@ export function TrendingCard({ clip, onRemix, remixing = false, isPremiumUser = 
             disabled={remixing}
           >
             <Zap className="h-3.5 w-3.5" />
-            {remixing ? 'Création\u2026' : 'Make Viral'}
+            {remixing ? 'Creating...' : 'Make Viral'}
           </Button>
         )}
       </CardContent>
     </Card>
   )
-}
+})
