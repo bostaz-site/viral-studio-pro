@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useRef, useCallback, memo } from 'react'
+import { useState, useRef, useCallback, useEffect, memo } from 'react'
 import Link from 'next/link'
 import { ExternalLink, Crown, Lock, Zap, TrendingUp, Flame } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -39,45 +39,12 @@ const STREAMER_GRADIENTS: Record<string, string> = {
   marlon: 'from-amber-600 via-orange-500 to-red-500',
 }
 
-/**
- * Derive a direct MP4 video URL from a Twitch clip thumbnail URL.
- *
- * New CDN format (twitch-video-assets / VAP):
- *   Thumbnail: https://static-cdn.jtvnw.net/twitch-video-assets/.../UUID/landscape/thumb/thumb-000-480x272.jpg
- *   Video:     Replace "/thumb/thumb-...-480x272.jpg" with ".mp4" at the UUID level
- *
- * Old CDN format (clips-media-assets):
- *   Thumbnail: https://clips-media-assets2.twitch.tv/SLUG-preview-480x272.jpg
- *   Video:     https://clips-media-assets2.twitch.tv/SLUG.mp4
- */
-function thumbnailToVideoUrl(thumbnailUrl: string | null): string | null {
-  if (!thumbnailUrl) return null
-
-  // New VAP format: ...twitch-video-assets/.../UUID/landscape/thumb/thumb-XXX-WxH.jpg
-  // → ...twitch-video-assets/.../UUID/720.mp4
-  const vapMatch = thumbnailUrl.match(
-    /(https:\/\/static-cdn\.jtvnw\.net\/twitch-video-assets\/[^/]+\/[^/]+)\/landscape\/thumb\/.*$/
-  )
-  if (vapMatch) {
-    return `${vapMatch[1]}/720.mp4`
-  }
-
-  // Old format: .../SLUG-preview-WxH.jpg → .../SLUG.mp4
-  const oldMatch = thumbnailUrl.match(/^(https:\/\/clips-media-assets2\.twitch\.tv\/.+)-preview-\d+x\d+\.jpg$/)
-  if (oldMatch) {
-    return `${oldMatch[1]}.mp4`
-  }
-
-  return null
-}
-
 export const TrendingCard = memo(function TrendingCard({ clip, onRemix, remixing = false, isPremiumUser = false }: TrendingCardProps) {
   const [imgError, setImgError] = useState(false)
   const [hovered, setHovered] = useState(false)
   const [showVideo, setShowVideo] = useState(false)
   const [videoPlaying, setVideoPlaying] = useState(false)
   const [resolvedVideoUrl, setResolvedVideoUrl] = useState<string | null>(null)
-  const hoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const videoRef = useRef<HTMLVideoElement | null>(null)
   const fetchedRef = useRef(false)
 
@@ -94,11 +61,21 @@ export const TrendingCard = memo(function TrendingCard({ clip, onRemix, remixing
   const gameLabel = NICHE_LABELS[gameKey] ?? clip.niche
   const streamerGradient = STREAMER_GRADIENTS[clip.author_handle?.toLowerCase() ?? ''] ?? 'from-slate-700 via-slate-600 to-slate-500'
 
-  // Fast-path: derive direct MP4 URL from thumbnail; fallback to GQL resolution via API
-  const initialVideoUrl = clip.platform === 'twitch' ? thumbnailToVideoUrl(clip.thumbnail_url) : null
-  const videoUrl = resolvedVideoUrl ?? initialVideoUrl
+  // We always resolve the clip MP4 via the GQL-backed API.
+  // Deriving URLs directly from the thumbnail path was unreliable: it could
+  // silently return a URL pointing to the wrong clip (or the underlying VOD
+  // segment), so users were seeing a "fuckall" clip on hover. The API route
+  // caches resolutions for an hour, so re-hovers are instant.
+  const videoUrl = resolvedVideoUrl
 
-  // Resolve slug from external_url for GQL lookup fallback
+  // Reset resolved URL when the clip prop changes (avoids showing stale URL
+  // from a recycled card instance in a virtualized list).
+  useEffect(() => {
+    setResolvedVideoUrl(null)
+    fetchedRef.current = false
+  }, [clip.id, clip.external_url])
+
+  // Resolve slug from external_url for GQL lookup
   const getClipSlug = useCallback((): string | null => {
     try {
       const u = new URL(clip.external_url)
@@ -114,7 +91,7 @@ export const TrendingCard = memo(function TrendingCard({ clip, onRemix, remixing
     return null
   }, [clip.external_url])
 
-  // Hover handlers — show video after 300ms hover
+  // Hover handlers — fetch the real MP4 URL on first hover, then play it.
   const handleMouseEnter = useCallback(() => {
     setHovered(true)
     if (isLocked) return
@@ -130,15 +107,6 @@ export const TrendingCard = memo(function TrendingCard({ clip, onRemix, remixing
           .catch(() => {/* ignore */})
       }
     }
-
-    // Show video immediately if we already have a URL (fast path), otherwise wait briefly
-    const delay = initialVideoUrl ? 100 : 250
-    hoverTimerRef.current = setTimeout(() => {
-      setShowVideo(true)
-      setTimeout(() => {
-        videoRef.current?.play().catch(() => {/* autoplay blocked, that's ok */})
-      }, 30)
-    }, delay)
   }, [isLocked, clip.platform, getClipSlug])
 
   const handleMouseLeave = useCallback(() => {
@@ -149,11 +117,21 @@ export const TrendingCard = memo(function TrendingCard({ clip, onRemix, remixing
       videoRef.current.pause()
       videoRef.current.currentTime = 0
     }
-    if (hoverTimerRef.current) {
-      clearTimeout(hoverTimerRef.current)
-      hoverTimerRef.current = null
-    }
   }, [])
+
+  // Show the video as soon as we're hovering AND the URL is resolved.
+  // Splitting this from handleMouseEnter means: if the user keeps hovering
+  // while the fetch is in flight, playback kicks in the moment we have
+  // the correct URL (no arbitrary timers, no wrong clip flashing first).
+  useEffect(() => {
+    if (!hovered || isLocked || !videoUrl) return
+    setShowVideo(true)
+    // Give React a tick to mount the <video>, then play.
+    const t = setTimeout(() => {
+      videoRef.current?.play().catch(() => {/* autoplay blocked, that's ok */})
+    }, 30)
+    return () => clearTimeout(t)
+  }, [hovered, isLocked, videoUrl])
 
   return (
     <Card
@@ -180,12 +158,6 @@ export const TrendingCard = memo(function TrendingCard({ clip, onRemix, remixing
             playsInline
             loop
             onPlaying={() => setVideoPlaying(true)}
-            onError={() => {
-              // If the fast-path thumbnail→MP4 fails, retry with GQL-resolved URL
-              if (resolvedVideoUrl && videoRef.current) {
-                videoRef.current.load()
-              }
-            }}
           />
         )}
 
