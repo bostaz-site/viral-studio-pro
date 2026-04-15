@@ -35,7 +35,7 @@ export interface TrendingStats {
   lastScrapedAt: string | null
 }
 
-export type SortOption = 'velocity' | 'views' | 'date'
+export type SortOption = 'velocity' | 'date'
 
 export interface TrendingFiltersState {
   search: string

@@ -85,8 +85,6 @@ function filterAndSortClips(clips: TrendingClip[], filters: TrendingFiltersState
 
   if (filters.sort === 'velocity') {
     result.sort((a, b) => (b.velocity_score ?? 0) - (a.velocity_score ?? 0))
-  } else if (filters.sort === 'views') {
-    result.sort((a, b) => (b.view_count ?? 0) - (a.view_count ?? 0))
   } else {
     result.sort((a, b) => new Date(b.scraped_at ?? 0).getTime() - new Date(a.scraped_at ?? 0).getTime())
   }

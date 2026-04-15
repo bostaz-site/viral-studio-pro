@@ -108,7 +108,7 @@ export function TrendingStatsPanel({ stats, lastRefreshed, loading }: TrendingSt
         />
         <StatCard
           icon={Zap}
-          label="Avg velocity"
+          label="Avg algo score"
           value={stats.avgVelocity}
           accent="bg-indigo-500/15 text-indigo-400"
           loading={loading}

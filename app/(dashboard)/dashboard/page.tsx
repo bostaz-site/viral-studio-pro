@@ -1,10 +1,10 @@
 "use client"
 
-import { useEffect, useCallback, useRef, useState, useMemo } from 'react'
+import { useEffect, useCallback, useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   TrendingUp, RefreshCw, AlertCircle, Loader2, Sparkles,
-  Wifi, WifiOff, Download, Flame, Zap, Clock, X,
+  Download, Flame, Zap, Clock, X,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -17,7 +17,6 @@ import { cn } from '@/lib/utils'
 
 export default function DashboardPage() {
   const router = useRouter()
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const [twitchRefreshing, setTwitchRefreshing] = useState(false)
   const [twitchMessage, setTwitchMessage] = useState<string | null>(null)
   const [quickFilter, setQuickFilter] = useState<'all' | 'viral' | 'potential' | 'recent'>('all')
@@ -28,12 +27,9 @@ export default function DashboardPage() {
     loading,
     refreshing,
     error,
-    autoRefreshEnabled,
-    autoRefreshInterval,
     clips,
     stats,
     setFilters,
-    setAutoRefresh,
     fetchClips,
   } = useTrendingStore()
 
@@ -41,22 +37,6 @@ export default function DashboardPage() {
   useEffect(() => {
     fetchClips()
   }, [fetchClips])
-
-  // Auto-refresh polling
-  useEffect(() => {
-    if (autoRefreshEnabled) {
-      intervalRef.current = setInterval(() => {
-        fetchClips(true)
-      }, autoRefreshInterval)
-    }
-
-    return () => {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current)
-        intervalRef.current = null
-      }
-    }
-  }, [autoRefreshEnabled, autoRefreshInterval, fetchClips])
 
   // Twitch refresh
   const handleTwitchRefresh = useCallback(async () => {
@@ -117,43 +97,10 @@ export default function DashboardPage() {
             Browse Clips
           </h1>
           <p className="text-muted-foreground mt-1">
-            Pick a trending clip, enhance it, and post — in 3 clicks.
+            The clips blowing up right now — engineered for the algorithm.
           </p>
         </div>
         <div className="flex items-center gap-2 shrink-0 mt-1">
-          {/* Auto-refresh toggle */}
-          <Button
-            variant="ghost"
-            size="sm"
-            className={cn(
-              'gap-1.5 text-xs h-8',
-              autoRefreshEnabled ? 'text-green-400 hover:text-green-300' : 'text-muted-foreground'
-            )}
-            onClick={() => setAutoRefresh(!autoRefreshEnabled)}
-            title={autoRefreshEnabled ? 'Auto-refresh on (60s)' : 'Auto-refresh off'}
-            aria-label={autoRefreshEnabled ? 'Disable auto-refresh' : 'Enable auto-refresh'}
-            aria-pressed={autoRefreshEnabled}
-          >
-            {autoRefreshEnabled ? <Wifi className="h-3.5 w-3.5" /> : <WifiOff className="h-3.5 w-3.5" />}
-            Live
-          </Button>
-
-          {/* Fetch from Twitch */}
-          <Button
-            variant="outline"
-            size="sm"
-            className="gap-2 h-8 border-purple-500/30 text-purple-400 hover:bg-purple-500/10"
-            onClick={handleTwitchRefresh}
-            disabled={twitchRefreshing}
-          >
-            {twitchRefreshing ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            ) : (
-              <Download className="h-3.5 w-3.5" />
-            )}
-            {twitchRefreshing ? 'Importing…' : 'Twitch'}
-          </Button>
-
           {/* Manual refresh */}
           <Button
             variant="outline"
@@ -178,22 +125,6 @@ export default function DashboardPage() {
         </Card>
       )}
 
-      {/* New clips counter */}
-      {!loading && filteredClips.length > 0 && (
-        <Card className="border-primary/20 bg-primary/5">
-          <CardContent className="p-3 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center">
-                <Sparkles className="h-4 w-4 text-primary" />
-              </div>
-              <p className="text-sm">
-                <span className="font-bold text-foreground">{filteredClips.length} trending clips</span>
-                <span className="text-muted-foreground"> available right now</span>
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-      )}
 
       {/* Quick filter tabs */}
       <div className="flex items-center gap-2 overflow-x-auto pb-1">

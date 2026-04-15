@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { NICHE_LABELS } from '@/lib/trending/constants'
 
-export type SortOption = 'velocity' | 'views' | 'date'
+export type SortOption = 'velocity' | 'date'
 
 export interface TrendingFiltersState {
   search: string
@@ -39,13 +39,11 @@ function formatNicheLabel(id: string): string {
 }
 
 const PLATFORMS = [
-  { id: 'twitch',         label: 'Twitch' },
-  { id: 'youtube_gaming', label: 'YouTube Gaming' },
+  { id: 'twitch', label: 'Twitch' },
 ]
 
 const SORT_OPTIONS: { value: SortOption; label: string }[] = [
-  { value: 'velocity', label: 'Velocity' },
-  { value: 'views',    label: 'Views' },
+  { value: 'velocity', label: 'Algo Score' },
   { value: 'date',     label: 'Date' },
 ]
 
@@ -124,10 +122,6 @@ export function TrendingFilters({
           </Button>
         )}
 
-        {/* Count */}
-        <span className="text-xs text-muted-foreground ml-auto shrink-0">
-          {filteredCount < totalCount ? `${filteredCount} / ${totalCount}` : totalCount} clips
-        </span>
       </div>
 
       {/* Platform pills */}

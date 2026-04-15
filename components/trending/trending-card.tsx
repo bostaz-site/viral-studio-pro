@@ -310,15 +310,22 @@ export const TrendingCard = memo(function TrendingCard({ clip, onRemix, remixing
             </Button>
           </Link>
         ) : (
-          <Button
-            size="sm"
-            className="w-full h-9 text-xs gap-1.5 mt-1 bg-gradient-to-r from-primary to-indigo-500 hover:from-primary/90 hover:to-indigo-500/90 font-bold shadow-md shadow-primary/20"
-            onClick={(e) => { e.stopPropagation(); onRemix?.(clip) }}
-            disabled={remixing}
-          >
-            <Zap className="h-3.5 w-3.5" />
-            {remixing ? 'Creating...' : 'Make Viral'}
-          </Button>
+          <div className="space-y-1 mt-1">
+            {(clip.velocity_score ?? 0) >= 80 && !remixing && (
+              <p className="text-[10px] text-center text-orange-400/80 font-medium">
+                🔥 Algo score {clip.velocity_score?.toFixed(0)} — ready to blow up
+              </p>
+            )}
+            <Button
+              size="sm"
+              className="w-full h-9 text-xs gap-1.5 bg-gradient-to-r from-primary to-indigo-500 hover:from-primary/90 hover:to-indigo-500/90 font-bold shadow-md shadow-primary/20"
+              onClick={(e) => { e.stopPropagation(); onRemix?.(clip) }}
+              disabled={remixing}
+            >
+              <Zap className="h-3.5 w-3.5" />
+              {remixing ? 'Creating...' : '🚀 Make It Viral'}
+            </Button>
+          </div>
         )}
       </CardContent>
     </Card>
