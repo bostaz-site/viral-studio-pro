@@ -347,9 +347,6 @@ export function DemoExperience() {
             <Link href="/pricing" className="hover:text-foreground transition-colors">
               Tarifs
             </Link>
-            <Link href="/changelog" className="hover:text-foreground transition-colors">
-              Changelog
-            </Link>
             <Link href="/" className="hover:text-foreground transition-colors">
               Accueil
             </Link>

@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { Share, Settings, Menu, X, LogOut, Upload, Zap, Compass, Wand2, BarChart3, Crown } from 'lucide-react'
+import { Settings, Menu, X, LogOut, Zap, Compass, Wand2, Crown } from 'lucide-react'
 import { useUiStore } from '@/stores/ui-store'
 import { Button } from '@/components/ui/button'
 import { NotificationBell } from '@/components/trending/notification-bell'
@@ -53,15 +53,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const navigation = [
     { name: 'Browse', href: '/dashboard', icon: Compass },
     { name: 'Enhance', href: '/dashboard/enhance', icon: Wand2 },
-    { name: 'Publier', href: '/publish', icon: Share },
-    { name: 'Analytics', href: '/analytics', icon: BarChart3 },
     ...(isAdmin
       ? [
           { name: 'Growth (admin)', href: '/admin/growth', icon: Crown },
           { name: 'Analytics (admin)', href: '/admin/analytics', icon: Crown },
         ]
       : []),
-    { name: 'Paramètres', href: '/settings', icon: Settings },
+    { name: 'Settings', href: '/settings', icon: Settings },
   ]
 
   const planLimits: Record<string, number> = { free: 3, pro: 50, studio: 999 }
@@ -102,17 +100,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           </div>
         </div>
 
-        {/* Quick action — secondary upload */}
-        <div className="px-4 pt-4">
-          <Link href="/create">
-            <Button variant="outline" className="w-full border-dashed border-border hover:border-primary/40 text-muted-foreground hover:text-foreground font-medium gap-2 h-9 text-sm">
-              <Upload className="h-3.5 w-3.5" />
-              Importer ma vidéo
-            </Button>
-          </Link>
-        </div>
-
-        <nav className="p-4 space-y-1 flex-1">
+        <nav className="p-4 pt-6 space-y-1 flex-1">
           {navigation.map((item) => {
             const isActive = item.href === '/dashboard'
               ? pathname === '/dashboard'
@@ -134,7 +122,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <div className="px-4 pb-2">
           <div className="rounded-xl border border-border bg-muted/30 p-3 space-y-2">
             <div className="flex items-center justify-between">
-              <span className="text-xs text-muted-foreground">Vidéos ce mois</span>
+              <span className="text-xs text-muted-foreground">Clips this month</span>
               <span className="text-xs font-semibold text-foreground">{videosUsed}/{videosLimit === 999 ? '∞' : videosLimit}</span>
             </div>
             <div className="h-1.5 bg-muted rounded-full overflow-hidden">
@@ -146,7 +134,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             {currentPlan === 'free' && (
               <Link href="/settings" className="flex items-center gap-1.5 text-xs text-amber-400 hover:text-amber-300 transition-colors font-medium">
                 <Zap className="h-3 w-3" />
-                Passer à Pro — 30 clips/mois
+                Upgrade to Pro — 30 clips/mo
               </Link>
             )}
           </div>
@@ -170,7 +158,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 size="icon"
                 className="h-7 w-7 shrink-0 text-muted-foreground hover:text-foreground"
                 onClick={handleLogout}
-                title="Se déconnecter"
+                title="Log out"
               >
                 <LogOut className="h-3.5 w-3.5" />
               </Button>

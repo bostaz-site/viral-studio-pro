@@ -383,7 +383,6 @@ export default function PourStreamersTwitchPage() {
           <div className="flex items-center gap-4">
             <Link href="/pricing" className="hover:text-foreground transition-colors">Tarifs</Link>
             <Link href="/demo" className="hover:text-foreground transition-colors">Démo</Link>
-            <Link href="/changelog" className="hover:text-foreground transition-colors">Changelog</Link>
             <Link href="/" className="hover:text-foreground transition-colors">Accueil</Link>
           </div>
         </div>

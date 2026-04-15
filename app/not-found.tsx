@@ -51,11 +51,8 @@ export default function NotFound() {
             <Link href="/blog" className="text-muted-foreground hover:text-foreground transition-colors">
               Blog
             </Link>
-            <Link href="/changelog" className="text-muted-foreground hover:text-foreground transition-colors">
-              Changelog
-            </Link>
             <Link href="/signup" className="text-muted-foreground hover:text-foreground transition-colors">
-              Inscription
+              Sign up
             </Link>
           </div>
         </div>

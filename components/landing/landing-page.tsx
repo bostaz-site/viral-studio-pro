@@ -8,11 +8,8 @@ import { HeroSection } from '@/components/landing/hero-section'
 import { BeforeAfterSection } from '@/components/landing/before-after-section'
 import { HowItWorksSection } from '@/components/landing/how-it-works-section'
 import { FeaturesGrid } from '@/components/landing/features-grid'
-import { TestimonialsSection } from '@/components/landing/testimonials-section'
-import { ComparisonSection } from '@/components/landing/comparison-section'
 import { FaqSection, FAQ_ITEMS } from '@/components/landing/faq-section'
 import { PricingSection } from '@/components/landing/pricing-section'
-import { RoiCalculatorSection } from '@/components/landing/roi-calculator-section'
 import { ExitIntentPopup } from '@/components/landing/exit-intent-popup'
 
 export function LandingPage() {
@@ -30,12 +27,12 @@ export function LandingPage() {
     const howToJsonLd = {
       '@context': 'https://schema.org',
       '@type': 'HowTo',
-      name: 'Comment cr\u00e9er un clip viral split-screen depuis un stream',
-      description: 'Transforme tes meilleurs moments de stream Twitch ou YouTube Gaming en clips viraux 9:16 avec sous-titres karaok\u00e9 et split-screen automatique.',
+      name: 'How to create a viral split-screen clip from a stream',
+      description: 'Turn your best Twitch and YouTube Gaming moments into viral 9:16 clips with karaoke captions and auto split-screen.',
       step: [
-        { '@type': 'HowToStep', name: 'Choisis un clip de stream', text: 'Parcours les meilleurs moments Twitch et YouTube Gaming tri\u00e9s par score viral. L\'IA identifie automatiquement les moments les plus engageants.', position: 1 },
-        { '@type': 'HowToStep', name: 'Personnalise ton clip', text: 'Ajoute des sous-titres karaok\u00e9 (9 styles), choisis une vid\u00e9o satisfaisante pour le split-screen et v\u00e9rifie le score viral IA.', position: 2 },
-        { '@type': 'HowToStep', name: 'Exporte et publie', text: 'T\u00e9l\u00e9charge en 9:16 optimis\u00e9 pour TikTok, Reels et Shorts ou publie directement. Ton clip est pr\u00eat en moins de 5 minutes.', position: 3 },
+        { '@type': 'HowToStep', name: 'Pick a stream clip', text: 'Browse the best Twitch and YouTube Gaming moments sorted by viral score. AI picks the most engaging ones automatically.', position: 1 },
+        { '@type': 'HowToStep', name: 'Customize your clip', text: 'Add karaoke captions (9 styles), pick a satisfying b-roll video for split-screen, and check the AI viral score.', position: 2 },
+        { '@type': 'HowToStep', name: 'Export and post', text: 'Download in 9:16 optimized for TikTok, Reels, and Shorts — or post straight away. Your clip is ready in under 5 minutes.', position: 3 },
       ],
     }
 
@@ -72,11 +69,11 @@ export function LandingPage() {
           </div>
           <div className="flex items-center gap-3">
             <Link href="/login">
-              <Button variant="ghost" size="sm">Se connecter</Button>
+              <Button variant="ghost" size="sm">Log in</Button>
             </Link>
             <Link href="/signup">
               <Button size="sm" className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white">
-                Essai gratuit
+                Start free
               </Button>
             </Link>
           </div>
@@ -87,9 +84,6 @@ export function LandingPage() {
       <BeforeAfterSection />
       <HowItWorksSection />
       <FeaturesGrid />
-      <TestimonialsSection />
-      <ComparisonSection />
-      <RoiCalculatorSection />
       <FaqSection />
       <PricingSection />
 
@@ -110,7 +104,7 @@ export function LandingPage() {
                 </span>
               </div>
               <p className="text-xs text-muted-foreground/70 leading-relaxed max-w-sm">
-                Cr&eacute;e des clips viraux &agrave; partir de streams Twitch et YouTube Gaming. Sous-titres karaok&eacute;, split-screen et score viral IA.
+                Turn Twitch and YouTube Gaming streams into viral clips. Karaoke captions, split-screen, and AI viral scoring.
               </p>
               {/* Social links */}
               <div className="flex items-center gap-3 mt-4">
@@ -126,34 +120,31 @@ export function LandingPage() {
               </div>
             </div>
             <div>
-              <p className="text-xs font-semibold text-foreground uppercase tracking-wider mb-3">Produit</p>
+              <p className="text-xs font-semibold text-foreground uppercase tracking-wider mb-3">Product</p>
               <div className="space-y-2 text-xs text-muted-foreground">
-                <Link href="/signup" className="block hover:text-foreground transition-colors">Cr&eacute;er un compte</Link>
-                <Link href="/login" className="block hover:text-foreground transition-colors">Se connecter</Link>
-                <Link href="/pricing" className="block hover:text-foreground transition-colors">Tarifs</Link>
-                <Link href="/demo" className="block hover:text-foreground transition-colors">Démo live</Link>
-                <Link href="/changelog" className="block hover:text-foreground transition-colors">Changelog</Link>
+                <Link href="/signup" className="block hover:text-foreground transition-colors">Create account</Link>
+                <Link href="/login" className="block hover:text-foreground transition-colors">Log in</Link>
+                <Link href="/pricing" className="block hover:text-foreground transition-colors">Pricing</Link>
+                <Link href="/demo" className="block hover:text-foreground transition-colors">Live demo</Link>
                 <Link href="/blog" className="block hover:text-foreground transition-colors">Blog</Link>
-                <Link href="/pour-streamers-twitch" className="block hover:text-foreground transition-colors">Pour streamers Twitch</Link>
-                <Link href="/pour-clippeurs-youtube" className="block hover:text-foreground transition-colors">Pour clippeurs YouTube</Link>
               </div>
             </div>
             <div>
-              <p className="text-xs font-semibold text-foreground uppercase tracking-wider mb-3">L&eacute;gal</p>
+              <p className="text-xs font-semibold text-foreground uppercase tracking-wider mb-3">Legal</p>
               <div className="space-y-2 text-xs text-muted-foreground">
-                <Link href="/about" className="block hover:text-foreground transition-colors">&Agrave; propos</Link>
-                <Link href="/privacy" className="block hover:text-foreground transition-colors">Confidentialit&eacute;</Link>
-                <Link href="/terms" className="block hover:text-foreground transition-colors">Conditions d&apos;utilisation</Link>
+                <Link href="/about" className="block hover:text-foreground transition-colors">About</Link>
+                <Link href="/privacy" className="block hover:text-foreground transition-colors">Privacy</Link>
+                <Link href="/terms" className="block hover:text-foreground transition-colors">Terms</Link>
                 <a href="mailto:support@viralstudio.pro" className="block hover:text-foreground transition-colors">Contact</a>
               </div>
             </div>
           </div>
           <div className="pt-6 border-t border-border/20 flex flex-col sm:flex-row items-center justify-between gap-3">
             <p className="text-xs text-muted-foreground/50">
-              &copy; {new Date().getFullYear()} Viral Studio Pro — Fait avec passion par Samy
+              &copy; {new Date().getFullYear()} Viral Studio Pro — Built with care by Samy
             </p>
             <p className="text-xs text-muted-foreground/40">
-              Propuls&eacute; par Claude IA, Supabase et FFmpeg
+              Powered by Claude AI, Supabase, and FFmpeg
             </p>
           </div>
         </div>
@@ -188,14 +179,14 @@ function FooterNewsletter() {
 
       if (!res.ok) {
         setStatus('error')
-        setErrorMsg(json?.message ?? 'Erreur, réessaie.')
+        setErrorMsg(json?.message ?? 'Something went wrong, try again.')
         return
       }
       setStatus('done')
       setEmail('')
     } catch {
       setStatus('error')
-      setErrorMsg('Connexion impossible, réessaie.')
+      setErrorMsg('Connection failed, try again.')
     }
   }
 
@@ -203,21 +194,21 @@ function FooterNewsletter() {
     <section className="py-16 px-6 border-t border-border/30 bg-gradient-to-b from-transparent to-primary/5">
       <div className="max-w-xl mx-auto text-center">
         <h3 className="text-xl sm:text-2xl font-bold tracking-tight">
-          3 hooks viraux par semaine, direct dans ta boite
+          3 viral hooks a week, straight to your inbox
         </h3>
         <p className="text-sm text-muted-foreground mt-2">
-          Les tendances, les formats qui marchent, et des tips pour exploser sur TikTok. Gratuit, pas de spam.
+          Trends, formats that actually work, and tips to pop off on TikTok. Free, no spam.
         </p>
         {status === 'done' ? (
           <p className="mt-6 text-sm text-green-400 font-medium">
-            Tu es inscrit ! Check ta boite bient&ocirc;t.
+            You&apos;re in! Check your inbox soon.
           </p>
         ) : (
           <form onSubmit={handleSubmit} className="mt-6 flex items-center gap-2 max-w-md mx-auto">
             <input
               type="email"
               required
-              placeholder="ton@email.com"
+              placeholder="you@email.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               className="flex-1 h-10 rounded-lg border border-border bg-card/80 px-4 text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary/40"
@@ -229,15 +220,15 @@ function FooterNewsletter() {
               className="h-10 px-5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white gap-2"
             >
               <Send className="h-3.5 w-3.5" />
-              {status === 'loading' ? '...' : "S'inscrire"}
+              {status === 'loading' ? '...' : 'Subscribe'}
             </Button>
           </form>
         )}
         {status === 'error' && (
-          <p className="mt-2 text-xs text-red-400">{errorMsg ?? 'Erreur, réessaie.'}</p>
+          <p className="mt-2 text-xs text-red-400">{errorMsg ?? 'Something went wrong, try again.'}</p>
         )}
         <p className="text-[10px] text-muted-foreground/40 mt-3">
-          D&eacute;sinscription en 1 clic. On respecte ta boite.
+          1-click unsubscribe. We respect your inbox.
         </p>
       </div>
     </section>

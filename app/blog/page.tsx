@@ -89,7 +89,6 @@ export default function BlogPage() {
             <Link href="/" className="hover:text-foreground transition-colors">Accueil</Link>
             <Link href="/pricing" className="hover:text-foreground transition-colors">Tarifs</Link>
             <Link href="/demo" className="hover:text-foreground transition-colors">Démo</Link>
-            <Link href="/changelog" className="hover:text-foreground transition-colors">Changelog</Link>
           </div>
         </div>
       </footer>
