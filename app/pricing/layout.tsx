@@ -9,6 +9,51 @@ export const metadata: Metadata = {
   },
 }
 
+const jsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'WebPage',
+  name: 'Tarifs — Viral Studio Pro',
+  description: 'Plans et tarifs Viral Studio Pro.',
+  url: 'https://viral-studio-pro.netlify.app/pricing',
+  mainEntity: {
+    '@type': 'Product',
+    name: 'Viral Studio Pro',
+    description: 'Outil de création de clips viraux à partir de streams Twitch et YouTube Gaming.',
+    offers: [
+      {
+        '@type': 'Offer',
+        name: 'Free',
+        price: '0',
+        priceCurrency: 'USD',
+        description: '3 vidéos/mois, watermark, 1 format',
+      },
+      {
+        '@type': 'Offer',
+        name: 'Pro',
+        price: '19',
+        priceCurrency: 'USD',
+        billingIncrement: 1,
+        description: '30 vidéos/mois, sans watermark, toutes plateformes',
+      },
+      {
+        '@type': 'Offer',
+        name: 'Studio',
+        price: '24',
+        priceCurrency: 'USD',
+        description: '120 vidéos/mois, analytics avancé, scheduling',
+      },
+    ],
+  },
+}
+
 export default function PricingLayout({ children }: { children: React.ReactNode }) {
-  return children
+  return (
+    <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
+      {children}
+    </>
+  )
 }

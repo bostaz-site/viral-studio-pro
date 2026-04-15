@@ -12,6 +12,19 @@ export const metadata: Metadata = {
   },
 }
 
+const jsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'WebSite',
+  name: 'Viral Studio Pro',
+  url: 'https://viral-studio-pro.netlify.app',
+  description: 'Crée des clips viraux à partir de streams Twitch et YouTube Gaming. Sous-titres karaoké, split-screen, score viral IA.',
+  potentialAction: {
+    '@type': 'SearchAction',
+    target: 'https://viral-studio-pro.netlify.app/blog?q={search_term_string}',
+    'query-input': 'required name=search_term_string',
+  },
+}
+
 export default async function Home() {
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -20,5 +33,13 @@ export default async function Home() {
     redirect('/dashboard')
   }
 
-  return <LandingPage />
+  return (
+    <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
+      <LandingPage />
+    </>
+  )
 }

@@ -7,6 +7,8 @@ import { Card, CardContent } from '@/components/ui/card'
 import { VelocityBadge } from '@/components/trending/velocity-badge'
 import type { TrendingClip } from '@/stores/trending-store'
 import { cn } from '@/lib/utils'
+import { formatCount } from '@/lib/trending/utils'
+import { PLATFORM_STYLES, NICHE_LABELS } from '@/lib/trending/constants'
 
 interface TrendingDetailModalProps {
   clip: TrendingClip | null
@@ -16,24 +18,8 @@ interface TrendingDetailModalProps {
   remixing: boolean
 }
 
-const PLATFORM_STYLES: Record<string, { label: string; colorClass: string }> = {
-  twitch:         { label: 'Twitch',         colorClass: 'text-purple-400' },
-  youtube_gaming: { label: 'YouTube Gaming', colorClass: 'text-red-400' },
-}
-
 const GAME_COLORS: Record<string, string> = {
   irl: 'text-blue-400 bg-blue-500/10 border-blue-500/30',
-}
-
-const GAME_LABELS: Record<string, string> = {
-  irl: 'IRL',
-}
-
-function formatCount(n: number | null): string {
-  if (n === null) return '--'
-  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`
-  if (n >= 1_000) return `${(n / 1_000).toFixed(0)}K`
-  return String(n)
 }
 
 function formatDateTime(dateStr: string | null): string {
@@ -52,10 +38,11 @@ export function TrendingDetailModal({ clip, open, onClose, onRemix, remixing }: 
 
   if (!open || !clip) return null
 
-  const platform = PLATFORM_STYLES[clip.platform.toLowerCase()] ?? { label: clip.platform, colorClass: 'text-muted-foreground' }
+  const ps = PLATFORM_STYLES[clip.platform.toLowerCase()]
+  const platform = { label: ps?.label ?? clip.platform, colorClass: ps?.colorClass ?? 'text-muted-foreground' }
   const gameKey = clip.niche?.toLowerCase() ?? ''
   const gameColor = GAME_COLORS[gameKey] ?? 'text-muted-foreground bg-muted border-border'
-  const gameLabel = GAME_LABELS[gameKey] ?? clip.niche
+  const gameLabel = NICHE_LABELS[gameKey] ?? clip.niche
 
   const handleCopyUrl = async () => {
     try {

@@ -14,6 +14,27 @@ export const metadata: Metadata = {
   },
 }
 
+const jsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'WebPage',
+  name: 'Démo interactive — Viral Studio Pro',
+  description: 'Essaie Viral Studio Pro en 30 secondes : change le style des sous-titres, active le split-screen, vois le score viral — sans signup.',
+  url: 'https://viral-studio-pro.netlify.app/demo',
+  isPartOf: {
+    '@type': 'WebSite',
+    name: 'Viral Studio Pro',
+    url: 'https://viral-studio-pro.netlify.app',
+  },
+}
+
 export default function DemoPage() {
-  return <DemoExperience />
+  return (
+    <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
+      <DemoExperience />
+    </>
+  )
 }

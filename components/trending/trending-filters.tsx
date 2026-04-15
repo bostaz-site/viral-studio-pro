@@ -4,6 +4,7 @@ import { Search, X } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
+import { NICHE_LABELS } from '@/lib/trending/constants'
 
 export type SortOption = 'velocity' | 'views' | 'date'
 
@@ -27,22 +28,6 @@ interface TrendingFiltersProps {
   availableNiches?: Record<string, number>
   /** Max niche pills to show (default 6) */
   maxNichePills?: number
-}
-
-// Friendly labels for common niches — falls back to capitalized key.
-const NICHE_LABELS: Record<string, string> = {
-  irl: 'IRL',
-  just_chatting: 'Just Chatting',
-  fps: 'FPS',
-  moba: 'MOBA',
-  rpg: 'RPG',
-  slots: 'Slots',
-  music: 'Music',
-  sports: 'Sports',
-  fighting: 'Fighting',
-  racing: 'Racing',
-  creative: 'Creative',
-  variety: 'Variety',
 }
 
 function formatNicheLabel(id: string): string {

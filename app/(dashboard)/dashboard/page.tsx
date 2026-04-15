@@ -69,11 +69,11 @@ export default function DashboardPage() {
       if (!res.ok || data.error) {
         setTwitchMessage(data.message ?? 'Erreur')
       } else {
-        setTwitchMessage(`${data.data?.upserted ?? 0} clips import&eacute;s depuis Twitch`)
+        setTwitchMessage(`${data.data?.upserted ?? 0} clips importés depuis Twitch`)
         fetchClips(true)
       }
     } catch {
-      setTwitchMessage('Erreur r&eacute;seau')
+      setTwitchMessage('Erreur réseau')
     } finally {
       setTwitchRefreshing(false)
       setTimeout(() => setTwitchMessage(null), 5000)
@@ -118,7 +118,7 @@ export default function DashboardPage() {
             Browse Clips
           </h1>
           <p className="text-muted-foreground mt-1">
-            Choisis un clip trending, enhance-le et poste &mdash; en 3 clics.
+            Choisis un clip trending, enhance-le et poste — en 3 clics.
           </p>
         </div>
         <div className="flex items-center gap-2 shrink-0 mt-1">
@@ -130,7 +130,7 @@ export default function DashboardPage() {
               className="gap-2 h-8 border-blue-500/30 text-blue-400 hover:bg-blue-500/10"
             >
               <Upload className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">Importer ma vid&eacute;o</span>
+              <span className="hidden sm:inline">Importer ma vidéo</span>
             </Button>
           </Link>
 
@@ -143,7 +143,9 @@ export default function DashboardPage() {
               autoRefreshEnabled ? 'text-green-400 hover:text-green-300' : 'text-muted-foreground'
             )}
             onClick={() => setAutoRefresh(!autoRefreshEnabled)}
-            title={autoRefreshEnabled ? 'Auto-refresh actif (60s)' : 'Auto-refresh d\u00e9sactiv\u00e9'}
+            title={autoRefreshEnabled ? 'Auto-refresh actif (60s)' : 'Auto-refresh désactivé'}
+            aria-label={autoRefreshEnabled ? 'Désactiver auto-refresh' : 'Activer auto-refresh'}
+            aria-pressed={autoRefreshEnabled}
           >
             {autoRefreshEnabled ? <Wifi className="h-3.5 w-3.5" /> : <WifiOff className="h-3.5 w-3.5" />}
             Live
@@ -225,6 +227,7 @@ export default function DashboardPage() {
                 : 'text-muted-foreground hover:text-foreground'
             )}
             onClick={() => setQuickFilter(key)}
+            aria-pressed={quickFilter === key}
           >
             <Icon className="h-3.5 w-3.5" />
             {label}

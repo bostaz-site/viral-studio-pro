@@ -2,7 +2,7 @@
 'use client'
 
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
-import { useParams, useRouter } from 'next/navigation'
+import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import {
   ChevronLeft, Loader2, AlertCircle, Sparkles, Download,
@@ -52,7 +52,6 @@ interface HookAnalysis {
 
 export default function EnhancePage() {
   const params = useParams()
-  const router = useRouter()
   const clipId = params.clipId as string
 
   const [clip, setClip] = useState<TrendingClipData | null>(null)
@@ -177,7 +176,14 @@ export default function EnhancePage() {
 
   const updateSetting = useCallback(<K extends keyof EnhanceSettings>(key: K, value: EnhanceSettings[K]) => {
     setSettings((s) => ({ ...s, [key]: value }))
-  }, [])
+    // Clear rendered video when user changes settings — avoids confusion
+    // between the baked render and the new settings shown in the preview
+    if (isRenderedVideo) {
+      setIsRenderedVideo(false)
+      setRenderDownloadUrl(null)
+      setRenderMessage(null)
+    }
+  }, [isRenderedVideo])
 
   const scores = useMemo(() => {
     if (!clip) return null

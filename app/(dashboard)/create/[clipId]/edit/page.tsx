@@ -25,7 +25,12 @@ import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { VideoPlayer, type VideoPlayerHandle } from '@/components/video/video-player'
 import { TimelineEditor } from '@/components/video/timeline-editor'
-import type { CaptionConfig } from '@/components/captions/caption-editor'
+interface CaptionConfig {
+  templateId: string
+  textColor: string
+  position: 'top' | 'center' | 'middle' | 'bottom'
+  wordsPerLine: number
+}
 import { RemakeModal } from '@/components/clips/remake-modal'
 import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'

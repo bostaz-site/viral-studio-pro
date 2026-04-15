@@ -1,12 +1,14 @@
 "use client"
 
-import { useState, useRef, useCallback } from 'react'
+import { useState, useRef, useCallback, memo } from 'react'
 import Link from 'next/link'
 import { ExternalLink, Crown, Lock, Zap, TrendingUp, Flame } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { VelocityBadge } from '@/components/trending/velocity-badge'
 import { cn } from '@/lib/utils'
+import { formatCount, timeAgo } from '@/lib/trending/utils'
+import { PLATFORM_STYLES, NICHE_LABELS } from '@/lib/trending/constants'
 import type { TrendingClip } from '@/types/trending'
 
 export type { TrendingClip }
@@ -20,17 +22,8 @@ interface TrendingCardProps {
 
 const PREMIUM_THRESHOLD = 85
 
-const PLATFORM_STYLES: Record<string, { label: string; colorClass: string }> = {
-  twitch:         { label: 'Twitch',         colorClass: 'text-purple-400 bg-purple-500/15 border-purple-500/30' },
-  youtube_gaming: { label: 'YouTube Gaming', colorClass: 'text-red-400 bg-red-500/15 border-red-500/30' },
-}
-
 const GAME_COLORS: Record<string, string> = {
   irl: 'text-blue-400 bg-blue-500/10',
-}
-
-const GAME_LABELS: Record<string, string> = {
-  irl: 'IRL',
 }
 
 // Gradient colors per streamer for nicer placeholders
@@ -44,21 +37,6 @@ const STREAMER_GRADIENTS: Record<string, string> = {
   sketch: 'from-sky-600 via-blue-500 to-indigo-500',
   amouranth: 'from-pink-600 via-rose-500 to-red-500',
   marlon: 'from-amber-600 via-orange-500 to-red-500',
-}
-
-function formatCount(n: number | null): string {
-  if (n === null) return '--'
-  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`
-  if (n >= 1_000)     return `${(n / 1_000).toFixed(0)}K`
-  return String(n)
-}
-
-function timeAgo(dateStr: string | null): string {
-  if (!dateStr) return ''
-  const diff = (Date.now() - new Date(dateStr).getTime()) / 1000
-  if (diff < 3600)  return `${Math.floor(diff / 60)}m`
-  if (diff < 86400) return `${Math.floor(diff / 3600)}h`
-  return `${Math.floor(diff / 86400)}j`
 }
 
 /**
@@ -93,7 +71,7 @@ function thumbnailToVideoUrl(thumbnailUrl: string | null): string | null {
   return null
 }
 
-export function TrendingCard({ clip, onRemix, remixing = false, isPremiumUser = false }: TrendingCardProps) {
+export const TrendingCard = memo(function TrendingCard({ clip, onRemix, remixing = false, isPremiumUser = false }: TrendingCardProps) {
   const [imgError, setImgError] = useState(false)
   const [hovered, setHovered] = useState(false)
   const [showVideo, setShowVideo] = useState(false)
@@ -105,14 +83,15 @@ export function TrendingCard({ clip, onRemix, remixing = false, isPremiumUser = 
 
   const isLocked = !isPremiumUser && (clip.velocity_score ?? 0) >= PREMIUM_THRESHOLD
 
-  const platformStyle = PLATFORM_STYLES[clip.platform.toLowerCase()] ?? {
-    label: clip.platform,
-    colorClass: 'text-muted-foreground bg-muted border-border',
+  const ps = PLATFORM_STYLES[clip.platform.toLowerCase()]
+  const platformStyle = {
+    label: ps?.label ?? clip.platform,
+    colorClass: ps?.badgeClass ?? 'text-muted-foreground bg-muted border-border',
   }
 
   const gameKey = clip.niche?.toLowerCase() ?? ''
   const gameColor = GAME_COLORS[gameKey] ?? 'text-muted-foreground bg-muted'
-  const gameLabel = GAME_LABELS[gameKey] ?? clip.niche
+  const gameLabel = NICHE_LABELS[gameKey] ?? clip.niche
   const streamerGradient = STREAMER_GRADIENTS[clip.author_handle?.toLowerCase() ?? ''] ?? 'from-slate-700 via-slate-600 to-slate-500'
 
   // Fast-path: derive direct MP4 URL from thumbnail; fallback to GQL resolution via API
@@ -372,4 +351,4 @@ export function TrendingCard({ clip, onRemix, remixing = false, isPremiumUser = 
       </CardContent>
     </Card>
   )
-}
+})

@@ -44,7 +44,8 @@ export async function GET(request: NextRequest) {
     // the video qualities AND the playback access token (sig + value) needed
     // to authorize the CloudFront CDN. Without the token, CloudFront returns
     // 401 Unauthorized for all clip MP4 URLs.
-    const cleanSlug = slug.replace(/"/g, '')
+    // Only allow alphanumeric, hyphens and underscores in slug (Twitch clip IDs)
+    const cleanSlug = slug.replace(/[^a-zA-Z0-9_-]/g, '')
     const gqlResponse = await fetch(TWITCH_GQL_URL, {
       method: 'POST',
       headers: {

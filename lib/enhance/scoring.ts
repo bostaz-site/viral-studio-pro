@@ -383,11 +383,11 @@ export function computeScores(clip: TrendingClipData): ComputedScores {
     score: Math.round((s.score / maxTag) * WEIGHTS.tag),
   }))
 
-  // Best combo
-  const bestCaption = captionScores.find((s) => s.isBest)!.id
-  const bestEmphasis = emphasisScores.find((s) => s.isBest)!.id
-  const bestBroll = brollScores.find((s) => s.isBest)!.id
-  const bestTag = tagScores.find((s) => s.isBest)!.id
+  // Best combo — safe fallbacks instead of non-null assertions
+  const bestCaption = captionScores.find((s) => s.isBest)?.id ?? captionScores[0]?.id ?? 'hormozi'
+  const bestEmphasis = emphasisScores.find((s) => s.isBest)?.id ?? emphasisScores[0]?.id ?? 'highlight'
+  const bestBroll = brollScores.find((s) => s.isBest)?.id ?? brollScores[0]?.id ?? 'subway_surfers'
+  const bestTag = tagScores.find((s) => s.isBest)?.id ?? tagScores[0]?.id ?? 'viral-glow'
 
   return {
     captionScores: normCaption,
