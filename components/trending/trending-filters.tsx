@@ -45,7 +45,7 @@ const PLATFORMS = [
 
 const SORT_OPTIONS: { value: SortOption; label: string }[] = [
   { value: 'velocity', label: 'Velocity' },
-  { value: 'views',    label: 'Vues' },
+  { value: 'views',    label: 'Views' },
   { value: 'date',     label: 'Date' },
 ]
 
@@ -78,7 +78,7 @@ export function TrendingFilters({
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Rechercher un streamer, un clip…"
+            placeholder="Search a streamer, clip..."
             value={filters.search}
             onChange={(e) => onChange({ ...filters, search: e.target.value })}
             className="pl-9 h-9 bg-background/50"
@@ -120,7 +120,7 @@ export function TrendingFilters({
             onClick={() => onChange({ search: '', games: [], platforms: [], sort: filters.sort })}
           >
             <X className="h-3.5 w-3.5" />
-            Effacer
+            Clear
           </Button>
         )}
 

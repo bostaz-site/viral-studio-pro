@@ -10,26 +10,26 @@ const siteUrl = 'https://viral-studio-pro.netlify.app'
 
 export const metadata: Metadata = {
   title: {
-    default: 'Viral Studio Pro — Transforme tes streams en clips viraux avec l\'IA',
+    default: 'Viral Studio Pro — Turn your streams into viral clips with AI',
     template: '%s | Viral Studio Pro',
   },
-  description: 'Crée des clips viraux à partir de streams Twitch et YouTube Gaming. Sous-titres karaoké, split-screen Subway Surfers/Minecraft, score viral IA. Export TikTok, Reels, Shorts en 1 clic.',
-  keywords: ['clips viraux', 'twitch clips', 'stream clips', 'sous-titres karaoké', 'split-screen', 'tiktok', 'reels', 'shorts', 'viral', 'IA', 'gaming', 'streamer'],
+  description: 'Create viral clips from Twitch and YouTube Gaming streams. Karaoke captions, Subway Surfers/Minecraft split-screen, AI viral score. Export to TikTok, Reels, Shorts in 1 click.',
+  keywords: ['viral clips', 'Twitch clips', 'stream clips', 'karaoke captions', 'split-screen', 'TikTok clips', 'YouTube Gaming', 'viral clip maker', 'AI', 'gaming', 'streamer'],
   authors: [{ name: 'Viral Studio Pro' }],
   creator: 'Viral Studio Pro',
   metadataBase: new URL(siteUrl),
   openGraph: {
     type: 'website',
-    locale: 'fr_FR',
+    locale: 'en_US',
     url: siteUrl,
     siteName: 'Viral Studio Pro',
-    title: 'Viral Studio Pro — Transforme tes streams en clips viraux',
-    description: 'Crée des clips viraux à partir de streams Twitch et YouTube Gaming. Sous-titres karaoké, split-screen automatique, score viral IA.',
+    title: 'Viral Studio Pro — Turn your streams into viral clips',
+    description: 'Create viral clips from Twitch and YouTube Gaming streams. Karaoke captions, automatic split-screen, AI viral score.',
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Viral Studio Pro — Clips viraux depuis tes streams',
-    description: 'Sous-titres karaoké + split-screen + score viral IA. Export TikTok, Reels, Shorts en 1 clic.',
+    title: 'Viral Studio Pro — Viral clips from your streams',
+    description: 'Karaoke captions + split-screen + AI viral score. Export to TikTok, Reels, Shorts in 1 click.',
     creator: '@viralstudiopro',
   },
   robots: {
@@ -72,28 +72,28 @@ const jsonLd = {
   applicationCategory: 'MultimediaApplication',
   operatingSystem: 'Web',
   url: siteUrl,
-  description: 'Crée des clips viraux à partir de streams Twitch et YouTube Gaming avec sous-titres karaoké, split-screen et score viral IA.',
+  description: 'Create viral clips from Twitch and YouTube Gaming streams with karaoke captions, split-screen, and AI viral score.',
   offers: [
     {
       '@type': 'Offer',
       price: '0',
       priceCurrency: 'USD',
       name: 'Free',
-      description: '3 vidéos par mois, watermark, 1 plateforme',
+      description: '3 videos per month, watermark, 1 platform',
     },
     {
       '@type': 'Offer',
       price: '19',
       priceCurrency: 'USD',
       name: 'Pro',
-      description: '30 vidéos par mois, clips jusqu\'à 2 min, sans watermark, brand template',
+      description: '30 videos per month, clips up to 2 min, no watermark, brand template',
     },
     {
       '@type': 'Offer',
       price: '24',
       priceCurrency: 'USD',
       name: 'Studio',
-      description: 'Prix de lancement $24 (au lieu de $29). 120 vidéos par mois (90 + 30 bonus), split-screen, distribution multi-plateforme',
+      description: 'Launch price $24 (instead of $29). 120 videos per month (90 + 30 bonus), split-screen, multi-platform distribution',
     },
   ],
   aggregateRating: {
@@ -110,7 +110,7 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="fr" suppressHydrationWarning className={cn("font-sans", inter.variable)}>
+    <html lang="en" suppressHydrationWarning className={cn("font-sans", inter.variable)}>
       <head>
         <script
           type="application/ld+json"

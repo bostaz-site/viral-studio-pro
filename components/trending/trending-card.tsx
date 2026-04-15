@@ -227,7 +227,7 @@ export const TrendingCard = memo(function TrendingCard({ clip, onRemix, remixing
             <div className="w-10 h-10 rounded-full bg-gradient-to-br from-yellow-500 to-amber-600 flex items-center justify-center shadow-lg shadow-amber-500/30 mb-2">
               <Crown className="h-5 w-5 text-white" />
             </div>
-            <span className="text-xs font-bold text-white">Premium requis</span>
+            <span className="text-xs font-bold text-white">Premium required</span>
           </div>
         )}
 
@@ -258,7 +258,7 @@ export const TrendingCard = memo(function TrendingCard({ clip, onRemix, remixing
         {!isLocked && (clip.velocity_score ?? 0) >= 70 && !videoPlaying && (
           <div className="absolute bottom-2 left-2 z-[6] flex items-center gap-1 bg-gradient-to-r from-orange-500 to-red-500 text-white text-[10px] font-black px-2 py-0.5 rounded-full shadow-lg animate-in fade-in">
             <Flame className="h-2.5 w-2.5" />
-            VIRAL
+            TRENDING
           </div>
         )}
 
@@ -270,7 +270,7 @@ export const TrendingCard = memo(function TrendingCard({ clip, onRemix, remixing
             rel="noopener noreferrer"
             className="absolute bottom-2 right-2 p-1.5 rounded-lg bg-black/60 backdrop-blur-sm text-white/70 hover:text-white transition-colors opacity-0 group-hover:opacity-100"
             onClick={(e) => e.stopPropagation()}
-            title="Voir l'original"
+            title="View original"
           >
             <ExternalLink className="h-3.5 w-3.5" />
           </a>
@@ -279,7 +279,7 @@ export const TrendingCard = memo(function TrendingCard({ clip, onRemix, remixing
         {/* Scraped time */}
         {!isLocked && !videoPlaying && clip.scraped_at && (
           <span className="absolute bottom-2 left-2 text-[10px] text-white/50 bg-black/40 px-1.5 py-0.5 rounded-md backdrop-blur-sm">
-            il y a {timeAgo(clip.scraped_at)}
+            {timeAgo(clip.scraped_at)}
           </span>
         )}
       </div>
@@ -291,7 +291,7 @@ export const TrendingCard = memo(function TrendingCard({ clip, onRemix, remixing
           isLocked ? 'text-muted-foreground' : 'text-foreground',
           (hovered || showVideo || videoPlaying) && !isLocked ? 'opacity-0' : 'opacity-100'
         )}>
-          {clip.title ?? clip.author_name ?? 'Clip de stream'}
+          {clip.title ?? clip.author_name ?? 'Stream clip'}
         </p>
 
         {/* Streamer */}
@@ -309,13 +309,13 @@ export const TrendingCard = memo(function TrendingCard({ clip, onRemix, remixing
           {(clip.velocity_score ?? 0) >= 70 && (
             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-orange-500/15 text-orange-400 border border-orange-500/20">
               <Flame className="h-2.5 w-2.5" />
-              Viral
+              Trending
             </span>
           )}
           {(clip.velocity_score ?? 0) >= 50 && (clip.velocity_score ?? 0) < 70 && (
             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/20">
               <TrendingUp className="h-2.5 w-2.5" />
-              High potential
+              Rising
             </span>
           )}
           {clip.niche && (
@@ -334,7 +334,7 @@ export const TrendingCard = memo(function TrendingCard({ clip, onRemix, remixing
               className="w-full h-8 text-xs gap-1.5 mt-1 border-amber-500/30 text-amber-400 hover:bg-amber-500/10"
             >
               <Lock className="h-3 w-3" />
-              Passe à Premium
+              Upgrade to Pro
             </Button>
           </Link>
         ) : (
@@ -345,7 +345,7 @@ export const TrendingCard = memo(function TrendingCard({ clip, onRemix, remixing
             disabled={remixing}
           >
             <Zap className="h-3.5 w-3.5" />
-            {remixing ? 'Création\u2026' : 'Make Viral'}
+            {remixing ? 'Creating...' : 'Make Viral'}
           </Button>
         )}
       </CardContent>

@@ -24,49 +24,49 @@ const PLANS: PlanConfig[] = [
     id: 'free',
     name: 'Free',
     price: '$0',
-    priceNote: '/mois',
+    priceNote: '/mo',
     features: [
-      '3 vid\u00e9os / mois',
-      'Clips jusqu\'\u00e0 60s',
-      'Split-screen automatique',
-      'Score viral IA',
-      'Watermark Viral Studio',
+      '3 videos/month',
+      'Clips up to 60s',
+      'Auto split-screen',
+      'AI viral score',
+      'Viral Studio watermark',
     ],
-    cta: 'Commencer gratuitement',
+    cta: 'Start Free',
   },
   {
     id: 'pro',
     name: 'Pro',
     price: '$19',
-    priceNote: '/mois',
-    trialNote: '7 jours gratuits, annule quand tu veux',
+    priceNote: '/mo',
+    trialNote: '7 days free, cancel anytime',
     highlighted: true,
     features: [
-      '30 vid\u00e9os / mois',
-      'Clips jusqu\'\u00e0 2 min',
-      'Split-screen automatique',
-      'Score viral + Remake This',
-      'Sans watermark',
-      'Brand Template custom',
+      '30 videos/month',
+      'Clips up to 2 min',
+      'Auto split-screen',
+      'Viral score + Remake This',
+      'No watermark',
+      'Custom brand templates',
       'Export 9:16 + 1:1 + 16:9',
     ],
-    cta: 'D\u00e9marrer les 7 jours gratuits',
+    cta: 'Start 7-Day Free Trial',
   },
   {
     id: 'studio',
     name: 'Studio',
     price: '$24',
     priceOriginal: '$29',
-    priceNote: '/mois',
+    priceNote: '/mo',
     features: [
-      '120 vid\u00e9os / mois (90 + 30 bonus)',
-      'Tout Pro inclus',
-      'Distribution multi-plateforme',
-      'Voix-off ElevenLabs',
+      '120 videos/month (90 + 30 bonus)',
+      'Everything in Pro',
+      'Multi-platform distribution',
+      'ElevenLabs voiceovers',
       'API access',
-      'Support prioritaire',
+      'Priority support',
     ],
-    cta: 'Passer Studio',
+    cta: 'Upgrade to Studio',
   },
 ]
 
@@ -75,9 +75,9 @@ export function PricingSection() {
     <section className="py-20 px-6 border-t border-border/30">
       <div className="max-w-5xl mx-auto">
         <div className="text-center mb-14">
-          <p className="text-sm text-muted-foreground/50 mb-6 italic">Ils ont tous commenc&eacute; avec le plan gratuit. &Agrave; toi de jouer.</p>
-          <h2 className="text-3xl sm:text-4xl font-bold tracking-tight">Choisis ton plan, commence &agrave; clipper</h2>
-          <p className="text-muted-foreground mt-3 text-lg">Gratuit pour toujours &middot; Upgrade quand tu veux &middot; <Link href="/pricing" className="text-primary hover:underline">Voir la comparaison compl&egrave;te</Link></p>
+          <p className="text-sm text-muted-foreground/50 mb-6 italic">All the biggest creators started free. Your turn.</p>
+          <h2 className="text-3xl sm:text-4xl font-bold tracking-tight">Pick Your Plan, Start Clipping</h2>
+          <p className="text-muted-foreground mt-3 text-lg">Free forever &middot; Upgrade anytime &middot; <Link href="/pricing" className="text-primary hover:underline">See full comparison</Link></p>
         </div>
 
         <div className="grid md:grid-cols-3 gap-6">
@@ -92,10 +92,10 @@ export function PricingSection() {
               {plan.highlighted && (
                 <div className="absolute -top-3 left-1/2 -translate-x-1/2 flex items-center gap-2">
                   <span className="bg-primary text-primary-foreground text-xs font-bold px-3 py-1 rounded-full">
-                    Populaire
+                    Most Popular
                   </span>
                   <span className="bg-amber-500 text-white text-xs font-bold px-3 py-1 rounded-full animate-pulse">
-                    Prix de lancement
+                    Launch Price
                   </span>
                 </div>
               )}
@@ -111,7 +111,7 @@ export function PricingSection() {
                 </div>
                 {plan.id === 'studio' && plan.priceOriginal && (
                   <div className="mt-1 flex flex-col gap-0.5">
-                    <p className="text-[11px] text-amber-400 font-semibold">Prix de lancement</p>
+                    <p className="text-[11px] text-amber-400 font-semibold">Launch Price</p>
                     <LaunchCountdown />
                   </div>
                 )}

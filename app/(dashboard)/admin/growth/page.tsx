@@ -31,14 +31,14 @@ function formatRelative(iso: string | null): string {
   const now = Date.now()
   const then = new Date(iso).getTime()
   const diffSec = Math.max(0, Math.round((now - then) / 1000))
-  if (diffSec < 60) return `il y a ${diffSec}s`
+  if (diffSec < 60) return `${diffSec}s ago`
   const diffMin = Math.round(diffSec / 60)
-  if (diffMin < 60) return `il y a ${diffMin} min`
+  if (diffMin < 60) return `${diffMin}m ago`
   const diffH = Math.round(diffMin / 60)
-  if (diffH < 24) return `il y a ${diffH} h`
+  if (diffH < 24) return `${diffH}h ago`
   const diffD = Math.round(diffH / 24)
-  if (diffD < 30) return `il y a ${diffD} j`
-  return new Date(iso).toLocaleDateString('fr-FR')
+  if (diffD < 30) return `${diffD}d ago`
+  return new Date(iso).toLocaleDateString('en-US')
 }
 
 export default function AdminGrowthPage() {
@@ -62,12 +62,12 @@ export default function AdminGrowthPage() {
           return
         }
         if (!res.ok || !json?.data) {
-          setError(json?.error ?? 'Erreur serveur')
+          setError(json?.error ?? 'Server error')
           return
         }
         setData(json.data)
       } catch {
-        if (!cancelled) setError('Impossible de charger les données.')
+        if (!cancelled) setError('Failed to load data.')
       } finally {
         if (!cancelled) setLoading(false)
       }
@@ -93,8 +93,8 @@ export default function AdminGrowthPage() {
           <CardContent className="p-6 flex items-start gap-3">
             <AlertCircle className="h-5 w-5 text-destructive mt-0.5" />
             <div>
-              <p className="font-medium text-foreground">Impossible de charger les données</p>
-              <p className="text-sm text-muted-foreground mt-1">{error ?? 'Erreur inconnue'}</p>
+              <p className="font-medium text-foreground">Failed to load data</p>
+              <p className="text-sm text-muted-foreground mt-1">{error ?? 'Unknown error'}</p>
             </div>
           </CardContent>
         </Card>
@@ -112,7 +112,7 @@ export default function AdminGrowthPage() {
         </div>
         <h1 className="text-3xl font-black tracking-tight">Growth</h1>
         <p className="text-muted-foreground mt-1 text-sm">
-          Newsletter leads et parrainages — réservé aux admins.
+          Newsletter leads and referrals — admin only.
         </p>
       </div>
 
@@ -125,18 +125,18 @@ export default function AdminGrowthPage() {
         />
         <StatCard
           icon={<TrendingUp className="h-4 w-4" />}
-          label="Leads (14 j)"
+          label="Leads (14d)"
           value={data.newsletter.last14d}
           accent
         />
         <StatCard
           icon={<Gift className="h-4 w-4" />}
-          label="Signups via parrainage"
+          label="Signups via referral"
           value={data.referrals.totalSignupsViaReferral}
         />
         <StatCard
           icon={<Users className="h-4 w-4" />}
-          label="Parrains actifs"
+          label="Active referrers"
           value={data.referrals.uniqueReferrers}
         />
       </div>
@@ -145,12 +145,12 @@ export default function AdminGrowthPage() {
       <section>
         <h2 className="text-lg font-semibold text-foreground mb-3 flex items-center gap-2">
           <Gift className="h-4 w-4 text-primary" />
-          Top parrains
+          Top referrers
         </h2>
         {data.referrals.topReferrers.length === 0 ? (
           <Card className="bg-card/40">
             <CardContent className="p-6 text-sm text-muted-foreground text-center">
-              Personne n&apos;a encore parrainé quelqu&apos;un. Partage ton lien pour lancer la machine.
+              No referrals yet. Share your link to get started!
             </CardContent>
           </Card>
         ) : (
@@ -179,7 +179,7 @@ export default function AdminGrowthPage() {
                     <p className="text-lg font-black tabular-nums text-foreground">
                       {r.invited_count}
                     </p>
-                    <p className="text-[10px] text-muted-foreground">invités</p>
+                    <p className="text-[10px] text-muted-foreground">invited</p>
                   </div>
                 </div>
               ))}
@@ -192,12 +192,12 @@ export default function AdminGrowthPage() {
       <section>
         <h2 className="text-lg font-semibold text-foreground mb-3 flex items-center gap-2">
           <Mail className="h-4 w-4 text-primary" />
-          Derniers leads newsletter
+          Recent newsletter leads
         </h2>
         {data.newsletter.recent.length === 0 ? (
           <Card className="bg-card/40">
             <CardContent className="p-6 text-sm text-muted-foreground text-center">
-              Aucun lead pour le moment.
+              No leads yet.
             </CardContent>
           </Card>
         ) : (

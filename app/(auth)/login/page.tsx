@@ -38,8 +38,8 @@ export default function LoginPage() {
   return (
     <Card className="bg-card/80 border-border backdrop-blur-sm shadow-xl shadow-black/5">
       <CardHeader className="space-y-1 pb-2">
-        <h2 className="text-2xl font-bold tracking-tight">Bon retour</h2>
-        <p className="text-sm text-muted-foreground">Connectez-vous pour accéder à votre studio</p>
+        <h2 className="text-2xl font-bold tracking-tight">Welcome back</h2>
+        <p className="text-sm text-muted-foreground">Sign in to access your studio</p>
       </CardHeader>
       <form onSubmit={handleLogin}>
         <CardContent className="space-y-4">
@@ -56,7 +56,7 @@ export default function LoginPage() {
               <Input
                 id="email"
                 type="email"
-                placeholder="vous@example.com"
+                placeholder="you@example.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
@@ -67,13 +67,13 @@ export default function LoginPage() {
             </div>
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="password" className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Mot de passe</Label>
+            <Label htmlFor="password" className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Password</Label>
             <div className="relative">
               <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 id="password"
                 type="password"
-                placeholder="Votre mot de passe"
+                placeholder="Your password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
@@ -91,15 +91,15 @@ export default function LoginPage() {
             disabled={loading}
           >
             {loading ? (
-              <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Connexion...</>
+              <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Signing in...</>
             ) : (
-              <>Se connecter <ArrowRight className="ml-2 h-4 w-4" /></>
+              <>Sign in <ArrowRight className="ml-2 h-4 w-4" /></>
             )}
           </Button>
           <p className="text-sm text-muted-foreground text-center">
-            Pas encore de compte ?{' '}
+            No account yet?{' '}
             <Link href="/signup" className="text-primary hover:underline font-semibold">
-              Créer un compte gratuit
+              Create free account
             </Link>
           </p>
         </CardFooter>

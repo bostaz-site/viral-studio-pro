@@ -69,20 +69,20 @@ function conversionRate(numerator: number, denominator: number): string {
 
 // Map raw event names to shorter human-friendly labels.
 const LABELS: Record<string, string> = {
-  demo_view: 'Vue démo',
+  demo_view: 'Demo view',
   demo_clip_switch: 'Switch clip',
-  demo_caption_switch: 'Switch style sous-titres',
+  demo_caption_switch: 'Switch caption style',
   demo_split_toggle: 'Toggle split-screen',
-  demo_cta_click: 'CTA démo cliqué',
-  exit_intent_shown: 'Popup montré',
-  exit_intent_submitted: 'Email soumis',
-  exit_intent_dismissed: 'Popup fermé',
+  demo_cta_click: 'Demo CTA clicked',
+  exit_intent_shown: 'Popup shown',
+  exit_intent_submitted: 'Email submitted',
+  exit_intent_dismissed: 'Popup dismissed',
   cta_hero_click: 'CTA hero',
   cta_pricing_click: 'CTA pricing',
   cta_signup_click: 'CTA signup',
-  page_view: 'Vue de page',
-  pricing_view: 'Vue /pricing',
-  changelog_view: 'Vue /changelog',
+  page_view: 'Page view',
+  pricing_view: 'View /pricing',
+  changelog_view: 'View /changelog',
 }
 
 function label(name: string): string {
@@ -110,7 +110,7 @@ export default function AdminAnalyticsPage() {
         return
       }
       if (res.status === 403) {
-        setError("Accès refusé. Cette page est réservée aux admins.")
+        setError("Access denied. This page is for admins only.")
         return
       }
       const json = (await res.json()) as {
@@ -123,7 +123,7 @@ export default function AdminAnalyticsPage() {
       }
       setData(json.data)
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Erreur réseau')
+      setError(e instanceof Error ? e.message : 'Network error')
     } finally {
       setLoading(false)
     }
@@ -173,7 +173,7 @@ export default function AdminAnalyticsPage() {
         {loading && !data && (
           <div className="flex items-center justify-center py-20 text-muted-foreground">
             <Loader2 className="h-5 w-5 animate-spin mr-2" />
-            Chargement des métriques…
+            Loading metrics…
           </div>
         )}
 
@@ -182,7 +182,7 @@ export default function AdminAnalyticsPage() {
             <CardContent className="flex items-start gap-3 p-5">
               <AlertCircle className="h-5 w-5 text-rose-400 shrink-0 mt-0.5" />
               <div>
-                <p className="font-semibold text-sm">Erreur</p>
+                <p className="font-semibold text-sm">Error</p>
                 <p className="text-sm text-muted-foreground mt-0.5">{error}</p>
               </div>
             </CardContent>
@@ -195,13 +195,13 @@ export default function AdminAnalyticsPage() {
             <div className="grid gap-4 sm:grid-cols-3">
               <KpiCard
                 icon={<Activity className="h-4 w-4" />}
-                label="Events totaux"
-                value={data.totalEvents.toLocaleString('fr-FR')}
+                label="Total events"
+                value={data.totalEvents.toLocaleString('en-US')}
               />
               <KpiCard
                 icon={<Eye className="h-4 w-4" />}
-                label="Sessions uniques"
-                value={data.uniqueSessions.toLocaleString('fr-FR')}
+                label="Unique sessions"
+                value={data.uniqueSessions.toLocaleString('en-US')}
               />
               <KpiCard
                 icon={<MousePointerClick className="h-4 w-4" />}
@@ -221,14 +221,14 @@ export default function AdminAnalyticsPage() {
 
             {/* Demo funnel */}
             <Section
-              title="Funnel démo interactive"
+              title="Interactive demo funnel"
               icon={<Sparkles className="h-4 w-4" />}
-              subtitle="Du chargement de /demo jusqu'au clic CTA"
+              subtitle="From /demo load to CTA click"
             >
               <StepTable steps={data.demoFunnel} showSessions />
               {data.demoFunnel[0] && (
                 <div className="mt-3 pt-3 border-t border-border text-xs text-muted-foreground">
-                  Conversion démo → CTA :{' '}
+                  Demo → CTA conversion:{' '}
                   <span className="font-bold text-foreground">
                     {conversionRate(
                       data.demoFunnel.find((s) => s.name === 'demo_cta_click')?.uniqueSessions ?? 0,
@@ -241,14 +241,14 @@ export default function AdminAnalyticsPage() {
 
             {/* Exit intent funnel */}
             <Section
-              title="Funnel exit-intent"
+              title="Exit-intent funnel"
               icon={<LogOut className="h-4 w-4" />}
-              subtitle="Popup lead magnet sur la landing"
+              subtitle="Lead magnet popup on landing"
             >
               <StepTable steps={data.exitIntentFunnel} showSessions />
               {data.exitIntentFunnel[0] && (
                 <div className="mt-3 pt-3 border-t border-border text-xs text-muted-foreground">
-                  Taux de soumission :{' '}
+                  Submission rate:{' '}
                   <span className="font-bold text-foreground">
                     {conversionRate(
                       data.exitIntentFunnel.find((s) => s.name === 'exit_intent_submitted')
@@ -262,26 +262,26 @@ export default function AdminAnalyticsPage() {
             </Section>
 
             {/* CTA clicks */}
-            <Section title="CTAs cliqués" icon={<MousePointerClick className="h-4 w-4" />}>
+            <Section title="CTA clicks" icon={<MousePointerClick className="h-4 w-4" />}>
               <StepTable steps={data.ctaClicks} showSessions />
             </Section>
 
             {/* Top demo interactions */}
             <div className="grid gap-6 md:grid-cols-2">
-              <Section title="Top clips démo" icon={<TrendingUp className="h-4 w-4" />}>
+              <Section title="Top demo clips" icon={<TrendingUp className="h-4 w-4" />}>
                 <TopList items={data.topDemoClips} />
               </Section>
-              <Section title="Top styles sous-titres" icon={<TrendingUp className="h-4 w-4" />}>
+              <Section title="Top caption styles" icon={<TrendingUp className="h-4 w-4" />}>
                 <TopList items={data.topCaptionStyles} />
               </Section>
             </div>
 
             {/* Recent activity */}
-            <Section title="Activité récente" icon={<Activity className="h-4 w-4" />}>
+            <Section title="Recent activity" icon={<Activity className="h-4 w-4" />}>
               <div className="divide-y divide-border">
                 {data.recent.length === 0 && (
                   <p className="text-sm text-muted-foreground py-4 text-center">
-                    Aucun event dans cette fenêtre.
+                    No events in this window.
                   </p>
                 )}
                 {data.recent.map((row) => (
@@ -406,7 +406,7 @@ function TopList({ items }: { items: TopMetadataValue[] }) {
   if (items.length === 0) {
     return (
       <p className="text-sm text-muted-foreground text-center py-4">
-        Pas encore de données.
+        No data yet.
       </p>
     )
   }

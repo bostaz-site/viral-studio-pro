@@ -321,22 +321,22 @@ export function ClipTransformAnimation({ compact = false }: { compact?: boolean 
         <AnimatePresence mode="wait">
           {phase === 0 && (
             <motion.p key="p0" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="text-xs text-muted-foreground/60">
-              Clip de stream normal
+              Normal stream clip
             </motion.p>
           )}
           {phase === 1 && (
             <motion.p key="p1" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="text-xs text-blue-400 font-medium">
-              Enhancement en cours...
+              Enhancing...
             </motion.p>
           )}
           {phase === 2 && (
             <motion.p key="p2" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="text-xs text-yellow-400 font-bold">
-              Score viral : {scene.scoreAfter}
+              Virality score: {scene.scoreAfter}
             </motion.p>
           )}
           {phase === 3 && (
             <motion.p key="p3" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="text-xs text-green-400 font-bold">
-              {scene.views} vues &middot; {scene.revenue}
+              {scene.views} views &middot; {scene.revenue}
             </motion.p>
           )}
         </AnimatePresence>

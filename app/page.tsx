@@ -4,11 +4,11 @@ import { LandingPage } from '@/components/landing/landing-page'
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = {
-  title: 'Viral Studio Pro — Transforme tes streams en clips viraux avec l\'IA',
-  description: 'Crée des clips viraux à partir de streams Twitch et YouTube Gaming. Sous-titres karaoké, split-screen Subway Surfers/Minecraft, score viral IA. Export TikTok, Reels, Shorts en 1 clic.',
+  title: 'Viral Studio Pro — Turn streams into viral clips with AI',
+  description: 'Create viral clips from Twitch and YouTube Gaming streams. Karaoke captions, Subway Surfers/Minecraft split-screen, AI viral score. Export to TikTok, Reels, and Shorts in 1 click.',
   openGraph: {
-    title: 'Viral Studio Pro — Clips viraux depuis tes streams',
-    description: 'Sous-titres karaoké + split-screen + score viral IA. Le seul outil avec split-screen automatique (Subway Surfers, Minecraft).',
+    title: 'Viral Studio Pro — Viral clips from your streams',
+    description: 'Karaoke captions + split-screen + AI viral score. The only tool with automatic split-screen (Subway Surfers, Minecraft).',
   },
 }
 
@@ -17,12 +17,7 @@ const jsonLd = {
   '@type': 'WebSite',
   name: 'Viral Studio Pro',
   url: 'https://viral-studio-pro.netlify.app',
-  description: 'Crée des clips viraux à partir de streams Twitch et YouTube Gaming. Sous-titres karaoké, split-screen, score viral IA.',
-  potentialAction: {
-    '@type': 'SearchAction',
-    target: 'https://viral-studio-pro.netlify.app/blog?q={search_term_string}',
-    'query-input': 'required name=search_term_string',
-  },
+  description: 'Create viral clips from Twitch and YouTube Gaming streams. Karaoke captions, split-screen, AI viral score.',
 }
 
 export default async function Home() {

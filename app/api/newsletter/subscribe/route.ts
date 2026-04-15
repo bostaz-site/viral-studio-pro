@@ -52,7 +52,7 @@ export async function POST(req: NextRequest) {
 
   if (!checkRateLimit(ip)) {
     return NextResponse.json(
-      { data: null, error: 'rate_limited', message: 'Trop de tentatives, réessaie plus tard.' },
+      { data: null, error: 'rate_limited', message: 'Too many attempts. Try again later.' },
       { status: 429 },
     )
   }
@@ -82,12 +82,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({
         data: { alreadySubscribed: true },
         error: null,
-        message: 'Déjà inscrit — merci !',
+        message: 'Already subscribed — thanks!',
       })
     }
     console.error('[newsletter] insert failed:', error)
     return NextResponse.json(
-      { data: null, error: 'db_error', message: 'Erreur côté serveur, réessaie.' },
+      { data: null, error: 'db_error', message: 'Server error. Try again.' },
       { status: 500 },
     )
   }
@@ -95,6 +95,6 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({
     data: { alreadySubscribed: false },
     error: null,
-    message: 'Inscrit ! On se voit dans ta boîte.',
+    message: 'Subscribed! Check your inbox soon.',
   })
 }

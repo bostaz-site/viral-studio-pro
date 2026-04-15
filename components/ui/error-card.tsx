@@ -100,7 +100,7 @@ export function ErrorCard({
   description,
   details,
   onRetry,
-  retryLabel = 'Réessayer',
+  retryLabel = 'Retry',
   secondaryAction,
   className,
 }: ErrorCardProps) {
@@ -163,7 +163,7 @@ export function ErrorCard({
               className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
             >
               {showDetails ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
-              Détails techniques
+              Technical details
             </button>
             {showDetails && (
               <pre className="mt-2 text-[11px] text-muted-foreground bg-background/60 border border-border rounded-md p-2 overflow-x-auto whitespace-pre-wrap break-words max-h-40">
@@ -188,6 +188,7 @@ export function classifyError(raw: string | null | undefined, status?: number): 
   if (!raw) return 'generic'
   const msg = raw.toLowerCase()
   if (msg.includes('network') || msg.includes('fetch') || msg.includes('réseau') || msg.includes('offline')) return 'network'
+  if (msg.includes('network error')) return 'network'
   if (msg.includes('timeout') || msg.includes('timed out') || msg.includes('plus longtemps')) return 'timeout'
   if (msg.includes('quota') || msg.includes('limit') || msg.includes('plan')) return 'quota'
   if (msg.includes('unauthor') || msg.includes('forbidden') || msg.includes('session')) return 'auth'

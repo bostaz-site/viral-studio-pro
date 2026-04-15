@@ -169,7 +169,7 @@ export const useTrendingStore = create<TrendingState>((set, get) => ({
       const res = await fetch(`/api/trending?${params}`)
       const data = await res.json() as { data: TrendingClip[] | null; error: string | null }
 
-      if (!res.ok || data.error) throw new Error(data.error ?? 'Erreur réseau')
+      if (!res.ok || data.error) throw new Error(data.error ?? 'Network error')
 
       const prevClips = state.clips
       let clips: TrendingClip[]
@@ -214,7 +214,7 @@ export const useTrendingStore = create<TrendingState>((set, get) => ({
       get().applyFilters()
     } catch (err) {
       set({
-        error: err instanceof Error ? err.message : 'Erreur inconnue',
+        error: err instanceof Error ? err.message : 'Unknown error',
         clips: SEED_CLIPS,
         usingSeed: true,
       })

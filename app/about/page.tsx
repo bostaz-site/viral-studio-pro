@@ -4,11 +4,11 @@ import { Scissors, ArrowRight, Zap, Heart, Target } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 
 export const metadata: Metadata = {
-  title: 'A propos — Viral Studio Pro',
-  description: 'Decouvrez l\'histoire derriere Viral Studio Pro. Un outil cree par un createur de contenu, pour les createurs de contenu.',
+  title: 'About — Viral Studio Pro',
+  description: 'Discover the story behind Viral Studio Pro. A tool built by a content creator, for content creators.',
   openGraph: {
-    title: 'A propos — Viral Studio Pro',
-    description: 'L\'histoire derriere Viral Studio Pro. Un outil cree par un createur, pour les createurs.',
+    title: 'About — Viral Studio Pro',
+    description: 'The story behind Viral Studio Pro. A tool built by a creator, for creators.',
   },
 }
 
@@ -28,7 +28,7 @@ export default function AboutPage() {
           </Link>
           <Link href="/signup">
             <Button size="sm" className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white">
-              Essai gratuit
+              Free trial
             </Button>
           </Link>
         </div>
@@ -38,28 +38,28 @@ export default function AboutPage() {
         <div className="max-w-2xl mx-auto">
           {/* Hero */}
           <div className="text-center mb-16">
-            <p className="text-sm text-primary font-medium mb-3">A propos</p>
+            <p className="text-sm text-primary font-medium mb-3">About</p>
             <h1 className="text-3xl sm:text-4xl font-bold tracking-tight">
-              Cree par un streamer fatigue de perdre ses meilleurs moments
+              Built by a streamer tired of losing his best moments
             </h1>
             <p className="text-muted-foreground mt-4 text-lg leading-relaxed">
-              Je suis Samy. Comme toi, je streamais pendant des heures et mes meilleures reactions restaient enterrees sur Twitch avec 12 viewers.
+              I'm Samy. Like you, I streamed for hours but my best reactions stayed buried on Twitch with 12 viewers.
             </p>
           </div>
 
           {/* Story */}
           <div className="space-y-6 text-sm text-muted-foreground leading-relaxed">
             <p>
-              Le probleme etait simple : je voyais des clip channels exploser sur TikTok avec le format split-screen (stream en haut, Subway Surfers en bas, sous-titres karaoke). Sauf que pour faire ca, il fallait soit passer 2 heures sur CapCut, soit payer un editeur.
+              The problem was simple: I saw clip channels exploding on TikTok with split-screen format (stream on top, Subway Surfers at bottom, karaoke captions). But to do that, you either spent 2 hours in CapCut or paid an editor.
             </p>
             <p>
-              J&apos;ai essaye OpusClip, Eklipse, et tous les outils du marche. Aucun ne faisait le split-screen automatiquement. Aucun ne me disait pourquoi un clip allait marcher ou pas. Aucun ne me laissait m&apos;inspirer des formats trending pour mes propres clips.
+              I tried OpusClip, Eklipse, and every tool on the market. None did automatic split-screen. None told me why a clip would work or not. None let me get inspired by trending formats for my own clips.
             </p>
             <p>
-              Alors j&apos;ai decide de le construire moi-meme.
+              So I decided to build it myself.
             </p>
             <p className="text-foreground font-medium text-base">
-              Viral Studio Pro est ne de cette frustration. Un seul outil qui fait ce qu&apos;aucun autre ne combine : split-screen automatique + sous-titres karaoke + score viral IA + Remake This.
+              Viral Studio Pro was born from that frustration. A single tool that does what no other combines: automatic split-screen + karaoke captions + AI viral score + Remake This.
             </p>
           </div>
 
@@ -67,18 +67,18 @@ export default function AboutPage() {
           <div className="grid sm:grid-cols-3 gap-6 mt-16">
             <div className="rounded-xl border border-border bg-card/60 p-5">
               <Zap className="h-5 w-5 text-primary mb-3" />
-              <h3 className="text-sm font-semibold text-foreground mb-1">Rapidite</h3>
-              <p className="text-xs text-muted-foreground">5 minutes pour un clip pret a publier. Pas 2 heures sur un logiciel de montage.</p>
+              <h3 className="text-sm font-semibold text-foreground mb-1">Speed</h3>
+              <p className="text-xs text-muted-foreground">5 minutes to a ready-to-post clip. Not 2 hours in editing software.</p>
             </div>
             <div className="rounded-xl border border-border bg-card/60 p-5">
               <Target className="h-5 w-5 text-primary mb-3" />
               <h3 className="text-sm font-semibold text-foreground mb-1">Precision</h3>
-              <p className="text-xs text-muted-foreground">L&apos;IA analyse chaque clip et te dit exactement quoi ameliorer pour maximiser les vues.</p>
+              <p className="text-xs text-muted-foreground">AI analyzes every clip and tells you exactly what to improve to maximize views.</p>
             </div>
             <div className="rounded-xl border border-border bg-card/60 p-5">
               <Heart className="h-5 w-5 text-primary mb-3" />
-              <h3 className="text-sm font-semibold text-foreground mb-1">Pour les createurs</h3>
-              <p className="text-xs text-muted-foreground">Construit par quelqu&apos;un qui comprend tes problemes parce qu&apos;il les a vecus.</p>
+              <h3 className="text-sm font-semibold text-foreground mb-1">For creators</h3>
+              <p className="text-xs text-muted-foreground">Built by someone who understands your problems because he's lived them.</p>
             </div>
           </div>
 
@@ -86,11 +86,11 @@ export default function AboutPage() {
           <div className="text-center mt-16">
             <Link href="/signup">
               <Button size="lg" className="h-12 px-8 text-base bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white gap-2">
-                Essayer gratuitement
+                Try free
                 <ArrowRight className="h-4 w-4" />
               </Button>
             </Link>
-            <p className="text-xs text-muted-foreground/60 mt-3">3 clips gratuits par mois, sans carte bancaire</p>
+            <p className="text-xs text-muted-foreground/60 mt-3">3 free clips per month, no card required</p>
           </div>
         </div>
       </main>

@@ -322,7 +322,7 @@ export function LivePreview({
             transform: `scale(${(settings.tagSize || 100) / 100})`,
           }}
         >
-          {/* VIRAL GLOW — capsule noire, bordure violet néon, glow */}
+          {/* VIRAL GLOW — black capsule with neon purple border & glow */}
           {tagStyle.id === 'viral-glow' && (
             <div
               className="flex items-center gap-1.5 rounded-full px-2.5 py-1.5 animate-in fade-in slide-in-from-left-2 duration-300"

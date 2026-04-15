@@ -66,7 +66,7 @@ export function UploadZone({
               {isUploading && (
                 <div className="mt-3">
                   <div className="flex justify-between text-xs text-muted-foreground mb-1">
-                    <span>Upload en cours…</span>
+                    <span>Uploading...</span>
                     <span>{uploadProgress}%</span>
                   </div>
                   <div className="h-1.5 bg-muted rounded-full overflow-hidden">
@@ -82,7 +82,7 @@ export function UploadZone({
               <button
                 onClick={onFileClear}
                 className="p-1 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors shrink-0"
-                title="Supprimer"
+                title="Remove"
               >
                 <X className="h-4 w-4" />
               </button>
@@ -105,11 +105,11 @@ export function UploadZone({
             <UploadCloud className={cn('h-7 w-7', isDragActive ? 'text-primary' : 'text-muted-foreground')} />
           </div>
           <p className="font-semibold text-sm mb-1">
-            {isDragActive ? 'Déposez ici' : 'Cliquez ou glissez-déposez'}
+            {isDragActive ? 'Drop here' : 'Click or drag & drop'}
           </p>
           <p className="text-xs text-muted-foreground mb-3">MP4, MOV, MKV, AVI — max 500 MB</p>
           <Button variant="secondary" size="sm" type="button" disabled={disabled}>
-            Sélectionner un fichier
+            Select file
           </Button>
         </div>
       )}
@@ -117,7 +117,7 @@ export function UploadZone({
       {/* URL divider + input */}
       <div className="flex items-center gap-3">
         <div className="h-px flex-1 bg-border" />
-        <span className="text-xs text-muted-foreground font-medium px-1">ou importer par URL</span>
+        <span className="text-xs text-muted-foreground font-medium px-1">or import by URL</span>
         <div className="h-px flex-1 bg-border" />
       </div>
 
@@ -141,7 +141,7 @@ export function UploadZone({
           disabled={!url || disabled || isUploading || !!selectedFile}
           onClick={() => url && onUrlImport?.(url)}
         >
-          Importer
+          Import
         </Button>
       </div>
     </div>

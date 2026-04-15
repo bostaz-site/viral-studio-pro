@@ -126,7 +126,6 @@ export function LandingPage() {
                 <Link href="/login" className="block hover:text-foreground transition-colors">Log in</Link>
                 <Link href="/pricing" className="block hover:text-foreground transition-colors">Pricing</Link>
                 <Link href="/demo" className="block hover:text-foreground transition-colors">Live demo</Link>
-                <Link href="/blog" className="block hover:text-foreground transition-colors">Blog</Link>
               </div>
             </div>
             <div>

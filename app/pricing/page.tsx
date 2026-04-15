@@ -39,42 +39,42 @@ const TIERS: PricingTier[] = [
     id: 'free',
     name: 'Free',
     price: 0,
-    period: 'pour toujours',
-    description: 'Parfait pour tester et créer tes premiers clips viraux.',
+    period: 'forever',
+    description: 'Perfect to test and create your first viral clips.',
     icon: Scissors,
     features: [
-      '3 vidéos par mois',
-      'Clips jusqu\u2019à 60 secondes',
-      'Split-screen automatique',
-      'Transcription IA (Whisper)',
-      'Score viral + analyse hooks',
+      '3 videos per month',
+      'Clips up to 60 seconds',
+      'Automatic split-screen',
+      'AI transcription (Whisper)',
+      'Viral score + hook analysis',
       '1 format (9:16 vertical)',
-      'Watermark Viral Studio',
+      'Viral Studio watermark',
     ],
     highlighted: false,
-    cta: 'Commencer gratuitement',
+    cta: 'Start free',
     accentColor: 'from-slate-500 to-slate-600',
   },
   {
     id: 'pro',
     name: 'Pro',
     price: 19,
-    period: '/mois',
-    description: 'Pour les créateurs sérieux qui veulent scaler leur contenu.',
+    period: '/mo',
+    description: 'For serious creators who want to scale their content.',
     icon: Zap,
     features: [
-      '30 vidéos par mois',
-      'Clips jusqu\u2019à 2 minutes',
-      'Split-screen automatique',
-      'Sans watermark',
-      'Branding personnalisé (logo, couleurs)',
-      '3 formats d\u2019export',
-      'Dashboard Trending complet',
-      'Remake This illimité',
+      '30 videos per month',
+      'Clips up to 2 minutes',
+      'Automatic split-screen',
+      'No watermark',
+      'Custom branding (logo, colors)',
+      '3 export formats',
+      'Full Trending dashboard',
+      'Unlimited Remake This',
     ],
     highlighted: true,
-    trialNote: '7 jours gratuits, sans engagement',
-    cta: 'D\u00e9marrer les 7 jours gratuits',
+    trialNote: '7 days free, no commitment',
+    cta: 'Start 7-day free trial',
     accentColor: 'from-blue-500 to-indigo-600',
   },
   {
@@ -82,20 +82,20 @@ const TIERS: PricingTier[] = [
     name: 'Studio',
     price: 24,
     priceOriginal: 29,
-    period: '/mois',
-    description: 'L\u2019arsenal complet pour les agences et power users.',
+    period: '/mo',
+    description: 'The complete arsenal for agencies and power users.',
     icon: Crown,
     features: [
-      '120 vidéos par mois (90 + 30 bonus de bienvenue)',
-      'Tout le plan Pro inclus',
-      'Distribution multi-plateforme',
-      'Voix-off IA (ElevenLabs)',
-      'Accès API',
-      'White-label (votre marque)',
-      'Support prioritaire',
+      '120 videos per month (90 + 30 welcome bonus)',
+      'Everything in Pro included',
+      'Multi-platform distribution',
+      'AI voiceover (ElevenLabs)',
+      'API access',
+      'White-label (your brand)',
+      'Priority support',
     ],
     highlighted: false,
-    cta: 'Passer au Studio',
+    cta: 'Go to Studio',
     accentColor: 'from-purple-500 to-pink-600',
   },
 ]
@@ -147,12 +147,12 @@ export default function PricingPage() {
           </Link>
           <div className="flex items-center gap-3">
             <Link href="/login">
-              <Button variant="ghost" size="sm">Se connecter</Button>
+              <Button variant="ghost" size="sm">Sign in</Button>
             </Link>
             <Link href="/login">
               <Button size="sm" className="gap-1.5">
                 <Rocket className="h-3.5 w-3.5" />
-                Essai gratuit
+                Free trial
               </Button>
             </Link>
           </div>
@@ -164,16 +164,16 @@ export default function PricingPage() {
         <div className="max-w-3xl mx-auto space-y-6">
           <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-primary/30 bg-primary/5 text-sm text-primary">
             <Sparkles className="h-3.5 w-3.5" />
-            Lancez-vous gratuitement, upgradez quand vous êtes prêt
+            Start free, upgrade when you're ready
           </div>
           <h1 className="text-4xl sm:text-5xl font-black tracking-tight leading-tight">
-            Des clips viraux,{' '}
+            Viral clips,{' '}
             <span className="bg-gradient-to-r from-blue-500 to-indigo-600 bg-clip-text text-transparent">
-              à votre échelle
+              at your scale
             </span>
           </h1>
           <p className="text-lg text-muted-foreground max-w-xl mx-auto">
-            Choisissez le plan qui correspond à vos ambitions. Pas de surprise, pas d&apos;engagement.
+            Choose the plan that matches your ambitions. No surprises, no commitment.
           </p>
         </div>
       </section>
@@ -202,7 +202,7 @@ export default function PricingPage() {
                   {tier.highlighted && (
                     <span className="inline-flex self-start items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-primary/10 text-primary border border-primary/20 mb-4">
                       <TrendingUp className="h-3 w-3" />
-                      Populaire
+                      Popular
                     </span>
                   )}
 
@@ -227,7 +227,7 @@ export default function PricingPage() {
                     </div>
                     {tier.priceOriginal && (
                       <div className="mt-1 flex flex-col gap-0.5">
-                        <p className="text-xs text-amber-400 font-semibold">Prix de lancement — offre limitée</p>
+                        <p className="text-xs text-amber-400 font-semibold">Launch price — limited offer</p>
                         <LaunchCountdown />
                       </div>
                     )}
@@ -261,7 +261,7 @@ export default function PricingPage() {
                     onClick={() => handleSelectPlan(tier.id)}
                     disabled={loadingPlan === tier.id}
                   >
-                    {loadingPlan === tier.id ? 'Chargement…' : tier.cta}
+                    {loadingPlan === tier.id ? 'Loading...' : tier.cta}
                     <ArrowRight className="h-4 w-4" />
                   </Button>
                 </CardContent>
@@ -274,10 +274,10 @@ export default function PricingPage() {
       {/* Footer */}
       <footer className="border-t border-border py-8 px-6">
         <div className="max-w-5xl mx-auto flex items-center justify-between text-xs text-muted-foreground">
-          <p>Viral Studio Pro — Transformez vos vidéos en clips viraux avec l&apos;IA</p>
+          <p>Viral Studio Pro — Transform your videos into viral clips with AI</p>
           <div className="flex items-center gap-4">
-            <Link href="/login" className="hover:text-foreground transition-colors">Connexion</Link>
-            <Link href="/" className="hover:text-foreground transition-colors">Accueil</Link>
+            <Link href="/login" className="hover:text-foreground transition-colors">Sign in</Link>
+            <Link href="/" className="hover:text-foreground transition-colors">Home</Link>
           </div>
         </div>
       </footer>

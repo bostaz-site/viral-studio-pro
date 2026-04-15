@@ -72,7 +72,7 @@ export async function GET(req: NextRequest) {
   const { data, error, count } = await query
 
   if (error) {
-    return NextResponse.json({ data: null, error: 'Erreur lors de la récupération', message: 'Erreur lors de la récupération' }, { status: 500 })
+    return NextResponse.json({ data: null, error: 'Fetch failed', message: 'Failed to fetch clips' }, { status: 500 })
   }
 
   return NextResponse.json({ data, error: null, message: 'OK', meta: { total: count ?? 0, limit, offset } })
@@ -94,7 +94,7 @@ export async function POST(req: NextRequest) {
     const supabase = createClient()
     const { data: { user }, error: authError } = await supabase.auth.getUser()
     if (authError || !user) {
-      return NextResponse.json({ data: null, error: 'Unauthorized', message: 'Accès réservé aux services internes' }, { status: 401 })
+      return NextResponse.json({ data: null, error: 'Unauthorized', message: 'Access restricted to internal services' }, { status: 401 })
     }
 
     // Check if user has admin privileges (plan = 'studio' for now)
@@ -107,7 +107,7 @@ export async function POST(req: NextRequest) {
 
     if (profile?.plan !== 'studio') {
       return NextResponse.json(
-        { data: null, error: 'Forbidden', message: 'Seuls les administrateurs peuvent ajouter des clips trending' },
+        { data: null, error: 'Forbidden', message: 'Only admins can add trending clips' },
         { status: 403 }
       )
     }
@@ -117,12 +117,12 @@ export async function POST(req: NextRequest) {
   try {
     body = await req.json()
   } catch {
-    return NextResponse.json({ data: null, error: 'Invalid JSON', message: 'Corps de requête invalide' }, { status: 400 })
+    return NextResponse.json({ data: null, error: 'Invalid JSON', message: 'Invalid request body' }, { status: 400 })
   }
 
   const parsed = postSchema.safeParse(body)
   if (!parsed.success) {
-    return NextResponse.json({ data: null, error: parsed.error.message, message: 'Paramètres invalides' }, { status: 400 })
+    return NextResponse.json({ data: null, error: parsed.error.message, message: 'Invalid parameters' }, { status: 400 })
   }
 
   const admin = createAdminClient()
@@ -149,8 +149,8 @@ export async function POST(req: NextRequest) {
     .single()
 
   if (error) {
-    return NextResponse.json({ data: null, error: 'Erreur lors de l\'ajout', message: 'Erreur lors de l\'ajout' }, { status: 500 })
+    return NextResponse.json({ data: null, error: 'Add failed', message: 'Failed to add clip' }, { status: 500 })
   }
 
-  return NextResponse.json({ data, error: null, message: 'Clip trending ajouté' }, { status: 201 })
+  return NextResponse.json({ data, error: null, message: 'Trending clip added' }, { status: 201 })
 }

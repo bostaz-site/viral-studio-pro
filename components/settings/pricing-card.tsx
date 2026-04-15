@@ -32,56 +32,56 @@ const PLANS: PlanConfig[] = [
     id: 'free',
     name: 'Free',
     price: '$0',
-    priceNote: '/mois',
+    priceNote: '/month',
     icon: Zap,
     color: 'text-muted-foreground',
     features: [
-      '3 vidéos / mois',
-      'Clips jusqu\'à 60s',
-      'Split-screen automatique',
+      '3 videos/month',
+      'Clips up to 60s',
+      'Auto split-screen',
       'Virality Score',
-      'Watermark Viral Studio',
+      'Watermark included',
     ],
-    cta: 'Plan actuel',
+    cta: 'Current plan',
   },
   {
     id: 'pro',
     name: 'Pro',
     price: '$19',
-    priceNote: '/mois',
+    priceNote: '/month',
     icon: Crown,
     color: 'text-blue-400',
     highlighted: true,
     features: [
-      '30 vidéos / mois',
-      'Clips jusqu\'à 2 min',
-      'Split-screen automatique',
-      'Virality Score + Remake This',
-      'Sans watermark',
-      'Brand Template custom',
+      '30 videos/month',
+      'Clips up to 2 min',
+      'Auto split-screen',
+      'Virality Score + Remake',
+      'No watermark',
+      'Custom brand template',
       'Export 9:16 + 1:1 + 16:9',
-      'Dashboard Trending',
+      'Trending dashboard',
     ],
-    cta: 'Passer Pro',
+    cta: 'Upgrade to Pro',
   },
   {
     id: 'studio',
     name: 'Studio',
     price: '$24',
     priceOriginal: '$29',
-    priceNote: '/mois',
+    priceNote: '/month',
     icon: Sparkles,
     color: 'text-violet-400',
     features: [
-      '120 vidéos / mois (90 + 30 bonus)',
-      'Tout Pro inclus',
-      'Distribution multi-plateforme',
-      'Voix-off ElevenLabs',
+      '120 videos/month (90 + 30 bonus)',
+      'Everything in Pro',
+      'Multi-platform distribution',
+      'ElevenLabs voiceover',
       'API access',
-      'Support prioritaire',
+      'Priority support',
       'White-label',
     ],
-    cta: 'Passer Studio',
+    cta: 'Upgrade to Studio',
   },
 ]
 
@@ -139,7 +139,7 @@ export function PricingCard({ currentPlan, onUpgrade, onManageBilling }: Pricing
                 <CardTitle className="text-lg">{plan.name}</CardTitle>
                 {isCurrent && (
                   <span className="ml-auto text-xs bg-primary/15 text-primary px-2 py-0.5 rounded-full font-medium">
-                    Actuel
+                    Current
                   </span>
                 )}
               </div>
@@ -151,7 +151,7 @@ export function PricingCard({ currentPlan, onUpgrade, onManageBilling }: Pricing
                 <CardDescription>{plan.priceNote}</CardDescription>
               </div>
               {plan.priceOriginal && (
-                <p className="text-[11px] text-amber-400 font-medium">Prix de lancement</p>
+                <p className="text-[11px] text-amber-400 font-medium">Launch price</p>
               )}
             </CardHeader>
 
@@ -175,14 +175,14 @@ export function PricingCard({ currentPlan, onUpgrade, onManageBilling }: Pricing
                     disabled={loadingPlan === 'portal'}
                   >
                     {loadingPlan === 'portal' ? (
-                      <><Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" /> Chargement…</>
+                      <><Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" /> Loading…</>
                     ) : (
-                      'Gérer l\'abonnement'
+                      'Manage subscription'
                     )}
                   </Button>
                 ) : (
                   <Button variant="ghost" size="sm" className="w-full" disabled>
-                    Plan actuel
+                    Current plan
                   </Button>
                 )
               ) : plan.id !== 'free' ? (
@@ -199,9 +199,9 @@ export function PricingCard({ currentPlan, onUpgrade, onManageBilling }: Pricing
                   disabled={!!loadingPlan || isDowngrade}
                 >
                   {loadingPlan === plan.id ? (
-                    <><Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" /> Redirection…</>
+                    <><Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" /> Redirecting…</>
                   ) : isDowngrade ? (
-                    'Contacter le support'
+                    'Contact support'
                   ) : (
                     plan.cta
                   )}

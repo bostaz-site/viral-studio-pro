@@ -66,13 +66,13 @@ export default function DashboardPage() {
       const res = await fetch('/api/streams/refresh', { method: 'POST' })
       const data = await res.json() as { data: { upserted: number } | null; error: string | null; message: string }
       if (!res.ok || data.error) {
-        setTwitchMessage(data.message ?? 'Erreur')
+        setTwitchMessage(data.message ?? 'Error')
       } else {
-        setTwitchMessage(`${data.data?.upserted ?? 0} clips importés depuis Twitch`)
+        setTwitchMessage(`${data.data?.upserted ?? 0} clips imported from Twitch`)
         fetchClips(true)
       }
     } catch {
-      setTwitchMessage('Erreur réseau')
+      setTwitchMessage('Network error')
     } finally {
       setTwitchRefreshing(false)
       setTimeout(() => setTwitchMessage(null), 5000)
@@ -151,7 +151,7 @@ export default function DashboardPage() {
             ) : (
               <Download className="h-3.5 w-3.5" />
             )}
-            {twitchRefreshing ? 'Importing\u2026' : 'Twitch'}
+            {twitchRefreshing ? 'Importing…' : 'Twitch'}
           </Button>
 
           {/* Manual refresh */}
@@ -345,7 +345,7 @@ export default function DashboardPage() {
       {refreshing && (
         <div className="fixed bottom-6 right-6 flex items-center gap-2 px-4 py-2 rounded-full bg-card border border-border shadow-lg animate-in slide-in-from-bottom-2 fade-in">
           <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
-          <span className="text-xs text-muted-foreground">Refreshing\u2026</span>
+          <span className="text-xs text-muted-foreground">Refreshing…</span>
         </div>
       )}
     </div>

@@ -207,7 +207,7 @@ export const CAPTION_STYLES: CaptionStyle[] = [
   },
   {
     id: 'none',
-    label: 'Aucun',
+    label: 'None',
     preview: 'text-muted-foreground line-through',
     highlightClass: '',
     baseScore: 0,
@@ -217,21 +217,21 @@ export const CAPTION_STYLES: CaptionStyle[] = [
 ]
 
 export const EMPHASIS_EFFECTS: EmphasisEffect[] = [
-  { id: 'none', label: 'Aucun', description: "Pas d'emphase", baseScore: 0 },
-  { id: 'scale', label: 'Scale Up', description: 'Mot clé grossit', baseScore: 14 },
-  { id: 'bounce', label: 'Bounce', description: 'Mot clé rebondit', baseScore: 10 },
-  { id: 'glow', label: 'Glow', description: 'Mot clé brille', baseScore: 8 },
+  { id: 'none', label: 'None', description: "No emphasis", baseScore: 0 },
+  { id: 'scale', label: 'Scale Up', description: 'Keyword grows', baseScore: 14 },
+  { id: 'bounce', label: 'Bounce', description: 'Keyword bounces', baseScore: 10 },
+  { id: 'glow', label: 'Glow', description: 'Keyword glows', baseScore: 8 },
 ]
 
 export const EMPHASIS_COLORS: EmphasisColor[] = [
-  { id: 'red', label: 'Rouge', tw: 'bg-red-500', hex: '#EF4444' },
-  { id: 'yellow', label: 'Jaune', tw: 'bg-yellow-400', hex: '#FACC15' },
+  { id: 'red', label: 'Red', tw: 'bg-red-500', hex: '#EF4444' },
+  { id: 'yellow', label: 'Yellow', tw: 'bg-yellow-400', hex: '#FACC15' },
   { id: 'cyan', label: 'Cyan', tw: 'bg-cyan-400', hex: '#22D3EE' },
-  { id: 'green', label: 'Vert', tw: 'bg-green-400', hex: '#4ADE80' },
+  { id: 'green', label: 'Green', tw: 'bg-green-400', hex: '#4ADE80' },
   { id: 'orange', label: 'Orange', tw: 'bg-orange-500', hex: '#F97316' },
-  { id: 'pink', label: 'Rose', tw: 'bg-pink-500', hex: '#EC4899' },
-  { id: 'purple', label: 'Violet', tw: 'bg-purple-400', hex: '#C77DFF' },
-  { id: 'white', label: 'Blanc', tw: 'bg-white', hex: '#FFFFFF' },
+  { id: 'pink', label: 'Pink', tw: 'bg-pink-500', hex: '#EC4899' },
+  { id: 'purple', label: 'Purple', tw: 'bg-purple-400', hex: '#C77DFF' },
+  { id: 'white', label: 'White', tw: 'bg-white', hex: '#FFFFFF' },
 ]
 
 export const BROLL_OPTIONS: BrollOption[] = [
@@ -240,14 +240,14 @@ export const BROLL_OPTIONS: BrollOption[] = [
   { id: 'sand-cutting', label: 'Sand Cutting', color: 'from-amber-500 to-orange-500', baseScore: 10 },
   { id: 'soap-cutting', label: 'Soap Cutting', color: 'from-pink-500 to-rose-500', baseScore: 9 },
   { id: 'slime-satisfying', label: 'Slime', color: 'from-purple-500 to-violet-500', baseScore: 8 },
-  { id: 'none', label: 'Aucun', color: 'from-slate-700 to-slate-800', baseScore: 0 },
+  { id: 'none', label: 'None', color: 'from-slate-700 to-slate-800', baseScore: 0 },
 ]
 
 export const TAG_STYLES: TagStyle[] = [
   {
     id: 'viral-glow',
     label: 'Viral Glow',
-    description: 'Capsule noire + bordure violet néon + glow',
+    description: 'Black capsule + neon purple border + glow',
     icon: '🔥',
     baseScore: 14,
     position: 'bottom-left',
@@ -255,7 +255,7 @@ export const TAG_STYLES: TagStyle[] = [
   {
     id: 'pop-creator',
     label: 'Pop Creator',
-    description: 'Fond violet plein, outline blanc, effet pop',
+    description: 'Purple background, white outline, pop effect',
     icon: '⚡',
     baseScore: 12,
     position: 'bottom-left',
@@ -263,15 +263,15 @@ export const TAG_STYLES: TagStyle[] = [
   {
     id: 'minimal-pro',
     label: 'Minimal Pro',
-    description: 'Clean noir, logo Twitch, ultra discret',
+    description: 'Clean black, subtle Twitch logo',
     icon: '🧠',
     baseScore: 10,
     position: 'bottom-left',
   },
   {
     id: 'none',
-    label: 'Aucun',
-    description: 'Pas de tag visible',
+    label: 'None',
+    description: 'No visible tag',
     icon: '🚫',
     baseScore: 0,
     position: 'none',

@@ -15,9 +15,9 @@ export function AuthClipsPanel() {
           <span className="text-2xl font-black tracking-tight text-white">VIRAL STUDIO</span>
         </div>
         <p className="text-xl font-black text-white leading-tight max-w-xs">
-          Tes clips. Plus viraux.<br />
+          More viral clips.<br />
           <span className="bg-gradient-to-r from-blue-400 to-indigo-400 bg-clip-text text-transparent">
-            Plus vite.
+            Faster.
           </span>
         </p>
       </div>
@@ -25,9 +25,9 @@ export function AuthClipsPanel() {
       {/* Transformation animation */}
       <ClipTransformAnimation compact />
 
-      {/* Sans carte bancaire */}
+      {/* No credit card required */}
       <p className="mt-6 text-xs text-blue-200/50">
-        Sans carte bancaire &middot; 3 clips gratuits par mois
+        No credit card &middot; 3 free clips per month
       </p>
     </div>
   )

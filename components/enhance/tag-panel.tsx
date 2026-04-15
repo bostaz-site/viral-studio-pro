@@ -28,14 +28,14 @@ export const TagPanel = forwardRef<HTMLDivElement, TagPanelProps>(function TagPa
         <CardHeader className="pb-3">
           <CardTitle className="text-base flex items-center gap-2">
             <AtSign className="h-4 w-4 text-primary" />
-            Tag du streamer
+            Streamer tag
           </CardTitle>
         </CardHeader>
         {scores && (
           <CardContent className="space-y-5">
             <div className="space-y-2">
               <Label className="text-xs uppercase tracking-wider text-muted-foreground">
-                Style du tag
+                Tag style
               </Label>
               <div className="grid grid-cols-2 gap-2">
                 {TAG_STYLES.map((tag) => {
@@ -79,7 +79,7 @@ export const TagPanel = forwardRef<HTMLDivElement, TagPanelProps>(function TagPa
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <Label className="text-xs uppercase tracking-wider text-muted-foreground">
-                    Taille du tag
+                    Tag size
                   </Label>
                   <span className="text-xs font-mono text-muted-foreground">
                     {settings.tagSize || 100}%

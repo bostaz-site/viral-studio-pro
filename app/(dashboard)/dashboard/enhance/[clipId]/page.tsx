@@ -145,12 +145,12 @@ export default function EnhancePage() {
           .single()
 
         if (dbError) throw new Error(dbError.message)
-        if (!data) throw new Error('Clip non trouvé')
+        if (!data) throw new Error('Clip not found')
 
         const clipData = data as TrendingClipData
         setClip(clipData)
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Erreur de chargement')
+        setError(err instanceof Error ? err.message : 'Failed to load')
       } finally {
         setLoading(false)
       }
@@ -222,7 +222,7 @@ export default function EnhancePage() {
       pollCount++
       if (pollCount > maxPolls) {
         if (pollRef.current) clearInterval(pollRef.current)
-        setRenderMessage('⚠️ Le rendu prend plus de 10 min — rafraîchis la page pour reprendre le suivi, il est probablement toujours en cours.')
+        setRenderMessage('⚠️ Render is taking more than 10 min — refresh the page to resume tracking, it\'s probably still running.')
         setRendering(false)
         return
       }
@@ -262,14 +262,14 @@ export default function EnhancePage() {
         } else if (json.data.status === 'error') {
           if (pollRef.current) clearInterval(pollRef.current)
           try { sessionStorage.removeItem(`render-job:${clipId}`) } catch { /* ignore */ }
-          setRenderMessage(`❌ Erreur : ${json.data.errorMessage || 'Erreur inconnue'}`)
+          setRenderMessage(`❌ Error: ${json.data.errorMessage || 'Unknown error'}`)
           setRendering(false)
         } else if (json.data.status === 'rendering') {
           const pos = json.data.queuePosition
           if (typeof pos === 'number' && pos > 0) {
-            setRenderMessage(`⏳ En file d'attente — position ${pos}. Ton clip sera traité sous peu…`)
+            setRenderMessage(`⏳ In queue — position ${pos}. Your clip will be processed soon.`)
           } else {
-            setRenderMessage('⏳ Rendu en cours... ça peut prendre 30-60 secondes.')
+            setRenderMessage('⏳ Rendering... this may take 30-60 seconds.')
           }
         }
       } catch {
@@ -440,7 +440,7 @@ export default function EnhancePage() {
       }
 
       if (!res.ok || !data.data) {
-        setRenderMessage(data.message ?? 'Erreur lors du rendu')
+        setRenderMessage(data.message ?? 'Render failed')
         setRendering(false)
       } else if (data.data.vpsReady === false) {
         setRenderMessage(`⚠️ ${data.message}`)
@@ -450,14 +450,14 @@ export default function EnhancePage() {
         setRendering(false)
       } else if (data.data.jobId) {
         // Start polling for job completion
-        setRenderMessage('⏳ Rendu en cours... ça peut prendre 30-60 secondes.')
+        setRenderMessage('⏳ Rendering... this may take 30-60 seconds.')
         startPolling(data.data.jobId)
       } else {
-        setRenderMessage('✅ Rendu lancé !')
+        setRenderMessage('✅ Render started!')
         setRendering(false)
       }
     } catch {
-      setRenderMessage('Erreur réseau')
+      setRenderMessage('Network error')
       setRendering(false)
     }
   }, [clip, settings, startPolling])
@@ -588,7 +588,7 @@ export default function EnhancePage() {
       })
       const json = await res.json()
       if (!res.ok || json.error) {
-        setHookError(json.message || json.error || 'Erreur lors de la génération')
+        setHookError(json.message || json.error || 'Error generating hooks')
         setHookGenerating(false)
         return
       }
@@ -602,7 +602,7 @@ export default function EnhancePage() {
         hookReorder: json.data.reorder,
       }))
     } catch {
-      setHookError('Erreur réseau')
+      setHookError('Network error')
     }
     setHookGenerating(false)
   }, [clip, settings.hookLength, settings.hookStyle])
@@ -655,11 +655,11 @@ export default function EnhancePage() {
     return (
       <div className="max-w-md mx-auto py-24 text-center space-y-4">
         <AlertCircle className="h-12 w-12 text-destructive mx-auto" />
-        <p className="text-destructive font-medium">{error ?? 'Clip non trouvé'}</p>
+        <p className="text-destructive font-medium">{error ?? 'Clip not found'}</p>
         <Link href="/dashboard">
           <Button variant="outline" className="gap-2">
             <ChevronLeft className="h-4 w-4" />
-            Retour au feed
+            Back to feed
           </Button>
         </Link>
       </div>
@@ -729,9 +729,9 @@ export default function EnhancePage() {
             disabled={rendering}
           >
             {rendering ? (
-              <><Loader2 className="h-5 w-5 animate-spin" /> Rendu en cours&hellip;</>
+              <><Loader2 className="h-5 w-5 animate-spin" /> Rendering…</>
             ) : (
-              <><Zap className="h-5 w-5" /> Générer le clip</>
+              <><Zap className="h-5 w-5" /> Generate clip</>
             )}
           </Button>
 
@@ -749,15 +749,15 @@ export default function EnhancePage() {
               return (
                 <ErrorCard
                   kind={kind}
-                  title="Le rendu a échoué"
+                  title="Render failed"
                   description={
                     kind === 'timeout'
-                      ? "Le serveur de rendu a pris trop de temps. Ton clip est peut-être trop long — réessaie, ou raccourcis-le."
+                      ? "The render server timed out. Your clip might be too long — try again or shorten it."
                       : kind === 'quota'
-                        ? 'Tu as atteint la limite de rendus de ton plan.'
+                        ? 'You\'ve hit your monthly render limit. Upgrade your plan to continue.'
                         : kind === 'network'
-                          ? 'Vérifie ta connexion internet et réessaie.'
-                          : 'Nos serveurs ont rencontré un problème. Réessaie — si ça persiste, on regarde.'
+                          ? 'Check your internet connection and try again.'
+                          : 'Something went wrong on our end. Try again — if it persists, we\'ll look into it.'
                   }
                   details={cleaned}
                   onRetry={() => {
@@ -766,7 +766,7 @@ export default function EnhancePage() {
                   }}
                   secondaryAction={
                     kind === 'quota'
-                      ? { label: 'Passer à Pro', href: '/settings' }
+                      ? { label: 'Upgrade plan', href: '/settings' }
                       : undefined
                   }
                 />
@@ -791,7 +791,7 @@ export default function EnhancePage() {
                     className="inline-flex items-center justify-center gap-2 w-full h-12 rounded-lg bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white font-bold text-base shadow-lg shadow-green-500/20 transition-all animate-pulse"
                   >
                     <Download className="h-5 w-5" />
-                    Télécharger le clip (avec sous-titres)
+                    Download clip (with captions)
                   </a>
                 )}
                 {renderOriginalUrl && !renderDownloadUrl && (
@@ -802,7 +802,7 @@ export default function EnhancePage() {
                     className="inline-flex items-center gap-2 text-xs text-blue-400 hover:text-blue-300 underline"
                   >
                     <ExternalLink className="h-3 w-3" />
-                    Télécharger le clip original
+                    Download original clip
                   </a>
                 )}
               </div>
@@ -816,12 +816,12 @@ export default function EnhancePage() {
           {(() => {
             const viralBusy = makeViralLoading || pendingAutoRenderRef.current || rendering
             const viralLabel = makeViralLoading
-              ? 'Analyse du clip...'
+              ? 'Analyzing clip...'
               : rendering
-                ? 'Rendu en cours...'
+                ? 'Rendering...'
                 : 'Make it viral'
             const viralSubLabel = makeViralLoading
-              ? 'Hook IA + paramètres optimaux'
+              ? 'AI hook + optimal settings'
               : rendering
                 ? 'Sous-titres + hook + smart zoom'
                 : '1 click = viral clip'
@@ -888,7 +888,7 @@ export default function EnhancePage() {
                 <CardHeader className="pb-3">
                   <CardTitle className="text-base flex items-center gap-2">
                     <Type className="h-4 w-4 text-primary" />
-                    Sous-titres karaoké
+                    Karaoke captions
                   </CardTitle>
                 </CardHeader>
                 {scores && (
@@ -931,17 +931,17 @@ export default function EnhancePage() {
                     </div>
 
                     {settings.captionStyle !== 'none' && <>
-                    {/* Animation intégrée au style — affichage info seulement */}
+                    {/* Animation is part of the style — display info only */}
                     <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-muted/30 border border-border/50">
                       <Zap className="h-3.5 w-3.5 text-muted-foreground" />
-                      <span className="text-xs text-muted-foreground">Animation :</span>
+                      <span className="text-xs text-muted-foreground">Animation:</span>
                       <span className="text-xs font-semibold text-foreground">{CAPTION_STYLES.find(s => s.id === settings.captionStyle)?.animLabel || 'Highlight'}</span>
                     </div>
 
-                    {/* Emphase mots clés */}
+                    {/* Emphasize key words */}
                     <div className="space-y-2">
-                      <Label className="text-xs uppercase tracking-wider text-muted-foreground">Emphase mots clés</Label>
-                      <p className="text-[10px] text-muted-foreground">Effet appliqué aux mots importants détectés</p>
+                      <Label className="text-xs uppercase tracking-wider text-muted-foreground">Keyword emphasis</Label>
+                      <p className="text-[10px] text-muted-foreground">Effect applied to detected important words</p>
                       <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
                         {EMPHASIS_EFFECTS.map((effect) => {
                           const scored = scores.emphasisScores.find((s) => s.id === effect.id)!
@@ -966,11 +966,11 @@ export default function EnhancePage() {
                       </div>
                     </div>
 
-                    {/* Couleur d'emphase — toujours visible, grisé si aucun effet */}
+                    {/* Emphasis color — always visible, disabled if no effect */}
                     <div className={cn('space-y-2 transition-opacity', settings.emphasisEffect === 'none' && 'opacity-40 pointer-events-none')}>
-                      <Label className="text-xs uppercase tracking-wider text-muted-foreground">Couleur d&apos;emphase</Label>
+                      <Label className="text-xs uppercase tracking-wider text-muted-foreground">Emphasis color</Label>
                       {settings.emphasisEffect === 'none' && (
-                        <p className="text-[10px] text-muted-foreground">Sélectionne un effet ci-dessus pour choisir la couleur</p>
+                        <p className="text-[10px] text-muted-foreground">Select an effect above to choose the color</p>
                       )}
                       <div className="flex gap-2">
                         {EMPHASIS_COLORS.map((c) => (
@@ -990,11 +990,11 @@ export default function EnhancePage() {
                       </div>
                     </div>
 
-                    {/* Mots importants — auto-détectés + custom */}
+                    {/* Important words — auto-detected + custom */}
                     <div className="space-y-2">
-                      <Label className="text-xs uppercase tracking-wider text-muted-foreground">Mots importants</Label>
+                      <Label className="text-xs uppercase tracking-wider text-muted-foreground">Important words</Label>
                       <p className="text-[10px] text-muted-foreground">
-                        Mots en <span className="text-red-400 font-bold">rouge</span> dans les sous-titres. Auto-détectés (CAPS, mots viraux) + tes propres mots.
+                        Words in <span className="text-red-400 font-bold">red</span> in the captions. Auto-detected (CAPS, viral words) + your own words.
                       </p>
 
                       {/* Auto-detected words preview */}
@@ -1048,7 +1048,7 @@ export default function EnhancePage() {
                         <input
                           name="newWord"
                           type="text"
-                          placeholder="Ajouter un mot..."
+                          placeholder="Add a word..."
                           className="flex-1 rounded-lg border border-border bg-background px-3 py-1.5 text-xs text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-1 focus:ring-primary/50"
                         />
                         <Button type="submit" size="sm" variant="outline" className="h-7 px-2">
@@ -1063,7 +1063,7 @@ export default function EnhancePage() {
                         <span className="text-xs font-semibold text-foreground">{settings.captionPosition}%</span>
                       </div>
                       <div className="flex items-center gap-3">
-                        <span className="text-[10px] text-muted-foreground whitespace-nowrap">Haut</span>
+                        <span className="text-[10px] text-muted-foreground whitespace-nowrap">Top</span>
                         <input
                           type="range"
                           min={0}
@@ -1073,13 +1073,13 @@ export default function EnhancePage() {
                           onChange={(e) => updateSetting('captionPosition', Number(e.target.value))}
                           className="w-full h-1.5 bg-border rounded-full appearance-none cursor-pointer accent-primary [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3.5 [&::-webkit-slider-thumb]:h-3.5 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-primary [&::-webkit-slider-thumb]:shadow-md"
                         />
-                        <span className="text-[10px] text-muted-foreground whitespace-nowrap">Bas</span>
+                        <span className="text-[10px] text-muted-foreground whitespace-nowrap">Bottom</span>
                       </div>
                       <div className="flex justify-center gap-2">
                         {([
-                          { label: 'Haut', value: 8 },
-                          { label: 'Milieu', value: 42 },
-                          { label: 'Bas', value: 72 },
+                          { label: 'Top', value: 8 },
+                          { label: 'Middle', value: 42 },
+                          { label: 'Bottom', value: 72 },
                         ]).map((preset) => (
                           <button
                             key={preset.label}
@@ -1135,7 +1135,7 @@ export default function EnhancePage() {
                 {scores && (
                   <CardContent className="space-y-5">
                     <div className="space-y-2">
-                      <Label className="text-xs uppercase tracking-wider text-muted-foreground">Vidéo B-roll</Label>
+                      <Label className="text-xs uppercase tracking-wider text-muted-foreground">B-roll video</Label>
                       <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                         {BROLL_OPTIONS.map((broll) => {
                           const scored = scores.brollScores.find((s) => s.id === broll.id)!
@@ -1184,13 +1184,13 @@ export default function EnhancePage() {
                     )}
 
                     <div className="space-y-2">
-                      <Label className="text-xs uppercase tracking-wider text-muted-foreground">Cadrage vidéo</Label>
-                      <p className="text-[10px] text-muted-foreground">Zoom sur la vidéo principale</p>
+                      <Label className="text-xs uppercase tracking-wider text-muted-foreground">Video framing</Label>
+                      <p className="text-[10px] text-muted-foreground">Zoom on main video</p>
                       <div className="grid grid-cols-3 gap-2">
                         {([
-                          { id: 'contain' as const, label: 'Contenir', desc: '100% visible' },
-                          { id: 'fill' as const, label: 'Remplir', desc: 'Zoom subtil' },
-                          { id: 'immersive' as const, label: 'Immersif', desc: 'Zoom moyen' },
+                          { id: 'contain' as const, label: 'Contain', desc: '100% visible' },
+                          { id: 'fill' as const, label: 'Fill', desc: 'Subtle zoom' },
+                          { id: 'immersive' as const, label: 'Immersive', desc: 'Medium zoom' },
                         ]).map((opt) => (
                           <button
                             key={opt.id}
@@ -1236,7 +1236,7 @@ export default function EnhancePage() {
                     <Focus className="h-4 w-4 text-primary" />
                     Smart Zoom
                     <span className="ml-auto text-[10px] font-normal text-muted-foreground bg-primary/10 text-primary px-2 py-0.5 rounded-full border border-primary/20">
-                      Nouveau
+                      New
                     </span>
                   </CardTitle>
                 </CardHeader>
@@ -1253,10 +1253,10 @@ export default function EnhancePage() {
                   >
                     <div>
                       <span className="text-sm font-semibold text-foreground block">
-                        {settings.smartZoomEnabled ? 'Activé' : 'Désactivé'}
+                        {settings.smartZoomEnabled ? 'Enabled' : 'Disabled'}
                       </span>
                       <span className="text-[10px] text-muted-foreground block mt-0.5">
-                        Zoom dynamique pour plus de mouvement & rétention
+                        Dynamic zoom for more movement & retention
                       </span>
                     </div>
                     <div className={cn(
@@ -1279,19 +1279,19 @@ export default function EnhancePage() {
                           {
                             id: 'micro' as const,
                             label: 'Micro zoom',
-                            desc: 'Breathing zoom cinématique (1.05 → 1.21). Subtil et pro.',
+                            desc: 'Breathing zoom cinematic (1.05 → 1.21). Subtle & pro.',
                             badge: 'Safe',
                           },
                           {
                             id: 'dynamic' as const,
-                            label: 'Dynamique',
-                            desc: 'Punch zooms sur pics audio + cooldown 2.5s. Max impact.',
+                            label: 'Dynamic',
+                            desc: 'Punch zooms on audio peaks + 2.5s cooldown. Max impact.',
                             badge: 'New',
                           },
                           {
                             id: 'follow' as const,
                             label: 'Follow face',
-                            desc: 'Suit le visage avec lissage cinématique. Détection auto + pan smooth.',
+                            desc: 'Tracks face with smooth cinematic panning. Auto-detect + smooth pan.',
                             badge: 'New',
                           },
                         ]).map((mode) => (
@@ -1329,7 +1329,7 @@ export default function EnhancePage() {
                     <Volume2 className="h-4 w-4 text-primary" />
                     Audio Enhancement
                     <span className="ml-auto text-[10px] font-normal text-muted-foreground bg-primary/10 text-primary px-2 py-0.5 rounded-full border border-primary/20">
-                      Nouveau
+                      New
                     </span>
                   </CardTitle>
                 </CardHeader>
@@ -1345,10 +1345,10 @@ export default function EnhancePage() {
                   >
                     <div>
                       <span className="text-sm font-semibold text-foreground block">
-                        {settings.audioEnhanceEnabled ? 'Activé' : 'Désactivé'}
+                        {settings.audioEnhanceEnabled ? 'Enabled' : 'Disabled'}
                       </span>
                       <span className="text-[10px] text-muted-foreground block mt-0.5">
-                        Supprime le bruit de fond, normalise le volume (EBU R128)
+                        Removes background noise, normalizes volume (EBU R128)
                       </span>
                     </div>
                     <div className={cn(
@@ -1363,10 +1363,10 @@ export default function EnhancePage() {
                   </button>
                   {settings.audioEnhanceEnabled && (
                     <div className="animate-in fade-in slide-in-from-top-1 text-[10px] text-muted-foreground bg-muted/50 rounded-lg p-3 space-y-1">
-                      <p className="font-medium text-foreground text-xs">Ce que ça fait :</p>
-                      <p>• Filtre passe-haut (80Hz) — supprime les grondements & bruit de fond</p>
-                      <p>• Débruitage FFT — nettoie le bruit résiduel</p>
-                      <p>• Normalisation loudness — volume constant style broadcast</p>
+                      <p className="font-medium text-foreground text-xs">What it does:</p>
+                      <p>• High-pass filter (80Hz) — removes rumble & background noise</p>
+                      <p>• FFT denoising — cleans up residual noise</p>
+                      <p>• Loudness normalization — constant broadcast-style volume</p>
                     </div>
                   )}
                 </CardContent>
@@ -1381,7 +1381,7 @@ export default function EnhancePage() {
                     <Scissors className="h-4 w-4 text-primary" />
                     Auto-Cut Silences
                     <span className="ml-auto text-[10px] font-normal text-muted-foreground bg-primary/10 text-primary px-2 py-0.5 rounded-full border border-primary/20">
-                      Nouveau
+                      New
                     </span>
                   </CardTitle>
                 </CardHeader>
@@ -1397,10 +1397,10 @@ export default function EnhancePage() {
                   >
                     <div>
                       <span className="text-sm font-semibold text-foreground block">
-                        {settings.autoCutEnabled ? 'Activé' : 'Désactivé'}
+                        {settings.autoCutEnabled ? 'Enabled' : 'Disabled'}
                       </span>
                       <span className="text-[10px] text-muted-foreground block mt-0.5">
-                        Coupe automatiquement les silences pour un clip plus punchy
+                        Automatically removes silences for a punchier clip
                       </span>
                     </div>
                     <div className={cn(
@@ -1417,7 +1417,7 @@ export default function EnhancePage() {
                     <div className="space-y-3 animate-in fade-in slide-in-from-top-1">
                       <div>
                         <Label className="text-xs uppercase tracking-wider text-muted-foreground">
-                          Seuil de silence — {settings.autoCutThreshold.toFixed(1)}s
+                          Silence threshold — {settings.autoCutThreshold.toFixed(1)}s
                         </Label>
                         <Slider
                           value={[settings.autoCutThreshold]}
@@ -1428,15 +1428,15 @@ export default function EnhancePage() {
                           className="mt-2"
                         />
                         <div className="flex justify-between text-[9px] text-muted-foreground mt-1">
-                          <span>Agressif (0.3s)</span>
-                          <span>Doux (2s)</span>
+                          <span>Aggressive (0.3s)</span>
+                          <span>Gentle (2s)</span>
                         </div>
                       </div>
                       <div className="text-[10px] text-muted-foreground bg-muted/50 rounded-lg p-3 space-y-1">
-                        <p className="font-medium text-foreground text-xs">Ce que ça fait :</p>
-                        <p>• Détecte les silences entre les mots (via timestamps Whisper)</p>
-                        <p>• Coupe les pauses plus longues que le seuil</p>
-                        <p>• Recale les sous-titres automatiquement</p>
+                        <p className="font-medium text-foreground text-xs">What it does:</p>
+                        <p>• Detects silences between words (via Whisper timestamps)</p>
+                        <p>• Cuts pauses longer than the threshold</p>
+                        <p>• Automatically realigns captions</p>
                       </div>
                     </div>
                   )}
@@ -1452,7 +1452,7 @@ export default function EnhancePage() {
                     <Flame className="h-4 w-4 text-orange-500" />
                     Hook Viral
                     <span className="ml-auto text-[10px] font-normal text-muted-foreground bg-orange-500/10 text-orange-400 px-2 py-0.5 rounded-full border border-orange-500/20">
-                      Nouveau
+                      New
                     </span>
                   </CardTitle>
                 </CardHeader>
@@ -1469,10 +1469,10 @@ export default function EnhancePage() {
                   >
                     <div>
                       <span className="text-sm font-semibold text-foreground block">
-                        {settings.hookEnabled ? 'Activé' : 'Désactivé'}
+                        {settings.hookEnabled ? 'Enabled' : 'Disabled'}
                       </span>
                       <span className="text-[10px] text-muted-foreground block mt-0.5">
-                        Gros moment en premier → contexte après. Loop parfait pour TikTok.
+                        Big moment first → context after. Perfect loop for TikTok.
                       </span>
                     </div>
                     <div className={cn(
@@ -1502,8 +1502,8 @@ export default function EnhancePage() {
                           )}
                         >
                           <Type className="h-4 w-4 mx-auto mb-1 text-orange-400" />
-                          <span className="text-[10px] font-bold text-foreground block">Texte hook</span>
-                          <span className="text-[8px] text-muted-foreground block">Overlay au début</span>
+                          <span className="text-[10px] font-bold text-foreground block">Hook text</span>
+                          <span className="text-[8px] text-muted-foreground block">Overlay at start</span>
                         </button>
                         <button
                           onClick={() => {
@@ -1523,7 +1523,7 @@ export default function EnhancePage() {
                         >
                           <Zap className="h-4 w-4 mx-auto mb-1 text-orange-400" />
                           <span className="text-[10px] font-bold text-foreground block">Moment fort 1er</span>
-                          <span className="text-[8px] text-muted-foreground block">Réordonne le clip</span>
+                          <span className="text-[8px] text-muted-foreground block">Reorder clip</span>
                         </button>
                       </div>
 
@@ -1531,7 +1531,7 @@ export default function EnhancePage() {
                       {settings.hookTextEnabled && (
                         <div className="space-y-2">
                           <div className="flex items-center justify-between">
-                            <Label className="text-xs uppercase tracking-wider text-muted-foreground">Position du texte</Label>
+                            <Label className="text-xs uppercase tracking-wider text-muted-foreground">Text position</Label>
                             <span className="text-xs font-bold text-orange-400">{settings.hookTextPosition}%</span>
                           </div>
                           <Slider
@@ -1543,9 +1543,9 @@ export default function EnhancePage() {
                             className="w-full accent-orange-500 [&::-webkit-slider-thumb]:border-orange-500/50 [&::-moz-range-thumb]:border-orange-500/50"
                           />
                           <div className="flex justify-between text-[9px] text-muted-foreground">
-                            <span>Haut</span>
-                            <span>Centre</span>
-                            <span>Bas</span>
+                            <span>Top</span>
+                            <span>Center</span>
+                            <span>Bottom</span>
                           </div>
                         </div>
                       )}
@@ -1553,7 +1553,7 @@ export default function EnhancePage() {
                       {/* Hook length slider */}
                       <div className="space-y-2">
                         <div className="flex items-center justify-between">
-                          <Label className="text-xs uppercase tracking-wider text-muted-foreground">Durée du hook</Label>
+                          <Label className="text-xs uppercase tracking-wider text-muted-foreground">Hook duration</Label>
                           <span className="text-xs font-bold text-orange-400">{settings.hookLength}s</span>
                         </div>
                         <Slider
@@ -1578,11 +1578,11 @@ export default function EnhancePage() {
                         className="w-full h-10 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white font-bold text-sm gap-2 rounded-xl"
                       >
                         {hookGenerating ? (
-                          <><Loader2 className="h-4 w-4 animate-spin" /> Analyse en cours&hellip;</>
+                          <><Loader2 className="h-4 w-4 animate-spin" /> Analyzing…</>
                         ) : hookAnalysis ? (
-                          <><Wand2 className="h-4 w-4" /> Regénérer les hooks</>
+                          <><Wand2 className="h-4 w-4" /> Regenerate hooks</>
                         ) : (
-                          <><Wand2 className="h-4 w-4" /> Détecter le moment viral</>
+                          <><Wand2 className="h-4 w-4" /> Detect viral moment</>
                         )}
                       </Button>
 
@@ -1599,7 +1599,7 @@ export default function EnhancePage() {
                           {/* Peak info */}
                           <div className="rounded-lg bg-orange-500/5 border border-orange-500/20 p-3">
                             <div className="flex items-center justify-between mb-1">
-                              <span className="text-[10px] uppercase tracking-wider text-orange-400 font-bold">Moment viral détecté</span>
+                              <span className="text-[10px] uppercase tracking-wider text-orange-400 font-bold">Viral moment detected</span>
                               <span className="text-xs font-mono font-bold text-orange-300">
                                 {hookAnalysis.peak.peakTime.toFixed(1)}s
                               </span>
@@ -1643,11 +1643,11 @@ export default function EnhancePage() {
                           </div>
 
                           {/* Style selector */}
-                          <Label className="text-xs uppercase tracking-wider text-muted-foreground">Style du hook</Label>
+                          <Label className="text-xs uppercase tracking-wider text-muted-foreground">Hook style</Label>
                           <div className="grid grid-cols-3 gap-2">
                             {([
-                              { id: 'choc' as const, label: 'Choc', emoji: '💀', desc: 'Max impact' },
-                              { id: 'curiosite' as const, label: 'Curiosité', emoji: '👀', desc: 'Tease la suite' },
+                              { id: 'choc' as const, label: 'Shock', emoji: '💀', desc: 'Max impact' },
+                              { id: 'curiosite' as const, label: 'Curiosity', emoji: '👀', desc: 'Tease the next' },
                               { id: 'suspense' as const, label: 'Suspense', emoji: '⏳', desc: 'Wait for it' },
                             ]).map((style) => (
                               <button
@@ -1673,7 +1673,7 @@ export default function EnhancePage() {
                           </div>
 
                           {/* Hook text variants */}
-                          <Label className="text-xs uppercase tracking-wider text-muted-foreground">Texte du hook</Label>
+                          <Label className="text-xs uppercase tracking-wider text-muted-foreground">Hook text</Label>
                           <div className="space-y-2">
                             {hookAnalysis.hooks.map((hook, i) => (
                               <button
@@ -1693,7 +1693,7 @@ export default function EnhancePage() {
                                   <span className="text-[9px] font-bold text-orange-400 uppercase">{hook.label}</span>
                                   {settings.hookText === hook.text && (
                                     <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-orange-500/20 text-orange-300">
-                                      Sélectionné
+                                      Selected
                                     </span>
                                   )}
                                 </div>
@@ -1704,7 +1704,7 @@ export default function EnhancePage() {
 
                           {/* Custom hook text input */}
                           <div className="space-y-1.5">
-                            <Label className="text-[10px] text-muted-foreground">Ou écris ton propre hook :</Label>
+                            <Label className="text-[10px] text-muted-foreground">Or write your own hook:</Label>
                             <input
                               type="text"
                               value={settings.hookText}

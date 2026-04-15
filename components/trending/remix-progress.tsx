@@ -16,11 +16,11 @@ interface RemixProgressProps {
 }
 
 const STEPS: { id: RemixStep; label: string; icon: typeof Download }[] = [
-  { id: 'download',   label: 'Téléchargement vidéo',   icon: Download },
-  { id: 'transcribe', label: 'Transcription audio',     icon: FileAudio },
-  { id: 'analyze',    label: 'Analyse IA (4 skills)',   icon: Brain },
-  { id: 'clips',      label: 'Génération des clips',    icon: Scissors },
-  { id: 'done',       label: 'Prêt !',                  icon: CheckCircle2 },
+  { id: 'download',   label: 'Downloading video',       icon: Download },
+  { id: 'transcribe', label: 'Transcribing audio',      icon: FileAudio },
+  { id: 'analyze',    label: 'AI analysis (4 skills)',  icon: Brain },
+  { id: 'clips',      label: 'Generating clips',        icon: Scissors },
+  { id: 'done',       label: 'Ready!',                  icon: CheckCircle2 },
 ]
 
 // Simulated progress — in production this would poll the video status
@@ -62,7 +62,7 @@ export function RemixProgress({ active, clipTitle, onClose, error }: RemixProgre
           <div className="flex items-start justify-between mb-3">
             <div className="min-w-0 flex-1 pr-3">
               <p className="text-sm font-semibold text-foreground truncate">
-                Remix en cours
+                Creating remix
               </p>
               <p className="text-xs text-muted-foreground truncate mt-0.5">
                 {clipTitle}
