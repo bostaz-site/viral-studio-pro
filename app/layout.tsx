@@ -9,6 +9,9 @@ const inter = Inter({ subsets: ['latin'], variable: '--font-sans' })
 const siteUrl = 'https://viralanimal.com'
 
 export const metadata: Metadata = {
+  verification: {
+    google: 'vd6ilqum2N1Q0YUJDWzxuyD_Nlv7Km5CfkwRB4Xl5L4',
+  },
   title: {
     default: 'Viral Animal — Turn your streams into viral clips with AI',
     template: '%s | Viral Animal',
