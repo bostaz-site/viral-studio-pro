@@ -157,6 +157,27 @@ export const POST = withAuth(async (request, user) => {
     }
   }
 
+  // Fallback: check videos table directly (user-uploaded videos without a clips row)
+  if (!foundSource) {
+    const { data: video } = await admin
+      .from('videos')
+      .select('id, title, storage_path, duration_seconds')
+      .eq('id', clip_id)
+      .eq('user_id', user.id)
+      .single()
+
+    if (video) {
+      foundSource = 'clips'
+      // Generate a signed URL for the VPS to download from Supabase Storage
+      const { data: signedData } = await admin.storage
+        .from('videos')
+        .createSignedUrl(video.storage_path, 3600) // 1 hour
+      videoUrl = signedData?.signedUrl ?? null
+      clipTitle = video.title
+      clipDuration = video.duration_seconds
+    }
+  }
+
   if (!foundSource || !videoUrl) {
     return NextResponse.json(
       { data: null, error: 'Clip not found', message: 'Clip introuvable' },

@@ -2,7 +2,7 @@
 'use client'
 
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
-import { useParams } from 'next/navigation'
+import { useParams, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import {
   ChevronLeft, Loader2, AlertCircle, Sparkles, Download,
@@ -52,7 +52,9 @@ interface HookAnalysis {
 
 export default function EnhancePage() {
   const params = useParams()
+  const searchParams = useSearchParams()
   const clipId = params.clipId as string
+  const sourceParam = searchParams.get('source') // 'upload' for user-uploaded videos
 
   const [clip, setClip] = useState<TrendingClipData | null>(null)
   const [videoUrl, setVideoUrl] = useState<string | null>(null)
@@ -108,11 +110,57 @@ export default function EnhancePage() {
     hookReorder: null,
   })
 
-  // Load clip data — try trending store first, then Supabase
+  // Load clip data — try uploaded video, trending store, then Supabase trending_clips
   const storeClips = useTrendingStore((s) => s.clips)
 
   useEffect(() => {
     async function loadClip() {
+      const supabase = createClient()
+
+      // 0. If source=upload, load from videos table (user-uploaded clips)
+      if (sourceParam === 'upload') {
+        try {
+          const { data: video, error: videoError } = await supabase
+            .from('videos')
+            .select('id, title, storage_path, status, created_at')
+            .eq('id', clipId)
+            .single()
+
+          if (videoError || !video) throw new Error(videoError?.message || 'Video not found')
+
+          // Get a signed URL for the video preview
+          const { data: signedData } = await supabase.storage
+            .from('videos')
+            .createSignedUrl(video.storage_path, 3600)
+
+          if (signedData?.signedUrl) {
+            setVideoUrl(signedData.signedUrl)
+          }
+
+          const clipData: TrendingClipData = {
+            id: video.id,
+            external_url: video.storage_path, // storage path for render API
+            platform: 'upload',
+            author_name: 'You',
+            author_handle: null,
+            title: video.title || 'Your clip',
+            description: null,
+            niche: null,
+            view_count: null,
+            like_count: null,
+            velocity_score: null,
+            thumbnail_url: null,
+          }
+          setClip(clipData)
+          setLoading(false)
+          return
+        } catch (err) {
+          setError(err instanceof Error ? err.message : 'Failed to load video')
+          setLoading(false)
+          return
+        }
+      }
+
       // 1. Try the trending store (works for seed data + already-fetched clips)
       const storeClip = storeClips.find((c) => c.id === clipId)
       if (storeClip) {
@@ -135,9 +183,8 @@ export default function EnhancePage() {
         return
       }
 
-      // 2. Fallback to Supabase query
+      // 2. Fallback to Supabase query (trending_clips)
       try {
-        const supabase = createClient()
         const { data, error: dbError } = await supabase
           .from('trending_clips')
           .select('*')
@@ -157,7 +204,7 @@ export default function EnhancePage() {
     }
 
     loadClip()
-  }, [clipId, storeClips])
+  }, [clipId, storeClips, sourceParam])
 
   // Resolve direct MP4 URL for live preview (Twitch only)
   useEffect(() => {
@@ -364,7 +411,7 @@ export default function EnhancePage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           clip_id: clip.id,
-          source: 'trending',
+          source: sourceParam === 'upload' ? 'clips' : 'trending',
           settings: {
             captions: {
               enabled: settings.captionsEnabled,

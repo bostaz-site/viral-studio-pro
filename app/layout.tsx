@@ -6,29 +6,29 @@ import { cn } from "@/lib/utils"
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-sans' })
 
-const siteUrl = 'https://viral-studio-pro.netlify.app'
+const siteUrl = 'https://viralanimal.com'
 
 export const metadata: Metadata = {
   title: {
-    default: 'Viral Studio Pro — Turn your streams into viral clips with AI',
-    template: '%s | Viral Studio Pro',
+    default: 'Viral Animal — Turn your streams into viral clips with AI',
+    template: '%s | Viral Animal',
   },
   description: 'Create viral clips from Twitch and YouTube Gaming streams. Karaoke captions, Subway Surfers/Minecraft split-screen, AI viral score. Export to TikTok, Reels, Shorts in 1 click.',
   keywords: ['viral clips', 'Twitch clips', 'stream clips', 'karaoke captions', 'split-screen', 'TikTok clips', 'YouTube Gaming', 'viral clip maker', 'AI', 'gaming', 'streamer'],
-  authors: [{ name: 'Viral Studio Pro' }],
-  creator: 'Viral Studio Pro',
+  authors: [{ name: 'Viral Animal' }],
+  creator: 'Viral Animal',
   metadataBase: new URL(siteUrl),
   openGraph: {
     type: 'website',
     locale: 'en_US',
     url: siteUrl,
-    siteName: 'Viral Studio Pro',
-    title: 'Viral Studio Pro — Turn your streams into viral clips',
+    siteName: 'Viral Animal',
+    title: 'Viral Animal — Turn your streams into viral clips',
     description: 'Create viral clips from Twitch and YouTube Gaming streams. Karaoke captions, automatic split-screen, AI viral score.',
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Viral Studio Pro — Viral clips from your streams',
+    title: 'Viral Animal — Viral clips from your streams',
     description: 'Karaoke captions + split-screen + AI viral score. Export to TikTok, Reels, Shorts in 1 click.',
     creator: '@viralstudiopro',
   },
@@ -48,7 +48,7 @@ export const metadata: Metadata = {
 const orgJsonLd = {
   '@context': 'https://schema.org',
   '@type': 'Organization',
-  name: 'Viral Studio Pro',
+  name: 'Viral Animal',
   url: siteUrl,
   logo: `${siteUrl}/favicon.ico`,
   founder: {
@@ -68,7 +68,7 @@ const orgJsonLd = {
 const jsonLd = {
   '@context': 'https://schema.org',
   '@type': 'SoftwareApplication',
-  name: 'Viral Studio Pro',
+  name: 'Viral Animal',
   applicationCategory: 'MultimediaApplication',
   operatingSystem: 'Web',
   url: siteUrl,
@@ -112,6 +112,7 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning className={cn("font-sans", inter.variable)}>
       <head>
+        <meta name="google-site-verification" content="vd6ilqum2N1Q0YUJDWzxuyD_Nlv7Km5CfkwRB4Xl5L4" />
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
