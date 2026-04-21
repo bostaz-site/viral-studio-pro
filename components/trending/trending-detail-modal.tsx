@@ -74,7 +74,7 @@ export function TrendingDetailModal({ clip, open, onClose, onRemix, remixing }: 
                     {gameLabel}
                   </span>
                 )}
-                <VelocityBadge score={clip.velocity_score} showLabel />
+                <VelocityBadge score={clip.velocity_score} />
               </div>
               <h2 className="text-lg font-bold text-foreground leading-tight">
                 {clip.title ?? 'Stream clip'}
