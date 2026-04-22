@@ -1006,6 +1006,236 @@ router.post('/', async (req, res) => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
+// POST /api/render/preview — Quick 5s low-res FFmpeg preview
+// Same pipeline as full render but: 5s max, 480p, no upload, returns base64 mp4
+// ─────────────────────────────────────────────────────────────────────────────
+
+router.post('/preview', async (req, res) => {
+  const startTime = Date.now();
+  const renderSessionId = uuidv4();
+  let tempDir = null;
+
+  try {
+    const {
+      videoUrl,
+      source = 'trending',
+      clipTitle,
+      clipDuration,
+      wordTimestamps: providedWordTimestamps,
+      settings = {},
+    } = req.body;
+
+    console.log(`[Preview ${renderSessionId}] Starting preview render`);
+
+    if (!videoUrl) {
+      return res.status(400).json({ success: false, error: 'Missing videoUrl' });
+    }
+
+    // Check FFmpeg
+    const ffmpegStatus = await checkFfmpegAvailability();
+    if (!ffmpegStatus.ffmpeg) {
+      return res.status(503).json({ success: false, error: 'FFmpeg not available' });
+    }
+
+    // Create temp dir
+    tempDir = path.join(TEMP_DIR, `preview_${renderSessionId}`);
+    await fs.mkdir(tempDir, { recursive: true });
+
+    // Download source video
+    const inputPath = path.join(tempDir, 'input.mp4');
+    await downloadFromUrl(videoUrl, inputPath);
+
+    // Probe real duration
+    let duration = clipDuration || 0;
+    try {
+      const probe = await execFileAsync('ffprobe', [
+        '-v', 'quiet', '-select_streams', 'v:0',
+        '-show_entries', 'stream=duration',
+        '-of', 'csv=p=0', inputPath,
+      ], { timeout: 10_000 });
+      const probed = parseFloat(probe.stdout.trim());
+      if (Number.isFinite(probed) && probed > 0) duration = probed;
+    } catch {}
+
+    // ── PREVIEW LIMITS: max 5 seconds ──
+    const previewDuration = Math.min(duration, 5);
+
+    // Canvas size — 480p for speed
+    const aspectRatio = settings.format?.aspectRatio || '9:16';
+    let canvasW, canvasH;
+    if (aspectRatio === '9:16') { canvasW = 480; canvasH = 854; }
+    else if (aspectRatio === '1:1') { canvasW = 480; canvasH = 480; }
+    else { canvasW = 854; canvasH = 480; }
+
+    // Prepare captions (ASS) — use provided timestamps only, no Whisper
+    let assFilePath = null;
+    const isSplitScreen = settings.splitScreen?.enabled;
+    const splitScreenForCaptions = isSplitScreen ? { ratio: settings.splitScreen?.ratio || 0.5 } : null;
+
+    if (settings.captions?.enabled && settings.captions?.style !== 'none') {
+      try {
+        const wordTimestamps = providedWordTimestamps || [];
+        const captionStyle = settings.captions.style || 'hormozi';
+        const captionPosition = settings.captions.position || 'bottom';
+        const captionAnim = settings.captions.animation || 'highlight';
+
+        const subtitleOpts = {
+          style: captionStyle,
+          position: captionPosition,
+          canvasWidth: canvasW,
+          canvasHeight: canvasH,
+          splitScreen: splitScreenForCaptions,
+        };
+
+        let assContent = null;
+        if (wordTimestamps.length > 0) {
+          validateWordTimestamps(wordTimestamps);
+          assContent = generateASS(wordTimestamps, {
+            ...subtitleOpts,
+            animation: captionAnim,
+            clipStartTime: 0,
+            wordsPerLine: settings.captions.wordsPerLine || 4,
+            customColors: settings.captions.customColors,
+            customImportantWords: settings.captions.customImportantWords || [],
+            emphasisEffect: settings.captions.emphasisEffect || 'none',
+            emphasisColor: settings.captions.emphasisColor || 'red',
+          });
+        } else if (clipTitle && previewDuration > 0) {
+          assContent = generateStaticASS(clipTitle, previewDuration, {
+            ...subtitleOpts,
+            animation: captionAnim,
+            wordsPerLine: settings.captions.wordsPerLine || 4,
+          });
+        }
+
+        if (assContent) {
+          assFilePath = path.join(tempDir, 'captions.ass');
+          await fs.writeFile(assFilePath, assContent, 'utf-8');
+        }
+      } catch (err) {
+        console.warn(`[Preview ${renderSessionId}] Captions error:`, err.message);
+      }
+    }
+
+    // Prepare split-screen
+    let splitScreenConfig = null;
+    if (settings.splitScreen?.enabled) {
+      const BROLL_DIR = '/opt/viral-studio/broll';
+      const category = settings.splitScreen.brollCategory || 'minecraft';
+      const brollDir = path.join(BROLL_DIR, category);
+
+      const BROLL_COLORS = {
+        'subway-surfers': { color: '1DB954', label: 'SUBWAY SURFERS' },
+        'minecraft-parkour': { color: '5B8731', label: 'MINECRAFT' },
+        'sand-cutting': { color: 'E8A87C', label: 'SATISFYING' },
+        'soap-cutting': { color: 'FF6B8A', label: 'SATISFYING' },
+        'slime-satisfying': { color: '9B59B6', label: 'SATISFYING' },
+      };
+
+      try {
+        await fs.mkdir(brollDir, { recursive: true });
+        const files = await fs.readdir(brollDir);
+        const videos = files.filter(f => /\.(mp4|webm|mkv)$/i.test(f));
+
+        if (videos.length > 0) {
+          const randomVideo = videos[Math.floor(Math.random() * videos.length)];
+          splitScreenConfig = {
+            brollPath: path.join(brollDir, randomVideo),
+            ratio: settings.splitScreen.ratio || 0.5,
+          };
+        } else {
+          const colorInfo = BROLL_COLORS[category] || { color: '333333', label: category.toUpperCase() };
+          const placeholderPath = path.join(tempDir, 'broll_placeholder.mp4');
+          await execFileAsync('ffmpeg', [
+            '-f', 'lavfi',
+            '-i', `color=c=0x${colorInfo.color}:s=${canvasW}x${Math.round(canvasH * 0.5)}:d=${previewDuration}`,
+            '-vf', `drawtext=text='${colorInfo.label}':fontsize=24:fontcolor=white@0.3:x=(w-text_w)/2:y=(h-text_h)/2`,
+            '-c:v', 'libx264', '-preset', 'ultrafast', '-t', String(previewDuration),
+            '-y', placeholderPath,
+          ], { timeout: 15_000 });
+          splitScreenConfig = { brollPath: placeholderPath, ratio: settings.splitScreen.ratio || 0.5 };
+        }
+      } catch (err) {
+        console.warn(`[Preview ${renderSessionId}] Split-screen error:`, err.message);
+      }
+    }
+
+    // Prepare tag overlay
+    let tagConfig = null;
+    if (settings.tag?.enabled && settings.tag?.text) {
+      tagConfig = {
+        text: settings.tag.text,
+        style: settings.tag.style || 'modern',
+        position: settings.tag.position || 'bottom-left',
+      };
+    }
+
+    // ── RENDER (low-res, fast) ──
+    const outputPath = path.join(tempDir, 'preview.mp4');
+
+    await renderClip(inputPath, outputPath, {
+      startTime: 0,
+      endTime: previewDuration,
+      duration: previewDuration,
+      aspectRatio,
+      captions: assFilePath ? { assFilePath, ...settings.captions } : null,
+      watermark: null,
+      plan: 'pro',
+      splitScreen: splitScreenConfig,
+      tag: tagConfig,
+      cropAnchor: settings.format?.cropAnchor || 'center',
+      backgroundBlur: settings.format?.backgroundBlur || false,
+      videoZoom: settings.format?.videoZoom || 'fill',
+      crf: 30, // Lower quality for speed
+      smartZoom: null, // Skip smart zoom for preview
+      hook: settings.hook?.enabled ? {
+        enabled: true,
+        textEnabled: settings.hook.textEnabled !== false,
+        text: settings.hook.text || '',
+        style: settings.hook.style || 'choc',
+        textPosition: settings.hook.textPosition || 15,
+        length: Math.min(settings.hook.length || 1.5, previewDuration),
+        overlayPng: settings.hook.overlayPng || null,
+        overlayCapsuleW: settings.hook.overlayCapsuleW || null,
+        overlayCapsuleH: settings.hook.overlayCapsuleH || null,
+      } : null,
+      audioEnhance: false, // Skip audio enhance for speed
+      // Override resolution for preview
+      previewMode: true,
+      previewWidth: canvasW,
+      previewHeight: canvasH,
+    });
+
+    // Read rendered file and return as base64
+    const videoBuffer = await fs.readFile(outputPath);
+    const base64Video = videoBuffer.toString('base64');
+    const elapsedSeconds = (Date.now() - startTime) / 1000;
+
+    console.log(`[Preview ${renderSessionId}] Done in ${elapsedSeconds.toFixed(1)}s (${(videoBuffer.length / 1024).toFixed(0)}KB)`);
+
+    res.json({
+      success: true,
+      data: {
+        video: base64Video,
+        mimeType: 'video/mp4',
+        duration: previewDuration,
+        resolution: `${canvasW}x${canvasH}`,
+        renderTime: elapsedSeconds,
+      },
+    });
+  } catch (err) {
+    console.error(`[Preview ${renderSessionId}] Error:`, err.message);
+    if (!res.headersSent) {
+      res.status(500).json({ success: false, error: err.message });
+    }
+  } finally {
+    if (tempDir) {
+      fs.rm(tempDir, { recursive: true, force: true }).catch(() => {});
+    }
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
 // POST /api/render/caption — Generate ASS subtitle file
 // ─────────────────────────────────────────────────────────────────────────────
 

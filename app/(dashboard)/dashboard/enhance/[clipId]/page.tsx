@@ -5,7 +5,7 @@ import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 import { useParams, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import {
-  ChevronLeft, Loader2, AlertCircle, Sparkles, Download,
+  ChevronLeft, Loader2, AlertCircle, Sparkles, Download, CheckCircle,
   Type, Wand2, Eye, ExternalLink, Play,
   Monitor, Zap, Send,
   Flame, Focus, X, Plus, Volume2, Scissors,
@@ -516,6 +516,11 @@ export default function EnhancePage() {
   const pendingAutoRenderRef = useRef(false)
   const appliedCaptionStyleRef = useRef<string | null>(null)
 
+  // Preview render state
+  const [previewLoading, setPreviewLoading] = useState(false)
+  const [previewVideoUrl, setPreviewVideoUrl] = useState<string | null>(null)
+  const [previewRenderTime, setPreviewRenderTime] = useState<number | null>(null)
+
   // Mood detection state
   const [detectedMood, setDetectedMood] = useState<ClipMood | null>(null)
   const [moodConfidence, setMoodConfidence] = useState<number>(0)
@@ -645,6 +650,79 @@ export default function EnhancePage() {
     pendingAutoRenderRef.current = true
     setMakeViralLoading(false)
   }, [clip, applyMoodPreset])
+
+  // ── Preview render (real FFmpeg, 5s, 480p) ──
+  const handlePreview = useCallback(async () => {
+    if (!clip) return
+    setPreviewLoading(true)
+    setPreviewVideoUrl(null)
+
+    try {
+      // Build the same settings object as handleRender
+      const previewSettings = {
+        captions: {
+          enabled: settings.captionsEnabled,
+          style: settings.captionStyle,
+          wordsPerLine: settings.wordsPerLine,
+          animation: CAPTION_STYLES.find(s => s.id === settings.captionStyle)?.animation ?? 'highlight',
+          emphasisEffect: settings.emphasisEffect,
+          emphasisColor: settings.emphasisColor,
+          position: settings.captionPosition,
+        },
+        splitScreen: {
+          enabled: settings.splitScreenEnabled,
+          brollCategory: settings.brollVideo,
+          ratio: settings.splitRatio,
+          layout: 'top-bottom',
+        },
+        tag: {
+          enabled: settings.tagStyle !== 'none',
+          text: clip.author_handle ? `@${clip.author_handle}` : (clip.author_name || ''),
+          style: settings.tagStyle,
+        },
+        format: {
+          aspectRatio: settings.aspectRatio,
+          videoZoom: settings.videoZoom,
+        },
+        hook: settings.hookEnabled ? {
+          enabled: true,
+          textEnabled: settings.hookTextEnabled,
+          text: settings.hookText,
+          style: settings.hookStyle,
+          textPosition: settings.hookTextPosition,
+          length: settings.hookLength,
+        } : { enabled: false },
+      }
+
+      const res = await fetch('/api/render/preview', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          videoUrl: clip.external_url,
+          clipTitle: clip.title,
+          clipDuration: clip.duration_seconds,
+          settings: previewSettings,
+        }),
+      })
+
+      const result = await res.json()
+      if (res.ok && result.data?.video) {
+        const blob = new Blob(
+          [Uint8Array.from(atob(result.data.video), c => c.charCodeAt(0))],
+          { type: 'video/mp4' }
+        )
+        const url = URL.createObjectURL(blob)
+        setPreviewVideoUrl(url)
+        setPreviewRenderTime(result.data.renderTime)
+      } else {
+        console.error('[Preview] Failed:', result.error)
+      }
+    } catch (err) {
+      console.error('[Preview] Error:', err)
+    } finally {
+      setPreviewLoading(false)
+    }
+  }, [clip, settings])
 
   // Auto-trigger render once applyBestCombo has propagated the new settings.
   // We wait until settings.captionStyle matches the applied preset AND
@@ -922,15 +1000,15 @@ export default function EnhancePage() {
           {(() => {
             const viralBusy = makeViralLoading || pendingAutoRenderRef.current || rendering
             const viralLabel = makeViralLoading
-              ? 'Analyzing clip mood...'
+              ? 'AI is analyzing your clip...'
               : rendering
                 ? 'Rendering...'
                 : 'Make it viral'
             const viralSubLabel = makeViralLoading
-              ? 'AI mood detection + optimal preset'
+              ? 'Finding the best parameters for this clip'
               : rendering
-                ? 'Sous-titres + hook + smart zoom'
-                : '1 click = mood-optimized viral clip'
+                ? 'Subtitles + hook + smart zoom'
+                : '1 click = AI-optimized viral clip'
             return (
               <button
                 onClick={applyBestCombo}
@@ -957,55 +1035,53 @@ export default function EnhancePage() {
             )
           })()}
 
-          {/* ── Mood selector bar ── */}
-          <div className="flex flex-wrap gap-2">
-            {ALL_MOODS.map((mood) => {
-              const preset = MOOD_PRESETS[mood]
-              const isSelected = selectedMood === mood
-              const isAiDetected = isSelected && moodAiDetected && detectedMood === mood
-              return (
-                <button
-                  key={mood}
-                  onClick={() => handleMoodSelect(mood)}
-                  className={cn(
-                    'relative flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold border transition-all duration-200',
-                    isSelected
-                      ? cn('bg-card/80 shadow-lg', MOOD_COLORS[mood])
-                      : 'bg-card/40 border-border text-muted-foreground hover:text-foreground hover:border-white/20'
-                  )}
-                >
-                  <span>{preset.emoji}</span>
-                  <span>{preset.label}</span>
-                  {isAiDetected && (
-                    <Badge className="ml-1 px-1 py-0 text-[8px] bg-primary/20 text-primary border-primary/30 font-bold">
-                      AI
-                    </Badge>
-                  )}
-                </button>
-              )
-            })}
-          </div>
-
-          {/* ── Mood detection badge ── */}
-          {detectedMood && moodExplanation && (
-            <div className="px-3 py-2.5 rounded-xl border border-border bg-card/40 space-y-1">
-              <div className="flex items-center gap-2">
-                <span className="text-sm">{MOOD_PRESETS[detectedMood].emoji}</span>
-                <span className="text-xs font-bold text-foreground">
-                  {MOOD_PRESETS[detectedMood].label} detected
-                </span>
-                <span className="text-[10px] text-muted-foreground">
-                  — AI confidence: {moodConfidence}%
-                </span>
-              </div>
-              <p className="text-[10px] text-muted-foreground leading-relaxed">
-                {moodExplanation}
+          {/* ── AI optimization badge (no mood details exposed) ── */}
+          {detectedMood && moodAiDetected && (
+            <div className="px-3 py-2.5 rounded-xl border border-primary/20 bg-primary/5 flex items-center gap-2">
+              <Sparkles className="h-4 w-4 text-primary shrink-0" />
+              <p className="text-xs text-foreground">
+                <span className="font-bold">AI-optimized</span>
+                <span className="text-muted-foreground"> — Parameters tuned specifically for this clip</span>
               </p>
-              {secondaryMood && (
-                <p className="text-[10px] text-muted-foreground/70">
-                  Also detected: {MOOD_PRESETS[secondaryMood].emoji} {MOOD_PRESETS[secondaryMood].label}
+            </div>
+          )}
+
+          {/* ── Preview render button ── */}
+          <button
+            onClick={handlePreview}
+            disabled={previewLoading || rendering}
+            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-sm font-semibold text-zinc-300 hover:text-white transition-all disabled:opacity-50"
+          >
+            {previewLoading ? (
+              <><Loader2 className="h-4 w-4 animate-spin" />Generating real preview...</>
+            ) : (
+              <><Eye className="h-4 w-4" />Preview real render (5s)</>
+            )}
+          </button>
+
+          {/* ── Preview video player ── */}
+          {previewVideoUrl && (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-bold text-green-400 flex items-center gap-1.5">
+                  <CheckCircle className="h-3.5 w-3.5" />
+                  Real FFmpeg preview
                 </p>
-              )}
+                {previewRenderTime && (
+                  <p className="text-[10px] text-zinc-500">Rendered in {previewRenderTime.toFixed(1)}s</p>
+                )}
+              </div>
+              <video
+                src={previewVideoUrl}
+                controls
+                autoPlay
+                loop
+                muted
+                className="w-full rounded-xl border border-white/10 max-h-[300px] object-contain bg-black"
+              />
+              <p className="text-[10px] text-zinc-500 text-center">
+                This is what the final render will look like. 480p preview — full render is HD.
+              </p>
             </div>
           )}
 
