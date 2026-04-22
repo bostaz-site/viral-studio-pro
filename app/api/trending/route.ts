@@ -32,73 +32,82 @@ function sanitizeSearch(input: string): string {
  * limit, offset.
  */
 export async function GET(req: NextRequest) {
-  const { searchParams } = new URL(req.url)
-  const niche    = searchParams.get('niche')
-  const platform = searchParams.get('platform')
-  const rawSearch = searchParams.get('search')
-  const sort     = searchParams.get('sort') ?? 'velocity'
-  const duration = searchParams.get('duration')
-  const feed     = searchParams.get('feed')
-  const limit    = Math.min(Math.max(Number(searchParams.get('limit') ?? '50'), 1), 200)
-  const offset   = Math.max(Number(searchParams.get('offset') ?? '0'), 0)
+  try {
+    const { searchParams } = new URL(req.url)
+    const niche    = searchParams.get('niche')
+    const platform = searchParams.get('platform')
+    const rawSearch = searchParams.get('search')
+    const sort     = searchParams.get('sort') ?? 'velocity'
+    const duration = searchParams.get('duration')
+    const feed     = searchParams.get('feed')
+    const limit    = Math.min(Math.max(Number(searchParams.get('limit') ?? '50'), 1), 200)
+    const offset   = Math.max(Number(searchParams.get('offset') ?? '0'), 0)
 
-  const admin = createAdminClient()
-  let query = admin.from('trending_clips').select('*', { count: 'exact' })
+    const admin = createAdminClient()
+    let query = admin.from('trending_clips').select('*', { count: 'exact' })
 
-  if (niche) {
-    const safeNiche = sanitizeSearch(niche)
-    if (safeNiche) query = query.ilike('niche', `%${safeNiche}%`)
-  }
-  if (platform) {
-    if (['twitch', 'youtube_gaming', 'kick'].includes(platform)) {
-      query = query.eq('platform', platform)
+    if (niche) {
+      const safeNiche = sanitizeSearch(niche)
+      if (safeNiche) query = query.ilike('niche', `%${safeNiche}%`)
     }
-  }
-  if (rawSearch) {
-    const safeSearch = sanitizeSearch(rawSearch)
-    if (safeSearch) {
-      query = query.or(`title.ilike.%${safeSearch}%,author_name.ilike.%${safeSearch}%,author_handle.ilike.%${safeSearch}%`)
+    if (platform) {
+      if (['twitch', 'youtube_gaming', 'kick'].includes(platform)) {
+        query = query.eq('platform', platform)
+      }
     }
+    if (rawSearch) {
+      const safeSearch = sanitizeSearch(rawSearch)
+      if (safeSearch) {
+        query = query.or(`title.ilike.%${safeSearch}%,author_name.ilike.%${safeSearch}%,author_handle.ilike.%${safeSearch}%`)
+      }
+    }
+
+    // Duration filter
+    if (duration === 'short') {
+      query = query.lt('duration_seconds', 30)
+    } else if (duration === 'medium') {
+      query = query.gte('duration_seconds', 30).lt('duration_seconds', 60)
+    } else if (duration === 'long') {
+      query = query.gte('duration_seconds', 60)
+    }
+
+    // Feed filter
+    if (feed === 'hot_now') {
+      query = query.eq('feed_category', 'hot_now')
+    } else if (feed === 'early_gem') {
+      query = query.eq('feed_category', 'early_gem')
+    } else if (feed === 'proven') {
+      query = query.eq('feed_category', 'proven')
+    }
+
+    // Sort
+    if (feed === 'recent' || sort === 'date') {
+      query = query.order('clip_created_at', { ascending: false, nullsFirst: false })
+    } else if (sort === 'velocity') {
+      query = query.order('velocity_score', { ascending: false, nullsFirst: false })
+    } else if (sort === 'views') {
+      query = query.order('view_count', { ascending: false, nullsFirst: false })
+    } else {
+      query = query.order('scraped_at', { ascending: false, nullsFirst: false })
+    }
+
+    query = query.range(offset, offset + limit - 1)
+
+    const { data, error, count } = await query
+
+    if (error) {
+      console.error('[Trending API] Supabase error:', error)
+      return NextResponse.json({ data: null, error: 'Fetch failed', message: error.message ?? 'Failed to fetch clips' }, { status: 500 })
+    }
+
+    return NextResponse.json({ data, error: null, message: 'OK', meta: { total: count ?? 0, limit, offset } })
+  } catch (err) {
+    console.error('[Trending API] Unexpected error:', err)
+    return NextResponse.json(
+      { data: null, error: 'Internal server error', message: err instanceof Error ? err.message : 'Unexpected error' },
+      { status: 500 }
+    )
   }
-
-  // Duration filter
-  if (duration === 'short') {
-    query = query.lt('duration_seconds', 30)
-  } else if (duration === 'medium') {
-    query = query.gte('duration_seconds', 30).lt('duration_seconds', 60)
-  } else if (duration === 'long') {
-    query = query.gte('duration_seconds', 60)
-  }
-
-  // Feed filter
-  if (feed === 'hot_now') {
-    query = query.eq('feed_category', 'hot_now')
-  } else if (feed === 'early_gem') {
-    query = query.eq('feed_category', 'early_gem')
-  } else if (feed === 'proven') {
-    query = query.eq('feed_category', 'proven')
-  }
-
-  // Sort
-  if (feed === 'recent' || sort === 'date') {
-    query = query.order('clip_created_at', { ascending: false, nullsFirst: false })
-  } else if (sort === 'velocity') {
-    query = query.order('velocity_score', { ascending: false, nullsFirst: false })
-  } else if (sort === 'views') {
-    query = query.order('view_count', { ascending: false, nullsFirst: false })
-  } else {
-    query = query.order('scraped_at', { ascending: false, nullsFirst: false })
-  }
-
-  query = query.range(offset, offset + limit - 1)
-
-  const { data, error, count } = await query
-
-  if (error) {
-    return NextResponse.json({ data: null, error: 'Fetch failed', message: 'Failed to fetch clips' }, { status: 500 })
-  }
-
-  return NextResponse.json({ data, error: null, message: 'OK', meta: { total: count ?? 0, limit, offset } })
 }
 
 /**

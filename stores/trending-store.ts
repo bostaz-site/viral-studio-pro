@@ -234,6 +234,13 @@ export const useTrendingStore = create<TrendingState>((set, get) => ({
     try {
       const params = new URLSearchParams({ sort: state.filters.sort, limit: '200' })
       const res = await fetch(`/api/trending?${params}`)
+
+      // Handle non-JSON responses (e.g. Netlify 500 returning plain text)
+      const contentType = res.headers.get('content-type') ?? ''
+      if (!contentType.includes('application/json')) {
+        throw new Error('Server error — clips are loading from cache')
+      }
+
       const json = await res.json() as { data: TrendingClip[] | null; error: string | null; meta?: { total: number } }
 
       if (!res.ok || json.error) throw new Error(json.error ?? 'Network error')
