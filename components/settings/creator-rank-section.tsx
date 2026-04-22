@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useAccountStore } from '@/stores/account-store'
-import { CREATOR_RANK_CONFIG } from '@/lib/scoring/account-scorer'
+import { CREATOR_RANK_CONFIG, type CreatorRank } from '@/lib/scoring/account-scorer'
 import { cn } from '@/lib/utils'
 
 function ScoreBar({ label, score, color, icon: Icon }: {
@@ -29,6 +29,31 @@ function ScoreBar({ label, score, color, icon: Icon }: {
   )
 }
 
+const RANK_MESSAGES: Record<CreatorRank, string> = {
+  newcomer: "Everyone starts here. Connect your accounts and start climbing. \u{1F331}",
+  creator: "You're building momentum. Your breakout is coming. \u2728",
+  trending_creator: "The algorithm is starting to notice you. \u{1F525}",
+  viral_creator: "You've cracked the code. Your content consistently outperforms. \u26A1",
+  elite_creator: "Top 5% of creators. You don't follow trends, you SET them. \u{1F48E}",
+  legendary: "You're the algorithm's favorite. Everything you post has viral DNA. \u{1F410}",
+  hidden_gem: "Your content is INSANE for your audience size. You're criminally underrated. \u{1F525}",
+}
+
+function getRankCardStyle(rank: CreatorRank): string {
+  switch (rank) {
+    case 'legendary':
+      return 'border-[#FF4500]/50 shadow-lg shadow-[#FF4500]/10 bg-gradient-to-br from-card via-card to-[#FF4500]/5'
+    case 'elite_creator':
+      return 'border-[#7DF9FF]/40 shadow-lg shadow-[#7DF9FF]/10 bg-gradient-to-br from-card via-card to-[#7DF9FF]/5'
+    case 'hidden_gem':
+      return 'border-orange-500/40 shadow-lg shadow-orange-500/10 bg-gradient-to-br from-card via-card to-orange-500/5'
+    case 'viral_creator':
+      return 'border-[#FFD700]/30 shadow-md shadow-[#FFD700]/5'
+    default:
+      return 'border-border'
+  }
+}
+
 function formatTimeAgo(dateStr: string | null): string {
   if (!dateStr) return 'never'
   const diff = (Date.now() - new Date(dateStr).getTime()) / 1000
@@ -36,6 +61,15 @@ function formatTimeAgo(dateStr: string | null): string {
   if (diff < 3600) return `${Math.floor(diff / 60)}m ago`
   if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`
   return `${Math.floor(diff / 86400)}d ago`
+}
+
+function nextSyncLabel(lastSyncedAt: string | null): string {
+  if (!lastSyncedAt) return ''
+  const synced = new Date(lastSyncedAt)
+  const nextSync = new Date(synced.getTime() + 24 * 3600 * 1000)
+  const hoursLeft = Math.max(0, Math.ceil((nextSync.getTime() - Date.now()) / 3600000))
+  if (hoursLeft <= 0) return ''
+  return `Next sync in ${hoursLeft}h`
 }
 
 function formatCount(n: number): string {
@@ -75,7 +109,7 @@ export function CreatorRankSection() {
   const hasScore = score != null
 
   return (
-    <Card className="border-border">
+    <Card className={cn(getRankCardStyle(rank))}>
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
           <h3 className="text-lg font-semibold text-foreground">Creator Rank</h3>
@@ -100,15 +134,22 @@ export function CreatorRankSection() {
         {/* Rank badge + score */}
         {hasScore ? (
           <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2">
+            <div className={cn(
+              'w-16 h-16 rounded-2xl flex items-center justify-center shrink-0',
+              rank === 'legendary' && 'bg-gradient-to-br from-[#FF4500]/20 to-[#FFD700]/20 shadow-inner',
+              rank === 'elite_creator' && 'bg-gradient-to-br from-[#7DF9FF]/20 to-[#4169E1]/20 shadow-inner',
+              rank === 'hidden_gem' && 'bg-gradient-to-br from-orange-500/20 to-red-500/20 shadow-inner',
+              rank === 'viral_creator' && 'bg-[#FFD700]/10',
+              !['legendary', 'elite_creator', 'hidden_gem', 'viral_creator'].includes(rank) && 'bg-muted/30',
+            )}>
               <span className="text-3xl">{rankCfg.emoji}</span>
-              <div>
-                <p className={cn('text-lg font-bold', rankCfg.color)}>{rankCfg.label}</p>
-                <p className="text-xs text-muted-foreground">Score: {score.creator_score}/100</p>
-              </div>
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className={cn('text-lg font-bold', rankCfg.color)}>{rankCfg.label}</p>
+              <p className="text-2xl font-black text-foreground tabular-nums">{score.creator_score}<span className="text-sm font-normal text-muted-foreground">/100</span></p>
             </div>
             {username && (
-              <Badge variant="outline" className="ml-auto text-xs">
+              <Badge variant="outline" className="ml-auto text-xs shrink-0">
                 YouTube: {username}
               </Badge>
             )}
@@ -121,11 +162,18 @@ export function CreatorRankSection() {
           </div>
         )}
 
+        {/* Motivational message */}
+        {hasScore && (
+          <p className="text-xs text-center text-muted-foreground italic">
+            {RANK_MESSAGES[rank]}
+          </p>
+        )}
+
         {/* Hidden Gem banner */}
         {rank === 'hidden_gem' && (
           <div className="px-3 py-2.5 rounded-xl border border-orange-500/30 bg-orange-500/5">
             <p className="text-xs font-bold text-orange-400">
-              🔥 Hidden Gem — Your content outperforms your audience size. You're underrated!
+              Hidden Gem detected — Your content outperforms your audience size. You're about to explode.
             </p>
           </div>
         )}
@@ -172,10 +220,11 @@ export function CreatorRankSection() {
           </p>
         )}
 
-        {/* Last synced */}
+        {/* Last synced + next sync */}
         {lastSyncedAt && (
           <p className="text-[10px] text-muted-foreground text-center">
             Last synced: {formatTimeAgo(lastSyncedAt)}
+            {!canSyncToday && <span className="ml-2">&middot; {nextSyncLabel(lastSyncedAt)}</span>}
           </p>
         )}
 

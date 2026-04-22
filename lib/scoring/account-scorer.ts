@@ -115,7 +115,7 @@ function classifyCreatorRank(
   performanceScore: number,
   audienceScore: number
 ): CreatorRank {
-  if (performanceScore > 80 && audienceScore < 20) return 'hidden_gem'
+  if (performanceScore > 80 && audienceScore < 55) return 'hidden_gem'
   if (score >= 90) return 'legendary'
   if (score >= 80) return 'elite_creator'
   if (score >= 60) return 'viral_creator'

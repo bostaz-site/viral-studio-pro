@@ -40,6 +40,8 @@ viral-studio-pro/
 │   │   ├── upload/               # Upload de clip
 │   │   ├── clips/                # CRUD clips
 │   │   ├── render/               # Trigger FFmpeg (Railway VPS)
+│   │   ├── account/sync/         # Creator Rank — sync YouTube stats + score
+│   │   ├── social-accounts/      # GET connected accounts
 │   │   ├── cron/fetch-twitch-clips/ # Fetch clips Twitch
 │   │   ├── cron/rescore-clips/   # Cron stratifie — re-scoring dynamique V2
 │   │   └── streams/refresh/      # Refresh clips streamers
@@ -337,16 +339,22 @@ Fichier principal : `lib/scoring/account-scorer.ts`
 Route API : `app/api/account/sync/route.ts`
 Store : `stores/account-store.ts`
 UI : `components/settings/creator-rank-section.tsx`
+Migration : `supabase/migrations/20260422_creator_ranking.sql`
 
 ### 5 Facteurs
 
 | # | Facteur | Poids | Ce qu'il mesure |
 |---|---------|-------|-----------------|
-| 1 | **Performance** | 30% | Median views / followers (ajuste par shorts_ratio) |
-| 2 | **Engagement** | 20% | Median (likes+comments)/views des 20 dernieres videos |
-| 3 | **Growth** | 20% | Croissance followers 30 jours (log scale) |
-| 4 | **Audience** | 15% | Taille absolue en log10 (100→20, 1K→40, 10K→60, 100K→80) |
-| 5 | **Consistency** | 15% | Jours depuis le dernier post (<7j=100, >30j=~5) |
+| 1 | **Performance** | 30% | Median views / followers (ajuste par shorts_ratio). Ratio cap a 3.0. shorts_ratio > 0.8 → seuils plus exigeants (×33 vs ×67). 0 followers → score neutre 20. |
+| 2 | **Engagement** | 20% | Median (likes+comments)/views des 20 dernieres videos. Seuils ajustes par format : shorts > 0.8 → excellent = 8%, sinon excellent = 5%. |
+| 3 | **Growth** | 20% | Croissance followers 30 jours (log scale) : log(1 + growth_percent) × 20. null → 0, negatif → score bas. |
+| 4 | **Audience** | 15% | Taille absolue en log10 : log10(followers) × 20. 100→20, 1K→40, 10K→60, 100K→80, 1M→100. |
+| 5 | **Consistency** | 15% | Jours depuis le dernier post : <7j=100, 7-14j=75, 14-30j decline, >30j=quasi zero. |
+
+### Formule finale
+```
+creator_score = performance×0.30 + engagement×0.20 + growth×0.20 + audience×0.15 + consistency×0.15
+```
 
 ### Ranks
 
@@ -358,12 +366,48 @@ UI : `components/settings/creator-rank-section.tsx`
 | 60-79 | Viral Creator | 🥇 |
 | 80-89 | Elite Creator | 💎 |
 | 90+ | Legendary | 👑 |
-| Performance > 80 + Audience < 20 | Hidden Gem | 🔥 |
+| Performance > 80 + Audience < 55 | Hidden Gem | 🔥 |
+
+Note : Hidden Gem est evalue AVANT les seuils de score (priorite sur legendary/elite). Audience < 55 correspond a environ < 1K followers.
+
+### API Route — POST /api/account/sync
+
+1. Verifie auth (user connecte)
+2. Rate limit : 1 sync par 24h (check `sync_count_today` et `last_sync_date`)
+3. Recupere le connected account YouTube du user dans `social_accounts`
+4. Refresh token OAuth YouTube si expire (via `getValidToken`)
+5. Appels YouTube Data API :
+   - `channels.list?part=snippet,statistics&mine=true` → subscribers, viewCount, videoCount
+   - `search.list?forMine=true&type=video&order=date&maxResults=20` → IDs des 20 dernieres videos (90 jours)
+   - `videos.list?part=statistics,contentDetails,snippet&id={ids}` → stats par video
+6. Calcule : median_views, engagement_rate, shorts_ratio, days_since_last_post, growth_percent_30d
+7. Appelle `scoreAccount()` → creator_score + creator_rank + sous-scores
+8. Update `social_accounts` avec stats + score + rank
+9. Insert snapshot dans `account_snapshots` (weekly si >7j depuis le dernier weekly, sinon daily)
+10. Retourne le score complet
 
 ### Tables DB
 
-- `social_accounts` : colonnes ajoutees (followers, total_views, video_count, creator_score, creator_rank, etc.)
-- `account_snapshots` : historique quotidien/hebdomadaire pour calculer la croissance
+**social_accounts** — colonnes ajoutees :
+- `followers`, `total_views`, `video_count`, `avg_views_per_video`, `median_views_per_video`
+- `engagement_rate`, `creator_score`, `creator_rank`, `primary_niche`
+- `last_synced_at`, `sync_count_today`, `last_sync_date`
+
+**account_snapshots** — historique quotidien/hebdomadaire :
+- `account_id`, `platform`, `followers`, `total_views`, `video_count`
+- `avg_views_per_video`, `median_views_per_video`, `engagement_rate`
+- `creator_score`, `creator_rank`, `snapshot_type` (daily|weekly), `captured_at`
+
+### UI (Settings)
+
+- Grand badge du rank avec effets visuels (glow pour Elite, gradient pour Legendary)
+- Score /100 affiche en grand
+- 5 barres de progression colorees (Performance, Engagement, Growth, Audience, Consistency)
+- Message motivant selon le rank
+- Stats rapides (Subscribers, Median views, Videos)
+- Breakdown par plateforme : YouTube (connecte), TikTok (coming soon), Instagram (coming soon)
+- Bouton "Sync Now" (desactive si deja synced + "Next sync in Xh")
+- Sidebar : petit badge rank cliquable → mene a Settings
 
 ### Phases
 
