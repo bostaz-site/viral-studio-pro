@@ -4,8 +4,9 @@ import { Search, X } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
+import { NICHE_LABELS } from '@/lib/trending/constants'
 
-export type SortOption = 'velocity' | 'views' | 'date'
+export type SortOption = 'velocity' | 'date'
 
 export interface TrendingFiltersState {
   search: string
@@ -29,22 +30,6 @@ interface TrendingFiltersProps {
   maxNichePills?: number
 }
 
-// Friendly labels for common niches — falls back to capitalized key.
-const NICHE_LABELS: Record<string, string> = {
-  irl: 'IRL',
-  just_chatting: 'Just Chatting',
-  fps: 'FPS',
-  moba: 'MOBA',
-  rpg: 'RPG',
-  slots: 'Slots',
-  music: 'Music',
-  sports: 'Sports',
-  fighting: 'Fighting',
-  racing: 'Racing',
-  creative: 'Creative',
-  variety: 'Variety',
-}
-
 function formatNicheLabel(id: string): string {
   if (NICHE_LABELS[id]) return NICHE_LABELS[id]
   return id
@@ -54,13 +39,11 @@ function formatNicheLabel(id: string): string {
 }
 
 const PLATFORMS = [
-  { id: 'twitch',         label: 'Twitch' },
-  { id: 'youtube_gaming', label: 'YouTube Gaming' },
+  { id: 'twitch', label: 'Twitch' },
 ]
 
 const SORT_OPTIONS: { value: SortOption; label: string }[] = [
-  { value: 'velocity', label: 'Velocity' },
-  { value: 'views',    label: 'Vues' },
+  { value: 'velocity', label: 'Algo Score' },
   { value: 'date',     label: 'Date' },
 ]
 
@@ -93,7 +76,7 @@ export function TrendingFilters({
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Rechercher un streamer, un clip…"
+            placeholder="Search a streamer, clip..."
             value={filters.search}
             onChange={(e) => onChange({ ...filters, search: e.target.value })}
             className="pl-9 h-9 bg-background/50"
@@ -135,14 +118,10 @@ export function TrendingFilters({
             onClick={() => onChange({ search: '', games: [], platforms: [], sort: filters.sort })}
           >
             <X className="h-3.5 w-3.5" />
-            Effacer
+            Clear
           </Button>
         )}
 
-        {/* Count */}
-        <span className="text-xs text-muted-foreground ml-auto shrink-0">
-          {filteredCount < totalCount ? `${filteredCount} / ${totalCount}` : totalCount} clips
-        </span>
       </div>
 
       {/* Platform pills */}

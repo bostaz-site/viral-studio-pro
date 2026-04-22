@@ -96,16 +96,16 @@ export function ExitIntentPopup() {
         })
         setMessage(
           data.data?.alreadySubscribed
-            ? 'Tu es déjà dans la liste. Télécharge le guide direct ci-dessous.'
-            : 'Merci ! Le guide est prêt à télécharger ci-dessous.',
+            ? 'Already on the list. Download the guide below.'
+            : 'Thanks! Guide is ready to download.',
         )
       } else {
         setStatus('error')
-        setMessage(data.message ?? 'Erreur, réessaie dans un instant.')
+        setMessage(data.message ?? 'Error, try again in a moment.')
       }
     } catch {
       setStatus('error')
-      setMessage('Erreur réseau. Réessaie.')
+      setMessage('Network error. Try again.')
     }
   }
 
@@ -128,7 +128,7 @@ export function ExitIntentPopup() {
             setOpen(false)
             track('exit_intent_dismissed')
           }}
-          aria-label="Fermer"
+          aria-label="Close"
           className="absolute top-4 right-4 text-muted-foreground hover:text-foreground transition-colors"
         >
           <X className="h-5 w-5" />
@@ -140,7 +140,7 @@ export function ExitIntentPopup() {
               <Check className="h-6 w-6 text-emerald-400" />
             </div>
             <div className="space-y-1">
-              <h2 className="text-xl font-bold">C&apos;est parti !</h2>
+              <h2 className="text-xl font-bold">You&apos;re in!</h2>
               <p className="text-sm text-muted-foreground">{message}</p>
             </div>
             <a
@@ -149,23 +149,23 @@ export function ExitIntentPopup() {
               className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 px-4 py-2.5 text-sm font-semibold text-white hover:from-blue-700 hover:to-indigo-700"
             >
               <Download className="h-4 w-4" />
-              Télécharger le guide (PDF)
+              Download Guide (PDF)
             </a>
           </div>
         ) : (
           <>
             <div className="mb-2 inline-flex items-center gap-1.5 rounded-full border border-amber-500/30 bg-amber-500/10 px-2.5 py-0.5 text-xs font-semibold text-amber-400">
               <Sparkles className="h-3 w-3" />
-              Gratuit
+              Free
             </div>
 
             <h2 id="exit-intent-title" className="text-2xl font-black tracking-tight text-foreground">
-              Attends — prends ça avant de partir
+              Hold up—grab this before you go
             </h2>
             <p className="mt-2 text-sm text-muted-foreground">
-              Le guide PDF des <strong className="text-foreground">10 hooks viraux</strong> qui
-              font x3 sur la rétention TikTok. Utilisé par les plus gros clippeurs Twitch.
-              Envoyé direct dans ta boîte.
+              The PDF guide: <strong className="text-foreground">10 Viral Hooks</strong> that
+              drive 3x TikTok retention. Used by top Twitch clippers.
+              Straight to your inbox.
             </p>
 
             <form onSubmit={handleSubmit} className="mt-5 space-y-3">
@@ -173,7 +173,7 @@ export function ExitIntentPopup() {
                 type="email"
                 required
                 autoFocus
-                placeholder="ton@email.com"
+                placeholder="your@email.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 disabled={status === 'submitting'}
@@ -187,10 +187,10 @@ export function ExitIntentPopup() {
                 {status === 'submitting' ? (
                   <>
                     <Loader2 className="h-4 w-4 animate-spin" />
-                    Envoi…
+                    Sending…
                   </>
                 ) : (
-                  'Envoie-moi le guide'
+                  'Send Me the Guide'
                 )}
               </button>
               {status === 'error' && message && (
@@ -199,7 +199,7 @@ export function ExitIntentPopup() {
                 </p>
               )}
               <p className="text-[10px] text-muted-foreground/60 text-center">
-                Pas de spam. Désinscription en 1 clic.
+                No spam. Unsubscribe in 1 click.
               </p>
             </form>
           </>

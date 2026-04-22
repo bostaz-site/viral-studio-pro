@@ -85,8 +85,6 @@ function filterAndSortClips(clips: TrendingClip[], filters: TrendingFiltersState
 
   if (filters.sort === 'velocity') {
     result.sort((a, b) => (b.velocity_score ?? 0) - (a.velocity_score ?? 0))
-  } else if (filters.sort === 'views') {
-    result.sort((a, b) => (b.view_count ?? 0) - (a.view_count ?? 0))
   } else {
     result.sort((a, b) => new Date(b.scraped_at ?? 0).getTime() - new Date(a.scraped_at ?? 0).getTime())
   }
@@ -169,7 +167,7 @@ export const useTrendingStore = create<TrendingState>((set, get) => ({
       const res = await fetch(`/api/trending?${params}`)
       const data = await res.json() as { data: TrendingClip[] | null; error: string | null }
 
-      if (!res.ok || data.error) throw new Error(data.error ?? 'Erreur réseau')
+      if (!res.ok || data.error) throw new Error(data.error ?? 'Network error')
 
       const prevClips = state.clips
       let clips: TrendingClip[]
@@ -214,7 +212,7 @@ export const useTrendingStore = create<TrendingState>((set, get) => ({
       get().applyFilters()
     } catch (err) {
       set({
-        error: err instanceof Error ? err.message : 'Erreur inconnue',
+        error: err instanceof Error ? err.message : 'Unknown error',
         clips: SEED_CLIPS,
         usingSeed: true,
       })

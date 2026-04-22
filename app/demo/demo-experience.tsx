@@ -33,29 +33,29 @@ interface DemoClip {
 const DEMO_CLIPS: DemoClip[] = [
   {
     id: 'clutch',
-    title: 'Le clutch 1v5 impossible',
+    title: 'The impossible 1v5 clutch',
     streamer: '@kameto',
     game: 'Valorant',
     accent: 'from-indigo-900/60 to-violet-900/40',
-    line: { pre: "C'est", hit: 'ABSOLUMENT', post: 'incroyable' },
+    line: { pre: "This is", hit: 'ABSOLUTELY', post: 'insane' },
     score: 91,
   },
   {
     id: 'wipeout',
-    title: 'La chute la plus drôle de 2026',
+    title: 'The funniest fall of 2026',
     streamer: '@zerator',
     game: 'Fall Guys',
     accent: 'from-emerald-900/60 to-teal-900/40',
-    line: { pre: 'Non mais', hit: 'REGARDE', post: 'ça' },
+    line: { pre: 'But like', hit: 'LOOK', post: 'at this' },
     score: 84,
   },
   {
     id: 'reveal',
-    title: 'Il a pas cru ce qu\'il voyait',
+    title: 'He couldn\'t believe what he saw',
     streamer: '@gotaga',
     game: 'League of Legends',
     accent: 'from-fuchsia-900/60 to-rose-900/40',
-    line: { pre: 'Attends', hit: 'COMMENT', post: 'c\'est possible ?!' },
+    line: { pre: 'Wait', hit: 'HOW', post: 'is that even possible?!' },
     score: 88,
   },
 ]
@@ -77,7 +77,7 @@ const CAPTION_STYLES: CaptionStyleConfig[] = [
   {
     id: 'hormozi',
     name: 'Hormozi',
-    description: 'Gros, jaune, impact maximum.',
+    description: 'Bold, yellow, maximum impact.',
     baseClass: 'text-white font-black uppercase tracking-wider',
     hitClass: 'text-yellow-400',
     wrapperClass: 'drop-shadow-[0_2px_4px_rgba(0,0,0,0.95)]',
@@ -85,15 +85,15 @@ const CAPTION_STYLES: CaptionStyleConfig[] = [
   {
     id: 'hormozi_purple',
     name: 'Hormozi Purple',
-    description: 'Identité Viral Studio, violet punchy.',
+    description: 'Viral Studio branding, punchy violet.',
     baseClass: 'text-white font-black uppercase tracking-wider',
     hitClass: 'text-violet-400',
     wrapperClass: 'drop-shadow-[0_2px_4px_rgba(0,0,0,0.95)]',
   },
   {
     id: 'karaoke',
-    name: 'Karaoké',
-    description: 'Mot par mot, classique TikTok.',
+    name: 'Karaoke',
+    description: 'Word-by-word, classic TikTok style.',
     baseClass: 'text-white font-extrabold',
     hitClass: 'text-emerald-400',
     wrapperClass:
@@ -102,7 +102,7 @@ const CAPTION_STYLES: CaptionStyleConfig[] = [
   {
     id: 'minimal',
     name: 'Minimal',
-    description: 'Sobre, bas de l\'écran, pas envahissant.',
+    description: 'Clean, bottom of screen, non-intrusive.',
     baseClass: 'text-white font-semibold',
     hitClass: 'text-white underline decoration-2',
     wrapperClass: 'drop-shadow-[0_2px_4px_rgba(0,0,0,0.9)]',
@@ -157,12 +157,12 @@ export function DemoExperience() {
           <div className="flex items-center gap-3">
             <Link href="/pricing">
               <Button variant="ghost" size="sm">
-                Tarifs
+                Pricing
               </Button>
             </Link>
             <Link href="/signup">
               <Button size="sm" className="gap-1.5">
-                Essai gratuit
+                Free trial
                 <ChevronRight className="h-3.5 w-3.5" />
               </Button>
             </Link>
@@ -178,23 +178,21 @@ export function DemoExperience() {
             className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors mb-6"
           >
             <ArrowLeft className="h-3.5 w-3.5" />
-            Retour à l&apos;accueil
+            Back to home
           </Link>
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-emerald-500/30 bg-emerald-500/5 text-xs font-semibold text-emerald-400 mb-5">
             <Sparkles className="h-3 w-3" />
-            Démo live — aucun compte requis
+            Live demo — no signup required
           </div>
           <h1 className="text-4xl sm:text-5xl font-black tracking-tight leading-[1.1] mb-4">
-            Teste sans t&apos;inscrire.
+            Try without signing up.
             <br />
             <span className="bg-gradient-to-r from-blue-500 to-indigo-600 bg-clip-text text-transparent">
-              Change les options, regarde le rendu.
+              Change the options, watch the render.
             </span>
           </h1>
           <p className="text-lg text-muted-foreground max-w-2xl mx-auto leading-relaxed">
-            Clique sur un clip, change le style des sous-titres, active le
-            split-screen. C&apos;est exactement ce que tu obtiens dans
-            l&apos;app — en vrai format vertical 9:16.
+            Click a clip, change caption style, enable split-screen. This is exactly what you get in the app — real 9:16 vertical format.
           </p>
         </div>
       </section>
@@ -217,8 +215,8 @@ export function DemoExperience() {
             {/* Clip picker */}
             <ControlCard
               icon={<Sparkles className="h-4 w-4" />}
-              title="1. Choisis un clip"
-              subtitle="Trois moments pris de vrais streams"
+              title="1. Pick a clip"
+              subtitle="Three moments from real streams"
             >
               <div className="space-y-2">
                 {DEMO_CLIPS.map((c) => (
@@ -253,8 +251,8 @@ export function DemoExperience() {
             {/* Caption style */}
             <ControlCard
               icon={<Type className="h-4 w-4" />}
-              title="2. Style des sous-titres"
-              subtitle="Preview live dans le téléphone"
+              title="2. Caption style"
+              subtitle="Live preview in the phone"
             >
               <div className="grid grid-cols-2 gap-2">
                 {CAPTION_STYLES.map((s) => (
@@ -280,19 +278,19 @@ export function DemoExperience() {
             {/* Toggles */}
             <ControlCard
               icon={<Layers className="h-4 w-4" />}
-              title="3. Options de rendu"
-              subtitle="Tout est inclus gratuitement"
+              title="3. Render options"
+              subtitle="Everything included free"
             >
               <div className="space-y-2">
                 <ToggleRow
                   label="Split-screen (Subway Surfers)"
-                  description="Gameplay satisfaisant en bas"
+                  description="Satisfying gameplay at the bottom"
                   value={splitScreen}
                   onChange={handleSplitToggle}
                 />
                 <ToggleRow
-                  label="Score viral IA"
-                  description="Badge avec score 0-100"
+                  label="AI viral score"
+                  description="Badge with score 0-100"
                   value={showScore}
                   onChange={setShowScore}
                 />
@@ -306,10 +304,9 @@ export function DemoExperience() {
                   <Zap className="h-4 w-4 text-primary" />
                 </div>
                 <div>
-                  <p className="text-sm font-bold">Tu veux le vrai ?</p>
+                  <p className="text-sm font-bold">Want the real deal?</p>
                   <p className="text-xs text-muted-foreground mt-0.5">
-                    3 clips par mois offerts, sans carte bancaire. Split-screen
-                    inclus sur tous les plans.
+                    3 free clips per month, no card required. Split-screen included on all plans.
                   </p>
                 </div>
               </div>
@@ -319,7 +316,7 @@ export function DemoExperience() {
                 onClick={() => track('demo_cta_click', { location: 'sidebar' })}
               >
                 <Button size="sm" className="w-full gap-1.5">
-                  Commencer gratuitement
+                  Start free
                   <ChevronRight className="h-3.5 w-3.5" />
                 </Button>
               </Link>
@@ -331,9 +328,9 @@ export function DemoExperience() {
       {/* Trust strip */}
       <section className="py-12 px-6 border-t border-border bg-card/30">
         <div className="max-w-4xl mx-auto grid gap-6 sm:grid-cols-3 text-center">
-          <Stat value="< 5 min" label="Du clip brut au rendu final" />
-          <Stat value="9 styles" label="Sous-titres karaoké disponibles" />
-          <Stat value="0 $" label="Pour commencer, sans carte" />
+          <Stat value="< 5 min" label="From raw clip to final render" />
+          <Stat value="9 styles" label="Karaoke captions available" />
+          <Stat value="0 $" label="To get started, no card" />
         </div>
       </section>
 
@@ -341,17 +338,14 @@ export function DemoExperience() {
       <footer className="border-t border-border py-8 px-6">
         <div className="max-w-4xl mx-auto flex flex-wrap items-center justify-between gap-4 text-xs text-muted-foreground">
           <p>
-            Viral Studio Pro — Transformez vos clips Twitch en vidéos virales
+            Viral Studio Pro — Turn your Twitch clips into viral videos
           </p>
           <div className="flex items-center gap-4">
             <Link href="/pricing" className="hover:text-foreground transition-colors">
-              Tarifs
-            </Link>
-            <Link href="/changelog" className="hover:text-foreground transition-colors">
-              Changelog
+              Pricing
             </Link>
             <Link href="/" className="hover:text-foreground transition-colors">
-              Accueil
+              Home
             </Link>
           </div>
         </div>
@@ -380,7 +374,7 @@ function PhonePreview({
     <div className="relative">
       <div className="absolute -top-3 left-1/2 -translate-x-1/2 z-10">
         <span className="bg-emerald-500/90 text-white text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full">
-          Preview live
+          Live preview
         </span>
       </div>
       <div className="w-[260px] sm:w-[300px] rounded-[2.5rem] border-2 border-border bg-gray-900 p-2.5 shadow-2xl shadow-primary/10">

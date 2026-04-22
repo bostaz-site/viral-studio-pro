@@ -57,8 +57,8 @@ function ValueProps() {
           <Zap className="h-4 w-4 text-orange-400" />
         </div>
         <div className="text-left">
-          <p className="text-sm font-bold text-foreground leading-tight">1 clic</p>
-          <p className="text-xs text-muted-foreground">setup viral auto</p>
+          <p className="text-sm font-bold text-foreground leading-tight">1 Click</p>
+          <p className="text-xs text-muted-foreground">auto viral setup</p>
         </div>
       </div>
       <div className="flex items-center gap-2.5">
@@ -67,7 +67,7 @@ function ValueProps() {
         </div>
         <div className="text-left">
           <p className="text-sm font-bold text-foreground leading-tight">&lt; 90 sec</p>
-          <p className="text-xs text-muted-foreground">par clip rendu</p>
+          <p className="text-xs text-muted-foreground">per clip render</p>
         </div>
       </div>
       <div className="flex items-center gap-2.5">
@@ -75,8 +75,8 @@ function ValueProps() {
           <Sparkles className="h-4 w-4 text-purple-400" />
         </div>
         <div className="text-left">
-          <p className="text-sm font-bold text-foreground leading-tight">Hook IA</p>
-          <p className="text-xs text-muted-foreground">gros moment en 1er</p>
+          <p className="text-sm font-bold text-foreground leading-tight">AI Hook</p>
+          <p className="text-xs text-muted-foreground">biggest moment first</p>
         </div>
       </div>
     </div>
@@ -103,11 +103,11 @@ function StickyBar() {
     <div className="fixed bottom-0 left-0 right-0 z-50 bg-background/95 backdrop-blur-md border-t border-border/50 py-2.5 px-4">
       <div className="max-w-4xl mx-auto flex items-center justify-between gap-4">
         <p className="text-sm text-muted-foreground hidden sm:block">
-          <span className="font-semibold text-foreground">Essai gratuit</span> &middot; Sans carte bancaire
+          <span className="font-semibold text-foreground">Free trial</span> &middot; No card required
         </p>
         <Link href="/signup" onClick={() => track('cta_hero_click', { location: 'sticky_bar' })}>
           <Button size="sm" className="bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white font-bold gap-1.5 h-9 px-6">
-            Commencer gratuitement
+            Start Free
             <ArrowRight className="h-3.5 w-3.5" />
           </Button>
         </Link>
@@ -134,39 +134,39 @@ export function HeroSection() {
           <div className="text-center">
             <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-orange-500/20 bg-orange-500/5 text-sm text-orange-400 mb-8">
               <MonitorPlay className="h-3.5 w-3.5" />
-              Clip Twitch &rarr; TikTok viral en 1 clic
+              Twitch Clip to Viral TikTok in 1 Click
             </div>
 
             <h1 className="text-4xl sm:text-5xl md:text-6xl font-black tracking-tight leading-[1.1]">
-              Transforme tes clips Twitch en{' '}
+              Turn Your Twitch Clips into{' '}
               <span className="bg-gradient-to-r from-orange-400 via-amber-400 to-yellow-400 bg-clip-text text-transparent">
-                clips viraux
+                Viral Clips
               </span>{' '}
-              en 90&nbsp;secondes
+              in 90&nbsp;Seconds
             </h1>
 
             <p className="text-lg sm:text-xl text-muted-foreground mt-6 max-w-2xl mx-auto leading-relaxed">
-              Sous-titres karaok&eacute;, split-screen gameplay, hook automatique, tag streamer.
-              Un bouton &laquo;&nbsp;Make it viral&nbsp;&raquo; applique la formule qui marche sur TikTok &mdash; sans CapCut, sans montage.
+              Karaoke captions, auto split-screen gameplay, AI hook reordering, streamer tags.
+              One &laquo;&nbsp;Make It Viral&nbsp;&raquo; button applies the formula that pops off on TikTok &mdash; no CapCut, no editing skills needed.
             </p>
 
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mt-10">
               <Link href="/signup" onClick={() => track('cta_hero_click', { location: 'hero_primary' })}>
                 <Button size="lg" className="bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white shadow-lg shadow-orange-500/25 h-12 px-8 text-base font-bold gap-2">
-                  Essayer gratuitement
+                  Try for Free
                   <ArrowRight className="h-4 w-4" />
                 </Button>
               </Link>
               <Link href="/demo">
                 <Button variant="ghost" size="lg" className="h-12 px-6 text-base text-muted-foreground hover:text-foreground gap-2">
                   <Play className="h-4 w-4" />
-                  Voir une d&eacute;mo
+                  Watch Demo
                 </Button>
               </Link>
             </div>
 
             <p className="text-xs text-muted-foreground/60 mt-4">
-              Sans carte bancaire &middot; Aucune installation &middot; Annulable en 1 clic
+              No card required &middot; No setup &middot; Cancel anytime
             </p>
           </div>
 
@@ -177,8 +177,8 @@ export function HeroSection() {
 
           {/* Pain point */}
           <p className="text-sm text-muted-foreground/70 mt-10 italic max-w-lg mx-auto text-center">
-            Tu passes des heures &agrave; streamer. Tes meilleurs moments restent enterr&eacute;s sur Twitch &agrave; 12 viewers.
-            C&apos;est termin&eacute;.
+            You stream for hours. Your best moments stay buried on Twitch with 12 viewers.
+            Not anymore.
           </p>
 
           {/* Value props (replaces fake counter stats) */}
@@ -186,7 +186,7 @@ export function HeroSection() {
 
           {/* Platform logos */}
           <div className="mt-10 text-center">
-            <p className="text-xs text-muted-foreground/50 uppercase tracking-wider mb-4">Compatible avec</p>
+            <p className="text-xs text-muted-foreground/50 uppercase tracking-wider mb-4">Works with</p>
             <div className="flex items-center justify-center gap-8">
               <div className="flex items-center gap-2 text-muted-foreground/40 hover:text-purple-400 transition-colors">
                 <TwitchLogo className="h-6 w-6" />

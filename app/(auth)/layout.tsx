@@ -34,7 +34,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
                 VIRAL STUDIO
               </span>
             </div>
-            <p className="text-sm text-muted-foreground">Cr&eacute;ez des clips viraux avec l&apos;IA</p>
+            <p className="text-sm text-muted-foreground">Create viral clips with AI</p>
           </div>
           {children}
         </div>

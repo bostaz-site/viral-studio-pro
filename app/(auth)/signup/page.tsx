@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from 'react'
+import { Suspense, useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { Loader2, Mail, Lock, User, ArrowRight, CheckCircle2, Gift } from 'lucide-react'
@@ -13,6 +13,24 @@ import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card'
 const REFERRAL_STORAGE_KEY = 'vsp:referral_code'
 
 export default function SignupPage() {
+  return (
+    <Suspense fallback={<SignupSkeleton />}>
+      <SignupForm />
+    </Suspense>
+  )
+}
+
+function SignupSkeleton() {
+  return (
+    <Card className="bg-card/80 border-border backdrop-blur-sm shadow-xl shadow-black/5">
+      <CardContent className="pt-8 pb-8 flex items-center justify-center">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      </CardContent>
+    </Card>
+  )
+}
+
+function SignupForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const [fullName, setFullName] = useState('')
@@ -46,7 +64,7 @@ export default function SignupPage() {
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault()
     if (password.length < 8) {
-      setError('Le mot de passe doit contenir au moins 8 caractères')
+      setError('Password must be at least 8 characters')
       return
     }
     setLoading(true)
@@ -90,14 +108,14 @@ export default function SignupPage() {
             <CheckCircle2 className="h-7 w-7 text-green-400" />
           </div>
           <div className="space-y-1">
-            <p className="text-xl font-bold text-foreground">Compte créé !</p>
+            <p className="text-xl font-bold text-foreground">Account created!</p>
             <p className="text-sm text-muted-foreground max-w-xs mx-auto">
-              Vérifiez votre email pour confirmer votre compte, puis connectez-vous pour commencer.
+              Check your email to confirm your account, then sign in to get started.
             </p>
           </div>
           <Link href="/login">
             <Button variant="outline" className="mt-2 gap-2">
-              Aller à la connexion <ArrowRight className="h-4 w-4" />
+              Go to sign in <ArrowRight className="h-4 w-4" />
             </Button>
           </Link>
         </CardContent>
@@ -109,10 +127,10 @@ export default function SignupPage() {
     <Card className="bg-card/80 border-border backdrop-blur-sm shadow-xl shadow-black/5">
       <CardHeader className="space-y-1 pb-2">
         <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 w-fit mb-2">
-          <span className="text-xs font-medium text-emerald-400">3 clips gratuits par mois</span>
+          <span className="text-xs font-medium text-emerald-400">3 free clips per month</span>
         </div>
-        <h2 className="text-2xl font-bold tracking-tight">Créer votre studio</h2>
-        <p className="text-sm text-muted-foreground">Sans carte bancaire · Aucune installation · Annulable en 1 clic</p>
+        <h2 className="text-2xl font-bold tracking-tight">Create your studio</h2>
+        <p className="text-sm text-muted-foreground">No card · No installation · Cancel anytime</p>
       </CardHeader>
       <form onSubmit={handleSignup}>
         <CardContent className="space-y-4">
@@ -120,7 +138,7 @@ export default function SignupPage() {
             <div className="text-xs bg-primary/10 border border-primary/20 text-primary rounded-lg px-3 py-2.5 flex items-center gap-2">
               <Gift className="h-3.5 w-3.5 shrink-0" />
               <span>
-                Invité par <span className="font-bold font-mono">{referralCode}</span> — bienvenue&nbsp;!
+                Referred by <span className="font-bold font-mono">{referralCode}</span> — welcome&nbsp;!
               </span>
             </div>
           )}
@@ -131,13 +149,13 @@ export default function SignupPage() {
             </div>
           )}
           <div className="space-y-1.5">
-            <Label htmlFor="fullName" className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Nom complet</Label>
+            <Label htmlFor="fullName" className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Full Name</Label>
             <div className="relative">
               <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 id="fullName"
                 type="text"
-                placeholder="Votre nom"
+                placeholder="Your name"
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
                 required
@@ -154,7 +172,7 @@ export default function SignupPage() {
               <Input
                 id="email"
                 type="email"
-                placeholder="vous@example.com"
+                placeholder="you@example.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
@@ -165,13 +183,13 @@ export default function SignupPage() {
             </div>
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="password" className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Mot de passe</Label>
+            <Label htmlFor="password" className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Password</Label>
             <div className="relative">
               <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 id="password"
                 type="password"
-                placeholder="8 caractères minimum"
+                placeholder="8 characters minimum"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
@@ -207,15 +225,15 @@ export default function SignupPage() {
             disabled={loading}
           >
             {loading ? (
-              <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Création...</>
+              <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Creating...</>
             ) : (
-              <>Créer mon compte gratuit <ArrowRight className="ml-2 h-4 w-4" /></>
+              <>Create my free account <ArrowRight className="ml-2 h-4 w-4" /></>
             )}
           </Button>
           <p className="text-sm text-muted-foreground text-center">
-            Déjà un compte ?{' '}
+            Already have an account?{' '}
             <Link href="/login" className="text-primary hover:underline font-semibold">
-              Se connecter
+              Sign in
             </Link>
           </p>
         </CardFooter>

@@ -88,7 +88,7 @@ export const POST = withAuth(async (request, user) => {
   const rl = rateLimit(`render:${user.id}`, RATE_LIMITS.ai.limit, RATE_LIMITS.ai.windowMs)
   if (!rl.allowed) {
     return NextResponse.json(
-      { data: null, error: 'Rate limited', message: `Trop de rendus. Réessaie dans ${Math.ceil((rl.retryAfterMs || 60000) / 1000)}s` },
+      { data: null, error: 'Rate limited', message: `Too many renders. Retry in ${Math.ceil((rl.retryAfterMs || 60000) / 1000)}s` },
       { status: 429 }
     )
   }
@@ -98,7 +98,7 @@ export const POST = withAuth(async (request, user) => {
     body = await request.json()
   } catch {
     return NextResponse.json(
-      { data: null, error: 'Invalid JSON', message: 'Corps invalide' },
+      { data: null, error: 'Invalid JSON', message: 'Invalid body' },
       { status: 400 }
     )
   }
@@ -106,7 +106,7 @@ export const POST = withAuth(async (request, user) => {
   const parsed = inputSchema.safeParse(body)
   if (!parsed.success) {
     return NextResponse.json(
-      { data: null, error: parsed.error.message, message: 'Paramètres invalides' },
+      { data: null, error: parsed.error.message, message: 'Invalid parameters' },
       { status: 400 }
     )
   }
@@ -154,6 +154,27 @@ export const POST = withAuth(async (request, user) => {
       videoUrl = video?.storage_path ?? null
       clipTitle = video?.title ?? clip.title
       clipDuration = video?.duration_seconds ?? clip.duration_seconds
+    }
+  }
+
+  // Fallback: check videos table directly (user-uploaded videos without a clips row)
+  if (!foundSource) {
+    const { data: video } = await admin
+      .from('videos')
+      .select('id, title, storage_path, duration_seconds')
+      .eq('id', clip_id)
+      .eq('user_id', user.id)
+      .single()
+
+    if (video) {
+      foundSource = 'clips'
+      // Generate a signed URL for the VPS to download from Supabase Storage
+      const { data: signedData } = await admin.storage
+        .from('videos')
+        .createSignedUrl(video.storage_path, 3600) // 1 hour
+      videoUrl = signedData?.signedUrl ?? null
+      clipTitle = video.title
+      clipDuration = video.duration_seconds
     }
   }
 
@@ -208,7 +229,7 @@ export const POST = withAuth(async (request, user) => {
   if (quotaError) {
     console.error('[render] increment_video_usage failed:', quotaError)
     return NextResponse.json(
-      { data: null, error: 'quota_check_failed', message: 'Impossible de vérifier ta quota, réessaie.' },
+      { data: null, error: 'quota_check_failed', message: 'Failed to check quota. Try again.' },
       { status: 500 },
     )
   }
@@ -218,7 +239,7 @@ export const POST = withAuth(async (request, user) => {
       {
         data: { plan: callerPlan },
         error: 'quota_exceeded',
-        message: `Limite mensuelle atteinte pour le plan ${callerPlan}. Passe au plan supérieur pour continuer.`,
+        message: `Monthly limit reached for ${callerPlan} plan. Upgrade to continue.`,
       },
       { status: 402 },
     )
@@ -255,7 +276,7 @@ export const POST = withAuth(async (request, user) => {
     return NextResponse.json({
       data: { clip_id, rendered: false, source: foundSource, vpsReady: false, originalUrl: videoUrl },
       error: null,
-      message: 'Le serveur de rendu n\'est pas encore configuré. Tu peux télécharger le clip original en attendant.',
+      message: 'Render server not configured yet. You can download the original clip for now.',
     })
   }
 
@@ -369,7 +390,7 @@ export const POST = withAuth(async (request, user) => {
   return NextResponse.json({
     data: { clip_id, jobId: job.id, rendered: false, source: foundSource, vpsReady: true, originalUrl: videoUrl },
     error: null,
-    message: 'Rendu lancé — le clip sera prêt dans quelques secondes',
+    message: 'Render started — clip will be ready in a few seconds',
   })
 })
 

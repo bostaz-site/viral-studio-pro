@@ -1,8 +1,8 @@
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = {
-  title: 'Connexion',
-  description: 'Connectez-vous à Viral Studio Pro pour créer des clips viraux à partir de vos streams.',
+  title: 'Sign in',
+  description: 'Sign in to Viral Studio Pro to create viral clips from your streams.',
 }
 
 export default function LoginLayout({ children }: { children: React.ReactNode }) {

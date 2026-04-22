@@ -156,7 +156,7 @@ export function checkVideoLimit(
   if (used >= limit) {
     return {
       allowed: false,
-      reason: `Limite atteinte : ${used}/${limit} vidéos ce mois-ci. Passez au plan ${config.id === 'free' ? 'Pro' : 'Studio'} pour continuer.`,
+      reason: `Monthly limit reached: ${used}/${limit} videos this month. Upgrade to ${config.id === 'free' ? 'Pro' : 'Studio'} to continue.`,
       currentUsage: used,
       limit,
       plan: config.id,
@@ -187,7 +187,7 @@ export function checkClipDuration(
     const planLabel = config.id === 'free' ? 'Pro' : 'Studio'
     return {
       allowed: false,
-      reason: `Ce clip fait ${Math.round(durationSeconds)}s, la limite de ton plan ${config.name} est de ${limit}s. Passe au plan ${planLabel} ou raccourcis le clip.`,
+      reason: `This clip is ${Math.round(durationSeconds)}s, but your ${config.name} plan's limit is ${limit}s. Upgrade to ${planLabel} or shorten the clip.`,
       currentUsage: durationSeconds,
       limit,
       plan: config.id,

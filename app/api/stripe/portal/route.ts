@@ -17,7 +17,7 @@ export const POST = withAuth(async (req, user) => {
 
   if (!profile?.stripe_customer_id) {
     return NextResponse.json(
-      { data: null, error: 'No subscription', message: 'Aucun abonnement actif trouvé' },
+      { data: null, error: 'No subscription', message: 'No active subscription found' },
       { status: 404 }
     )
   }
@@ -31,12 +31,12 @@ export const POST = withAuth(async (req, user) => {
       return_url: `${appUrl}/settings`,
     })
 
-    return NextResponse.json({ data: { url: session.url }, error: null, message: 'Portal créé' })
+    return NextResponse.json({ data: { url: session.url }, error: null, message: 'Portal created' })
   } catch (err) {
     // Don't leak Stripe internal error details to the client
     const isStripeError = err instanceof Error && err.message.includes('Stripe')
     return NextResponse.json(
-      { data: null, error: 'Stripe error', message: isStripeError ? 'Erreur lors de la création du portail' : 'Erreur interne' },
+      { data: null, error: 'Stripe error', message: isStripeError ? 'Failed to create portal' : 'Internal error' },
       { status: 500 }
     )
   }

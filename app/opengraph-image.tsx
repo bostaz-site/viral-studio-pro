@@ -2,7 +2,7 @@ import { ImageResponse } from 'next/og'
 
 export const runtime = 'edge'
 
-export const alt = 'Viral Studio Pro — Clips viraux en split-screen depuis tes streams'
+export const alt = 'Viral Studio Pro — Go viral with split-screen clips from your streams'
 export const size = {
   width: 1200,
   height: 630,
@@ -125,7 +125,7 @@ export default async function Image() {
               maxWidth: 900,
             }}
           >
-            Clips viraux en{' '}
+            Viral clips in{' '}
             <span
               style={{
                 background: 'linear-gradient(90deg, #60a5fa, #818cf8, #a78bfa)',
@@ -135,7 +135,7 @@ export default async function Image() {
             >
               split-screen
             </span>{' '}
-            depuis tes streams
+            from your streams
           </h1>
 
           {/* Subtitle */}
@@ -149,7 +149,7 @@ export default async function Image() {
               lineHeight: 1.5,
             }}
           >
-            Sous-titres karaoké + Subway Surfers/Minecraft + score viral IA
+            Karaoke captions + B-roll + AI viral score
           </p>
 
           {/* Stats row */}
@@ -166,9 +166,9 @@ export default async function Image() {
             }}
           >
             {[
-              { value: '12,847', label: 'clips créés' },
-              { value: '2,340+', label: 'créateurs' },
-              { value: 'x8.5', label: 'vues en moy.' },
+              { value: '12,847', label: 'clips created' },
+              { value: '2,340+', label: 'creators' },
+              { value: 'x8.5', label: 'avg views' },
             ].map((stat) => (
               <div
                 key={stat.label}

@@ -23,11 +23,11 @@ export default function DashboardError({
       </div>
       <div className="text-center space-y-2">
         <h2 className="text-xl font-semibold text-foreground">
-          Une erreur est survenue
+          Something went wrong
         </h2>
         <p className="text-sm text-muted-foreground max-w-md">
-          Quelque chose s&apos;est mal pass&eacute;. Essayez de rafra&icirc;chir la page.
-          Si le probl&egrave;me persiste, contactez le support.
+          An error occurred. Try refreshing the page.
+          If the problem persists, contact support.
         </p>
         {error.digest && (
           <p className="text-xs text-muted-foreground font-mono">
@@ -37,7 +37,7 @@ export default function DashboardError({
       </div>
       <Button onClick={reset} variant="outline" className="gap-2">
         <RefreshCcw className="w-4 h-4" />
-        R&eacute;essayer
+        Try again
       </Button>
     </div>
   )

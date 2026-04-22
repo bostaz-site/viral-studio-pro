@@ -4,44 +4,44 @@ import { ChevronDown } from 'lucide-react'
 
 export const FAQ_ITEMS = [
   {
-    q: 'Comment marche le plan gratuit ?',
-    a: 'Le plan Free te donne 3 vid\u00e9os gratuites par mois, remises \u00e0 z\u00e9ro le 1er du mois suivant. Pas de carte bancaire demand\u00e9e \u00e0 l\'inscription. Clips jusqu\'\u00e0 60 secondes, watermark Viral Studio inclus. Tu peux passer Pro quand tu veux pour $19/mois et d\u00e9bloquer 30 clips/mois sans watermark.',
+    q: 'How does the free plan work?',
+    a: 'The Free plan gives you 3 free videos per month, reset on the 1st of the next month. No card required to sign up. Clips up to 60 seconds, Viral Studio watermark included. Upgrade to Pro for $19/month anytime to unlock 30 clips/month without watermark.',
   },
   {
-    q: 'C\'est vraiment diff\u00e9rent d\'OpusClip et Eklipse ?',
-    a: 'Oui. On est le seul outil avec le split-screen automatique (Subway Surfers, Minecraft en bas). OpusClip et Eklipse ne le proposent pas. On a aussi le "Remake This" pour s\'inspirer des clips trending et le score viral IA par Claude.',
+    q: 'How is this different from OpusClip or Eklipse?',
+    a: 'We&apos;re the only tool with auto split-screen (Subway Surfers, Minecraft on bottom). OpusClip and Eklipse don&apos;t offer it. We also have "Remake This" to learn from trending clips and AI viral scoring by Claude.',
   },
   {
-    q: 'Le split-screen c\'est quoi exactement ? \u00c7a marche vraiment ?',
-    a: 'C\'est le format o\u00f9 ton clip de stream est en haut et une vid\u00e9o satisfaisante (Subway Surfers, Minecraft parkour) en bas. Ce format fait x3 sur la r\u00e9tention TikTok car il cr\u00e9e une double stimulation visuelle. C\'est la formule utilis\u00e9e par les plus gros clip channels.',
+    q: 'What exactly is split-screen? Does it actually work?',
+    a: 'Your stream clip plays on top, with satisfying video (Subway Surfers, Minecraft parkour) on bottom. This format drives 3x TikTok retention because it creates dual visual stimulation. It&apos;s the formula top clip channels use.',
   },
   {
-    q: 'Je peux utiliser mes VODs Twitch ou il faut uploader ?',
-    a: 'Les deux. Tu peux parcourir les clips Twitch et YouTube Gaming directement dans l\'app, ou uploader tes propres vid\u00e9os (MP4, MOV, WebM). Le support Kick arrive bient\u00f4t.',
+    q: 'Can I use my Twitch VODs or do I need to upload?',
+    a: 'Both. Browse Twitch and YouTube Gaming clips directly in the app, or upload your own videos (MP4, MOV, WebM). Kick support coming soon.',
   },
   {
-    q: 'Faut-il installer un logiciel ou c\'est dans le navigateur ?',
-    a: 'Tout se passe dans ton navigateur. Z\u00e9ro installation, z\u00e9ro logiciel. Tu cr\u00e9es un compte, tu clips, tu exportes. C\'est aussi simple que \u00e7a.',
+    q: 'Do I need to install software or is it browser-based?',
+    a: 'Everything happens in your browser. Zero install, zero software. Create account, clip, export. That simple.',
   },
   {
-    q: 'Mes vid\u00e9os sont stock\u00e9es o\u00f9 ? C\'est s\u00e9curis\u00e9 ?',
-    a: 'Tes vid\u00e9os sont stock\u00e9es sur des serveurs s\u00e9curis\u00e9s (Supabase / AWS). Personne d\'autre que toi n\'y a acc\u00e8s. Tu peux les supprimer \u00e0 tout moment depuis ton dashboard. On est conforme RGPD.',
+    q: 'Where are my videos stored? Is it secure?',
+    a: 'Your videos are stored on secure servers (Supabase / AWS). Only you have access. Delete anytime from your dashboard. We&apos;re GDPR compliant.',
   },
   {
-    q: 'Combien de temps \u00e7a prend pour g\u00e9n\u00e9rer un clip ?',
-    a: 'En g\u00e9n\u00e9ral 30 \u00e0 60 secondes selon la dur\u00e9e du clip et les options activ\u00e9es (sous-titres, split-screen, etc.). Tu re\u00e7ois une preview d\u00e8s que c\'est pr\u00eat.',
+    q: 'How long does it take to render a clip?',
+    a: 'Usually 30-60 seconds depending on clip length and options (captions, split-screen, etc.). You get a preview as soon as it&apos;s done.',
   },
   {
-    q: 'Je peux annuler mon abonnement quand je veux ?',
-    a: 'Oui, en 1 clic depuis tes param\u00e8tres. Pas de contrat, pas d\'engagement. Tu gardes l\'acc\u00e8s jusqu\'\u00e0 la fin de ta p\u00e9riode de facturation.',
+    q: 'Can I cancel my subscription whenever?',
+    a: 'Yes, 1 click from settings. No contract, no lock-in. You keep access until the end of your billing period.',
   },
   {
-    q: 'L\'essai 7 jours gratuit, c\'est pour de vrai ? Je vais me faire facturer en douce ?',
-    a: 'L\'essai est r\u00e9ellement gratuit. Tu renseignes ta carte pour d\u00e9marrer, mais rien n\'est pr\u00e9lev\u00e9 pendant 7 jours. Si tu annules avant la fin du 7e jour depuis Param\u00e8tres, tu n\'es jamais factur\u00e9. Stripe envoie un email de rappel 3 jours avant la fin.',
+    q: 'Is the 7-day free trial actually free? Will I get charged secretly?',
+    a: 'It&apos;s truly free. You provide a card to start, but nothing charges for 7 days. Cancel before day 7 ends and you&apos;re never charged. Stripe sends a reminder 3 days before expiry.',
   },
   {
-    q: 'Est-ce que je garde les droits sur mes clips ?',
-    a: '100%. Les clips que tu g\u00e9n\u00e8res t\'appartiennent enti\u00e8rement. On ne r\u00e9utilise pas tes vid\u00e9os, on ne les montre \u00e0 personne, on n\'entra\u00eene pas d\'IA dessus. Pour les clips de streamers depuis la biblioth\u00e8que, on ajoute automatiquement le cr\u00e9dit au cr\u00e9ateur original.',
+    q: 'Do I own the clips I create?',
+    a: '100%. Clips you create are fully yours. We don&apos;t reuse your videos, show them to anyone, or train AI on them. For clips from our streamer library, we auto-credit the original creator.',
   },
 ]
 
@@ -50,8 +50,8 @@ export function FaqSection() {
     <section className="py-20 px-6 bg-card/30 border-t border-border/30">
       <div className="max-w-3xl mx-auto">
         <div className="text-center mb-14">
-          <h2 className="text-3xl sm:text-4xl font-bold tracking-tight">Questions fr&eacute;quentes</h2>
-          <p className="text-muted-foreground mt-3 text-lg">Tout ce que tu dois savoir avant de commencer</p>
+          <h2 className="text-3xl sm:text-4xl font-bold tracking-tight">Frequently Asked Questions</h2>
+          <p className="text-muted-foreground mt-3 text-lg">Everything you need to know before you start</p>
         </div>
 
         <div className="space-y-3">

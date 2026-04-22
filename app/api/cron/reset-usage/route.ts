@@ -19,7 +19,7 @@ export async function POST(req: NextRequest) {
 
   if (!apiKey || !cronSecret) {
     return NextResponse.json(
-      { data: null, error: 'Unauthorized', message: 'Clé API manquante' },
+      { data: null, error: 'Unauthorized', message: 'API key missing' },
       { status: 401 }
     )
   }
@@ -27,7 +27,7 @@ export async function POST(req: NextRequest) {
   // Timing-safe comparison to prevent timing attacks
   if (!timingSafeCompare(apiKey, cronSecret)) {
     return NextResponse.json(
-      { data: null, error: 'Unauthorized', message: 'Clé API invalide' },
+      { data: null, error: 'Unauthorized', message: 'Invalid API key' },
       { status: 401 }
     )
   }
@@ -47,7 +47,7 @@ export async function POST(req: NextRequest) {
 
     if (error) {
       return NextResponse.json(
-        { data: null, error: error.message, message: 'Erreur lors du reset' },
+        { data: null, error: error.message, message: 'Failed to reset usage' },
         { status: 500 }
       )
     }
@@ -55,10 +55,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       data: { reset_count: count ?? 0, reset_at: new Date().toISOString() },
       error: null,
-      message: `Compteurs remis à zéro pour ${count ?? 0} utilisateurs`,
+      message: `Usage counters reset for ${count ?? 0} users`,
     })
   } catch (err) {
-    const message = err instanceof Error ? err.message : 'Erreur interne'
+    const message = err instanceof Error ? err.message : 'Internal error'
     return NextResponse.json(
       { data: null, error: message, message },
       { status: 500 }

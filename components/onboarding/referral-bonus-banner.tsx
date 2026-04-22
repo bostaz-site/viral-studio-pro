@@ -71,17 +71,17 @@ export function ReferralBonusBanner() {
       </div>
       <div className="flex-1 min-w-0">
         <p className="text-sm font-semibold text-foreground">
-          +{bonus} clip{bonus > 1 ? 's' : ''} bonus débloqué{bonus > 1 ? 's' : ''} !
+          +{bonus} bonus clip{bonus > 1 ? 's' : ''} unlocked!
         </p>
         <p className="text-xs text-muted-foreground mt-0.5">
-          Grâce au programme parrainage. Utilisable une fois ta limite mensuelle atteinte.
+          Through our referral program. Usable once you reach your monthly limit.
         </p>
       </div>
       <button
         type="button"
         onClick={handleDismiss}
         className="shrink-0 rounded-md p-1.5 text-muted-foreground hover:bg-emerald-500/10 hover:text-foreground transition-colors"
-        aria-label="Fermer"
+        aria-label="Close"
       >
         <X className="h-4 w-4" />
       </button>

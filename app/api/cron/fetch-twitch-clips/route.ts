@@ -20,14 +20,14 @@ export async function POST(req: NextRequest) {
 
   if (!apiKey || !cronSecret) {
     return NextResponse.json(
-      { data: null, error: 'Unauthorized', message: 'Clé API manquante' },
+      { data: null, error: 'Unauthorized', message: 'API key missing' },
       { status: 401 }
     )
   }
 
   if (!timingSafeCompare(apiKey, cronSecret)) {
     return NextResponse.json(
-      { data: null, error: 'Unauthorized', message: 'Clé API invalide' },
+      { data: null, error: 'Unauthorized', message: 'Invalid API key' },
       { status: 401 }
     )
   }
@@ -45,10 +45,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       data: { ...result, snapshots_cleaned: cleaned },
       error: null,
-      message: `${result.upserted} clips importés · ${result.streamers_scanned} streamers · ${result.snapshots} snapshots`,
+      message: `${result.upserted} clips imported · ${result.streamers_scanned} streamers · ${result.snapshots} snapshots`,
     })
   } catch (err) {
-    const message = err instanceof Error ? err.message : 'Erreur interne'
+    const message = err instanceof Error ? err.message : 'Internal error'
     return NextResponse.json(
       { data: null, error: message, message },
       { status: 500 }
@@ -61,7 +61,7 @@ export async function GET(req: NextRequest) {
   const key = req.nextUrl.searchParams.get('key')
   if (!key) {
     return NextResponse.json(
-      { data: null, error: 'Unauthorized', message: 'Clé API manquante (utilisez ?key=...)' },
+      { data: null, error: 'Unauthorized', message: 'API key missing (use ?key=...)' },
       { status: 401 }
     )
   }

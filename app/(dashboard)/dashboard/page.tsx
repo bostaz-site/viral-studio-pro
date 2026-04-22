@@ -1,12 +1,11 @@
 "use client"
 
-import { useEffect, useCallback, useRef, useState, useMemo } from 'react'
+import { useEffect, useCallback, useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   TrendingUp, RefreshCw, AlertCircle, Loader2, Sparkles,
-  Wifi, WifiOff, Download, Upload, Flame, Zap, Clock, X,
+  Download, Flame, Zap, Clock, X,
 } from 'lucide-react'
-import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { TrendingCard } from '@/components/trending/trending-card'
@@ -18,7 +17,6 @@ import { cn } from '@/lib/utils'
 
 export default function DashboardPage() {
   const router = useRouter()
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const [twitchRefreshing, setTwitchRefreshing] = useState(false)
   const [twitchMessage, setTwitchMessage] = useState<string | null>(null)
   const [quickFilter, setQuickFilter] = useState<'all' | 'viral' | 'potential' | 'recent'>('all')
@@ -29,12 +27,9 @@ export default function DashboardPage() {
     loading,
     refreshing,
     error,
-    autoRefreshEnabled,
-    autoRefreshInterval,
     clips,
     stats,
     setFilters,
-    setAutoRefresh,
     fetchClips,
   } = useTrendingStore()
 
@@ -42,22 +37,6 @@ export default function DashboardPage() {
   useEffect(() => {
     fetchClips()
   }, [fetchClips])
-
-  // Auto-refresh polling
-  useEffect(() => {
-    if (autoRefreshEnabled) {
-      intervalRef.current = setInterval(() => {
-        fetchClips(true)
-      }, autoRefreshInterval)
-    }
-
-    return () => {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current)
-        intervalRef.current = null
-      }
-    }
-  }, [autoRefreshEnabled, autoRefreshInterval, fetchClips])
 
   // Twitch refresh
   const handleTwitchRefresh = useCallback(async () => {
@@ -67,13 +46,13 @@ export default function DashboardPage() {
       const res = await fetch('/api/streams/refresh', { method: 'POST' })
       const data = await res.json() as { data: { upserted: number } | null; error: string | null; message: string }
       if (!res.ok || data.error) {
-        setTwitchMessage(data.message ?? 'Erreur')
+        setTwitchMessage(data.message ?? 'Error')
       } else {
-        setTwitchMessage(`${data.data?.upserted ?? 0} clips import&eacute;s depuis Twitch`)
+        setTwitchMessage(`${data.data?.upserted ?? 0} clips imported from Twitch`)
         fetchClips(true)
       }
     } catch {
-      setTwitchMessage('Erreur r&eacute;seau')
+      setTwitchMessage('Network error')
     } finally {
       setTwitchRefreshing(false)
       setTimeout(() => setTwitchMessage(null), 5000)
@@ -118,53 +97,10 @@ export default function DashboardPage() {
             Browse Clips
           </h1>
           <p className="text-muted-foreground mt-1">
-            Choisis un clip trending, enhance-le et poste &mdash; en 3 clics.
+            The clips blowing up right now — engineered for the algorithm.
           </p>
         </div>
         <div className="flex items-center gap-2 shrink-0 mt-1">
-          {/* Import own video */}
-          <Link href="/create">
-            <Button
-              variant="outline"
-              size="sm"
-              className="gap-2 h-8 border-blue-500/30 text-blue-400 hover:bg-blue-500/10"
-            >
-              <Upload className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">Importer ma vid&eacute;o</span>
-            </Button>
-          </Link>
-
-          {/* Auto-refresh toggle */}
-          <Button
-            variant="ghost"
-            size="sm"
-            className={cn(
-              'gap-1.5 text-xs h-8',
-              autoRefreshEnabled ? 'text-green-400 hover:text-green-300' : 'text-muted-foreground'
-            )}
-            onClick={() => setAutoRefresh(!autoRefreshEnabled)}
-            title={autoRefreshEnabled ? 'Auto-refresh actif (60s)' : 'Auto-refresh d\u00e9sactiv\u00e9'}
-          >
-            {autoRefreshEnabled ? <Wifi className="h-3.5 w-3.5" /> : <WifiOff className="h-3.5 w-3.5" />}
-            Live
-          </Button>
-
-          {/* Fetch from Twitch */}
-          <Button
-            variant="outline"
-            size="sm"
-            className="gap-2 h-8 border-purple-500/30 text-purple-400 hover:bg-purple-500/10"
-            onClick={handleTwitchRefresh}
-            disabled={twitchRefreshing}
-          >
-            {twitchRefreshing ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            ) : (
-              <Download className="h-3.5 w-3.5" />
-            )}
-            {twitchRefreshing ? 'Import\u2026' : 'Twitch'}
-          </Button>
-
           {/* Manual refresh */}
           <Button
             variant="outline"
@@ -174,7 +110,7 @@ export default function DashboardPage() {
             disabled={refreshing}
           >
             <RefreshCw className={cn('h-3.5 w-3.5', refreshing && 'animate-spin')} />
-            <span className="hidden sm:inline">Actualiser</span>
+            <span className="hidden sm:inline">Refresh</span>
           </Button>
         </div>
       </div>
@@ -189,30 +125,14 @@ export default function DashboardPage() {
         </Card>
       )}
 
-      {/* New clips counter */}
-      {!loading && filteredClips.length > 0 && (
-        <Card className="border-primary/20 bg-primary/5">
-          <CardContent className="p-3 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center">
-                <Sparkles className="h-4 w-4 text-primary" />
-              </div>
-              <p className="text-sm">
-                <span className="font-bold text-foreground">{filteredClips.length} clips trending</span>
-                <span className="text-muted-foreground"> disponibles maintenant</span>
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-      )}
 
       {/* Quick filter tabs */}
       <div className="flex items-center gap-2 overflow-x-auto pb-1">
         {([
-          { key: 'all', label: 'Tout', icon: Sparkles },
+          { key: 'all', label: 'All', icon: Sparkles },
           { key: 'viral', label: 'Trending now', icon: Flame },
           { key: 'potential', label: 'High potential', icon: Zap },
-          { key: 'recent', label: 'Récents', icon: Clock },
+          { key: 'recent', label: 'Recent', icon: Clock },
         ] as const).map(({ key, label, icon: Icon }) => (
           <Button
             key={key}
@@ -225,6 +145,7 @@ export default function DashboardPage() {
                 : 'text-muted-foreground hover:text-foreground'
             )}
             onClick={() => setQuickFilter(key)}
+            aria-pressed={quickFilter === key}
           >
             <Icon className="h-3.5 w-3.5" />
             {label}
@@ -293,15 +214,15 @@ export default function DashboardPage() {
                 </div>
                 <h3 className="text-lg font-bold text-foreground mb-1">
                   {noClipsAtAll
-                    ? 'Aucun clip dans la bibliothèque'
-                    : 'Aucun clip ne correspond à tes filtres'}
+                    ? 'No clips in the library yet'
+                    : 'No clips match your filters'}
                 </h3>
                 <p className="text-sm text-muted-foreground max-w-md mx-auto mb-5">
                   {noClipsAtAll
-                    ? "Importe des clips Twitch pour commencer, ou uploade ta propre vidéo."
+                    ? "Import clips from Twitch to get started."
                     : hasFilters
-                      ? 'Essaie de retirer un filtre ou une niche, ou cherche un autre streamer.'
-                      : 'Rafraîchis la bibliothèque — de nouveaux clips arrivent en continu.'}
+                      ? 'Try removing a filter or niche, or search for a different streamer.'
+                      : 'Refresh the library — new clips are coming in.'}
                 </p>
                 <div className="flex flex-wrap items-center justify-center gap-2">
                   {hasFilters && (
@@ -314,7 +235,7 @@ export default function DashboardPage() {
                       }}
                     >
                       <X className="h-3.5 w-3.5 mr-1.5" />
-                      Effacer les filtres
+                      Clear filters
                     </Button>
                   )}
                   {noClipsAtAll && (
@@ -329,15 +250,9 @@ export default function DashboardPage() {
                       ) : (
                         <Download className="h-3.5 w-3.5 mr-1.5" />
                       )}
-                      Importer depuis Twitch
+                      Import from Twitch
                     </Button>
                   )}
-                  <Link href="/create">
-                    <Button variant="outline" size="sm" className="border-blue-500/30 text-blue-400 hover:bg-blue-500/10">
-                      <Upload className="h-3.5 w-3.5 mr-1.5" />
-                      Importer ma vidéo
-                    </Button>
-                  </Link>
                 </div>
               </CardContent>
             </Card>
@@ -361,7 +276,7 @@ export default function DashboardPage() {
       {refreshing && (
         <div className="fixed bottom-6 right-6 flex items-center gap-2 px-4 py-2 rounded-full bg-card border border-border shadow-lg animate-in slide-in-from-bottom-2 fade-in">
           <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
-          <span className="text-xs text-muted-foreground">Actualisation\u2026</span>
+          <span className="text-xs text-muted-foreground">Refreshing…</span>
         </div>
       )}
     </div>

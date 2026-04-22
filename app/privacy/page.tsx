@@ -3,8 +3,8 @@ import { Scissors } from 'lucide-react'
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = {
-  title: 'Politique de confidentialité',
-  description: 'Politique de confidentialité de Viral Studio Pro. Découvrez comment nous protégeons vos données personnelles.',
+  title: 'Privacy Policy',
+  description: 'Viral Studio Pro Privacy Policy. Learn how we protect your personal data.',
 }
 
 export default function PrivacyPage() {
@@ -25,83 +25,83 @@ export default function PrivacyPage() {
       </header>
 
       <main className="max-w-4xl mx-auto px-6 py-16">
-        <h1 className="text-3xl font-bold mb-2">Politique de confidentialité</h1>
-        <p className="text-sm text-muted-foreground mb-10">Dernière mise à jour : 26 mars 2026</p>
+        <h1 className="text-3xl font-bold mb-2">Privacy Policy</h1>
+        <p className="text-sm text-muted-foreground mb-10">Last updated: March 26, 2026</p>
 
         <div className="prose prose-invert prose-sm max-w-none space-y-8">
           <section>
             <h2 className="text-xl font-semibold text-foreground mb-3">1. Introduction</h2>
             <p className="text-muted-foreground leading-relaxed">
-              Viral Studio Pro (&quot;nous&quot;, &quot;notre&quot;, &quot;nos&quot;) s&apos;engage à protéger votre vie privée. Cette politique de confidentialité explique comment nous collectons, utilisons et protégeons vos informations personnelles lorsque vous utilisez notre service de création de clips viraux.
+              Viral Studio Pro ("we", "our", "us") is committed to protecting your privacy. This Privacy Policy explains how we collect, use, and protect your personal information when you use our viral clip creation service.
             </p>
           </section>
 
           <section>
-            <h2 className="text-xl font-semibold text-foreground mb-3">2. Données collectées</h2>
-            <p className="text-muted-foreground leading-relaxed mb-3">Nous collectons les types de données suivants :</p>
+            <h2 className="text-xl font-semibold text-foreground mb-3">2. Data We Collect</h2>
+            <p className="text-muted-foreground leading-relaxed mb-3">We collect the following types of data:</p>
             <ul className="list-disc list-inside space-y-1.5 text-muted-foreground">
-              <li><strong className="text-foreground">Informations de compte</strong> : nom, adresse email, mot de passe (chiffré)</li>
-              <li><strong className="text-foreground">Contenu uploadé</strong> : vidéos, clips, miniatures que vous uploadez sur la plateforme</li>
-              <li><strong className="text-foreground">Données d&apos;utilisation</strong> : fonctionnalités utilisées, clips créés, temps de traitement</li>
-              <li><strong className="text-foreground">Données techniques</strong> : adresse IP, type de navigateur, système d&apos;exploitation</li>
-              <li><strong className="text-foreground">Données de paiement</strong> : traitées de manière sécurisée par Stripe (nous ne stockons pas vos données bancaires)</li>
+              <li><strong className="text-foreground">Account information</strong>: name, email address, password (encrypted)</li>
+              <li><strong className="text-foreground">Uploaded content</strong>: videos, clips, thumbnails you upload to the platform</li>
+              <li><strong className="text-foreground">Usage data</strong>: features used, clips created, processing time</li>
+              <li><strong className="text-foreground">Technical data</strong>: IP address, browser type, operating system</li>
+              <li><strong className="text-foreground">Payment data</strong>: securely processed by Stripe (we do not store your bank details)</li>
             </ul>
           </section>
 
           <section>
-            <h2 className="text-xl font-semibold text-foreground mb-3">3. Utilisation des données</h2>
-            <p className="text-muted-foreground leading-relaxed mb-3">Vos données sont utilisées pour :</p>
+            <h2 className="text-xl font-semibold text-foreground mb-3">3. How We Use Your Data</h2>
+            <p className="text-muted-foreground leading-relaxed mb-3">Your data is used to:</p>
             <ul className="list-disc list-inside space-y-1.5 text-muted-foreground">
-              <li>Fournir et améliorer nos services de création de clips</li>
-              <li>Traiter vos vidéos (transcription, analyse IA, rendu)</li>
-              <li>Gérer votre compte et votre abonnement</li>
-              <li>Vous envoyer des notifications relatives au service</li>
-              <li>Prévenir la fraude et assurer la sécurité</li>
+              <li>Provide and improve our clip creation services</li>
+              <li>Process your videos (transcription, AI analysis, rendering)</li>
+              <li>Manage your account and subscription</li>
+              <li>Send you service-related notifications</li>
+              <li>Prevent fraud and ensure security</li>
             </ul>
           </section>
 
           <section>
-            <h2 className="text-xl font-semibold text-foreground mb-3">4. Services tiers</h2>
-            <p className="text-muted-foreground leading-relaxed mb-3">Nous utilisons les services tiers suivants :</p>
+            <h2 className="text-xl font-semibold text-foreground mb-3">4. Third-Party Services</h2>
+            <p className="text-muted-foreground leading-relaxed mb-3">We use the following third-party services:</p>
             <ul className="list-disc list-inside space-y-1.5 text-muted-foreground">
-              <li><strong className="text-foreground">Supabase</strong> : hébergement de la base de données et stockage des fichiers</li>
-              <li><strong className="text-foreground">OpenAI (Whisper)</strong> : transcription audio de vos vidéos</li>
-              <li><strong className="text-foreground">Anthropic (Claude)</strong> : analyse IA des clips et génération de scores viraux</li>
-              <li><strong className="text-foreground">Stripe</strong> : traitement sécurisé des paiements</li>
-              <li><strong className="text-foreground">Netlify</strong> : hébergement de l&apos;application</li>
+              <li><strong className="text-foreground">Supabase</strong>: database hosting and file storage</li>
+              <li><strong className="text-foreground">OpenAI (Whisper)</strong>: audio transcription of your videos</li>
+              <li><strong className="text-foreground">Anthropic (Claude)</strong>: AI analysis of clips and viral score generation</li>
+              <li><strong className="text-foreground">Stripe</strong>: secure payment processing</li>
+              <li><strong className="text-foreground">Netlify</strong>: application hosting</li>
             </ul>
           </section>
 
           <section>
-            <h2 className="text-xl font-semibold text-foreground mb-3">5. Stockage et sécurité</h2>
+            <h2 className="text-xl font-semibold text-foreground mb-3">5. Storage and Security</h2>
             <p className="text-muted-foreground leading-relaxed">
-              Vos données sont stockées de manière sécurisée via Supabase avec chiffrement au repos et en transit. Les mots de passe sont hashés. Les vidéos uploadées sont stockées dans des buckets privés avec contrôle d&apos;accès par ligne (Row Level Security). Nous ne partageons jamais vos vidéos avec des tiers sans votre consentement explicite.
+              Your data is stored securely via Supabase with encryption at rest and in transit. Passwords are hashed. Uploaded videos are stored in private buckets with row-level security controls. We never share your videos with third parties without your explicit consent.
             </p>
           </section>
 
           <section>
-            <h2 className="text-xl font-semibold text-foreground mb-3">6. Vos droits</h2>
-            <p className="text-muted-foreground leading-relaxed mb-3">Conformément au RGPD, vous avez le droit de :</p>
+            <h2 className="text-xl font-semibold text-foreground mb-3">6. Your Rights</h2>
+            <p className="text-muted-foreground leading-relaxed mb-3">Under GDPR, you have the right to:</p>
             <ul className="list-disc list-inside space-y-1.5 text-muted-foreground">
-              <li>Accéder à vos données personnelles</li>
-              <li>Rectifier vos données</li>
-              <li>Supprimer votre compte et toutes vos données</li>
-              <li>Exporter vos données (portabilité)</li>
-              <li>Retirer votre consentement à tout moment</li>
+              <li>Access your personal data</li>
+              <li>Correct your data</li>
+              <li>Delete your account and all your data</li>
+              <li>Export your data (portability)</li>
+              <li>Withdraw your consent at any time</li>
             </ul>
           </section>
 
           <section>
             <h2 className="text-xl font-semibold text-foreground mb-3">7. Cookies</h2>
             <p className="text-muted-foreground leading-relaxed">
-              Nous utilisons des cookies essentiels uniquement pour maintenir votre session d&apos;authentification. Nous n&apos;utilisons pas de cookies de tracking publicitaire.
+              We use essential cookies only to maintain your authentication session. We do not use advertising tracking cookies.
             </p>
           </section>
 
           <section>
             <h2 className="text-xl font-semibold text-foreground mb-3">8. Contact</h2>
             <p className="text-muted-foreground leading-relaxed">
-              Pour toute question relative à cette politique de confidentialité ou pour exercer vos droits, contactez-nous à : <strong className="text-foreground">privacy@viralstudio.pro</strong>
+              For any questions about this Privacy Policy or to exercise your rights, contact us at: <strong className="text-foreground">privacy@viralstudio.pro</strong>
             </p>
           </section>
         </div>
@@ -111,8 +111,8 @@ export default function PrivacyPage() {
         <div className="max-w-4xl mx-auto flex items-center justify-between text-xs text-muted-foreground">
           <p>&copy; {new Date().getFullYear()} Viral Studio Pro</p>
           <div className="flex gap-4">
-            <Link href="/terms" className="hover:text-foreground transition-colors">Conditions d&apos;utilisation</Link>
-            <Link href="/" className="hover:text-foreground transition-colors">Accueil</Link>
+            <Link href="/terms" className="hover:text-foreground transition-colors">Terms of service</Link>
+            <Link href="/" className="hover:text-foreground transition-colors">Home</Link>
           </div>
         </div>
       </footer>

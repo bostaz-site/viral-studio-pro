@@ -5,7 +5,7 @@ export default function robots(): MetadataRoute.Robots {
     rules: {
       userAgent: '*',
       allow: '/',
-      disallow: ['/dashboard/', '/create/', '/trending/', '/publish/', '/settings/', '/api/'],
+      disallow: ['/dashboard/', '/settings/', '/api/'],
     },
     sitemap: 'https://viral-studio-pro.netlify.app/sitemap.xml',
   }

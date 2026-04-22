@@ -178,7 +178,7 @@ export function TimelineEditor({
       {/* Controls */}
       <div className="flex items-center justify-between">
         <p className="text-sm font-medium text-foreground">
-          Timeline — {localSegments.length} segment{localSegments.length !== 1 ? 's' : ''}
+          Timeline  {localSegments.length} segment{localSegments.length !== 1 ? 's' : ''}
         </p>
         <div className="flex items-center gap-1">
           <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setZoom((z) => Math.max(0.5, z - 0.25))}>
@@ -292,7 +292,7 @@ export function TimelineEditor({
             <div key={seg.id} className="flex items-center gap-1.5 text-xs bg-muted/30 rounded-lg px-3 py-1.5 border border-border">
               <span className="font-medium text-foreground">Clip {i + 1}</span>
               <span className="text-muted-foreground">
-                {formatTime(seg.start)} → {formatTime(seg.end)}
+                {formatTime(seg.start)} – {formatTime(seg.end)}
               </span>
               <span className="text-muted-foreground/60">
                 ({Math.round(seg.end - seg.start)}s)

@@ -90,15 +90,15 @@ export const GET = withAuth(async (request: NextRequest, user) => {
   // Contextual message that reflects queue position when available
   let message: string
   if (job.status === 'done') {
-    message = 'Rendu terminé !'
+    message = 'Render complete!'
   } else if (job.status === 'error') {
-    message = `Erreur : ${job.error_message}`
+    message = `Error: ${job.error_message}`
   } else if (queuePosition !== null && queuePosition > 0) {
-    message = `En file d'attente — position ${queuePosition}`
+    message = `In queue — position ${queuePosition}`
   } else if (job.status === 'rendering') {
-    message = 'Rendu en cours...'
+    message = 'Rendering...'
   } else {
-    message = 'En attente...'
+    message = 'Waiting...'
   }
 
   return NextResponse.json({

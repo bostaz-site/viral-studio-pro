@@ -7,6 +7,8 @@ import { Card, CardContent } from '@/components/ui/card'
 import { VelocityBadge } from '@/components/trending/velocity-badge'
 import type { TrendingClip } from '@/stores/trending-store'
 import { cn } from '@/lib/utils'
+import { formatCount } from '@/lib/trending/utils'
+import { PLATFORM_STYLES, NICHE_LABELS } from '@/lib/trending/constants'
 
 interface TrendingDetailModalProps {
   clip: TrendingClip | null
@@ -16,24 +18,8 @@ interface TrendingDetailModalProps {
   remixing: boolean
 }
 
-const PLATFORM_STYLES: Record<string, { label: string; colorClass: string }> = {
-  twitch:         { label: 'Twitch',         colorClass: 'text-purple-400' },
-  youtube_gaming: { label: 'YouTube Gaming', colorClass: 'text-red-400' },
-}
-
 const GAME_COLORS: Record<string, string> = {
   irl: 'text-blue-400 bg-blue-500/10 border-blue-500/30',
-}
-
-const GAME_LABELS: Record<string, string> = {
-  irl: 'IRL',
-}
-
-function formatCount(n: number | null): string {
-  if (n === null) return '--'
-  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`
-  if (n >= 1_000) return `${(n / 1_000).toFixed(0)}K`
-  return String(n)
 }
 
 function formatDateTime(dateStr: string | null): string {
@@ -52,10 +38,11 @@ export function TrendingDetailModal({ clip, open, onClose, onRemix, remixing }: 
 
   if (!open || !clip) return null
 
-  const platform = PLATFORM_STYLES[clip.platform.toLowerCase()] ?? { label: clip.platform, colorClass: 'text-muted-foreground' }
+  const ps = PLATFORM_STYLES[clip.platform.toLowerCase()]
+  const platform = { label: ps?.label ?? clip.platform, colorClass: ps?.colorClass ?? 'text-muted-foreground' }
   const gameKey = clip.niche?.toLowerCase() ?? ''
   const gameColor = GAME_COLORS[gameKey] ?? 'text-muted-foreground bg-muted border-border'
-  const gameLabel = GAME_LABELS[gameKey] ?? clip.niche
+  const gameLabel = NICHE_LABELS[gameKey] ?? clip.niche
 
   const handleCopyUrl = async () => {
     try {
@@ -87,10 +74,10 @@ export function TrendingDetailModal({ clip, open, onClose, onRemix, remixing }: 
                     {gameLabel}
                   </span>
                 )}
-                <VelocityBadge score={clip.velocity_score} showLabel />
+                <VelocityBadge score={clip.velocity_score} />
               </div>
               <h2 className="text-lg font-bold text-foreground leading-tight">
-                {clip.title ?? 'Clip de stream'}
+                {clip.title ?? 'Stream clip'}
               </h2>
             </div>
             <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={onClose}>
@@ -115,7 +102,7 @@ export function TrendingDetailModal({ clip, open, onClose, onRemix, remixing }: 
             <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/30 border border-border">
               <Eye className="h-4 w-4 text-blue-400" />
               <div>
-                <p className="text-xs text-muted-foreground">Vues</p>
+                <p className="text-xs text-muted-foreground">Views</p>
                 <p className="text-sm font-bold">{formatCount(clip.view_count)}</p>
               </div>
             </div>
@@ -129,14 +116,14 @@ export function TrendingDetailModal({ clip, open, onClose, onRemix, remixing }: 
             <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/30 border border-border">
               <Flame className="h-4 w-4 text-orange-400" />
               <div>
-                <p className="text-xs text-muted-foreground">Velocity Score</p>
+                <p className="text-xs text-muted-foreground">Velocity</p>
                 <p className="text-sm font-bold">{clip.velocity_score?.toFixed(1) ?? '--'}</p>
               </div>
             </div>
             <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/30 border border-border">
               <Clock className="h-4 w-4 text-slate-400" />
               <div>
-                <p className="text-xs text-muted-foreground">Scrapé le</p>
+                <p className="text-xs text-muted-foreground">Scraped</p>
                 <p className="text-sm font-bold">{formatDateTime(clip.scraped_at)}</p>
               </div>
             </div>
@@ -172,7 +159,7 @@ export function TrendingDetailModal({ clip, open, onClose, onRemix, remixing }: 
             >
               <Button variant="outline" className="w-full gap-2 h-10">
                 <ExternalLink className="h-4 w-4" />
-                Voir l&apos;original
+                View original
               </Button>
             </a>
             <Button
@@ -181,7 +168,7 @@ export function TrendingDetailModal({ clip, open, onClose, onRemix, remixing }: 
               disabled={remixing || clip.id.startsWith('seed-')}
             >
               <Clapperboard className="h-4 w-4" />
-              {remixing ? 'Création en cours…' : 'Clipper'}
+              {remixing ? 'Creating...' : 'Make Viral'}
             </Button>
           </div>
         </CardContent>

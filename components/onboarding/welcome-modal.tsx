@@ -18,20 +18,20 @@ const STEPS: Step[] = [
   {
     icon: Wand2,
     accent: 'from-blue-500/20 to-indigo-500/20 border-blue-500/30 text-blue-400',
-    title: '1. Choisis un clip',
-    body: "Parcours la bibliothèque de clips Twitch trending ou uploade ton propre clip. Filtre par niche (IRL, FPS, MOBA, etc.) pour trouver le bon contenu.",
+    title: '1. Pick a clip',
+    body: "Browse the trending Twitch clip library or upload your own. Filter by niche (IRL, FPS, MOBA, etc.) to find the right content.",
   },
   {
     icon: Zap,
     accent: 'from-orange-500/20 to-amber-500/20 border-orange-500/30 text-orange-400',
-    title: '2. Clique sur « Make it viral »',
-    body: "Un seul bouton applique les meilleurs réglages : sous-titres karaoké, hook IA (gros moment en premier), smart zoom, audio enhance et tag streamer. Rendu en moins de 90 secondes.",
+    title: '2. Click "Make Viral"',
+    body: "One click applies the best settings: karaoke captions, AI hook (big moment first), smart zoom, audio enhance, and streamer tag. Rendered in under 90 seconds.",
   },
   {
     icon: Download,
     accent: 'from-green-500/20 to-emerald-500/20 border-green-500/30 text-green-400',
-    title: '3. Télécharge et poste',
-    body: "Ta vidéo 9:16 est prête à poster sur TikTok, Reels ou Shorts. Pas de watermark sur les plans payants.",
+    title: '3. Download and post',
+    body: "Your 9:16 video is ready to post on TikTok, Reels, or Shorts. No watermark on paid plans.",
   },
 ]
 
@@ -80,7 +80,7 @@ export function WelcomeModal() {
           type="button"
           onClick={close}
           className="absolute top-4 right-4 p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
-          aria-label="Fermer"
+          aria-label="Close"
         >
           <X className="h-4 w-4" />
         </button>
@@ -89,7 +89,7 @@ export function WelcomeModal() {
         {stepIdx === 0 && (
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-orange-500/10 border border-orange-500/20 text-xs font-semibold text-orange-400 mb-4">
             <Sparkles className="h-3 w-3" />
-            Bienvenue sur Viral Studio Pro
+            Welcome to Viral Studio Pro
           </div>
         )}
 
@@ -125,11 +125,11 @@ export function WelcomeModal() {
               className="gap-1.5 text-muted-foreground"
             >
               <ArrowLeft className="h-3.5 w-3.5" />
-              Précédent
+              Back
             </Button>
           ) : (
             <Button variant="ghost" size="sm" onClick={close} className="text-muted-foreground">
-              Passer
+              Skip
             </Button>
           )}
 
@@ -138,7 +138,7 @@ export function WelcomeModal() {
               onClick={close}
               className="gap-1.5 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white font-bold"
             >
-              Commencer
+              Get started
               <ArrowRight className="h-3.5 w-3.5" />
             </Button>
           ) : (
@@ -146,7 +146,7 @@ export function WelcomeModal() {
               onClick={() => setStepIdx((i) => i + 1)}
               className="gap-1.5 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white font-bold"
             >
-              Suivant
+              Next
               <ArrowRight className="h-3.5 w-3.5" />
             </Button>
           )}

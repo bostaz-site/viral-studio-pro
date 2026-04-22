@@ -91,9 +91,9 @@ export function NotificationBell() {
                 {notifications.length === 0 ? (
                   <div className="p-6 text-center">
                     <Bell className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
-                    <p className="text-sm text-muted-foreground">Aucune alerte pour le moment</p>
+                    <p className="text-sm text-muted-foreground">No alerts yet</p>
                     <p className="text-xs text-muted-foreground/60 mt-1">
-                      Les clips avec un velocity score &ge; 80 apparaîtront ici
+                      Clips with a velocity score ≥ 80 will appear here
                     </p>
                   </div>
                 ) : (

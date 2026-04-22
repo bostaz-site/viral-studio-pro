@@ -7,23 +7,23 @@ import { AnimatedSection } from '@/components/landing/animated-section'
 const FEATURES = [
   {
     icon: Subtitles,
-    title: 'Sous-titres karaok\u00e9',
-    description: '9 styles de captions anim\u00e9s mot par mot \u2014 Hormozi, MrBeast, Gaming, Minimal et plus. Le format qui fait x3 sur la r\u00e9tention TikTok.',
+    title: 'Karaoke Captions',
+    description: '9 word-by-word animated caption styles — Hormozi, MrBeast, Gaming, Minimal and more. The format that drives 3x TikTok retention.',
   },
   {
     icon: MonitorPlay,
-    title: 'Split-screen automatique',
-    description: 'Combine ton clip de stream en haut avec Subway Surfers, Minecraft parkour ou autre vid\u00e9o satisfaisante en bas. Le format signature qui n\'existe nulle part ailleurs.',
+    title: 'Auto Split-Screen',
+    description: 'Stack your stream clip on top with Subway Surfers, Minecraft parkour, or other satisfying video below. The signature format no other tool has.',
   },
   {
     icon: TrendingUp,
-    title: 'Score viral IA',
-    description: 'Claude IA analyse chaque clip et attribue un score 0-100 avec une explication d\u00e9taill\u00e9e : hook, r\u00e9tention, \u00e9motion. Tu sais exactement quel clip va performer.',
+    title: 'AI Viral Score',
+    description: 'Claude AI scores every clip 0-100 with detailed breakdown: hook strength, retention curve, emotional arc. Know exactly which clips pop off.',
   },
   {
     icon: Sparkles,
     title: 'Remake This',
-    description: 'Tu vois un clip trending ? Clique "Remake" et l\'IA adapte le format, les sous-titres et le style \u00e0 ton propre contenu. Inspire-toi des meilleurs sans copier.',
+    description: 'See a trending clip? Hit "Remake" and AI adapts the format, captions, and style to your content. Learn from the best without copying.',
   },
 ]
 
@@ -32,8 +32,8 @@ export function FeaturesGrid() {
     <section className="py-20 px-6 bg-card/30 border-t border-border/30">
       <AnimatedSection className="max-w-5xl mx-auto">
         <div className="text-center mb-14">
-          <h2 className="text-3xl sm:text-4xl font-bold tracking-tight">Tout ce qu&apos;il te faut pour exploser sur TikTok</h2>
-          <p className="text-muted-foreground mt-3 text-lg">Split-screen, sous-titres, score viral — le combo gagnant des cr&eacute;ateurs qui scalent</p>
+          <h2 className="text-3xl sm:text-4xl font-bold tracking-tight">Everything You Need to Blow Up on TikTok</h2>
+          <p className="text-muted-foreground mt-3 text-lg">Split-screen, captions, viral score — the winning combo for creators scaling to millions</p>
         </div>
 
         <div className="grid sm:grid-cols-2 gap-6">

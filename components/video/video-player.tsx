@@ -220,7 +220,7 @@ export const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(
             <button
               onClick={() => skip(-5)}
               className="text-white/70 hover:text-white transition-colors"
-              title="Reculer 5s"
+              title="Rewind 5s"
             >
               <SkipBack className="h-4 w-4" />
             </button>
@@ -238,7 +238,7 @@ export const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(
             <button
               onClick={() => skip(5)}
               className="text-white/70 hover:text-white transition-colors"
-              title="Avancer 5s"
+              title="Forward 5s"
             >
               <SkipForward className="h-4 w-4" />
             </button>

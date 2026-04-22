@@ -1,7 +1,7 @@
 import { createServerClient, type CookieOptions } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
-const PROTECTED_ROUTES = ['/create', '/trending', '/publish', '/settings']
+const PROTECTED_ROUTES = ['/dashboard', '/settings']
 const AUTH_ROUTES = ['/login', '/signup']
 
 export async function middleware(request: NextRequest) {
@@ -44,7 +44,7 @@ export async function middleware(request: NextRequest) {
 
   // Redirect authenticated users away from auth pages
   if (isAuthRoute && user) {
-    return NextResponse.redirect(new URL('/create', request.url))
+    return NextResponse.redirect(new URL('/dashboard', request.url))
   }
 
   return response

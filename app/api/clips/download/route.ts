@@ -42,8 +42,8 @@ export const GET = withAuth(async (request, user) => {
         data: null,
         error: 'Clip not ready',
         message: clip.status === 'rendering'
-          ? 'Le clip est en cours de rendu. Réessayez dans quelques secondes.'
-          : 'Le clip n\'a pas encore été rendu.',
+          ? 'Clip is rendering. Try again in a few seconds.'
+          : 'Clip hasn\'t been rendered yet.',
       },
       { status: 409 }
     )
@@ -59,7 +59,7 @@ export const GET = withAuth(async (request, user) => {
   if (signedError || !signedData?.signedUrl) {
     console.error('[download] Signed URL error:', signedError)
     return NextResponse.json(
-      { data: null, error: 'Download failed', message: 'Impossible de générer le lien de téléchargement' },
+      { data: null, error: 'Download failed', message: 'Failed to generate download link' },
       { status: 500 }
     )
   }

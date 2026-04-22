@@ -19,43 +19,37 @@ export default function NotFound() {
         </div>
 
         <h1 className="text-2xl font-black tracking-tight mb-2">
-          Cette page n&apos;existe pas
+          This page doesn&apos;t exist
         </h1>
         <p className="text-muted-foreground mb-8">
-          Le lien est peut-être cassé, ou la page a été déplacée.
-          Mais ton prochain clip viral, lui, est juste là.
+          The link might be broken or the page moved.
+          But your next viral clip is right here.
         </p>
 
         <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
           <Link href="/">
             <Button variant="outline" className="gap-2">
               <ArrowLeft className="h-4 w-4" />
-              Accueil
+              Home
             </Button>
           </Link>
           <Link href="/demo">
             <Button className="gap-2">
               <Sparkles className="h-4 w-4" />
-              Voir la démo
+              See the demo
             </Button>
           </Link>
         </div>
 
         {/* Quick links */}
         <div className="mt-10 pt-6 border-t border-border">
-          <p className="text-xs text-muted-foreground mb-3">Pages populaires</p>
+          <p className="text-xs text-muted-foreground mb-3">Popular pages</p>
           <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-sm">
             <Link href="/pricing" className="text-muted-foreground hover:text-foreground transition-colors">
-              Tarifs
-            </Link>
-            <Link href="/blog" className="text-muted-foreground hover:text-foreground transition-colors">
-              Blog
-            </Link>
-            <Link href="/changelog" className="text-muted-foreground hover:text-foreground transition-colors">
-              Changelog
+              Pricing
             </Link>
             <Link href="/signup" className="text-muted-foreground hover:text-foreground transition-colors">
-              Inscription
+              Sign up
             </Link>
           </div>
         </div>

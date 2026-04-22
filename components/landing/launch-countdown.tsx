@@ -57,8 +57,8 @@ export function LaunchCountdown({
   if (remaining.expired) return null
 
   const label = compact
-    ? `${remaining.days}j ${remaining.hours}h ${remaining.minutes}m`
-    : `Expire dans ${remaining.days}j ${remaining.hours}h ${remaining.minutes}m`
+    ? `${remaining.days}d ${remaining.hours}h ${remaining.minutes}m`
+    : `Expires in ${remaining.days}d ${remaining.hours}h ${remaining.minutes}m`
 
   return (
     <div

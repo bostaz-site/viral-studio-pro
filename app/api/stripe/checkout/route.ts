@@ -92,12 +92,12 @@ export const POST = withAuth(async (req, user) => {
       },
     })
 
-    return NextResponse.json({ data: { url: session.url }, error: null, message: 'Session créée' })
+    return NextResponse.json({ data: { url: session.url }, error: null, message: 'Session created' })
   } catch (err) {
     // Don't leak Stripe internal error details to the client
     console.error('[stripe/checkout] Error:', err instanceof Error ? err.message : err)
     return NextResponse.json(
-      { data: null, error: 'Stripe error', message: 'Erreur lors de la création de la session de paiement' },
+      { data: null, error: 'Stripe error', message: 'Failed to create checkout session' },
       { status: 500 }
     )
   }

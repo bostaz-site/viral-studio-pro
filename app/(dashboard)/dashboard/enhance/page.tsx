@@ -1,7 +1,7 @@
 "use client"
 
 import Link from 'next/link'
-import { Wand2, Sparkles } from 'lucide-react'
+import { Wand2, Sparkles, UploadCloud } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 
 export default function EnhanceLandingPage() {
@@ -11,17 +11,25 @@ export default function EnhanceLandingPage() {
         <Wand2 className="h-8 w-8 text-primary" />
       </div>
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">Enhance un clip</h1>
+        <h1 className="text-2xl font-bold tracking-tight">Enhance a clip</h1>
         <p className="text-muted-foreground mt-2 max-w-md">
-          Choisis d&apos;abord un clip trending depuis le feed, puis personnalise-le ici avec des sous-titres karaok&eacute;, du split-screen et plus.
+          Upload your own clip or pick a trending one, then boost its virality with karaoke captions, split-screen, hooks and more.
         </p>
       </div>
-      <Link href="/dashboard">
-        <Button className="gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white">
-          <Sparkles className="h-4 w-4" />
-          Parcourir les clips trending
-        </Button>
-      </Link>
+      <div className="flex flex-col sm:flex-row gap-3">
+        <Link href="/dashboard/upload">
+          <Button className="gap-2 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white font-bold shadow-lg shadow-orange-500/25">
+            <UploadCloud className="h-4 w-4" />
+            Upload your clip
+          </Button>
+        </Link>
+        <Link href="/dashboard">
+          <Button variant="outline" className="gap-2">
+            <Sparkles className="h-4 w-4" />
+            Browse trending clips
+          </Button>
+        </Link>
+      </div>
     </div>
   )
 }

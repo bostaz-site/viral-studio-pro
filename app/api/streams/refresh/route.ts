@@ -15,7 +15,7 @@ export const POST = withAuth(async (req, user) => {
   const rl = rateLimit(`streams-refresh:${user.id}`, 1, 60_000)
   if (!rl.allowed) {
     return NextResponse.json(
-      { data: null, error: 'Rate limited', message: `Réessayez dans ${Math.ceil((rl.retryAfterMs ?? 0) / 1000)}s` },
+      { data: null, error: 'Rate limited', message: `Retry in ${Math.ceil((rl.retryAfterMs ?? 0) / 1000)}s` },
       { status: 429 }
     )
   }
@@ -27,10 +27,10 @@ export const POST = withAuth(async (req, user) => {
     return NextResponse.json({
       data: result,
       error: null,
-      message: `${result.upserted} clips importés de ${result.streamers_scanned} streamers`,
+      message: `${result.upserted} clips imported from ${result.streamers_scanned} streamers`,
     })
   } catch (err) {
-    const message = err instanceof Error ? err.message : 'Erreur lors du rafraîchissement'
+    const message = err instanceof Error ? err.message : 'Failed to refresh clips'
     return NextResponse.json(
       { data: null, error: message, message },
       { status: 500 }
