@@ -329,9 +329,9 @@ export const TrendingCard = memo(function TrendingCard({ clip, onRemix, remixing
           </Link>
         ) : (
           <div className="space-y-1 mt-1">
-            {(rank === 'platinum' || rank === 'diamond' || rank === 'champion') && !remixing && (
+            {(rank === 'epic' || rank === 'legendary' || rank === 'master') && !remixing && (
               <p className="text-[10px] text-center text-orange-400/80 font-medium">
-                {rank === 'champion' ? '👑' : rank === 'diamond' ? '💠' : '💎'} {rank.charAt(0).toUpperCase() + rank.slice(1)} rank — ready to blow up
+                {rank === 'master' ? '🔥' : rank === 'legendary' ? '⚡' : '🎯'} {rank === 'super_rare' ? 'Super Rare' : rank.charAt(0).toUpperCase() + rank.slice(1)} — ready to blow up
               </p>
             )}
             <Button

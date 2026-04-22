@@ -18,7 +18,7 @@ const DEFAULT_FILTERS: TrendingFiltersState = {
 }
 
 const EMPTY_RANK_COUNTS: Record<ClipRank, number> = {
-  unranked: 0, bronze: 0, silver: 0, gold: 0, platinum: 0, diamond: 0, champion: 0,
+  common: 0, rare: 0, super_rare: 0, epic: 0, legendary: 0, master: 0,
 }
 
 const EMPTY_STATS: TrendingStats = {
@@ -340,8 +340,8 @@ export const useTrendingStore = create<TrendingState>((set, get) => ({
   applyFilters: () => {
     const { clips, filters, savedClipIds } = get()
     const filtered = filterAndSortClips(clips, filters, savedClipIds)
-    const megaViralClips = filtered.filter((c) => clipRank(c) === 'champion' || clipRank(c) === 'diamond')
-    const trendingClips = filtered.filter((c) => clipRank(c) !== 'champion' && clipRank(c) !== 'diamond')
+    const megaViralClips = filtered.filter((c) => clipRank(c) === 'master' || clipRank(c) === 'legendary')
+    const trendingClips = filtered.filter((c) => clipRank(c) !== 'master' && clipRank(c) !== 'legendary')
     set({ filteredClips: filtered, megaViralClips, trendingClips })
   },
 

@@ -40,13 +40,12 @@ export interface TrendingClip {
 /** Derive rank from the DB tier column or velocity_score */
 export function clipRank(clip: TrendingClip): ClipRank {
   const score = clip.velocity_score ?? 0
-  if (score >= 95) return 'champion'
-  if (score >= 85) return 'diamond'
-  if (score >= 70) return 'platinum'
-  if (score >= 55) return 'gold'
-  if (score >= 40) return 'silver'
-  if (score >= 15) return 'bronze'
-  return 'unranked'
+  if (score >= 95) return 'master'
+  if (score >= 80) return 'legendary'
+  if (score >= 65) return 'epic'
+  if (score >= 45) return 'super_rare'
+  if (score >= 25) return 'rare'
+  return 'common'
 }
 
 /** Generate a contextual insight explaining why a clip scores well */

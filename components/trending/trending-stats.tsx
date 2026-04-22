@@ -94,18 +94,18 @@ export function TrendingStatsPanel({ stats, lastRefreshed, loading }: TrendingSt
         />
         <StatCard
           icon={Flame}
-          label="Gold+"
-          value={(stats.rankCounts?.gold ?? 0) + (stats.rankCounts?.platinum ?? 0) + (stats.rankCounts?.diamond ?? 0) + (stats.rankCounts?.champion ?? 0)}
-          sub="🥇 Gold & above"
-          accent="bg-yellow-500/15 text-yellow-400"
+          label="Epic+"
+          value={(stats.rankCounts?.epic ?? 0) + (stats.rankCounts?.legendary ?? 0) + (stats.rankCounts?.master ?? 0)}
+          sub="🔥 Epic & above"
+          accent="bg-orange-500/15 text-orange-400"
           loading={loading}
         />
         <StatCard
           icon={TrendingUp}
-          label="Silver+"
-          value={(stats.rankCounts?.silver ?? 0) + (stats.rankCounts?.gold ?? 0) + (stats.rankCounts?.platinum ?? 0) + (stats.rankCounts?.diamond ?? 0) + (stats.rankCounts?.champion ?? 0)}
-          sub="🥈 Silver & above"
-          accent="bg-slate-400/15 text-slate-300"
+          label="Super Rare+"
+          value={(stats.rankCounts?.super_rare ?? 0) + (stats.rankCounts?.epic ?? 0) + (stats.rankCounts?.legendary ?? 0) + (stats.rankCounts?.master ?? 0)}
+          sub="💜 Super Rare & above"
+          accent="bg-purple-500/15 text-purple-400"
           loading={loading}
         />
         <StatCard
