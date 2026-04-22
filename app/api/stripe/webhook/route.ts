@@ -141,7 +141,12 @@ export async function POST(req: NextRequest) {
       }
 
       case 'invoice.payment_failed': {
-        // Optional: notify user of failed payment — for now just log
+        // TODO: Send email notification to user about failed payment
+        const failedInvoice = event.data.object as { customer?: string; attempt_count?: number }
+        const failedCustomerId = typeof failedInvoice.customer === 'string' ? failedInvoice.customer : null
+        if (failedCustomerId) {
+          console.error(`[Stripe] Payment failed for customer ${failedCustomerId}, attempt ${failedInvoice.attempt_count ?? '?'}`)
+        }
         break
       }
 

@@ -5,7 +5,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { analyzeAudioPeaks } from './audio-peaks.js';
 
-// Hook overlay: only browser-captured PNGs are used (no server-side SVG fallback)
+// Hook overlay: uses browser-captured PNGs with drawtext fallback if PNG is absent
 
 const execFileAsync = promisify(execFile);
 const __filename = fileURLToPath(import.meta.url);
@@ -567,21 +567,36 @@ export async function renderClip(inputPath, outputPath, options = {}) {
     }
   }
 
-  // Hook text overlay — PNG from browser capture (displayed for ENTIRE clip)
+  // Hook text overlay — PNG from browser capture, visible for hook.length seconds
   let hookOverlayData = null;
+  const hookDisplayLength = (hook && hook.length > 0) ? hook.length : clipDuration;
   if (hook && hook.enabled && hook.textEnabled !== false && hook.text) {
     const jobDir = path.dirname(outputPath);
-    hookOverlayData = await prepareHookOverlay(hook.text, clipDuration, canvasW, canvasH, hook.textPosition || 15, jobDir, hook);
+    hookOverlayData = await prepareHookOverlay(hook.text, hookDisplayLength, canvasW, canvasH, hook.textPosition || 15, jobDir, hook);
     if (hookOverlayData) {
+      // endTime = hookDisplayLength + fade margins so the input stream is long enough for fade-out
+      const hookEndTime = Math.min(hookDisplayLength + 1, clipDuration);
       extraInputs.push({
         pngPath: hookOverlayData.pngPath,
         startTime: 0,
-        endTime: clipDuration,
+        endTime: hookEndTime,
         isHookOverlay: true,
-        hookLength: clipDuration,
+        hookLength: hookDisplayLength,
         isCapsuleOnly: hookOverlayData.isCapsuleOnly,
         textPosition: hookOverlayData.textPosition,
       });
+    } else {
+      // Fallback: no PNG overlay — generate drawtext directly in FFmpeg
+      const hookStyle = hook.style || 'choc';
+      const hookFontColor = hookStyle === 'choc' ? '0xFF4444' : hookStyle === 'curiosite' ? '0xFACC15' : '0xFFFFFF';
+      const posPct = hook.textPosition || 15;
+      const safeText = escapeDrawtext(hook.text);
+      const enableExpr = hookDisplayLength < clipDuration
+        ? `:enable='between(t\\,0\\,${(hookDisplayLength + 0.3).toFixed(2)})'`
+        : '';
+      filterComplex += `;${mapVideo}drawtext=text='${safeText}':fontfile=/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf:fontsize=48:fontcolor=0x${hookFontColor}@0xff:borderw=3:bordercolor=black:x=(w-text_w)/2:y=h*${posPct}/100-text_h/2${enableExpr}[hooktext]`;
+      mapVideo = '[hooktext]';
+      console.log(`[FFmpeg] Hook drawtext fallback: style=${hookStyle}, length=${hookDisplayLength}s`);
     }
   }
 
@@ -628,17 +643,24 @@ export async function renderClip(inputPath, outputPath, options = {}) {
     console.log(`[FFmpeg] Tag PNG overlay wired: input ${tagInputIndex}, pos=(${anchorX},${anchorY})`);
   }
 
-  // Wire hook PNG overlay (static, full duration, NOT affected by smart zoom)
+  // Wire hook PNG overlay (timed display: fade-in + fade-out based on hookLength)
   if (hookOverlayEntry && hookInputIndex >= 0) {
     const fadeIn = 0.3;
-    filterComplex += `;[${hookInputIndex}:v]format=rgba,fade=t=in:st=0:d=${fadeIn}:alpha=1[hookalpha]`;
+    const fadeOut = 0.3;
+    const hLen = hookOverlayEntry.hookLength || clipDuration;
+    // Fade-in at 0s, fade-out starts at hookLength
+    let fadeFilters = `fade=t=in:st=0:d=${fadeIn}:alpha=1`;
+    if (hLen < clipDuration) {
+      fadeFilters += `,fade=t=out:st=${hLen.toFixed(2)}:d=${fadeOut}:alpha=1`;
+    }
+    filterComplex += `;[${hookInputIndex}:v]format=rgba,${fadeFilters}[hookalpha]`;
     const isCapsule = hookOverlayEntry.isCapsuleOnly;
     const posPct = hookOverlayEntry.textPosition || 15;
     const overlayX = isCapsule ? '(W-w)/2' : '0';
     const overlayY = isCapsule ? `H*${posPct}/100-h/2` : '0';
     filterComplex += `;${mapVideo}[hookalpha]overlay=${overlayX}:${overlayY}:format=auto[hooked]`;
     mapVideo = '[hooked]';
-    console.log(`[FFmpeg] Hook PNG overlay wired: input ${hookInputIndex}, full duration, capsule=${isCapsule}`);
+    console.log(`[FFmpeg] Hook PNG overlay wired: input ${hookInputIndex}, display=${hLen}s, capsule=${isCapsule}`);
   }
 
   args.push('-t', String(clipDuration));
@@ -841,17 +863,19 @@ async function renderSplitScreen(inputPath, outputPath, opts) {
     }
   }
 
-  // Hook text overlay — PNG from browser capture (split-screen, full duration)
+  // Hook text overlay — PNG from browser capture (split-screen, timed display)
+  const hookDisplayLenSplit = (hook && hook.length > 0) ? hook.length : clipDuration;
   if (hook && hook.enabled && hook.textEnabled !== false && hook.text) {
     const jobDir = path.dirname(outputPath);
-    const hookData = await prepareHookOverlay(hook.text, clipDuration, canvasW, canvasH, hook.textPosition || 15, jobDir, hook);
+    const hookData = await prepareHookOverlay(hook.text, hookDisplayLenSplit, canvasW, canvasH, hook.textPosition || 15, jobDir, hook);
     if (hookData) {
+      const hookEndTimeSplit = Math.min(hookDisplayLenSplit + 1, clipDuration);
       extraInputs.push({
         pngPath: hookData.pngPath,
         startTime: 0,
-        endTime: clipDuration,
+        endTime: hookEndTimeSplit,
         isHookOverlay: true,
-        hookLength: clipDuration,
+        hookLength: hookDisplayLenSplit,
         isCapsuleOnly: hookData.isCapsuleOnly,
         textPosition: hookData.textPosition,
       });
@@ -899,17 +923,23 @@ async function renderSplitScreen(inputPath, outputPath, opts) {
     console.log(`[FFmpeg-Split] Tag PNG overlay wired: input ${tagInputIndexSplit}`);
   }
 
-  // Wire hook PNG overlay (split-screen, static, full duration)
+  // Wire hook PNG overlay (split-screen, timed display: fade-in + fade-out)
   if (hookOverlayEntrySplit && hookInputIndexSplit >= 0) {
     const fadeIn = 0.3;
-    filterComplex += `;[${hookInputIndexSplit}:v]format=rgba,fade=t=in:st=0:d=${fadeIn}:alpha=1[hookalpha]`;
+    const fadeOut = 0.3;
+    const hLenSplit = hookOverlayEntrySplit.hookLength || clipDuration;
+    let fadeFiltersSplit = `fade=t=in:st=0:d=${fadeIn}:alpha=1`;
+    if (hLenSplit < clipDuration) {
+      fadeFiltersSplit += `,fade=t=out:st=${hLenSplit.toFixed(2)}:d=${fadeOut}:alpha=1`;
+    }
+    filterComplex += `;[${hookInputIndexSplit}:v]format=rgba,${fadeFiltersSplit}[hookalpha]`;
     const isCapsule = hookOverlayEntrySplit.isCapsuleOnly;
     const posPct = hookOverlayEntrySplit.textPosition || 15;
     const overlayX = isCapsule ? '(W-w)/2' : '0';
     const overlayY = isCapsule ? `H*${posPct}/100-h/2` : '0';
     filterComplex += `;${mapVideo}[hookalpha]overlay=${overlayX}:${overlayY}:format=auto[hooked]`;
     mapVideo = '[hooked]';
-    console.log(`[FFmpeg-Split] Hook PNG overlay wired: input ${hookInputIndexSplit}`);
+    console.log(`[FFmpeg-Split] Hook PNG overlay wired: input ${hookInputIndexSplit}, display=${hLenSplit}s`);
   }
 
   args.push('-t', String(clipDuration));

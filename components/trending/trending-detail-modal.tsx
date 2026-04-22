@@ -5,7 +5,8 @@ import { X, ExternalLink, Eye, Heart, Clapperboard, Clock, Globe, Flame, Copy, C
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { VelocityBadge } from '@/components/trending/velocity-badge'
+import { RankBadge } from '@/components/trending/rank-badge'
+import { clipRank } from '@/types/trending'
 import type { TrendingClip } from '@/types/trending'
 import { cn } from '@/lib/utils'
 import { formatCount } from '@/lib/trending/utils'
@@ -101,7 +102,7 @@ export function TrendingDetailModal({ clip, open, onClose, onRemix, remixing }: 
                     {gameLabel}
                   </span>
                 )}
-                <VelocityBadge score={clip.velocity_score} />
+                <RankBadge rank={clipRank(clip)} score={clip.velocity_score} />
               </div>
               <h2 className="text-lg font-bold text-foreground leading-tight">
                 {clip.title ?? 'Stream clip'}
@@ -179,10 +180,10 @@ export function TrendingDetailModal({ clip, open, onClose, onRemix, remixing }: 
           {/* Detailed scores */}
           <div className="px-5 mt-4 space-y-2">
             <p className="text-xs font-semibold text-muted-foreground">Score Breakdown</p>
-            <ScoreBar label="Velocity (35%)" score={clip.viral_score} color="bg-orange-500" />
-            <ScoreBar label="Viral Ratio (20%)" score={clip.viral_ratio ? Math.min(100, clip.viral_ratio * 10000) : 0} color="bg-red-500" />
-            <ScoreBar label="Early Signal (15%)" score={clip.early_signal_score} color="bg-cyan-500" />
-            <ScoreBar label="Anomaly (15%)" score={clip.anomaly_score} color="bg-purple-500" />
+            <ScoreBar label="Momentum (25%)" score={clip.viral_score} color="bg-orange-500" />
+            <ScoreBar label="Authority (20%)" score={clip.anomaly_score} color="bg-purple-500" />
+            <ScoreBar label="Engagement (15%)" score={clip.viral_ratio ? Math.min(100, clip.viral_ratio * 10000) : 0} color="bg-red-500" />
+            <ScoreBar label="Early Signal (10%)" score={clip.early_signal_score} color="bg-cyan-500" />
           </div>
 
           {/* URL */}

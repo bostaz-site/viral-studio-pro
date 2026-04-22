@@ -20,7 +20,22 @@ export default async () => {
     })
 
     const data = await res.json()
-    console.log("[Cron] Result:", JSON.stringify(data))
+    console.log("[Cron] Fetch result:", JSON.stringify(data))
+
+    // Also trigger rescore for clips due for re-evaluation
+    try {
+      const rescoreRes = await fetch(`${baseUrl}/api/cron/rescore-clips`, {
+        method: "POST",
+        headers: {
+          "x-api-key": cronSecret,
+          "Content-Type": "application/json",
+        },
+      })
+      const rescoreData = await rescoreRes.json()
+      console.log("[Cron] Rescore result:", JSON.stringify(rescoreData))
+    } catch (err) {
+      console.error("[Cron] Rescore failed:", err instanceof Error ? err.message : String(err))
+    }
 
     return new Response(JSON.stringify(data), {
       status: res.status,

@@ -11,6 +11,7 @@ import { Separator } from '@/components/ui/separator'
 import { Switch } from '@/components/ui/switch'
 import { PricingCard } from '@/components/settings/pricing-card'
 import { ConnectAccounts } from '@/components/distribution/connect-accounts'
+import { CreatorRankSection } from '@/components/settings/creator-rank-section'
 import { createClient } from '@/lib/supabase/client'
 import type { User as SupabaseUser } from '@supabase/supabase-js'
 
@@ -495,6 +496,11 @@ function SettingsPageInner() {
       >
         <ConnectAccounts />
       </Section>
+
+      <Separator />
+
+      {/* ── Creator Rank ── */}
+      <CreatorRankSection />
 
       <Separator />
 

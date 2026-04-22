@@ -7,7 +7,7 @@ export const GET = withAuth(
 
     const { data: accounts, error } = await admin
       .from('social_accounts')
-      .select('id, platform, platform_user_id, username, connected_at')
+      .select('id, platform, platform_user_id, username, connected_at, followers, total_views, video_count, avg_views_per_video, median_views_per_video, engagement_rate, creator_score, creator_rank, last_synced_at, sync_count_today, last_sync_date')
       .eq('user_id', user.id)
       .order('connected_at', { ascending: false })
 

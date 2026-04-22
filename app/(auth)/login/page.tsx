@@ -1,3 +1,4 @@
+// TODO: Add rate limiting (brute force protection) — server-side middleware or Supabase rate limit
 "use client"
 
 import { useState } from 'react'

@@ -8,6 +8,8 @@ import { Button } from '@/components/ui/button'
 import { NotificationBell } from '@/components/trending/notification-bell'
 import { createClient } from '@/lib/supabase/client'
 import { isAdminEmail } from '@/lib/auth/admin-emails'
+import { useAccountStore } from '@/stores/account-store'
+import { CREATOR_RANK_CONFIG } from '@/lib/scoring/account-scorer'
 import { useEffect, useState } from 'react'
 import type { User } from '@supabase/supabase-js'
 
@@ -153,6 +155,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         {/* User footer */}
         {user && (
           <div className="p-4 border-t border-border shrink-0">
+            <SidebarRankBadge />
             <div className="flex items-center gap-3">
               <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center shrink-0">
                 <span className="text-xs font-bold text-primary">{userInitials}</span>
@@ -194,5 +197,19 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </main>
       </div>
     </div>
+  )
+}
+
+function SidebarRankBadge() {
+  const { score, fetchAccountScore } = useAccountStore()
+  useEffect(() => { fetchAccountScore() }, [fetchAccountScore])
+  if (!score) return null
+  const cfg = CREATOR_RANK_CONFIG[score.creator_rank]
+  return (
+    <Link href="/settings" className="flex items-center gap-1.5 mb-2 px-1 py-1 rounded-lg hover:bg-muted/50 transition-colors">
+      <span className="text-sm">{cfg.emoji}</span>
+      <span className={`text-[10px] font-bold ${cfg.color}`}>{cfg.label}</span>
+      <span className="text-[10px] text-muted-foreground ml-auto">{score.creator_score}</span>
+    </Link>
   )
 }

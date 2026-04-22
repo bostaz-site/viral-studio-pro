@@ -5,10 +5,11 @@ import Link from 'next/link'
 import { ExternalLink, Crown, Lock, Zap, TrendingUp, Flame, Bookmark, Diamond, Clock } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
-import { VelocityBadge } from '@/components/trending/velocity-badge'
+import { RankBadge, getRankCardClass } from '@/components/trending/rank-badge'
 import { cn } from '@/lib/utils'
 import { formatCount, timeAgo } from '@/lib/trending/utils'
 import { PLATFORM_STYLES, NICHE_LABELS } from '@/lib/trending/constants'
+import { clipRank, getClipInsight } from '@/types/trending'
 import type { TrendingClip } from '@/types/trending'
 
 export type { TrendingClip }
@@ -43,12 +44,7 @@ const STREAMER_GRADIENTS: Record<string, string> = {
   caseoh_: 'from-orange-600 via-red-500 to-pink-500',
 }
 
-const TIER_BADGES: Record<string, { label: string; className: string }> = {
-  mega_viral: { label: 'MEGA VIRAL', className: 'bg-gradient-to-r from-yellow-500 to-amber-500 text-black animate-pulse' },
-  viral: { label: 'VIRAL', className: 'bg-gradient-to-r from-red-500 to-orange-500 text-white' },
-  hot: { label: 'HOT', className: 'bg-gradient-to-r from-orange-500 to-amber-500 text-white' },
-  rising: { label: 'Rising', className: 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' },
-}
+// Rank-based badges are now in rank-badge.tsx
 
 function formatDuration(seconds: number | null): string {
   if (!seconds) return ''
@@ -136,12 +132,15 @@ export const TrendingCard = memo(function TrendingCard({ clip, onRemix, remixing
     return () => clearTimeout(t)
   }, [hovered, isLocked, videoUrl])
 
-  const tierBadge = clip.tier ? TIER_BADGES[clip.tier] : null
+  const rank = clipRank(clip)
+  const insight = getClipInsight(clip)
+  const rankCardClass = getRankCardClass(rank)
 
   return (
     <Card
       className={cn(
         'bg-card/60 border-border overflow-hidden group transition-all duration-300',
+        rankCardClass,
         isLocked
           ? 'hover:border-amber-500/40 hover:shadow-lg hover:shadow-amber-500/5'
           : 'hover:border-primary/40 hover:shadow-xl hover:shadow-primary/10 hover:-translate-y-1'
@@ -220,9 +219,9 @@ export const TrendingCard = memo(function TrendingCard({ clip, onRemix, remixing
           </span>
         )}
 
-        {/* Velocity badge */}
+        {/* Rank badge */}
         <div className="absolute top-2 right-2 z-20">
-          <VelocityBadge score={clip.velocity_score} />
+          <RankBadge rank={rank} score={clip.velocity_score} />
         </div>
 
         {/* Feed category badges */}
@@ -302,12 +301,12 @@ export const TrendingCard = memo(function TrendingCard({ clip, onRemix, remixing
           </p>
         )}
 
-        {/* Tier + feed + niche badges */}
+        {/* Insight tag + niche */}
         <div className="flex items-center gap-1.5 flex-wrap">
-          {tierBadge && (
-            <span className={cn('inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold', tierBadge.className)}>
-              {clip.tier === 'mega_viral' || clip.tier === 'viral' ? <Flame className="h-2.5 w-2.5" /> : <TrendingUp className="h-2.5 w-2.5" />}
-              {tierBadge.label}
+          {insight && (
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium text-muted-foreground/80 bg-muted/40">
+              <span>{insight.icon}</span>
+              {insight.text}
             </span>
           )}
           {clip.niche && (
@@ -330,9 +329,9 @@ export const TrendingCard = memo(function TrendingCard({ clip, onRemix, remixing
           </Link>
         ) : (
           <div className="space-y-1 mt-1">
-            {(clip.velocity_score ?? 0) >= 80 && !remixing && (
+            {(rank === 'platinum' || rank === 'diamond' || rank === 'champion') && !remixing && (
               <p className="text-[10px] text-center text-orange-400/80 font-medium">
-                Algo score {clip.velocity_score?.toFixed(0)} — ready to blow up
+                {rank === 'champion' ? '👑' : rank === 'diamond' ? '💠' : '💎'} {rank.charAt(0).toUpperCase() + rank.slice(1)} rank — ready to blow up
               </p>
             )}
             <Button

@@ -1,0 +1,64 @@
+/* Rank card border animations — Diamond & Champion only */
+
+/* Diamond: conic-gradient rotating border */
+.card-diamond {
+  position: relative;
+  overflow: visible;
+}
+.card-diamond::before {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  background: conic-gradient(from 0deg, #b9f2ff, #4169e1, #b9f2ff);
+  animation: rotate-border 4s linear infinite;
+  z-index: -1;
+  border-radius: inherit;
+  opacity: 0.7;
+}
+
+/* Champion: fire gradient + saturate */
+.card-champion {
+  position: relative;
+  overflow: visible;
+  backdrop-filter: saturate(150%);
+}
+.card-champion::before {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  background: conic-gradient(from 0deg, #FF4500, #FFD700, #FF4500);
+  animation: rotate-border 3s linear infinite;
+  z-index: -1;
+  border-radius: inherit;
+  opacity: 0.8;
+}
+
+/* Gold: glow on hover only */
+.card-gold:hover {
+  box-shadow: 0 0 12px rgba(255, 215, 0, 0.4);
+  transition: box-shadow 0.3s ease;
+}
+
+@keyframes rotate-border {
+  to { transform: rotate(360deg); }
+}
+
+/* Performance: GPU layer for animated elements */
+.card-diamond::before,
+.card-champion::before {
+  will-change: transform;
+}
+
+/* Accessibility: respect reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .card-diamond::before,
+  .card-champion::before {
+    animation: none;
+  }
+  .card-champion {
+    backdrop-filter: none;
+  }
+  .card-gold:hover {
+    box-shadow: none;
+  }
+}

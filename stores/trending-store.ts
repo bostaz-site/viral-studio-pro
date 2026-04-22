@@ -1,9 +1,10 @@
 import { create } from 'zustand'
-import type { TrendingClip, TrendingStats, TrendingFiltersState, ViralNotification, SavedClip, FeedFilter } from '@/types/trending'
+import type { TrendingClip, TrendingStats, TrendingFiltersState, ViralNotification, SavedClip, FeedFilter, ClipRank } from '@/types/trending'
+import { clipRank } from '@/types/trending'
 import { SEED_CLIPS } from '@/lib/trending/seed-data'
 
 // Re-export types for backward compatibility
-export type { TrendingClip, TrendingStats, TrendingFiltersState, ViralNotification, SortOption, SavedClip } from '@/types/trending'
+export type { TrendingClip, TrendingStats, TrendingFiltersState, ViralNotification, SortOption, SavedClip, ClipRank } from '@/types/trending'
 
 // ─── Constants ──────────────────────────────────────────────────────────────
 
@@ -16,12 +17,17 @@ const DEFAULT_FILTERS: TrendingFiltersState = {
   feed: 'all',
 }
 
+const EMPTY_RANK_COUNTS: Record<ClipRank, number> = {
+  unranked: 0, bronze: 0, silver: 0, gold: 0, platinum: 0, diamond: 0, champion: 0,
+}
+
 const EMPTY_STATS: TrendingStats = {
   total: 0, viral: 0, hot: 0,
   topGame: null, topPlatform: null,
   avgVelocity: 0, platforms: {}, games: {},
   lastScrapedAt: null,
   hotNowCount: 0, earlyGemCount: 0, provenCount: 0,
+  rankCounts: { ...EMPTY_RANK_COUNTS },
 }
 
 // ─── Pure utility functions ─────────────────────────────────────────────────
@@ -38,12 +44,15 @@ function computeStatsFromClips(clips: TrendingClip[]): TrendingStats {
   let earlyGemCount = 0
   let provenCount = 0
   let lastScrapedAt: string | null = null
+  const rankCounts: Record<ClipRank, number> = { ...EMPTY_RANK_COUNTS }
 
   for (const clip of clips) {
     const v = clip.velocity_score ?? 0
     totalVelocity += v
     if (v >= 80) viral++
     if (v >= 50) hot++
+
+    rankCounts[clipRank(clip)]++
 
     if (clip.feed_category === 'hot_now') hotNowCount++
     if (clip.feed_category === 'early_gem') earlyGemCount++
@@ -70,6 +79,7 @@ function computeStatsFromClips(clips: TrendingClip[]): TrendingStats {
     avgVelocity: Math.round(totalVelocity / clips.length),
     platforms, games, lastScrapedAt,
     hotNowCount, earlyGemCount, provenCount,
+    rankCounts,
   }
 }
 
@@ -158,7 +168,6 @@ interface TrendingState {
   refreshing: boolean
   error: string | null
   usingSeed: boolean
-  remixingId: string | null
   autoRefreshEnabled: boolean
   autoRefreshInterval: number
   lastRefreshed: string | null
@@ -170,7 +179,6 @@ interface TrendingState {
   // Actions
   setFilters: (filters: TrendingFiltersState) => void
   setFeed: (feed: FeedFilter) => void
-  setRemixingId: (id: string | null) => void
   setAutoRefresh: (enabled: boolean) => void
   markNotificationsRead: () => void
   fetchClips: (silent?: boolean) => Promise<void>
@@ -197,7 +205,6 @@ export const useTrendingStore = create<TrendingState>((set, get) => ({
   refreshing: false,
   error: null,
   usingSeed: false,
-  remixingId: null,
   autoRefreshEnabled: true,
   autoRefreshInterval: 60_000,
   lastRefreshed: null,
@@ -215,7 +222,6 @@ export const useTrendingStore = create<TrendingState>((set, get) => ({
     get().applyFilters()
   },
 
-  setRemixingId: (id) => set({ remixingId: id }),
   setAutoRefresh: (enabled) => set({ autoRefreshEnabled: enabled }),
   markNotificationsRead: () => set({ notificationsRead: true }),
 
@@ -226,7 +232,7 @@ export const useTrendingStore = create<TrendingState>((set, get) => ({
     set({ error: null })
 
     try {
-      const params = new URLSearchParams({ sort: state.filters.sort, limit: '100' })
+      const params = new URLSearchParams({ sort: state.filters.sort, limit: '200' })
       const res = await fetch(`/api/trending?${params}`)
       const json = await res.json() as { data: TrendingClip[] | null; error: string | null; meta?: { total: number } }
 
@@ -334,8 +340,8 @@ export const useTrendingStore = create<TrendingState>((set, get) => ({
   applyFilters: () => {
     const { clips, filters, savedClipIds } = get()
     const filtered = filterAndSortClips(clips, filters, savedClipIds)
-    const megaViralClips = filtered.filter((c) => c.tier === 'mega_viral')
-    const trendingClips = filtered.filter((c) => c.tier !== 'mega_viral')
+    const megaViralClips = filtered.filter((c) => clipRank(c) === 'champion' || clipRank(c) === 'diamond')
+    const trendingClips = filtered.filter((c) => clipRank(c) !== 'champion' && clipRank(c) !== 'diamond')
     set({ filteredClips: filtered, megaViralClips, trendingClips })
   },
 

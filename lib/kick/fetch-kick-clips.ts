@@ -50,18 +50,31 @@ export async function fetchAndScoreKickClips(
 
   if (!streamersRaw || streamersRaw.length === 0) return result
 
+  // Cast needed: Supabase generic select returns a union of all table rows.
+  // Our KickStreamer interface matches the actual columns selected above.
   const streamers = streamersRaw as unknown as KickStreamer[]
 
   for (const streamer of streamers) {
     if (!streamer.kick_login) continue
 
     try {
-      const clips = await getKickClips(streamer.kick_login, clipsPerStreamer)
-      if (clips.length === 0) {
+      const rawClips = await getKickClips(streamer.kick_login, clipsPerStreamer)
+      if (rawClips.length === 0) {
         result.streamers_scanned++
         continue
       }
       result.streamers_scanned++
+
+      // Deduplicate: keep only the highest-view clip per title within this batch
+      const bestByTitle = new Map<string, typeof rawClips[number]>()
+      for (const c of rawClips) {
+        const key = (c.title || c.id).toLowerCase()
+        const existing = bestByTitle.get(key)
+        if (!existing || c.view_count > existing.view_count) {
+          bestByTitle.set(key, c)
+        }
+      }
+      const clips = Array.from(bestByTitle.values())
 
       for (const clip of clips) {
         const clipUrl = clip.clip_url || `https://kick.com/${streamer.kick_login}/clips/${clip.id}`
@@ -122,7 +135,12 @@ export async function fetchAndScoreKickClips(
           velocity,
           streamer_avg_views: streamer.avg_clip_views || 0,
           streamer_avg_velocity: streamer.avg_clip_velocity || 0,
+          title: clip.title,
+          duration_seconds: clip.duration,
         })
+
+        // Fresh clip → recheck in 15 minutes
+        const nextCheckAt = new Date(Date.now() + 15 * 60_000).toISOString()
 
         await admin
           .from('trending_clips')
@@ -133,12 +151,25 @@ export async function fetchAndScoreKickClips(
             velocity_score: scores.final_score,
             tier: scores.tier,
             early_signal_score: scores.early_signal_score,
-            anomaly_score: scores.anomaly_score,
+            // NOTE: DB column is 'anomaly_score' but stores authority_score from Scoring V2
+            anomaly_score: scores.authority_score,
             feed_category: scores.feed_category,
-            duration_seconds: clip.duration,
+            momentum_score: scores.momentum_score,
+            engagement_score: scores.engagement_score,
+            recency_score: scores.recency_score,
+            format_score: scores.format_score,
+            saturation_score: scores.saturation_score,
+            next_check_at: nextCheckAt,
           })
           .eq('id', clipId)
       }
+
+      // Update last_fetched_at for this streamer (match Twitch pipeline behavior)
+      await admin
+        .from('streamers')
+        .update({ last_fetched_at: new Date().toISOString() })
+        .eq('id', streamer.id)
+
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
       result.errors.push(`${streamer.display_name}: ${msg}`)

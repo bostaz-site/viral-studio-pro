@@ -1,3 +1,4 @@
+// TODO: Add rate limiting + CAPTCHA (spam/bot protection) — server-side middleware or Supabase rate limit
 "use client"
 
 import { Suspense, useEffect, useState } from 'react'

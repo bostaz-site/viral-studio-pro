@@ -4,7 +4,7 @@ import { useEffect, useCallback, useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   TrendingUp, RefreshCw, AlertCircle, Loader2, Sparkles,
-  Download, Flame, Zap, Clock, X, Diamond, CheckCircle2, Bookmark,
+  Download, Flame, Zap, Clock, X, Diamond, Trophy, Bookmark, Lock, Film,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -72,13 +72,13 @@ export default function DashboardPage() {
     router.push(`/dashboard/enhance/${clip.id}`)
   }, [router])
 
-  const feedTabs: { key: FeedFilter; label: string; icon: typeof Sparkles; count?: number }[] = [
-    { key: 'all', label: 'All', icon: Sparkles },
-    { key: 'hot_now', label: 'Hot Right Now', icon: Flame, count: stats.hotNowCount },
-    { key: 'early_gem', label: 'Early Gems', icon: Diamond, count: stats.earlyGemCount },
-    { key: 'proven', label: 'Proven Viral', icon: CheckCircle2, count: stats.provenCount },
-    { key: 'recent', label: 'Recent', icon: Clock },
-    { key: 'saved', label: 'Saved', icon: Bookmark, count: savedClipIds.size },
+  const feedTabs: { key: FeedFilter; label: string; icon: typeof Flame; count?: number }[] = [
+    { key: 'all', label: 'All Clips', icon: Film },
+    { key: 'hot_now', label: 'On Fire', icon: Flame, count: stats.hotNowCount },
+    { key: 'early_gem', label: 'Hidden Gems', icon: Diamond, count: stats.earlyGemCount },
+    { key: 'proven', label: 'Hall of Fame', icon: Trophy, count: stats.provenCount },
+    { key: 'recent', label: 'Fresh Drop', icon: Zap },
+    { key: 'saved', label: 'My Vault', icon: Lock, count: savedClipIds.size },
   ]
 
   const remaining = totalCount - clips.length

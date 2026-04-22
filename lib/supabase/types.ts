@@ -158,6 +158,54 @@ export type Database = {
         }
         Relationships: []
       }
+      account_snapshots: {
+        Row: {
+          id: number
+          account_id: string
+          platform: string
+          followers: number | null
+          total_views: number | null
+          video_count: number | null
+          avg_views_per_video: number | null
+          median_views_per_video: number | null
+          engagement_rate: number | null
+          creator_score: number | null
+          creator_rank: string | null
+          snapshot_type: string
+          captured_at: string
+        }
+        Insert: {
+          id?: number
+          account_id: string
+          platform: string
+          followers?: number | null
+          total_views?: number | null
+          video_count?: number | null
+          avg_views_per_video?: number | null
+          median_views_per_video?: number | null
+          engagement_rate?: number | null
+          creator_score?: number | null
+          creator_rank?: string | null
+          snapshot_type?: string
+          captured_at?: string
+        }
+        Update: {
+          id?: number
+          account_id?: string
+          platform?: string
+          followers?: number | null
+          total_views?: number | null
+          video_count?: number | null
+          avg_views_per_video?: number | null
+          median_views_per_video?: number | null
+          engagement_rate?: number | null
+          creator_score?: number | null
+          creator_rank?: string | null
+          snapshot_type?: string
+          captured_at?: string
+        }
+        Relationships: []
+      }
       affiliate_payouts: {
         Row: {
           id: string
@@ -724,6 +772,18 @@ export type Database = {
           token_expires_at: string | null
           user_id: string | null
           username: string | null
+          followers: number | null
+          total_views: number | null
+          video_count: number | null
+          avg_views_per_video: number | null
+          median_views_per_video: number | null
+          engagement_rate: number | null
+          creator_score: number | null
+          creator_rank: string | null
+          primary_niche: string | null
+          last_synced_at: string | null
+          sync_count_today: number | null
+          last_sync_date: string | null
         }
         Insert: {
           access_token?: string | null
@@ -735,6 +795,18 @@ export type Database = {
           token_expires_at?: string | null
           user_id?: string | null
           username?: string | null
+          followers?: number | null
+          total_views?: number | null
+          video_count?: number | null
+          avg_views_per_video?: number | null
+          median_views_per_video?: number | null
+          engagement_rate?: number | null
+          creator_score?: number | null
+          creator_rank?: string | null
+          primary_niche?: string | null
+          last_synced_at?: string | null
+          sync_count_today?: number | null
+          last_sync_date?: string | null
         }
         Update: {
           access_token?: string | null
@@ -746,6 +818,18 @@ export type Database = {
           token_expires_at?: string | null
           user_id?: string | null
           username?: string | null
+          followers?: number | null
+          total_views?: number | null
+          video_count?: number | null
+          avg_views_per_video?: number | null
+          median_views_per_video?: number | null
+          engagement_rate?: number | null
+          creator_score?: number | null
+          creator_rank?: string | null
+          primary_niche?: string | null
+          last_synced_at?: string | null
+          sync_count_today?: number | null
+          last_sync_date?: string | null
         }
         Relationships: [
           {
@@ -924,6 +1008,12 @@ export type Database = {
           early_signal_score: number | null
           anomaly_score: number | null
           feed_category: string | null
+          next_check_at: string | null
+          momentum_score: number | null
+          engagement_score: number | null
+          recency_score: number | null
+          format_score: number | null
+          saturation_score: number | null
         }
         Insert: {
           author_handle?: string | null
@@ -951,6 +1041,12 @@ export type Database = {
           early_signal_score?: number | null
           anomaly_score?: number | null
           feed_category?: string | null
+          next_check_at?: string | null
+          momentum_score?: number | null
+          engagement_score?: number | null
+          recency_score?: number | null
+          format_score?: number | null
+          saturation_score?: number | null
         }
         Update: {
           author_handle?: string | null
@@ -978,6 +1074,12 @@ export type Database = {
           early_signal_score?: number | null
           anomaly_score?: number | null
           feed_category?: string | null
+          next_check_at?: string | null
+          momentum_score?: number | null
+          engagement_score?: number | null
+          recency_score?: number | null
+          format_score?: number | null
+          saturation_score?: number | null
         }
         Relationships: [
           {

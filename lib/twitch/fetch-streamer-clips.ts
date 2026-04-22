@@ -163,6 +163,8 @@ export async function fetchAndScoreStreamerClips(
     return result
   }
 
+  // Cast needed: Supabase generic select returns a union of all table rows.
+  // Our Streamer interface matches the actual columns selected above.
   const streamers = streamersRaw as unknown as Streamer[]
   const resolved = await resolveStreamerIds(admin, streamers)
 
@@ -175,16 +177,28 @@ export async function fetchAndScoreStreamerClips(
     }
 
     try {
-      const clips = await getClipsByBroadcaster(
+      const rawClips = await getClipsByBroadcaster(
         streamer.twitch_id,
         lookbackHours,
         clipsPerStreamer
       )
-      if (clips.length === 0) {
+      if (rawClips.length === 0) {
         result.streamers_scanned++
         continue
       }
       result.streamers_scanned++
+
+      // Deduplicate: keep only the highest-view clip per title within this batch.
+      // Twitch streams produce multiple clips with the same stream title.
+      const bestByTitle = new Map<string, typeof rawClips[number]>()
+      for (const c of rawClips) {
+        const key = (c.title || c.id).toLowerCase()
+        const existing = bestByTitle.get(key)
+        if (!existing || c.view_count > existing.view_count) {
+          bestByTitle.set(key, c)
+        }
+      }
+      const clips = Array.from(bestByTitle.values())
 
       for (const clip of clips) {
         const clipRow = {
@@ -247,7 +261,12 @@ export async function fetchAndScoreStreamerClips(
           velocity,
           streamer_avg_views: streamer.avg_clip_views || 0,
           streamer_avg_velocity: streamer.avg_clip_velocity || 0,
+          title: clip.title,
+          duration_seconds: clip.duration,
         })
+
+        // Fresh clip → recheck in 15 minutes
+        const nextCheckAt = new Date(Date.now() + 15 * 60_000).toISOString()
 
         await admin
           .from('trending_clips')
@@ -258,8 +277,15 @@ export async function fetchAndScoreStreamerClips(
             velocity_score: scores.final_score,
             tier: scores.tier,
             early_signal_score: scores.early_signal_score,
-            anomaly_score: scores.anomaly_score,
+            // NOTE: DB column is 'anomaly_score' but stores authority_score from Scoring V2
+            anomaly_score: scores.authority_score,
             feed_category: scores.feed_category,
+            momentum_score: scores.momentum_score,
+            engagement_score: scores.engagement_score,
+            recency_score: scores.recency_score,
+            format_score: scores.format_score,
+            saturation_score: scores.saturation_score,
+            next_check_at: nextCheckAt,
           })
           .eq('id', clipId)
       }
