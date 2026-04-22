@@ -2,7 +2,7 @@ import { createClient } from '@supabase/supabase-js';
 import { promises as fs } from 'fs';
 
 /**
- * Supabase client and utilities for Viral Studio Pro Render API
+ * Supabase client and utilities for Viral Animal Render API
  */
 
 // ─────────────────────────────────────────────────────────────────────────────

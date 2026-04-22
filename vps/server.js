@@ -24,7 +24,7 @@ const PORT = process.env.PORT || 3100;
 
 // CORS configuration
 app.use(cors({
-  origin: process.env.ALLOWED_ORIGINS?.split(',') || ['https://viral-studio-pro.netlify.app', 'http://localhost:3000'],
+  origin: process.env.ALLOWED_ORIGINS?.split(',') || ['https://viralanimal.com', 'http://localhost:3000'],
   credentials: true,
   methods: ['GET', 'POST', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'x-api-key'],
@@ -99,7 +99,7 @@ app.use('/api/download', authenticateApiKey, downloadRouter);
 // Root endpoint
 app.get('/', (req, res) => {
   res.json({
-    service: 'Viral Studio Pro Render API',
+    service: 'Viral Animal Render API',
     version: '1.0.0',
     status: 'running',
     endpoints: {
@@ -139,7 +139,7 @@ app.use((err, req, res, next) => {
 app.listen(PORT, () => {
   console.log(`
 ╔════════════════════════════════════════════════════════════════╗
-║  Viral Studio Pro Render API                                   ║
+║  Viral Animal Render API                                   ║
 ║  Environment: ${(process.env.NODE_ENV || 'development').padEnd(44)} ║
 ║  Port: ${String(PORT).padEnd(55)} ║
 ║  API Secret: ${(process.env.VPS_RENDER_API_KEY || process.env.API_SECRET) ? '✓ Configured' : '✗ NOT SET'.padEnd(42)} ║

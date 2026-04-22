@@ -1,9 +1,8 @@
-// Client-safe admin email check. Keeps the allowlist in sync with
-// lib/api/withAdmin.ts — the server version is authoritative, this one
-// just controls whether the "Admin" nav link renders.
+// Single source of truth for admin email checks.
+// Used by both the client (sidebar nav) and the server (withAdmin.ts).
 //
-// Using NEXT_PUBLIC_ADMIN_EMAILS so it's embedded at build time; falls
-// back to Samy's personal address so the button works on day one.
+// Reads NEXT_PUBLIC_ADMIN_EMAILS (available on both client and server).
+// Falls back to Samy's personal address so the admin panel works on day one.
 
 const DEFAULT_ADMIN_EMAILS = 'samycloutier30@gmail.com'
 

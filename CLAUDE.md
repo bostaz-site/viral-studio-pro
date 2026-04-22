@@ -1,7 +1,7 @@
-# VIRAL STUDIO PRO — Instructions pour Claude Code
+# VIRAL ANIMAL — Instructions pour Claude Code
 
 ## Projet
-Viral Studio Pro — Une webapp simple pour booster la viralite de clips de streamers. Tu choisis un clip (depuis la bibliotheque ou tu uploades le tien), tu l'ameliores (sous-titres, split-screen, tag streamer, gros moment au debut), et tu exportes.
+Viral Animal — Une webapp simple pour booster la viralite de clips de streamers. Tu choisis un clip (depuis la bibliotheque ou tu uploades le tien), tu l'ameliores (sous-titres, split-screen, tag streamer, gros moment au debut), et tu exportes.
 
 ## Le Flow Utilisateur
 
@@ -40,8 +40,8 @@ viral-studio-pro/
 │   │   ├── upload/               # Upload de clip
 │   │   ├── clips/                # CRUD clips
 │   │   ├── render/               # Trigger FFmpeg (Railway VPS)
-│   │   ├── export/               # Export video finale
 │   │   ├── cron/fetch-twitch-clips/ # Fetch clips Twitch
+│   │   ├── cron/rescore-clips/   # Cron stratifie — re-scoring dynamique V2
 │   │   └── streams/refresh/      # Refresh clips streamers
 │   ├── layout.tsx
 │   └── page.tsx                  # Landing page
@@ -53,8 +53,10 @@ viral-studio-pro/
 │   └── landing/                  # Landing page sections
 ├── lib/
 │   ├── supabase/                 # Client + server Supabase
-│   ├── ffmpeg/                   # Commandes FFmpeg (captions, split-screen, reframe)
+│   ├── scoring/                  # Scoring V2 engine (clip-scorer.ts, account-scorer.ts)
+│   ├── ai/                       # Mood detector + presets (Claude Haiku)
 │   ├── twitch/                   # Client Twitch API + fetch clips
+│   ├── kick/                     # Client Kick API + fetch clips
 │   └── utils.ts                  # Helpers generaux
 ├── stores/                       # Zustand stores
 ├── types/                        # Types TypeScript globaux
@@ -230,7 +232,7 @@ TWITCH_CLIENT_ID=
 TWITCH_CLIENT_SECRET=
 
 # App
-NEXT_PUBLIC_APP_URL=https://viral-studio-pro.netlify.app
+NEXT_PUBLIC_APP_URL=https://viralanimal.com
 ```
 
 ## Conventions de Code
@@ -254,6 +256,120 @@ NEXT_PUBLIC_APP_URL=https://viral-studio-pro.netlify.app
 - Design moderne, clean
 - Desktop-first
 - Loading states et skeletons partout
+
+## Systeme de Scoring V2 (Browse / Trending Clips)
+
+Fichier principal : `lib/scoring/clip-scorer.ts`
+Utilise par : `lib/twitch/fetch-streamer-clips.ts`, `lib/kick/fetch-kick-clips.ts`
+
+### 7 Facteurs
+
+| # | Facteur | Poids | Ce qu'il mesure |
+|---|---------|-------|-----------------|
+| 1 | **Momentum Dynamique** | 25% | Vitesse actuelle + acceleration (si 2+ snapshots) ou estimation sublineaire (age^0.7) |
+| 2 | **Platform Authority** | 20% | Performance du clip vs moyenne du streamer, ponderee par le volume de vues |
+| 3 | **Engagement Proxy** | 15% | Ratio likes/vues + signaux titre (caps, ponctuation) |
+| 4 | **Recency Decay** | 10% | Decroissance exponentielle e^(-age/24) — jamais 0 |
+| 5 | **Early Signal** | 10% | Detection precoce (<6h) : vues/min × log(vues) × decay rapide |
+| 6 | **Format Score** | 10% | Duree optimale TikTok/Reels : 15-45s = 100, >60s = 50 |
+| 7 | **Saturation Penalty** | -10% | Penalise les vieux clips viraux (>7j + >1M vues) et les clips morts |
+
+### Formule finale
+```
+final_score = momentum×0.25 + authority×0.20 + engagement×0.15 + recency×0.10
+            + earlySignal×0.10 + format×0.10 - saturation×0.10
+```
+
+### Tiers
+- **mega_viral** : score >= 90
+- **viral** : score >= 75
+- **hot** : score >= 60
+- **rising** : score >= 40
+- **normal** : score >= 15
+- **dead** : score < 15
+
+### Categories Feed
+- **early_gem** : clip < 6h avec signal precoce fort OU autorite elevee
+- **hot_now** : momentum >= 65 ET clip < 12h
+- **proven** : score >= 55 ET clip > 12h
+- **normal** : tout le reste
+
+### Colonnes DB (trending_clips)
+- `velocity_score` : score final V2 (0-100)
+- `anomaly_score` : authority_score (reutilise la colonne existante)
+- `tier` : classification tier
+- `feed_category` : categorie feed
+- `momentum_score`, `engagement_score`, `recency_score`, `early_signal_score`, `format_score`, `saturation_score` : scores par facteur
+
+### Spike Detection
+Si la velocity du clip depasse 2× la moyenne du streamer → boost momentum ×1.5
+
+## Cron Stratifie (Re-scoring dynamique)
+
+Route : `app/api/cron/rescore-clips/route.ts`
+Declencheur : Netlify Scheduled Function (toutes les 5 min)
+
+### Principe
+Les clips ne sont pas tous re-scores a la meme frequence. Plus un clip est recent, plus il est re-score souvent :
+
+| Age du clip | Frequence re-score |
+|-------------|-------------------|
+| < 6h | Toutes les 15 min |
+| 6-24h | Toutes les heures |
+| > 24h | 1 fois par jour |
+
+### Colonne next_check_at
+Chaque clip a une colonne `next_check_at` (TIMESTAMPTZ) dans `trending_clips`. Le cron selectionne les clips ou `next_check_at <= NOW()`, les re-score, et met a jour `next_check_at` selon leur age.
+
+### Spike Trigger
+Si un snapshot montre +20% de vues vs le snapshot precedent → le clip est re-score immediatement (next_check_at = NOW).
+
+### Pipeline
+1. Cron tourne toutes les 5 min
+2. Selectionne clips ou next_check_at <= NOW (batch de 50)
+3. Pour chaque clip : recalcule scoreClip() avec les donnees actuelles
+4. Met a jour velocity_score, tier, feed_category, tous les sous-scores
+5. Calcule le prochain next_check_at selon l'age du clip
+
+## Systeme de Ranking Createur
+
+Fichier principal : `lib/scoring/account-scorer.ts`
+Route API : `app/api/account/sync/route.ts`
+Store : `stores/account-store.ts`
+UI : `components/settings/creator-rank-section.tsx`
+
+### 5 Facteurs
+
+| # | Facteur | Poids | Ce qu'il mesure |
+|---|---------|-------|-----------------|
+| 1 | **Performance** | 30% | Median views / followers (ajuste par shorts_ratio) |
+| 2 | **Engagement** | 20% | Median (likes+comments)/views des 20 dernieres videos |
+| 3 | **Growth** | 20% | Croissance followers 30 jours (log scale) |
+| 4 | **Audience** | 15% | Taille absolue en log10 (100→20, 1K→40, 10K→60, 100K→80) |
+| 5 | **Consistency** | 15% | Jours depuis le dernier post (<7j=100, >30j=~5) |
+
+### Ranks
+
+| Score | Rank | Emoji |
+|-------|------|-------|
+| < 20 | Newcomer | 🌱 |
+| 20-39 | Creator | 🥉 |
+| 40-59 | Trending Creator | 🥈 |
+| 60-79 | Viral Creator | 🥇 |
+| 80-89 | Elite Creator | 💎 |
+| 90+ | Legendary | 👑 |
+| Performance > 80 + Audience < 20 | Hidden Gem | 🔥 |
+
+### Tables DB
+
+- `social_accounts` : colonnes ajoutees (followers, total_views, video_count, creator_score, creator_rank, etc.)
+- `account_snapshots` : historique quotidien/hebdomadaire pour calculer la croissance
+
+### Phases
+
+- **Phase 1 (actuelle)** : YouTube uniquement, sync manuel (1x/24h), scoring via YouTube Data API
+- **Phase 2** : Cron automatique + tracking croissance 30 jours
+- **Phase 3** : TikTok (scope `user.info.stats`) + Instagram (scope `instagram_manage_insights`)
 
 ## Notes Importantes
 - Frontend sur **Netlify** (pas Vercel)

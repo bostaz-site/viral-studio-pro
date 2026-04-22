@@ -7,6 +7,6 @@ export default function robots(): MetadataRoute.Robots {
       allow: '/',
       disallow: ['/dashboard/', '/settings/', '/api/'],
     },
-    sitemap: 'https://viral-studio-pro.netlify.app/sitemap.xml',
+    sitemap: 'https://viralanimal.com/sitemap.xml',
   }
 }

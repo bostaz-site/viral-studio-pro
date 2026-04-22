@@ -49,7 +49,7 @@ const TIERS: PricingTier[] = [
       'AI transcription (Whisper)',
       'Viral score + hook analysis',
       '1 format (9:16 vertical)',
-      'Viral Studio watermark',
+      'Viral Animal watermark',
     ],
     highlighted: false,
     cta: 'Start free',
@@ -143,7 +143,7 @@ export default function PricingPage() {
       <header className="border-b border-border bg-card/50 backdrop-blur-md sticky top-0 z-50">
         <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
           <Link href="/" className="text-xl font-black tracking-tight bg-gradient-to-r from-blue-500 to-indigo-600 bg-clip-text text-transparent">
-            VIRAL STUDIO
+            VIRAL ANIMAL
           </Link>
           <div className="flex items-center gap-3">
             <Link href="/login">
@@ -274,7 +274,7 @@ export default function PricingPage() {
       {/* Footer */}
       <footer className="border-t border-border py-8 px-6">
         <div className="max-w-5xl mx-auto flex items-center justify-between text-xs text-muted-foreground">
-          <p>Viral Studio Pro — Transform your videos into viral clips with AI</p>
+          <p>Viral Animal — Transform your videos into viral clips with AI</p>
           <div className="flex items-center gap-4">
             <Link href="/login" className="hover:text-foreground transition-colors">Sign in</Link>
             <Link href="/" className="hover:text-foreground transition-colors">Home</Link>

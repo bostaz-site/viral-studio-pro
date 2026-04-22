@@ -1,3 +1,4 @@
+// TODO: Add rate limiting + CAPTCHA (spam/bot protection) — server-side middleware or Supabase rate limit
 "use client"
 
 import { Suspense, useEffect, useState } from 'react'
@@ -41,10 +42,10 @@ function SignupForm() {
   const [success, setSuccess] = useState(false)
   const [referralCode, setReferralCode] = useState<string | null>(null)
 
-  // Capture ?ref= once on mount and stash it so it survives email confirmation
+  // Capture ref from URL param, cookie (set by /ref/[handle]), or localStorage
   useEffect(() => {
     const fromUrl = searchParams?.get('ref')?.trim().toUpperCase()
-    if (fromUrl && /^[A-Z0-9]{4,16}$/.test(fromUrl)) {
+    if (fromUrl && /^[A-Z0-9_-]{2,30}$/i.test(fromUrl)) {
       setReferralCode(fromUrl)
       try {
         localStorage.setItem(REFERRAL_STORAGE_KEY, fromUrl)
@@ -53,9 +54,25 @@ function SignupForm() {
       }
       return
     }
+    // Check cookie set by /ref/[handle]
+    try {
+      const cookies = document.cookie.split(';').reduce<Record<string, string>>((acc, c) => {
+        const [k, v] = c.trim().split('=')
+        if (k && v) acc[k] = decodeURIComponent(v)
+        return acc
+      }, {})
+      if (cookies.ref && /^[a-z0-9_-]{2,30}$/i.test(cookies.ref)) {
+        const handle = cookies.ref.toUpperCase()
+        setReferralCode(handle)
+        try { localStorage.setItem(REFERRAL_STORAGE_KEY, handle) } catch {}
+        return
+      }
+    } catch {
+      // cookie parse error — ignore
+    }
     try {
       const stored = localStorage.getItem(REFERRAL_STORAGE_KEY)
-      if (stored && /^[A-Z0-9]{4,16}$/.test(stored)) setReferralCode(stored)
+      if (stored && /^[A-Z0-9_-]{2,30}$/i.test(stored)) setReferralCode(stored)
     } catch {
       // ignore
     }

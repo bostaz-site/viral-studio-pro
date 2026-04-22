@@ -1,7 +1,7 @@
 {
   "name": "viral-studio-render-api",
   "version": "1.0.0",
-  "description": "Express.js render API for Viral Studio Pro VPS",
+  "description": "Express.js render API for Viral Animal VPS",
   "main": "server.js",
   "type": "module",
   "scripts": {

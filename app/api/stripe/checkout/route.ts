@@ -15,6 +15,7 @@ const PRICE_IDS: Record<string, string> = {
 
 const bodySchema = z.object({
   plan: z.enum(['pro', 'studio']),
+  promo_code: z.string().max(30).optional(),
 })
 
 // 7-day free trial on Pro only (Studio is explicitly a committed tier).
@@ -37,7 +38,7 @@ export const POST = withAuth(async (req, user) => {
     return NextResponse.json({ data: null, error: parsed.error.message, message: 'Plan invalide' }, { status: 400 })
   }
 
-  const { plan } = parsed.data
+  const { plan, promo_code } = parsed.data
   const stripe = getStripe()
   const admin = createAdminClient()
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'
@@ -68,14 +69,43 @@ export const POST = withAuth(async (req, user) => {
 
     const trialDays = TRIAL_DAYS[plan]
 
+    // If promo code provided, look up Stripe promotion codes
+    let discounts: { promotion_code: string }[] | undefined
+    if (promo_code) {
+      // Verify promo code exists in our affiliates table
+      const { data: affiliate } = await admin
+        .from('affiliates')
+        .select('id, promo_code, promo_discount_percent, status')
+        .eq('promo_code', promo_code.toUpperCase())
+        .eq('status', 'active')
+        .single()
+
+      if (affiliate) {
+        // Try to find matching Stripe promotion code
+        try {
+          const promoCodes = await stripe.promotionCodes.list({
+            code: promo_code.toUpperCase(),
+            active: true,
+            limit: 1,
+          })
+          if (promoCodes.data.length > 0) {
+            discounts = [{ promotion_code: promoCodes.data[0].id }]
+          }
+        } catch {
+          // Stripe promo code not found — proceed without discount
+        }
+      }
+    }
+
     const session = await stripe.checkout.sessions.create({
       mode: 'subscription',
       customer: customerId,
       payment_method_types: ['card'],
       line_items: [{ price: PRICE_IDS[plan], quantity: 1 }],
+      ...(discounts ? { discounts } : { allow_promotion_codes: true }),
       success_url: `${appUrl}/settings?checkout=success&plan=${plan}`,
       cancel_url: `${appUrl}/settings?checkout=cancel`,
-      metadata: { user_id: user.id, plan },
+      metadata: { user_id: user.id, plan, ...(promo_code ? { promo_code: promo_code.toUpperCase() } : {}) },
       subscription_data: {
         metadata: { user_id: user.id, plan },
         ...(trialDays

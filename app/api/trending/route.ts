@@ -6,7 +6,7 @@ import { timingSafeCompare } from '@/lib/crypto'
 
 const postSchema = z.object({
   external_url: z.string().url(),
-  platform: z.enum(['twitch', 'youtube_gaming']),
+  platform: z.enum(['twitch', 'youtube_gaming', 'kick']),
   title: z.string().max(500).optional(),
   description: z.string().max(2000).optional(),
   author_name: z.string().max(200).optional(),
@@ -18,20 +18,18 @@ const postSchema = z.object({
   thumbnail_url: z.string().url().optional(),
 })
 
-/**
- * Sanitize a search string for use in PostgREST ilike filters.
- * Strips characters that could break the filter syntax.
- */
 function sanitizeSearch(input: string): string {
   return input
-    .replace(/[%_\\'"().,;]/g, '') // Remove PostgREST special chars
+    .replace(/[%_\\'"().,;]/g, '')
     .trim()
-    .slice(0, 100) // Max length
+    .slice(0, 100)
 }
 
 /**
- * GET /api/trending — Public endpoint (no auth required).
- * Trending clips are public data viewable by any authenticated or unauthenticated user.
+ * GET /api/trending — Public endpoint.
+ * Supports filters: niche, platform (twitch/kick/youtube_gaming), search, sort,
+ * duration (short/medium/long), feed (hot_now/early_gem/proven/recent),
+ * limit, offset.
  */
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
@@ -39,20 +37,20 @@ export async function GET(req: NextRequest) {
   const platform = searchParams.get('platform')
   const rawSearch = searchParams.get('search')
   const sort     = searchParams.get('sort') ?? 'velocity'
-  const limit    = Math.min(Math.max(Number(searchParams.get('limit') ?? '50'), 1), 100)
+  const duration = searchParams.get('duration')
+  const feed     = searchParams.get('feed')
+  const limit    = Math.min(Math.max(Number(searchParams.get('limit') ?? '50'), 1), 200)
   const offset   = Math.max(Number(searchParams.get('offset') ?? '0'), 0)
 
   const admin = createAdminClient()
   let query = admin.from('trending_clips').select('*', { count: 'exact' })
 
-  // Sanitize and validate filter inputs
   if (niche) {
     const safeNiche = sanitizeSearch(niche)
     if (safeNiche) query = query.ilike('niche', `%${safeNiche}%`)
   }
   if (platform) {
-    // Platform must be one of the allowed values
-    if (['twitch', 'youtube_gaming'].includes(platform)) {
+    if (['twitch', 'youtube_gaming', 'kick'].includes(platform)) {
       query = query.eq('platform', platform)
     }
   }
@@ -63,9 +61,34 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  if (sort === 'velocity') query = query.order('velocity_score', { ascending: false, nullsFirst: false })
-  else if (sort === 'views') query = query.order('view_count', { ascending: false, nullsFirst: false })
-  else query = query.order('scraped_at', { ascending: false, nullsFirst: false })
+  // Duration filter
+  if (duration === 'short') {
+    query = query.lt('duration_seconds', 30)
+  } else if (duration === 'medium') {
+    query = query.gte('duration_seconds', 30).lt('duration_seconds', 60)
+  } else if (duration === 'long') {
+    query = query.gte('duration_seconds', 60)
+  }
+
+  // Feed filter
+  if (feed === 'hot_now') {
+    query = query.eq('feed_category', 'hot_now')
+  } else if (feed === 'early_gem') {
+    query = query.eq('feed_category', 'early_gem')
+  } else if (feed === 'proven') {
+    query = query.eq('feed_category', 'proven')
+  }
+
+  // Sort
+  if (feed === 'recent' || sort === 'date') {
+    query = query.order('clip_created_at', { ascending: false, nullsFirst: false })
+  } else if (sort === 'velocity') {
+    query = query.order('velocity_score', { ascending: false, nullsFirst: false })
+  } else if (sort === 'views') {
+    query = query.order('view_count', { ascending: false, nullsFirst: false })
+  } else {
+    query = query.order('scraped_at', { ascending: false, nullsFirst: false })
+  }
 
   query = query.range(offset, offset + limit - 1)
 
@@ -79,25 +102,19 @@ export async function GET(req: NextRequest) {
 }
 
 /**
- * POST /api/trending — Add/update a trending clip.
- *
- * RESTRICTED: Only accessible via API key (n8n/scraper service).
- * Regular users cannot inject data into the trending feed.
+ * POST /api/trending — Add/update a trending clip. Restricted.
  */
 export async function POST(req: NextRequest) {
-  // Auth via API key (internal service calls only — n8n scraper)
   const apiKey = req.headers.get('x-api-key')
   const expectedKey = process.env.N8N_API_KEY
 
   if (!apiKey || !expectedKey || !timingSafeCompare(apiKey, expectedKey)) {
-    // Fallback: check if it's an admin user (for manual testing)
     const supabase = createClient()
     const { data: { user }, error: authError } = await supabase.auth.getUser()
     if (authError || !user) {
       return NextResponse.json({ data: null, error: 'Unauthorized', message: 'Access restricted to internal services' }, { status: 401 })
     }
 
-    // Check if user has admin privileges (plan = 'studio' for now)
     const admin = createAdminClient()
     const { data: profile } = await admin
       .from('profiles')

@@ -2,9 +2,9 @@ import type { Metadata } from 'next'
 
 export const metadata: Metadata = {
   title: 'Pricing',
-  description: 'Viral Studio Pro plans and pricing. Start free with 3 videos/month, or go Pro ($19, 30 clips/month) or Studio ($24 launch price instead of $29, 120 clips/month including 30 bonus).',
+  description: 'Viral Animal plans and pricing. Start free with 3 videos/month, or go Pro ($19, 30 clips/month) or Studio ($24 launch price instead of $29, 120 clips/month including 30 bonus).',
   openGraph: {
-    title: 'Pricing — Viral Studio Pro',
+    title: 'Pricing — Viral Animal',
     description: 'Viral clips at your scale. Free, Pro, or Studio plan.',
   },
 }
@@ -12,12 +12,12 @@ export const metadata: Metadata = {
 const jsonLd = {
   '@context': 'https://schema.org',
   '@type': 'WebPage',
-  name: 'Pricing — Viral Studio Pro',
-  description: 'Viral Studio Pro plans and pricing.',
-  url: 'https://viral-studio-pro.netlify.app/pricing',
+  name: 'Pricing — Viral Animal',
+  description: 'Viral Animal plans and pricing.',
+  url: 'https://viralanimal.com/pricing',
   mainEntity: {
     '@type': 'Product',
-    name: 'Viral Studio Pro',
+    name: 'Viral Animal',
     description: 'Tool to create viral clips from Twitch and YouTube Gaming streams.',
     offers: [
       {

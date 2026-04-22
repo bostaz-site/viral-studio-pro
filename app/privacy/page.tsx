@@ -4,7 +4,7 @@ import type { Metadata } from 'next'
 
 export const metadata: Metadata = {
   title: 'Privacy Policy',
-  description: 'Viral Studio Pro Privacy Policy. Learn how we protect your personal data.',
+  description: 'Viral Animal Privacy Policy. Learn how we protect your personal data.',
 }
 
 export default function PrivacyPage() {
@@ -18,7 +18,7 @@ export default function PrivacyPage() {
               <Scissors className="h-3.5 w-3.5 text-white" />
             </div>
             <span className="text-lg font-black tracking-tight bg-gradient-to-r from-blue-400 to-indigo-500 bg-clip-text text-transparent">
-              VIRAL STUDIO
+              VIRAL ANIMAL
             </span>
           </Link>
         </div>
@@ -32,7 +32,7 @@ export default function PrivacyPage() {
           <section>
             <h2 className="text-xl font-semibold text-foreground mb-3">1. Introduction</h2>
             <p className="text-muted-foreground leading-relaxed">
-              Viral Studio Pro ("we", "our", "us") is committed to protecting your privacy. This Privacy Policy explains how we collect, use, and protect your personal information when you use our viral clip creation service.
+              Viral Animal ("we", "our", "us") is committed to protecting your privacy. This Privacy Policy explains how we collect, use, and protect your personal information when you use our viral clip creation service.
             </p>
           </section>
 
@@ -101,7 +101,7 @@ export default function PrivacyPage() {
           <section>
             <h2 className="text-xl font-semibold text-foreground mb-3">8. Contact</h2>
             <p className="text-muted-foreground leading-relaxed">
-              For any questions about this Privacy Policy or to exercise your rights, contact us at: <strong className="text-foreground">privacy@viralstudio.pro</strong>
+              For any questions about this Privacy Policy or to exercise your rights, contact us at: <strong className="text-foreground">privacy@viralanimal.com</strong>
             </p>
           </section>
         </div>
@@ -109,7 +109,7 @@ export default function PrivacyPage() {
 
       <footer className="border-t border-border/30 py-8 px-6">
         <div className="max-w-4xl mx-auto flex items-center justify-between text-xs text-muted-foreground">
-          <p>&copy; {new Date().getFullYear()} Viral Studio Pro</p>
+          <p>&copy; {new Date().getFullYear()} Viral Animal</p>
           <div className="flex gap-4">
             <Link href="/terms" className="hover:text-foreground transition-colors">Terms of service</Link>
             <Link href="/" className="hover:text-foreground transition-colors">Home</Link>

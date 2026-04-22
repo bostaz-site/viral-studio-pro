@@ -4,7 +4,7 @@ import type { Metadata } from 'next'
 
 export const metadata: Metadata = {
   title: 'Terms of Service',
-  description: 'Terms of Service for Viral Studio Pro. Rules and terms for using our viral clip creation service.',
+  description: 'Terms of Service for Viral Animal. Rules and terms for using our viral clip creation service.',
 }
 
 export default function TermsPage() {
@@ -18,7 +18,7 @@ export default function TermsPage() {
               <Scissors className="h-3.5 w-3.5 text-white" />
             </div>
             <span className="text-lg font-black tracking-tight bg-gradient-to-r from-blue-400 to-indigo-500 bg-clip-text text-transparent">
-              VIRAL STUDIO
+              VIRAL ANIMAL
             </span>
           </Link>
         </div>
@@ -32,14 +32,14 @@ export default function TermsPage() {
           <section>
             <h2 className="text-xl font-semibold text-foreground mb-3">1. Acceptance of Terms</h2>
             <p className="text-muted-foreground leading-relaxed">
-              By using Viral Studio Pro, you accept these Terms of Service. If you do not accept these terms, please do not use our service.
+              By using Viral Animal, you accept these Terms of Service. If you do not accept these terms, please do not use our service.
             </p>
           </section>
 
           <section>
             <h2 className="text-xl font-semibold text-foreground mb-3">2. Service Description</h2>
             <p className="text-muted-foreground leading-relaxed">
-              Viral Studio Pro is a SaaS tool that enables creating viral clips from stream videos. The service includes: automatic transcription, AI analysis, karaoke caption addition, split-screen with satisfying videos, and optimized export for social networks.
+              Viral Animal is a SaaS tool that enables creating viral clips from stream videos. The service includes: automatic transcription, AI analysis, karaoke caption addition, split-screen with satisfying videos, and optimized export for social networks.
             </p>
           </section>
 
@@ -90,7 +90,7 @@ export default function TermsPage() {
           <section>
             <h2 className="text-xl font-semibold text-foreground mb-3">7. Limitation of Liability</h2>
             <p className="text-muted-foreground leading-relaxed">
-              Viral Studio Pro is provided "as is". We do not guarantee that the service will be continuously available or error-free. We are not responsible for damages resulting from the use or inability to use the service.
+              Viral Animal is provided "as is". We do not guarantee that the service will be continuously available or error-free. We are not responsible for damages resulting from the use or inability to use the service.
             </p>
           </section>
 
@@ -111,7 +111,7 @@ export default function TermsPage() {
           <section>
             <h2 className="text-xl font-semibold text-foreground mb-3">10. Contact</h2>
             <p className="text-muted-foreground leading-relaxed">
-              For any questions about these terms, contact us at: <strong className="text-foreground">legal@viralstudio.pro</strong>
+              For any questions about these terms, contact us at: <strong className="text-foreground">legal@viralanimal.com</strong>
             </p>
           </section>
         </div>
@@ -119,7 +119,7 @@ export default function TermsPage() {
 
       <footer className="border-t border-border/30 py-8 px-6">
         <div className="max-w-4xl mx-auto flex items-center justify-between text-xs text-muted-foreground">
-          <p>&copy; {new Date().getFullYear()} Viral Studio Pro</p>
+          <p>&copy; {new Date().getFullYear()} Viral Animal</p>
           <div className="flex gap-4">
             <Link href="/privacy" className="hover:text-foreground transition-colors">Privacy</Link>
             <Link href="/" className="hover:text-foreground transition-colors">Home</Link>

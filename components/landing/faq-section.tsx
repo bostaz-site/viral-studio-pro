@@ -5,7 +5,7 @@ import { ChevronDown } from 'lucide-react'
 export const FAQ_ITEMS = [
   {
     q: 'How does the free plan work?',
-    a: 'The Free plan gives you 3 free videos per month, reset on the 1st of the next month. No card required to sign up. Clips up to 60 seconds, Viral Studio watermark included. Upgrade to Pro for $19/month anytime to unlock 30 clips/month without watermark.',
+    a: 'The Free plan gives you 3 free videos per month, reset on the 1st of the next month. No card required to sign up. Clips up to 60 seconds, Viral Animal watermark included. Upgrade to Pro for $19/month anytime to unlock 30 clips/month without watermark.',
   },
   {
     q: 'How is this different from OpusClip or Eklipse?',

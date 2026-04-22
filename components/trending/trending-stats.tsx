@@ -13,11 +13,13 @@ interface TrendingStatsProps {
 
 const PLATFORM_LABELS: Record<string, string> = {
   twitch: 'Twitch',
+  kick: 'Kick',
   youtube_gaming: 'YouTube Gaming',
 }
 
 const PLATFORM_COLORS: Record<string, string> = {
   twitch: 'bg-purple-500',
+  kick: 'bg-green-500',
   youtube_gaming: 'bg-red-500',
 }
 
@@ -92,18 +94,18 @@ export function TrendingStatsPanel({ stats, lastRefreshed, loading }: TrendingSt
         />
         <StatCard
           icon={Flame}
-          label="Trending"
-          value={stats.viral}
-          sub={`Score ≥ 80`}
-          accent="bg-orange-500/15 text-orange-400"
+          label="Gold+"
+          value={(stats.rankCounts?.gold ?? 0) + (stats.rankCounts?.platinum ?? 0) + (stats.rankCounts?.diamond ?? 0) + (stats.rankCounts?.champion ?? 0)}
+          sub="🥇 Gold & above"
+          accent="bg-yellow-500/15 text-yellow-400"
           loading={loading}
         />
         <StatCard
           icon={TrendingUp}
-          label="Rising"
-          value={stats.hot}
-          sub={`Score ≥ 50`}
-          accent="bg-yellow-500/15 text-yellow-400"
+          label="Silver+"
+          value={(stats.rankCounts?.silver ?? 0) + (stats.rankCounts?.gold ?? 0) + (stats.rankCounts?.platinum ?? 0) + (stats.rankCounts?.diamond ?? 0) + (stats.rankCounts?.champion ?? 0)}
+          sub="🥈 Silver & above"
+          accent="bg-slate-400/15 text-slate-300"
           loading={loading}
         />
         <StatCard

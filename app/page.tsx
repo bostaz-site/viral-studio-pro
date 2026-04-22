@@ -4,10 +4,10 @@ import { LandingPage } from '@/components/landing/landing-page'
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = {
-  title: 'Viral Studio Pro — Turn streams into viral clips with AI',
+  title: 'Viral Animal — Turn streams into viral clips with AI',
   description: 'Create viral clips from Twitch and YouTube Gaming streams. Karaoke captions, Subway Surfers/Minecraft split-screen, AI viral score. Export to TikTok, Reels, and Shorts in 1 click.',
   openGraph: {
-    title: 'Viral Studio Pro — Viral clips from your streams',
+    title: 'Viral Animal — Viral clips from your streams',
     description: 'Karaoke captions + split-screen + AI viral score. The only tool with automatic split-screen (Subway Surfers, Minecraft).',
   },
 }
@@ -15,8 +15,8 @@ export const metadata: Metadata = {
 const jsonLd = {
   '@context': 'https://schema.org',
   '@type': 'WebSite',
-  name: 'Viral Studio Pro',
-  url: 'https://viral-studio-pro.netlify.app',
+  name: 'Viral Animal',
+  url: 'https://viralanimal.com',
   description: 'Create viral clips from Twitch and YouTube Gaming streams. Karaoke captions, split-screen, AI viral score.',
 }
 

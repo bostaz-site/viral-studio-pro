@@ -28,7 +28,7 @@ export function HowItWorksSection() {
                 <div className="w-2.5 h-2.5 rounded-full bg-red-500/60" />
                 <div className="w-2.5 h-2.5 rounded-full bg-yellow-500/60" />
                 <div className="w-2.5 h-2.5 rounded-full bg-green-500/60" />
-                <span className="text-[10px] text-muted-foreground/50 ml-2">Clips — Viral Studio Pro</span>
+                <span className="text-[10px] text-muted-foreground/50 ml-2">Clips — Viral Animal</span>
               </div>
               <div className="p-3 space-y-2">
                 {/* Search bar mockup */}
@@ -70,7 +70,7 @@ export function HowItWorksSection() {
                 <div className="w-2.5 h-2.5 rounded-full bg-red-500/60" />
                 <div className="w-2.5 h-2.5 rounded-full bg-yellow-500/60" />
                 <div className="w-2.5 h-2.5 rounded-full bg-green-500/60" />
-                <span className="text-[10px] text-muted-foreground/50 ml-2">Editor — Viral Studio Pro</span>
+                <span className="text-[10px] text-muted-foreground/50 ml-2">Editor — Viral Animal</span>
               </div>
               <div className="p-3 flex gap-3">
                 {/* Preview */}
@@ -139,7 +139,7 @@ export function HowItWorksSection() {
                 <div className="w-2.5 h-2.5 rounded-full bg-red-500/60" />
                 <div className="w-2.5 h-2.5 rounded-full bg-yellow-500/60" />
                 <div className="w-2.5 h-2.5 rounded-full bg-green-500/60" />
-                <span className="text-[10px] text-muted-foreground/50 ml-2">Export — Viral Studio Pro</span>
+                <span className="text-[10px] text-muted-foreground/50 ml-2">Export — Viral Animal</span>
               </div>
               <div className="p-4 space-y-3">
                 <div className="flex items-center justify-between">

@@ -2,12 +2,14 @@
 
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { Settings, Menu, X, LogOut, Zap, Compass, Wand2, Crown, UploadCloud } from 'lucide-react'
+import { Settings, Menu, X, LogOut, Zap, Compass, Wand2, Crown, UploadCloud, Radio, BarChart3, Users } from 'lucide-react'
 import { useUiStore } from '@/stores/ui-store'
 import { Button } from '@/components/ui/button'
 import { NotificationBell } from '@/components/trending/notification-bell'
 import { createClient } from '@/lib/supabase/client'
 import { isAdminEmail } from '@/lib/auth/admin-emails'
+import { useAccountStore } from '@/stores/account-store'
+import { CREATOR_RANK_CONFIG } from '@/lib/scoring/account-scorer'
 import { useEffect, useState } from 'react'
 import type { User } from '@supabase/supabase-js'
 
@@ -54,10 +56,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     { name: 'Upload', href: '/dashboard/upload', icon: UploadCloud },
     { name: 'Browse', href: '/dashboard', icon: Compass },
     { name: 'Enhance', href: '/dashboard/enhance', icon: Wand2 },
+    { name: 'Distribution', href: '/dashboard/distribution', icon: Radio },
+    { name: 'Analytics', href: '/dashboard/analytics', icon: BarChart3 },
     ...(isAdmin
       ? [
           { name: 'Growth (admin)', href: '/admin/growth', icon: Crown },
-          { name: 'Analytics (admin)', href: '/admin/analytics', icon: Crown },
+          { name: 'Affiliates (admin)', href: '/admin/affiliates', icon: Crown },
+          { name: 'Streamers (admin)', href: '/admin/streamers', icon: Users },
         ]
       : []),
     { name: 'Settings', href: '/settings', icon: Settings },
@@ -85,7 +90,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <div className="flex items-center justify-between h-16 px-6 border-b border-border shrink-0">
           <Link href="/" className="flex items-center gap-2">
             <h1 className="text-xl font-black tracking-tight bg-gradient-to-r from-blue-500 to-indigo-600 bg-clip-text text-transparent">
-              VIRAL STUDIO
+              VIRAL ANIMAL
             </h1>
             {currentPlan !== 'free' && (
               <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-gradient-to-r from-amber-500 to-orange-500 text-white uppercase">
@@ -109,6 +114,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               ? pathname?.startsWith('/dashboard/enhance')
               : item.href === '/dashboard/upload'
               ? pathname === '/dashboard/upload'
+              : item.href === '/dashboard/distribution'
+              ? pathname?.startsWith('/dashboard/distribution')
+              : item.href === '/dashboard/analytics'
+              ? pathname?.startsWith('/dashboard/analytics')
               : pathname?.startsWith(item.href) && item.href !== '/dashboard'
             return (
               <Link key={item.name} href={item.href}>
@@ -146,6 +155,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         {/* User footer */}
         {user && (
           <div className="p-4 border-t border-border shrink-0">
+            <SidebarRankBadge />
             <div className="flex items-center gap-3">
               <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center shrink-0">
                 <span className="text-xs font-bold text-primary">{userInitials}</span>
@@ -176,7 +186,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <Button variant="ghost" size="icon" onClick={() => setSidebarOpen(true)}>
             <Menu className="h-5 w-5" />
           </Button>
-          <span className="font-bold tracking-tight text-lg bg-gradient-to-r from-blue-500 to-indigo-600 bg-clip-text text-transparent">VIRAL STUDIO</span>
+          <span className="font-bold tracking-tight text-lg bg-gradient-to-r from-blue-500 to-indigo-600 bg-clip-text text-transparent">VIRAL ANIMAL</span>
           <div className="w-10"></div>
         </header>
 
@@ -187,5 +197,19 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </main>
       </div>
     </div>
+  )
+}
+
+function SidebarRankBadge() {
+  const { score, fetchAccountScore } = useAccountStore()
+  useEffect(() => { fetchAccountScore() }, [fetchAccountScore])
+  if (!score) return null
+  const cfg = CREATOR_RANK_CONFIG[score.creator_rank]
+  return (
+    <Link href="/settings" className="flex items-center gap-1.5 mb-2 px-1 py-1 rounded-lg hover:bg-muted/50 transition-colors">
+      <span className="text-sm">{cfg.emoji}</span>
+      <span className={`text-[10px] font-bold ${cfg.color}`}>{cfg.label}</span>
+      <span className="text-[10px] text-muted-foreground ml-auto">{score.creator_score}</span>
+    </Link>
   )
 }

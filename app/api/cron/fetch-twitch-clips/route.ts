@@ -2,15 +2,14 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { timingSafeCompare } from '@/lib/crypto'
 import { fetchAndScoreStreamerClips, cleanupOldSnapshots } from '@/lib/twitch/fetch-streamer-clips'
+import { fetchAndScoreKickClips } from '@/lib/kick/fetch-kick-clips'
 
 /**
  * POST /api/cron/fetch-twitch-clips
  *
- * Fetches recent Twitch clips for every active streamer in the `streamers`
- * table, upserts them into trending_clips, captures a historical snapshot
- * (for velocity computation), and updates viral scoring columns.
- *
- * Should run every 15-20 minutes.
+ * Adaptive cron: fetches Twitch + Kick clips for active streamers.
+ * The cron runs every 5 minutes, but each streamer is only fetched
+ * when their individual fetch_interval_minutes has elapsed.
  *
  * Auth: x-api-key header = CRON_SECRET env var
  */
@@ -34,18 +33,42 @@ export async function POST(req: NextRequest) {
 
   try {
     const admin = createAdminClient()
-    const result = await fetchAndScoreStreamerClips(admin, 48, 20)
 
-    // Opportunistic cleanup of old snapshots (keep 7 days)
+    // Fetch Twitch clips
+    const twitchResult = await fetchAndScoreStreamerClips(admin, 48, 20)
+
+    // Fetch Kick clips (resilient — if Kick fails, we still return Twitch results)
+    let kickResult = { upserted: 0, snapshots: 0, streamers_scanned: 0, errors: [] as string[] }
+    try {
+      kickResult = await fetchAndScoreKickClips(admin, 20)
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      kickResult.errors.push(`Kick pipeline: ${msg}`)
+    }
+
+    // Cleanup old snapshots
     let cleaned = 0
     try {
       cleaned = await cleanupOldSnapshots(admin, 7)
     } catch { /* non-fatal */ }
 
+    const totalUpserted = twitchResult.upserted + kickResult.upserted
+    const totalStreamers = twitchResult.streamers_scanned + kickResult.streamers_scanned
+    const totalSnapshots = twitchResult.snapshots + kickResult.snapshots
+    const allErrors = [...twitchResult.errors, ...kickResult.errors]
+
     return NextResponse.json({
-      data: { ...result, snapshots_cleaned: cleaned },
+      data: {
+        upserted: totalUpserted,
+        snapshots: totalSnapshots,
+        streamers_scanned: totalStreamers,
+        snapshots_cleaned: cleaned,
+        twitch: twitchResult,
+        kick: kickResult,
+        errors: allErrors,
+      },
       error: null,
-      message: `${result.upserted} clips imported · ${result.streamers_scanned} streamers · ${result.snapshots} snapshots`,
+      message: `${totalUpserted} clips imported · ${totalStreamers} streamers · ${totalSnapshots} snapshots`,
     })
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Internal error'
@@ -56,7 +79,6 @@ export async function POST(req: NextRequest) {
   }
 }
 
-// GET for manual triggering — requires ?key= query param for auth
 export async function GET(req: NextRequest) {
   const key = req.nextUrl.searchParams.get('key')
   if (!key) {
@@ -65,7 +87,6 @@ export async function GET(req: NextRequest) {
       { status: 401 }
     )
   }
-  // Inject key into headers so POST auth check works
   const headers = new Headers(req.headers)
   headers.set('x-api-key', key)
   const patchedReq = new NextRequest(req.url, {

@@ -389,4 +389,4 @@ brand_templates    -- Templates de branding
 
 ---
 
-*Document genere le 23 mars 2026 — Viral Studio Pro v1.0*
+*Document genere le 23 mars 2026 — Viral Animal v1.0*

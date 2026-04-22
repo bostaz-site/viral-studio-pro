@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
 import './globals.css'
+import './rank-cards.css'
 import { ThemeProvider } from '@/components/theme-provider'
 import { cn } from "@/lib/utils"
 
@@ -33,7 +34,7 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: 'Viral Animal — Viral clips from your streams',
     description: 'Karaoke captions + split-screen + AI viral score. Export to TikTok, Reels, Shorts in 1 click.',
-    creator: '@viralstudiopro',
+    creator: '@viralanimal',
   },
   robots: {
     index: true,
@@ -59,11 +60,11 @@ const orgJsonLd = {
     name: 'Samy',
   },
   sameAs: [
-    'https://twitter.com/viralstudiopro',
+    'https://twitter.com/viralanimal',
   ],
   contactPoint: {
     '@type': 'ContactPoint',
-    email: 'support@viralstudio.pro',
+    email: 'support@viralanimal.com',
     contactType: 'customer service',
   },
 }

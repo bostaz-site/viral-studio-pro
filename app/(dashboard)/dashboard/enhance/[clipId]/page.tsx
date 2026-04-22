@@ -7,7 +7,7 @@ import Link from 'next/link'
 import {
   ChevronLeft, Loader2, AlertCircle, Sparkles, Download,
   Type, Wand2, Eye, ExternalLink, Play,
-  Monitor, Zap,
+  Monitor, Zap, Send,
   Flame, Focus, X, Plus, Volume2, Scissors,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -19,6 +19,7 @@ import { ErrorCard, classifyError } from '@/components/ui/error-card'
 import { createClient } from '@/lib/supabase/client'
 import { useTrendingStore } from '@/stores/trending-store'
 import { cn } from '@/lib/utils'
+import { ALL_MOODS, MOOD_PRESETS, MOOD_COLORS, type ClipMood, type MoodPreset } from '@/lib/ai/mood-presets'
 import { captureHookOverlayPNG } from '@/lib/capture-hook-overlay'
 import { captureTagOverlayPNG } from '@/lib/capture-tag-overlay'
 import {
@@ -28,6 +29,7 @@ import {
 } from '@/lib/enhance/scoring'
 import { LivePreview, ScoreBadge } from '@/components/enhance/live-preview'
 import { TagPanel } from '@/components/enhance/tag-panel'
+import { PublishDialog } from '@/components/distribution/publish-dialog'
 import { FormatPanel } from '@/components/enhance/format-panel'
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -73,6 +75,7 @@ export default function EnhancePage() {
   const [hookAnalysis, setHookAnalysis] = useState<HookAnalysis | null>(null)
   const [hookGenerating, setHookGenerating] = useState(false)
   const [hookError, setHookError] = useState<string | null>(null)
+  const [publishDialogOpen, setPublishDialogOpen] = useState(false)
   const sectionRefs = {
     captions: useRef<HTMLDivElement>(null),
     splitscreen: useRef<HTMLDivElement>(null),
@@ -511,51 +514,94 @@ export default function EnhancePage() {
 
   const [makeViralLoading, setMakeViralLoading] = useState(false)
   const pendingAutoRenderRef = useRef(false)
+  const appliedCaptionStyleRef = useRef<string | null>(null)
+
+  // Mood detection state
+  const [detectedMood, setDetectedMood] = useState<ClipMood | null>(null)
+  const [moodConfidence, setMoodConfidence] = useState<number>(0)
+  const [moodExplanation, setMoodExplanation] = useState<string | null>(null)
+  const [secondaryMood, setSecondaryMood] = useState<ClipMood | null>(null)
+  const [selectedMood, setSelectedMood] = useState<ClipMood | null>(null)
+  const [moodAiDetected, setMoodAiDetected] = useState(false)
+
+  const applyMoodPreset = useCallback((preset: MoodPreset) => {
+    appliedCaptionStyleRef.current = preset.captionStyle
+    setSettings((s) => ({
+      ...s,
+      captionsEnabled: true,
+      captionStyle: preset.captionStyle,
+      emphasisEffect: preset.emphasisEffect,
+      emphasisColor: preset.emphasisColor,
+      captionPosition: preset.captionPosition,
+      wordsPerLine: preset.wordsPerLine,
+      splitScreenEnabled: false,
+      brollVideo: preset.brollVideo,
+      splitRatio: preset.splitRatio,
+      videoZoom: preset.videoZoom,
+      tagStyle: preset.tagStyle,
+      tagSize: preset.tagSize,
+      aspectRatio: preset.aspectRatio,
+      smartZoomEnabled: preset.smartZoomEnabled,
+      smartZoomMode: preset.smartZoomMode,
+      audioEnhanceEnabled: preset.audioEnhanceEnabled,
+      autoCutEnabled: preset.autoCutEnabled,
+      autoCutThreshold: preset.autoCutThreshold,
+      hookEnabled: preset.hookEnabled,
+      hookTextEnabled: preset.hookTextEnabled,
+      hookReorderEnabled: preset.hookReorderEnabled,
+      hookStyle: preset.hookStyle,
+      hookTextPosition: preset.hookTextPosition,
+      hookLength: preset.hookLength,
+    }))
+  }, [])
+
+  const handleMoodSelect = useCallback((mood: ClipMood) => {
+    setSelectedMood(mood)
+    setMoodAiDetected(false) // user override
+    applyMoodPreset(MOOD_PRESETS[mood])
+  }, [applyMoodPreset])
 
   const applyBestCombo = useCallback(async () => {
     if (!clip) return
-
-    // 1. Apply all optimal settings immediately
-    setSettings((s) => ({
-      ...s,
-      // Sous-titres: Hormozi Purple word-pop (brand neon violet), scale up rouge, 1 mot/ligne, 60%
-      captionsEnabled: true,
-      captionStyle: 'hormozi-purple',
-      emphasisEffect: 'scale',
-      emphasisColor: 'purple',
-      captionPosition: 60,
-      wordsPerLine: 1,
-      // Pas de split-screen, zoom remplir
-      splitScreenEnabled: false,
-      brollVideo: 'none',
-      videoZoom: 'fill',
-      // Tag Viral Glow 85%
-      tagStyle: 'viral-glow',
-      tagSize: 85,
-      // Smart zoom dynamique
-      smartZoomEnabled: true,
-      smartZoomMode: 'dynamic',
-      // Audio enhancement
-      audioEnhanceEnabled: true,
-      // Auto-cut DISABLED for Make it Viral: Twitch clips are already
-      // short (~30s) and auto-cut with a 0.7s threshold destroys any
-      // clip where the streamer isn't talking constantly. It also breaks
-      // hook reorder (segments clamp to a video that's been shrunk) and
-      // leaves ASS subtitle timestamps referring to the pre-cut timeline.
-      // Users with long uploaded videos can still enable it manually.
-      autoCutEnabled: false,
-      autoCutThreshold: 0.7,
-      // Hook viral: suspense, texte + reorder, 15%, 1.5s
-      hookEnabled: true,
-      hookTextEnabled: true,
-      hookReorderEnabled: true,
-      hookStyle: 'suspense',
-      hookTextPosition: 15,
-      hookLength: 1.5,
-    }))
-
-    // 2. Generate hook in parallel (Claude API)
     setMakeViralLoading(true)
+
+    // 1. Detect mood via AI
+    let preset: MoodPreset = MOOD_PRESETS.hype // fallback
+    try {
+      const moodRes = await fetch('/api/enhance/ai-optimize', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          transcript: clip.description || clip.title || '',
+          title: clip.title || '',
+          streamer: clip.author_name || clip.author_handle || '',
+          niche: clip.niche || 'irl',
+        }),
+      })
+      const moodJson = await moodRes.json()
+      if (moodRes.ok && !moodJson.error && moodJson.data) {
+        const detected = moodJson.data.mood as ClipMood
+        preset = MOOD_PRESETS[detected] ?? MOOD_PRESETS.hype
+        setDetectedMood(detected)
+        setSelectedMood(detected)
+        setMoodConfidence(moodJson.data.confidence ?? 0)
+        setMoodExplanation(moodJson.data.explanation ?? null)
+        setSecondaryMood(moodJson.data.secondary_mood ?? null)
+        setMoodAiDetected(true)
+      }
+    } catch {
+      // Fallback silently to hype
+      setDetectedMood('hype')
+      setSelectedMood('hype')
+      setMoodConfidence(30)
+      setMoodExplanation('Default preset applied')
+      setMoodAiDetected(false)
+    }
+
+    // 2. Apply the mood preset
+    applyMoodPreset(preset)
+
+    // 3. Generate hook in parallel (Claude API) with the mood's hookStyle
     setHookGenerating(true)
     setHookError(null)
     try {
@@ -570,16 +616,17 @@ export default function EnhancePage() {
           duration: 30,
           streamerName: clip.author_name || clip.author_handle || '',
           niche: clip.niche || 'irl',
-          hookLength: 1.5,
+          hookLength: preset.hookLength,
           maxContext: 8,
         }),
       })
       const json = await res.json()
       if (res.ok && !json.error && json.data) {
         setHookAnalysis(json.data)
-        // Auto-select suspense hook + always store reorder data
-        const suspenseHook = json.data.hooks.find((h: HookVariant) => h.style === 'suspense')
-        const bestHook = suspenseHook || json.data.hooks[0]
+        // Auto-select the hook matching the mood's hookStyle
+        const targetStyle = preset.hookStyle === 'choc' ? 'shock' : preset.hookStyle === 'curiosite' ? 'curiosity' : preset.hookStyle
+        const matchedHook = json.data.hooks.find((h: HookVariant) => h.style === targetStyle)
+        const bestHook = matchedHook || json.data.hooks[0]
         setSettings((s) => ({
           ...s,
           ...(bestHook ? {
@@ -593,11 +640,11 @@ export default function EnhancePage() {
       // Silent fail — hook text stays empty but everything else works
     }
     setHookGenerating(false)
-    // 3. Mark auto-render pending — useEffect below will fire handleRender
-    // once React has committed the new settings (closure must see them).
+
+    // 4. Mark auto-render pending
     pendingAutoRenderRef.current = true
     setMakeViralLoading(false)
-  }, [clip])
+  }, [clip, applyMoodPreset])
 
   // Auto-trigger render once applyBestCombo has propagated the new settings.
   // We wait until settings.captionStyle matches the applied preset AND
@@ -605,10 +652,13 @@ export default function EnhancePage() {
   useEffect(() => {
     if (!pendingAutoRenderRef.current) return
     if (rendering) return
-    if (settings.captionStyle !== 'hormozi-purple') return
+    // Check the caption style matches what we applied
+    const expected = appliedCaptionStyleRef.current
+    if (expected && settings.captionStyle !== expected) return
     // Hook reorder must be ready if we expect it
     if (settings.hookReorderEnabled && !settings.hookReorder) return
     pendingAutoRenderRef.current = false
+    appliedCaptionStyleRef.current = null
     handleRender()
   }, [settings, rendering, handleRender])
 
@@ -832,14 +882,23 @@ export default function EnhancePage() {
                   {renderMessage}
                 </p>
                 {renderDownloadUrl && (
-                  <a
-                    href={renderDownloadUrl}
-                    download="viral-clip.mp4"
-                    className="inline-flex items-center justify-center gap-2 w-full h-12 rounded-lg bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white font-bold text-base shadow-lg shadow-green-500/20 transition-all animate-pulse"
-                  >
-                    <Download className="h-5 w-5" />
-                    Download clip (with captions)
-                  </a>
+                  <div className="flex flex-col gap-2">
+                    <a
+                      href={renderDownloadUrl}
+                      download="viral-clip.mp4"
+                      className="inline-flex items-center justify-center gap-2 w-full h-12 rounded-lg bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white font-bold text-base shadow-lg shadow-green-500/20 transition-all animate-pulse"
+                    >
+                      <Download className="h-5 w-5" />
+                      Download clip (with captions)
+                    </a>
+                    <button
+                      onClick={() => setPublishDialogOpen(true)}
+                      className="inline-flex items-center justify-center gap-2 w-full h-12 rounded-lg bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-white font-bold text-base shadow-lg shadow-blue-500/20 transition-all"
+                    >
+                      <Send className="h-5 w-5" />
+                      Publish to socials
+                    </button>
+                  </div>
                 )}
                 {renderOriginalUrl && !renderDownloadUrl && (
                   <a
@@ -863,15 +922,15 @@ export default function EnhancePage() {
           {(() => {
             const viralBusy = makeViralLoading || pendingAutoRenderRef.current || rendering
             const viralLabel = makeViralLoading
-              ? 'Analyzing clip...'
+              ? 'Analyzing clip mood...'
               : rendering
                 ? 'Rendering...'
                 : 'Make it viral'
             const viralSubLabel = makeViralLoading
-              ? 'AI hook + optimal settings'
+              ? 'AI mood detection + optimal preset'
               : rendering
                 ? 'Sous-titres + hook + smart zoom'
-                : '1 click = viral clip'
+                : '1 click = mood-optimized viral clip'
             return (
               <button
                 onClick={applyBestCombo}
@@ -897,6 +956,58 @@ export default function EnhancePage() {
               </button>
             )
           })()}
+
+          {/* ── Mood selector bar ── */}
+          <div className="flex flex-wrap gap-2">
+            {ALL_MOODS.map((mood) => {
+              const preset = MOOD_PRESETS[mood]
+              const isSelected = selectedMood === mood
+              const isAiDetected = isSelected && moodAiDetected && detectedMood === mood
+              return (
+                <button
+                  key={mood}
+                  onClick={() => handleMoodSelect(mood)}
+                  className={cn(
+                    'relative flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold border transition-all duration-200',
+                    isSelected
+                      ? cn('bg-card/80 shadow-lg', MOOD_COLORS[mood])
+                      : 'bg-card/40 border-border text-muted-foreground hover:text-foreground hover:border-white/20'
+                  )}
+                >
+                  <span>{preset.emoji}</span>
+                  <span>{preset.label}</span>
+                  {isAiDetected && (
+                    <Badge className="ml-1 px-1 py-0 text-[8px] bg-primary/20 text-primary border-primary/30 font-bold">
+                      AI
+                    </Badge>
+                  )}
+                </button>
+              )
+            })}
+          </div>
+
+          {/* ── Mood detection badge ── */}
+          {detectedMood && moodExplanation && (
+            <div className="px-3 py-2.5 rounded-xl border border-border bg-card/40 space-y-1">
+              <div className="flex items-center gap-2">
+                <span className="text-sm">{MOOD_PRESETS[detectedMood].emoji}</span>
+                <span className="text-xs font-bold text-foreground">
+                  {MOOD_PRESETS[detectedMood].label} detected
+                </span>
+                <span className="text-[10px] text-muted-foreground">
+                  — AI confidence: {moodConfidence}%
+                </span>
+              </div>
+              <p className="text-[10px] text-muted-foreground leading-relaxed">
+                {moodExplanation}
+              </p>
+              {secondaryMood && (
+                <p className="text-[10px] text-muted-foreground/70">
+                  Also detected: {MOOD_PRESETS[secondaryMood].emoji} {MOOD_PRESETS[secondaryMood].label}
+                </p>
+              )}
+            </div>
+          )}
 
           {/* ── Settings ── */}
           <div className="opacity-90 hover:opacity-100 transition-opacity duration-300">
@@ -1773,6 +1884,13 @@ export default function EnhancePage() {
           </div>
         </div>
       </div>
+
+      <PublishDialog
+        open={publishDialogOpen}
+        onClose={() => setPublishDialogOpen(false)}
+        clipId={clipId}
+        clipTitle={clip?.title ?? undefined}
+      />
     </div>
   )
 }

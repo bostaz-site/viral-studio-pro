@@ -1,4 +1,4 @@
-# Skills — Viral Studio Pro
+# Skills — Viral Animal
 
 7 skills IA disponibles dans ce projet :
 

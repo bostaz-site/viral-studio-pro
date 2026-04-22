@@ -30,7 +30,7 @@ const PLANS: PlanConfig[] = [
       'Clips up to 60s',
       'Auto split-screen',
       'AI viral score',
-      'Viral Studio watermark',
+      'Viral Animal watermark',
     ],
     cta: 'Start Free',
   },

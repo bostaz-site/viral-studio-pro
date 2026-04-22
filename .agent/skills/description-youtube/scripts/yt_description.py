@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Generateur de descriptions YouTube SEO — Viral Studio Pro
+Generateur de descriptions YouTube SEO — Viral Animal
 Usage : python3 yt_description.py <URL_YOUTUBE>
 Variables requises : ANTHROPIC_API_KEY
 """
@@ -135,7 +135,7 @@ Ajoute des emojis pertinents mais sans exagerer."""
 
 def show_help():
     """Affiche l'aide."""
-    print("Generateur de descriptions YouTube SEO — Viral Studio Pro")
+    print("Generateur de descriptions YouTube SEO — Viral Animal")
     print()
     print("Usage :")
     print("  python3 yt_description.py <URL_YOUTUBE>")

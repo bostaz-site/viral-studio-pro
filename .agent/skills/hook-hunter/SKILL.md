@@ -3,14 +3,14 @@ name: hook-hunter
 description: "Analyse une transcription video et genere 5 hooks viraux avec framework, biais cognitif, score d'agressivite et score viral. Se declenche quand l'utilisateur dit 'genere des hooks', 'reecris l'accroche', 'hook viral', 'ameliore le hook', ou fournit une transcription a optimiser pour TikTok, Reels ou Shorts."
 ---
 
-# Hook Hunter — Viral Studio Pro
+# Hook Hunter — Viral Animal
 
 > Position dans le pipeline : Skill 1/4 — s'execute en parallele avec Retention Editor, juste apres la transcription Whisper.
 
 ## Objectif
 Analyse la transcription d'un clip video et genere 5 hooks viraux uniques,
 chacun associe a un framework viral, un biais cognitif, un score d'agressivite
-et un score de potentiel viral. C'est l'edge produit #1 de Viral Studio Pro.
+et un score de potentiel viral. C'est l'edge produit #1 de Viral Animal.
 
 ## Implementation
 - Fichier : `lib/claude/hook-hunter.ts`

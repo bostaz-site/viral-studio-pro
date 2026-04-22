@@ -85,7 +85,7 @@ const CAPTION_STYLES: CaptionStyleConfig[] = [
   {
     id: 'hormozi_purple',
     name: 'Hormozi Purple',
-    description: 'Viral Studio branding, punchy violet.',
+    description: 'Viral Animal branding, punchy violet.',
     baseClass: 'text-white font-black uppercase tracking-wider',
     hitClass: 'text-violet-400',
     wrapperClass: 'drop-shadow-[0_2px_4px_rgba(0,0,0,0.95)]',
@@ -152,7 +152,7 @@ export function DemoExperience() {
             href="/"
             className="text-xl font-black tracking-tight bg-gradient-to-r from-blue-500 to-indigo-600 bg-clip-text text-transparent"
           >
-            VIRAL STUDIO
+            VIRAL ANIMAL
           </Link>
           <div className="flex items-center gap-3">
             <Link href="/pricing">
@@ -338,7 +338,7 @@ export function DemoExperience() {
       <footer className="border-t border-border py-8 px-6">
         <div className="max-w-4xl mx-auto flex flex-wrap items-center justify-between gap-4 text-xs text-muted-foreground">
           <p>
-            Viral Studio Pro — Turn your Twitch clips into viral videos
+            Viral Animal — Turn your Twitch clips into viral videos
           </p>
           <div className="flex items-center gap-4">
             <Link href="/pricing" className="hover:text-foreground transition-colors">

@@ -1,6 +1,6 @@
-# Viral Studio Pro Render API — Complete File Index
+# Viral Animal Render API — Complete File Index
 
-Complete Express.js render API for Viral Studio Pro running on Hetzner VPS with FFmpeg, yt-dlp, and Supabase integration.
+Complete Express.js render API for Viral Animal running on Hetzner VPS with FFmpeg, yt-dlp, and Supabase integration.
 
 ## Project Structure
 

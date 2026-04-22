@@ -1,7 +1,9 @@
 // ═════════════════════════════════════════════════════════════════════════════
-// Scoring Engine for Viral Studio Pro
+// Scoring Engine for Viral Animal
 // Extracted from app/(dashboard)/dashboard/enhance/[clipId]/page.tsx
 // ═════════════════════════════════════════════════════════════════════════════
+
+import type { TrendingClip } from '@/types/trending'
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -103,22 +105,13 @@ export interface TagStyle {
 }
 
 /**
- * Represents a trending clip with viral metrics.
+ * Subset of TrendingClip used by the enhance scoring engine.
  */
-export interface TrendingClipData {
-  id: string
-  external_url: string
-  platform: string
-  author_name: string | null
-  author_handle: string | null
-  title: string | null
-  description: string | null
-  niche: string | null
-  view_count: number | null
-  like_count: number | null
-  velocity_score: number | null
-  thumbnail_url: string | null
-}
+export type TrendingClipData = Pick<TrendingClip,
+  'id' | 'external_url' | 'platform' | 'author_name' | 'author_handle' |
+  'title' | 'description' | 'niche' | 'view_count' | 'like_count' |
+  'velocity_score' | 'thumbnail_url'
+>
 
 /**
  * Return type of computeScores function.
@@ -327,9 +320,9 @@ export function computeScores(clip: TrendingClipData): ComputedScores {
   const emphasisScores: ScoredOption[] = EMPHASIS_EFFECTS.map((e) => {
     let score = e.baseScore
     if (isHighEnergy && (e.id === 'scale' || e.id === 'bounce')) score += 5
-    if (!isHighEnergy && e.id === 'color') score += 4
+    if (!isHighEnergy && e.id === 'glow') score += 4
     if (niche === 'gaming' && e.id === 'scale') score += 3
-    if (niche === 'irl' && e.id === 'color') score += 3
+    if (niche === 'irl' && e.id === 'glow') score += 3
     return { id: e.id, score, isBest: false }
   })
   const maxEmphasis = Math.max(...emphasisScores.map((s) => s.score))
@@ -386,7 +379,7 @@ export function computeScores(clip: TrendingClipData): ComputedScores {
   // Best combo — safe fallbacks instead of non-null assertions
   const bestCaption = captionScores.find((s) => s.isBest)?.id ?? captionScores[0]?.id ?? 'hormozi'
   const bestEmphasis = emphasisScores.find((s) => s.isBest)?.id ?? emphasisScores[0]?.id ?? 'highlight'
-  const bestBroll = brollScores.find((s) => s.isBest)?.id ?? brollScores[0]?.id ?? 'subway_surfers'
+  const bestBroll = brollScores.find((s) => s.isBest)?.id ?? brollScores[0]?.id ?? 'subway-surfers'
   const bestTag = tagScores.find((s) => s.isBest)?.id ?? tagScores[0]?.id ?? 'viral-glow'
 
   return {

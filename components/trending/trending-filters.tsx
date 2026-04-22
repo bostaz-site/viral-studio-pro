@@ -1,32 +1,20 @@
 "use client"
 
-import { Search, X } from 'lucide-react'
+import { Search, X, Timer } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { NICHE_LABELS } from '@/lib/trending/constants'
+import type { TrendingFiltersState, SortOption, DurationFilter } from '@/types/trending'
 
-export type SortOption = 'velocity' | 'date'
-
-export interface TrendingFiltersState {
-  search: string
-  games: string[]
-  platforms: string[]
-  sort: SortOption
-}
+export type { SortOption, TrendingFiltersState }
 
 interface TrendingFiltersProps {
   filters: TrendingFiltersState
   onChange: (filters: TrendingFiltersState) => void
   totalCount: number
   filteredCount: number
-  /**
-   * Niches derived from live clips (e.g. from `stats.games`).
-   * Keys are lowercased niche ids, values are counts. The component
-   * renders the top N as clickable pills. Pass an empty object to hide.
-   */
   availableNiches?: Record<string, number>
-  /** Max niche pills to show (default 6) */
   maxNichePills?: number
 }
 
@@ -40,11 +28,19 @@ function formatNicheLabel(id: string): string {
 
 const PLATFORMS = [
   { id: 'twitch', label: 'Twitch' },
+  { id: 'kick', label: 'Kick' },
 ]
 
 const SORT_OPTIONS: { value: SortOption; label: string }[] = [
   { value: 'velocity', label: 'Algo Score' },
   { value: 'date',     label: 'Date' },
+]
+
+const DURATION_OPTIONS: { value: DurationFilter; label: string; sub: string }[] = [
+  { value: 'all',    label: 'All',    sub: '' },
+  { value: 'short',  label: 'Short',  sub: '< 30s' },
+  { value: 'medium', label: 'Medium', sub: '30-60s' },
+  { value: 'long',   label: 'Long',   sub: '60s+' },
 ]
 
 export function TrendingFilters({
@@ -58,7 +54,6 @@ export function TrendingFilters({
   const toggle = <T extends string>(arr: T[], item: T): T[] =>
     arr.includes(item) ? arr.filter((x) => x !== item) : [...arr, item]
 
-  // Top niches, sorted by count descending, capped at maxNichePills
   const topNiches: { id: string; label: string; count: number }[] = availableNiches
     ? Object.entries(availableNiches)
         .sort((a, b) => b[1] - a[1])
@@ -67,7 +62,7 @@ export function TrendingFilters({
     : []
 
   const hasActiveFilters =
-    filters.search !== '' || filters.games.length > 0 || filters.platforms.length > 0
+    filters.search !== '' || filters.games.length > 0 || filters.platforms.length > 0 || filters.duration !== 'all'
 
   return (
     <div className="space-y-3">
@@ -115,16 +110,15 @@ export function TrendingFilters({
             variant="ghost"
             size="sm"
             className="h-9 gap-1.5 text-muted-foreground hover:text-foreground"
-            onClick={() => onChange({ search: '', games: [], platforms: [], sort: filters.sort })}
+            onClick={() => onChange({ ...filters, search: '', games: [], platforms: [], duration: 'all' })}
           >
             <X className="h-3.5 w-3.5" />
             Clear
           </Button>
         )}
-
       </div>
 
-      {/* Platform pills */}
+      {/* Platform + Duration + Niche pills */}
       <div className="flex flex-wrap gap-2">
         {PLATFORMS.map((p) => {
           const active = filters.platforms.includes(p.id)
@@ -144,7 +138,29 @@ export function TrendingFilters({
           )
         })}
 
-        {/* Niche pills — derived from live clip stats */}
+        {/* Duration pills */}
+        <div className="w-px h-5 bg-border self-center mx-1" />
+        <Timer className="h-3.5 w-3.5 text-muted-foreground self-center" />
+        {DURATION_OPTIONS.filter(d => d.value !== 'all').map((d) => {
+          const active = filters.duration === d.value
+          return (
+            <button
+              key={d.value}
+              onClick={() => onChange({ ...filters, duration: active ? 'all' : d.value })}
+              className={cn(
+                'px-3 py-1 rounded-full text-xs font-medium border transition-all',
+                active
+                  ? 'bg-amber-500/10 text-amber-400 border-amber-500/30'
+                  : 'bg-muted/30 text-muted-foreground border-border hover:border-amber-500/30 hover:text-foreground'
+              )}
+            >
+              {d.label}
+              {d.sub && <span className="ml-1 opacity-60">{d.sub}</span>}
+            </button>
+          )
+        })}
+
+        {/* Niche pills */}
         {topNiches.length > 0 && (
           <>
             <div className="w-px h-5 bg-border self-center mx-1" />
@@ -174,6 +190,13 @@ export function TrendingFilters({
           </>
         )}
       </div>
+
+      {/* Count */}
+      {filteredCount !== totalCount && (
+        <p className="text-xs text-muted-foreground">
+          Showing {filteredCount} of {totalCount} clips
+        </p>
+      )}
     </div>
   )
 }
