@@ -12,7 +12,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 /**
- * FFmpeg render engine for Viral Studio Pro
+ * FFmpeg render engine for Viral Animal
  * Handles video cutting, reframing, captioning, watermarking, and split-screen rendering
  */
 
@@ -1146,7 +1146,7 @@ function buildWatermarkFilter(watermark, position, plan) {
 
   if (plan === 'free') {
     const posCoords = getWatermarkCoordinates(position);
-    return `drawtext=text='viralstudio.pro':fontsize=24:fontcolor=white@0.8:shadowcolor=black@0.6:shadowx=1:shadowy=1:x=${posCoords.x}:y=${posCoords.y}`;
+    return `drawtext=text='viralanimal.com':fontsize=24:fontcolor=white@0.8:shadowcolor=black@0.6:shadowx=1:shadowy=1:x=${posCoords.x}:y=${posCoords.y}`;
   }
 
   return null;

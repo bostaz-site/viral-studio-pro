@@ -14,6 +14,203 @@ export type Database = {
   }
   public: {
     Tables: {
+      affiliates: {
+        Row: {
+          id: string
+          name: string
+          email: string | null
+          handle: string
+          platform: string | null
+          niche: string | null
+          commission_rate: number | null
+          promo_code: string | null
+          promo_discount_percent: number | null
+          status: string | null
+          notes: string | null
+          total_clicks: number | null
+          total_signups: number | null
+          total_conversions: number | null
+          total_revenue: number | null
+          total_commission_earned: number | null
+          total_commission_paid: number | null
+          stripe_account_id: string | null
+          created_at: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          id?: string
+          name: string
+          email?: string | null
+          handle: string
+          platform?: string | null
+          niche?: string | null
+          commission_rate?: number | null
+          promo_code?: string | null
+          promo_discount_percent?: number | null
+          status?: string | null
+          notes?: string | null
+          total_clicks?: number | null
+          total_signups?: number | null
+          total_conversions?: number | null
+          total_revenue?: number | null
+          total_commission_earned?: number | null
+          total_commission_paid?: number | null
+          stripe_account_id?: string | null
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          id?: string
+          name?: string
+          email?: string | null
+          handle?: string
+          platform?: string | null
+          niche?: string | null
+          commission_rate?: number | null
+          promo_code?: string | null
+          promo_discount_percent?: number | null
+          status?: string | null
+          notes?: string | null
+          total_clicks?: number | null
+          total_signups?: number | null
+          total_conversions?: number | null
+          total_revenue?: number | null
+          total_commission_earned?: number | null
+          total_commission_paid?: number | null
+          stripe_account_id?: string | null
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      account_intelligence: {
+        Row: {
+          id: string
+          user_id: string
+          platform: string
+          phase: string
+          total_posts: number
+          best_hours: Json
+          worst_hours: Json
+          optimal_posts_per_day: number | null
+          optimal_min_hours_between: number | null
+          best_clip_duration_range: Json | null
+          captions_boost_percent: number | null
+          split_screen_boost_percent: number | null
+          last_post_performance: string | null
+          last_post_at: string | null
+          consecutive_flops: number
+          consecutive_hits: number
+          current_momentum: string
+          hot_threshold: number
+          viral_threshold: number
+          flop_threshold: number
+          updated_at: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          platform: string
+          phase?: string
+          total_posts?: number
+          best_hours?: Json
+          worst_hours?: Json
+          optimal_posts_per_day?: number | null
+          optimal_min_hours_between?: number | null
+          best_clip_duration_range?: Json | null
+          captions_boost_percent?: number | null
+          split_screen_boost_percent?: number | null
+          last_post_performance?: string | null
+          last_post_at?: string | null
+          consecutive_flops?: number
+          consecutive_hits?: number
+          current_momentum?: string
+          hot_threshold?: number
+          viral_threshold?: number
+          flop_threshold?: number
+          updated_at?: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          platform?: string
+          phase?: string
+          total_posts?: number
+          best_hours?: Json
+          worst_hours?: Json
+          optimal_posts_per_day?: number | null
+          optimal_min_hours_between?: number | null
+          best_clip_duration_range?: Json | null
+          captions_boost_percent?: number | null
+          split_screen_boost_percent?: number | null
+          last_post_performance?: string | null
+          last_post_at?: string | null
+          consecutive_flops?: number
+          consecutive_hits?: number
+          current_momentum?: string
+          hot_threshold?: number
+          viral_threshold?: number
+          flop_threshold?: number
+          updated_at?: string
+          created_at?: string
+        }
+        Relationships: []
+      }
+      affiliate_payouts: {
+        Row: {
+          id: string
+          affiliate_id: string | null
+          amount: number
+          currency: string | null
+          status: string | null
+          payment_method: string | null
+          stripe_transfer_id: string | null
+          notes: string | null
+          period_start: string | null
+          period_end: string | null
+          paid_at: string | null
+          created_at: string | null
+        }
+        Insert: {
+          id?: string
+          affiliate_id?: string | null
+          amount: number
+          currency?: string | null
+          status?: string | null
+          payment_method?: string | null
+          stripe_transfer_id?: string | null
+          notes?: string | null
+          period_start?: string | null
+          period_end?: string | null
+          paid_at?: string | null
+          created_at?: string | null
+        }
+        Update: {
+          id?: string
+          affiliate_id?: string | null
+          amount?: number
+          currency?: string | null
+          status?: string | null
+          payment_method?: string | null
+          stripe_transfer_id?: string | null
+          notes?: string | null
+          period_start?: string | null
+          period_end?: string | null
+          paid_at?: string | null
+          created_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "affiliate_payouts_affiliate_id_fkey"
+            columns: ["affiliate_id"]
+            isOneToOne: false
+            referencedRelation: "affiliates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       brand_templates: {
         Row: {
           created_at: string | null
@@ -220,6 +417,105 @@ export type Database = {
         }
         Relationships: []
       }
+      publication_performance: {
+        Row: {
+          id: string
+          user_id: string
+          scheduled_publication_id: string | null
+          clip_id: string
+          platform: string
+          views_1h: number
+          views_2h: number
+          views_6h: number
+          views_24h: number
+          views_48h: number
+          views_total: number
+          likes: number
+          comments: number
+          shares: number
+          watch_time_avg: number | null
+          retention_rate: number | null
+          posted_at: string
+          day_of_week: number
+          hour_of_day: number
+          niche: string | null
+          has_captions: boolean
+          has_split_screen: boolean
+          clip_duration_seconds: number | null
+          performance_score: number | null
+          is_viral: boolean
+          velocity: number | null
+          last_checked_at: string | null
+          check_count: number
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          scheduled_publication_id?: string | null
+          clip_id: string
+          platform: string
+          views_1h?: number
+          views_2h?: number
+          views_6h?: number
+          views_24h?: number
+          views_48h?: number
+          views_total?: number
+          likes?: number
+          comments?: number
+          shares?: number
+          watch_time_avg?: number | null
+          retention_rate?: number | null
+          posted_at: string
+          day_of_week?: number
+          hour_of_day?: number
+          niche?: string | null
+          has_captions?: boolean
+          has_split_screen?: boolean
+          clip_duration_seconds?: number | null
+          performance_score?: number | null
+          is_viral?: boolean
+          velocity?: number | null
+          last_checked_at?: string | null
+          check_count?: number
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          scheduled_publication_id?: string | null
+          clip_id?: string
+          platform?: string
+          views_1h?: number
+          views_2h?: number
+          views_6h?: number
+          views_24h?: number
+          views_48h?: number
+          views_total?: number
+          likes?: number
+          comments?: number
+          shares?: number
+          watch_time_avg?: number | null
+          retention_rate?: number | null
+          posted_at?: string
+          day_of_week?: number
+          hour_of_day?: number
+          niche?: string | null
+          has_captions?: boolean
+          has_split_screen?: boolean
+          clip_duration_seconds?: number | null
+          performance_score?: number | null
+          is_viral?: boolean
+          velocity?: number | null
+          last_checked_at?: string | null
+          check_count?: number
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       publications: {
         Row: {
           caption: string | null
@@ -297,6 +593,75 @@ export type Database = {
           identifier?: string
         }
         Relationships: []
+      }
+      referrals: {
+        Row: {
+          id: string
+          affiliate_id: string | null
+          user_id: string | null
+          source: string
+          utm_source: string | null
+          utm_medium: string | null
+          utm_campaign: string | null
+          status: string | null
+          signed_up_at: string | null
+          converted_at: string | null
+          revenue_generated: number | null
+          commission_amount: number | null
+          ip_address: string | null
+          user_agent: string | null
+          created_at: string | null
+        }
+        Insert: {
+          id?: string
+          affiliate_id?: string | null
+          user_id?: string | null
+          source: string
+          utm_source?: string | null
+          utm_medium?: string | null
+          utm_campaign?: string | null
+          status?: string | null
+          signed_up_at?: string | null
+          converted_at?: string | null
+          revenue_generated?: number | null
+          commission_amount?: number | null
+          ip_address?: string | null
+          user_agent?: string | null
+          created_at?: string | null
+        }
+        Update: {
+          id?: string
+          affiliate_id?: string | null
+          user_id?: string | null
+          source?: string
+          utm_source?: string | null
+          utm_medium?: string | null
+          utm_campaign?: string | null
+          status?: string | null
+          signed_up_at?: string | null
+          converted_at?: string | null
+          revenue_generated?: number | null
+          commission_amount?: number | null
+          ip_address?: string | null
+          user_agent?: string | null
+          created_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "referrals_affiliate_id_fkey"
+            columns: ["affiliate_id"]
+            isOneToOne: false
+            referencedRelation: "affiliates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "referrals_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       render_jobs: {
         Row: {
@@ -392,6 +757,30 @@ export type Database = {
           },
         ]
       }
+      saved_clips: {
+        Row: {
+          id: string
+          user_id: string
+          clip_id: string
+          notes: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          clip_id: string
+          notes?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          clip_id?: string
+          notes?: string | null
+          created_at?: string
+        }
+        Relationships: []
+      }
       streamers: {
         Row: {
           active: boolean | null
@@ -399,9 +788,16 @@ export type Database = {
           display_name: string
           id: string
           kick_slug: string | null
+          kick_login: string | null
           priority: number | null
           twitch_id: string | null
           twitch_login: string | null
+          niche: string | null
+          avg_clip_views: number | null
+          avg_clip_velocity: number | null
+          total_clips_tracked: number | null
+          last_fetched_at: string | null
+          fetch_interval_minutes: number | null
           updated_at: string | null
         }
         Insert: {
@@ -410,9 +806,16 @@ export type Database = {
           display_name: string
           id?: string
           kick_slug?: string | null
+          kick_login?: string | null
           priority?: number | null
           twitch_id?: string | null
           twitch_login?: string | null
+          niche?: string | null
+          avg_clip_views?: number | null
+          avg_clip_velocity?: number | null
+          total_clips_tracked?: number | null
+          last_fetched_at?: string | null
+          fetch_interval_minutes?: number | null
           updated_at?: string | null
         }
         Update: {
@@ -421,9 +824,16 @@ export type Database = {
           display_name?: string
           id?: string
           kick_slug?: string | null
+          kick_login?: string | null
           priority?: number | null
           twitch_id?: string | null
           twitch_login?: string | null
+          niche?: string | null
+          avg_clip_views?: number | null
+          avg_clip_velocity?: number | null
+          total_clips_tracked?: number | null
+          last_fetched_at?: string | null
+          fetch_interval_minutes?: number | null
           updated_at?: string | null
         }
         Relationships: []
@@ -511,6 +921,9 @@ export type Database = {
           view_count: number | null
           viral_ratio: number | null
           viral_score: number | null
+          early_signal_score: number | null
+          anomaly_score: number | null
+          feed_category: string | null
         }
         Insert: {
           author_handle?: string | null
@@ -535,6 +948,9 @@ export type Database = {
           view_count?: number | null
           viral_ratio?: number | null
           viral_score?: number | null
+          early_signal_score?: number | null
+          anomaly_score?: number | null
+          feed_category?: string | null
         }
         Update: {
           author_handle?: string | null
@@ -559,6 +975,9 @@ export type Database = {
           view_count?: number | null
           viral_ratio?: number | null
           viral_score?: number | null
+          early_signal_score?: number | null
+          anomaly_score?: number | null
+          feed_category?: string | null
         }
         Relationships: [
           {
@@ -624,6 +1043,109 @@ export type Database = {
             foreignKeyName: "videos_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      scheduled_publications: {
+        Row: {
+          id: string
+          user_id: string | null
+          clip_id: string
+          platform: string
+          caption: string | null
+          hashtags: string[] | null
+          scheduled_at: string
+          status: string | null
+          publish_result: Json | null
+          error_message: string | null
+          created_at: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          id?: string
+          user_id?: string | null
+          clip_id: string
+          platform: string
+          caption?: string | null
+          hashtags?: string[] | null
+          scheduled_at: string
+          status?: string | null
+          publish_result?: Json | null
+          error_message?: string | null
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          id?: string
+          user_id?: string | null
+          clip_id?: string
+          platform?: string
+          caption?: string | null
+          hashtags?: string[] | null
+          scheduled_at?: string
+          status?: string | null
+          publish_result?: Json | null
+          error_message?: string | null
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "scheduled_publications_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      distribution_settings: {
+        Row: {
+          id: string
+          user_id: string | null
+          max_posts_per_day: number | null
+          min_hours_between_posts: number | null
+          default_hashtags: Json | null
+          caption_template: string | null
+          niche: string | null
+          optimal_hours: Json | null
+          ai_optimized: boolean | null
+          created_at: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          id?: string
+          user_id?: string | null
+          max_posts_per_day?: number | null
+          min_hours_between_posts?: number | null
+          default_hashtags?: Json | null
+          caption_template?: string | null
+          niche?: string | null
+          optimal_hours?: Json | null
+          ai_optimized?: boolean | null
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          id?: string
+          user_id?: string | null
+          max_posts_per_day?: number | null
+          min_hours_between_posts?: number | null
+          default_hashtags?: Json | null
+          caption_template?: string | null
+          niche?: string | null
+          optimal_hours?: Json | null
+          ai_optimized?: boolean | null
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "distribution_settings_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },

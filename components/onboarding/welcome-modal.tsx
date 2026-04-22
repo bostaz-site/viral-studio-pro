@@ -89,7 +89,7 @@ export function WelcomeModal() {
         {stepIdx === 0 && (
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-orange-500/10 border border-orange-500/20 text-xs font-semibold text-orange-400 mb-4">
             <Sparkles className="h-3 w-3" />
-            Welcome to Viral Studio Pro
+            Welcome to Viral Animal
           </div>
         )}
 

@@ -1,4 +1,4 @@
-# Viral Studio Pro Render API
+# Viral Animal Render API
 
 Express.js server running on a Hetzner VPS (Ubuntu 24.04) for video rendering using FFmpeg.
 
@@ -479,8 +479,8 @@ max_memory_restart: '500M' (in ecosystem.config.js)
 
 ## Support & Contributing
 
-For issues or feature requests, contact the Viral Studio Pro team.
+For issues or feature requests, contact the Viral Animal team.
 
 ## License
 
-Proprietary — Viral Studio Pro
+Proprietary — Viral Animal

@@ -1,5 +1,5 @@
 /**
- * ASS subtitle file generator for Viral Studio Pro
+ * ASS subtitle file generator for Viral Animal
  * Supports karaoke word-by-word highlighting and multiple caption styles
  */
 
@@ -399,7 +399,7 @@ function buildASSHeader(styleConfig, canvasWidth = 1080, canvasHeight = 1920) {
   } = styleConfig;
 
   return `[Script Info]
-Title: Viral Studio Pro Captions
+Title: Viral Animal Captions
 ScriptType: v4.00+
 PlayResX: ${canvasWidth}
 PlayResY: ${canvasHeight}

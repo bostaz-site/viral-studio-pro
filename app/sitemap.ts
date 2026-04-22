@@ -1,7 +1,7 @@
 import { MetadataRoute } from 'next'
 
 export default function sitemap(): MetadataRoute.Sitemap {
-  const baseUrl = 'https://viral-studio-pro.netlify.app'
+  const baseUrl = 'https://viralanimal.com'
 
   return [
     {

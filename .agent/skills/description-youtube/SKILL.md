@@ -3,12 +3,12 @@ name: description-youtube
 description: "Genere une description YouTube SEO complete a partir d'une URL YouTube. Se declenche quand l'utilisateur dit 'genere la description youtube', 'description SEO', 'SEO youtube', 'je sors une video', ou fournit une URL youtube.com ou youtu.be."
 ---
 
-# Description YouTube SEO — Viral Studio Pro
+# Description YouTube SEO — Viral Animal
 
 ## Objectif
 A partir d'une URL YouTube, scrape les metadonnees de la video,
 puis genere une description SEO complete et optimisee dans le style
-direct et authentique de Viral Studio Pro.
+direct et authentique de Viral Animal.
 
 ## Instructions
 
@@ -41,7 +41,7 @@ CHAPITRES :
 #hashtag1 #hashtag2 ...
 ```
 
-### Adaptation Viral Studio Pro
+### Adaptation Viral Animal
 - Le style est direct, francais, oriente croissance
 - Les hashtags incluent des tags lies au viral/growth
 - La description encourage l'engagement (like, commente, partage)

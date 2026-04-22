@@ -1,6 +1,6 @@
 # Deployment Checklist
 
-Complete guide for deploying Viral Studio Pro Render API to production.
+Complete guide for deploying Viral Animal Render API to production.
 
 ## Pre-Deployment
 

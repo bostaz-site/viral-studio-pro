@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { User, CreditCard, CheckCircle2, AlertCircle, Loader2, Bell, Activity, Film, Clock, Gift, Copy, Check } from 'lucide-react'
+import { User, CreditCard, CheckCircle2, AlertCircle, Loader2, Bell, Activity, Film, Clock, Gift, Copy, Check, Share2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -10,6 +10,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator'
 import { Switch } from '@/components/ui/switch'
 import { PricingCard } from '@/components/settings/pricing-card'
+import { ConnectAccounts } from '@/components/distribution/connect-accounts'
 import { createClient } from '@/lib/supabase/client'
 import type { User as SupabaseUser } from '@supabase/supabase-js'
 
@@ -413,7 +414,7 @@ function SettingsPageInner() {
                   <div className="flex items-center gap-2">
                     <Input
                       readOnly
-                      value={`${typeof window !== 'undefined' ? window.location.origin : 'https://viral-studio-pro.netlify.app'}/signup?ref=${profile.referral_code}`}
+                      value={`${typeof window !== 'undefined' ? window.location.origin : 'https://viralanimal.com'}/signup?ref=${profile.referral_code}`}
                       onFocus={(e) => e.currentTarget.select()}
                       className="font-mono text-xs"
                     />
@@ -486,11 +487,22 @@ function SettingsPageInner() {
 
       <Separator />
 
+      {/* ── Connected Accounts (Distribution) ── */}
+      <Section
+        icon={Share2}
+        title="Connected accounts"
+        description="Connect your social media accounts to publish clips directly"
+      >
+        <ConnectAccounts />
+      </Section>
+
+      <Separator />
+
       {/* ── Plan & Billing ── */}
       <Section
         icon={CreditCard}
         title="Plan & billing"
-        description="Manage your Viral Studio Pro subscription"
+        description="Manage your Viral Animal subscription"
       >
         <PricingCard
           currentPlan={currentPlan}

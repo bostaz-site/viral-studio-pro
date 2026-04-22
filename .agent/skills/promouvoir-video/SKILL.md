@@ -3,7 +3,7 @@ name: promouvoir-video
 description: "Cree du contenu promotionnel multi-format depuis une URL YouTube. Se declenche quand l'utilisateur dit 'promouvoir ma video', 'annoncer une video', 'story youtube', 'reel d'annonce', 'post telegram', 'post instagram', ou donne une URL YouTube en voulant la promouvoir."
 ---
 
-# Promouvoir une video — Viral Studio Pro
+# Promouvoir une video — Viral Animal
 
 ## Objectif
 A partir d'une URL YouTube, genere en une seule fois 3 formats promotionnels :
@@ -11,7 +11,7 @@ A partir d'une URL YouTube, genere en une seule fois 3 formats promotionnels :
 - Un message Telegram/Discord pret a copier (400-600 chars)
 - Un script de Reel d'annonce de 30-45 secondes
 
-Ideal pour la distribution multi-plateforme des clips generes par Viral Studio Pro.
+Ideal pour la distribution multi-plateforme des clips generes par Viral Animal.
 
 ## Instructions
 
@@ -46,7 +46,7 @@ Lien direct en fin de message, ton communautaire
 → Paroles + captions a afficher a l'ecran pour chaque segment
 ```
 
-### Adaptation Viral Studio Pro
+### Adaptation Viral Animal
 - Le style est direct, francais, authentique, pas de jargon marketing creux
 - FOMO sans etre racoleur
 - Les formats sont optimises pour les algorithmes de chaque plateforme

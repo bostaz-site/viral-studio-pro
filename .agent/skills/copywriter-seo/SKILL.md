@@ -3,7 +3,7 @@ name: copywriter-seo
 description: "Genere des captions SEO optimisees, des hashtags par plateforme (TikTok, Instagram, YouTube) et une recommandation split-screen a partir d'un clip. Se declenche quand l'utilisateur dit 'genere la caption', 'hashtags', 'SEO reseaux sociaux', 'caption TikTok', 'texte de publication', ou veut publier un clip avec un texte optimise."
 ---
 
-# Copywriter SEO — Viral Studio Pro
+# Copywriter SEO — Viral Animal
 
 > Position dans le pipeline : Skill 3/4 — s'execute en parallele avec Credit Manager, apres le Clip Cutter. Le champ split_screen est consomme par le Clip Cutter pour le rendu split-screen.
 

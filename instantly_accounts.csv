@@ -1,0 +1,13 @@
+first_name,last_name,email,password,smtp_host,smtp_port,smtp_username,imap_host,imap_port,imap_username
+Samy,ViralAnimal,samy@viralanimal.online,Loucine30!,smtppro.zoho.com,465,samy@viralanimal.online,imappro.zoho.com,993,samy@viralanimal.online
+Alex,ViralAnimal,alex@viralanimal.online,Loucine30!,smtppro.zoho.com,465,alex@viralanimal.online,imappro.zoho.com,993,alex@viralanimal.online
+Marc,ViralAnimal,marc@viralanimal.online,Loucine30!,smtppro.zoho.com,465,marc@viralanimal.online,imappro.zoho.com,993,marc@viralanimal.online
+Samy,ViralAnimal,samy@viralanimal.site,Loucine30!,smtppro.zoho.com,465,samy@viralanimal.site,imappro.zoho.com,993,samy@viralanimal.site
+Alex,ViralAnimal,alex@viralanimal.site,Loucine30!,smtppro.zoho.com,465,alex@viralanimal.site,imappro.zoho.com,993,alex@viralanimal.site
+Marc,ViralAnimal,marc@viralanimal.site,Loucine30!,smtppro.zoho.com,465,marc@viralanimal.site,imappro.zoho.com,993,marc@viralanimal.site
+Samy,ViralAnimal,samy@viralanimal.space,Loucine30!,smtppro.zoho.com,465,samy@viralanimal.space,imappro.zoho.com,993,samy@viralanimal.space
+Alex,ViralAnimal,alex@viralanimal.space,Loucine30!,smtppro.zoho.com,465,alex@viralanimal.space,imappro.zoho.com,993,alex@viralanimal.space
+Marc,ViralAnimal,marc@viralanimal.space,Loucine30!,smtppro.zoho.com,465,marc@viralanimal.space,imappro.zoho.com,993,marc@viralanimal.space
+Samy,ViralAnimal,samy@viralanimal.store,Loucine30!,smtppro.zoho.com,465,samy@viralanimal.store,imappro.zoho.com,993,samy@viralanimal.store
+Alex,ViralAnimal,alex@viralanimal.store,Loucine30!,smtppro.zoho.com,465,alex@viralanimal.store,imappro.zoho.com,993,alex@viralanimal.store
+Marc,ViralAnimal,marc@viralanimal.store,Loucine30!,smtppro.zoho.com,465,marc@viralanimal.store,imappro.zoho.com,993,marc@viralanimal.store

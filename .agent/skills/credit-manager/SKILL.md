@@ -3,13 +3,13 @@ name: credit-manager
 description: "Genere un credit propre et professionnel pour le createur original d'une video curee, avec credits adaptes par plateforme cible et evaluation du risque. Se declenche quand l'utilisateur dit 'ajoute le credit', 'credit auteur', 'credit createur', 'attribuer la source', ou quand un clip du mode curateur est pret a etre publie."
 ---
 
-# Credit Manager — Viral Studio Pro
+# Credit Manager — Viral Animal
 
 > Position dans le pipeline : Skill 4/4 — s'execute en parallele avec Copywriter SEO, apres le Clip Cutter. Le champ `platform_credits` fournit des credits prets a coller par plateforme cible.
 
 ## Objectif
 Genere un credit professionnel, visible et flatteur pour le createur original
-quand on utilise le mode Curateur de Viral Studio Pro. Le credit est adapte
+quand on utilise le mode Curateur de Viral Animal. Le credit est adapte
 a chaque plateforme de publication, inclut une evaluation du risque, et propose
 une invitation a collaborer.
 

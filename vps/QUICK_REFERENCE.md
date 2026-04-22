@@ -1,6 +1,6 @@
 # Quick Reference
 
-Common commands and operations for Viral Studio Pro Render API.
+Common commands and operations for Viral Animal Render API.
 
 ## Server Management
 

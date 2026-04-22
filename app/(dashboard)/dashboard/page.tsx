@@ -4,7 +4,7 @@ import { useEffect, useCallback, useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   TrendingUp, RefreshCw, AlertCircle, Loader2, Sparkles,
-  Download, Flame, Zap, Clock, X,
+  Download, Flame, Zap, Clock, X, Diamond, CheckCircle2, Bookmark,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -13,13 +13,13 @@ import { TrendingFilters } from '@/components/trending/trending-filters'
 import { WelcomeModal } from '@/components/onboarding/welcome-modal'
 import { ReferralBonusBanner } from '@/components/onboarding/referral-bonus-banner'
 import { useTrendingStore, type TrendingClip } from '@/stores/trending-store'
+import type { FeedFilter } from '@/types/trending'
 import { cn } from '@/lib/utils'
 
 export default function DashboardPage() {
   const router = useRouter()
   const [twitchRefreshing, setTwitchRefreshing] = useState(false)
   const [twitchMessage, setTwitchMessage] = useState<string | null>(null)
-  const [quickFilter, setQuickFilter] = useState<'all' | 'viral' | 'potential' | 'recent'>('all')
 
   const {
     filteredClips,
@@ -29,14 +29,23 @@ export default function DashboardPage() {
     error,
     clips,
     stats,
+    hasMore,
+    loadingMore,
+    totalCount,
+    savedClipIds,
     setFilters,
+    setFeed,
     fetchClips,
+    loadMore,
+    fetchSavedClips,
+    toggleSaveClip,
   } = useTrendingStore()
 
   // Initial fetch
   useEffect(() => {
     fetchClips()
-  }, [fetchClips])
+    fetchSavedClips()
+  }, [fetchClips, fetchSavedClips])
 
   // Twitch refresh
   const handleTwitchRefresh = useCallback(async () => {
@@ -48,7 +57,7 @@ export default function DashboardPage() {
       if (!res.ok || data.error) {
         setTwitchMessage(data.message ?? 'Error')
       } else {
-        setTwitchMessage(`${data.data?.upserted ?? 0} clips imported from Twitch`)
+        setTwitchMessage(`${data.data?.upserted ?? 0} clips imported`)
         fetchClips(true)
       }
     } catch {
@@ -59,36 +68,26 @@ export default function DashboardPage() {
     }
   }, [fetchClips])
 
-  // Quick filter logic
-  const displayClips = useMemo(() => {
-    if (quickFilter === 'viral') {
-      return filteredClips
-        .filter(c => (c.velocity_score ?? 0) >= 70)
-        .sort((a, b) => (b.velocity_score ?? 0) - (a.velocity_score ?? 0))
-    }
-    if (quickFilter === 'potential') {
-      return filteredClips.filter(c => {
-        const v = c.velocity_score ?? 0
-        return v >= 40 && v < 70
-      })
-    }
-    if (quickFilter === 'recent') {
-      return [...filteredClips].sort(
-        (a, b) => new Date(b.created_at ?? 0).getTime() - new Date(a.created_at ?? 0).getTime()
-      )
-    }
-    return filteredClips
-  }, [filteredClips, quickFilter])
-
-  // Navigate to enhance page when clicking a clip
   const handleEnhance = useCallback((clip: TrendingClip) => {
     router.push(`/dashboard/enhance/${clip.id}`)
   }, [router])
+
+  const feedTabs: { key: FeedFilter; label: string; icon: typeof Sparkles; count?: number }[] = [
+    { key: 'all', label: 'All', icon: Sparkles },
+    { key: 'hot_now', label: 'Hot Right Now', icon: Flame, count: stats.hotNowCount },
+    { key: 'early_gem', label: 'Early Gems', icon: Diamond, count: stats.earlyGemCount },
+    { key: 'proven', label: 'Proven Viral', icon: CheckCircle2, count: stats.provenCount },
+    { key: 'recent', label: 'Recent', icon: Clock },
+    { key: 'saved', label: 'Saved', icon: Bookmark, count: savedClipIds.size },
+  ]
+
+  const remaining = totalCount - clips.length
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
       <WelcomeModal />
       <ReferralBonusBanner />
+
       {/* Header */}
       <div className="flex items-start justify-between gap-4">
         <div>
@@ -101,7 +100,6 @@ export default function DashboardPage() {
           </p>
         </div>
         <div className="flex items-center gap-2 shrink-0 mt-1">
-          {/* Manual refresh */}
           <Button
             variant="outline"
             size="sm"
@@ -125,30 +123,27 @@ export default function DashboardPage() {
         </Card>
       )}
 
-
-      {/* Quick filter tabs */}
+      {/* Feed tabs */}
       <div className="flex items-center gap-2 overflow-x-auto pb-1">
-        {([
-          { key: 'all', label: 'All', icon: Sparkles },
-          { key: 'viral', label: 'Trending now', icon: Flame },
-          { key: 'potential', label: 'High potential', icon: Zap },
-          { key: 'recent', label: 'Recent', icon: Clock },
-        ] as const).map(({ key, label, icon: Icon }) => (
+        {feedTabs.map(({ key, label, icon: Icon, count }) => (
           <Button
             key={key}
-            variant={quickFilter === key ? 'default' : 'outline'}
+            variant={filters.feed === key ? 'default' : 'outline'}
             size="sm"
             className={cn(
               'gap-1.5 h-8 text-xs shrink-0 transition-all',
-              quickFilter === key
+              filters.feed === key
                 ? 'shadow-md shadow-primary/20'
                 : 'text-muted-foreground hover:text-foreground'
             )}
-            onClick={() => setQuickFilter(key)}
-            aria-pressed={quickFilter === key}
+            onClick={() => setFeed(key)}
+            aria-pressed={filters.feed === key}
           >
             <Icon className="h-3.5 w-3.5" />
             {label}
+            {count !== undefined && count > 0 && (
+              <span className="ml-0.5 text-[10px] opacity-70">({count})</span>
+            )}
           </Button>
         ))}
       </div>
@@ -174,33 +169,30 @@ export default function DashboardPage() {
 
       {/* Clip Grid */}
       {loading ? (
-        // Skeleton grid matching the real card layout
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4">
           {Array.from({ length: 10 }).map((_, i) => (
-            <div
-              key={i}
-              className="rounded-xl border border-border bg-card/40 overflow-hidden animate-pulse"
-            >
-              <div className="aspect-[9/16] bg-muted/40" />
+            <div key={i} className="rounded-xl border border-border bg-card/60 overflow-hidden animate-pulse">
+              <div className="aspect-[9/16] max-h-52 bg-gradient-to-br from-muted/40 to-muted/20" />
               <div className="p-3 space-y-2">
-                <div className="h-3 w-3/4 rounded bg-muted/50" />
-                <div className="h-3 w-1/2 rounded bg-muted/40" />
+                <div className="h-3.5 w-3/4 rounded bg-muted/50" />
+                <div className="h-3 w-1/2 rounded bg-muted/30" />
                 <div className="flex items-center gap-2 pt-1">
-                  <div className="h-5 w-12 rounded-full bg-muted/40" />
-                  <div className="h-5 w-16 rounded-full bg-muted/40" />
+                  <div className="h-5 w-14 rounded-full bg-muted/30" />
+                  <div className="h-5 w-10 rounded-full bg-muted/20" />
                 </div>
+                <div className="h-9 w-full rounded-lg bg-primary/10 mt-2" />
               </div>
             </div>
           ))}
         </div>
-      ) : displayClips.length === 0 ? (
-        // Context-aware empty state
+      ) : filteredClips.length === 0 ? (
         (() => {
           const hasFilters =
             filters.search !== '' ||
             filters.games.length > 0 ||
             filters.platforms.length > 0 ||
-            quickFilter !== 'all'
+            filters.duration !== 'all' ||
+            filters.feed !== 'all'
           const noClipsAtAll = clips.length === 0
           return (
             <Card className="border-border bg-card/50">
@@ -219,9 +211,9 @@ export default function DashboardPage() {
                 </h3>
                 <p className="text-sm text-muted-foreground max-w-md mx-auto mb-5">
                   {noClipsAtAll
-                    ? "Import clips from Twitch to get started."
+                    ? "Import clips from Twitch & Kick to get started."
                     : hasFilters
-                      ? 'Try removing a filter or niche, or search for a different streamer.'
+                      ? 'Try removing a filter or switching feeds.'
                       : 'Refresh the library — new clips are coming in.'}
                 </p>
                 <div className="flex flex-wrap items-center justify-center gap-2">
@@ -230,8 +222,7 @@ export default function DashboardPage() {
                       variant="outline"
                       size="sm"
                       onClick={() => {
-                        setFilters({ search: '', games: [], platforms: [], sort: 'velocity' })
-                        setQuickFilter('all')
+                        setFilters({ search: '', games: [], platforms: [], sort: 'velocity', duration: 'all', feed: 'all' })
                       }}
                     >
                       <X className="h-3.5 w-3.5 mr-1.5" />
@@ -250,7 +241,7 @@ export default function DashboardPage() {
                       ) : (
                         <Download className="h-3.5 w-3.5 mr-1.5" />
                       )}
-                      Import from Twitch
+                      Import Clips
                     </Button>
                   )}
                 </div>
@@ -259,24 +250,47 @@ export default function DashboardPage() {
           )
         })()
       ) : (
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4">
-          {displayClips.map((clip) => (
-            <div key={clip.id} onClick={() => handleEnhance(clip)} className="cursor-pointer">
-              <TrendingCard
-                clip={clip}
-                onRemix={handleEnhance}
-                remixing={false}
-              />
+        <>
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4">
+            {filteredClips.map((clip) => (
+              <div key={clip.id} onClick={() => handleEnhance(clip)} className="cursor-pointer">
+                <TrendingCard
+                  clip={clip}
+                  onRemix={handleEnhance}
+                  remixing={false}
+                  isSaved={savedClipIds.has(clip.id)}
+                  onToggleSave={toggleSaveClip}
+                />
+              </div>
+            ))}
+          </div>
+
+          {/* Load more */}
+          {hasMore && (
+            <div className="flex justify-center pt-4">
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-2"
+                onClick={loadMore}
+                disabled={loadingMore}
+              >
+                {loadingMore ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Download className="h-3.5 w-3.5" />
+                )}
+                Load more{remaining > 0 && ` (${remaining} remaining)`}
+              </Button>
             </div>
-          ))}
-        </div>
+          )}
+        </>
       )}
 
       {/* Refresh indicator */}
       {refreshing && (
         <div className="fixed bottom-6 right-6 flex items-center gap-2 px-4 py-2 rounded-full bg-card border border-border shadow-lg animate-in slide-in-from-bottom-2 fade-in">
-          <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
-          <span className="text-xs text-muted-foreground">Refreshing…</span>
+          <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />          <span className="text-xs text-muted-foreground">Refreshing...</span>
         </div>
       )}
     </div>

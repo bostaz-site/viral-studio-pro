@@ -1,9 +1,9 @@
 import { create } from 'zustand'
-import type { TrendingClip, TrendingStats, TrendingFiltersState, ViralNotification } from '@/types/trending'
+import type { TrendingClip, TrendingStats, TrendingFiltersState, ViralNotification, SavedClip, FeedFilter } from '@/types/trending'
 import { SEED_CLIPS } from '@/lib/trending/seed-data'
 
 // Re-export types for backward compatibility
-export type { TrendingClip, TrendingStats, TrendingFiltersState, ViralNotification, SortOption } from '@/types/trending'
+export type { TrendingClip, TrendingStats, TrendingFiltersState, ViralNotification, SortOption, SavedClip } from '@/types/trending'
 
 // ─── Constants ──────────────────────────────────────────────────────────────
 
@@ -12,6 +12,8 @@ const DEFAULT_FILTERS: TrendingFiltersState = {
   games: [],
   platforms: [],
   sort: 'velocity',
+  duration: 'all',
+  feed: 'all',
 }
 
 const EMPTY_STATS: TrendingStats = {
@@ -19,6 +21,7 @@ const EMPTY_STATS: TrendingStats = {
   topGame: null, topPlatform: null,
   avgVelocity: 0, platforms: {}, games: {},
   lastScrapedAt: null,
+  hotNowCount: 0, earlyGemCount: 0, provenCount: 0,
 }
 
 // ─── Pure utility functions ─────────────────────────────────────────────────
@@ -31,6 +34,9 @@ function computeStatsFromClips(clips: TrendingClip[]): TrendingStats {
   let totalVelocity = 0
   let viral = 0
   let hot = 0
+  let hotNowCount = 0
+  let earlyGemCount = 0
+  let provenCount = 0
   let lastScrapedAt: string | null = null
 
   for (const clip of clips) {
@@ -38,6 +44,10 @@ function computeStatsFromClips(clips: TrendingClip[]): TrendingStats {
     totalVelocity += v
     if (v >= 80) viral++
     if (v >= 50) hot++
+
+    if (clip.feed_category === 'hot_now') hotNowCount++
+    if (clip.feed_category === 'early_gem') earlyGemCount++
+    if (clip.feed_category === 'proven') provenCount++
 
     const p = clip.platform.toLowerCase()
     platforms[p] = (platforms[p] ?? 0) + 1
@@ -59,11 +69,27 @@ function computeStatsFromClips(clips: TrendingClip[]): TrendingStats {
     total: clips.length, viral, hot, topGame, topPlatform,
     avgVelocity: Math.round(totalVelocity / clips.length),
     platforms, games, lastScrapedAt,
+    hotNowCount, earlyGemCount, provenCount,
   }
 }
 
-function filterAndSortClips(clips: TrendingClip[], filters: TrendingFiltersState): TrendingClip[] {
+function filterAndSortClips(
+  clips: TrendingClip[],
+  filters: TrendingFiltersState,
+  savedClipIds: Set<string>
+): TrendingClip[] {
   let result = [...clips]
+
+  // Feed filter
+  if (filters.feed === 'hot_now') {
+    result = result.filter((c) => c.feed_category === 'hot_now')
+  } else if (filters.feed === 'early_gem') {
+    result = result.filter((c) => c.feed_category === 'early_gem')
+  } else if (filters.feed === 'proven') {
+    result = result.filter((c) => c.feed_category === 'proven')
+  } else if (filters.feed === 'saved') {
+    result = result.filter((c) => savedClipIds.has(c.id))
+  }
 
   if (filters.search) {
     const q = filters.search.toLowerCase()
@@ -83,10 +109,23 @@ function filterAndSortClips(clips: TrendingClip[], filters: TrendingFiltersState
     result = result.filter((c) => c.niche && filters.games.includes(c.niche.toLowerCase()))
   }
 
-  if (filters.sort === 'velocity') {
-    result.sort((a, b) => (b.velocity_score ?? 0) - (a.velocity_score ?? 0))
+  // Duration filter
+  if (filters.duration === 'short') {
+    result = result.filter((c) => (c.duration_seconds ?? 0) < 30)
+  } else if (filters.duration === 'medium') {
+    result = result.filter((c) => {
+      const d = c.duration_seconds ?? 0
+      return d >= 30 && d < 60
+    })
+  } else if (filters.duration === 'long') {
+    result = result.filter((c) => (c.duration_seconds ?? 0) >= 60)
+  }
+
+  // Sort
+  if (filters.feed === 'recent' || filters.sort === 'date') {
+    result.sort((a, b) => new Date(b.clip_created_at ?? b.scraped_at ?? 0).getTime() - new Date(a.clip_created_at ?? a.scraped_at ?? 0).getTime())
   } else {
-    result.sort((a, b) => new Date(b.scraped_at ?? 0).getTime() - new Date(a.scraped_at ?? 0).getTime())
+    result.sort((a, b) => (b.velocity_score ?? 0) - (a.velocity_score ?? 0))
   }
 
   return result
@@ -101,6 +140,15 @@ interface TrendingState {
   megaViralClips: TrendingClip[]
   trendingClips: TrendingClip[]
   stats: TrendingStats
+
+  // Pagination
+  hasMore: boolean
+  loadingMore: boolean
+  totalCount: number
+
+  // Saved/Favorites
+  savedClipIds: Set<string>
+  savedClips: SavedClip[]
 
   // Filters
   filters: TrendingFiltersState
@@ -121,12 +169,16 @@ interface TrendingState {
 
   // Actions
   setFilters: (filters: TrendingFiltersState) => void
+  setFeed: (feed: FeedFilter) => void
   setRemixingId: (id: string | null) => void
   setAutoRefresh: (enabled: boolean) => void
   markNotificationsRead: () => void
   fetchClips: (silent?: boolean) => Promise<void>
+  loadMore: () => Promise<void>
   computeStats: () => void
   applyFilters: () => void
+  fetchSavedClips: () => Promise<void>
+  toggleSaveClip: (clipId: string) => Promise<void>
 }
 
 export const useTrendingStore = create<TrendingState>((set, get) => ({
@@ -135,6 +187,11 @@ export const useTrendingStore = create<TrendingState>((set, get) => ({
   megaViralClips: [],
   trendingClips: [],
   stats: EMPTY_STATS,
+  hasMore: false,
+  loadingMore: false,
+  totalCount: 0,
+  savedClipIds: new Set(),
+  savedClips: [],
   filters: DEFAULT_FILTERS,
   loading: true,
   refreshing: false,
@@ -152,6 +209,12 @@ export const useTrendingStore = create<TrendingState>((set, get) => ({
     get().applyFilters()
   },
 
+  setFeed: (feed) => {
+    const { filters } = get()
+    set({ filters: { ...filters, feed } })
+    get().applyFilters()
+  },
+
   setRemixingId: (id) => set({ remixingId: id }),
   setAutoRefresh: (enabled) => set({ autoRefreshEnabled: enabled }),
   markNotificationsRead: () => set({ notificationsRead: true }),
@@ -165,21 +228,24 @@ export const useTrendingStore = create<TrendingState>((set, get) => ({
     try {
       const params = new URLSearchParams({ sort: state.filters.sort, limit: '100' })
       const res = await fetch(`/api/trending?${params}`)
-      const data = await res.json() as { data: TrendingClip[] | null; error: string | null }
+      const json = await res.json() as { data: TrendingClip[] | null; error: string | null; meta?: { total: number } }
 
-      if (!res.ok || data.error) throw new Error(data.error ?? 'Network error')
+      if (!res.ok || json.error) throw new Error(json.error ?? 'Network error')
 
       const prevClips = state.clips
       let clips: TrendingClip[]
       let usingSeed: boolean
 
-      if (!data.data || data.data.length === 0) {
+      if (!json.data || json.data.length === 0) {
         clips = SEED_CLIPS
         usingSeed = true
       } else {
-        clips = data.data
+        clips = json.data
         usingSeed = false
       }
+
+      const totalCount = json.meta?.total ?? clips.length
+      const hasMore = clips.length < totalCount
 
       // Detect new viral clips for notifications
       const newNotifications: ViralNotification[] = []
@@ -201,6 +267,8 @@ export const useTrendingStore = create<TrendingState>((set, get) => ({
       set({
         clips,
         usingSeed,
+        totalCount,
+        hasMore,
         lastRefreshed: new Date().toISOString(),
         ...(newNotifications.length > 0 ? {
           notifications: [...newNotifications, ...state.notifications].slice(0, 20),
@@ -223,16 +291,97 @@ export const useTrendingStore = create<TrendingState>((set, get) => ({
     }
   },
 
+  loadMore: async () => {
+    const { clips, totalCount, loadingMore, filters } = get()
+    if (loadingMore || clips.length >= totalCount) return
+
+    set({ loadingMore: true })
+    try {
+      const params = new URLSearchParams({
+        sort: filters.sort,
+        limit: '50',
+        offset: String(clips.length),
+      })
+      const res = await fetch(`/api/trending?${params}`)
+      const json = await res.json() as { data: TrendingClip[] | null; error: string | null; meta?: { total: number } }
+
+      if (!res.ok || json.error) throw new Error(json.error ?? 'Network error')
+
+      const newClips = json.data ?? []
+      const allClips = [...clips, ...newClips]
+      const newTotal = json.meta?.total ?? totalCount
+
+      set({
+        clips: allClips,
+        totalCount: newTotal,
+        hasMore: allClips.length < newTotal,
+      })
+
+      get().computeStats()
+      get().applyFilters()
+    } catch {
+      // silent
+    } finally {
+      set({ loadingMore: false })
+    }
+  },
+
   computeStats: () => {
     const { clips } = get()
     set({ stats: computeStatsFromClips(clips) })
   },
 
   applyFilters: () => {
-    const { clips, filters } = get()
-    const filtered = filterAndSortClips(clips, filters)
+    const { clips, filters, savedClipIds } = get()
+    const filtered = filterAndSortClips(clips, filters, savedClipIds)
     const megaViralClips = filtered.filter((c) => c.tier === 'mega_viral')
     const trendingClips = filtered.filter((c) => c.tier !== 'mega_viral')
     set({ filteredClips: filtered, megaViralClips, trendingClips })
+  },
+
+  fetchSavedClips: async () => {
+    try {
+      const res = await fetch('/api/clips/saved')
+      const json = await res.json()
+      if (json.error) return
+
+      const saved = (json.data ?? []) as SavedClip[]
+      const ids = new Set(saved.map((s) => s.clip_id))
+      set({ savedClips: saved, savedClipIds: ids })
+      get().applyFilters()
+    } catch {
+      // silent
+    }
+  },
+
+  toggleSaveClip: async (clipId) => {
+    const { savedClipIds } = get()
+    const isSaved = savedClipIds.has(clipId)
+
+    // Optimistic update
+    const newIds = new Set(savedClipIds)
+    if (isSaved) {
+      newIds.delete(clipId)
+    } else {
+      newIds.add(clipId)
+    }
+    set({ savedClipIds: newIds })
+
+    try {
+      if (isSaved) {
+        await fetch(`/api/clips/saved/${clipId}`, { method: 'DELETE' })
+      } else {
+        await fetch('/api/clips/saved', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ clip_id: clipId }),
+        })
+      }
+      // Re-fetch to sync
+      get().fetchSavedClips()
+    } catch {
+      // Rollback
+      set({ savedClipIds })
+    }
   },
 }))

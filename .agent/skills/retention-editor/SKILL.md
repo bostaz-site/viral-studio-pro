@@ -3,7 +3,7 @@ name: retention-editor
 description: "Analyse une transcription et identifie tous les segments viraux a extraire, avec titre, score de retention et intensite. Se declenche quand l'utilisateur dit 'ou couper la video', 'segments a garder', 'optimise la retention', 'decoupe intelligente', ou fournit une transcription a analyser pour en faire des clips courts."
 ---
 
-# Retention Editor — Viral Studio Pro
+# Retention Editor — Viral Animal
 
 > Position dans le pipeline : Skill 2/4 — s'execute en parallele avec Hook Hunter, juste apres la transcription Whisper. Les segments sont consommes par le Clip Cutter pour le rendu FFmpeg.
 

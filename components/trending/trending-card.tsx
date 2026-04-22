@@ -2,7 +2,7 @@
 
 import { useState, useRef, useCallback, useEffect, memo } from 'react'
 import Link from 'next/link'
-import { ExternalLink, Crown, Lock, Zap, TrendingUp, Flame } from 'lucide-react'
+import { ExternalLink, Crown, Lock, Zap, TrendingUp, Flame, Bookmark, Diamond, Clock } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { VelocityBadge } from '@/components/trending/velocity-badge'
@@ -18,6 +18,8 @@ interface TrendingCardProps {
   onRemix?: (clip: TrendingClip) => void
   remixing?: boolean
   isPremiumUser?: boolean
+  isSaved?: boolean
+  onToggleSave?: (clipId: string) => void
 }
 
 const PREMIUM_THRESHOLD = 85
@@ -26,7 +28,6 @@ const GAME_COLORS: Record<string, string> = {
   irl: 'text-blue-400 bg-blue-500/10',
 }
 
-// Gradient colors per streamer for nicer placeholders
 const STREAMER_GRADIENTS: Record<string, string> = {
   kaicenat: 'from-purple-600 via-pink-500 to-red-500',
   ishowspeed: 'from-red-600 via-orange-500 to-yellow-500',
@@ -37,9 +38,26 @@ const STREAMER_GRADIENTS: Record<string, string> = {
   sketch: 'from-sky-600 via-blue-500 to-indigo-500',
   amouranth: 'from-pink-600 via-rose-500 to-red-500',
   marlon: 'from-amber-600 via-orange-500 to-red-500',
+  neon: 'from-lime-600 via-green-500 to-emerald-500',
+  stabletronaldo: 'from-yellow-600 via-amber-500 to-orange-500',
+  caseoh_: 'from-orange-600 via-red-500 to-pink-500',
 }
 
-export const TrendingCard = memo(function TrendingCard({ clip, onRemix, remixing = false, isPremiumUser = false }: TrendingCardProps) {
+const TIER_BADGES: Record<string, { label: string; className: string }> = {
+  mega_viral: { label: 'MEGA VIRAL', className: 'bg-gradient-to-r from-yellow-500 to-amber-500 text-black animate-pulse' },
+  viral: { label: 'VIRAL', className: 'bg-gradient-to-r from-red-500 to-orange-500 text-white' },
+  hot: { label: 'HOT', className: 'bg-gradient-to-r from-orange-500 to-amber-500 text-white' },
+  rising: { label: 'Rising', className: 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' },
+}
+
+function formatDuration(seconds: number | null): string {
+  if (!seconds) return ''
+  const m = Math.floor(seconds / 60)
+  const s = Math.round(seconds % 60)
+  return `${m}:${s.toString().padStart(2, '0')}`
+}
+
+export const TrendingCard = memo(function TrendingCard({ clip, onRemix, remixing = false, isPremiumUser = false, isSaved = false, onToggleSave }: TrendingCardProps) {
   const [imgError, setImgError] = useState(false)
   const [hovered, setHovered] = useState(false)
   const [showVideo, setShowVideo] = useState(false)
@@ -61,21 +79,13 @@ export const TrendingCard = memo(function TrendingCard({ clip, onRemix, remixing
   const gameLabel = NICHE_LABELS[gameKey] ?? clip.niche
   const streamerGradient = STREAMER_GRADIENTS[clip.author_handle?.toLowerCase() ?? ''] ?? 'from-slate-700 via-slate-600 to-slate-500'
 
-  // We always resolve the clip MP4 via the GQL-backed API.
-  // Deriving URLs directly from the thumbnail path was unreliable: it could
-  // silently return a URL pointing to the wrong clip (or the underlying VOD
-  // segment), so users were seeing a "fuckall" clip on hover. The API route
-  // caches resolutions for an hour, so re-hovers are instant.
   const videoUrl = resolvedVideoUrl
 
-  // Reset resolved URL when the clip prop changes (avoids showing stale URL
-  // from a recycled card instance in a virtualized list).
   useEffect(() => {
     setResolvedVideoUrl(null)
     fetchedRef.current = false
   }, [clip.id, clip.external_url])
 
-  // Resolve slug from external_url for GQL lookup
   const getClipSlug = useCallback((): string | null => {
     try {
       const u = new URL(clip.external_url)
@@ -91,12 +101,10 @@ export const TrendingCard = memo(function TrendingCard({ clip, onRemix, remixing
     return null
   }, [clip.external_url])
 
-  // Hover handlers — fetch the real MP4 URL on first hover, then play it.
   const handleMouseEnter = useCallback(() => {
     setHovered(true)
     if (isLocked) return
 
-    // Lazy-fetch MP4 URL via GQL on first hover (only if we don't already have one)
     if (!fetchedRef.current && clip.platform === 'twitch') {
       fetchedRef.current = true
       const slug = getClipSlug()
@@ -119,19 +127,16 @@ export const TrendingCard = memo(function TrendingCard({ clip, onRemix, remixing
     }
   }, [])
 
-  // Show the video as soon as we're hovering AND the URL is resolved.
-  // Splitting this from handleMouseEnter means: if the user keeps hovering
-  // while the fetch is in flight, playback kicks in the moment we have
-  // the correct URL (no arbitrary timers, no wrong clip flashing first).
   useEffect(() => {
     if (!hovered || isLocked || !videoUrl) return
     setShowVideo(true)
-    // Give React a tick to mount the <video>, then play.
     const t = setTimeout(() => {
-      videoRef.current?.play().catch(() => {/* autoplay blocked, that's ok */})
+      videoRef.current?.play().catch(() => {})
     }, 30)
     return () => clearTimeout(t)
   }, [hovered, isLocked, videoUrl])
+
+  const tierBadge = clip.tier ? TIER_BADGES[clip.tier] : null
 
   return (
     <Card
@@ -144,10 +149,8 @@ export const TrendingCard = memo(function TrendingCard({ clip, onRemix, remixing
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
     >
-      {/* Thumbnail / Video area */}
       <div className="aspect-[9/16] max-h-52 relative overflow-hidden bg-gradient-to-br from-slate-900 to-slate-800">
 
-        {/* Native video on hover (autoplay muted — works in all browsers) */}
         {showVideo && videoUrl && !isLocked && (
           <video
             ref={videoRef}
@@ -161,7 +164,6 @@ export const TrendingCard = memo(function TrendingCard({ clip, onRemix, remixing
           />
         )}
 
-        {/* Static thumbnail or gradient placeholder */}
         {clip.thumbnail_url && !imgError ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
@@ -174,7 +176,6 @@ export const TrendingCard = memo(function TrendingCard({ clip, onRemix, remixing
             onError={() => setImgError(true)}
           />
         ) : (
-          /* Colorful gradient placeholder with streamer initial */
           <div className={cn(
             'w-full h-full flex flex-col items-center justify-center gap-2 bg-gradient-to-br transition-all duration-500',
             streamerGradient,
@@ -191,8 +192,6 @@ export const TrendingCard = memo(function TrendingCard({ clip, onRemix, remixing
           </div>
         )}
 
-        {/* Play button & "En lecture" indicator removed — clean autoplay on hover */}
-
         {/* Premium overlay */}
         {isLocked && (
           <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px] flex flex-col items-center justify-center z-10">
@@ -203,7 +202,7 @@ export const TrendingCard = memo(function TrendingCard({ clip, onRemix, remixing
           </div>
         )}
 
-        {/* PRO badge for locked clips */}
+        {/* PRO badge */}
         {isLocked && (
           <div className="absolute top-2 left-2 z-20 flex items-center gap-1 bg-gradient-to-r from-yellow-500 to-amber-500 text-black text-[10px] font-black px-2 py-0.5 rounded-full shadow-lg">
             <Crown className="h-2.5 w-2.5" />
@@ -211,7 +210,7 @@ export const TrendingCard = memo(function TrendingCard({ clip, onRemix, remixing
           </div>
         )}
 
-        {/* Platform badge — only show if not locked */}
+        {/* Platform badge */}
         {!isLocked && !videoPlaying && (
           <span className={cn(
             'absolute top-2 left-2 text-xs font-bold px-2 py-0.5 rounded-full border backdrop-blur-sm',
@@ -221,43 +220,71 @@ export const TrendingCard = memo(function TrendingCard({ clip, onRemix, remixing
           </span>
         )}
 
-        {/* Velocity badge — always visible, even on locked clips */}
+        {/* Velocity badge */}
         <div className="absolute top-2 right-2 z-20">
           <VelocityBadge score={clip.velocity_score} />
         </div>
 
-        {/* Viral overlay badge on thumbnail */}
-        {!isLocked && (clip.velocity_score ?? 0) >= 70 && !videoPlaying && (
-          <div className="absolute bottom-2 left-2 z-[6] flex items-center gap-1 bg-gradient-to-r from-orange-500 to-red-500 text-white text-[10px] font-black px-2 py-0.5 rounded-full shadow-lg animate-in fade-in">
+        {/* Feed category badges */}
+        {!isLocked && !videoPlaying && clip.feed_category === 'early_gem' && (
+          <div className="absolute bottom-8 left-2 z-[6] flex items-center gap-1 bg-cyan-500/90 text-white text-[10px] font-black px-2 py-0.5 rounded-full shadow-lg">
+            <Diamond className="h-2.5 w-2.5" />
+            EARLY GEM
+          </div>
+        )}
+        {!isLocked && !videoPlaying && clip.feed_category === 'hot_now' && (
+          <div className="absolute bottom-8 left-2 z-[6] flex items-center gap-1 bg-gradient-to-r from-orange-500 to-red-500 text-white text-[10px] font-black px-2 py-0.5 rounded-full shadow-lg animate-pulse">
             <Flame className="h-2.5 w-2.5" />
-            TRENDING
+            HOT NOW
           </div>
         )}
 
-        {/* External link */}
+        {/* Duration + time */}
         {!isLocked && !videoPlaying && (
-          <a
-            href={clip.external_url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="absolute bottom-2 right-2 p-1.5 rounded-lg bg-black/60 backdrop-blur-sm text-white/70 hover:text-white transition-colors opacity-0 group-hover:opacity-100"
-            onClick={(e) => e.stopPropagation()}
-            title="View original"
-          >
-            <ExternalLink className="h-3.5 w-3.5" />
-          </a>
+          <div className="absolute bottom-2 left-2 z-[6] flex items-center gap-1.5">
+            {clip.duration_seconds && (
+              <span className="text-[10px] text-white/80 bg-black/60 px-1.5 py-0.5 rounded-md backdrop-blur-sm font-medium">
+                {formatDuration(clip.duration_seconds)}
+              </span>
+            )}
+            {clip.clip_created_at && (
+              <span className="text-[10px] text-white/50 bg-black/40 px-1.5 py-0.5 rounded-md backdrop-blur-sm">
+                {timeAgo(clip.clip_created_at)}
+              </span>
+            )}
+          </div>
         )}
 
-        {/* Scraped time */}
-        {!isLocked && !videoPlaying && clip.scraped_at && (
-          <span className="absolute bottom-2 left-2 text-[10px] text-white/50 bg-black/40 px-1.5 py-0.5 rounded-md backdrop-blur-sm">
-            {timeAgo(clip.scraped_at)}
-          </span>
+        {/* Bookmark + External link */}
+        {!isLocked && !videoPlaying && (
+          <div className="absolute bottom-2 right-2 z-[6] flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+            {onToggleSave && (
+              <button
+                onClick={(e) => { e.stopPropagation(); onToggleSave(clip.id) }}
+                className={cn(
+                  'p-1.5 rounded-lg backdrop-blur-sm transition-colors',
+                  isSaved ? 'bg-primary/80 text-white' : 'bg-black/60 text-white/70 hover:text-white'
+                )}
+                title={isSaved ? 'Unsave' : 'Save'}
+              >
+                <Bookmark className={cn('h-3.5 w-3.5', isSaved && 'fill-current')} />
+              </button>
+            )}
+            <a
+              href={clip.external_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="p-1.5 rounded-lg bg-black/60 backdrop-blur-sm text-white/70 hover:text-white transition-colors"
+              onClick={(e) => e.stopPropagation()}
+              title="View original"
+            >
+              <ExternalLink className="h-3.5 w-3.5" />
+            </a>
+          </div>
         )}
       </div>
 
       <CardContent className="p-3 space-y-2">
-        {/* Title — hidden while hovering/playing video */}
         <p className={cn(
           'text-sm font-medium leading-tight line-clamp-2 transition-opacity duration-200',
           isLocked ? 'text-muted-foreground' : 'text-foreground',
@@ -266,7 +293,6 @@ export const TrendingCard = memo(function TrendingCard({ clip, onRemix, remixing
           {clip.title ?? clip.author_name ?? 'Stream clip'}
         </p>
 
-        {/* Streamer */}
         {clip.author_handle && (
           <p className="text-xs text-muted-foreground truncate">
             @{clip.author_handle}
@@ -276,18 +302,12 @@ export const TrendingCard = memo(function TrendingCard({ clip, onRemix, remixing
           </p>
         )}
 
-        {/* Viral badges + niche */}
+        {/* Tier + feed + niche badges */}
         <div className="flex items-center gap-1.5 flex-wrap">
-          {(clip.velocity_score ?? 0) >= 70 && (
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-orange-500/15 text-orange-400 border border-orange-500/20">
-              <Flame className="h-2.5 w-2.5" />
-              Trending
-            </span>
-          )}
-          {(clip.velocity_score ?? 0) >= 50 && (clip.velocity_score ?? 0) < 70 && (
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/20">
-              <TrendingUp className="h-2.5 w-2.5" />
-              Rising
+          {tierBadge && (
+            <span className={cn('inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold', tierBadge.className)}>
+              {clip.tier === 'mega_viral' || clip.tier === 'viral' ? <Flame className="h-2.5 w-2.5" /> : <TrendingUp className="h-2.5 w-2.5" />}
+              {tierBadge.label}
             </span>
           )}
           {clip.niche && (
@@ -297,7 +317,6 @@ export const TrendingCard = memo(function TrendingCard({ clip, onRemix, remixing
           )}
         </div>
 
-        {/* Make Viral / Premium button */}
         {isLocked ? (
           <Link href="/settings" onClick={(e) => e.stopPropagation()}>
             <Button
@@ -313,7 +332,7 @@ export const TrendingCard = memo(function TrendingCard({ clip, onRemix, remixing
           <div className="space-y-1 mt-1">
             {(clip.velocity_score ?? 0) >= 80 && !remixing && (
               <p className="text-[10px] text-center text-orange-400/80 font-medium">
-                🔥 Algo score {clip.velocity_score?.toFixed(0)} — ready to blow up
+                Algo score {clip.velocity_score?.toFixed(0)} — ready to blow up
               </p>
             )}
             <Button
@@ -323,7 +342,7 @@ export const TrendingCard = memo(function TrendingCard({ clip, onRemix, remixing
               disabled={remixing}
             >
               <Zap className="h-3.5 w-3.5" />
-              {remixing ? 'Creating...' : '🚀 Make It Viral'}
+              {remixing ? 'Creating...' : 'Make It Viral'}
             </Button>
           </div>
         )}

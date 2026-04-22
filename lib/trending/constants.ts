@@ -9,6 +9,11 @@ export const PLATFORM_STYLES: Record<string, { label: string; colorClass: string
     colorClass: 'text-purple-400',
     badgeClass: 'text-purple-400 bg-purple-500/15 border-purple-500/30',
   },
+  kick: {
+    label: 'Kick',
+    colorClass: 'text-green-400',
+    badgeClass: 'text-green-400 bg-green-500/15 border-green-500/30',
+  },
   youtube_gaming: {
     label: 'YouTube Gaming',
     colorClass: 'text-red-400',

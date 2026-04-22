@@ -29,6 +29,9 @@ export const SEED_CLIPS: TrendingClip[] = [
     streamer_id: null,
     twitch_clip_id: null,
     tier: null,
+    early_signal_score: null,
+    anomaly_score: null,
+    feed_category: null,
   },
   {
     id: 'seed-2',
@@ -53,6 +56,9 @@ export const SEED_CLIPS: TrendingClip[] = [
     streamer_id: null,
     twitch_clip_id: null,
     tier: null,
+    early_signal_score: null,
+    anomaly_score: null,
+    feed_category: null,
   },
   {
     id: 'seed-3',
@@ -77,6 +83,9 @@ export const SEED_CLIPS: TrendingClip[] = [
     streamer_id: null,
     twitch_clip_id: null,
     tier: null,
+    early_signal_score: null,
+    anomaly_score: null,
+    feed_category: null,
   },
   {
     id: 'seed-4',
@@ -101,5 +110,8 @@ export const SEED_CLIPS: TrendingClip[] = [
     streamer_id: null,
     twitch_clip_id: null,
     tier: null,
+    early_signal_score: null,
+    anomaly_score: null,
+    feed_category: null,
   },
 ]

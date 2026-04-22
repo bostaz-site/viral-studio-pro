@@ -1,9 +1,9 @@
 ---
 name: creer-skill
-description: "Cree des Skills pour Viral Studio Pro. Utiliser des que l'utilisateur mentionne : creer un skill, automatiser une tache, construire un outil agent, creer une commande, ou modifier un skill existant."
+description: "Cree des Skills pour Viral Animal. Utiliser des que l'utilisateur mentionne : creer un skill, automatiser une tache, construire un outil agent, creer une commande, ou modifier un skill existant."
 ---
 
-# Createur de Skills Viral Studio Pro
+# Createur de Skills Viral Animal
 
 ## Structure officielle d'un skill
 
@@ -79,9 +79,9 @@ description: "[3e personne. Declencheurs tres explicites. Max 1024 chars.]"
 ## Contraintes
 - [Ne jamais faire X]
 
-## Contexte Viral Studio Pro
+## Contexte Viral Animal
 
-Ce skill creator est adapte au projet Viral Studio Pro.
+Ce skill creator est adapte au projet Viral Animal.
 Les skills crees doivent s'integrer avec la stack existante :
 - Next.js 14 (App Router) + TypeScript
 - Supabase (PostgreSQL + Storage + Auth)

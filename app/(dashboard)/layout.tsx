@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { Settings, Menu, X, LogOut, Zap, Compass, Wand2, Crown, UploadCloud } from 'lucide-react'
+import { Settings, Menu, X, LogOut, Zap, Compass, Wand2, Crown, UploadCloud, Radio, BarChart3, Users } from 'lucide-react'
 import { useUiStore } from '@/stores/ui-store'
 import { Button } from '@/components/ui/button'
 import { NotificationBell } from '@/components/trending/notification-bell'
@@ -54,10 +54,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     { name: 'Upload', href: '/dashboard/upload', icon: UploadCloud },
     { name: 'Browse', href: '/dashboard', icon: Compass },
     { name: 'Enhance', href: '/dashboard/enhance', icon: Wand2 },
+    { name: 'Distribution', href: '/dashboard/distribution', icon: Radio },
+    { name: 'Analytics', href: '/dashboard/analytics', icon: BarChart3 },
     ...(isAdmin
       ? [
           { name: 'Growth (admin)', href: '/admin/growth', icon: Crown },
-          { name: 'Analytics (admin)', href: '/admin/analytics', icon: Crown },
+          { name: 'Affiliates (admin)', href: '/admin/affiliates', icon: Crown },
+          { name: 'Streamers (admin)', href: '/admin/streamers', icon: Users },
         ]
       : []),
     { name: 'Settings', href: '/settings', icon: Settings },
@@ -85,7 +88,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <div className="flex items-center justify-between h-16 px-6 border-b border-border shrink-0">
           <Link href="/" className="flex items-center gap-2">
             <h1 className="text-xl font-black tracking-tight bg-gradient-to-r from-blue-500 to-indigo-600 bg-clip-text text-transparent">
-              VIRAL STUDIO
+              VIRAL ANIMAL
             </h1>
             {currentPlan !== 'free' && (
               <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-gradient-to-r from-amber-500 to-orange-500 text-white uppercase">
@@ -109,6 +112,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               ? pathname?.startsWith('/dashboard/enhance')
               : item.href === '/dashboard/upload'
               ? pathname === '/dashboard/upload'
+              : item.href === '/dashboard/distribution'
+              ? pathname?.startsWith('/dashboard/distribution')
+              : item.href === '/dashboard/analytics'
+              ? pathname?.startsWith('/dashboard/analytics')
               : pathname?.startsWith(item.href) && item.href !== '/dashboard'
             return (
               <Link key={item.name} href={item.href}>
@@ -176,7 +183,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <Button variant="ghost" size="icon" onClick={() => setSidebarOpen(true)}>
             <Menu className="h-5 w-5" />
           </Button>
-          <span className="font-bold tracking-tight text-lg bg-gradient-to-r from-blue-500 to-indigo-600 bg-clip-text text-transparent">VIRAL STUDIO</span>
+          <span className="font-bold tracking-tight text-lg bg-gradient-to-r from-blue-500 to-indigo-600 bg-clip-text text-transparent">VIRAL ANIMAL</span>
           <div className="w-10"></div>
         </header>
 

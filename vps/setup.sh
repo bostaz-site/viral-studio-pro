@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Viral Studio Pro Render API — VPS Setup Script
+# Viral Animal Render API — VPS Setup Script
 # Run this script to setup the render API on your Hetzner VPS
 
 set -e
@@ -58,7 +58,7 @@ check_command() {
 # Checks
 # ─────────────────────────────────────────────────────────────────────────────
 
-print_header "Viral Studio Pro Render API — Setup"
+print_header "Viral Animal Render API — Setup"
 
 # Check if running as root
 if [[ $EUID -ne 0 ]]; then
@@ -300,4 +300,4 @@ echo "  5. Test the health endpoint:"
 echo "     curl http://localhost:3100/api/health"
 echo -e "${NC}"
 
-print_success "Viral Studio Pro Render API is ready!"
+print_success "Viral Animal Render API is ready!"

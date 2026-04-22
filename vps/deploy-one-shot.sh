@@ -1,11 +1,11 @@
 #!/bin/bash
 # ============================================
-# Viral Studio Pro — VPS One-Shot Deploy
+# Viral Animal — VPS One-Shot Deploy
 # Run this on your Hetzner VPS as root
 # ============================================
 set -e
 
-echo "🚀 Starting Viral Studio Pro VPS Setup..."
+echo "🚀 Starting Viral Animal VPS Setup..."
 
 # Wait for cloud-init to finish (if still running)
 echo "⏳ Waiting for cloud-init to finish..."
@@ -44,7 +44,7 @@ cat > /opt/viral-studio/package.json << 'PKGJSON'
 {
   "name": "viral-studio-render-api",
   "version": "1.0.0",
-  "description": "FFmpeg render API for Viral Studio Pro",
+  "description": "FFmpeg render API for Viral Animal",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
@@ -204,7 +204,7 @@ router.post('/', async (req, res) => {
       smartZoom: settings?.format?.smartZoom || false,
       backgroundBlur: settings?.format?.backgroundBlur || false,
       watermark: settings?.branding?.watermark || false,
-      watermarkText: 'Viral Studio Pro',
+      watermarkText: 'Viral Animal',
       creditText: settings?.branding?.creditText || null,
       splitScreen: settings?.splitScreen || { enabled: false },
     });
@@ -322,7 +322,7 @@ function renderClip(inputPath, outputPath, options = {}) {
     const {
       startTime = 0, endTime, assPath,
       aspectRatio = '9:16', backgroundBlur = false,
-      watermark = false, watermarkText = 'Viral Studio Pro',
+      watermark = false, watermarkText = 'Viral Animal',
       creditText = null
     } = options;
 
@@ -431,7 +431,7 @@ function generateASS(wordTimestamps, captionSettings = {}, clipStartTime = 0) {
   const alignment = position === 'top' ? 8 : position === 'middle' ? 5 : 2;
 
   let header = `[Script Info]
-Title: Viral Studio Pro Captions
+Title: Viral Animal Captions
 ScriptType: v4.00+
 PlayResX: 1080
 PlayResY: 1920

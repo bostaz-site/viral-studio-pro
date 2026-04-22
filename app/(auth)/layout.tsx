@@ -31,7 +31,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
                 <Scissors className="h-4 w-4 text-white" />
               </div>
               <span className="text-xl font-black tracking-tight bg-gradient-to-r from-blue-400 to-indigo-500 bg-clip-text text-transparent">
-                VIRAL STUDIO
+                VIRAL ANIMAL
               </span>
             </div>
             <p className="text-sm text-muted-foreground">Create viral clips with AI</p>

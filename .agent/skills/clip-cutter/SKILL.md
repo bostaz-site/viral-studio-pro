@@ -3,7 +3,7 @@ name: clip-cutter
 description: "Decoupe une video longue en clips courts optimises pour TikTok/Reels/Shorts via FFmpeg. Gere le reframe vertical 9:16, les sous-titres karaoke, le split-screen et le watermark. Se declenche quand l'utilisateur dit 'decoupe le clip', 'rends le clip', 'genere la video', 'ajoute les sous-titres', 'format vertical', 'split-screen', ou quand le Retention Editor a fourni les timestamps de decoupe."
 ---
 
-# Clip Cutter — Viral Studio Pro
+# Clip Cutter — Viral Animal
 
 > Position dans le pipeline : Skill 3/4 — s'execute apres Hook Hunter et Retention Editor. Consomme les segments et le champ `energy` du Retention Editor. Le Copywriter SEO et Credit Manager s'executent en parallele ou apres le rendu.
 
@@ -58,7 +58,7 @@ Le Clip Cutter consomme directement l'output du Retention Editor :
 4. Concatener les segments dans l'ordre suggere
 5. Appliquer le reframe vertical 9:16 (speaker tracking si disponible)
 6. Ajouter les sous-titres karaoke (si word_timestamps et captions: true)
-7. Ajouter le watermark "Viral Studio Pro" (si user_plan == "free")
+7. Ajouter le watermark "Viral Animal" (si user_plan == "free")
 8. Encoder en H.264 / AAC avec la qualite demandee
 9. Generer le thumbnail (frame a 1/3 de la duree)
 10. Uploader clip + thumbnail dans Supabase Storage
@@ -113,7 +113,7 @@ ffmpeg -i clip.mp4 -i broll.mp4 \
 #### Watermark (plan gratuit uniquement)
 ```bash
 ffmpeg -i input.mp4 \
-  -vf "drawtext=text='Viral Studio Pro':fontsize=24:fontcolor=white@0.5:x=w-tw-20:y=h-th-20" \
+  -vf "drawtext=text='Viral Animal':fontsize=24:fontcolor=white@0.5:x=w-tw-20:y=h-th-20" \
   output.mp4
 ```
 

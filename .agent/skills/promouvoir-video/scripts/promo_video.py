@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Generateur de contenu promotionnel multi-format — Viral Studio Pro
+Generateur de contenu promotionnel multi-format — Viral Animal
 Usage : python3 promo_video.py <URL_YOUTUBE>
 Variables requises : ANTHROPIC_API_KEY
 """
@@ -133,7 +133,7 @@ Pour chaque segment : indique les paroles ET les captions/texte a afficher a l'e
 
 def show_help():
     """Affiche l'aide."""
-    print("Generateur de contenu promo multi-format — Viral Studio Pro")
+    print("Generateur de contenu promo multi-format — Viral Animal")
     print()
     print("Usage :")
     print("  python3 promo_video.py <URL_YOUTUBE>")

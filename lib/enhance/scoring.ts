@@ -1,5 +1,5 @@
 // ═════════════════════════════════════════════════════════════════════════════
-// Scoring Engine for Viral Studio Pro
+// Scoring Engine for Viral Animal
 // Extracted from app/(dashboard)/dashboard/enhance/[clipId]/page.tsx
 // ═════════════════════════════════════════════════════════════════════════════
 

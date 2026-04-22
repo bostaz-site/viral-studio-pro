@@ -1,7 +1,7 @@
-# VIRAL STUDIO PRO — Instructions pour Claude Code
+# VIRAL ANIMAL — Instructions pour Claude Code
 
 ## Projet
-Viral Studio Pro — Une webapp simple pour booster la viralite de clips de streamers. Tu choisis un clip (depuis la bibliotheque ou tu uploades le tien), tu l'ameliores (sous-titres, split-screen, tag streamer, gros moment au debut), et tu exportes.
+Viral Animal — Une webapp simple pour booster la viralite de clips de streamers. Tu choisis un clip (depuis la bibliotheque ou tu uploades le tien), tu l'ameliores (sous-titres, split-screen, tag streamer, gros moment au debut), et tu exportes.
 
 ## Le Flow Utilisateur
 
@@ -230,7 +230,7 @@ TWITCH_CLIENT_ID=
 TWITCH_CLIENT_SECRET=
 
 # App
-NEXT_PUBLIC_APP_URL=https://viral-studio-pro.netlify.app
+NEXT_PUBLIC_APP_URL=https://viralanimal.com
 ```
 
 ## Conventions de Code

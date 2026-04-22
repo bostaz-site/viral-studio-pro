@@ -13,11 +13,13 @@ interface TrendingStatsProps {
 
 const PLATFORM_LABELS: Record<string, string> = {
   twitch: 'Twitch',
+  kick: 'Kick',
   youtube_gaming: 'YouTube Gaming',
 }
 
 const PLATFORM_COLORS: Record<string, string> = {
   twitch: 'bg-purple-500',
+  kick: 'bg-green-500',
   youtube_gaming: 'bg-red-500',
 }
 

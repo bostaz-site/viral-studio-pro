@@ -12,7 +12,7 @@ export function AuthClipsPanel() {
           <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-blue-500/25">
             <Scissors className="h-5 w-5 text-white" />
           </div>
-          <span className="text-2xl font-black tracking-tight text-white">VIRAL STUDIO</span>
+          <span className="text-2xl font-black tracking-tight text-white">VIRAL ANIMAL</span>
         </div>
         <p className="text-xl font-black text-white leading-tight max-w-xs">
           More viral clips.<br />

@@ -4,26 +4,26 @@ import { DemoExperience } from './demo-experience'
 export const metadata: Metadata = {
   title: 'Interactive demo — try without signup',
   description:
-    'Try Viral Studio Pro in 30 seconds: change caption styles, enable split-screen, see viral score — no signup required.',
+    'Try Viral Animal in 30 seconds: change caption styles, enable split-screen, see viral score — no signup required.',
   openGraph: {
-    title: 'Interactive demo — Viral Studio Pro',
+    title: 'Interactive demo — Viral Animal',
     description: 'Try the product in 30 seconds, no signup.',
   },
   alternates: {
-    canonical: 'https://viral-studio-pro.netlify.app/demo',
+    canonical: 'https://viralanimal.com/demo',
   },
 }
 
 const jsonLd = {
   '@context': 'https://schema.org',
   '@type': 'WebPage',
-  name: 'Interactive demo — Viral Studio Pro',
-  description: 'Try Viral Studio Pro in 30 seconds: change caption styles, enable split-screen, see viral score — no signup required.',
-  url: 'https://viral-studio-pro.netlify.app/demo',
+  name: 'Interactive demo — Viral Animal',
+  description: 'Try Viral Animal in 30 seconds: change caption styles, enable split-screen, see viral score — no signup required.',
+  url: 'https://viralanimal.com/demo',
   isPartOf: {
     '@type': 'WebSite',
-    name: 'Viral Studio Pro',
-    url: 'https://viral-studio-pro.netlify.app',
+    name: 'Viral Animal',
+    url: 'https://viralanimal.com',
   },
 }
 

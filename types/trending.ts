@@ -21,6 +21,18 @@ export interface TrendingClip {
   streamer_id: string | null
   twitch_clip_id: string | null
   tier: string | null
+  // V2 fields
+  early_signal_score: number | null
+  anomaly_score: number | null
+  feed_category: string | null
+}
+
+export interface SavedClip {
+  id: string
+  clip_id: string
+  notes: string | null
+  created_at: string
+  trending_clips: TrendingClip | null
 }
 
 export interface TrendingStats {
@@ -33,15 +45,23 @@ export interface TrendingStats {
   platforms: Record<string, number>
   games: Record<string, number>
   lastScrapedAt: string | null
+  // V2 feed counts
+  hotNowCount: number
+  earlyGemCount: number
+  provenCount: number
 }
 
 export type SortOption = 'velocity' | 'date'
+export type DurationFilter = 'all' | 'short' | 'medium' | 'long'
+export type FeedFilter = 'all' | 'hot_now' | 'early_gem' | 'proven' | 'recent' | 'saved'
 
 export interface TrendingFiltersState {
   search: string
   games: string[]
   platforms: string[]
   sort: SortOption
+  duration: DurationFilter
+  feed: FeedFilter
 }
 
 export interface ViralNotification {

@@ -4,11 +4,11 @@ import { Scissors, ArrowRight, Zap, Heart, Target } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 
 export const metadata: Metadata = {
-  title: 'About — Viral Studio Pro',
-  description: 'Discover the story behind Viral Studio Pro. A tool built by a content creator, for content creators.',
+  title: 'About — Viral Animal',
+  description: 'Discover the story behind Viral Animal. A tool built by a content creator, for content creators.',
   openGraph: {
-    title: 'About — Viral Studio Pro',
-    description: 'The story behind Viral Studio Pro. A tool built by a creator, for creators.',
+    title: 'About — Viral Animal',
+    description: 'The story behind Viral Animal. A tool built by a creator, for creators.',
   },
 }
 
@@ -23,7 +23,7 @@ export default function AboutPage() {
               <Scissors className="h-4 w-4 text-white" />
             </div>
             <span className="text-xl font-black tracking-tight bg-gradient-to-r from-blue-400 to-indigo-500 bg-clip-text text-transparent">
-              VIRAL STUDIO
+              VIRAL ANIMAL
             </span>
           </Link>
           <Link href="/signup">
@@ -59,7 +59,7 @@ export default function AboutPage() {
               So I decided to build it myself.
             </p>
             <p className="text-foreground font-medium text-base">
-              Viral Studio Pro was born from that frustration. A single tool that does what no other combines: automatic split-screen + karaoke captions + AI viral score + Remake This.
+              Viral Animal was born from that frustration. A single tool that does what no other combines: automatic split-screen + karaoke captions + AI viral score + Remake This.
             </p>
           </div>
 

@@ -62,6 +62,55 @@ export async function POST(req: NextRequest) {
               stripe_customer_id: session.customer as string,
             })
             .eq('id', userId)
+
+          // Track affiliate conversion: check if user has a referral
+          const { data: referral } = await admin
+            .from('referrals')
+            .select('id, affiliate_id')
+            .eq('user_id', userId)
+            .in('status', ['clicked', 'signed_up'])
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .single()
+
+          if (referral && referral.affiliate_id) {
+            const affiliateId = referral.affiliate_id
+            const priceAmount = (session.amount_total ?? 0) / 100
+
+            // Get affiliate commission rate
+            const { data: affiliate } = await admin
+              .from('affiliates')
+              .select('commission_rate, total_conversions, total_revenue, total_commission_earned')
+              .eq('id', affiliateId)
+              .single()
+
+            const commissionRate = affiliate?.commission_rate ?? 0.2
+            const commission = priceAmount * commissionRate
+
+            // Update referral to converted
+            await admin
+              .from('referrals')
+              .update({
+                status: 'converted',
+                converted_at: new Date().toISOString(),
+                revenue_generated: priceAmount,
+                commission_amount: commission,
+              })
+              .eq('id', referral.id)
+
+            // Update affiliate totals
+            if (affiliate) {
+              await admin
+                .from('affiliates')
+                .update({
+                  total_conversions: (affiliate.total_conversions ?? 0) + 1,
+                  total_revenue: (affiliate.total_revenue ?? 0) + priceAmount,
+                  total_commission_earned: (affiliate.total_commission_earned ?? 0) + commission,
+                  updated_at: new Date().toISOString(),
+                })
+                .eq('id', affiliateId)
+            }
+          }
         }
         break
       }

@@ -1,11 +1,9 @@
 /**
- * Streamer-based clip fetching with viral scoring.
+ * Streamer-based clip fetching with unified viral scoring (V2).
  *
  * Reads active streamers from the `streamers` table, fetches their recent
  * clips via Twitch Helix API, upserts into trending_clips, captures a
- * historical snapshot, and computes viral scoring (velocity + ratio + recency).
- *
- * This replaces the game-based fetch in fetch-clips.ts for our curated list.
+ * historical snapshot, and computes scores via the unified clip-scorer.
  */
 
 import {
@@ -13,6 +11,7 @@ import {
   getUsersByLogin,
   type TwitchClip,
 } from '@/lib/twitch/client'
+import { scoreClip } from '@/lib/scoring/clip-scorer'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@/lib/supabase/types'
 
@@ -23,6 +22,8 @@ interface Streamer {
   twitch_id: string | null
   kick_slug: string | null
   priority: number
+  avg_clip_views: number
+  avg_clip_velocity: number
 }
 
 interface StreamerFetchResult {
@@ -32,49 +33,8 @@ interface StreamerFetchResult {
   errors: string[]
 }
 
-// ── Scoring ──────────────────────────────────────────────────────────────────
+// ── Velocity computation ─────────────────────────────────────────────────────
 
-/**
- * Compute composite viral score from velocity, ratio, and recency.
- *
- *   viral_score = velocity * 0.5 + (viral_ratio * 10000) * 0.3 + recency_boost * 0.2
- *
- * - velocity: views/hour (recent growth)
- * - viral_ratio: velocity / (total_views + 1), scaled
- * - recency_boost: 100 if <6h, linearly decays to 0 at 48h
- *
- * Final score is capped to 0-100.
- */
-function computeViralScore(params: {
-  velocity: number
-  viralRatio: number
-  clipCreatedAt: string
-}): number {
-  const ageHours = Math.max(
-    0.1,
-    (Date.now() - new Date(params.clipCreatedAt).getTime()) / 3_600_000
-  )
-
-  // Recency boost: 100 at 0h, 50 at 24h, 0 at 48h
-  const recencyBoost = Math.max(0, 100 - (ageHours * 100) / 48)
-
-  // Velocity component: log-scaled to normalize (10k v/h ≈ 60, 100k ≈ 75)
-  const velocityNorm = Math.min(100, 15 * Math.log10(Math.max(1, params.velocity)))
-
-  // Viral ratio component: velocity/views. A high value = growing fast relative
-  // to size. We scale by 10000 because this ratio is typically very small (<0.01).
-  const ratioNorm = Math.min(100, params.viralRatio * 10000)
-
-  const score =
-    velocityNorm * 0.5 + ratioNorm * 0.3 + recencyBoost * 0.2
-
-  return Math.round(Math.min(100, Math.max(0, score)) * 10) / 10
-}
-
-/**
- * Compute velocity (views/hour) from the most recent previous snapshot.
- * Falls back to total_views / clip_age if no snapshot exists.
- */
 async function computeVelocity(
   admin: SupabaseClient<Database>,
   clipId: string,
@@ -98,7 +58,6 @@ async function computeVelocity(
     return deltaViews / hoursElapsed
   }
 
-  // No snapshot yet — fall back to lifetime velocity
   const ageHours = Math.max(
     0.1,
     (Date.now() - new Date(clipCreatedAt).getTime()) / 3_600_000
@@ -106,20 +65,12 @@ async function computeVelocity(
   return currentViews / ageHours
 }
 
-/**
- * Extract Twitch clip slug from a clip URL.
- * Twitch Helix returns clip.id which is the slug.
- */
 function extractSlug(clip: TwitchClip): string {
   return clip.id
 }
 
 // ── Streamer resolution ──────────────────────────────────────────────────────
 
-/**
- * Ensure all active streamers have their Twitch broadcaster_id cached in DB.
- * Resolves missing IDs via Helix /users?login=X and writes back.
- */
 async function resolveStreamerIds(
   admin: SupabaseClient<Database>,
   streamers: Streamer[]
@@ -140,7 +91,6 @@ async function resolveStreamerIds(
     return id ? { ...s, twitch_id: id } : s
   })
 
-  // Persist resolved IDs back to DB
   const toUpdate = updated.filter(
     (s, i) => s.twitch_id && !streamers[i].twitch_id
   )
@@ -152,6 +102,34 @@ async function resolveStreamerIds(
   }
 
   return updated
+}
+
+// ── Streamer average update ──────────────────────────────────────────────────
+
+async function updateStreamerAverages(
+  admin: SupabaseClient<Database>,
+  streamerId: string
+): Promise<void> {
+  const { data: clips } = await admin
+    .from('trending_clips')
+    .select('view_count, velocity')
+    .eq('streamer_id', streamerId)
+    .order('scraped_at', { ascending: false })
+    .limit(50)
+
+  if (!clips || clips.length === 0) return
+
+  const avgViews = clips.reduce((s, c) => s + (c.view_count ?? 0), 0) / clips.length
+  const avgVelocity = clips.reduce((s, c) => s + (c.velocity ?? 0), 0) / clips.length
+
+  await admin
+    .from('streamers')
+    .update({
+      avg_clip_views: Math.round(avgViews),
+      avg_clip_velocity: Math.round(avgVelocity * 100) / 100,
+      total_clips_tracked: clips.length,
+    })
+    .eq('id', streamerId)
 }
 
 // ── Main fetch loop ──────────────────────────────────────────────────────────
@@ -168,11 +146,11 @@ export async function fetchAndScoreStreamerClips(
     errors: [],
   }
 
-  // Load active streamers
   const { data: streamersRaw, error: loadErr } = await admin
     .from('streamers')
-    .select('id, display_name, twitch_login, twitch_id, kick_slug, priority')
+    .select('id, display_name, twitch_login, twitch_id, kick_slug, priority, avg_clip_views, avg_clip_velocity' as '*')
     .eq('active', true)
+    .not('twitch_login', 'is', null)
     .order('priority', { ascending: false })
 
   if (loadErr) {
@@ -181,16 +159,13 @@ export async function fetchAndScoreStreamerClips(
   }
 
   if (!streamersRaw || streamersRaw.length === 0) {
-    result.errors.push('No active streamers found in streamers table')
+    result.errors.push('No active Twitch streamers found')
     return result
   }
 
   const streamers = streamersRaw as unknown as Streamer[]
-
-  // Resolve missing twitch_ids (one-time cost per new streamer)
   const resolved = await resolveStreamerIds(admin, streamers)
 
-  // For each streamer, fetch clips and upsert
   for (const streamer of resolved) {
     if (!streamer.twitch_id) {
       result.errors.push(
@@ -212,7 +187,6 @@ export async function fetchAndScoreStreamerClips(
       result.streamers_scanned++
 
       for (const clip of clips) {
-        // Upsert the clip (without scores first, we'll compute + update below)
         const clipRow = {
           external_url: clip.url,
           platform: 'twitch' as const,
@@ -228,6 +202,7 @@ export async function fetchAndScoreStreamerClips(
           streamer_id: streamer.id,
           twitch_clip_id: extractSlug(clip),
           clip_created_at: clip.created_at,
+          duration_seconds: clip.duration,
         }
 
         const { data: upserted, error: upsertErr } = await admin
@@ -246,19 +221,12 @@ export async function fetchAndScoreStreamerClips(
 
         const clipId = (upserted as { id: string }).id
 
-        // Compute velocity from previous snapshot (or lifetime if none)
         const velocity = await computeVelocity(
           admin,
           clipId,
           clip.view_count,
           clip.created_at
         )
-        const viralRatio = velocity / (clip.view_count + 1)
-        const viralScore = computeViralScore({
-          velocity,
-          viralRatio,
-          clipCreatedAt: clip.created_at,
-        })
 
         // Write snapshot
         await admin
@@ -266,17 +234,45 @@ export async function fetchAndScoreStreamerClips(
           .insert({ clip_id: clipId, view_count: clip.view_count })
         result.snapshots++
 
-        // Update scoring columns
+        // Score using unified scorer
+        const ageMs = Date.now() - new Date(clip.created_at).getTime()
+        const ageHours = Math.max(0.01, ageMs / 3_600_000)
+        const ageMinutes = Math.max(0.1, ageMs / 60_000)
+
+        const scores = scoreClip({
+          view_count: clip.view_count,
+          like_count: 0,
+          clip_age_hours: ageHours,
+          clip_age_minutes: ageMinutes,
+          velocity,
+          streamer_avg_views: streamer.avg_clip_views || 0,
+          streamer_avg_velocity: streamer.avg_clip_velocity || 0,
+        })
+
         await admin
           .from('trending_clips')
           .update({
             velocity,
-            viral_ratio: viralRatio,
-            viral_score: viralScore,
-            velocity_score: viralScore, // keep legacy col in sync for existing UI
+            viral_ratio: velocity / (clip.view_count + 1),
+            viral_score: scores.final_score,
+            velocity_score: scores.final_score,
+            tier: scores.tier,
+            early_signal_score: scores.early_signal_score,
+            anomaly_score: scores.anomaly_score,
+            feed_category: scores.feed_category,
           })
           .eq('id', clipId)
       }
+
+      // Update streamer averages
+      await updateStreamerAverages(admin, streamer.id)
+
+      // Mark last fetched
+      await admin
+        .from('streamers')
+        .update({ last_fetched_at: new Date().toISOString() })
+        .eq('id', streamer.id)
+
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
       result.errors.push(`${streamer.display_name}: ${msg}`)
