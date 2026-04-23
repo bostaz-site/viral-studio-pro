@@ -293,6 +293,19 @@ router.post('/', async (req, res) => {
         console.warn(`[Render ${renderSessionId}] Could not determine duration via ffprobe`);
       }
 
+      // Log source resolution to diagnose vertical-vs-horizontal issues
+      try {
+        const probeRes = await execFileAsync('ffprobe', [
+          '-v', 'quiet',
+          '-select_streams', 'v:0',
+          '-show_entries', 'stream=width,height',
+          '-of', 'csv=p=0',
+          inputPath,
+        ]);
+        const [srcW, srcH] = probeRes.stdout.trim().split(',').map(Number);
+        console.log(`[Render ${renderSessionId}] Source resolution: ${srcW}x${srcH} (${srcW > srcH ? 'horizontal' : 'vertical'})`);
+      } catch { /* non-critical */ }
+
     // ── USER CLIP FLOW (original) ──
     } else {
       // Check Supabase connection
