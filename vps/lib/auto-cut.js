@@ -98,6 +98,16 @@ export async function applyAutoCut(inputPath, tempDir, wordTimestamps, duration,
     return null;
   }
 
+  // SAFETY: if the result is too short (< 3s or < 25% of original), auto-cut is
+  // being too aggressive — likely a clip with sparse dialogue (action, music, etc.).
+  // Skip entirely to avoid producing a 0.5s clip from a 24s original.
+  const MIN_CUT_DURATION = 3;
+  const MIN_CUT_RATIO = 0.25;
+  if (cutDuration < MIN_CUT_DURATION || (cutDuration / originalDuration) < MIN_CUT_RATIO) {
+    trc(`AUTO-CUT: ABORTED — result too short (${cutDuration.toFixed(1)}s = ${((cutDuration / originalDuration) * 100).toFixed(0)}% of ${originalDuration.toFixed(1)}s). Clip likely has sparse dialogue.`);
+    return null;
+  }
+
   trc(`AUTO-CUT: ${segments.length} speech segments, ${originalDuration}s → ${cutDuration}s (cutting ${(originalDuration - cutDuration).toFixed(1)}s of silence)`);
 
   const ffmpegPath = process.env.FFMPEG_PATH || 'ffmpeg';

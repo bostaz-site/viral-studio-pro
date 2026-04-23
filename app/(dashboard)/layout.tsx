@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { Settings, Menu, X, LogOut, Zap, Compass, Wand2, Crown, UploadCloud, Radio, BarChart3, Users } from 'lucide-react'
+import { Settings, Menu, X, LogOut, Zap, Compass, Wand2, Crown, UploadCloud, Radio, BarChart3, Users, FlaskConical } from 'lucide-react'
 import { useUiStore } from '@/stores/ui-store'
 import { Button } from '@/components/ui/button'
 import { NotificationBell } from '@/components/trending/notification-bell'
@@ -60,6 +60,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     { name: 'Analytics', href: '/dashboard/analytics', icon: BarChart3 },
     ...(isAdmin
       ? [
+          { name: 'Render Lab', href: '/dashboard/render-test', icon: FlaskConical },
           { name: 'Growth (admin)', href: '/admin/growth', icon: Crown },
           { name: 'Affiliates (admin)', href: '/admin/affiliates', icon: Crown },
           { name: 'Streamers (admin)', href: '/admin/streamers', icon: Users },
@@ -118,6 +119,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               ? pathname?.startsWith('/dashboard/distribution')
               : item.href === '/dashboard/analytics'
               ? pathname?.startsWith('/dashboard/analytics')
+              : item.href === '/dashboard/render-test'
+              ? pathname === '/dashboard/render-test'
               : pathname?.startsWith(item.href) && item.href !== '/dashboard'
             return (
               <Link key={item.name} href={item.href}>
