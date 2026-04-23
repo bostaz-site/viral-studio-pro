@@ -109,7 +109,7 @@ export default function EnhancePage() {
     hookText: '',
     hookStyle: 'suspense',
     hookTextPosition: 15,
-    hookLength: 1.5,
+    hookLength: 0,
     hookReorder: null,
   }
 

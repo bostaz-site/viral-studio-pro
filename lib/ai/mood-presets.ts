@@ -53,7 +53,7 @@ export interface MoodPreset {
 // ── Base settings (shared by ALL moods) ─────────────────────────────────────
 
 export const BASE_SETTINGS = {
-  captionPosition: 42,
+  captionPosition: 60,
   splitRatio: 60,
   tagSize: 85,
   aspectRatio: '9:16' as const,
@@ -61,6 +61,7 @@ export const BASE_SETTINGS = {
   hookEnabled: true,
   hookTextEnabled: true,
   hookTextPosition: 15,
+  hookLength: 0,
   brollVideo: 'none',
   smartZoomEnabled: true,
 }
@@ -93,7 +94,7 @@ export const MOOD_PRESETS: Record<ClipMood, MoodPreset> = {
     autoCutThreshold: 0.5,
     hookReorderEnabled: true,
     hookStyle: 'choc',
-    hookLength: 1,
+    hookLength: 0,
   },
 
   funny: {
@@ -113,7 +114,7 @@ export const MOOD_PRESETS: Record<ClipMood, MoodPreset> = {
     autoCutThreshold: 0.7,
     hookReorderEnabled: true,
     hookStyle: 'curiosite',
-    hookLength: 1.5,
+    hookLength: 0,
   },
 
   drama: {
@@ -133,7 +134,7 @@ export const MOOD_PRESETS: Record<ClipMood, MoodPreset> = {
     autoCutThreshold: 0.7,
     hookReorderEnabled: true,
     hookStyle: 'suspense',
-    hookLength: 2,
+    hookLength: 0,
   },
 
   wholesome: {
@@ -153,7 +154,7 @@ export const MOOD_PRESETS: Record<ClipMood, MoodPreset> = {
     autoCutThreshold: 0.7,
     hookReorderEnabled: false,
     hookStyle: 'curiosite',
-    hookLength: 1.5,
+    hookLength: 0,
   },
 
   hype: {
@@ -173,7 +174,7 @@ export const MOOD_PRESETS: Record<ClipMood, MoodPreset> = {
     autoCutThreshold: 0.5,
     hookReorderEnabled: true,
     hookStyle: 'choc',
-    hookLength: 1,
+    hookLength: 0,
   },
 
   story: {
@@ -193,7 +194,7 @@ export const MOOD_PRESETS: Record<ClipMood, MoodPreset> = {
     autoCutThreshold: 0.7,
     hookReorderEnabled: false,
     hookStyle: 'suspense',
-    hookLength: 2,
+    hookLength: 0,
   },
 }
 
