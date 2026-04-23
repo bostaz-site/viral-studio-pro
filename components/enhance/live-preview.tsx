@@ -12,15 +12,21 @@ import { PLATFORM_THEME } from '@/lib/ai/mood-presets'
 
 // ─── Score Badge Component ──────────────────────────────────────────────────
 
-export function ScoreBadge({ score, isBest }: { score: number; isBest: boolean }) {
+export function ScoreBadge({ score, isBest, isMoodPick = false }: { score: number; isBest: boolean; isMoodPick?: boolean }) {
+  const label = score > 0
+    ? `+${score % 1 === 0 ? score.toFixed(0) : score.toFixed(1)}`
+    : '+0'
   return (
     <span className={cn(
       'inline-flex items-center gap-0.5 text-[10px] font-bold rounded-full px-1.5 py-0.5',
-      isBest
-        ? 'bg-orange-500/20 text-orange-400 border border-orange-500/30'
-        : 'bg-muted/50 text-muted-foreground'
+      isMoodPick
+        ? 'bg-green-500/20 text-green-400 border border-green-500/30'
+        : isBest
+          ? 'bg-orange-500/20 text-orange-400 border border-orange-500/30'
+          : 'bg-muted/50 text-muted-foreground'
     )}>
-      +{score}
+      {isMoodPick && <span className="text-[8px] mr-0.5">AI</span>}
+      {label}
     </span>
   )
 }
@@ -360,35 +366,32 @@ export function LivePreview({
             </div>
           )}
 
-          {/* POP CREATOR — fond violet plein, outline blanc, pop effect */}
-          {tagStyle.id === 'pop-creator' && (
+          {/* TWITCH MINIMAL — clean black, subtle purple border, no glow */}
+          {tagStyle.id === 'twitch-minimal' && (
             <div
-              className="flex items-center gap-1.5 rounded-full px-3 py-1.5 animate-in zoom-in-95 duration-200"
+              className="flex items-center gap-1.5 rounded-full px-2.5 py-1.5 animate-in fade-in duration-300"
               style={{
-                background: '#9146FF',
-                border: '1.5px solid rgba(255,255,255,0.3)',
-                boxShadow: '0 2px 12px rgba(145,70,255,0.5), 0 1px 4px rgba(0,0,0,0.3)',
+                background: 'rgba(0,0,0,0.7)',
+                border: '1px solid rgba(145, 70, 255, 0.4)',
               }}
             >
-              <svg className="h-3 w-3 flex-shrink-0" viewBox="0 0 24 24" fill="white">
+              <svg className="h-3 w-3 flex-shrink-0 opacity-70" viewBox="0 0 24 24" fill="#9146FF">
                 <path d="M11.571 4.714h1.715v5.143H11.57zm4.715 0H18v5.143h-1.714zM6 0L1.714 4.286v15.428h5.143V24l4.286-4.286h3.428L22.286 12V0zm14.571 11.143l-3.428 3.428h-3.429l-3 3v-3H6.857V1.714h13.714Z"/>
               </svg>
-              <span className="text-[11px] font-bold text-white tracking-wide">{streamerName}</span>
+              <span className="text-[11px] font-medium text-white/85 tracking-wide">{streamerName}</span>
             </div>
           )}
 
-          {/* MINIMAL PRO — noir clean, logo Twitch discret, ultra pro */}
-          {tagStyle.id === 'minimal-pro' && (
+          {/* KICK MINIMAL — clean black, subtle green border, no glow */}
+          {tagStyle.id === 'kick-minimal' && (
             <div
-              className="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 animate-in fade-in duration-300"
+              className="flex items-center gap-1.5 rounded-full px-2.5 py-1.5 animate-in fade-in duration-300"
               style={{
-                background: 'rgba(0,0,0,0.55)',
-                backdropFilter: 'blur(8px)',
+                background: 'rgba(0,0,0,0.7)',
+                border: '1px solid rgba(83, 252, 24, 0.4)',
               }}
             >
-              <svg className="h-3 w-3 flex-shrink-0 opacity-60" viewBox="0 0 24 24" fill="#9146FF">
-                <path d="M11.571 4.714h1.715v5.143H11.57zm4.715 0H18v5.143h-1.714zM6 0L1.714 4.286v15.428h5.143V24l4.286-4.286h3.428L22.286 12V0zm14.571 11.143l-3.428 3.428h-3.429l-3 3v-3H6.857V1.714h13.714Z"/>
-              </svg>
+              <span className="text-[12px] font-black text-[#53FC18] flex-shrink-0 leading-none opacity-70">K</span>
               <span className="text-[11px] font-medium text-white/85 tracking-wide">{streamerName}</span>
             </div>
           )}

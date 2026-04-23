@@ -19,7 +19,7 @@ import { ErrorCard, classifyError } from '@/components/ui/error-card'
 import { createClient } from '@/lib/supabase/client'
 import { useTrendingStore } from '@/stores/trending-store'
 import { cn } from '@/lib/utils'
-import { ALL_MOODS, MOOD_PRESETS, MOOD_COLORS, PLATFORM_THEME, getMoodPresetForClip, type ClipMood, type MoodPreset } from '@/lib/ai/mood-presets'
+import { ALL_MOODS, MOOD_PRESETS, MOOD_COLORS, PLATFORM_THEME, getMoodPresetForClip, type ClipMood, type MoodPresetWithPlatform } from '@/lib/ai/mood-presets'
 import { captureHookOverlayPNG } from '@/lib/capture-hook-overlay'
 import { captureTagOverlayPNG } from '@/lib/capture-tag-overlay'
 import {
@@ -30,7 +30,6 @@ import {
 import { LivePreview, ScoreBadge } from '@/components/enhance/live-preview'
 import { TagPanel } from '@/components/enhance/tag-panel'
 import { PublishDialog } from '@/components/distribution/publish-dialog'
-import { FormatPanel } from '@/components/enhance/format-panel'
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -80,7 +79,6 @@ export default function EnhancePage() {
     captions: useRef<HTMLDivElement>(null),
     splitscreen: useRef<HTMLDivElement>(null),
     tags: useRef<HTMLDivElement>(null),
-    style: useRef<HTMLDivElement>(null),
   }
 
   const DEFAULT_SETTINGS: EnhanceSettings = {
@@ -404,7 +402,7 @@ export default function EnhancePage() {
       if (settings.tagStyle && settings.tagStyle !== 'none' && streamerName) {
         tagOverlayData = await captureTagOverlayPNG({
           streamerName,
-          style: settings.tagStyle as 'viral-glow' | 'kick-glow' | 'pop-creator' | 'minimal-pro',
+          style: settings.tagStyle as 'viral-glow' | 'kick-glow' | 'twitch-minimal' | 'kick-minimal',
           tagSize: settings.tagSize || 100,
           videoWidth: 720,
           videoHeight: 1280,
@@ -522,10 +520,9 @@ export default function EnhancePage() {
   const pendingAutoRenderRef = useRef(false)
   const appliedCaptionStyleRef = useRef<string | null>(null)
 
-  // Preview render state
-  const [previewLoading, setPreviewLoading] = useState(false)
-  const [previewVideoUrl, setPreviewVideoUrl] = useState<string | null>(null)
-  const [previewRenderTime, setPreviewRenderTime] = useState<number | null>(null)
+  // Preview render state (set by handlePreview if re-enabled)
+  const [previewVideoUrl] = useState<string | null>(null)
+  const [previewRenderTime] = useState<number | null>(null)
 
   // Mood detection state
   const [detectedMood, setDetectedMood] = useState<ClipMood | null>(null)
@@ -542,7 +539,54 @@ export default function EnhancePage() {
     return computeCurrentScore(settings, scores, baselineScore, activeMood)
   }, [settings, scores, baselineScore, selectedMood, detectedMood])
 
-  const applyMoodPreset = useCallback((preset: MoodPreset) => {
+  // Helper: compute real impact on "Chance de blowup" for each option
+  // Helper: compute real impact on "Chance de blowup" using diminishing returns
+  const getRealImpact = useCallback((
+    category: 'caption' | 'emphasis' | 'broll' | 'tag',
+    optionId: string,
+    bestId: string
+  ): { impact: number; isMoodPick: boolean } => {
+    const headroom = Math.max(0, 99 - baselineScore)
+    const BASE_W: Record<string, number> = { caption: 0.14, emphasis: 0.08, broll: 0.12, tag: 0.08 }
+    const MOOD_W: Record<string, number> = { caption: 0.06, emphasis: 0.04, broll: 0, tag: 0 }
+    const FALLBACK_W = 0.02
+
+    if (optionId === 'none') {
+      if (selectedMood) {
+        const preset = MOOD_PRESETS[selectedMood]
+        const moodVal = category === 'caption' ? preset.captionStyle
+          : category === 'emphasis' ? preset.emphasisEffect
+          : category === 'broll' ? preset.brollVideo
+          : preset.tagStyle
+        if (moodVal === 'none') return { impact: 0, isMoodPick: true }
+      }
+      return { impact: 0, isMoodPick: false }
+    }
+
+    let weight = BASE_W[category]
+    let isMoodPick = false
+
+    if (selectedMood) {
+      const preset = MOOD_PRESETS[selectedMood]
+      const moodVal = category === 'caption' ? preset.captionStyle
+        : category === 'emphasis' ? preset.emphasisEffect
+        : category === 'broll' ? preset.brollVideo
+        : preset.tagStyle
+      if (optionId === moodVal) {
+        weight += MOOD_W[category]
+        isMoodPick = true
+      }
+    } else {
+      if (optionId === bestId) {
+        weight += FALLBACK_W
+      }
+    }
+
+    const impact = Math.round(headroom * weight * 10) / 10
+    return { impact, isMoodPick }
+  }, [selectedMood, baselineScore])
+
+  const applyMoodPreset = useCallback((preset: MoodPresetWithPlatform) => {
     appliedCaptionStyleRef.current = preset.captionStyle
     setSettings((s) => ({
       ...s,
@@ -586,7 +630,7 @@ export default function EnhancePage() {
     try {
     // 1. Detect mood via AI
     const platform = clip.platform ?? 'twitch'
-    let preset: MoodPreset = getMoodPresetForClip('hype', platform) // fallback
+    let preset: MoodPresetWithPlatform = getMoodPresetForClip('hype', platform) // fallback
     try {
       const moodController = new AbortController()
       const moodTimeout = setTimeout(() => moodController.abort(), 15000)
@@ -612,6 +656,11 @@ export default function EnhancePage() {
         setMoodExplanation(moodJson.data.explanation ?? null)
         setSecondaryMood(moodJson.data.secondary_mood ?? null)
         setMoodAiDetected(true)
+        // Auto-populate important words from AI detection
+        const aiWords = moodJson.data.important_words
+        if (Array.isArray(aiWords) && aiWords.length > 0) {
+          setSettings((s) => ({ ...s, customImportantWords: aiWords }))
+        }
       }
     } catch {
       // Fallback silently to hype
@@ -676,79 +725,6 @@ export default function EnhancePage() {
       setMakeViralLoading(false)
     }
   }, [clip, applyMoodPreset])
-
-  // ── Preview render (real FFmpeg, 5s, 480p) ──
-  const handlePreview = useCallback(async () => {
-    if (!clip) return
-    setPreviewLoading(true)
-    setPreviewVideoUrl(null)
-
-    try {
-      // Build the same settings object as handleRender
-      const previewSettings = {
-        captions: {
-          enabled: settings.captionsEnabled,
-          style: settings.captionStyle,
-          wordsPerLine: settings.wordsPerLine,
-          animation: CAPTION_STYLES.find(s => s.id === settings.captionStyle)?.animation ?? 'highlight',
-          emphasisEffect: settings.emphasisEffect,
-          emphasisColor: settings.emphasisColor,
-          position: settings.captionPosition,
-        },
-        splitScreen: {
-          enabled: settings.splitScreenEnabled,
-          brollCategory: settings.brollVideo,
-          ratio: settings.splitRatio,
-          layout: 'top-bottom',
-        },
-        tag: {
-          enabled: settings.tagStyle !== 'none',
-          text: clip.author_handle ? `@${clip.author_handle}` : (clip.author_name || ''),
-          style: settings.tagStyle,
-        },
-        format: {
-          aspectRatio: settings.aspectRatio,
-          videoZoom: settings.videoZoom,
-        },
-        hook: settings.hookEnabled ? {
-          enabled: true,
-          textEnabled: settings.hookTextEnabled,
-          text: settings.hookText,
-          style: settings.hookStyle,
-          textPosition: settings.hookTextPosition,
-          length: settings.hookLength,
-        } : { enabled: false },
-      }
-
-      const res = await fetch('/api/render/preview', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          videoUrl: clip.external_url,
-          clipTitle: clip.title,
-          clipDuration: clip.duration_seconds,
-          settings: previewSettings,
-        }),
-      })
-
-      const result = await res.json()
-      if (res.ok && result.data?.video) {
-        const blob = new Blob(
-          [Uint8Array.from(atob(result.data.video), c => c.charCodeAt(0))],
-          { type: 'video/mp4' }
-        )
-        const url = URL.createObjectURL(blob)
-        setPreviewVideoUrl(url)
-        setPreviewRenderTime(result.data.renderTime)
-      } else {
-        console.error('[Preview] Failed:', result.error)
-      }
-    } catch (err) {
-      console.error('[Preview] Error:', err)
-    } finally {
-      setPreviewLoading(false)
-    }
-  }, [clip, settings])
 
   // Auto-trigger render once applyBestCombo has propagated the new settings.
   // We wait until settings.captionStyle matches the applied preset AND
@@ -1129,20 +1105,7 @@ export default function EnhancePage() {
             </div>
           </div>
 
-          {/* ── Preview render button ── */}
-          <button
-            onClick={handlePreview}
-            disabled={previewLoading || rendering}
-            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-sm font-semibold text-zinc-300 hover:text-white transition-all disabled:opacity-50"
-          >
-            {previewLoading ? (
-              <><Loader2 className="h-4 w-4 animate-spin" />Generating real preview...</>
-            ) : (
-              <><Eye className="h-4 w-4" />Preview real render (5s)</>
-            )}
-          </button>
-
-          {/* ── Preview video player ── */}
+          {/* Preview video player (from real render) */}
           {previewVideoUrl && (
             <div className="space-y-2">
               <div className="flex items-center justify-between">
@@ -1214,7 +1177,8 @@ export default function EnhancePage() {
                       <Label className="text-xs uppercase tracking-wider text-muted-foreground">Style</Label>
                       <div className="grid grid-cols-3 gap-2">
                         {CAPTION_STYLES.map((style) => {
-                          const scored = scores.captionScores.find((s) => s.id === style.id)!
+                          const { impact, isMoodPick } = getRealImpact('caption', style.id, scores.best.captionStyle)
+                          const isHighlight = isMoodPick || (!selectedMood && style.id === scores.best.captionStyle)
                           return (
                             <button
                               key={style.id}
@@ -1226,16 +1190,18 @@ export default function EnhancePage() {
                                 'relative rounded-xl border p-3 text-left transition-all',
                                 settings.captionStyle === style.id
                                   ? 'border-primary bg-primary/10 ring-1 ring-primary/30'
-                                  : scored.isBest
+                                  : isMoodPick
+                                  ? 'border-green-500/40 bg-green-500/5 hover:bg-green-500/10'
+                                  : isHighlight
                                   ? 'border-orange-500/40 bg-orange-500/5 hover:bg-orange-500/10'
                                   : 'border-border hover:border-primary/40'
                               )}
                             >
                               <div className="flex items-center justify-between mb-1">
-                                <span className={cn('text-xs block', style.preview, scored.isBest && 'drop-shadow-[0_0_6px_rgba(249,115,22,0.4)]')}>Aa</span>
-                                <ScoreBadge score={scored.score} isBest={scored.isBest} />
+                                <span className={cn('text-xs block', style.preview, isHighlight && !isMoodPick && 'drop-shadow-[0_0_6px_rgba(249,115,22,0.4)]')}>Aa</span>
+                                <ScoreBadge score={impact} isBest={isHighlight} isMoodPick={isMoodPick} />
                               </div>
-                              <span className={cn('text-[10px] block', scored.isBest ? 'text-orange-400 font-bold' : 'text-muted-foreground')}>
+                              <span className={cn('text-[10px] block', isMoodPick ? 'text-green-400 font-bold' : isHighlight ? 'text-orange-400 font-bold' : 'text-muted-foreground')}>
                                 {style.label}
                               </span>
                               {style.animLabel && (
@@ -1261,7 +1227,8 @@ export default function EnhancePage() {
                       <p className="text-[10px] text-muted-foreground">Effect applied to detected important words</p>
                       <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
                         {EMPHASIS_EFFECTS.map((effect) => {
-                          const scored = scores.emphasisScores.find((s) => s.id === effect.id)!
+                          const { impact, isMoodPick } = getRealImpact('emphasis', effect.id, scores.best.emphasisEffect)
+                          const isHighlight = isMoodPick || (!selectedMood && effect.id === scores.best.emphasisEffect)
                           return (
                             <button
                               key={effect.id}
@@ -1270,13 +1237,15 @@ export default function EnhancePage() {
                                 'relative rounded-xl border px-3 py-2.5 text-center transition-all',
                                 settings.emphasisEffect === effect.id
                                   ? 'border-primary bg-primary/10 ring-1 ring-primary/30'
-                                  : scored.isBest
+                                  : isMoodPick
+                                  ? 'border-green-500/40 bg-green-500/5 hover:bg-green-500/10'
+                                  : isHighlight
                                   ? 'border-orange-500/40 bg-orange-500/5 hover:bg-orange-500/10'
                                   : 'border-border hover:border-primary/40'
                               )}
                             >
-                              <span className={cn('text-[10px] font-medium block', scored.isBest ? 'text-orange-400 font-bold' : 'text-foreground')}>{effect.label}</span>
-                              <ScoreBadge score={scored.score} isBest={scored.isBest} />
+                              <span className={cn('text-[10px] font-medium block', isMoodPick ? 'text-green-400 font-bold' : isHighlight ? 'text-orange-400 font-bold' : 'text-foreground')}>{effect.label}</span>
+                              <ScoreBadge score={impact} isBest={isHighlight} isMoodPick={isMoodPick} />
                             </button>
                           )
                         })}
@@ -1296,11 +1265,11 @@ export default function EnhancePage() {
                             onClick={() => updateSetting('emphasisColor', c.id)}
                             className={cn(
                               'w-7 h-7 rounded-full transition-all',
-                              c.tw,
                               settings.emphasisColor === c.id
                                 ? 'ring-2 ring-primary ring-offset-2 ring-offset-background scale-110'
                                 : 'opacity-60 hover:opacity-100 hover:scale-105'
                             )}
+                            style={{ backgroundColor: c.hex }}
                             title={c.label}
                           />
                         ))}
@@ -1455,7 +1424,8 @@ export default function EnhancePage() {
                       <Label className="text-xs uppercase tracking-wider text-muted-foreground">B-roll video</Label>
                       <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                         {BROLL_OPTIONS.map((broll) => {
-                          const scored = scores.brollScores.find((s) => s.id === broll.id)!
+                          const { impact, isMoodPick } = getRealImpact('broll', broll.id, scores.best.brollVideo)
+                          const isHighlight = isMoodPick || (!selectedMood && broll.id === scores.best.brollVideo)
                           return (
                             <button
                               key={broll.id}
@@ -1467,15 +1437,17 @@ export default function EnhancePage() {
                                 'relative rounded-xl border p-3 transition-all',
                                 settings.brollVideo === broll.id
                                   ? 'border-primary bg-primary/10 ring-1 ring-primary/30'
-                                  : scored.isBest
+                                  : isMoodPick
+                                  ? 'border-green-500/40 bg-green-500/5 hover:bg-green-500/10'
+                                  : isHighlight
                                   ? 'border-orange-500/40 bg-orange-500/5 hover:bg-orange-500/10'
                                   : 'border-border hover:border-primary/40'
                               )}
                             >
                               <div className={`w-full h-8 rounded-lg bg-gradient-to-r ${broll.color} mb-1.5`} />
                               <div className="flex items-center justify-between">
-                                <span className={cn('text-[10px]', scored.isBest ? 'text-orange-400 font-bold' : 'text-muted-foreground')}>{broll.label}</span>
-                                <ScoreBadge score={scored.score} isBest={scored.isBest} />
+                                <span className={cn('text-[10px]', isMoodPick ? 'text-green-400 font-bold' : isHighlight ? 'text-orange-400 font-bold' : 'text-muted-foreground')}>{broll.label}</span>
+                                <ScoreBadge score={impact} isBest={isHighlight} isMoodPick={isMoodPick} />
                               </div>
                             </button>
                           )
@@ -1536,14 +1508,11 @@ export default function EnhancePage() {
               settings={settings}
               updateSetting={updateSetting}
               scores={scores}
+              selectedMood={selectedMood}
+              baselineScore={baselineScore}
             />
 
-            {/* ─── Style Section ─── */}
-            <FormatPanel
-              ref={sectionRefs.style}
-              settings={settings}
-              updateSetting={updateSetting}
-            />
+            {/* Format is locked to 9:16 — no UI selector */}
 
             {/* ─── Smart Zoom Section ─── */}
             <div className="scroll-mt-32">
@@ -1867,25 +1836,10 @@ export default function EnhancePage() {
                         </div>
                       )}
 
-                      {/* Hook length slider */}
-                      <div className="space-y-2">
-                        <div className="flex items-center justify-between">
-                          <Label className="text-xs uppercase tracking-wider text-muted-foreground">Hook duration</Label>
-                          <span className="text-xs font-bold text-orange-400">{settings.hookLength}s</span>
-                        </div>
-                        <Slider
-                          value={[settings.hookLength]}
-                          onValueChange={([v]) => updateSetting('hookLength', v)}
-                          min={1}
-                          max={3}
-                          step={0.5}
-                          className="w-full accent-orange-500 [&::-webkit-slider-thumb]:border-orange-500/50 [&::-moz-range-thumb]:border-orange-500/50"
-                        />
-                        <div className="flex justify-between text-[9px] text-muted-foreground">
-                          <span>1s</span>
-                          <span>2s</span>
-                          <span>3s</span>
-                        </div>
+                      {/* Hook stays visible for the entire video duration */}
+                      <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-muted/30 border border-border/50">
+                        <Eye className="h-3.5 w-3.5 text-muted-foreground" />
+                        <span className="text-xs text-muted-foreground">Hook text visible for the entire clip</span>
                       </div>
 
                       {/* Generate button */}

@@ -6,12 +6,15 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
 import { cn } from '@/lib/utils'
 import { TAG_STYLES, type EnhanceSettings, type ScoredOption } from '@/lib/enhance/scoring'
+import { MOOD_PRESETS, type ClipMood } from '@/lib/ai/mood-presets'
 import { ScoreBadge } from '@/components/enhance/live-preview'
 
 interface TagPanelProps {
   settings: EnhanceSettings
   updateSetting: <K extends keyof EnhanceSettings>(key: K, value: EnhanceSettings[K]) => void
-  scores: { tagScores: ScoredOption[] } | null
+  scores: { tagScores: ScoredOption[]; best: { tagStyle: string } } | null
+  selectedMood?: ClipMood | null
+  baselineScore?: number
 }
 
 /**
@@ -19,9 +22,31 @@ interface TagPanelProps {
  * Extracted from the enhance page to keep that file under control.
  */
 export const TagPanel = forwardRef<HTMLDivElement, TagPanelProps>(function TagPanel(
-  { settings, updateSetting, scores },
+  { settings, updateSetting, scores, selectedMood, baselineScore = 30 },
   ref,
 ) {
+  // Compute real impact for tag options (diminishing returns)
+  const getTagImpact = (tagId: string): { impact: number; isMoodPick: boolean } => {
+    const headroom = Math.max(0, 99 - baselineScore)
+    if (tagId === 'none') {
+      if (selectedMood) {
+        const preset = MOOD_PRESETS[selectedMood]
+        if (preset.tagStyle === 'none') return { impact: 0, isMoodPick: true }
+      }
+      return { impact: 0, isMoodPick: false }
+    }
+    let weight = 0.08
+    let isMoodPick = false
+    if (selectedMood) {
+      const preset = MOOD_PRESETS[selectedMood]
+      if (tagId === preset.tagStyle) isMoodPick = true
+    } else if (scores && tagId === scores.best.tagStyle) {
+      weight += 0.02
+    }
+    const impact = Math.round(headroom * weight * 10) / 10
+    return { impact, isMoodPick }
+  }
+
   return (
     <div ref={ref} className="scroll-mt-32">
       <Card className="bg-card/60 border-border">
@@ -39,7 +64,8 @@ export const TagPanel = forwardRef<HTMLDivElement, TagPanelProps>(function TagPa
               </Label>
               <div className="grid grid-cols-2 gap-2">
                 {TAG_STYLES.map((tag) => {
-                  const scored = scores.tagScores.find((s) => s.id === tag.id)!
+                  const { impact, isMoodPick } = getTagImpact(tag.id)
+                  const isHighlight = isMoodPick || (!selectedMood && tag.id === scores.best.tagStyle)
                   return (
                     <button
                       key={tag.id}
@@ -48,7 +74,9 @@ export const TagPanel = forwardRef<HTMLDivElement, TagPanelProps>(function TagPa
                         'relative rounded-xl border p-3 text-left transition-all group',
                         settings.tagStyle === tag.id
                           ? 'border-primary bg-primary/10 ring-1 ring-primary/30'
-                          : scored.isBest
+                          : isMoodPick
+                          ? 'border-green-500/40 bg-green-500/5 hover:bg-green-500/10'
+                          : isHighlight
                           ? 'border-orange-500/40 bg-orange-500/5 hover:bg-orange-500/10'
                           : 'border-border hover:border-primary/40',
                       )}
@@ -58,12 +86,12 @@ export const TagPanel = forwardRef<HTMLDivElement, TagPanelProps>(function TagPa
                         <span
                           className={cn(
                             'text-xs font-semibold flex-1',
-                            scored.isBest ? 'text-orange-400' : 'text-foreground',
+                            isMoodPick ? 'text-green-400' : isHighlight ? 'text-orange-400' : 'text-foreground',
                           )}
                         >
                           {tag.label}
                         </span>
-                        <ScoreBadge score={scored.score} isBest={scored.isBest} />
+                        <ScoreBadge score={impact} isBest={isHighlight} isMoodPick={isMoodPick} />
                       </div>
                       <span className="text-[10px] text-muted-foreground pl-7">
                         {tag.description}

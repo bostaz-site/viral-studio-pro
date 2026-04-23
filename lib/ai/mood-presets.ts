@@ -22,7 +22,6 @@ export interface MoodPreset {
   captionPosition: number
 
   emphasisEffect: string
-  emphasisColor: string
 
   brollVideo: string
   splitRatio: number
@@ -50,6 +49,9 @@ export interface MoodPreset {
   hookLength: number
 }
 
+/** MoodPreset with platform-injected emphasisColor */
+export type MoodPresetWithPlatform = MoodPreset & { emphasisColor: string }
+
 // ── Base settings (shared by ALL moods) ─────────────────────────────────────
 
 export const BASE_SETTINGS = {
@@ -69,9 +71,9 @@ export const BASE_SETTINGS = {
 // ── Platform theme (tag + hook glow colors by platform) ─────────────────────
 
 export const PLATFORM_THEME = {
-  twitch: { tagStyle: 'viral-glow', hookGlowColor: '#C77DFF' },
-  kick: { tagStyle: 'kick-glow', hookGlowColor: '#00E701' },
-  youtube: { tagStyle: 'viral-glow', hookGlowColor: '#FF0000' },
+  twitch: { tagStyle: 'viral-glow', hookGlowColor: '#C77DFF', emphasisColor: 'purple' },
+  kick: { tagStyle: 'kick-glow', hookGlowColor: '#00E701', emphasisColor: 'green' },
+  youtube: { tagStyle: 'viral-glow', hookGlowColor: '#FF0000', emphasisColor: 'red' },
 } as const
 
 // ── Mood presets (BASE_SETTINGS + mood-specific overrides) ──────────────────
@@ -84,10 +86,9 @@ export const MOOD_PRESETS: Record<ClipMood, MoodPreset> = {
     description: 'Max retention on raw shock — screaming, slamming, intense moments',
     ...BASE_SETTINGS,
     tagStyle: 'viral-glow',
-    captionStyle: 'mrbeast',
+    captionStyle: 'word-pop',
     wordsPerLine: 1,
     emphasisEffect: 'scale',
-    emphasisColor: 'red',
     videoZoom: 'fill',
     smartZoomMode: 'dynamic',
     autoCutEnabled: true,
@@ -104,10 +105,9 @@ export const MOOD_PRESETS: Record<ClipMood, MoodPreset> = {
     description: 'Instant laughs — jokes, fails, funny reactions',
     ...BASE_SETTINGS,
     tagStyle: 'viral-glow',
-    captionStyle: 'hormozi-purple',
+    captionStyle: 'bounce',
     wordsPerLine: 2,
     emphasisEffect: 'bounce',
-    emphasisColor: 'yellow',
     videoZoom: 'fill',
     smartZoomMode: 'micro',
     autoCutEnabled: false,
@@ -124,10 +124,9 @@ export const MOOD_PRESETS: Record<ClipMood, MoodPreset> = {
     description: 'Tension and confrontation — beef, accusations, intense moments',
     ...BASE_SETTINGS,
     tagStyle: 'viral-glow',
-    captionStyle: 'bold',
+    captionStyle: 'highlight',
     wordsPerLine: 2,
     emphasisEffect: 'glow',
-    emphasisColor: 'orange',
     videoZoom: 'immersive',
     smartZoomMode: 'follow',
     autoCutEnabled: false,
@@ -144,10 +143,9 @@ export const MOOD_PRESETS: Record<ClipMood, MoodPreset> = {
     description: 'Touching moments — donations, gratitude, emotional reactions',
     ...BASE_SETTINGS,
     tagStyle: 'viral-glow',
-    captionStyle: 'minimal',
+    captionStyle: 'glow',
     wordsPerLine: 4,
     emphasisEffect: 'none',
-    emphasisColor: 'white',
     videoZoom: 'contain',
     smartZoomMode: 'micro',
     autoCutEnabled: false,
@@ -164,10 +162,9 @@ export const MOOD_PRESETS: Record<ClipMood, MoodPreset> = {
     description: 'Pure adrenaline — victories, epic moments, crowd going wild',
     ...BASE_SETTINGS,
     tagStyle: 'viral-glow',
-    captionStyle: 'neon',
+    captionStyle: 'word-pop',
     wordsPerLine: 1,
     emphasisEffect: 'scale',
-    emphasisColor: 'cyan',
     videoZoom: 'fill',
     smartZoomMode: 'dynamic',
     autoCutEnabled: true,
@@ -184,10 +181,9 @@ export const MOOD_PRESETS: Record<ClipMood, MoodPreset> = {
     description: 'Narration and monologues — stories, rants, explanations',
     ...BASE_SETTINGS,
     tagStyle: 'viral-glow',
-    captionStyle: 'aliabdaal',
+    captionStyle: 'highlight',
     wordsPerLine: 5,
     emphasisEffect: 'none',
-    emphasisColor: 'white',
     videoZoom: 'contain',
     smartZoomMode: 'micro',
     autoCutEnabled: true,
@@ -200,11 +196,11 @@ export const MOOD_PRESETS: Record<ClipMood, MoodPreset> = {
 
 // ── Helper: merge mood preset + platform theme ──────────────────────────────
 
-/** Get a mood preset with platform-appropriate tag style */
-export function getMoodPresetForClip(mood: ClipMood, platform: string): MoodPreset {
+/** Get a mood preset with platform-appropriate tag style and emphasis color */
+export function getMoodPresetForClip(mood: ClipMood, platform: string): MoodPresetWithPlatform {
   const base = MOOD_PRESETS[mood]
   const theme = PLATFORM_THEME[platform as keyof typeof PLATFORM_THEME] ?? PLATFORM_THEME.twitch
-  return { ...base, tagStyle: theme.tagStyle }
+  return { ...base, tagStyle: theme.tagStyle, emphasisColor: theme.emphasisColor ?? 'white' }
 }
 
 // ── Exports ─────────────────────────────────────────────────────────────────

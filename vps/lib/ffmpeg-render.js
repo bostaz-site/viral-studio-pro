@@ -1129,22 +1129,22 @@ function buildTagFilter(tagConfig, canvasW = 720, canvasH = 1280, inputLabel = n
       return { chain, complex: true };
     }
 
-    case 'pop-creator': {
-      // Fond violet plein #9146FF, outline blanc, texte blanc
+    case 'twitch-minimal': {
+      // Clean black bg, subtle purple border, no glow
       const chain = [
-        `movie=${twitchLogoFile},scale=-1:${logoH},format=yuva420p,colorchannelmixer=rr=1:gg=1:bb=1:ra=0:ga=0:ba=0[twpc]`,
-        `${inputLabel}drawtext=text='${displayText}':fontfile=${fontFile}:fontcolor=white:fontsize=${fontSize}:x=${textX}:y=${textY}:box=1:boxcolor=0x9146FF@0.95:boxborderw=${boxPad}:borderw=1:bordercolor=white@0.35:shadowcolor=0x000000@0.35:shadowx=2:shadowy=2,drawbox=x=${badgeX}:y=${badgeY}:w=${logoSpace + boxPad}:h=${badgeH}:color=0x9146FF@0.95:t=fill[pctxt]`,
-        `[pctxt][twpc]overlay=${logoX}:${logoY}:format=auto`,
+        `movie=${twitchLogoFile},scale=-1:${logoH},format=yuva420p,colorlevels=rimin=0.3:gimin=0.3:bimin=0.3[twtm]`,
+        `${inputLabel}drawtext=text='${displayText}':fontfile=${fontFile}:fontcolor=white@0.85:fontsize=${fontSize}:x=${textX}:y=${textY}:box=1:boxcolor=0x000000@0.70:boxborderw=${boxPad}:borderw=1:bordercolor=0x9146FF@0.40,drawbox=x=${badgeX}:y=${badgeY}:w=${logoSpace + boxPad}:h=${badgeH}:color=0x000000@0.70:t=fill[tmtxt]`,
+        `[tmtxt][twtm]overlay=${logoX}:${logoY}:format=auto`,
       ].join(';');
       return { chain, complex: true };
     }
 
-    case 'minimal-pro': {
-      // Noir très léger 55%, pas de bordure, logo Twitch discret, clean
+    case 'kick-minimal': {
+      // Clean black bg, subtle green border, no glow
       const chain = [
-        `movie=${twitchLogoFile},scale=-1:${logoH},format=yuva420p,colorlevels=rimin=0.4:gimin=0.4:bimin=0.4[twmp]`,
-        `${inputLabel}drawtext=text='${displayText}':fontfile=${fontFile}:fontcolor=white@0.85:fontsize=${fontSize}:x=${textX}:y=${textY}:box=1:boxcolor=0x000000@0.55:boxborderw=${boxPad},drawbox=x=${badgeX}:y=${badgeY}:w=${logoSpace + boxPad}:h=${badgeH}:color=0x000000@0.55:t=fill[mptxt]`,
-        `[mptxt][twmp]overlay=${logoX}:${logoY}:format=auto`,
+        `movie=${twitchLogoFile},scale=-1:${logoH},format=yuva420p,colorlevels=rimin=0.3:gimin=0.3:bimin=0.3[twkm]`,
+        `${inputLabel}drawtext=text='${displayText}':fontfile=${fontFile}:fontcolor=white@0.85:fontsize=${fontSize}:x=${textX}:y=${textY}:box=1:boxcolor=0x000000@0.70:boxborderw=${boxPad}:borderw=1:bordercolor=0x53FC18@0.40,drawbox=x=${badgeX}:y=${badgeY}:w=${logoSpace + boxPad}:h=${badgeH}:color=0x000000@0.70:t=fill[kmtxt]`,
+        `[kmtxt][twkm]overlay=${logoX}:${logoY}:format=auto`,
       ].join(';');
       return { chain, complex: true };
     }

@@ -321,7 +321,7 @@ export const POST = withAuth(async (request, user) => {
     clipDuration,
     wordTimestamps,
     settings: {
-      captions: settings?.captions ?? { enabled: true, style: 'hormozi', wordsPerLine: 4 },
+      captions: settings?.captions ?? { enabled: true, style: 'word-pop', wordsPerLine: 4 },
       splitScreen: settings?.splitScreen ?? { enabled: false },
       hook: settings?.hook ?? { enabled: false },
       tag: settings?.tag ?? { style: 'none' },

@@ -1,10 +1,11 @@
 "use client"
 
-import { useEffect, useCallback, useState, useMemo } from 'react'
+import { useEffect, useCallback, useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   TrendingUp, RefreshCw, AlertCircle, Loader2, Sparkles,
   Download, Flame, Zap, Clock, X, Diamond, Trophy, Bookmark, Lock, Film,
+  UploadCloud,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -20,6 +21,12 @@ export default function DashboardPage() {
   const router = useRouter()
   const [twitchRefreshing, setTwitchRefreshing] = useState(false)
   const [twitchMessage, setTwitchMessage] = useState<string | null>(null)
+
+  // Upload state
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [uploadFile, setUploadFile] = useState<File | null>(null)
+  const [uploading, setUploading] = useState(false)
+  const [uploadError, setUploadError] = useState<string | null>(null)
 
   const {
     filteredClips,
@@ -72,6 +79,34 @@ export default function DashboardPage() {
     router.push(`/dashboard/enhance/${clip.id}`)
   }, [router])
 
+  const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setUploadFile(file)
+    setUploadError(null)
+    setUploading(true)
+
+    const formData = new FormData()
+    formData.append('file', file)
+    formData.append('title', file.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' '))
+
+    fetch('/api/upload', { method: 'POST', body: formData })
+      .then(async (res) => {
+        const data = await res.json()
+        if (!res.ok || data.error) {
+          setUploadError(data.message || 'Upload failed')
+        } else {
+          router.push(`/dashboard/enhance/${data.data.id}?source=upload`)
+        }
+      })
+      .catch(() => setUploadError('Network error'))
+      .finally(() => {
+        setUploading(false)
+        setUploadFile(null)
+        if (fileInputRef.current) fileInputRef.current.value = ''
+      })
+  }, [router])
+
   const feedTabs: { key: FeedFilter; label: string; icon: typeof Flame; count?: number }[] = [
     { key: 'all', label: 'All Clips', icon: Film },
     { key: 'hot_now', label: 'On Fire', icon: Flame, count: stats.hotNowCount },
@@ -100,6 +135,27 @@ export default function DashboardPage() {
           </p>
         </div>
         <div className="flex items-center gap-2 shrink-0 mt-1">
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="video/mp4,video/quicktime,video/x-matroska,video/avi,video/webm,.mp4,.mov,.mkv,.avi,.webm"
+            className="hidden"
+            onChange={handleFileSelect}
+          />
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-2 h-8 border-dashed border-primary/30 text-primary hover:bg-primary/5"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={uploading}
+          >
+            {uploading ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <UploadCloud className="h-3.5 w-3.5" />
+            )}
+            <span className="hidden sm:inline">{uploading ? 'Uploading...' : 'Upload clip'}</span>
+          </Button>
           <Button
             variant="outline"
             size="sm"
@@ -112,6 +168,21 @@ export default function DashboardPage() {
           </Button>
         </div>
       </div>
+
+      {/* Upload error */}
+      {uploadError && (
+        <Card className="border-destructive/50 bg-destructive/5">
+          <CardContent className="p-3 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <AlertCircle className="h-4 w-4 text-destructive shrink-0" />
+              <p className="text-sm text-destructive">{uploadError}</p>
+            </div>
+            <button onClick={() => setUploadError(null)} className="text-destructive/60 hover:text-destructive">
+              <X className="h-4 w-4" />
+            </button>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Twitch refresh toast */}
       {twitchMessage && (

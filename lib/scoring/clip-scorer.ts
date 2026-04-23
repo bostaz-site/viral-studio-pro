@@ -257,11 +257,11 @@ export function scoreClip(input: ClipScoreInput): ClipScoreOutput {
     formatScore * 0.10 -
     saturationScore * 0.10
 
-  // Display curve: stretch the effective 30-65 raw range into 40-85 display.
+  // Display curve: stretch the effective 30-65 raw range into 40-95 display.
   // Formula: -5 + raw * 1.5 -- monotonic so ranking is preserved.
-  // raw 30 = 40 | raw 40 = 55 | raw 50 = 70 | raw 60 = 85 | cap 89.9
+  // raw 30 = 40 | raw 40 = 55 | raw 50 = 70 | raw 60 = 85 | raw 67 = 95 | cap 95
   const displayScore = -5 + clamp(rawScore) * 1.5
-  const finalScore = round1(Math.min(89.9, Math.max(0, displayScore)))
+  const finalScore = round1(Math.min(95.0, Math.max(0, displayScore)))
 
   return {
     final_score: finalScore,

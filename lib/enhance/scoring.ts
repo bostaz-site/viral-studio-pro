@@ -135,69 +135,40 @@ export interface ComputedScores {
 
 export const CAPTION_STYLES: CaptionStyle[] = [
   {
-    id: 'hormozi',
-    label: 'Hormozi',
+    id: 'word-pop',
+    label: 'Word Pop',
+    preview: 'text-white font-black uppercase',
+    highlightClass: 'text-white bg-white/20',
+    baseScore: 14,
+    animation: 'word-pop',
+    animLabel: 'Word Pop',
+  },
+  {
+    id: 'highlight',
+    label: 'Highlight',
     preview: 'text-white font-black uppercase',
     highlightClass: 'text-white bg-white/20',
     baseScore: 12,
-    animation: 'word-pop',
-    animLabel: 'Word Pop',
-  },
-  {
-    id: 'hormozi-purple',
-    label: 'Hormozi Purple',
-    // Arbitrary hex matches the render exactly (#C77DFF — same as
-    // viral-glow tag/hook). Using text-purple-400 would shift the tone.
-    preview: 'text-[#C77DFF] font-black uppercase',
-    highlightClass: 'text-[#C77DFF] bg-[#C77DFF]/20',
-    baseScore: 13,
-    animation: 'word-pop',
-    animLabel: 'Word Pop',
-  },
-  {
-    id: 'mrbeast',
-    label: 'MrBeast',
-    preview: 'text-white font-black',
-    highlightClass: 'text-red-500 bg-red-500/20',
-    baseScore: 14,
     animation: 'highlight',
     animLabel: 'Highlight',
   },
   {
-    id: 'aliabdaal',
-    label: 'Ali Abdaal',
-    preview: 'text-blue-300 font-semibold',
-    highlightClass: 'text-blue-300 bg-blue-300/20',
-    baseScore: 8,
-    animation: 'typewriter',
-    animLabel: 'Typewriter',
+    id: 'bounce',
+    label: 'Bounce',
+    preview: 'text-white font-black uppercase',
+    highlightClass: 'text-white bg-white/20',
+    baseScore: 11,
+    animation: 'bounce',
+    animLabel: 'Bounce',
   },
   {
-    id: 'neon',
-    label: 'Neon',
-    preview: 'text-green-400 font-bold',
-    highlightClass: 'text-green-400 bg-green-400/20',
+    id: 'glow',
+    label: 'Glow',
+    preview: 'text-white font-black uppercase',
+    highlightClass: 'text-white bg-white/20',
     baseScore: 10,
     animation: 'glow',
     animLabel: 'Glow',
-  },
-  {
-    id: 'bold',
-    label: 'Bold',
-    preview: 'text-white font-black text-lg',
-    highlightClass: 'text-white bg-white/20',
-    baseScore: 11,
-    animation: 'pop',
-    animLabel: 'Pop',
-  },
-  {
-    id: 'minimal',
-    label: 'Minimal',
-    preview: 'text-white/80 font-medium',
-    highlightClass: 'text-white/80 bg-white/10',
-    baseScore: 6,
-    animation: 'highlight',
-    animLabel: 'Highlight',
   },
   {
     id: 'none',
@@ -255,18 +226,18 @@ export const TAG_STYLES: TagStyle[] = [
     position: 'bottom-left',
   },
   {
-    id: 'pop-creator',
-    label: 'Pop Creator',
-    description: 'Purple background, white outline, pop effect',
-    icon: '⚡',
-    baseScore: 12,
+    id: 'twitch-minimal',
+    label: 'Twitch Minimal',
+    description: 'Clean black tag with subtle purple border',
+    icon: '🟣',
+    baseScore: 10,
     position: 'bottom-left',
   },
   {
-    id: 'minimal-pro',
-    label: 'Minimal Pro',
-    description: 'Clean black, subtle Twitch logo',
-    icon: '🧠',
+    id: 'kick-minimal',
+    label: 'Kick Minimal',
+    description: 'Clean black tag with subtle green border',
+    icon: '🟢',
     baseScore: 10,
     position: 'bottom-left',
   },
@@ -310,14 +281,12 @@ export function computeScores(clip: TrendingClipData): ComputedScores {
   const isHighEnergy = velocity >= 70 || views >= 1_000_000
   const isMidEnergy = velocity >= 40 || views >= 100_000
 
-  // Score caption styles based on clip characteristics
+  // Score caption animations based on clip characteristics
   const captionScores: ScoredOption[] = CAPTION_STYLES.map((s) => {
     let score = s.baseScore
-    if (isHighEnergy && (s.id === 'mrbeast' || s.id === 'bold')) score += 6
-    if (!isHighEnergy && (s.id === 'hormozi' || s.id === 'aliabdaal')) score += 4
-    if (niche === 'irl' && s.id === 'hormozi') score += 5
-    if (niche === 'gaming' && s.id === 'mrbeast') score += 5
-    if (isMidEnergy && s.id === 'neon') score += 3
+    if (isHighEnergy && s.id === 'word-pop') score += 6
+    if (!isHighEnergy && s.id === 'highlight') score += 4
+    if (isMidEnergy && (s.id === 'bounce' || s.id === 'glow')) score += 3
     return { id: s.id, score, isBest: false }
   })
   const maxCaption = Math.max(...captionScores.map((s) => s.score))
@@ -357,7 +326,7 @@ export function computeScores(clip: TrendingClipData): ComputedScores {
   const tagScores: ScoredOption[] = TAG_STYLES.map((t) => {
     let score = t.baseScore
     if (t.id === 'viral-glow' && clip.author_handle) score += 5
-    if (t.id === 'pop-creator') score += 2
+    if (t.id === 'twitch-minimal' || t.id === 'kick-minimal') score += 2
     return { id: t.id, score, isBest: false }
   })
   const maxTag = Math.max(...tagScores.map((s) => s.score))
@@ -386,7 +355,7 @@ export function computeScores(clip: TrendingClipData): ComputedScores {
   }))
 
   // Best combo — safe fallbacks instead of non-null assertions
-  const bestCaption = captionScores.find((s) => s.isBest)?.id ?? captionScores[0]?.id ?? 'hormozi'
+  const bestCaption = captionScores.find((s) => s.isBest)?.id ?? captionScores[0]?.id ?? 'word-pop'
   const bestEmphasis = emphasisScores.find((s) => s.isBest)?.id ?? emphasisScores[0]?.id ?? 'highlight'
   const bestBroll = brollScores.find((s) => s.isBest)?.id ?? brollScores[0]?.id ?? 'subway-surfers'
   const bestTag = tagScores.find((s) => s.isBest)?.id ?? tagScores[0]?.id ?? 'viral-glow'
@@ -403,24 +372,26 @@ export function computeScores(clip: TrendingClipData): ComputedScores {
 
 /**
  * Baseline viral score for the Enhance page.
- * velocity_score already includes the display curve (40–89.9 range),
- * so we use it directly. Slight floor at 35 for uploaded clips with no data.
+ * velocity_score already includes the display curve (40–95 range),
+ * so we use it directly. Floor at 30 for uploaded clips with no data.
  */
 export function computeBaselineScore(clip: TrendingClipData): number {
   const velocity = clip.velocity_score ?? 0
-  return Math.max(35, velocity)
+  return Math.max(30, velocity)
 }
 
 /**
  * Compute the current viral score based on user's enhancement settings.
- * Baseline (Browse score) + fixed increments per activated option.
+ * Uses diminishing returns: each option adds a percentage of the remaining
+ * headroom (99 - baseline). High-baseline clips get smaller absolute boosts
+ * but start from a strong position. Low-baseline clips get bigger boosts.
  *
- * Mood-match bonus (up to ~5 pts):
- * When the AI detects a mood and the user's settings match that mood's
- * recommended preset values, each matching option adds bonus points.
- * This rewards users for following AI recommendations without inflating scores.
+ * Example with captions (weight 0.14):
+ *   baseline 50 → headroom 49 → +6.9 pts → score 56.9
+ *   baseline 85 → headroom 14 → +2.0 pts → score 87.0
+ *   baseline 93 → headroom  6 → +0.8 pts → score 93.8
  *
- * Hard cap at 98.0 — never reaches 100.
+ * Hard cap at 99.0 — never reaches 100.
  */
 export function computeCurrentScore(
   settings: EnhanceSettings,
@@ -428,43 +399,39 @@ export function computeCurrentScore(
   baseline = 0,
   detectedMood?: ClipMood | null
 ): number {
-  let total = baseline
+  const CAP = 99.0
+  const headroom = Math.max(0, CAP - baseline)
+  let totalWeight = 0
 
-  // Fixed increments per option
-  if (settings.captionsEnabled && settings.captionStyle !== 'none') total += 2.5
-  if (settings.emphasisEffect !== 'none') total += 1.5
-  if (settings.splitScreenEnabled) total += 2.0
-  if (settings.tagStyle !== 'none') total += 1.5
-  if (settings.hookEnabled) total += 2.0
-  if (settings.hookReorderEnabled) total += 1.0
-  if (settings.smartZoomEnabled) total += 1.0
-  if (settings.audioEnhanceEnabled) total += 0.8
-  if (settings.autoCutEnabled) total += 0.7
+  // Base option weights (sum ~0.69 with everything on)
+  if (settings.captionsEnabled && settings.captionStyle !== 'none') totalWeight += 0.14
+  if (settings.emphasisEffect !== 'none') totalWeight += 0.08
+  if (settings.splitScreenEnabled) totalWeight += 0.12
+  if (settings.tagStyle !== 'none') totalWeight += 0.08
+  if (settings.hookEnabled) totalWeight += 0.11
+  if (settings.hookReorderEnabled) totalWeight += 0.05
+  if (settings.smartZoomEnabled) totalWeight += 0.05
+  if (settings.audioEnhanceEnabled) totalWeight += 0.03
+  if (settings.autoCutEnabled) totalWeight += 0.03
 
-  // Mood-match bonus: compare user settings against detected mood's preset
+  // Mood-match bonus weights (up to ~0.16 extra)
   if (detectedMood && MOOD_PRESETS[detectedMood]) {
     const preset = MOOD_PRESETS[detectedMood]
-    // Caption style matches mood recommendation → +1.5
-    if (settings.captionsEnabled && settings.captionStyle === preset.captionStyle) total += 1.5
-    // Emphasis effect matches → +1.0
-    if (settings.emphasisEffect === preset.emphasisEffect) total += 1.0
-    // Emphasis color matches → +0.5
-    if (settings.emphasisColor === preset.emphasisColor) total += 0.5
-    // Video zoom matches → +0.5
-    if (settings.videoZoom === preset.videoZoom) total += 0.5
-    // Smart zoom mode matches → +0.5
-    if (settings.smartZoomEnabled && settings.smartZoomMode === preset.smartZoomMode) total += 0.5
-    // Auto-cut state matches → +0.5
-    if (settings.autoCutEnabled === preset.autoCutEnabled) total += 0.5
+    if (settings.captionsEnabled && settings.captionStyle === preset.captionStyle) totalWeight += 0.06
+    if (settings.emphasisEffect === preset.emphasisEffect) totalWeight += 0.04
+    if (settings.videoZoom === preset.videoZoom) totalWeight += 0.02
+    if (settings.smartZoomEnabled && settings.smartZoomMode === preset.smartZoomMode) totalWeight += 0.02
+    if (settings.autoCutEnabled === preset.autoCutEnabled) totalWeight += 0.02
   } else {
-    // Fallback: generic best-option bonus when no mood detected (+0.5 per category)
-    if (settings.captionStyle === scores.best.captionStyle) total += 0.5
-    if (settings.emphasisEffect === scores.best.emphasisEffect) total += 0.5
-    if (settings.splitScreenEnabled && settings.brollVideo === scores.best.brollVideo) total += 0.5
-    if (settings.tagStyle === scores.best.tagStyle) total += 0.5
+    // Fallback generic best-option bonus when no mood detected
+    if (settings.captionStyle === scores.best.captionStyle) totalWeight += 0.02
+    if (settings.emphasisEffect === scores.best.emphasisEffect) totalWeight += 0.02
+    if (settings.splitScreenEnabled && settings.brollVideo === scores.best.brollVideo) totalWeight += 0.02
+    if (settings.tagStyle === scores.best.tagStyle) totalWeight += 0.02
   }
 
-  return Math.min(98.0, total)
+  const boost = headroom * totalWeight
+  return Math.min(CAP, Math.round((baseline + boost) * 10) / 10)
 }
 
 // ─── Score Label ────────────────────────────────────────────────────────────
@@ -473,9 +440,9 @@ export function computeCurrentScore(
  * Get a human-readable label and color for a viral score.
  */
 export function getScoreLabel(score: number): { text: string; color: string } {
-  if (score >= 90) return { text: 'Legendary potential', color: 'text-orange-400' }
-  if (score >= 78) return { text: 'Viral ready', color: 'text-green-400' }
-  if (score >= 65) return { text: 'High potential', color: 'text-blue-400' }
-  if (score >= 50) return { text: 'Good base', color: 'text-yellow-400' }
+  if (score >= 95) return { text: 'Legendary potential', color: 'text-orange-400' }
+  if (score >= 85) return { text: 'Viral ready', color: 'text-green-400' }
+  if (score >= 70) return { text: 'High potential', color: 'text-blue-400' }
+  if (score >= 55) return { text: 'Good base', color: 'text-yellow-400' }
   return { text: 'Rising', color: 'text-muted-foreground' }
 }

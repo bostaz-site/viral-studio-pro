@@ -26,6 +26,7 @@ export const POST = withAuth(async (req) => {
       confidence: result.confidence,
       explanation: result.explanation,
       secondary_mood: result.secondary_mood ?? null,
+      important_words: result.important_words ?? [],
       preset,
     })
   } catch {

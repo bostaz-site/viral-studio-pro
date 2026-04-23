@@ -10,7 +10,7 @@
 // Twitch logo path (24x24 viewBox)
 const TWITCH_PATH = 'M11.571 4.714h1.715v5.143H11.57zm4.715 0H18v5.143h-1.714zM6 0L1.714 4.286v15.428h5.143V24l4.286-4.286h3.428L22.286 12V0zm14.571 11.143l-3.428 3.428h-3.429l-3 3v-3H6.857V1.714h13.714Z';
 
-type TagStyle = 'viral-glow' | 'kick-glow' | 'pop-creator' | 'minimal-pro';
+type TagStyle = 'viral-glow' | 'kick-glow' | 'twitch-minimal' | 'kick-minimal';
 
 export async function captureTagOverlayPNG({
   streamerName,
@@ -29,7 +29,7 @@ export async function captureTagOverlayPNG({
   splitScreenEnabled?: boolean;
   splitRatio?: number;
 }): Promise<{ png: string; w: number; h: number; anchorX: number; anchorY: number } | null> {
-  if (!streamerName || style === 'minimal-pro') return null; // minimal-pro has backdrop-filter which canvas can't do
+  if (!streamerName) return null;
 
   try {
     const scale = videoWidth / 280; // preview width is ~280px
@@ -39,7 +39,7 @@ export async function captureTagOverlayPNG({
     const fontSize = Math.round(11 * scale * sizeScale);
     const iconSize = Math.round((style === 'viral-glow' ? 14 : 12) * scale * sizeScale);
     const gap = Math.round(6 * scale * sizeScale);
-    const paddingX = Math.round((style === 'pop-creator' ? 12 : 10) * scale * sizeScale);
+    const paddingX = Math.round(10 * scale * sizeScale);
     const paddingY = Math.round(6 * scale * sizeScale);
     const borderW = Math.round(1.5 * scale * sizeScale);
     const glowPad = Math.round(25 * scale * sizeScale); // space for glow bleed
@@ -183,47 +183,56 @@ export async function captureTagOverlayPNG({
       ctx.fillText(streamerName, boxX + paddingX + iconSize + gap, boxY + capsuleH / 2);
       ctx.restore();
 
-    } else if (style === 'pop-creator') {
-      // ── Glow: 0 2px 12px rgba(145,70,255,0.5), 0 1px 4px rgba(0,0,0,0.3) ──
+    } else if (style === 'twitch-minimal') {
+      // ── Background: rgba(0,0,0,0.7), no glow ──
       ctx.save();
-      ctx.shadowColor = 'rgba(145, 70, 255, 0.5)';
-      ctx.shadowBlur = Math.round(12 * scale * sizeScale);
-      ctx.shadowOffsetY = Math.round(2 * scale * sizeScale);
-      ctx.fillStyle = 'rgba(0,0,0,0.01)';
+      ctx.fillStyle = 'rgba(0,0,0,0.7)';
       roundRect(ctx, boxX, boxY, capsuleW, capsuleH, fullRound);
       ctx.fill();
       ctx.restore();
 
+      // ── Border: 1px solid rgba(145,70,255,0.4) ──
       ctx.save();
-      ctx.shadowColor = 'rgba(0, 0, 0, 0.3)';
-      ctx.shadowBlur = Math.round(4 * scale * sizeScale);
-      ctx.shadowOffsetY = Math.round(1 * scale * sizeScale);
-      ctx.fillStyle = 'rgba(0,0,0,0.01)';
-      roundRect(ctx, boxX, boxY, capsuleW, capsuleH, fullRound);
-      ctx.fill();
-      ctx.restore();
-
-      // ── Background: #9146FF ──
-      ctx.save();
-      ctx.fillStyle = '#9146FF';
-      roundRect(ctx, boxX, boxY, capsuleW, capsuleH, fullRound);
-      ctx.fill();
-      ctx.restore();
-
-      // ── Border: 1.5px solid rgba(255,255,255,0.3) ──
-      ctx.save();
-      ctx.strokeStyle = 'rgba(255,255,255,0.3)';
-      ctx.lineWidth = borderW;
+      ctx.strokeStyle = 'rgba(145, 70, 255, 0.4)';
+      ctx.lineWidth = Math.round(1 * scale * sizeScale);
       roundRect(ctx, boxX, boxY, capsuleW, capsuleH, fullRound);
       ctx.stroke();
       ctx.restore();
 
-      // ── Twitch icon (white) ──
-      drawTwitchIcon(ctx, boxX + paddingX, boxY + (capsuleH - iconSize) / 2, iconSize, 'white');
+      // ── Twitch icon (purple, subtle) ──
+      drawTwitchIcon(ctx, boxX + paddingX, boxY + (capsuleH - iconSize) / 2, iconSize, 'rgba(145, 70, 255, 0.7)');
 
       // ── Text ──
       ctx.save();
-      ctx.fillStyle = 'white';
+      ctx.fillStyle = 'rgba(255,255,255,0.85)';
+      ctx.font = fontStr;
+      ctx.textBaseline = 'middle';
+      ctx.textAlign = 'left';
+      ctx.fillText(streamerName, boxX + paddingX + iconSize + gap, boxY + capsuleH / 2);
+      ctx.restore();
+
+    } else if (style === 'kick-minimal') {
+      // ── Background: rgba(0,0,0,0.7), no glow ──
+      ctx.save();
+      ctx.fillStyle = 'rgba(0,0,0,0.7)';
+      roundRect(ctx, boxX, boxY, capsuleW, capsuleH, fullRound);
+      ctx.fill();
+      ctx.restore();
+
+      // ── Border: 1px solid rgba(83,252,24,0.4) ──
+      ctx.save();
+      ctx.strokeStyle = 'rgba(83, 252, 24, 0.4)';
+      ctx.lineWidth = Math.round(1 * scale * sizeScale);
+      roundRect(ctx, boxX, boxY, capsuleW, capsuleH, fullRound);
+      ctx.stroke();
+      ctx.restore();
+
+      // ── Kick icon (green, subtle) ──
+      drawKickIcon(ctx, boxX + paddingX, boxY + (capsuleH - iconSize) / 2, iconSize, 'rgba(83, 252, 24, 0.7)');
+
+      // ── Text ──
+      ctx.save();
+      ctx.fillStyle = 'rgba(255,255,255,0.85)';
       ctx.font = fontStr;
       ctx.textBaseline = 'middle';
       ctx.textAlign = 'left';
