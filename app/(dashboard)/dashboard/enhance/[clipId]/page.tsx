@@ -873,8 +873,13 @@ export default function EnhancePage() {
         </div>
       </div>
 
-      {/* Two-column layout: Sticky Preview | Scrollable Settings */}
-      <div className="grid lg:grid-cols-[300px_1fr] gap-6">
+      {/* Two-column layout: Sticky Preview | Scrollable Settings — single column after render */}
+      <div className={cn(
+        'grid gap-6',
+        isRenderedVideo && renderDownloadUrl
+          ? 'max-w-md mx-auto'
+          : 'lg:grid-cols-[300px_1fr]'
+      )}>
         {/* Left: Preview only — truly sticky with its own overflow so it
             never clips behind the viewport even when the preview block
             (toggle + 9:16 video + generate button + status) is taller
@@ -882,7 +887,8 @@ export default function EnhancePage() {
         <div
           className="lg:sticky lg:top-4 lg:self-start space-y-3 lg:max-h-[calc(100vh-2rem)] lg:overflow-y-auto lg:pr-1 lg:[scrollbar-width:thin]"
         >
-          {/* ── Before/After Preview Toggle ── */}
+          {/* ── Before/After Preview Toggle (hidden after render) ── */}
+          {!(isRenderedVideo && renderDownloadUrl) && (
           <div className="flex gap-2">
             <Button
               variant={!showEnhancements ? 'default' : 'outline'}
@@ -901,11 +907,13 @@ export default function EnhancePage() {
               Enhanced
             </Button>
           </div>
+          )}
 
           {/* ── Preview ── */}
           <LivePreview clip={clip} videoUrl={showEnhancements && isRenderedVideo && originalVideoUrl ? originalVideoUrl : videoUrl} settings={settings} showEnhancements={showEnhancements} isRenderedVideo={isRenderedVideo} renderedThumbnailUrl={renderedThumbnailUrl} />
 
-          {/* Generate button — orange, always visible with preview */}
+          {/* Generate button — hidden after render is done */}
+          {!(isRenderedVideo && renderDownloadUrl) && (
           <Button
             className="w-full h-12 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white font-bold text-base gap-2 shadow-lg shadow-orange-500/25 rounded-xl"
             onClick={handleRender}
@@ -917,6 +925,7 @@ export default function EnhancePage() {
               <><Zap className="h-5 w-5" /> Generate clip</>
             )}
           </Button>
+          )}
 
           {/* Render status messages */}
           {renderMessage && (() => {
@@ -984,6 +993,18 @@ export default function EnhancePage() {
                       <Send className="h-5 w-5" />
                       Publish to socials
                     </button>
+                    <button
+                      onClick={() => {
+                        setIsRenderedVideo(false)
+                        setRenderDownloadUrl(null)
+                        setRenderMessage(null)
+                        if (originalVideoUrl) setVideoUrl(originalVideoUrl)
+                      }}
+                      className="inline-flex items-center justify-center gap-2 w-full h-10 rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 text-sm font-medium text-zinc-400 hover:text-white transition-all"
+                    >
+                      <Wand2 className="h-4 w-4" />
+                      Edit again
+                    </button>
                   </div>
                 )}
                 {renderOriginalUrl && !renderDownloadUrl && (
@@ -1002,8 +1023,8 @@ export default function EnhancePage() {
           })()}
         </div>
 
-        {/* Right: Actions + Settings — scrollable */}
-        <div className="space-y-6">
+        {/* Right: Actions + Settings — scrollable (hidden once render is done) */}
+        <div className={cn('space-y-6', isRenderedVideo && renderDownloadUrl && 'hidden')}
           {/* ── Make it viral button ── */}
           {(() => {
             const viralBusy = makeViralLoading || pendingAutoRenderRef.current || rendering
