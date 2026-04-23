@@ -17,7 +17,7 @@ const inputSchema = z.object({
   title: z.string().optional().default(''),
   streamerName: z.string().optional().default(''),
   niche: z.string().optional().default('irl'),
-  hookLength: z.number().min(1).max(3).optional().default(1.5),
+  hookLength: z.number().min(0).max(300).optional().default(0),
   maxContext: z.number().optional().default(8),
 })
 
