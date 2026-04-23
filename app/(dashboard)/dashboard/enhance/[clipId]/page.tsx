@@ -1024,7 +1024,7 @@ export default function EnhancePage() {
         </div>
 
         {/* Right: Actions + Settings — scrollable (hidden once render is done) */}
-        <div className={cn('space-y-6', isRenderedVideo && renderDownloadUrl && 'hidden')}
+        <div className={cn('space-y-6', isRenderedVideo && renderDownloadUrl && 'hidden')}>
           {/* ── Make it viral button ── */}
           {(() => {
             const viralBusy = makeViralLoading || pendingAutoRenderRef.current || rendering
