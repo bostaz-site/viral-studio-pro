@@ -4,6 +4,7 @@
 // ═════════════════════════════════════════════════════════════════════════════
 
 import type { TrendingClip } from '@/types/trending'
+import { MOOD_PRESETS, type ClipMood } from '@/lib/ai/mood-presets'
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -401,26 +402,31 @@ export function computeScores(clip: TrendingClipData): ComputedScores {
 }
 
 /**
- * Baseline viral score (Browse score) — unified display formula.
- * Transforms velocity_score into a visually satisfying 40–90 range:
- *   dead (vel 5) → 42.5 | average (vel 30) → 55.0 | good (vel 60) → 70.0
- *   viral (vel 85) → 82.5 | cap at 90.0 (never higher in Browse)
+ * Baseline viral score for the Enhance page.
+ * velocity_score already includes the display curve (40–89.9 range),
+ * so we use it directly. Slight floor at 35 for uploaded clips with no data.
  */
 export function computeBaselineScore(clip: TrendingClipData): number {
   const velocity = clip.velocity_score ?? 0
-  return Math.min(90, 40 + (velocity * 0.5))
+  return Math.max(35, velocity)
 }
 
 /**
  * Compute the current viral score based on user's enhancement settings.
  * Baseline (Browse score) + fixed increments per activated option.
- * Mood-matched bonus: +0.5 per category when user picks the best option.
+ *
+ * Mood-match bonus (up to ~5 pts):
+ * When the AI detects a mood and the user's settings match that mood's
+ * recommended preset values, each matching option adds bonus points.
+ * This rewards users for following AI recommendations without inflating scores.
+ *
  * Hard cap at 98.0 — never reaches 100.
  */
 export function computeCurrentScore(
   settings: EnhanceSettings,
   scores: ComputedScores,
-  baseline = 0
+  baseline = 0,
+  detectedMood?: ClipMood | null
 ): number {
   let total = baseline
 
@@ -435,11 +441,28 @@ export function computeCurrentScore(
   if (settings.audioEnhanceEnabled) total += 0.8
   if (settings.autoCutEnabled) total += 0.7
 
-  // Mood-matched bonus: +0.5 per category when option = best from computeScores()
-  if (settings.captionStyle === scores.best.captionStyle) total += 0.5
-  if (settings.emphasisEffect === scores.best.emphasisEffect) total += 0.5
-  if (settings.splitScreenEnabled && settings.brollVideo === scores.best.brollVideo) total += 0.5
-  if (settings.tagStyle === scores.best.tagStyle) total += 0.5
+  // Mood-match bonus: compare user settings against detected mood's preset
+  if (detectedMood && MOOD_PRESETS[detectedMood]) {
+    const preset = MOOD_PRESETS[detectedMood]
+    // Caption style matches mood recommendation → +1.5
+    if (settings.captionsEnabled && settings.captionStyle === preset.captionStyle) total += 1.5
+    // Emphasis effect matches → +1.0
+    if (settings.emphasisEffect === preset.emphasisEffect) total += 1.0
+    // Emphasis color matches → +0.5
+    if (settings.emphasisColor === preset.emphasisColor) total += 0.5
+    // Video zoom matches → +0.5
+    if (settings.videoZoom === preset.videoZoom) total += 0.5
+    // Smart zoom mode matches → +0.5
+    if (settings.smartZoomEnabled && settings.smartZoomMode === preset.smartZoomMode) total += 0.5
+    // Auto-cut state matches → +0.5
+    if (settings.autoCutEnabled === preset.autoCutEnabled) total += 0.5
+  } else {
+    // Fallback: generic best-option bonus when no mood detected (+0.5 per category)
+    if (settings.captionStyle === scores.best.captionStyle) total += 0.5
+    if (settings.emphasisEffect === scores.best.emphasisEffect) total += 0.5
+    if (settings.splitScreenEnabled && settings.brollVideo === scores.best.brollVideo) total += 0.5
+    if (settings.tagStyle === scores.best.tagStyle) total += 0.5
+  }
 
   return Math.min(98.0, total)
 }

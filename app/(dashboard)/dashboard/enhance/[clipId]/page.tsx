@@ -249,10 +249,7 @@ export default function EnhancePage() {
     return computeBaselineScore(clip)
   }, [clip])
 
-  const currentScore = useMemo(() => {
-    if (!scores) return baselineScore
-    return computeCurrentScore(settings, scores, baselineScore)
-  }, [settings, scores, baselineScore])
+  // currentScore is computed after mood state declarations (below)
 
   // ── Polling for render job status ──
   const startPolling = useCallback((jobId: string) => {
@@ -538,6 +535,13 @@ export default function EnhancePage() {
   const [selectedMood, setSelectedMood] = useState<ClipMood | null>(null)
   const [moodAiDetected, setMoodAiDetected] = useState(false)
 
+  // Viral score — mood-match bonus uses detected/selected mood
+  const currentScore = useMemo(() => {
+    if (!scores) return baselineScore
+    const activeMood = selectedMood ?? detectedMood
+    return computeCurrentScore(settings, scores, baselineScore, activeMood)
+  }, [settings, scores, baselineScore, selectedMood, detectedMood])
+
   const applyMoodPreset = useCallback((preset: MoodPreset) => {
     appliedCaptionStyleRef.current = preset.captionStyle
     setSettings((s) => ({
@@ -579,10 +583,13 @@ export default function EnhancePage() {
     if (!clip) return
     setMakeViralLoading(true)
 
+    try {
     // 1. Detect mood via AI
     const platform = clip.platform ?? 'twitch'
     let preset: MoodPreset = getMoodPresetForClip('hype', platform) // fallback
     try {
+      const moodController = new AbortController()
+      const moodTimeout = setTimeout(() => moodController.abort(), 15000)
       const moodRes = await fetch('/api/enhance/ai-optimize', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -592,7 +599,9 @@ export default function EnhancePage() {
           streamer: clip.author_name || clip.author_handle || '',
           niche: clip.niche || 'irl',
         }),
+        signal: moodController.signal,
       })
+      clearTimeout(moodTimeout)
       const moodJson = await moodRes.json()
       if (moodRes.ok && !moodJson.error && moodJson.data) {
         const detected = moodJson.data.mood as ClipMood
@@ -620,6 +629,8 @@ export default function EnhancePage() {
     setHookGenerating(true)
     setHookError(null)
     try {
+      const hookController = new AbortController()
+      const hookTimeout = setTimeout(() => hookController.abort(), 15000)
       const res = await fetch('/api/render/hook', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -634,7 +645,9 @@ export default function EnhancePage() {
           hookLength: preset.hookLength,
           maxContext: 8,
         }),
+        signal: hookController.signal,
       })
+      clearTimeout(hookTimeout)
       const json = await res.json()
       if (res.ok && !json.error && json.data) {
         setHookAnalysis(json.data)
@@ -653,12 +666,15 @@ export default function EnhancePage() {
       }
     } catch {
       // Silent fail — hook text stays empty but everything else works
+    } finally {
+      setHookGenerating(false)
     }
-    setHookGenerating(false)
 
     // 4. Mark auto-render pending
     pendingAutoRenderRef.current = true
-    setMakeViralLoading(false)
+    } finally {
+      setMakeViralLoading(false)
+    }
   }, [clip, applyMoodPreset])
 
   // ── Preview render (real FFmpeg, 5s, 480p) ──
@@ -756,6 +772,8 @@ export default function EnhancePage() {
     setHookGenerating(true)
     setHookError(null)
     try {
+      const hookController = new AbortController()
+      const hookTimeout = setTimeout(() => hookController.abort(), 15000)
       const res = await fetch('/api/render/hook', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -770,11 +788,12 @@ export default function EnhancePage() {
           hookLength: settings.hookLength,
           maxContext: 8,
         }),
+        signal: hookController.signal,
       })
+      clearTimeout(hookTimeout)
       const json = await res.json()
       if (!res.ok || json.error) {
         setHookError(json.message || json.error || 'Error generating hooks')
-        setHookGenerating(false)
         return
       }
       setHookAnalysis(json.data)
@@ -788,8 +807,9 @@ export default function EnhancePage() {
       }))
     } catch {
       setHookError('Network error')
+    } finally {
+      setHookGenerating(false)
     }
-    setHookGenerating(false)
   }, [clip, settings.hookLength, settings.hookStyle])
 
   // ── Loading / Error ────────────────────────────────────────────────────

@@ -43,6 +43,8 @@ export const POST = withAuth(async (req: NextRequest) => {
       )
     }
 
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 15000)
     const vpsRes = await fetch(`${VPS_URL}/api/render/hook`, {
       method: 'POST',
       headers: {
@@ -50,7 +52,9 @@ export const POST = withAuth(async (req: NextRequest) => {
         ...(VPS_KEY ? { 'x-api-key': VPS_KEY } : {}),
       },
       body: JSON.stringify(parsed.data),
+      signal: controller.signal,
     })
+    clearTimeout(timeout)
 
     const vpsJson = await vpsRes.json()
 

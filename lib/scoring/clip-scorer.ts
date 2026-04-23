@@ -1,5 +1,5 @@
 /**
- * Unified clip scoring engine V2 — used by both Twitch and Kick pipelines.
+ * Unified clip scoring engine V2 -- used by both Twitch and Kick pipelines.
  * 7 factors: momentum, authority, engagement, recency, early signal, format, saturation.
  */
 
@@ -35,7 +35,7 @@ export interface ClipScoreOutput {
   feed_category: 'hot_now' | 'early_gem' | 'proven' | 'normal'
 }
 
-// ── Factor 1: Momentum Dynamique (25%) ──────────────────────────────────────
+// -- Factor 1: Momentum Dynamique (25%) --
 
 function computeMomentumScore(input: ClipScoreInput): number {
   const { velocity, clip_age_hours, view_count, streamer_avg_velocity } = input
@@ -55,33 +55,32 @@ function computeMomentumScore(input: ClipScoreInput): number {
     rawMomentum = view_count / effectiveAge
   }
 
-  // Spike detection: 2× streamer avg velocity → 1.5× boost
+  // Spike detection: 2x streamer avg velocity -> 1.5x boost
   if (streamer_avg_velocity > 0 && velocity > 2 * streamer_avg_velocity) {
     rawMomentum *= 1.5
   }
 
-  // Normalize: log-scale, 15*log10(momentum)+10, capped 0-100
-  const normalized = 15 * Math.log10(Math.max(1, rawMomentum)) + 10
+  // Normalize: log-scale, 20*log10(momentum)+30, capped 0-100
+  const normalized = 20 * Math.log10(Math.max(1, rawMomentum)) + 30
   return clamp(normalized)
 }
 
-// ── Factor 2: Platform Authority (20%) ──────────────────────────────────────
+// -- Factor 2: Platform Authority (20%) --
 
 function computeAuthorityScore(
   viewCount: number,
   streamerAvgViews: number
 ): number {
-  if (streamerAvgViews <= 0) return 50 // Neutral when no data
+  if (streamerAvgViews <= 0) return 60 // Neutral when no data
 
   const ratio = viewCount / streamerAvgViews
-  // Percentile-style × log volume to avoid low-view inflation
-  const percentileScore = clamp(ratio * 40) // ratio=1 → 40, ratio=2.5 → 100
-  const volumeWeight = Math.log10(viewCount + 10) // 10 views → 1.3, 1K → 3, 100K → 5
-  const raw = percentileScore * volumeWeight / 5 // normalize the log factor
+  const percentileScore = clamp(ratio * 40)
+  const volumeWeight = Math.log10(viewCount + 10)
+  const raw = percentileScore * volumeWeight / 5
   return clamp(raw)
 }
 
-// ── Factor 3: Engagement Proxy (15%) ────────────────────────────────────────
+// -- Factor 3: Engagement Proxy (15%) --
 
 function computeEngagementScore(
   viewCount: number,
@@ -91,7 +90,7 @@ function computeEngagementScore(
   let score: number
 
   if (likeCount === 0 && viewCount === 0) {
-    score = 40 // Neutral when no data
+    score = 65 // Neutral-optimistic when no data
   } else if (viewCount > 0 && likeCount > 0) {
     const ratio = likeCount / viewCount
     if (ratio > 0.05) score = 100
@@ -99,10 +98,10 @@ function computeEngagementScore(
     else if (ratio > 0.01) score = 50
     else score = ratio / 0.01 * 50
   } else if (viewCount > 0) {
-    // Views but no like data available
-    score = 40
+    // Views but no like data -- assume decent engagement (Twitch clips typically do)
+    score = 65
   } else {
-    score = 40
+    score = 65
   }
 
   // Title punctuation/caps boost (limited to +10% of current score)
@@ -112,7 +111,6 @@ function computeEngagementScore(
     const questionCount = (title.match(/\?/g) || []).length
     if (exclamationCount >= 3) titleBoost += 3
     if (questionCount >= 2) titleBoost += 2
-    // All caps detection (at least 5 chars to avoid short acronyms)
     const capsWords = title.split(/\s+/).filter(w => w.length >= 3 && w === w.toUpperCase())
     if (capsWords.length >= 2) titleBoost += 5
 
@@ -122,22 +120,22 @@ function computeEngagementScore(
   return clamp(score)
 }
 
-// ── Factor 4: Recency Decay (10%) ───────────────────────────────────────────
+// -- Factor 4: Recency Decay (10%) --
 
 function computeRecencyScore(ageHours: number): number {
-  // Smooth exponential decay: e^(-age/24) * 100
-  // <6h ≈ 78-100, 24h ≈ 37, 48h ≈ 14, never 0
-  return clamp(Math.exp(-ageHours / 24) * 100)
+  // Smooth exponential decay: e^(-age/72) * 100
+  // <6h = 92, 24h = 72, 48h = 51, never 0
+  return clamp(Math.exp(-ageHours / 72) * 100)
 }
 
-// ── Factor 5: Early Signal (10%) ────────────────────────────────────────────
+// -- Factor 5: Early Signal (10%) --
 
 function computeEarlySignalScore(input: ClipScoreInput): number {
   const { view_count, clip_age_hours, clip_age_minutes, streamer_avg_views } = input
   const duration = input.duration_seconds ?? 30
 
   // If streamer avg unknown, neutral fallback
-  if (streamer_avg_views === 0 && view_count < 10) return 40
+  if (streamer_avg_views === 0 && view_count < 10) return 60
 
   // Smooth decay instead of hard 2h cutoff: e^(-age/6)
   const decay = Math.exp(-clip_age_hours / 6)
@@ -147,33 +145,38 @@ function computeEarlySignalScore(input: ClipScoreInput): number {
   // Short clip bonus: < 20s favors TikTok loop
   if (duration < 20) raw *= 1.1
 
-  // Normalize to 0-100 (scale: ~5 raw ≈ 50, ~15 raw ≈ 100)
+  // Normalize to 0-100 (scale: ~5 raw = 50, ~15 raw = 100)
   const normalized = Math.min(100, raw * 7)
+
+  // Floor at 50 for clips older than 24h -- early signal is meaningless
+  // for old clips, so use a neutral value instead of penalizing them
+  if (clip_age_hours > 24 && normalized < 50) return 50
+
   return clamp(normalized)
 }
 
-// ── Factor 6: Format Score (10%) ────────────────────────────────────────────
+// -- Factor 6: Format Score (10%) --
 
 function computeFormatScore(durationSeconds?: number): number {
-  const d = durationSeconds ?? 30 // Default to 30s if unknown
-  if (d >= 15 && d <= 45) return 100 // Sweet spot TikTok/Reels
+  const d = durationSeconds ?? 30
+  if (d >= 15 && d <= 45) return 100
   if (d > 45 && d <= 60) return 80
   if (d >= 10 && d < 15) return 70
   if (d < 10) return 50
-  return 50 // > 60s
+  return 50
 }
 
-// ── Factor 7: Saturation Penalty (-10%) ─────────────────────────────────────
+// -- Factor 7: Saturation Penalty (-10%) --
 
 function computeSaturationScore(input: ClipScoreInput): number {
   const { clip_age_hours, view_count, velocity, streamer_avg_velocity } = input
 
   let penalty = 0
 
-  // Old viral clip: age > 7 days AND > 1M views → progressive penalty
+  // Old viral clip: age > 7 days AND > 1M views
   if (clip_age_hours > 168 && view_count > 1_000_000) {
-    const ageFactor = Math.min(1, (clip_age_hours - 168) / 336) // 0 at 7d, 1 at 21d
-    const viewFactor = Math.min(1, view_count / 10_000_000) // scales with massive view counts
+    const ageFactor = Math.min(1, (clip_age_hours - 168) / 336)
+    const viewFactor = Math.min(1, view_count / 10_000_000)
     penalty += (ageFactor * 0.5 + viewFactor * 0.5) * 100
   }
 
@@ -186,7 +189,7 @@ function computeSaturationScore(input: ClipScoreInput): number {
   return clamp(penalty)
 }
 
-// ── Rank classification ────────────────────────────────────────────────────
+// -- Rank classification --
 
 function classifyRank(score: number): ClipRank {
   if (score >= 95) return 'master'
@@ -209,7 +212,7 @@ function rankToTier(rank: ClipRank): string {
   }
 }
 
-// ── Feed category (V2) ─────────────────────────────────────────────────────
+// -- Feed category (V2) --
 
 function classifyFeedCategory(
   ageHours: number,
@@ -224,7 +227,7 @@ function classifyFeedCategory(
   return 'normal'
 }
 
-// ── Utility ─────────────────────────────────────────────────────────────────
+// -- Utility --
 
 function clamp(value: number, min = 0, max = 100): number {
   return Math.min(max, Math.max(min, value))
@@ -234,7 +237,7 @@ function round1(n: number): number {
   return Math.round(n * 10) / 10
 }
 
-// ── Main scoring function ──────────────────────────────────────────────────
+// -- Main scoring function --
 
 export function scoreClip(input: ClipScoreInput): ClipScoreOutput {
   const momentumScore = computeMomentumScore(input)
@@ -254,7 +257,11 @@ export function scoreClip(input: ClipScoreInput): ClipScoreOutput {
     formatScore * 0.10 -
     saturationScore * 0.10
 
-  const finalScore = round1(clamp(rawScore))
+  // Display curve: stretch the effective 30-65 raw range into 40-85 display.
+  // Formula: -5 + raw * 1.5 -- monotonic so ranking is preserved.
+  // raw 30 = 40 | raw 40 = 55 | raw 50 = 70 | raw 60 = 85 | cap 89.9
+  const displayScore = -5 + clamp(rawScore) * 1.5
+  const finalScore = round1(Math.min(89.9, Math.max(0, displayScore)))
 
   return {
     final_score: finalScore,

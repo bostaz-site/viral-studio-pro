@@ -49,6 +49,8 @@ export async function detectMood(
   const userMessage = buildUserMessage(transcript, title, streamer, niche)
 
   try {
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 15000)
     const res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
@@ -62,7 +64,9 @@ export async function detectMood(
         system: SYSTEM_PROMPT,
         messages: [{ role: 'user', content: userMessage }],
       }),
+      signal: controller.signal,
     })
+    clearTimeout(timeout)
 
     if (!res.ok) {
       const errText = await res.text().catch(() => 'Unknown error')
