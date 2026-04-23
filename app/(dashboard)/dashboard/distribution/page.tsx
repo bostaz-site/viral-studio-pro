@@ -1,3 +1,4 @@
+import { Suspense } from 'react'
 import { DistributionHub } from '@/components/distribution/distribution-hub'
 
 export const metadata = {
@@ -6,5 +7,9 @@ export const metadata = {
 }
 
 export default function DistributionPage() {
-  return <DistributionHub />
+  return (
+    <Suspense fallback={<div className="flex items-center justify-center h-64 text-muted-foreground">Loading distribution...</div>}>
+      <DistributionHub />
+    </Suspense>
+  )
 }
