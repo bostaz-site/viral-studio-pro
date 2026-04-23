@@ -7,7 +7,7 @@ export const dynamic = 'force-dynamic'
 const VPS_URL = process.env.VPS_RENDER_URL || 'https://bostaz-site-production.up.railway.app'
 const VPS_KEY = process.env.VPS_RENDER_API_KEY || ''
 
-export const POST = withAuth(async (req, { userId }) => {
+export const POST = withAuth(async (req, _user) => {
   try {
     const body = await req.json()
     const { videoUrl, clipTitle, clipDuration, wordTimestamps, settings } = body
