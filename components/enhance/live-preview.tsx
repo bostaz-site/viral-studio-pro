@@ -8,6 +8,7 @@ import {
   CAPTION_STYLES, EMPHASIS_EFFECTS, EMPHASIS_COLORS, BROLL_OPTIONS, TAG_STYLES,
   type TrendingClipData, type EnhanceSettings,
 } from '@/lib/enhance/scoring'
+import { PLATFORM_THEME } from '@/lib/ai/mood-presets'
 
 // ─── Score Badge Component ──────────────────────────────────────────────────
 
@@ -47,6 +48,11 @@ export function LivePreview({
   const streamerName = clip.author_handle ? `@${clip.author_handle}` : clip.author_name ?? ''
   // Animation is now derived from the selected caption style (not a separate setting)
   const currentAnimation = captionStyle?.animation ?? 'highlight'
+
+  // Platform-aware colors
+  const platformKey = (clip.platform ?? 'twitch') as keyof typeof PLATFORM_THEME
+  const theme = PLATFORM_THEME[platformKey] ?? PLATFORM_THEME.twitch
+  const glowColor = theme.hookGlowColor // e.g. '#C77DFF' for twitch, '#00E701' for kick
 
   // Detect important words (mirrors backend logic in subtitle-generator.js)
   const IMPORTANT_WORDS_SET = useMemo(() => new Set([
@@ -283,7 +289,7 @@ export function LivePreview({
         {/* Platform badge */}
         <div className="absolute top-3 left-3 z-10 pointer-events-none">
           <Badge variant="outline" className="text-[10px] bg-black/50 backdrop-blur-sm border-white/20 text-white">
-            {clip.platform === 'twitch' ? 'Twitch' : clip.platform}
+            {clip.platform === 'twitch' ? 'Twitch' : clip.platform === 'kick' ? 'Kick' : clip.platform}
           </Badge>
         </div>
       </div>
@@ -298,8 +304,8 @@ export function LivePreview({
             className="px-3 py-1.5 rounded-md text-center whitespace-nowrap overflow-hidden mx-auto w-fit"
             style={{
               background: 'rgba(0,0,0,0.75)',
-              border: '2px solid #9146FF',
-              boxShadow: '0 0 10px #9146FF88, 0 0 24px #9146FF44',
+              border: `2px solid ${glowColor}`,
+              boxShadow: `0 0 10px ${glowColor}88, 0 0 24px ${glowColor}44`,
               maxWidth: '100%',
             }}
           >
@@ -322,19 +328,34 @@ export function LivePreview({
             transform: `scale(${(settings.tagSize || 100) / 100})`,
           }}
         >
-          {/* VIRAL GLOW — black capsule with neon purple border & glow */}
+          {/* VIRAL GLOW — black capsule with neon border & glow (purple for Twitch, red for YouTube) */}
           {tagStyle.id === 'viral-glow' && (
             <div
               className="flex items-center gap-1.5 rounded-full px-2.5 py-1.5 animate-in fade-in slide-in-from-left-2 duration-300"
               style={{
                 background: 'rgba(0,0,0,0.75)',
-                border: '1.5px solid #9146FF',
-                boxShadow: '0 0 8px #9146FF88, 0 0 20px #9146FF44, 0 2px 8px rgba(0,0,0,0.5)',
+                border: `1.5px solid ${glowColor}`,
+                boxShadow: `0 0 8px ${glowColor}88, 0 0 20px ${glowColor}44, 0 2px 8px rgba(0,0,0,0.5)`,
               }}
             >
-              <svg className="h-3.5 w-3.5 flex-shrink-0" viewBox="0 0 24 24" fill="#9146FF">
+              <svg className="h-3.5 w-3.5 flex-shrink-0" viewBox="0 0 24 24" fill={glowColor}>
                 <path d="M11.571 4.714h1.715v5.143H11.57zm4.715 0H18v5.143h-1.714zM6 0L1.714 4.286v15.428h5.143V24l4.286-4.286h3.428L22.286 12V0zm14.571 11.143l-3.428 3.428h-3.429l-3 3v-3H6.857V1.714h13.714Z"/>
               </svg>
+              <span className="text-[11px] font-bold text-white tracking-wide">{streamerName}</span>
+            </div>
+          )}
+
+          {/* KICK GLOW — black capsule with neon green border & glow + K icon */}
+          {tagStyle.id === 'kick-glow' && (
+            <div
+              className="flex items-center gap-1.5 rounded-full px-2.5 py-1.5 animate-in fade-in slide-in-from-left-2 duration-300"
+              style={{
+                background: 'rgba(0,0,0,0.75)',
+                border: '1.5px solid #00E701',
+                boxShadow: '0 0 8px #00E70188, 0 0 20px #00E70144, 0 2px 8px rgba(0,0,0,0.5)',
+              }}
+            >
+              <span className="text-[13px] font-black text-[#00E701] flex-shrink-0 leading-none">K</span>
               <span className="text-[11px] font-bold text-white tracking-wide">{streamerName}</span>
             </div>
           )}

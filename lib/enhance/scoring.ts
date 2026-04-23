@@ -246,6 +246,14 @@ export const TAG_STYLES: TagStyle[] = [
     position: 'bottom-left',
   },
   {
+    id: 'kick-glow',
+    label: 'Kick Glow',
+    description: 'Black capsule + neon green border + glow',
+    icon: '💚',
+    baseScore: 14,
+    position: 'bottom-left',
+  },
+  {
     id: 'pop-creator',
     label: 'Pop Creator',
     description: 'Purple background, white outline, pop effect',
@@ -393,56 +401,47 @@ export function computeScores(clip: TrendingClipData): ComputedScores {
 }
 
 /**
- * Baseline viral score for an unmodified clip, derived from its own metrics
- * (velocity, views, niche). A trending clip from the library should feel
- * "already somewhat viral" before the user touches anything — otherwise the
- * progress bar sits at 0/100 and feels punishing. Returns 10–30.
+ * Baseline viral score (Browse score) — unified display formula.
+ * Transforms velocity_score into a visually satisfying 40–90 range:
+ *   dead (vel 5) → 42.5 | average (vel 30) → 55.0 | good (vel 60) → 70.0
+ *   viral (vel 85) → 82.5 | cap at 90.0 (never higher in Browse)
  */
 export function computeBaselineScore(clip: TrendingClipData): number {
   const velocity = clip.velocity_score ?? 0
-  const views = clip.view_count ?? 0
-
-  let base = 10
-  if (velocity >= 80 || views >= 5_000_000) base = 30
-  else if (velocity >= 60 || views >= 1_000_000) base = 24
-  else if (velocity >= 40 || views >= 250_000) base = 18
-  else if (velocity >= 20 || views >= 50_000) base = 14
-
-  // Tiny nudge: clips with a recognizable author_handle get +2 because
-  // they're easier to credit, which marginally helps reach.
-  if (clip.author_handle) base += 2
-
-  return Math.min(30, base)
+  return Math.min(90, 40 + (velocity * 0.5))
 }
 
 /**
  * Compute the current viral score based on user's enhancement settings.
- * Combines a baseline (from clip metrics) with the modifications score
- * (captions, emphasis, b-roll, tags). The modifications score is scaled
- * so that baseline + modifications can never exceed 100.
- *
- *   total = baseline + modifications * ((100 - baseline) / 100)
- *
- * So a clip with baseline=20 starts at 20 and maxes at 100, a clip with
- * baseline=30 starts at 30 and still maxes at 100. The user always sees
- * an upward trajectory from their first interaction.
+ * Baseline (Browse score) + fixed increments per activated option.
+ * Mood-matched bonus: +0.5 per category when user picks the best option.
+ * Hard cap at 98.0 — never reaches 100.
  */
 export function computeCurrentScore(
   settings: EnhanceSettings,
   scores: ComputedScores,
   baseline = 0
 ): number {
-  const cs = scores.captionScores.find((s) => s.id === settings.captionStyle)?.score ?? 0
-  const es = scores.emphasisScores.find((s) => s.id === settings.emphasisEffect)?.score ?? 0
-  const bs = settings.splitScreenEnabled ? (scores.brollScores.find((s) => s.id === settings.brollVideo)?.score ?? 0) : 0
-  const ts = scores.tagScores.find((s) => s.id === settings.tagStyle)?.score ?? 0
-  const modifications = (settings.captionsEnabled ? cs + es : 0) + bs + ts
+  let total = baseline
 
-  if (baseline <= 0) return Math.min(100, modifications)
+  // Fixed increments per option
+  if (settings.captionsEnabled && settings.captionStyle !== 'none') total += 2.5
+  if (settings.emphasisEffect !== 'none') total += 1.5
+  if (settings.splitScreenEnabled) total += 2.0
+  if (settings.tagStyle !== 'none') total += 1.5
+  if (settings.hookEnabled) total += 2.0
+  if (settings.hookReorderEnabled) total += 1.0
+  if (settings.smartZoomEnabled) total += 1.0
+  if (settings.audioEnhanceEnabled) total += 0.8
+  if (settings.autoCutEnabled) total += 0.7
 
-  const headroom = Math.max(0, 100 - baseline)
-  const scaledMods = (modifications / 100) * headroom
-  return Math.min(100, Math.round(baseline + scaledMods))
+  // Mood-matched bonus: +0.5 per category when option = best from computeScores()
+  if (settings.captionStyle === scores.best.captionStyle) total += 0.5
+  if (settings.emphasisEffect === scores.best.emphasisEffect) total += 0.5
+  if (settings.splitScreenEnabled && settings.brollVideo === scores.best.brollVideo) total += 0.5
+  if (settings.tagStyle === scores.best.tagStyle) total += 0.5
+
+  return Math.min(98.0, total)
 }
 
 // ─── Score Label ────────────────────────────────────────────────────────────
@@ -451,9 +450,9 @@ export function computeCurrentScore(
  * Get a human-readable label and color for a viral score.
  */
 export function getScoreLabel(score: number): { text: string; color: string } {
-  if (score >= 90) return { text: 'High chance to blow up', color: 'text-orange-400' }
-  if (score >= 75) return { text: 'Very viral', color: 'text-green-400' }
-  if (score >= 50) return { text: 'Good potential', color: 'text-blue-400' }
-  if (score >= 30) return { text: 'Needs improvement', color: 'text-yellow-400' }
-  return { text: 'Low viral score', color: 'text-muted-foreground' }
+  if (score >= 90) return { text: 'Legendary potential', color: 'text-orange-400' }
+  if (score >= 78) return { text: 'Viral ready', color: 'text-green-400' }
+  if (score >= 65) return { text: 'High potential', color: 'text-blue-400' }
+  if (score >= 50) return { text: 'Good base', color: 'text-yellow-400' }
+  return { text: 'Rising', color: 'text-muted-foreground' }
 }

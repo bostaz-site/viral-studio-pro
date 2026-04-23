@@ -29,6 +29,10 @@ RUN apt-get update && \
 WORKDIR /opt/viral-studio
 RUN mkdir -p /opt/viral-studio/broll /opt/viral-studio/tmp
 
+# Install custom Google Fonts (Montserrat, Inter, Lora, Poppins) for caption styles
+COPY fonts/ /usr/local/share/fonts/custom/
+RUN fc-cache -f -v
+
 # Copy package files and install dependencies
 COPY package.json ./
 RUN npm install --production

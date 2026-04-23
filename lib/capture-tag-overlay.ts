@@ -10,7 +10,7 @@
 // Twitch logo path (24x24 viewBox)
 const TWITCH_PATH = 'M11.571 4.714h1.715v5.143H11.57zm4.715 0H18v5.143h-1.714zM6 0L1.714 4.286v15.428h5.143V24l4.286-4.286h3.428L22.286 12V0zm14.571 11.143l-3.428 3.428h-3.429l-3 3v-3H6.857V1.714h13.714Z';
 
-type TagStyle = 'viral-glow' | 'pop-creator' | 'minimal-pro';
+type TagStyle = 'viral-glow' | 'kick-glow' | 'pop-creator' | 'minimal-pro';
 
 export async function captureTagOverlayPNG({
   streamerName,
@@ -117,6 +117,64 @@ export async function captureTagOverlayPNG({
       drawTwitchIcon(ctx, boxX + paddingX, boxY + (capsuleH - iconSize) / 2, iconSize, '#9146FF');
 
       // ── Text ──
+      ctx.save();
+      ctx.fillStyle = 'white';
+      ctx.font = fontStr;
+      ctx.textBaseline = 'middle';
+      ctx.textAlign = 'left';
+      ctx.fillText(streamerName, boxX + paddingX + iconSize + gap, boxY + capsuleH / 2);
+      ctx.restore();
+
+    } else if (style === 'kick-glow') {
+      // ── Kick Glow: same layout as viral-glow but green (#00E701) ──
+
+      // Outer glow
+      ctx.save();
+      ctx.shadowColor = 'rgba(0, 231, 1, 0.27)';
+      ctx.shadowBlur = Math.round(20 * scale * sizeScale);
+      ctx.fillStyle = 'rgba(0,0,0,0.01)';
+      roundRect(ctx, boxX, boxY, capsuleW, capsuleH, fullRound);
+      ctx.fill();
+      ctx.restore();
+
+      // Inner glow
+      ctx.save();
+      ctx.shadowColor = 'rgba(0, 231, 1, 0.53)';
+      ctx.shadowBlur = Math.round(8 * scale * sizeScale);
+      ctx.fillStyle = 'rgba(0,0,0,0.01)';
+      roundRect(ctx, boxX, boxY, capsuleW, capsuleH, fullRound);
+      ctx.fill();
+      ctx.restore();
+
+      // Drop shadow
+      ctx.save();
+      ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
+      ctx.shadowBlur = Math.round(8 * scale * sizeScale);
+      ctx.shadowOffsetY = Math.round(2 * scale * sizeScale);
+      ctx.fillStyle = 'rgba(0,0,0,0.01)';
+      roundRect(ctx, boxX, boxY, capsuleW, capsuleH, fullRound);
+      ctx.fill();
+      ctx.restore();
+
+      // Background
+      ctx.save();
+      ctx.fillStyle = 'rgba(0,0,0,0.75)';
+      roundRect(ctx, boxX, boxY, capsuleW, capsuleH, fullRound);
+      ctx.fill();
+      ctx.restore();
+
+      // Border — green
+      ctx.save();
+      ctx.strokeStyle = '#00E701';
+      ctx.lineWidth = borderW;
+      roundRect(ctx, boxX, boxY, capsuleW, capsuleH, fullRound);
+      ctx.stroke();
+      ctx.restore();
+
+      // Kick icon (green)
+      drawKickIcon(ctx, boxX + paddingX, boxY + (capsuleH - iconSize) / 2, iconSize, '#00E701');
+
+      // Text
       ctx.save();
       ctx.fillStyle = 'white';
       ctx.font = fontStr;
@@ -239,6 +297,23 @@ function drawTwitchIcon(ctx: CanvasRenderingContext2D, x: number, y: number, siz
   ctx.fillRect(11.571, 4.714, 1.715, 5.143);
   ctx.fillRect(16.286, 4.714, 1.714, 5.143);
 
+  ctx.restore();
+}
+
+/**
+ * Draw the Kick "K" icon using Canvas path commands.
+ * Simple bold K shape in a 24x24 viewBox.
+ */
+function drawKickIcon(ctx: CanvasRenderingContext2D, x: number, y: number, size: number, color: string) {
+  ctx.save();
+  const iconScale = size / 24;
+  ctx.translate(x, y);
+  ctx.scale(iconScale, iconScale);
+  ctx.fillStyle = color;
+  ctx.font = 'bold 22px Arial, sans-serif';
+  ctx.textBaseline = 'top';
+  ctx.textAlign = 'left';
+  ctx.fillText('K', 3, 1);
   ctx.restore();
 }
 

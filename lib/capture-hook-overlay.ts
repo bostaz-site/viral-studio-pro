@@ -11,11 +11,13 @@ export async function captureHookOverlayPNG({
   positionPct = 15,
   videoWidth = 720,
   videoHeight = 1280,
+  glowColor = '#9146FF',
 }: {
   text: string;
   positionPct?: number;
   videoWidth?: number;
   videoHeight?: number;
+  glowColor?: string;
 }): Promise<{ png: string; capsuleW: number; capsuleH: number; positionPct: number } | null> {
   if (!text) return null;
 
@@ -56,9 +58,16 @@ export async function captureHookOverlayPNG({
     const boxX = glowPad;
     const boxY = glowPad;
 
-    // ── Glow (CSS box-shadow: 0 0 10px #9146FF88, 0 0 24px #9146FF44) ──
+    // ── Convert glowColor hex to RGB components ──
+    const hexToRgb = (hex: string) => {
+      const h = hex.replace('#', '');
+      return { r: parseInt(h.substring(0, 2), 16), g: parseInt(h.substring(2, 4), 16), b: parseInt(h.substring(4, 6), 16) };
+    };
+    const gc = hexToRgb(glowColor);
+
+    // ── Glow (outer + inner) ──
     ctx.save();
-    ctx.shadowColor = 'rgba(145, 70, 255, 0.27)';
+    ctx.shadowColor = `rgba(${gc.r}, ${gc.g}, ${gc.b}, 0.27)`;
     ctx.shadowBlur = Math.round(24 * scale);
     ctx.fillStyle = 'rgba(0,0,0,0.01)';
     roundRect(ctx, boxX, boxY, capsuleW, capsuleH, borderRadius);
@@ -66,7 +75,7 @@ export async function captureHookOverlayPNG({
     ctx.restore();
 
     ctx.save();
-    ctx.shadowColor = 'rgba(145, 70, 255, 0.53)';
+    ctx.shadowColor = `rgba(${gc.r}, ${gc.g}, ${gc.b}, 0.53)`;
     ctx.shadowBlur = Math.round(10 * scale);
     ctx.fillStyle = 'rgba(0,0,0,0.01)';
     roundRect(ctx, boxX, boxY, capsuleW, capsuleH, borderRadius);
@@ -82,7 +91,7 @@ export async function captureHookOverlayPNG({
 
     // ── Border ──
     ctx.save();
-    ctx.strokeStyle = '#9146FF';
+    ctx.strokeStyle = glowColor;
     ctx.lineWidth = borderW;
     roundRect(ctx, boxX, boxY, capsuleW, capsuleH, borderRadius);
     ctx.stroke();

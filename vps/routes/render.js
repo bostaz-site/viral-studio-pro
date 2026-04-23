@@ -868,7 +868,7 @@ router.post('/', async (req, res) => {
       tag: tagConfig,
       cropAnchor: settings.format?.cropAnchor || 'center',
       backgroundBlur: settings.format?.backgroundBlur || false,
-      videoZoom: settings.format?.videoZoom || 'fill',
+      videoZoom: settings.format?.videoZoom || 'contain',
       crf: settings.format?.crf || 23,
       smartZoom: settings.smartZoom?.enabled ? {
         enabled: true,
@@ -1185,7 +1185,7 @@ router.post('/preview', async (req, res) => {
       tag: tagConfig,
       cropAnchor: settings.format?.cropAnchor || 'center',
       backgroundBlur: settings.format?.backgroundBlur || false,
-      videoZoom: settings.format?.videoZoom || 'fill',
+      videoZoom: settings.format?.videoZoom || 'contain',
       crf: 30, // Lower quality for speed
       smartZoom: null, // Skip smart zoom for preview
       hook: settings.hook?.enabled ? {

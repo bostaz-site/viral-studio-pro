@@ -19,7 +19,7 @@ import { ErrorCard, classifyError } from '@/components/ui/error-card'
 import { createClient } from '@/lib/supabase/client'
 import { useTrendingStore } from '@/stores/trending-store'
 import { cn } from '@/lib/utils'
-import { ALL_MOODS, MOOD_PRESETS, MOOD_COLORS, type ClipMood, type MoodPreset } from '@/lib/ai/mood-presets'
+import { ALL_MOODS, MOOD_PRESETS, MOOD_COLORS, PLATFORM_THEME, getMoodPresetForClip, type ClipMood, type MoodPreset } from '@/lib/ai/mood-presets'
 import { captureHookOverlayPNG } from '@/lib/capture-hook-overlay'
 import { captureTagOverlayPNG } from '@/lib/capture-tag-overlay'
 import {
@@ -382,6 +382,10 @@ export default function EnhancePage() {
       // Capture overlays as PNGs from browser (pixel-perfect match to CSS preview)
       setRenderMessage('📸 Capture des overlays...')
 
+      // Resolve platform theme for overlay colors
+      const platformKey = (clip.platform ?? 'twitch') as keyof typeof PLATFORM_THEME
+      const theme = PLATFORM_THEME[platformKey] ?? PLATFORM_THEME.twitch
+
       let hookOverlayData: { png: string; capsuleW: number; capsuleH: number; positionPct: number } | null = null
       if (settings.hookEnabled && settings.hookTextEnabled && settings.hookText) {
         hookOverlayData = await captureHookOverlayPNG({
@@ -389,6 +393,7 @@ export default function EnhancePage() {
           positionPct: settings.hookTextPosition,
           videoWidth: 720,
           videoHeight: 1280,
+          glowColor: theme.hookGlowColor,
         })
         console.log('[handleRender] Hook capture:', hookOverlayData ? `OK ${hookOverlayData.capsuleW}x${hookOverlayData.capsuleH}` : 'FAILED')
       }
@@ -398,7 +403,7 @@ export default function EnhancePage() {
       if (settings.tagStyle && settings.tagStyle !== 'none' && streamerName) {
         tagOverlayData = await captureTagOverlayPNG({
           streamerName,
-          style: settings.tagStyle as 'viral-glow' | 'pop-creator' | 'minimal-pro',
+          style: settings.tagStyle as 'viral-glow' | 'kick-glow' | 'pop-creator' | 'minimal-pro',
           tagSize: settings.tagSize || 100,
           videoWidth: 720,
           videoHeight: 1280,
@@ -563,15 +568,16 @@ export default function EnhancePage() {
   const handleMoodSelect = useCallback((mood: ClipMood) => {
     setSelectedMood(mood)
     setMoodAiDetected(false) // user override
-    applyMoodPreset(MOOD_PRESETS[mood])
-  }, [applyMoodPreset])
+    applyMoodPreset(getMoodPresetForClip(mood, clip?.platform ?? 'twitch'))
+  }, [applyMoodPreset, clip])
 
   const applyBestCombo = useCallback(async () => {
     if (!clip) return
     setMakeViralLoading(true)
 
     // 1. Detect mood via AI
-    let preset: MoodPreset = MOOD_PRESETS.hype // fallback
+    const platform = clip.platform ?? 'twitch'
+    let preset: MoodPreset = getMoodPresetForClip('hype', platform) // fallback
     try {
       const moodRes = await fetch('/api/enhance/ai-optimize', {
         method: 'POST',
@@ -586,7 +592,7 @@ export default function EnhancePage() {
       const moodJson = await moodRes.json()
       if (moodRes.ok && !moodJson.error && moodJson.data) {
         const detected = moodJson.data.mood as ClipMood
-        preset = MOOD_PRESETS[detected] ?? MOOD_PRESETS.hype
+        preset = getMoodPresetForClip(detected, platform)
         setDetectedMood(detected)
         setSelectedMood(detected)
         setMoodConfidence(moodJson.data.confidence ?? 0)
@@ -1035,16 +1041,51 @@ export default function EnhancePage() {
             )
           })()}
 
-          {/* ── AI optimization badge (no mood details exposed) ── */}
+          {/* ── AI optimization badge ── */}
           {detectedMood && moodAiDetected && (
             <div className="px-3 py-2.5 rounded-xl border border-primary/20 bg-primary/5 flex items-center gap-2">
               <Sparkles className="h-4 w-4 text-primary shrink-0" />
               <p className="text-xs text-foreground">
                 <span className="font-bold">AI-optimized</span>
-                <span className="text-muted-foreground"> — Parameters tuned specifically for this clip</span>
+                <span className="text-muted-foreground"> — {MOOD_PRESETS[detectedMood].emoji} {MOOD_PRESETS[detectedMood].label} detected{moodConfidence > 0 ? ` (${moodConfidence}%)` : ''}</span>
               </p>
             </div>
           )}
+
+          {/* ── Mood selector ── */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-muted-foreground uppercase tracking-widest font-medium">Mood</span>
+              {selectedMood && (
+                <span className="text-[10px] text-muted-foreground">{MOOD_PRESETS[selectedMood].description}</span>
+              )}
+            </div>
+            <div className="grid grid-cols-3 gap-1.5">
+              {ALL_MOODS.map((mood) => {
+                const preset = MOOD_PRESETS[mood]
+                const isSelected = selectedMood === mood
+                const isDetected = detectedMood === mood && moodAiDetected
+                return (
+                  <button
+                    key={mood}
+                    onClick={() => handleMoodSelect(mood)}
+                    className={cn(
+                      'relative flex flex-col items-center gap-0.5 px-2 py-2 rounded-xl border text-xs font-medium transition-all duration-200',
+                      isSelected
+                        ? `${MOOD_COLORS[mood]} bg-white/5 shadow-lg text-white border-2`
+                        : 'border-white/10 text-muted-foreground hover:bg-white/5 hover:text-foreground hover:border-white/20'
+                    )}
+                  >
+                    <span className="text-base">{preset.emoji}</span>
+                    <span className="text-[11px]">{preset.label}</span>
+                    {isDetected && (
+                      <span className="absolute -top-1 -right-1 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-primary text-[8px] text-white font-bold">AI</span>
+                    )}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
 
           {/* ── Preview render button ── */}
           <button

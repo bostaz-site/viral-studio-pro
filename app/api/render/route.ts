@@ -327,7 +327,7 @@ export const POST = withAuth(async (request, user) => {
       tag: settings?.tag ?? { style: 'none' },
       format: {
         aspectRatio: settings?.format?.aspectRatio ?? '9:16',
-        videoZoom: settings?.format?.videoZoom ?? 'fill',
+        videoZoom: settings?.format?.videoZoom ?? 'contain',
       },
       smartZoom: settings?.smartZoom ?? { enabled: false, mode: 'micro' },
       audioEnhance: settings?.audioEnhance ?? { enabled: false },

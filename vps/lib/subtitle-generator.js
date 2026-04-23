@@ -12,7 +12,7 @@
 // Clean, cinematic, readable on any background.
 const CAPTION_STYLES = {
   hormozi: {
-    fontname: 'Liberation Sans',
+    fontname: 'Inter',
     fontsize: 78,
     fontweight: true,
     primaryColor: '&H00FFFFFF', // white (active / all words)
@@ -33,7 +33,7 @@ const CAPTION_STYLES = {
   // overlays — creates a consistent "branded" look across the video.
   // Purple tone: #C77DFF → ASS BGR = FF7DC7
   'hormozi-purple': {
-    fontname: 'Liberation Sans',
+    fontname: 'Inter',
     fontsize: 78,
     fontweight: true,
     primaryColor: '&H00FF7DC7', // neon purple (active word)
@@ -50,7 +50,7 @@ const CAPTION_STYLES = {
   },
 
   mrbeast: {
-    fontname: 'Liberation Sans',
+    fontname: 'Montserrat',
     fontsize: 78,
     fontweight: true,
     primaryColor: '&H004444EF', // red-500 (active word)
@@ -67,7 +67,7 @@ const CAPTION_STYLES = {
   },
 
   neon: {
-    fontname: 'Liberation Sans',
+    fontname: 'Poppins',
     fontsize: 76,
     fontweight: true,
     primaryColor: '&H0080DE4A', // green-400
@@ -84,7 +84,7 @@ const CAPTION_STYLES = {
   },
 
   minimal: {
-    fontname: 'Liberation Sans',
+    fontname: 'Poppins',
     fontsize: 64,
     fontweight: 0,
     primaryColor: '&H00FFFFFF', // White
@@ -101,7 +101,7 @@ const CAPTION_STYLES = {
   },
 
   impact: {
-    fontname: 'Liberation Sans',
+    fontname: 'Montserrat',
     fontsize: 80,
     fontweight: true,
     primaryColor: '&H000000FF', // Red
@@ -118,7 +118,7 @@ const CAPTION_STYLES = {
   },
 
   aliabdaal: {
-    fontname: 'Liberation Sans',
+    fontname: 'Lora',
     fontsize: 70,
     fontweight: true,
     primaryColor: '&H00FDC593', // blue-300
@@ -135,7 +135,7 @@ const CAPTION_STYLES = {
   },
 
   imangadzhi: {
-    fontname: 'Liberation Sans',
+    fontname: 'Montserrat',
     fontsize: 88,
     fontweight: true,
     primaryColor: '&H0000D4FF', // Gold
@@ -152,7 +152,7 @@ const CAPTION_STYLES = {
   },
 
   default: {
-    fontname: 'Arial',
+    fontname: 'Inter',
     fontsize: 70,
     fontweight: true,
     primaryColor: '&H0000FFFF', // Yellow
@@ -169,7 +169,7 @@ const CAPTION_STYLES = {
   },
 
   bold: {
-    fontname: 'Liberation Sans',
+    fontname: 'Montserrat',
     fontsize: 84,
     fontweight: true,
     primaryColor: '&H00FFFFFF', // White

@@ -1,6 +1,11 @@
 /**
  * AI Mood Presets — 6 mood-based enhancement configurations.
- * Each preset maps exactly to the EnhanceSettings state in the Enhance page.
+ *
+ * Architecture:
+ * - BASE_SETTINGS: values shared across all moods
+ * - PLATFORM_THEME: tag/hook glow colors per streaming platform
+ * - MOOD_PRESETS: each mood = BASE_SETTINGS + mood-specific overrides
+ * - getMoodPresetForClip(): merges mood preset + platform theme
  */
 
 export type ClipMood = 'rage' | 'funny' | 'drama' | 'wholesome' | 'hype' | 'story'
@@ -45,33 +50,49 @@ export interface MoodPreset {
   hookLength: number
 }
 
+// ── Base settings (shared by ALL moods) ─────────────────────────────────────
+
+export const BASE_SETTINGS = {
+  captionPosition: 42,
+  splitRatio: 60,
+  tagSize: 85,
+  aspectRatio: '9:16' as const,
+  audioEnhanceEnabled: true,
+  hookEnabled: true,
+  hookTextEnabled: true,
+  hookTextPosition: 15,
+  brollVideo: 'none',
+  smartZoomEnabled: true,
+}
+
+// ── Platform theme (tag + hook glow colors by platform) ─────────────────────
+
+export const PLATFORM_THEME = {
+  twitch: { tagStyle: 'viral-glow', hookGlowColor: '#C77DFF' },
+  kick: { tagStyle: 'kick-glow', hookGlowColor: '#00E701' },
+  youtube: { tagStyle: 'viral-glow', hookGlowColor: '#FF0000' },
+} as const
+
+// ── Mood presets (BASE_SETTINGS + mood-specific overrides) ──────────────────
+
 export const MOOD_PRESETS: Record<ClipMood, MoodPreset> = {
   rage: {
     mood: 'rage',
     label: 'Rage',
     emoji: '🔥',
     description: 'Max retention on raw shock — screaming, slamming, intense moments',
+    ...BASE_SETTINGS,
+    tagStyle: 'viral-glow',
     captionStyle: 'mrbeast',
     wordsPerLine: 1,
-    captionPosition: 42,
     emphasisEffect: 'scale',
     emphasisColor: 'red',
-    brollVideo: 'none',
-    splitRatio: 60,
     videoZoom: 'fill',
-    tagStyle: 'viral-glow',
-    tagSize: 85,
-    aspectRatio: '9:16',
-    smartZoomEnabled: true,
     smartZoomMode: 'dynamic',
-    audioEnhanceEnabled: true,
     autoCutEnabled: true,
     autoCutThreshold: 0.5,
-    hookEnabled: true,
-    hookTextEnabled: true,
     hookReorderEnabled: true,
     hookStyle: 'choc',
-    hookTextPosition: 15,
     hookLength: 1,
   },
 
@@ -80,27 +101,18 @@ export const MOOD_PRESETS: Record<ClipMood, MoodPreset> = {
     label: 'Funny',
     emoji: '😂',
     description: 'Instant laughs — jokes, fails, funny reactions',
+    ...BASE_SETTINGS,
+    tagStyle: 'viral-glow',
     captionStyle: 'hormozi-purple',
     wordsPerLine: 2,
-    captionPosition: 42,
     emphasisEffect: 'bounce',
     emphasisColor: 'yellow',
-    brollVideo: 'none',
-    splitRatio: 60,
     videoZoom: 'fill',
-    tagStyle: 'pop-creator',
-    tagSize: 85,
-    aspectRatio: '9:16',
-    smartZoomEnabled: true,
     smartZoomMode: 'micro',
-    audioEnhanceEnabled: true,
     autoCutEnabled: false,
     autoCutThreshold: 0.7,
-    hookEnabled: true,
-    hookTextEnabled: true,
     hookReorderEnabled: true,
     hookStyle: 'curiosite',
-    hookTextPosition: 15,
     hookLength: 1.5,
   },
 
@@ -109,27 +121,18 @@ export const MOOD_PRESETS: Record<ClipMood, MoodPreset> = {
     label: 'Drama',
     emoji: '🎭',
     description: 'Tension and confrontation — beef, accusations, intense moments',
+    ...BASE_SETTINGS,
+    tagStyle: 'viral-glow',
     captionStyle: 'bold',
     wordsPerLine: 2,
-    captionPosition: 42,
     emphasisEffect: 'glow',
     emphasisColor: 'orange',
-    brollVideo: 'none',
-    splitRatio: 60,
     videoZoom: 'immersive',
-    tagStyle: 'viral-glow',
-    tagSize: 85,
-    aspectRatio: '9:16',
-    smartZoomEnabled: true,
     smartZoomMode: 'follow',
-    audioEnhanceEnabled: true,
     autoCutEnabled: false,
     autoCutThreshold: 0.7,
-    hookEnabled: true,
-    hookTextEnabled: true,
     hookReorderEnabled: true,
     hookStyle: 'suspense',
-    hookTextPosition: 15,
     hookLength: 2,
   },
 
@@ -138,27 +141,18 @@ export const MOOD_PRESETS: Record<ClipMood, MoodPreset> = {
     label: 'Wholesome',
     emoji: '✨',
     description: 'Touching moments — donations, gratitude, emotional reactions',
+    ...BASE_SETTINGS,
+    tagStyle: 'viral-glow',
     captionStyle: 'minimal',
     wordsPerLine: 4,
-    captionPosition: 42,
     emphasisEffect: 'none',
     emphasisColor: 'white',
-    brollVideo: 'none',
-    splitRatio: 60,
     videoZoom: 'contain',
-    tagStyle: 'minimal-pro',
-    tagSize: 85,
-    aspectRatio: '9:16',
-    smartZoomEnabled: true,
     smartZoomMode: 'micro',
-    audioEnhanceEnabled: true,
     autoCutEnabled: false,
     autoCutThreshold: 0.7,
-    hookEnabled: true,
-    hookTextEnabled: true,
     hookReorderEnabled: false,
     hookStyle: 'curiosite',
-    hookTextPosition: 15,
     hookLength: 1.5,
   },
 
@@ -167,27 +161,18 @@ export const MOOD_PRESETS: Record<ClipMood, MoodPreset> = {
     label: 'Hype',
     emoji: '🏆',
     description: 'Pure adrenaline — victories, epic moments, crowd going wild',
+    ...BASE_SETTINGS,
+    tagStyle: 'viral-glow',
     captionStyle: 'neon',
     wordsPerLine: 1,
-    captionPosition: 42,
     emphasisEffect: 'scale',
     emphasisColor: 'cyan',
-    brollVideo: 'none',
-    splitRatio: 60,
     videoZoom: 'fill',
-    tagStyle: 'pop-creator',
-    tagSize: 85,
-    aspectRatio: '9:16',
-    smartZoomEnabled: true,
     smartZoomMode: 'dynamic',
-    audioEnhanceEnabled: true,
     autoCutEnabled: true,
     autoCutThreshold: 0.5,
-    hookEnabled: true,
-    hookTextEnabled: true,
     hookReorderEnabled: true,
     hookStyle: 'choc',
-    hookTextPosition: 15,
     hookLength: 1,
   },
 
@@ -196,30 +181,32 @@ export const MOOD_PRESETS: Record<ClipMood, MoodPreset> = {
     label: 'Story',
     emoji: '🗣️',
     description: 'Narration and monologues — stories, rants, explanations',
+    ...BASE_SETTINGS,
+    tagStyle: 'viral-glow',
     captionStyle: 'aliabdaal',
     wordsPerLine: 5,
-    captionPosition: 42,
     emphasisEffect: 'none',
     emphasisColor: 'white',
-    brollVideo: 'none',
-    splitRatio: 60,
     videoZoom: 'contain',
-    tagStyle: 'minimal-pro',
-    tagSize: 85,
-    aspectRatio: '9:16',
-    smartZoomEnabled: true,
     smartZoomMode: 'micro',
-    audioEnhanceEnabled: true,
     autoCutEnabled: true,
     autoCutThreshold: 0.7,
-    hookEnabled: true,
-    hookTextEnabled: true,
     hookReorderEnabled: false,
     hookStyle: 'suspense',
-    hookTextPosition: 15,
     hookLength: 2,
   },
 }
+
+// ── Helper: merge mood preset + platform theme ──────────────────────────────
+
+/** Get a mood preset with platform-appropriate tag style */
+export function getMoodPresetForClip(mood: ClipMood, platform: string): MoodPreset {
+  const base = MOOD_PRESETS[mood]
+  const theme = PLATFORM_THEME[platform as keyof typeof PLATFORM_THEME] ?? PLATFORM_THEME.twitch
+  return { ...base, tagStyle: theme.tagStyle }
+}
+
+// ── Exports ─────────────────────────────────────────────────────────────────
 
 export const ALL_MOODS: ClipMood[] = ['rage', 'funny', 'drama', 'wholesome', 'hype', 'story']
 
