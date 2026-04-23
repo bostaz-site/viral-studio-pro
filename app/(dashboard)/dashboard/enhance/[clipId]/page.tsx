@@ -153,6 +153,7 @@ export default function EnhancePage() {
             like_count: null,
             velocity_score: null,
             thumbnail_url: null,
+            duration_seconds: null,
           }
           setClip(clipData)
           setLoading(false)
@@ -180,6 +181,7 @@ export default function EnhancePage() {
           like_count: storeClip.like_count,
           velocity_score: storeClip.velocity_score,
           thumbnail_url: storeClip.thumbnail_url,
+          duration_seconds: storeClip.duration_seconds ?? null,
         }
         setClip(clipData)
         setLoading(false)
