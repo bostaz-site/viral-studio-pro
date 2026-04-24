@@ -150,25 +150,25 @@ export function detectPeakMoment(opts = {}) {
 // ─── Fallback Templates (used when Claude API is unavailable) ───────────────
 const FALLBACK_HOOKS = {
   shock: [
-    'IL A VRAIMENT FAIT ÇA 💀',
-    'PERSONNE S\'ATTENDAIT À ÇA 😱',
-    'ÇA A DÉGÉNÉRÉ EN 2 SECONDES 🤯',
-    'MOMENT LÉGENDAIRE 🔥',
-    'JE SUIS MORT 😂💀',
+    'HE ACTUALLY DID THAT 💀',
+    'NOBODY EXPECTED THIS 😱',
+    'IT WENT WRONG SO FAST 🤯',
+    'LEGENDARY MOMENT 🔥',
+    'I\'M LITERALLY DEAD 😂💀',
   ],
   curiosity: [
-    'ATTENDEZ DE VOIR CE QUI ARRIVE... 👀',
-    'VOUS ALLEZ PAS CROIRE LA SUITE',
-    'PERSONNE AVAIT VU ÇA VENIR 😳',
-    'LA SUITE EST INCROYABLE',
-    'C\'EST LÀ QUE ÇA DEVIENT FOU 🤯',
+    'WAIT FOR WHAT HAPPENS NEXT... 👀',
+    'YOU WON\'T BELIEVE THIS',
+    'NOBODY SAW THIS COMING 😳',
+    'WHAT HAPPENS NEXT IS INSANE',
+    'THIS IS WHERE IT GETS CRAZY 🤯',
   ],
   suspense: [
-    'ATTENDEZ LA FIN... 👀',
-    'ÇA PART EN VRILLE',
-    'PERSONNE A VU ÇA VENIR 💀',
-    'REGARDEZ BIEN CE QUI SE PASSE...',
-    'LE TIMING EST PARFAIT 😭',
+    'WAIT FOR THE END... 👀',
+    'IT GOES OFF THE RAILS',
+    'NOBODY SAW THIS COMING 💀',
+    'WATCH WHAT HAPPENS NEXT...',
+    'THE TIMING IS PERFECT 😭',
   ],
 };
 
@@ -217,31 +217,31 @@ export async function generateHookTexts(opts = {}) {
         max_tokens: 300,
         messages: [{
           role: 'user',
-          content: `Tu génères des hooks pour des clips TikTok/Reels de streamers. Voici le clip:
+          content: `You generate hooks for TikTok/Reels clips of streamers. Here is the clip:
 
 ${contentParts}
 
-MISSION: Écris 3 hooks courts EN FRANÇAIS qui RÉSUMENT ce qui se passe dans le clip. Le hook doit donner envie de regarder.
+MISSION: Write 3 short hooks IN ENGLISH that SUMMARIZE what happens in the clip. The hook must make people want to watch.
 
-EXEMPLES de bons hooks basés sur le contenu:
-- Clip titre "He sends his friend to Dagestan" → "IL ENVOIE SON AMI AU DAGESTAN 💀🔥"
-- Clip titre "Speed breaks his TV again" → "IL RECASSE SA TV EN LIVE 😭💀"
-- Clip titre "Kai Cenat meets a crazy fan" → "LE FAN LUI SAUTE DESSUS 😱🔥"
-- Clip titre "xQc rage quits ranked" → "IL RAGE QUIT EN RANKED 💀😂"
+EXAMPLES of good hooks based on content:
+- Clip title "He sends his friend to Dagestan" → "HE SENT HIS FRIEND TO DAGESTAN 💀🔥"
+- Clip title "Speed breaks his TV again" → "HE BROKE HIS TV AGAIN ON STREAM 😭💀"
+- Clip title "Kai Cenat meets a crazy fan" → "THIS FAN JUMPED ON HIM 😱🔥"
+- Clip title "xQc rage quits ranked" → "HE RAGE QUIT IN RANKED 💀😂"
 
-RÈGLES:
-- BASÉ SUR LE TITRE/CONTENU DU CLIP (pas générique!!)
-- Français casual/québécois, style TikTok
-- MAX 45 caractères
+RULES:
+- BASED ON THE CLIP TITLE/CONTENT (not generic!!)
+- English casual, TikTok style
+- MAX 45 characters
 - 1-2 emojis (💀🔥😱👀🤯😂⚡😭)
-- TOUT EN MAJUSCULES
-- Le hook "choc" = résumé brutal, "curiosité" = tease la suite, "suspense" = crée l'attente
+- ALL CAPS
+- "shock" = brutal summary, "curiosity" = tease what's next, "suspense" = build anticipation
 
-JSON seulement, pas de texte autour:
+JSON only, no text around it:
 [
-  {"style": "choc", "label": "Choc", "text": "HOOK BASÉ SUR LE CLIP 💀"},
-  {"style": "curiosite", "label": "Curiosité", "text": "HOOK BASÉ SUR LE CLIP 👀"},
-  {"style": "suspense", "label": "Suspense", "text": "HOOK BASÉ SUR LE CLIP 😱"}
+  {"style": "shock", "label": "Shock", "text": "HOOK BASED ON THE CLIP 💀"},
+  {"style": "curiosity", "label": "Curiosity", "text": "HOOK BASED ON THE CLIP 👀"},
+  {"style": "suspense", "label": "Suspense", "text": "HOOK BASED ON THE CLIP 😱"}
 ]`
         }],
       }),
