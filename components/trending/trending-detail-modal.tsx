@@ -5,7 +5,6 @@ import { X, ExternalLink, Eye, Heart, Clapperboard, Clock, Globe, Flame, Copy, C
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { RankBadge } from '@/components/trending/rank-badge'
 import { clipRank } from '@/types/trending'
 import type { TrendingClip } from '@/types/trending'
 import { cn } from '@/lib/utils'
@@ -102,7 +101,9 @@ export function TrendingDetailModal({ clip, open, onClose, onRemix, remixing }: 
                     {gameLabel}
                   </span>
                 )}
-                <RankBadge rank={clipRank(clip)} score={clip.velocity_score} />
+                <span className="text-sm font-bold tabular-nums text-muted-foreground">
+                  {clip.velocity_score !== null ? Math.round(clip.velocity_score) : '--'}
+                </span>
               </div>
               <h2 className="text-lg font-bold text-foreground leading-tight">
                 {clip.title ?? 'Stream clip'}

@@ -66,7 +66,7 @@ function buildCommand(args) {
  *
  * @param {string} hookText   - The hook text to display
  * @param {number} hookLength - Duration in seconds to show the text
- * @param {string} style      - Hook style: 'choc', 'curiosite', 'suspense'
+ * @param {string} style      - Hook style: 'shock', 'curiosity', 'suspense'
  * @param {number} canvasW    - Canvas width
  * @param {number} canvasH    - Canvas height
  * @returns {string|null} - drawtext filter string or null
@@ -587,8 +587,8 @@ export async function renderClip(inputPath, outputPath, options = {}) {
       });
     } else {
       // Fallback: no PNG overlay — generate drawtext directly in FFmpeg
-      const hookStyle = hook.style || 'choc';
-      const hookFontColor = hookStyle === 'choc' ? '0xFF4444' : hookStyle === 'curiosite' ? '0xFACC15' : '0xFFFFFF';
+      const hookStyle = hook.style || 'shock';
+      const hookFontColor = hookStyle === 'shock' ? '0xFF4444' : hookStyle === 'curiosity' ? '0xFACC15' : '0xFFFFFF';
       const posPct = hook.textPosition || 15;
       const safeText = escapeDrawtext(hook.text);
       const enableExpr = hookDisplayLength < clipDuration

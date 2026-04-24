@@ -1,10 +1,8 @@
 "use client"
 
 import { useState, useRef, useCallback, useEffect, memo } from 'react'
-import { ExternalLink, Zap, Flame, Bookmark, Diamond } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent } from '@/components/ui/card'
-import { RankBadge, getRankCardClass } from '@/components/trending/rank-badge'
+import { ExternalLink, Sparkles, Flame, Bookmark, Play } from 'lucide-react'
+import { getRankTierClass, DiamondCorner, MasterCorner, MasterCrown, SkullIcon } from '@/components/trending/rank-badge'
 import { cn } from '@/lib/utils'
 import { timeAgo } from '@/lib/trending/utils'
 import { PLATFORM_STYLES, NICHE_LABELS } from '@/lib/trending/constants'
@@ -19,10 +17,6 @@ interface TrendingCardProps {
   remixing?: boolean
   isSaved?: boolean
   onToggleSave?: (clipId: string) => void
-}
-
-const GAME_COLORS: Record<string, string> = {
-  irl: 'text-blue-400 bg-blue-500/10',
 }
 
 const STREAMER_GRADIENTS: Record<string, string> = {
@@ -40,14 +34,65 @@ const STREAMER_GRADIENTS: Record<string, string> = {
   caseoh_: 'from-orange-600 via-red-500 to-pink-500',
 }
 
-// Rank-based badges are now in rank-badge.tsx
-
 function formatDuration(seconds: number | null): string {
   if (!seconds) return ''
   const m = Math.floor(seconds / 60)
   const s = Math.round(seconds % 60)
   return `${m}:${s.toString().padStart(2, '0')}`
 }
+
+// ── Decorative frame overlays ──
+
+function EpicFrame() {
+  return (
+    <div className="rank-frame">
+      <div className="corner tl" />
+      <div className="corner tr" />
+      <div className="corner bl" />
+      <div className="corner br" />
+    </div>
+  )
+}
+
+function LegendaryFrame() {
+  return (
+    <div className="rank-frame">
+      <div className="edge top" />
+      <div className="edge bottom" />
+      <div className="edge left" />
+      <div className="edge right" />
+      <div className="corner tl"><DiamondCorner /></div>
+      <div className="corner tr"><DiamondCorner /></div>
+      <div className="corner bl"><DiamondCorner /></div>
+      <div className="corner br"><DiamondCorner /></div>
+    </div>
+  )
+}
+
+function MasterFrame() {
+  return (
+    <div className="rank-frame">
+      <div className="edge top" />
+      <div className="edge bottom" />
+      <div className="edge left" />
+      <div className="edge right" />
+      <div className="corner tl"><MasterCorner /></div>
+      <div className="corner tr"><MasterCorner /></div>
+      <div className="corner bl"><MasterCorner /></div>
+      <div className="corner br"><MasterCorner /></div>
+    </div>
+  )
+}
+
+function MasterSparks() {
+  return (
+    <div className="master-sparks">
+      <span /><span /><span /><span /><span />
+    </div>
+  )
+}
+
+// ── Main Card ──
 
 export const TrendingCard = memo(function TrendingCard({ clip, onRemix, remixing = false, isSaved = false, onToggleSave }: TrendingCardProps) {
   const [imgError, setImgError] = useState(false)
@@ -64,11 +109,8 @@ export const TrendingCard = memo(function TrendingCard({ clip, onRemix, remixing
     colorClass: ps?.badgeClass ?? 'text-muted-foreground bg-muted border-border',
   }
 
-  const gameKey = clip.niche?.toLowerCase() ?? ''
-  const gameColor = GAME_COLORS[gameKey] ?? 'text-muted-foreground bg-muted'
-  const gameLabel = NICHE_LABELS[gameKey] ?? clip.niche
+  const gameLabel = NICHE_LABELS[clip.niche?.toLowerCase() ?? ''] ?? clip.niche
   const streamerGradient = STREAMER_GRADIENTS[clip.author_handle?.toLowerCase() ?? ''] ?? 'from-slate-700 via-slate-600 to-slate-500'
-
   const videoUrl = resolvedVideoUrl
 
   useEffect(() => {
@@ -93,7 +135,6 @@ export const TrendingCard = memo(function TrendingCard({ clip, onRemix, remixing
 
   const handleMouseEnter = useCallback(() => {
     setHovered(true)
-
     if (!fetchedRef.current && clip.platform === 'twitch') {
       fetchedRef.current = true
       const slug = getClipSlug()
@@ -127,33 +168,34 @@ export const TrendingCard = memo(function TrendingCard({ clip, onRemix, remixing
 
   const rank = clipRank(clip)
   const insight = getClipInsight(clip)
-  const rankCardClass = getRankCardClass(rank)
+  const tierClass = getRankTierClass(rank)
+  const score = clip.velocity_score !== null ? Math.round(clip.velocity_score) : null
+  const isMaster = rank === 'master'
+  const isLegendary = rank === 'legendary'
+  const isEpic = rank === 'epic'
+  const hasFrame = isMaster || isLegendary || isEpic
 
   return (
-    <Card
-      className={cn(
-        'bg-card/60 border-border overflow-hidden group transition-all duration-300',
-        rankCardClass,
-        'hover:border-primary/40 hover:shadow-xl hover:shadow-primary/10 hover:-translate-y-1'
-      )}
+    <article
+      className={cn('clip rounded-xl overflow-visible group cursor-pointer transition-all duration-300', tierClass)}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
     >
-      <div className="aspect-[9/16] max-h-52 relative overflow-hidden bg-gradient-to-br from-slate-900 to-slate-800">
+      {/* Thumbnail */}
+      <div className="thumb aspect-video relative overflow-hidden rounded-t-xl bg-gradient-to-br from-slate-900 to-slate-800">
 
+        {/* Video preview on hover */}
         {showVideo && videoUrl && (
           <video
             ref={videoRef}
             src={videoUrl}
             className="absolute inset-0 w-full h-full object-cover z-[5]"
-            autoPlay
-            muted
-            playsInline
-            loop
+            autoPlay muted playsInline loop
             onPlaying={() => setVideoPlaying(true)}
           />
         )}
 
+        {/* Thumbnail image or avatar fallback */}
         {clip.thumbnail_url && !imgError ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
@@ -185,49 +227,49 @@ export const TrendingCard = memo(function TrendingCard({ clip, onRemix, remixing
         {/* Platform badge */}
         {!videoPlaying && (
           <span className={cn(
-            'absolute top-2 left-2 text-xs font-bold px-2 py-0.5 rounded-full border backdrop-blur-sm',
+            'absolute top-2 left-2 z-[6] text-xs font-bold px-2 py-0.5 rounded-full border backdrop-blur-sm',
             platformStyle.colorClass
           )}>
             {platformStyle.label}
           </span>
         )}
 
-        {/* Rank badge */}
-        <div className="absolute top-2 right-2 z-20">
-          <RankBadge rank={rank} score={clip.velocity_score} />
+        {/* Master skull badge */}
+        {isMaster && (
+          <div className="master-skull">
+            <SkullIcon className="w-4 h-4 text-[#3A2808]" />
+          </div>
+        )}
+
+        {/* Decorative frame overlay */}
+        {isEpic && <EpicFrame />}
+        {isLegendary && <LegendaryFrame />}
+        {isMaster && <MasterFrame />}
+
+        {/* Master crown pediment */}
+        {isMaster && <MasterCrown className="master-crown" />}
+
+        {/* Score — big Archivo Black number */}
+        {score !== null && (
+          <span className="rank-score">{score}</span>
+        )}
+
+        {/* Master sparks */}
+        {isMaster && <MasterSparks />}
+
+        {/* Duration pill */}
+        {!videoPlaying && clip.duration_seconds && (
+          <span className="absolute bottom-2 left-2 z-[6] text-[10px] text-white/80 bg-black/60 px-1.5 py-0.5 rounded-md backdrop-blur-sm font-medium">
+            {formatDuration(clip.duration_seconds)}
+          </span>
+        )}
+
+        {/* Play button */}
+        <div className="play-btn">
+          <Play className="h-5 w-5 text-white ml-0.5" fill="white" />
         </div>
 
-        {/* Feed category badges */}
-        {!videoPlaying && clip.feed_category === 'early_gem' && (
-          <div className="absolute bottom-8 left-2 z-[6] flex items-center gap-1 bg-cyan-500/90 text-white text-[10px] font-black px-2 py-0.5 rounded-full shadow-lg">
-            <Diamond className="h-2.5 w-2.5" />
-            EARLY GEM
-          </div>
-        )}
-        {!videoPlaying && clip.feed_category === 'hot_now' && (
-          <div className="absolute bottom-8 left-2 z-[6] flex items-center gap-1 bg-gradient-to-r from-orange-500 to-red-500 text-white text-[10px] font-black px-2 py-0.5 rounded-full shadow-lg animate-pulse">
-            <Flame className="h-2.5 w-2.5" />
-            HOT NOW
-          </div>
-        )}
-
-        {/* Duration + time */}
-        {!videoPlaying && (
-          <div className="absolute bottom-2 left-2 z-[6] flex items-center gap-1.5">
-            {clip.duration_seconds && (
-              <span className="text-[10px] text-white/80 bg-black/60 px-1.5 py-0.5 rounded-md backdrop-blur-sm font-medium">
-                {formatDuration(clip.duration_seconds)}
-              </span>
-            )}
-            {clip.clip_created_at && (
-              <span className="text-[10px] text-white/50 bg-black/40 px-1.5 py-0.5 rounded-md backdrop-blur-sm">
-                {timeAgo(clip.clip_created_at)}
-              </span>
-            )}
-          </div>
-        )}
-
-        {/* Bookmark + External link */}
+        {/* Bookmark + External link (hover only) */}
         {!videoPlaying && (
           <div className="absolute bottom-2 right-2 z-[6] flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
             {onToggleSave && (
@@ -256,55 +298,54 @@ export const TrendingCard = memo(function TrendingCard({ clip, onRemix, remixing
         )}
       </div>
 
-      <CardContent className="p-3 space-y-2">
+      {/* Meta section */}
+      <div className={cn('meta-section p-3 space-y-2 rounded-b-xl', isMaster ? '' : 'bg-card/60')}>
         <p className={cn(
-          'text-sm font-medium leading-tight line-clamp-2 transition-opacity duration-200 text-foreground',
-          (hovered || showVideo || videoPlaying) ? 'opacity-0' : 'opacity-100'
+          'text-sm font-medium leading-tight line-clamp-2 text-foreground'
         )}>
           {clip.title ?? clip.author_name ?? 'Stream clip'}
         </p>
 
         {clip.author_handle && (
-          <p className="text-xs text-muted-foreground truncate">
-            @{clip.author_handle}
-            {clip.author_name && clip.author_name !== clip.author_handle && (
-              <span className="ml-1 text-muted-foreground/60">&middot; {clip.author_name}</span>
+          <div className="flex items-center gap-1.5 text-xs text-muted-foreground truncate">
+            <span className="w-4 h-4 rounded-full bg-muted/60 shrink-0 flex items-center justify-center text-[8px] font-bold text-muted-foreground">
+              {(clip.author_handle ?? 'U')[0].toUpperCase()}
+            </span>
+            <b>@{clip.author_handle}</b>
+            {gameLabel && (
+              <span className="text-muted-foreground/60">&middot; {gameLabel}</span>
             )}
-          </p>
+          </div>
         )}
 
-        {/* Insight tag + niche */}
-        <div className="flex items-center gap-1.5 flex-wrap">
-          {insight && (
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium text-muted-foreground/80 bg-muted/40">
-              <span>{insight.icon}</span>
-              {insight.text}
-            </span>
-          )}
-          {clip.niche && (
-            <span className={cn('ml-auto px-2 py-0.5 rounded-full text-[10px] font-medium', gameColor)}>
-              {gameLabel}
-            </span>
-          )}
-        </div>
+        {/* Signal tags (hover reveal) */}
+        {insight && (clip.feed_category === 'hot_now' || clip.feed_category === 'early_gem') && (
+          <div className="signal-tag">
+            {clip.feed_category === 'hot_now' && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold"
+                style={{ color: '#FDA4AF', background: 'rgba(239,68,68,.1)', border: '1px solid rgba(239,68,68,.22)' }}>
+                <Flame className="h-2.5 w-2.5" /> Hot
+              </span>
+            )}
+            {clip.feed_category === 'early_gem' && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold"
+                style={{ color: '#86EFAC', background: 'rgba(34,197,94,.1)', border: '1px solid rgba(34,197,94,.22)' }}>
+                <Sparkles className="h-2.5 w-2.5" /> Gem
+              </span>
+            )}
+          </div>
+        )}
 
-        <div className="space-y-1 mt-1">
-          {(rank === 'epic' || rank === 'legendary' || rank === 'master') && !remixing && (
-            <p className="text-[10px] text-center text-orange-400/80 font-medium">
-              {rank === 'master' ? '🔥' : rank === 'legendary' ? '⚡' : '🎯'} {rank.charAt(0).toUpperCase() + rank.slice(1)} — ready to blow up
-            </p>
-          )}
-          <Button
-            size="sm"
-            className="w-full h-9 text-xs gap-1.5 bg-gradient-to-r from-primary to-indigo-500 hover:from-primary/90 hover:to-indigo-500/90 font-bold shadow-md shadow-primary/20"
-            onClick={(e) => { e.stopPropagation(); onRemix?.(clip) }}
-            disabled={remixing}
-          >
-            <Zap className="h-3.5 w-3.5" />
-            {remixing ? 'Creating...' : 'Make It Viral'}
-          </Button>
-        </div>
-      </CardContent>
-    </Card>
+        {/* CTA button */}
+        <button
+          className="cta-viral w-full h-9 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-all relative z-10"
+          onClick={(e) => { e.stopPropagation(); onRemix?.(clip) }}
+          disabled={remixing}
+        >
+          {isMaster ? <SkullIcon className="h-3.5 w-3.5" /> : <Sparkles className="h-3.5 w-3.5" />}
+          <span className="relative z-10">{remixing ? 'Creating...' : 'Make It Viral'}</span>
+        </button>
+      </div>
+    </article>
   )
 })

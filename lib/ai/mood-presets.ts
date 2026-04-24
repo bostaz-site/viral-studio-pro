@@ -44,7 +44,7 @@ export interface MoodPreset {
   hookEnabled: boolean
   hookTextEnabled: boolean
   hookReorderEnabled: boolean
-  hookStyle: 'choc' | 'curiosite' | 'suspense'
+  hookStyle: 'shock' | 'curiosity' | 'suspense'
   hookTextPosition: number
   hookLength: number
 }
@@ -94,7 +94,7 @@ export const MOOD_PRESETS: Record<ClipMood, MoodPreset> = {
     autoCutEnabled: true,
     autoCutThreshold: 0.5,
     hookReorderEnabled: true,
-    hookStyle: 'choc',
+    hookStyle: 'shock',
     hookLength: 0,
   },
 
@@ -113,7 +113,7 @@ export const MOOD_PRESETS: Record<ClipMood, MoodPreset> = {
     autoCutEnabled: false,
     autoCutThreshold: 0.7,
     hookReorderEnabled: true,
-    hookStyle: 'curiosite',
+    hookStyle: 'curiosity',
     hookLength: 0,
   },
 
@@ -151,7 +151,7 @@ export const MOOD_PRESETS: Record<ClipMood, MoodPreset> = {
     autoCutEnabled: false,
     autoCutThreshold: 0.7,
     hookReorderEnabled: false,
-    hookStyle: 'curiosite',
+    hookStyle: 'curiosity',
     hookLength: 0,
   },
 
@@ -170,7 +170,7 @@ export const MOOD_PRESETS: Record<ClipMood, MoodPreset> = {
     autoCutEnabled: true,
     autoCutThreshold: 0.5,
     hookReorderEnabled: true,
-    hookStyle: 'choc',
+    hookStyle: 'shock',
     hookLength: 0,
   },
 

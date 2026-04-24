@@ -646,7 +646,7 @@ router.post('/', async (req, res) => {
       trc(`HOOK REORDER: no segments provided, calculating from duration=${duration}s`);
       const fallbackPeak = detectPeakMoment({ transcript: '', duration, wordTimestamps: [], audioPeaks: [] });
       const peakT = fallbackPeak.peakTime > 0 ? fallbackPeak.peakTime : Math.min(duration * 0.6, duration - 2);
-      const hookLen = settings.hook?.length || 1.5;
+      const hookLen = settings.hook?.length ?? 1.5;
       settings.hook.reorder = calculateReorderTimestamps(peakT, duration, hookLen, 8);
       trc(`HOOK REORDER fallback: peak=${peakT}s, ${settings.hook.reorder.segments.length} segments`);
     }
@@ -892,9 +892,9 @@ router.post('/', async (req, res) => {
         enabled: true,
         textEnabled: settings.hook.textEnabled !== false,
         text: settings.hook.text || '',
-        style: settings.hook.style || 'choc',
+        style: settings.hook.style || 'shock',
         textPosition: settings.hook.textPosition || 15,
-        length: settings.hook.length || 1.5,
+        length: (settings.hook.length ?? 0),
         overlayPng: settings.hook.overlayPng || null,
         overlayCapsuleW: settings.hook.overlayCapsuleW || null,
         overlayCapsuleH: settings.hook.overlayCapsuleH || null,
@@ -1205,9 +1205,9 @@ router.post('/preview', async (req, res) => {
         enabled: true,
         textEnabled: settings.hook.textEnabled !== false,
         text: settings.hook.text || '',
-        style: settings.hook.style || 'choc',
+        style: settings.hook.style || 'shock',
         textPosition: settings.hook.textPosition || 15,
-        length: Math.min(settings.hook.length || 1.5, previewDuration),
+        length: Math.min((settings.hook.length ?? 0), previewDuration),
         overlayPng: settings.hook.overlayPng || null,
         overlayCapsuleW: settings.hook.overlayCapsuleW || null,
         overlayCapsuleH: settings.hook.overlayCapsuleH || null,

@@ -149,14 +149,14 @@ export function detectPeakMoment(opts = {}) {
 
 // ─── Fallback Templates (used when Claude API is unavailable) ───────────────
 const FALLBACK_HOOKS = {
-  choc: [
+  shock: [
     'IL A VRAIMENT FAIT ÇA 💀',
     'PERSONNE S\'ATTENDAIT À ÇA 😱',
     'ÇA A DÉGÉNÉRÉ EN 2 SECONDES 🤯',
     'MOMENT LÉGENDAIRE 🔥',
     'JE SUIS MORT 😂💀',
   ],
-  curiosite: [
+  curiosity: [
     'ATTENDEZ DE VOIR CE QUI ARRIVE... 👀',
     'VOUS ALLEZ PAS CROIRE LA SUITE',
     'PERSONNE AVAIT VU ÇA VENIR 😳',
@@ -273,7 +273,7 @@ JSON seulement, pas de texte autour:
 
     // Ensure proper structure and truncate if needed
     const result = hooks.slice(0, 3).map(h => ({
-      style: h.style || 'choc',
+      style: h.style || 'shock',
       label: h.label || h.style || 'Hook',
       text: (h.text || '').slice(0, 60),
     }));
@@ -294,8 +294,8 @@ function generateFallbackHooks(streamerName = '') {
   const pickRandom = (arr) => arr[Math.floor(Math.random() * arr.length)];
 
   return [
-    { style: 'choc', label: 'Choc', text: pickRandom(FALLBACK_HOOKS.choc) },
-    { style: 'curiosite', label: 'Curiosité', text: pickRandom(FALLBACK_HOOKS.curiosite) },
+    { style: 'shock', label: 'Shock', text: pickRandom(FALLBACK_HOOKS.shock) },
+    { style: 'curiosity', label: 'Curiosity', text: pickRandom(FALLBACK_HOOKS.curiosity) },
     { style: 'suspense', label: 'Suspense', text: pickRandom(FALLBACK_HOOKS.suspense) },
   ];
 }

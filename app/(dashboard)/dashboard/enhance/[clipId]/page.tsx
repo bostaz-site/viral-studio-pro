@@ -470,15 +470,16 @@ export default function EnhancePage() {
                 segmentDetails: settings.hookReorder?.segments?.map(s => `${s.label}(${s.start}-${s.end}s)`) || [],
                 totalDuration: settings.hookReorder?.totalDuration || 0,
                 hookText: settings.hookText?.substring(0, 30) || '(empty)',
+                hookLength: settings.hookLength,
               })
               return {
               enabled: settings.hookEnabled,
               textEnabled: settings.hookTextEnabled,
               reorderEnabled: settings.hookReorderEnabled,
               text: settings.hookText,
-              style: settings.hookStyle,
+              style: (['shock', 'curiosity', 'suspense'].includes(settings.hookStyle) ? settings.hookStyle : 'suspense') as 'shock' | 'curiosity' | 'suspense',
               textPosition: settings.hookTextPosition,
-              length: settings.hookLength,
+              length: 0,
               reorder: settings.hookReorder,
               overlayPng: hookOverlayData?.png || null,
               overlayCapsuleW: hookOverlayData?.capsuleW || null,
@@ -494,7 +495,7 @@ export default function EnhancePage() {
       }
 
       if (!res.ok || !data.data) {
-        setRenderMessage(data.message ?? 'Render failed')
+        setRenderMessage(`❌ ${data.error || data.message || 'Render failed'}`)
         setRendering(false)
       } else if (data.data.vpsReady === false) {
         setRenderMessage(`⚠️ ${data.message}`)
@@ -701,14 +702,13 @@ export default function EnhancePage() {
       if (res.ok && !json.error && json.data) {
         setHookAnalysis(json.data)
         // Auto-select the hook matching the mood's hookStyle
-        const targetStyle = preset.hookStyle === 'choc' ? 'shock' : preset.hookStyle === 'curiosite' ? 'curiosity' : preset.hookStyle
-        const matchedHook = json.data.hooks.find((h: HookVariant) => h.style === targetStyle)
+        const matchedHook = json.data.hooks.find((h: HookVariant) => h.style === preset.hookStyle)
         const bestHook = matchedHook || json.data.hooks[0]
         setSettings((s) => ({
           ...s,
           ...(bestHook ? {
             hookText: bestHook.text,
-            hookStyle: bestHook.style as 'choc' | 'curiosite' | 'suspense',
+            hookStyle: bestHook.style as 'shock' | 'curiosity' | 'suspense',
           } : {}),
           hookReorder: json.data.reorder,
         }))
@@ -1917,8 +1917,8 @@ export default function EnhancePage() {
                           <Label className="text-xs uppercase tracking-wider text-muted-foreground">Hook style</Label>
                           <div className="grid grid-cols-3 gap-2">
                             {([
-                              { id: 'choc' as const, label: 'Shock', emoji: '💀', desc: 'Max impact' },
-                              { id: 'curiosite' as const, label: 'Curiosity', emoji: '👀', desc: 'Tease the next' },
+                              { id: 'shock' as const, label: 'Shock', emoji: '💀', desc: 'Max impact' },
+                              { id: 'curiosity' as const, label: 'Curiosity', emoji: '👀', desc: 'Tease the next' },
                               { id: 'suspense' as const, label: 'Suspense', emoji: '⏳', desc: 'Wait for it' },
                             ]).map((style) => (
                               <button
@@ -1951,7 +1951,7 @@ export default function EnhancePage() {
                                 key={i}
                                 onClick={() => {
                                   updateSetting('hookText', hook.text)
-                                  updateSetting('hookStyle', hook.style as 'choc' | 'curiosite' | 'suspense')
+                                  updateSetting('hookStyle', hook.style as 'shock' | 'curiosity' | 'suspense')
                                 }}
                                 className={cn(
                                   'w-full rounded-xl border p-3 text-left transition-all',

@@ -37,7 +37,7 @@ const inputSchema = z.object({
       textEnabled: z.boolean().optional(),
       reorderEnabled: z.boolean().optional(),
       text: z.string().optional(),
-      style: z.enum(['choc', 'curiosite', 'suspense']).optional(),
+      style: z.enum(['shock', 'curiosity', 'suspense']).optional(),
       length: z.number().optional(),
       textPosition: z.number().optional(),
       overlayPng: z.string().nullable().optional(), // base64 PNG from browser capture

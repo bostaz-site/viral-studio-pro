@@ -1,11 +1,12 @@
 import type { Metadata } from 'next'
-import { Inter } from 'next/font/google'
+import { Inter, Archivo_Black } from 'next/font/google'
 import './globals.css'
 import './rank-cards.css'
 import { ThemeProvider } from '@/components/theme-provider'
 import { cn } from "@/lib/utils"
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-sans' })
+const archivoBlack = Archivo_Black({ weight: '400', subsets: ['latin'], variable: '--font-score' })
 
 const siteUrl = 'https://viralanimal.com'
 
@@ -114,7 +115,7 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en" suppressHydrationWarning className={cn("font-sans", inter.variable)}>
+    <html lang="en" suppressHydrationWarning className={cn("font-sans", inter.variable, archivoBlack.variable)}>
       <head>
         <meta name="google-site-verification" content="vd6ilqum2N1Q0YUJDWzxuyD_Nlv7Km5CfkwRB4Xl5L4" />
         <script
