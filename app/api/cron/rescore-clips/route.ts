@@ -7,8 +7,10 @@ import { scoreClip } from '@/lib/scoring/clip-scorer'
  * POST /api/cron/rescore-clips
  *
  * Stratified rescoring: picks clips whose next_check_at <= NOW(),
- * recomputes scores from the latest snapshots, writes a new snapshot,
+ * recomputes scores from the latest snapshots, writes new snapshots,
  * and schedules the next check based on clip age + spike detection.
+ *
+ * Uses bulk_update_scores RPC to reduce DB contention (1 call vs N).
  *
  * Auth: x-api-key header = CRON_SECRET
  */
@@ -34,7 +36,7 @@ export async function POST(req: NextRequest) {
     const admin = createAdminClient()
     const now = new Date()
 
-    // Select clips due for rescoring (NULL next_check_at = highest priority)
+    // 1. Select clips due for rescoring (NULL next_check_at = highest priority)
     const { data: clips, error: fetchErr } = await admin
       .from('trending_clips')
       .select('id, view_count, like_count, clip_created_at, created_at, title, duration_seconds, velocity, streamer_id')
@@ -57,7 +59,7 @@ export async function POST(req: NextRequest) {
       })
     }
 
-    // Batch-fetch streamer averages for all unique streamer_ids
+    // 2. Batch-fetch streamer averages for all unique streamer_ids
     const streamerIds = [...new Set(clips.map(c => c.streamer_id).filter(Boolean))] as string[]
     const streamerMap = new Map<string, { avg_clip_views: number; avg_clip_velocity: number }>()
 
@@ -77,22 +79,46 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    let rescored = 0
+    // 3. Batch-fetch snapshots for all clips (1 query instead of N)
+    const clipIds = clips.map(c => c.id) as string[]
+    const { data: allSnapshots } = await admin
+      .from('clip_snapshots')
+      .select('clip_id, view_count, captured_at')
+      .in('clip_id', clipIds)
+      .order('captured_at', { ascending: false })
+
+    // Group by clip_id, keep only 2 most recent per clip
+    const snapshotMap = new Map<string, Array<{ view_count: number; captured_at: string }>>()
+    for (const s of allSnapshots ?? []) {
+      const arr = snapshotMap.get(s.clip_id) ?? []
+      if (arr.length < 2) {
+        arr.push({ view_count: s.view_count, captured_at: s.captured_at })
+        snapshotMap.set(s.clip_id, arr)
+      }
+    }
+
+    // 4. Score all clips in memory, collect results for bulk operations
     let spikes = 0
+    const bulkIds: string[] = []
+    const bulkVelocityScores: number[] = []
+    const bulkMomentumScores: number[] = []
+    const bulkEngagementScores: number[] = []
+    const bulkRecencyScores: number[] = []
+    const bulkEarlySignalScores: number[] = []
+    const bulkFormatScores: number[] = []
+    const bulkSaturationScores: number[] = []
+    const bulkAnomalyScores: number[] = []
+    const bulkTiers: string[] = []
+    const bulkFeedCategories: string[] = []
+    const bulkNextCheckAts: string[] = []
+    const snapshotInserts: Array<{ clip_id: string; view_count: number }> = []
 
     for (const clip of clips) {
       try {
-        // Fetch the two most recent snapshots for this clip
-        const { data: snapshots } = await admin
-          .from('clip_snapshots')
-          .select('view_count, captured_at')
-          .eq('clip_id', clip.id)
-          .order('captured_at', { ascending: false })
-          .limit(2)
-
-        const latestSnapshot = snapshots?.[0] ?? null
-        const prevSnapshot = snapshots?.[1] ?? null
-        const snapshotCount = snapshots?.length ?? 0
+        const snapshots = snapshotMap.get(clip.id) ?? []
+        const latestSnapshot = snapshots[0] ?? null
+        const prevSnapshot = snapshots[1] ?? null
+        const snapshotCount = snapshots.length
 
         const currentViews = clip.view_count ?? 0
         const clipCreatedAt = clip.clip_created_at ?? clip.created_at ?? now.toISOString()
@@ -112,7 +138,6 @@ export async function POST(req: NextRequest) {
           const deltaViews = Math.max(0, latestSnapshot.view_count - prevSnapshot.view_count)
           velocity = deltaViews / deltaHours
 
-          // Prev velocity needs a third snapshot — approximate from prev snapshot vs clip age
           const prevAge = Math.max(
             0.1,
             (new Date(prevSnapshot.captured_at).getTime() - new Date(clipCreatedAt).getTime()) / 3_600_000
@@ -166,44 +191,58 @@ export async function POST(req: NextRequest) {
 
         const nextCheckAt = new Date(now.getTime() + nextCheckMinutes * 60_000).toISOString()
 
-        // Write new snapshot for next delta calculation
-        await admin
-          .from('clip_snapshots')
-          .insert({ clip_id: clip.id, view_count: currentViews })
-
-        // Update clip scores + next_check_at
-        await admin
-          .from('trending_clips')
-          .update({
-            velocity,
-            viral_ratio: velocity / (currentViews + 1),
-            viral_score: scores.final_score,
-            velocity_score: scores.final_score,
-            tier: scores.tier,
-            early_signal_score: scores.early_signal_score,
-            // NOTE: DB column is 'anomaly_score' but stores authority_score from Scoring V2
-            anomaly_score: scores.authority_score,
-            feed_category: scores.feed_category,
-            momentum_score: scores.momentum_score,
-            engagement_score: scores.engagement_score,
-            recency_score: scores.recency_score,
-            format_score: scores.format_score,
-            saturation_score: scores.saturation_score,
-            next_check_at: nextCheckAt,
-          })
-          .eq('id', clip.id)
-
-        rescored++
+        bulkIds.push(clip.id)
+        bulkVelocityScores.push(scores.final_score)
+        bulkMomentumScores.push(scores.momentum_score)
+        bulkEngagementScores.push(scores.engagement_score)
+        bulkRecencyScores.push(scores.recency_score)
+        bulkEarlySignalScores.push(scores.early_signal_score)
+        bulkFormatScores.push(scores.format_score)
+        bulkSaturationScores.push(scores.saturation_score)
+        bulkAnomalyScores.push(scores.authority_score)
+        bulkTiers.push(scores.tier)
+        bulkFeedCategories.push(scores.feed_category)
+        bulkNextCheckAts.push(nextCheckAt)
+        snapshotInserts.push({ clip_id: clip.id, view_count: currentViews })
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err)
         console.error(`[rescore] clip ${clip.id}: ${msg}`)
       }
     }
 
+    // 5. Batch insert snapshots (1 query instead of N)
+    if (snapshotInserts.length > 0) {
+      const { error: snapErr } = await admin.from('clip_snapshots').insert(snapshotInserts)
+      if (snapErr) {
+        console.error('[rescore] batch snapshot insert failed:', snapErr.message)
+      }
+    }
+
+    // 6. Bulk update via RPC (1 query instead of N)
+    if (bulkIds.length > 0) {
+      const { error: rpcErr } = await (admin.rpc as CallableFunction)('bulk_update_scores', {
+        p_ids: bulkIds,
+        p_velocity_scores: bulkVelocityScores,
+        p_momentum_scores: bulkMomentumScores,
+        p_engagement_scores: bulkEngagementScores,
+        p_recency_scores: bulkRecencyScores,
+        p_early_signal_scores: bulkEarlySignalScores,
+        p_format_scores: bulkFormatScores,
+        p_saturation_scores: bulkSaturationScores,
+        p_anomaly_scores: bulkAnomalyScores,
+        p_tiers: bulkTiers,
+        p_feed_categories: bulkFeedCategories,
+        p_next_check_ats: bulkNextCheckAts,
+      })
+      if (rpcErr) {
+        console.error('[rescore] bulk_update_scores RPC failed:', rpcErr.message)
+      }
+    }
+
     return NextResponse.json({
-      data: { rescored, spikes },
+      data: { rescored: bulkIds.length, spikes },
       error: null,
-      message: `${rescored} clips rescored · ${spikes} spikes detected`,
+      message: `${bulkIds.length} clips rescored · ${spikes} spikes detected`,
     })
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Internal error'

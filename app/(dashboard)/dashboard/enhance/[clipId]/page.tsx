@@ -70,7 +70,8 @@ export default function EnhancePage() {
   const [renderedThumbnailUrl, setRenderedThumbnailUrl] = useState<string | null>(null)
   const [originalVideoUrl, setOriginalVideoUrl] = useState<string | null>(null)
   const pollRef = useRef<NodeJS.Timeout | null>(null)
-  const [showEnhancements, setShowEnhancements] = useState(true)
+  const hasUserChangedSettings = useRef(false)
+  const [showEnhancements, setShowEnhancements] = useState(false)
   const [hookAnalysis, setHookAnalysis] = useState<HookAnalysis | null>(null)
   const [hookGenerating, setHookGenerating] = useState(false)
   const [hookError, setHookError] = useState<string | null>(null)
@@ -99,6 +100,8 @@ export default function EnhancePage() {
     smartZoomEnabled: false,
     smartZoomMode: 'micro',
     audioEnhanceEnabled: false,
+    bassBoost: 'off',
+    speedRamp: 'off',
     autoCutEnabled: false,
     autoCutThreshold: 0.7,
     hookEnabled: false,
@@ -228,6 +231,11 @@ export default function EnhancePage() {
 
   const updateSetting = useCallback(<K extends keyof EnhanceSettings>(key: K, value: EnhanceSettings[K]) => {
     setSettings((s) => ({ ...s, [key]: value }))
+    // Auto-switch to Enhanced preview on first change
+    if (!hasUserChangedSettings.current) {
+      hasUserChangedSettings.current = true
+      setShowEnhancements(true)
+    }
     // Clear rendered video when user changes settings — avoids confusion
     // between the baked render and the new settings shown in the preview
     if (isRenderedVideo) {
@@ -296,16 +304,17 @@ export default function EnhancePage() {
           if (pollRef.current) clearInterval(pollRef.current)
           try { sessionStorage.removeItem(`render-job:${clipId}`) } catch { /* ignore */ }
           setRenderDownloadUrl(json.data.downloadUrl)
-          // Switch the live preview to show the RENDERED video (with subtitles baked in)
-          // Save original URL so user can re-edit later
+          // Save rendered video URL for the "Rendered" tab — but keep Enhanced preview active
           if (json.data.publicUrl) {
             setOriginalVideoUrl(videoUrl)
+            // Store rendered URL but DON'T switch preview — user stays on Enhanced view
             setVideoUrl(json.data.publicUrl)
-            setIsRenderedVideo(true)
             if (json.data.thumbnailUrl) {
               setRenderedThumbnailUrl(json.data.thumbnailUrl)
             }
           }
+          // Keep isRenderedVideo false — user can click "Rendered" tab to see baked video
+          setShowEnhancements(true)
           setRenderMessage('✅ Clip rendu avec sous-titres ! Regarde la preview ci-dessus.')
           setRendering(false)
         } else if (json.data.status === 'error') {
@@ -542,15 +551,21 @@ export default function EnhancePage() {
 
   // Helper: compute real impact on "Chance de blowup" for each option
   // Helper: compute real impact on "Chance de blowup" using diminishing returns
+  // Only show score badges AFTER the user has clicked "Make it viral" or manually selected a mood.
+  // Before that, no points are attributed to any option.
+  const hasAiAnalyzed = !!(selectedMood || detectedMood)
+
   const getRealImpact = useCallback((
     category: 'caption' | 'emphasis' | 'broll' | 'tag',
     optionId: string,
     bestId: string
   ): { impact: number; isMoodPick: boolean } => {
+    // No scores until AI has analyzed
+    if (!selectedMood && !detectedMood) return { impact: 0, isMoodPick: false }
+
     const headroom = Math.max(0, 99 - baselineScore)
     const BASE_W: Record<string, number> = { caption: 0.14, emphasis: 0.08, broll: 0.12, tag: 0.08 }
     const MOOD_W: Record<string, number> = { caption: 0.06, emphasis: 0.04, broll: 0, tag: 0 }
-    const FALLBACK_W = 0.02
 
     if (optionId === 'none') {
       if (selectedMood) {
@@ -577,15 +592,11 @@ export default function EnhancePage() {
         weight += MOOD_W[category]
         isMoodPick = true
       }
-    } else {
-      if (optionId === bestId) {
-        weight += FALLBACK_W
-      }
     }
 
     const impact = Math.round(headroom * weight * 10) / 10
     return { impact, isMoodPick }
-  }, [selectedMood, baselineScore])
+  }, [selectedMood, detectedMood, baselineScore])
 
   const applyMoodPreset = useCallback((preset: MoodPresetWithPlatform) => {
     appliedCaptionStyleRef.current = preset.captionStyle
@@ -880,142 +891,167 @@ export default function EnhancePage() {
         <div
           className="lg:sticky lg:top-4 lg:self-start space-y-3 lg:max-h-[calc(100vh-2rem)] lg:overflow-y-auto lg:pr-1 lg:[scrollbar-width:thin]"
         >
-          {/* ── Before/After Preview Toggle ── */}
+          {/* ── Preview Toggle ── */}
           <div className="flex gap-2">
             <Button
               variant={!showEnhancements ? 'default' : 'outline'}
               size="sm"
-              onClick={() => setShowEnhancements(false)}
+              onClick={() => { setShowEnhancements(false); setIsRenderedVideo(false) }}
               className="flex-1 text-xs h-8"
             >
               Original
             </Button>
             <Button
-              variant={showEnhancements ? 'default' : 'outline'}
+              variant={showEnhancements && !isRenderedVideo ? 'default' : 'outline'}
               size="sm"
-              onClick={() => setShowEnhancements(true)}
+              onClick={() => { setShowEnhancements(true); setIsRenderedVideo(false) }}
               className="flex-1 text-xs h-8"
             >
               Enhanced
             </Button>
+            {renderDownloadUrl && (
+              <Button
+                variant={isRenderedVideo ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => { setIsRenderedVideo(true); setShowEnhancements(true) }}
+                className="flex-1 text-xs h-8"
+              >
+                Rendered
+              </Button>
+            )}
           </div>
 
           {/* ── Preview ── */}
-          {/* When rendered video is showing, disable CSS overlays (they're baked into the video) */}
-          <LivePreview clip={clip} videoUrl={showEnhancements && isRenderedVideo && originalVideoUrl ? originalVideoUrl : videoUrl} settings={settings} showEnhancements={isRenderedVideo ? false : showEnhancements} isRenderedVideo={isRenderedVideo} renderedThumbnailUrl={renderedThumbnailUrl} />
+          {/* 3 modes: Original (no overlays), Enhanced (CSS overlays on original video), Rendered (baked MP4) */}
+          <LivePreview
+            clip={clip}
+            videoUrl={isRenderedVideo ? videoUrl : (originalVideoUrl ?? videoUrl)}
+            settings={settings}
+            showEnhancements={!isRenderedVideo && showEnhancements}
+            isRenderedVideo={isRenderedVideo}
+            renderedThumbnailUrl={renderedThumbnailUrl}
+          />
 
-          {/* Generate button — orange, always visible with preview */}
-          <Button
-            className="w-full h-12 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white font-bold text-base gap-2 shadow-lg shadow-orange-500/25 rounded-xl"
-            onClick={handleRender}
-            disabled={rendering}
-          >
-            {rendering ? (
-              <><Loader2 className="h-5 w-5 animate-spin" /> Rendering…</>
-            ) : (
-              <><Zap className="h-5 w-5" /> Generate clip</>
-            )}
-          </Button>
+          {/* Generate button — hidden when AI flow active or render done */}
+          {!renderDownloadUrl && !makeViralLoading && !rendering && (
+            <Button
+              className="w-full h-12 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white font-bold text-base gap-2 shadow-lg shadow-orange-500/25 rounded-xl"
+              onClick={handleRender}
+            >
+              <Zap className="h-5 w-5" /> Generate clip
+            </Button>
+          )}
 
-          {/* Render status messages */}
-          {renderMessage && (() => {
-            const isError = renderMessage.includes('Erreur') || renderMessage.includes('❌')
-            const isWarning = renderMessage.includes('⚠️')
-            const isProgress = renderMessage.includes('⏳') || renderMessage.includes('📸')
-            const isSuccess = !isError && !isWarning && !isProgress
-
-            // Error state → structured ErrorCard with retry
-            if (isError) {
-              const cleaned = renderMessage.replace(/^❌\s*/, '').replace(/^Erreur\s*:\s*/, '')
-              const kind = classifyError(cleaned)
-              return (
-                <ErrorCard
-                  kind={kind}
-                  title="Render failed"
-                  description={
-                    kind === 'timeout'
-                      ? "The render server timed out. Your clip might be too long — try again or shorten it."
-                      : kind === 'quota'
-                        ? 'You\'ve hit your monthly render limit. Upgrade your plan to continue.'
-                        : kind === 'network'
-                          ? 'Check your internet connection and try again.'
-                          : 'Something went wrong on our end. Try again — if it persists, we\'ll look into it.'
-                  }
-                  details={cleaned}
-                  onRetry={() => {
-                    setRenderMessage(null)
-                    handleRender()
-                  }}
-                  secondaryAction={
-                    kind === 'quota'
-                      ? { label: 'Upgrade plan', href: '/settings' }
-                      : undefined
-                  }
-                />
-              )
-            }
-
-            // Non-error: keep the existing compact inline feedback
+          {/* Render error messages */}
+          {renderMessage && (renderMessage.includes('Erreur') || renderMessage.includes('❌')) && (() => {
+            const cleaned = renderMessage.replace(/^❌\s*/, '').replace(/^Erreur\s*:\s*/, '')
+            const kind = classifyError(cleaned)
             return (
-              <div className="text-center space-y-3">
+              <ErrorCard
+                kind={kind}
+                title="Render failed"
+                description={
+                  kind === 'timeout'
+                    ? "The render server timed out. Your clip might be too long — try again or shorten it."
+                    : kind === 'quota'
+                      ? 'You\'ve hit your monthly render limit. Upgrade your plan to continue.'
+                      : kind === 'network'
+                        ? 'Check your internet connection and try again.'
+                        : 'Something went wrong on our end. Try again — if it persists, we\'ll look into it.'
+                }
+                details={cleaned}
+                onRetry={() => {
+                  setRenderMessage(null)
+                  handleRender()
+                }}
+                secondaryAction={
+                  kind === 'quota'
+                    ? { label: 'Upgrade plan', href: '/settings' }
+                    : undefined
+                }
+              />
+            )
+          })()}
+
+          {/* Download + Publish — visible once AI flow starts or render done */}
+          {(makeViralLoading || rendering || renderDownloadUrl) && (
+            <div className="flex flex-col gap-2">
+              {/* Progress / success message */}
+              {renderMessage && !renderMessage.includes('Erreur') && !renderMessage.includes('❌') && (
                 <p className={cn(
-                  'text-sm font-medium',
-                  isWarning ? 'text-amber-400' :
-                  isProgress ? 'text-blue-400' :
-                  isSuccess ? 'text-green-400' : 'text-muted-foreground'
+                  'text-sm font-medium text-center',
+                  renderMessage.includes('⚠️') ? 'text-amber-400' :
+                  renderMessage.includes('⏳') || renderMessage.includes('📸') ? 'text-blue-400' :
+                  'text-green-400'
                 )}>
                   {renderMessage}
                 </p>
-                {renderDownloadUrl && (
-                  <div className="flex flex-col gap-2">
-                    <a
-                      href={renderDownloadUrl}
-                      download="viral-clip.mp4"
-                      className="inline-flex items-center justify-center gap-2 w-full h-12 rounded-lg bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white font-bold text-base shadow-lg shadow-green-500/20 transition-all animate-pulse"
-                    >
-                      <Download className="h-5 w-5" />
-                      Download clip (with captions)
-                    </a>
-                    <button
-                      onClick={() => setPublishDialogOpen(true)}
-                      className="inline-flex items-center justify-center gap-2 w-full h-12 rounded-lg bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-white font-bold text-base shadow-lg shadow-blue-500/20 transition-all"
-                    >
-                      <Send className="h-5 w-5" />
-                      Publish to socials
-                    </button>
-                    <button
-                      onClick={() => {
-                        setSettings({ ...DEFAULT_SETTINGS })
-                        setIsRenderedVideo(false)
-                        setRenderDownloadUrl(null)
-                        setRenderMessage(null)
-                        setDetectedMood(null)
-                        setSelectedMood(null)
-                        setMoodAiDetected(false)
-                        setHookAnalysis(null)
-                        if (originalVideoUrl) setVideoUrl(originalVideoUrl)
-                      }}
-                      className="inline-flex items-center justify-center gap-2 w-full h-10 rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 text-sm font-medium text-zinc-400 hover:text-white transition-all"
-                    >
-                      <RotateCcw className="h-4 w-4" />
-                      Reset &amp; start over
-                    </button>
-                  </div>
+              )}
+
+              {/* Rendering progress indicator */}
+              {(makeViralLoading || rendering) && !renderDownloadUrl && (
+                <div className="flex items-center justify-center gap-2 py-2 text-sm text-zinc-400">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <span>{makeViralLoading ? 'AI is optimizing...' : 'Rendering your clip...'}</span>
+                </div>
+              )}
+
+              {/* Publish button — primary CTA */}
+              <button
+                onClick={() => setPublishDialogOpen(true)}
+                disabled={!renderDownloadUrl}
+                className={cn(
+                  "inline-flex items-center justify-center gap-2 w-full rounded-xl font-bold text-lg transition-all",
+                  renderDownloadUrl
+                    ? "h-14 bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 hover:from-blue-600 hover:via-purple-600 hover:to-pink-600 text-white shadow-lg shadow-purple-500/25"
+                    : "h-14 bg-zinc-800 text-zinc-500 cursor-not-allowed"
                 )}
-                {renderOriginalUrl && !renderDownloadUrl && (
-                  <a
-                    href={renderOriginalUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-2 text-xs text-blue-400 hover:text-blue-300 underline"
-                  >
-                    <ExternalLink className="h-3 w-3" />
-                    Download original clip
-                  </a>
-                )}
-              </div>
-            )
-          })()}
+              >
+                <Send className="h-5 w-5" />
+                Publish to socials
+              </button>
+
+              {/* Download button — secondary */}
+              {renderDownloadUrl ? (
+                <a
+                  href={renderDownloadUrl}
+                  download="viral-clip.mp4"
+                  className="inline-flex items-center justify-center gap-2 w-full h-10 rounded-lg border border-zinc-700 hover:border-zinc-500 text-zinc-400 hover:text-white text-sm font-medium transition-all"
+                >
+                  <Download className="h-4 w-4" />
+                  Download clip (with captions)
+                </a>
+              ) : (
+                <div className="inline-flex items-center justify-center gap-2 w-full h-10 rounded-lg border border-zinc-800 text-zinc-600 text-sm font-medium cursor-not-allowed">
+                  <Download className="h-4 w-4" />
+                  Download clip (with captions)
+                </div>
+              )}
+
+              {/* Reset button */}
+              <button
+                onClick={() => {
+                  setSettings({ ...DEFAULT_SETTINGS })
+                  setIsRenderedVideo(false)
+                  setRenderDownloadUrl(null)
+                  setRenderMessage(null)
+                  setDetectedMood(null)
+                  setSelectedMood(null)
+                  setMoodAiDetected(false)
+                  setHookAnalysis(null)
+                  setMakeViralLoading(false)
+                  setRendering(false)
+                  setShowEnhancements(false)
+                  hasUserChangedSettings.current = false
+                  if (originalVideoUrl) setVideoUrl(originalVideoUrl)
+                }}
+                className="inline-flex items-center justify-center gap-2 w-full h-10 rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 text-sm font-medium text-zinc-400 hover:text-white transition-all"
+              >
+                <RotateCcw className="h-4 w-4" />
+                Reset &amp; start over
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Right: Actions + Settings — scrollable (hidden once render is done) */}
@@ -1199,7 +1235,7 @@ export default function EnhancePage() {
                             >
                               <div className="flex items-center justify-between mb-1">
                                 <span className={cn('text-xs block', style.preview, isHighlight && !isMoodPick && 'drop-shadow-[0_0_6px_rgba(249,115,22,0.4)]')}>Aa</span>
-                                <ScoreBadge score={impact} isBest={isHighlight} isMoodPick={isMoodPick} />
+                                {hasAiAnalyzed && <ScoreBadge score={impact} isBest={isHighlight} isMoodPick={isMoodPick} />}
                               </div>
                               <span className={cn('text-[10px] block', isMoodPick ? 'text-green-400 font-bold' : isHighlight ? 'text-orange-400 font-bold' : 'text-muted-foreground')}>
                                 {style.label}
@@ -1245,7 +1281,7 @@ export default function EnhancePage() {
                               )}
                             >
                               <span className={cn('text-[10px] font-medium block', isMoodPick ? 'text-green-400 font-bold' : isHighlight ? 'text-orange-400 font-bold' : 'text-foreground')}>{effect.label}</span>
-                              <ScoreBadge score={impact} isBest={isHighlight} isMoodPick={isMoodPick} />
+                              {hasAiAnalyzed && <ScoreBadge score={impact} isBest={isHighlight} isMoodPick={isMoodPick} />}
                             </button>
                           )
                         })}
@@ -1447,7 +1483,7 @@ export default function EnhancePage() {
                               <div className={`w-full h-8 rounded-lg bg-gradient-to-r ${broll.color} mb-1.5`} />
                               <div className="flex items-center justify-between">
                                 <span className={cn('text-[10px]', isMoodPick ? 'text-green-400 font-bold' : isHighlight ? 'text-orange-400 font-bold' : 'text-muted-foreground')}>{broll.label}</span>
-                                <ScoreBadge score={impact} isBest={isHighlight} isMoodPick={isMoodPick} />
+                                {hasAiAnalyzed && <ScoreBadge score={impact} isBest={isHighlight} isMoodPick={isMoodPick} />}
                               </div>
                             </button>
                           )

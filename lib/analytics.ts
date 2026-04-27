@@ -44,7 +44,7 @@ interface QueuedEvent {
 
 const SESSION_KEY = 'vsp:analytics_session'
 const ENDPOINT = '/api/events'
-const FLUSH_INTERVAL_MS = 800
+const FLUSH_INTERVAL_MS = 2500
 
 let queue: QueuedEvent[] = []
 let flushTimer: ReturnType<typeof setTimeout> | null = null

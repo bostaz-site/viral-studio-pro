@@ -1,7 +1,8 @@
 "use client"
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { X, ExternalLink, Eye, Heart, Clapperboard, Clock, Globe, Flame, Copy, Check, Zap, Diamond, TrendingUp, BarChart3 } from 'lucide-react'
+import { Sparkline } from '@/components/trending/sparkline'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -48,23 +49,101 @@ function formatDuration(seconds: number | null): string {
   return `${m}:${s.toString().padStart(2, '0')}`
 }
 
-function ScoreBar({ label, score, color }: { label: string; score: number | null; color: string }) {
-  const value = score ?? 0
+interface ScoreFactor {
+  key: string
+  label: string
+  emoji: string
+  score: number
+  weight: string
+}
+
+function getScoreBarColor(score: number): string {
+  if (score >= 70) return 'bg-emerald-500'
+  if (score >= 40) return 'bg-amber-500'
+  return 'bg-red-500'
+}
+
+function ScoreBar({ label, emoji, score, weight }: { label: string; emoji: string; score: number; weight: string }) {
   return (
     <div className="space-y-1">
       <div className="flex items-center justify-between text-xs">
-        <span className="text-muted-foreground">{label}</span>
-        <span className="font-medium">{value.toFixed(1)}</span>
+        <span className="text-muted-foreground">
+          <span className="mr-1">{emoji}</span>{label} <span className="opacity-50">({weight})</span>
+        </span>
+        <span className="font-bold tabular-nums">{Math.round(score)}</span>
       </div>
       <div className="h-1.5 bg-muted/30 rounded-full overflow-hidden">
-        <div className={cn('h-full rounded-full transition-all', color)} style={{ width: `${Math.min(100, value)}%` }} />
+        <div className={cn('h-full rounded-full transition-all', getScoreBarColor(score))} style={{ width: `${Math.min(100, score)}%` }} />
       </div>
+    </div>
+  )
+}
+
+function getTopFactors(clip: TrendingClip): ScoreFactor[] {
+  const factors: ScoreFactor[] = [
+    { key: 'momentum', label: 'Momentum', emoji: '\u{1F525}', score: clip.momentum_score ?? 0, weight: '25%' },
+    { key: 'authority', label: 'Authority', emoji: '\u{1F4CA}', score: clip.anomaly_score ?? 0, weight: '20%' },
+    { key: 'engagement', label: 'Engagement', emoji: '\u{2764}\u{FE0F}', score: clip.engagement_score ?? 0, weight: '15%' },
+    { key: 'recency', label: 'Freshness', emoji: '\u{26A1}', score: clip.recency_score ?? 0, weight: '10%' },
+    { key: 'early_signal', label: 'Early Signal', emoji: '\u{1F48E}', score: clip.early_signal_score ?? 0, weight: '10%' },
+    { key: 'format', label: 'Format', emoji: '\u{1F3AF}', score: clip.format_score ?? 0, weight: '10%' },
+  ]
+  // Sort by score desc, take top 3
+  return factors.sort((a, b) => b.score - a.score).slice(0, 3)
+}
+
+function getSaturationPenalty(clip: TrendingClip): ScoreFactor | null {
+  const sat = clip.saturation_score ?? 0
+  if (sat > 30) {
+    return { key: 'saturation', label: 'Saturation Penalty', emoji: '\u{26A0}\u{FE0F}', score: sat, weight: '-10%' }
+  }
+  return null
+}
+
+function ScoreBreakdown({ clip }: { clip: TrendingClip }) {
+  const [expanded, setExpanded] = useState(false)
+  const topFactors = getTopFactors(clip)
+  const satPenalty = getSaturationPenalty(clip)
+
+  return (
+    <div className="px-5 mt-4">
+      <button
+        className="flex items-center justify-between w-full text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors"
+        onClick={() => setExpanded(!expanded)}
+      >
+        <span>Why this score</span>
+        <span className="text-[10px] opacity-60">{expanded ? 'Hide' : 'Show'}</span>
+      </button>
+      {expanded && (
+        <div className="mt-2 space-y-2 animate-in fade-in slide-in-from-top-1 duration-200">
+          <p className="text-[10px] text-muted-foreground/60 mb-1">Top 3 contributing factors:</p>
+          {topFactors.map(f => (
+            <ScoreBar key={f.key} label={f.label} emoji={f.emoji} score={f.score} weight={f.weight} />
+          ))}
+          {satPenalty && (
+            <ScoreBar label={satPenalty.label} emoji={satPenalty.emoji} score={satPenalty.score} weight={satPenalty.weight} />
+          )}
+        </div>
+      )}
     </div>
   )
 }
 
 export function TrendingDetailModal({ clip, open, onClose, onRemix, remixing }: TrendingDetailModalProps) {
   const [copied, setCopied] = useState(false)
+  const [sparklineData, setSparklineData] = useState<number[]>([])
+
+  useEffect(() => {
+    if (!open || !clip) return
+    setSparklineData([])
+    fetch(`/api/clips/sparkline?ids=${clip.id}`)
+      .then(r => r.json())
+      .then(json => {
+        const points = json.data?.[clip.id] as number[] | undefined
+        if (points) setSparklineData(points)
+      })
+      .catch(() => {})
+  }, [open, clip])
 
   if (!open || !clip) return null
 
@@ -147,7 +226,7 @@ export function TrendingDetailModal({ clip, open, onClose, onRemix, remixing }: 
           </div>
 
           {/* Stats grid */}
-          <div className="grid grid-cols-2 gap-3 px-5 mt-4">
+          <div className="grid grid-cols-3 gap-3 px-5 mt-4">
             <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/30 border border-border">
               <Eye className="h-4 w-4 text-blue-400" />
               <div>
@@ -163,9 +242,18 @@ export function TrendingDetailModal({ clip, open, onClose, onRemix, remixing }: 
               </div>
             </div>
             <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/30 border border-border">
+              <TrendingUp className="h-4 w-4 text-emerald-400" />
+              <div>
+                <p className="text-xs text-muted-foreground">Velocity</p>
+                <p className="text-sm font-bold">
+                  {clip.velocity ? `+${formatCount(Math.round(clip.velocity))}/h` : '--'}
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/30 border border-border">
               <Flame className="h-4 w-4 text-orange-400" />
               <div>
-                <p className="text-xs text-muted-foreground">Final Score</p>
+                <p className="text-xs text-muted-foreground">Score</p>
                 <p className="text-sm font-bold">{clip.velocity_score?.toFixed(1) ?? '--'}</p>
               </div>
             </div>
@@ -173,19 +261,30 @@ export function TrendingDetailModal({ clip, open, onClose, onRemix, remixing }: 
               <Clock className="h-4 w-4 text-slate-400" />
               <div>
                 <p className="text-xs text-muted-foreground">Created</p>
-                <p className="text-sm font-bold">{formatDateTime(clip.clip_created_at)}</p>
+                <p className="text-sm font-bold text-[11px]">{formatDateTime(clip.clip_created_at)}</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/30 border border-border">
+              <Clapperboard className="h-4 w-4 text-violet-400" />
+              <div>
+                <p className="text-xs text-muted-foreground">Exports</p>
+                <p className="text-sm font-bold">
+                  {(clip.export_count ?? 0) > 0 ? clip.export_count : 'None yet'}
+                </p>
               </div>
             </div>
           </div>
 
-          {/* Detailed scores */}
-          <div className="px-5 mt-4 space-y-2">
-            <p className="text-xs font-semibold text-muted-foreground">Score Breakdown</p>
-            <ScoreBar label="Momentum (25%)" score={clip.viral_score} color="bg-orange-500" />
-            <ScoreBar label="Authority (20%)" score={clip.anomaly_score} color="bg-purple-500" />
-            <ScoreBar label="Engagement (15%)" score={clip.viral_ratio ? Math.min(100, clip.viral_ratio * 10000) : 0} color="bg-red-500" />
-            <ScoreBar label="Early Signal (10%)" score={clip.early_signal_score} color="bg-cyan-500" />
-          </div>
+          {/* Sparkline */}
+          {sparklineData.length > 1 && (
+            <div className="px-5 mt-3">
+              <p className="text-xs font-semibold text-muted-foreground mb-1">View Trend</p>
+              <Sparkline data={sparklineData} width={280} height={40} />
+            </div>
+          )}
+
+          {/* Why this score — top 3 dominant factors + saturation penalty */}
+          <ScoreBreakdown clip={clip} />
 
           {/* URL */}
           <div className="px-5 mt-4">

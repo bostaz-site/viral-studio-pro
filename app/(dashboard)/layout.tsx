@@ -7,7 +7,6 @@ import { useUiStore } from '@/stores/ui-store'
 import { Button } from '@/components/ui/button'
 import { NotificationBell } from '@/components/trending/notification-bell'
 import { createClient } from '@/lib/supabase/client'
-import { isAdminEmail } from '@/lib/auth/admin-emails'
 import { useAccountStore } from '@/stores/account-store'
 import { CREATOR_RANK_CONFIG } from '@/lib/scoring/account-scorer'
 import { useEffect, useState } from 'react'
@@ -24,6 +23,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const { sidebarOpen, setSidebarOpen } = useUiStore()
   const [user, setUser] = useState<User | null>(null)
   const [profile, setProfile] = useState<UserProfile | null>(null)
+  const [isAdmin, setIsAdmin] = useState(false)
 
   useEffect(() => {
     const supabase = createClient()
@@ -36,10 +36,16 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           .eq('id', data.user.id)
           .single()
           .then(({ data: p }) => { if (p) setProfile(p) })
+        // Check admin status server-side (email list never sent to client)
+        fetch('/api/auth/me')
+          .then(r => r.json())
+          .then(d => setIsAdmin(d.isAdmin === true))
+          .catch(() => setIsAdmin(false))
       }
     })
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null)
+      if (!session?.user) setIsAdmin(false)
     })
     return () => subscription.unsubscribe()
   }, [])
@@ -49,8 +55,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     await supabase.auth.signOut()
     router.push('/login')
   }
-
-  const isAdmin = isAdminEmail(user?.email)
 
   const navigation = [
     { name: 'Browse', href: '/dashboard', icon: Compass },

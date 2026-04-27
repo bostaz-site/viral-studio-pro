@@ -1,9 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { withAuth } from '@/lib/api/withAuth'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { releaseJob, processNextInQueue } from '@/lib/render-queue'
+import { redis } from '@/lib/upstash'
+import { rateLimit, RATE_LIMITS } from '@/lib/rate-limit'
 
 interface RenderJob {
   id: string
+  clip_id: string
+  source: string
   status: string
   storage_path: string | null
   error_message: string | null
@@ -12,6 +17,11 @@ interface RenderJob {
 }
 
 export const GET = withAuth(async (request: NextRequest, user) => {
+  const rl = await rateLimit(`status:${user.id}`, RATE_LIMITS.status.limit, RATE_LIMITS.status.windowMs)
+  if (!rl.allowed) {
+    return NextResponse.json({ data: null, error: 'Rate limited' }, { status: 429 })
+  }
+
   const jobId = request.nextUrl.searchParams.get('jobId')
 
   if (!jobId) {
@@ -23,8 +33,7 @@ export const GET = withAuth(async (request: NextRequest, user) => {
 
   const admin = createAdminClient()
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: job, error } = await (admin as any)
+  const { data: job, error } = await admin
     .from('render_jobs')
     .select('*')
     .eq('id', jobId)
@@ -62,14 +71,30 @@ export const GET = withAuth(async (request: NextRequest, user) => {
     }
   }
 
+  if (['done', 'error', 'failed', 'cancelled', 'expired'].includes(job.status)) {
+    // Job finished — release slot (idempotent) and dispatch next queued render
+    releaseJob(job.id).then(() => processNextInQueue()).catch(() => {})
+
+    // Increment export_count on trending clip (idempotent: only once per job)
+    if (job.status === 'done' && job.source === 'trending') {
+      redis.set(`export_counted:${job.id}`, '1', { nx: true, ex: 86400 })
+        .then(result => {
+          if (result === 'OK') {
+            return (admin.rpc as CallableFunction)('increment_export_count', { p_clip_id: job.clip_id })
+          }
+        })
+        .catch(() => {})
+    }
+  }
+
   // If done, generate a signed URL for download AND a public URL for preview
   let downloadUrl: string | null = null
   let publicUrl: string | null = null
   let thumbnailUrl: string | null = null
-  if (job.status === 'done' && job.storage_path) {
+  if ((job.status === 'done') && job.storage_path) {
     const { data: signedData } = await admin.storage
       .from('clips')
-      .createSignedUrl(job.storage_path, 3600) // 1 hour expiry
+      .createSignedUrl(job.storage_path, 14400) // 4 hours
 
     downloadUrl = signedData?.signedUrl ?? null
 
@@ -91,6 +116,12 @@ export const GET = withAuth(async (request: NextRequest, user) => {
   let message: string
   if (job.status === 'done') {
     message = 'Render complete!'
+  } else if (job.status === 'failed') {
+    message = `Failed after retries: ${job.error_message}`
+  } else if (job.status === 'cancelled') {
+    message = 'Render cancelled'
+  } else if (job.status === 'expired') {
+    message = 'Clip expired — remix again to download'
   } else if (job.status === 'error') {
     message = `Error: ${job.error_message}`
   } else if (queuePosition !== null && queuePosition > 0) {

@@ -44,6 +44,8 @@ viral-studio-pro/
 │   │   ├── social-accounts/      # GET connected accounts
 │   │   ├── cron/fetch-twitch-clips/ # Fetch clips Twitch
 │   │   ├── cron/rescore-clips/   # Cron stratifie — re-scoring dynamique V2
+│   │   ├── cron/cleanup-render-jobs/ # Cleanup zombie render jobs
+│   │   ├── cron/reconcile-render/ # Reconcile Redis active jobs Set with DB
 │   │   └── streams/refresh/      # Refresh clips streamers
 │   ├── layout.tsx
 │   └── page.tsx                  # Landing page
@@ -59,6 +61,7 @@ viral-studio-pro/
 │   ├── ai/                       # Mood detector + presets (Claude Haiku)
 │   ├── twitch/                   # Client Twitch API + fetch clips
 │   ├── kick/                     # Client Kick API + fetch clips
+│   ├── schemas/                  # Shared Zod schemas (render.ts)
 │   └── utils.ts                  # Helpers generaux
 ├── stores/                       # Zustand stores
 ├── types/                        # Types TypeScript globaux
@@ -77,6 +80,8 @@ viral-studio-pro/
 ```
 
 ## Base de Donnees Supabase
+
+**RLS (Row Level Security)** est active sur toutes les tables utilisateur. Chaque user ne peut lire/ecrire que ses propres donnees. `trending_clips` et `streamers` sont en lecture publique. Les operations admin/cron utilisent le service role qui bypass le RLS. Migration : `20260425_rls_policies.sql`.
 
 ### Tables principales
 
@@ -207,6 +212,32 @@ CREATE TABLE public.clip_snapshots (
     view_count BIGINT NOT NULL,
     captured_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- Codes affilies (programme referral self-service)
+CREATE TABLE public.affiliate_codes (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE UNIQUE,
+    code TEXT NOT NULL UNIQUE,
+    custom_handle TEXT UNIQUE,
+    clicks INTEGER DEFAULT 0,
+    signups INTEGER DEFAULT 0,
+    conversions INTEGER DEFAULT 0,
+    total_earned NUMERIC(10,2) DEFAULT 0,
+    commission_rate NUMERIC(3,2) DEFAULT 0.20,
+    active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Evenements de referral
+CREATE TABLE public.referral_events (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    affiliate_code_id UUID REFERENCES public.affiliate_codes(id),
+    event_type TEXT NOT NULL CHECK (event_type IN ('click', 'signup', 'conversion', 'payout')),
+    referred_user_id UUID REFERENCES public.profiles(id),
+    amount NUMERIC(10,2),
+    metadata JSONB,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
 ```
 
 ### Supabase Storage Buckets
@@ -232,6 +263,21 @@ VPS_RENDER_API_KEY=
 # Twitch
 TWITCH_CLIENT_ID=
 TWITCH_CLIENT_SECRET=
+
+# Upstash Redis (rate limiting + distributed locks)
+UPSTASH_REDIS_REST_URL=
+UPSTASH_REDIS_REST_TOKEN=
+
+# Render queue (optional, default 3)
+# To scale: increase this value. Railway supports horizontal scaling —
+# 2 instances with MAX_CONCURRENT=3 each gives 6 total slots.
+RENDER_MAX_CONCURRENT=3
+
+# Webhook security (optional, set true once VPS sends HMAC signatures)
+WEBHOOK_HMAC_ONLY=false
+
+# Admin (server-only, never NEXT_PUBLIC_)
+ADMIN_EMAILS=samycloutier30@gmail.com
 
 # App
 NEXT_PUBLIC_APP_URL=https://viralanimal.com

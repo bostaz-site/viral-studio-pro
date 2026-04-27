@@ -109,10 +109,18 @@ export function LivePreview({
   }, [activeWordIdx, currentAnimation, sampleWords])
 
   // ── Rendered video: show as-is, no CSS effects (everything is baked in) ──
-  // Only show rendered video when NOT in enhanced preview mode (showEnhancements=false)
-  // When user is tweaking options (showEnhancements=true), always show CSS preview so they can see changes
   const [renderedVideoReady, setRenderedVideoReady] = useState(false)
-  if (isRenderedVideo && videoUrl && !showEnhancements) {
+  const [renderedVideoError, setRenderedVideoError] = useState(false)
+
+  // Reset rendered video states when URL changes
+  useEffect(() => {
+    if (isRenderedVideo && videoUrl) {
+      setRenderedVideoReady(false)
+      setRenderedVideoError(false)
+    }
+  }, [isRenderedVideo, videoUrl])
+
+  if (isRenderedVideo && videoUrl && !renderedVideoError) {
     return (
       <div
         className="relative w-full rounded-2xl overflow-hidden bg-black border border-white/10 shadow-2xl mx-auto transition-all duration-500"
@@ -141,6 +149,7 @@ export function LivePreview({
           autoPlay loop muted playsInline
           poster={renderedThumbnailUrl || undefined}
           onCanPlay={() => setRenderedVideoReady(true)}
+          onError={() => setRenderedVideoError(true)}
         />
       </div>
     )
@@ -525,6 +534,9 @@ export function LivePreview({
         <span className="text-[9px] text-white/40 font-medium bg-black/30 rounded-full px-2 py-0.5">{settings.aspectRatio}</span>
       </div>
     </div>
+    <p className="text-[10px] text-muted-foreground/50 text-center mt-2">
+      Preview is a simulation — final render may vary slightly
+    </p>
     </>
   )
 }

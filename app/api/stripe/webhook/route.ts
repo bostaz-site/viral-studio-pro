@@ -10,7 +10,7 @@ function getStripe() {
 export async function POST(req: NextRequest) {
   // ── Rate limiting (webhook: 100 req/min) ────────────────────────────────
   const clientIp = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'stripe-webhook'
-  const rl = rateLimit(clientIp, RATE_LIMITS.webhook.limit, RATE_LIMITS.webhook.windowMs)
+  const rl = await rateLimit(clientIp, RATE_LIMITS.webhook.limit, RATE_LIMITS.webhook.windowMs)
   if (!rl.allowed) {
     return NextResponse.json({ error: 'Rate limited' }, { status: 429 })
   }

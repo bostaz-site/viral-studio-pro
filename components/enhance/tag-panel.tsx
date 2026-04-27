@@ -15,6 +15,7 @@ interface TagPanelProps {
   scores: { tagScores: ScoredOption[]; best: { tagStyle: string } } | null
   selectedMood?: ClipMood | null
   baselineScore?: number
+  hasMoodActive?: boolean
 }
 
 /**
@@ -22,7 +23,7 @@ interface TagPanelProps {
  * Extracted from the enhance page to keep that file under control.
  */
 export const TagPanel = forwardRef<HTMLDivElement, TagPanelProps>(function TagPanel(
-  { settings, updateSetting, scores, selectedMood, baselineScore = 30 },
+  { settings, updateSetting, scores, selectedMood, baselineScore = 30, hasMoodActive = false },
   ref,
 ) {
   // Compute real impact for tag options (diminishing returns)
@@ -65,7 +66,7 @@ export const TagPanel = forwardRef<HTMLDivElement, TagPanelProps>(function TagPa
               <div className="grid grid-cols-2 gap-2">
                 {TAG_STYLES.map((tag) => {
                   const { impact, isMoodPick } = getTagImpact(tag.id)
-                  const isHighlight = isMoodPick || (!selectedMood && tag.id === scores.best.tagStyle)
+                  const isHighlight = hasMoodActive && (isMoodPick || (!selectedMood && tag.id === scores.best.tagStyle))
                   return (
                     <button
                       key={tag.id}
@@ -74,7 +75,7 @@ export const TagPanel = forwardRef<HTMLDivElement, TagPanelProps>(function TagPa
                         'relative rounded-xl border p-3 text-left transition-all group',
                         settings.tagStyle === tag.id
                           ? 'border-primary bg-primary/10 ring-1 ring-primary/30'
-                          : isMoodPick
+                          : isMoodPick && hasMoodActive
                           ? 'border-green-500/40 bg-green-500/5 hover:bg-green-500/10'
                           : isHighlight
                           ? 'border-orange-500/40 bg-orange-500/5 hover:bg-orange-500/10'
@@ -86,12 +87,12 @@ export const TagPanel = forwardRef<HTMLDivElement, TagPanelProps>(function TagPa
                         <span
                           className={cn(
                             'text-xs font-semibold flex-1',
-                            isMoodPick ? 'text-green-400' : isHighlight ? 'text-orange-400' : 'text-foreground',
+                            hasMoodActive && isMoodPick ? 'text-green-400' : hasMoodActive && isHighlight ? 'text-orange-400' : 'text-foreground',
                           )}
                         >
                           {tag.label}
                         </span>
-                        <ScoreBadge score={impact} isBest={isHighlight} isMoodPick={isMoodPick} />
+                        {hasMoodActive && <ScoreBadge score={impact} isBest={isHighlight} isMoodPick={isMoodPick} />}
                       </div>
                       <span className="text-[10px] text-muted-foreground pl-7">
                         {tag.description}

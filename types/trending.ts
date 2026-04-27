@@ -1,6 +1,6 @@
-import type { ClipRank } from '@/lib/scoring/clip-scorer'
+import type { ClipRank, FeedCategory } from '@/types/enums'
 
-export type { ClipRank }
+export type { ClipRank, FeedCategory }
 
 export interface TrendingClip {
   id: string
@@ -28,13 +28,21 @@ export interface TrendingClip {
   // V2 fields
   early_signal_score: number | null
   anomaly_score: number | null
-  feed_category: 'hot_now' | 'early_gem' | 'proven' | 'normal' | null
+  feed_category: FeedCategory | null
   // V2 sub-scores
   momentum_score: number | null
   engagement_score: number | null
   recency_score: number | null
   format_score: number | null
   saturation_score: number | null
+  // Momentum decay/acceleration
+  prev_momentum_score?: number | null
+  // Social proof
+  export_count?: number | null
+  // Stream grouping (added by API, not in DB)
+  stream_group_id?: string | null
+  stream_group_count?: number | null
+  stream_group_collapsed?: boolean
 }
 
 /** Derive rank from the DB tier column or velocity_score */
@@ -50,12 +58,12 @@ export function clipRank(clip: TrendingClip): ClipRank {
 
 /** Generate a contextual insight explaining why a clip scores well */
 export function getClipInsight(clip: TrendingClip): { icon: string; text: string } | null {
-  if ((clip.momentum_score ?? 0) >= 65) return { icon: '🔥', text: 'High momentum' }
-  if (clip.feed_category === 'early_gem') return { icon: '💎', text: 'Early gem' }
-  if ((clip.early_signal_score ?? 0) >= 50) return { icon: '⚡', text: 'Spike detected' }
-  if ((clip.anomaly_score ?? 0) >= 70) return { icon: '📈', text: 'Outperforms streamer avg' }
-  if ((clip.engagement_score ?? 0) >= 75) return { icon: '❤️', text: 'High engagement' }
-  if (clip.format_score === 100) return { icon: '🎯', text: 'Perfect format' }
+  if ((clip.momentum_score ?? 0) >= 65) return { icon: '\u{1f525}', text: 'High momentum' }
+  if (clip.feed_category === 'early_gem') return { icon: '\u{1f48e}', text: 'Early gem' }
+  if ((clip.early_signal_score ?? 0) >= 50) return { icon: '\u26a1', text: 'Spike detected' }
+  if ((clip.anomaly_score ?? 0) >= 70) return { icon: '\u{1f4c8}', text: 'Outperforms streamer avg' }
+  if ((clip.engagement_score ?? 0) >= 75) return { icon: '\u2764\ufe0f', text: 'High engagement' }
+  if (clip.format_score === 100) return { icon: '\u{1f3af}', text: 'Perfect format' }
   return null
 }
 
@@ -87,7 +95,7 @@ export interface TrendingStats {
 
 export type SortOption = 'velocity' | 'date'
 export type DurationFilter = 'all' | 'short' | 'medium' | 'long'
-export type FeedFilter = 'all' | 'hot_now' | 'early_gem' | 'proven' | 'recent' | 'saved'
+export type FeedFilter = 'all' | 'hot_now' | 'early_gem' | 'proven' | 'recent' | 'saved' | 'remixes'
 
 export interface TrendingFiltersState {
   search: string

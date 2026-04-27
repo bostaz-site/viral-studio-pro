@@ -197,7 +197,7 @@ export const POST = withAuth(async (_req, user) => {
       .maybeSingle()
 
     const weekAgo = new Date(now.getTime() - 7 * 24 * 3600 * 1000)
-    const snapshotType = !lastWeekly || new Date(lastWeekly.captured_at) < weekAgo ? 'weekly' : 'daily'
+    const snapshotType = !lastWeekly || new Date(lastWeekly.captured_at ?? 0) < weekAgo ? 'weekly' : 'daily'
 
     await admin
       .from('account_snapshots')

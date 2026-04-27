@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { timingSafeCompare } from '@/lib/crypto'
+import { rateLimit, RATE_LIMITS } from '@/lib/rate-limit'
 
 const postSchema = z.object({
   external_url: z.string().url(),
@@ -26,12 +27,86 @@ function sanitizeSearch(input: string): string {
 }
 
 /**
+ * Group clips from the same stream (same streamer, clip_created_at < 3h apart).
+ * Groups of >= 3 clips get a stream_group_id. The best-scored clip is the
+ * "representative" (not collapsed); subsequent clips are collapsed.
+ */
+function applyStreamGrouping(clips: Record<string, unknown>[]): void {
+  const STREAM_GAP_MS = 3 * 60 * 60 * 1000 // 3 hours
+  const MIN_GROUP_SIZE = 3
+
+  // Group by streamer_id
+  const byStreamer = new Map<string, Record<string, unknown>[]>()
+  for (const clip of clips) {
+    const sid = clip.streamer_id as string | null
+    if (!sid) continue
+    let arr = byStreamer.get(sid)
+    if (!arr) { arr = []; byStreamer.set(sid, arr) }
+    arr.push(clip)
+  }
+
+  for (const [streamerId, streamerClips] of byStreamer) {
+    if (streamerClips.length < MIN_GROUP_SIZE) continue
+
+    // Sort by clip_created_at ascending for grouping
+    streamerClips.sort((a, b) => {
+      const ta = new Date(a.clip_created_at as string || 0).getTime()
+      const tb = new Date(b.clip_created_at as string || 0).getTime()
+      return ta - tb
+    })
+
+    // Merge clips within 3h into stream groups
+    const groups: Record<string, unknown>[][] = []
+    let current: Record<string, unknown>[] = [streamerClips[0]]
+
+    for (let i = 1; i < streamerClips.length; i++) {
+      const prevTime = new Date(current[current.length - 1].clip_created_at as string || 0).getTime()
+      const curTime = new Date(streamerClips[i].clip_created_at as string || 0).getTime()
+      if (curTime - prevTime <= STREAM_GAP_MS) {
+        current.push(streamerClips[i])
+      } else {
+        groups.push(current)
+        current = [streamerClips[i]]
+      }
+    }
+    groups.push(current)
+
+    for (const group of groups) {
+      if (group.length < MIN_GROUP_SIZE) continue
+
+      // Sort by score desc — first clip is the representative
+      group.sort((a, b) => ((b.velocity_score as number) ?? 0) - ((a.velocity_score as number) ?? 0))
+
+      // Generate stable group ID from streamer + rounded timestamp
+      const midTime = new Date(group[Math.floor(group.length / 2)].clip_created_at as string || 0).getTime()
+      const roundedHour = Math.floor(midTime / 3_600_000)
+      const groupId = `sg_${streamerId.slice(0, 8)}_${roundedHour}`
+
+      for (let i = 0; i < group.length; i++) {
+        group[i].stream_group_id = groupId
+        group[i].stream_group_count = group.length
+        group[i].stream_group_collapsed = i > 0
+      }
+    }
+  }
+}
+
+/**
  * GET /api/trending — Public endpoint.
  * Supports filters: niche, platform (twitch/kick/youtube_gaming), search, sort,
  * duration (short/medium/long), feed (hot_now/early_gem/proven/recent),
- * limit, offset.
+ * limit, cursor.
+ *
+ * Cursor-based pagination: pass `cursor={score}_{id}` to get the next page.
+ * The response includes `next_cursor` (null on last page).
  */
 export async function GET(req: NextRequest) {
+  const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown'
+  const rl = await rateLimit(`browse:${ip}`, RATE_LIMITS.browse.limit, RATE_LIMITS.browse.windowMs)
+  if (!rl.allowed) {
+    return NextResponse.json({ data: null, error: 'Rate limited' }, { status: 429 })
+  }
+
   try {
     const { searchParams } = new URL(req.url)
     const niche    = searchParams.get('niche')
@@ -41,18 +116,28 @@ export async function GET(req: NextRequest) {
     const duration = searchParams.get('duration')
     const feed     = searchParams.get('feed')
     const limit    = Math.min(Math.max(Number(searchParams.get('limit') ?? '50'), 1), 200)
-    const offset   = Math.max(Number(searchParams.get('offset') ?? '0'), 0)
+    const cursor   = searchParams.get('cursor') // format: "{sortValue}_{id}"
 
     const admin = createAdminClient()
     let query = admin.from('trending_clips').select('*', { count: 'exact' })
 
+    // Niche filter — supports comma-separated values (e.g. "irl,fps")
     if (niche) {
-      const safeNiche = sanitizeSearch(niche)
-      if (safeNiche) query = query.ilike('niche', `%${safeNiche}%`)
+      const niches = niche.split(',').map(sanitizeSearch).filter(Boolean)
+      if (niches.length === 1) {
+        query = query.ilike('niche', `%${niches[0]}%`)
+      } else if (niches.length > 1) {
+        query = query.in('niche', niches)
+      }
     }
+    // Platform filter — supports comma-separated values (e.g. "twitch,kick")
     if (platform) {
-      if (['twitch', 'youtube_gaming', 'kick'].includes(platform)) {
-        query = query.eq('platform', platform)
+      const validPlatforms = ['twitch', 'youtube_gaming', 'kick']
+      const platforms = platform.split(',').filter(p => validPlatforms.includes(p))
+      if (platforms.length === 1) {
+        query = query.eq('platform', platforms[0])
+      } else if (platforms.length > 1) {
+        query = query.in('platform', platforms)
       }
     }
     if (rawSearch) {
@@ -80,8 +165,12 @@ export async function GET(req: NextRequest) {
       query = query.eq('feed_category', 'proven')
     }
 
-    // Sort
-    if (feed === 'recent' || sort === 'date') {
+    // Determine sort column for cursor-based pagination
+    const useDate = feed === 'recent' || sort === 'date'
+    const sortCol = useDate ? 'clip_created_at' : 'velocity_score'
+
+    // Sort — always add id as tiebreaker for stable cursor pagination
+    if (useDate) {
       query = query.order('clip_created_at', { ascending: false, nullsFirst: false })
     } else if (sort === 'velocity') {
       query = query.order('velocity_score', { ascending: false, nullsFirst: false })
@@ -90,8 +179,24 @@ export async function GET(req: NextRequest) {
     } else {
       query = query.order('scraped_at', { ascending: false, nullsFirst: false })
     }
+    query = query.order('id', { ascending: false })
 
-    query = query.range(offset, offset + limit - 1)
+    // Cursor-based pagination: filter rows "after" the cursor
+    if (cursor) {
+      const sepIdx = cursor.indexOf('_')
+      if (sepIdx > 0) {
+        const cursorValue = cursor.slice(0, sepIdx)
+        const cursorId = cursor.slice(sepIdx + 1)
+        // (sortCol, id) < (cursorValue, cursorId) for DESC ordering
+        // Supabase PostgREST: use .or() with compound condition
+        query = query.or(
+          `${sortCol}.lt.${cursorValue},` +
+          `and(${sortCol}.eq.${cursorValue},id.lt.${cursorId})`
+        )
+      }
+    }
+
+    query = query.limit(limit)
 
     const { data, error, count } = await query
 
@@ -100,7 +205,26 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ data: null, error: 'Fetch failed', message: error.message ?? 'Failed to fetch clips' }, { status: 500 })
     }
 
-    return NextResponse.json({ data, error: null, message: 'OK', meta: { total: count ?? 0, limit, offset } })
+    // Build next_cursor from the last item
+    const items = (data ?? []) as Record<string, unknown>[]
+    let nextCursor: string | null = null
+    if (items.length === limit) {
+      const last = items[items.length - 1]
+      const lastSortValue = useDate
+        ? (last.clip_created_at ?? last.scraped_at ?? '')
+        : (last.velocity_score ?? 0)
+      nextCursor = `${lastSortValue}_${last.id}`
+    }
+
+    // Apply stream grouping (mutates items in-place, adds group fields)
+    applyStreamGrouping(items)
+
+    return NextResponse.json({
+      data: items,
+      error: null,
+      message: 'OK',
+      meta: { total: count ?? 0, limit, next_cursor: nextCursor },
+    })
   } catch (err) {
     console.error('[Trending API] Unexpected error:', err)
     return NextResponse.json(

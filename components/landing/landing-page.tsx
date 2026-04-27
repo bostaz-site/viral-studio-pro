@@ -10,6 +10,8 @@ import { HowItWorksSection } from '@/components/landing/how-it-works-section'
 import { FeaturesGrid } from '@/components/landing/features-grid'
 import { FaqSection, FAQ_ITEMS } from '@/components/landing/faq-section'
 import { PricingSection } from '@/components/landing/pricing-section'
+import { TestimonialsSection } from '@/components/landing/testimonials-section'
+import { FinalCtaSection } from '@/components/landing/final-cta-section'
 import { ExitIntentPopup } from '@/components/landing/exit-intent-popup'
 
 export function LandingPage() {
@@ -84,8 +86,10 @@ export function LandingPage() {
       <BeforeAfterSection />
       <HowItWorksSection />
       <FeaturesGrid />
+      <TestimonialsSection />
       <FaqSection />
       <PricingSection />
+      <FinalCtaSection />
 
       {/* Newsletter CTA */}
       <FooterNewsletter />

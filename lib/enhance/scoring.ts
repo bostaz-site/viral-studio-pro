@@ -29,6 +29,8 @@ export interface EnhanceSettings {
   smartZoomEnabled: boolean
   smartZoomMode: 'micro' | 'dynamic' | 'follow'
   audioEnhanceEnabled: boolean
+  bassBoost: 'off' | 'mild' | 'heavy'
+  speedRamp: 'off' | 'subtle' | 'dynamic'
   autoCutEnabled: boolean
   autoCutThreshold: number
   hookEnabled: boolean
@@ -322,8 +324,16 @@ export function computeScores(clip: TrendingClipData): ComputedScores {
     s.isBest = s.score === maxBroll
   })
 
-  // Score tag styles
+  // Score tag styles — platform-aware: Kick tags score 0 on Twitch clips and vice versa
+  const clipPlatform = (clip.platform ?? '').toLowerCase()
   const tagScores: ScoredOption[] = TAG_STYLES.map((t) => {
+    // Cross-platform tags get zero score
+    if (clipPlatform === 'twitch' && (t.id === 'kick-glow' || t.id === 'kick-minimal')) {
+      return { id: t.id, score: 0, isBest: false }
+    }
+    if (clipPlatform === 'kick' && (t.id === 'viral-glow' || t.id === 'twitch-minimal')) {
+      return { id: t.id, score: 0, isBest: false }
+    }
     let score = t.baseScore
     if (t.id === 'viral-glow' && clip.author_handle) score += 5
     if (t.id === 'twitch-minimal' || t.id === 'kick-minimal') score += 2
@@ -412,6 +422,10 @@ export function computeCurrentScore(
   if (settings.hookReorderEnabled) totalWeight += 0.05
   if (settings.smartZoomEnabled) totalWeight += 0.05
   if (settings.audioEnhanceEnabled) totalWeight += 0.03
+  if (settings.bassBoost === 'mild') totalWeight += 0.03
+  else if (settings.bassBoost === 'heavy') totalWeight += 0.05
+  if (settings.speedRamp === 'subtle') totalWeight += 0.02
+  else if (settings.speedRamp === 'dynamic') totalWeight += 0.03
   if (settings.autoCutEnabled) totalWeight += 0.03
 
   // Mood-match bonus weights (up to ~0.16 extra)

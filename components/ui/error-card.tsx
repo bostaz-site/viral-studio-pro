@@ -7,13 +7,14 @@ import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 
 export type ErrorKind =
-  | 'generic'    // default red
-  | 'network'    // offline / fetch failed
-  | 'server'     // VPS / 5xx
-  | 'auth'       // 401/403 / session expired
-  | 'quota'      // plan limit reached
-  | 'timeout'    // polling gave up
-  | 'validation' // user input invalid
+  | 'generic'     // default red
+  | 'network'     // offline / fetch failed
+  | 'server'      // VPS / 5xx
+  | 'auth'        // 401/403 / session expired
+  | 'quota'       // plan limit reached
+  | 'rate_limit'  // too many requests (429) — temporary
+  | 'timeout'     // polling gave up
+  | 'validation'  // user input invalid
 
 interface ErrorCardProps {
   kind?: ErrorKind
@@ -77,6 +78,13 @@ const KIND_CONFIG: Record<ErrorKind, {
     bgClass: 'bg-purple-500/5',
     iconBgClass: 'bg-purple-500/15',
     iconColorClass: 'text-purple-400',
+  },
+  rate_limit: {
+    icon: AlertTriangle,
+    borderClass: 'border-amber-500/40',
+    bgClass: 'bg-amber-500/5',
+    iconBgClass: 'bg-amber-500/15',
+    iconColorClass: 'text-amber-400',
   },
   timeout: {
     icon: AlertTriangle,
@@ -183,15 +191,17 @@ export function ErrorCard({
  */
 export function classifyError(raw: string | null | undefined, status?: number): ErrorKind {
   if (status === 401 || status === 403) return 'auth'
-  if (status === 402 || status === 429) return 'quota'
+  if (status === 402) return 'quota'
+  if (status === 429) return 'rate_limit'
   if (status && status >= 500) return 'server'
   if (!raw) return 'generic'
   const msg = raw.toLowerCase()
   if (msg.includes('network') || msg.includes('fetch') || msg.includes('réseau') || msg.includes('offline')) return 'network'
   if (msg.includes('network error')) return 'network'
   if (msg.includes('timeout') || msg.includes('timed out') || msg.includes('plus longtemps')) return 'timeout'
-  if (msg.includes('quota') || msg.includes('limit') || msg.includes('plan')) return 'quota'
+  if (msg.includes('rate limit') || msg.includes('too many') || msg.includes('retry in')) return 'rate_limit'
+  if (msg.includes('quota') || msg.includes('monthly limit') || msg.includes('upgrade your plan')) return 'quota'
   if (msg.includes('unauthor') || msg.includes('forbidden') || msg.includes('session')) return 'auth'
-  if (msg.includes('vps') || msg.includes('render') || msg.includes('ffmpeg') || msg.includes('server')) return 'server'
+  if (msg.includes('vps') || msg.includes('ffmpeg') || msg.includes('server error')) return 'server'
   return 'generic'
 }

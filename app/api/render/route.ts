@@ -85,7 +85,7 @@ const inputSchema = z.object({
 
 export const POST = withAuth(async (request, user) => {
   // Rate limit: max 5 renders per minute per user
-  const rl = rateLimit(`render:${user.id}`, RATE_LIMITS.ai.limit, RATE_LIMITS.ai.windowMs)
+  const rl = await rateLimit(`render:${user.id}`, RATE_LIMITS.ai.limit, RATE_LIMITS.ai.windowMs)
   if (!rl.allowed) {
     return NextResponse.json(
       { data: null, error: 'Rate limited', message: `Too many renders. Retry in ${Math.ceil((rl.retryAfterMs || 60000) / 1000)}s` },

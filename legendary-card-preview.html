@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Legendary Clip Card — Preview</title>
+  <link href="https://fonts.googleapis.com/css2?family=Archivo+Black&display=swap" rel="stylesheet" />
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { background: #09090b; display: flex; align-items: center; justify-content: center; min-height: 100vh; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+
+    /* ── Conic gradient rotation ── */
+    @property --angle {
+      syntax: '<angle>';
+      initial-value: 0deg;
+      inherits: false;
+    }
+    @keyframes rotate { to { --angle: 360deg; } }
+
+    /* ══════════════════════════════════════════
+       CARD — outer shell
+       ══════════════════════════════════════════ */
+    .card {
+      position: relative;
+      width: 380px;
+      border-radius: 14px;
+      background: #0a0a0a;
+      cursor: pointer;
+      box-shadow:
+        0 0 30px rgba(245,180,40,.2),
+        0 0 60px rgba(200,140,20,.08),
+        0 20px 50px -20px rgba(0,0,0,.7);
+    }
+    .card:hover {
+      box-shadow:
+        0 0 40px rgba(245,180,40,.3),
+        0 0 80px rgba(200,140,20,.15),
+        0 24px 60px -16px rgba(0,0,0,.8);
+    }
+
+    /* ── Glow behind card ── */
+    .glow {
+      position: absolute; inset: -16px; border-radius: 30px;
+      pointer-events: none; z-index: -1;
+      background: radial-gradient(ellipse at center,
+        rgba(255,200,60,.35) 0%, rgba(245,180,40,.15) 40%, transparent 70%);
+      filter: blur(24px);
+      animation: glow-breathe 3s ease-in-out infinite;
+    }
+    @keyframes glow-breathe {
+      0%, 100% { opacity: .5; transform: scale(1); }
+      50% { opacity: .9; transform: scale(1.03); }
+    }
+
+    /* ══════════════════════════════════════════
+       ORNATE FRAME — thick gold border around thumbnail
+       Using layered borders + gradients for embossed look
+       ══════════════════════════════════════════ */
+    .frame-wrapper {
+      position: relative;
+      margin: 0;
+      padding: 5px;
+      border-radius: 14px 14px 0 0;
+      /* Thick gold border - outer layer */
+      background: linear-gradient(180deg, #D4A020 0%, #8B6914 15%, #C9962E 30%, #F5D478 50%, #C9962E 70%, #8B6914 85%, #D4A020 100%);
+    }
+
+    /* Inner border layer for embossed effect */
+    .frame-inner-border {
+      position: relative;
+      padding: 3px;
+      border-radius: 10px;
+      background: linear-gradient(180deg, #2A1F00 0%, #1A1200 50%, #2A1F00 100%);
+    }
+
+    /* Second gold border (inner) */
+    .frame-inner-gold {
+      position: relative;
+      padding: 3px;
+      border-radius: 8px;
+      background: linear-gradient(180deg, #8B6914 0%, #C9962E 20%, #F5D478 50%, #C9962E 80%, #8B6914 100%);
+    }
+
+    /* ── Corner ornaments (SVG overlays) ── */
+    .corner-ornament {
+      position: absolute;
+      z-index: 10;
+      pointer-events: none;
+      animation: corner-glow 2.8s ease-in-out infinite;
+    }
+    @keyframes corner-glow {
+      0%, 100% { filter: drop-shadow(0 0 8px rgba(255,215,0,.8)) drop-shadow(0 0 3px rgba(255,255,255,.4)); }
+      50% { filter: drop-shadow(0 0 18px rgba(255,230,80,1)) drop-shadow(0 0 6px rgba(255,255,255,.7)); }
+    }
+    .corner-ornament.tl { top: -6px; left: -6px; }
+    .corner-ornament.tr { top: -6px; right: -6px; transform: scaleX(-1); }
+    .corner-ornament.bl { bottom: -6px; left: -6px; transform: scaleY(-1); }
+    .corner-ornament.br { bottom: -6px; right: -6px; transform: scale(-1,-1); }
+
+    /* Side diamond ornaments */
+    .side-ornament {
+      position: absolute; z-index: 10; pointer-events: none;
+      animation: corner-glow 2.8s ease-in-out infinite;
+    }
+
+    /* ── Thumbnail ── */
+    .thumb {
+      position: relative;
+      aspect-ratio: 16/9;
+      border-radius: 6px;
+      overflow: hidden;
+      background: linear-gradient(135deg, #1a1a2e, #16213e);
+    }
+    .thumb img { width: 100%; height: 100%; object-fit: cover; }
+    .thumb .overlay {
+      position: absolute; inset: 0;
+      background: linear-gradient(to top, rgba(0,0,0,.65), transparent 40%, rgba(0,0,0,.25));
+    }
+
+    /* Godray sweep */
+    .godray {
+      position: absolute; inset: -48px 0; left: -33%; width: 50%;
+      background: linear-gradient(90deg,
+        transparent 0%, rgba(255,255,255,0) 20%,
+        rgba(255,248,225,.15) 45%, rgba(255,255,255,.25) 50%,
+        rgba(255,248,225,.15) 55%, rgba(255,255,255,0) 80%,
+        transparent 100%);
+      animation: godray 5s ease-in-out infinite;
+      filter: blur(3px);
+      pointer-events: none;
+    }
+    @keyframes godray {
+      0% { transform: translateX(-100%) rotate(20deg); opacity: 0; }
+      20% { opacity: .3; }
+      80% { opacity: .3; }
+      100% { transform: translateX(300%) rotate(20deg); opacity: 0; }
+    }
+
+    /* Score in thumbnail */
+    .thumb-score {
+      position: absolute; top: 8px; right: 12px; z-index: 6;
+      text-align: right;
+    }
+    .thumb-score .diamond-icon {
+      display: inline-block; vertical-align: middle; margin-right: 2px;
+      animation: score-glow 2s ease-in-out infinite;
+    }
+    .thumb-score .number {
+      font-family: 'Archivo Black', 'Arial Black', sans-serif;
+      font-size: 76px; font-weight: 900; line-height: .85; letter-spacing: -.04em;
+      background: linear-gradient(180deg, #FFF5D4 0%, #F0D080 20%, #D4A840 50%, #B08A30 75%, #8A6A20 100%);
+      -webkit-background-clip: text; background-clip: text;
+      -webkit-text-fill-color: transparent;
+      filter: drop-shadow(0 0 14px rgba(212,168,64,.6)) drop-shadow(0 3px 6px rgba(0,0,0,.85));
+      animation: score-glow 2s ease-in-out infinite;
+    }
+    .thumb-score .label {
+      font-family: 'Archivo Black', 'Arial Black', sans-serif;
+      font-size: 16px; font-weight: 900; letter-spacing: .08em;
+      color: #F5D478;
+      text-shadow: 0 0 12px rgba(245,212,120,.6);
+    }
+    @keyframes score-glow {
+      0%, 100% { filter: drop-shadow(0 0 12px rgba(255,233,168,.5)) drop-shadow(0 2px 8px rgba(0,0,0,.5)); }
+      50% { filter: drop-shadow(0 0 24px rgba(255,248,225,.8)) drop-shadow(0 2px 8px rgba(0,0,0,.5)); }
+    }
+
+    /* Trending graph + badge */
+    .trending-badge {
+      position: absolute; bottom: 10px; right: 10px; z-index: 6;
+      display: flex; flex-direction: column; align-items: flex-end; gap: 4px;
+    }
+    .trending-graph {
+      width: 100px; height: 30px; opacity: .85;
+    }
+    .trending-label {
+      display: flex; align-items: center; gap: 4px;
+      font-size: 13px; font-weight: 800; color: #F5A623;
+      text-shadow: 0 0 8px rgba(245,166,35,.5);
+    }
+
+    /* Platform badge */
+    .platform {
+      position: absolute; top: 10px; left: 10px; z-index: 6;
+      background: #7c3aed; color: white; font-size: 13px; font-weight: 700;
+      padding: 5px 12px; border-radius: 8px;
+      border: 1px solid rgba(139,92,246,.5);
+      display: flex; align-items: center; gap: 5px;
+    }
+    .platform .check { width: 14px; height: 14px; background: #60a5fa; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
+
+    /* Duration + velocity pills */
+    .pills {
+      position: absolute; bottom: 10px; left: 10px; z-index: 6;
+      display: flex; gap: 6px;
+    }
+    .pill {
+      background: rgba(0,0,0,.85); color: white; font-size: 13px; font-weight: 500;
+      padding: 4px 10px; border-radius: 8px;
+      border: 1px solid rgba(255,255,255,.1);
+      display: flex; align-items: center; gap: 4px;
+    }
+
+    /* Play button */
+    .play-btn {
+      position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);
+      z-index: 5; width: 56px; height: 56px; border-radius: 50%;
+      background: rgba(0,0,0,.5); border: 2px solid rgba(255,255,255,.2);
+      display: flex; align-items: center; justify-content: center;
+      opacity: 0; transition: opacity .25s;
+    }
+    .card:hover .play-btn { opacity: .9; }
+    .play-btn svg { margin-left: 3px; }
+
+    /* Hover shimmer */
+    .shimmer-bar {
+      position: absolute; inset: 0; overflow: hidden; pointer-events: none;
+      opacity: 0; transition: opacity .3s; border-radius: 6px;
+    }
+    .card:hover .shimmer-bar { opacity: 1; }
+    .shimmer-bar div {
+      position: absolute; inset: 0; left: -50%; width: 50%;
+      background: linear-gradient(90deg,
+        transparent 0%, rgba(255,248,225,0) 30%,
+        rgba(255,248,225,.7) 50%, rgba(255,248,225,0) 70%,
+        transparent 100%);
+      animation: shimmer-pass 3s ease-in-out infinite;
+    }
+    @keyframes shimmer-pass {
+      0% { transform: translateX(-150%) skewX(-20deg); }
+      100% { transform: translateX(350%) skewX(-20deg); }
+    }
+
+    /* ══════════════════════════════════════════
+       BOTTOM FRAME — gold border for card bottom
+       ══════════════════════════════════════════ */
+    .bottom-frame {
+      border-top: 3px solid #1A1200;
+      background: linear-gradient(180deg,
+        rgba(201,150,46,.08) 0%, rgba(0,0,0,0) 40%);
+    }
+
+    /* ── Meta section ── */
+    .meta { padding: 14px 16px 16px; }
+    .meta .title {
+      font-size: 16px; font-weight: 600; line-height: 1.35;
+      color: #ffffff;
+      display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+    }
+    .meta .author {
+      font-size: 12px; color: #9ca3af; margin-top: 6px;
+    }
+    .meta .author span { font-weight: 500; color: #d4d4d8; }
+    .meta .hook {
+      font-size: 13px; font-weight: 700; color: #FACC15; margin-top: 8px;
+      letter-spacing: .02em;
+    }
+
+    /* CTA button */
+    .cta {
+      margin-top: 14px; width: 100%; height: 46px; border-radius: 10px;
+      border: none; cursor: pointer;
+      font-size: 15px; font-weight: 800; color: #1a1000;
+      background: linear-gradient(110deg,
+        #C9962E 0%, #E8B850 15%, #F5D478 30%, #FFE9A8 45%,
+        #FFF8E1 50%, #FFE9A8 55%, #F5D478 70%, #E8B850 85%, #C9962E 100%);
+      background-size: 250% 100%;
+      animation: btn-shift 5s ease-in-out infinite;
+      box-shadow:
+        inset 0 0 0 1px rgba(255,248,225,.7),
+        inset 0 1px 0 rgba(255,255,255,.7),
+        inset 0 -1px 0 rgba(120,80,0,.3),
+        0 4px 14px rgba(232,184,80,.4),
+        0 0 24px rgba(245,212,120,.3);
+      position: relative; overflow: hidden;
+      transition: all .3s; letter-spacing: .02em;
+    }
+    .cta:hover {
+      box-shadow:
+        inset 0 0 0 1px rgba(255,255,255,.9),
+        inset 0 1px 0 rgba(255,255,255,.85),
+        0 6px 22px rgba(232,184,80,.6),
+        0 0 38px rgba(245,212,120,.55);
+      transform: translateY(-1px);
+    }
+    .cta::before {
+      content: ''; position: absolute; inset: 0;
+      background: linear-gradient(90deg,
+        transparent 0%, rgba(255,255,255,0) 35%,
+        rgba(255,255,255,.85) 50%, rgba(255,255,255,0) 65%,
+        transparent 100%);
+      animation: btn-shimmer 3s ease-in-out infinite;
+      mix-blend-mode: overlay; pointer-events: none;
+    }
+    @keyframes btn-shift {
+      0% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+      100% { background-position: 0% 50%; }
+    }
+    @keyframes btn-shimmer {
+      0% { transform: translateX(-120%) skewX(-15deg); }
+      100% { transform: translateX(220%) skewX(-15deg); }
+    }
+
+    /* Sparkle particles around card */
+    .sparkle {
+      position: absolute; pointer-events: none; z-index: 8;
+      animation: float-particle 2.4s ease-out infinite;
+    }
+    @keyframes float-particle {
+      0% { transform: translate(0,0) scale(0); opacity: 0; }
+      15% { opacity: 1; transform: scale(1); }
+      85% { opacity: 1; }
+      100% { transform: translate(var(--dx), var(--dy)) scale(0); opacity: 0; }
+    }
+
+    /* Reduced motion */
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation: none !important; }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="card">
+    <!-- Glow -->
+    <div class="glow"></div>
+
+    <!-- Sparkles around card (subtle, 4 only) -->
+    <div style="position:absolute;inset:-20px;overflow:visible;pointer-events:none;">
+      <svg class="sparkle" style="top:5%;left:10%;--dx:-14px;--dy:-12px;animation-delay:0s;opacity:.7" width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M12 0L13.5 10.5L24 12L13.5 13.5L12 24L10.5 13.5L0 12L10.5 10.5Z" fill="#FFF8E1"/></svg>
+      <svg class="sparkle" style="top:8%;left:90%;--dx:12px;--dy:-10px;animation-delay:.5s;opacity:.6" width="11" height="11" viewBox="0 0 24 24" fill="none"><path d="M12 0L13.5 10.5L24 12L13.5 13.5L12 24L10.5 13.5L0 12L10.5 10.5Z" fill="#FFF8E1"/></svg>
+      <svg class="sparkle" style="top:55%;left:-1%;--dx:-16px;--dy:8px;animation-delay:1s;opacity:.65" width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M12 0L13.5 10.5L24 12L13.5 13.5L12 24L10.5 13.5L0 12L10.5 10.5Z" fill="#FFF8E1"/></svg>
+      <svg class="sparkle" style="top:85%;left:75%;--dx:10px;--dy:14px;animation-delay:1.5s;opacity:.6" width="11" height="11" viewBox="0 0 24 24" fill="none"><path d="M12 0L13.5 10.5L24 12L13.5 13.5L12 24L10.5 13.5L0 12L10.5 10.5Z" fill="#FFF8E1"/></svg>
+    </div>
+
+    <!-- ═══ ORNATE GOLD FRAME ═══ -->
+    <div class="frame-wrapper">
+      <!-- Shared gem gradients (defined once) -->
+      <svg width="0" height="0" style="position:absolute">
+        <defs>
+          <linearGradient id="gc1" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#FFE9A8"/><stop offset="100%" stop-color="#DAA520"/></linearGradient>
+          <linearGradient id="gc2" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#FFFFFF"/><stop offset="30%" stop-color="#FFFDE8"/><stop offset="100%" stop-color="#F5D478"/></linearGradient>
+          <linearGradient id="gc3" x1="1" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#FFFFFF"/><stop offset="25%" stop-color="#FFF8E1"/><stop offset="100%" stop-color="#E8B850"/></linearGradient>
+          <linearGradient id="gt" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#FFF8E1"/><stop offset="40%" stop-color="#FFE9A8"/><stop offset="100%" stop-color="#FFD700"/></linearGradient>
+          <linearGradient id="gpl" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#8B6914"/><stop offset="50%" stop-color="#B8860B"/><stop offset="100%" stop-color="#996515"/></linearGradient>
+          <linearGradient id="gpml" x1=".3" y1="0" x2=".7" y2="1"><stop offset="0%" stop-color="#DAA520"/><stop offset="50%" stop-color="#C9962E"/><stop offset="100%" stop-color="#A07818"/></linearGradient>
+          <linearGradient id="gpmr" x1=".7" y1="0" x2=".3" y2="1"><stop offset="0%" stop-color="#FFD700"/><stop offset="50%" stop-color="#E8B850"/><stop offset="100%" stop-color="#C9962E"/></linearGradient>
+          <linearGradient id="gpr" x1="1" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#FFF0C0"/><stop offset="50%" stop-color="#F5D478"/><stop offset="100%" stop-color="#DAA520"/></linearGradient>
+          <filter id="gg">
+            <feGaussianBlur stdDeviation="3" result="b"/>
+            <feSpecularLighting in="b" surfaceScale="3" specularConstant="1.2" specularExponent="25" result="spec"><fePointLight x="55" y="20" z="80"/></feSpecularLighting>
+            <feComposite in="spec" in2="SourceGraphic" operator="in" result="specOut"/>
+            <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/><feMergeNode in="specOut"/></feMerge>
+          </filter>
+        </defs>
+      </svg>
+
+      <!-- Corner gems — realistic multi-facet gold diamonds -->
+      <svg class="corner-ornament tl" width="28" height="32" viewBox="0 0 110 140" fill="none">
+        <g filter="url(#gg)">
+          <path d="M10 42 L35 42 L55 10Z" fill="url(#gc1)"/><path d="M35 42 L55 10 L75 42Z" fill="url(#gc2)"/><path d="M75 42 L55 10 L100 42Z" fill="url(#gc3)"/>
+          <path d="M10 42 L30 35 L35 42Z" fill="#FFE9A8" opacity=".7"/><path d="M35 42 L55 28 L55 10Z" fill="#FFFDE8" opacity=".5"/><path d="M55 28 L75 42 L55 10Z" fill="#FFF8E1" opacity=".4"/><path d="M75 42 L80 35 L100 42Z" fill="#FFD700" opacity=".6"/>
+          <path d="M30 42 L40 32 L70 32 L80 42Z" fill="url(#gt)" opacity=".6"/>
+          <line x1="10" y1="42" x2="100" y2="42" stroke="#B8860B" stroke-width=".8"/>
+          <path d="M10 42 L35 42 L55 120Z" fill="url(#gpl)"/><path d="M35 42 L55 42 L55 120Z" fill="url(#gpml)"/><path d="M55 42 L75 42 L55 120Z" fill="url(#gpmr)"/><path d="M75 42 L100 42 L55 120Z" fill="url(#gpr)"/>
+          <line x1="35" y1="42" x2="55" y2="120" stroke="#FFE9A8" stroke-width=".5" opacity=".4"/><line x1="75" y1="42" x2="55" y2="120" stroke="#FFE9A8" stroke-width=".5" opacity=".3"/>
+          <path d="M32 42 L38 42 L55 80Z" fill="#FFFDE8" opacity=".35"/>
+          <circle cx="42" cy="36" r="2" fill="#FFF" opacity=".8"/><circle cx="65" cy="38" r="1" fill="#FFF" opacity=".5"/>
+        </g>
+      </svg>
+      <svg class="corner-ornament tr" width="28" height="32" viewBox="0 0 110 140" fill="none">
+        <g filter="url(#gg)">
+          <path d="M10 42 L35 42 L55 10Z" fill="url(#gc1)"/><path d="M35 42 L55 10 L75 42Z" fill="url(#gc2)"/><path d="M75 42 L55 10 L100 42Z" fill="url(#gc3)"/>
+          <path d="M30 42 L40 32 L70 32 L80 42Z" fill="url(#gt)" opacity=".6"/>
+          <path d="M10 42 L35 42 L55 120Z" fill="url(#gpl)"/><path d="M35 42 L55 42 L55 120Z" fill="url(#gpml)"/><path d="M55 42 L75 42 L55 120Z" fill="url(#gpmr)"/><path d="M75 42 L100 42 L55 120Z" fill="url(#gpr)"/>
+          <path d="M32 42 L38 42 L55 80Z" fill="#FFFDE8" opacity=".35"/>
+          <circle cx="42" cy="36" r="2" fill="#FFF" opacity=".8"/>
+        </g>
+      </svg>
+      <svg class="corner-ornament bl" width="28" height="32" viewBox="0 0 110 140" fill="none">
+        <g filter="url(#gg)">
+          <path d="M10 42 L35 42 L55 10Z" fill="url(#gc1)"/><path d="M35 42 L55 10 L75 42Z" fill="url(#gc2)"/><path d="M75 42 L55 10 L100 42Z" fill="url(#gc3)"/>
+          <path d="M30 42 L40 32 L70 32 L80 42Z" fill="url(#gt)" opacity=".6"/>
+          <path d="M10 42 L35 42 L55 120Z" fill="url(#gpl)"/><path d="M35 42 L55 42 L55 120Z" fill="url(#gpml)"/><path d="M55 42 L75 42 L55 120Z" fill="url(#gpmr)"/><path d="M75 42 L100 42 L55 120Z" fill="url(#gpr)"/>
+          <path d="M32 42 L38 42 L55 80Z" fill="#FFFDE8" opacity=".35"/>
+          <circle cx="42" cy="36" r="2" fill="#FFF" opacity=".8"/>
+        </g>
+      </svg>
+      <svg class="corner-ornament br" width="28" height="32" viewBox="0 0 110 140" fill="none">
+        <g filter="url(#gg)">
+          <path d="M10 42 L35 42 L55 10Z" fill="url(#gc1)"/><path d="M35 42 L55 10 L75 42Z" fill="url(#gc2)"/><path d="M75 42 L55 10 L100 42Z" fill="url(#gc3)"/>
+          <path d="M30 42 L40 32 L70 32 L80 42Z" fill="url(#gt)" opacity=".6"/>
+          <path d="M10 42 L35 42 L55 120Z" fill="url(#gpl)"/><path d="M35 42 L55 42 L55 120Z" fill="url(#gpml)"/><path d="M55 42 L75 42 L55 120Z" fill="url(#gpmr)"/><path d="M75 42 L100 42 L55 120Z" fill="url(#gpr)"/>
+          <path d="M32 42 L38 42 L55 80Z" fill="#FFFDE8" opacity=".35"/>
+          <circle cx="42" cy="36" r="2" fill="#FFF" opacity=".8"/>
+        </g>
+      </svg>
+
+      <!-- Side gems (mid-points) — same realistic style, smaller -->
+      <svg class="side-ornament" style="top:-8px;left:50%;transform:translateX(-50%);animation-delay:.2s" width="20" height="24" viewBox="0 0 110 140" fill="none">
+        <g filter="url(#gg)"><path d="M10 42 L35 42 L55 10Z" fill="url(#gc1)"/><path d="M35 42 L55 10 L75 42Z" fill="url(#gc2)"/><path d="M75 42 L55 10 L100 42Z" fill="url(#gc3)"/><path d="M30 42 L40 32 L70 32 L80 42Z" fill="url(#gt)" opacity=".6"/><path d="M10 42 L35 42 L55 120Z" fill="url(#gpl)"/><path d="M35 42 L55 42 L55 120Z" fill="url(#gpml)"/><path d="M55 42 L75 42 L55 120Z" fill="url(#gpmr)"/><path d="M75 42 L100 42 L55 120Z" fill="url(#gpr)"/><circle cx="42" cy="36" r="2" fill="#FFF" opacity=".7"/></g>
+      </svg>
+      <svg class="side-ornament" style="bottom:-8px;left:50%;transform:translateX(-50%) rotate(180deg);animation-delay:.5s" width="20" height="24" viewBox="0 0 110 140" fill="none">
+        <g filter="url(#gg)"><path d="M10 42 L35 42 L55 10Z" fill="url(#gc1)"/><path d="M35 42 L55 10 L75 42Z" fill="url(#gc2)"/><path d="M75 42 L55 10 L100 42Z" fill="url(#gc3)"/><path d="M30 42 L40 32 L70 32 L80 42Z" fill="url(#gt)" opacity=".6"/><path d="M10 42 L35 42 L55 120Z" fill="url(#gpl)"/><path d="M35 42 L55 42 L55 120Z" fill="url(#gpml)"/><path d="M55 42 L75 42 L55 120Z" fill="url(#gpmr)"/><path d="M75 42 L100 42 L55 120Z" fill="url(#gpr)"/><circle cx="42" cy="36" r="2" fill="#FFF" opacity=".7"/></g>
+      </svg>
+      <svg class="side-ornament" style="left:-8px;top:50%;transform:translateY(-50%) rotate(90deg);animation-delay:.3s" width="18" height="22" viewBox="0 0 110 140" fill="none">
+        <g filter="url(#gg)"><path d="M10 42 L35 42 L55 10Z" fill="url(#gc1)"/><path d="M35 42 L55 10 L75 42Z" fill="url(#gc2)"/><path d="M75 42 L55 10 L100 42Z" fill="url(#gc3)"/><path d="M30 42 L40 32 L70 32 L80 42Z" fill="url(#gt)" opacity=".6"/><path d="M10 42 L35 42 L55 120Z" fill="url(#gpl)"/><path d="M35 42 L55 42 L55 120Z" fill="url(#gpml)"/><path d="M55 42 L75 42 L55 120Z" fill="url(#gpmr)"/><path d="M75 42 L100 42 L55 120Z" fill="url(#gpr)"/><circle cx="42" cy="36" r="2" fill="#FFF" opacity=".7"/></g>
+      </svg>
+      <svg class="side-ornament" style="right:-8px;top:50%;transform:translateY(-50%) rotate(-90deg);animation-delay:.7s" width="18" height="22" viewBox="0 0 110 140" fill="none">
+        <g filter="url(#gg)"><path d="M10 42 L35 42 L55 10Z" fill="url(#gc1)"/><path d="M35 42 L55 10 L75 42Z" fill="url(#gc2)"/><path d="M75 42 L55 10 L100 42Z" fill="url(#gc3)"/><path d="M30 42 L40 32 L70 32 L80 42Z" fill="url(#gt)" opacity=".6"/><path d="M10 42 L35 42 L55 120Z" fill="url(#gpl)"/><path d="M35 42 L55 42 L55 120Z" fill="url(#gpml)"/><path d="M55 42 L75 42 L55 120Z" fill="url(#gpmr)"/><path d="M75 42 L100 42 L55 120Z" fill="url(#gpr)"/><circle cx="42" cy="36" r="2" fill="#FFF" opacity=".7"/></g>
+      </svg>
+
+      <!-- Dark gap layer -->
+      <div class="frame-inner-border">
+        <!-- Inner gold border -->
+        <div class="frame-inner-gold">
+          <!-- Thumbnail -->
+          <div class="thumb">
+            <img src="https://static-cdn.jtvnw.net/previews-ttv/live_user_stableronaldo-320x180.jpg" alt="clip" />
+            <div class="overlay"></div>
+            <div class="godray"></div>
+            <div class="shimmer-bar"><div></div></div>
+
+            <!-- Score + LEGENDARY -->
+            <div class="thumb-score">
+              <div style="display:flex;align-items:flex-start;justify-content:flex-end;gap:4px;">
+                <svg class="diamond-icon" style="margin-top:10px" width="20" height="24" viewBox="0 0 110 140" fill="none">
+                  <g filter="url(#gg)">
+                    <path d="M10 42 L35 42 L55 10Z" fill="url(#gc1)"/><path d="M35 42 L55 10 L75 42Z" fill="url(#gc2)"/><path d="M75 42 L55 10 L100 42Z" fill="url(#gc3)"/>
+                    <path d="M30 42 L40 32 L70 32 L80 42Z" fill="url(#gt)" opacity=".6"/>
+                    <path d="M10 42 L35 42 L55 120Z" fill="url(#gpl)"/><path d="M35 42 L55 42 L55 120Z" fill="url(#gpml)"/><path d="M55 42 L75 42 L55 120Z" fill="url(#gpmr)"/><path d="M75 42 L100 42 L55 120Z" fill="url(#gpr)"/>
+                    <path d="M32 42 L38 42 L55 80Z" fill="#FFFDE8" opacity=".35"/>
+                    <circle cx="42" cy="36" r="2" fill="#FFF" opacity=".8"/>
+                  </g>
+                </svg>
+                <div class="number">85</div>
+              </div>
+              <!-- label removed -->
+            </div>
+
+            <!-- Platform badge -->
+            <div class="platform">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="white"><path d="M11.571 4.714h1.715v5.143H11.57zm4.715 0H18v5.143h-1.714zM6 0L1.714 4.286v15.428h5.143V24l4.286-4.286h3.428L22.286 12V0zm14.571 11.143l-3.428 3.428h-3.429l-3 3v-3H6.857V1.714h13.714Z"/></svg>
+              Twitch
+              <div class="check"><svg width="8" height="8" viewBox="0 0 24 24" fill="white"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg></div>
+            </div>
+
+            <!-- Duration + velocity pills -->
+            <div class="pills">
+              <div class="pill">0:16</div>
+            </div>
+
+
+            <!-- Play button -->
+            <div class="play-btn">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="white"><path d="M8 5v14l11-7z"/></svg>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ META — bottom section ═══ -->
+    <div class="bottom-frame">
+      <div class="meta">
+        <div class="title">Stable Ronaldo se fait surprendre par un fan en plein stream</div>
+        <div class="author"><span>@stableronaldo</span> · IRL</div>
+        <div class="hook">🔥 +12.4K/h · Used by 12 creators</div>
+        <button class="cta">✦ Make it Viral</button>
+      </div>
+    </div>
+  </div>
+
+</body>
+</html>

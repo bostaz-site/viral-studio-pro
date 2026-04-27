@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import Script from 'next/script'
 import { Inter, Archivo_Black } from 'next/font/google'
 import './globals.css'
 import './rank-cards.css'
@@ -118,6 +119,10 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning className={cn("font-sans", inter.variable, archivoBlack.variable)}>
       <head>
         <meta name="google-site-verification" content="vd6ilqum2N1Q0YUJDWzxuyD_Nlv7Km5CfkwRB4Xl5L4" />
+        <meta name="theme-color" content="#f97316" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+        <link rel="apple-touch-icon" href="/icons/icon-192.svg" />
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
@@ -136,6 +141,9 @@ export default function RootLayout({
         >
           {children}
         </ThemeProvider>
+        <Script id="sw-register" strategy="afterInteractive">
+          {`if('serviceWorker' in navigator){navigator.serviceWorker.register('/sw.js')}`}
+        </Script>
       </body>
     </html>
   )

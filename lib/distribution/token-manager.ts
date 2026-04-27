@@ -4,10 +4,16 @@
  * Tokens are stored encrypted in the social_accounts table.
  * This module handles decryption for use, refresh when expired,
  * and re-encryption before updating the DB.
+ *
+ * Distributed mutex via Upstash Redis:
+ * Before refreshing, acquires `SET lock:token:{platform}:{userId} 1 NX EX 30`.
+ * If lock is held by another isolate, waits 2s then re-reads the freshly
+ * refreshed token from DB.
  */
 
 import { createAdminClient } from '@/lib/supabase/admin'
 import { safeEncrypt, safeDecrypt } from '@/lib/crypto'
+import { redis } from '@/lib/upstash'
 import { type Platform, PLATFORM_CONFIGS, getClientCredentials } from './platforms'
 
 interface TokenSet {
@@ -62,33 +68,69 @@ export async function getValidToken(
 
   // Check if token needs refresh
   if (isTokenExpired(row.token_expires_at)) {
-    const decryptedRefresh = safeDecrypt(row.refresh_token)
-    if (!decryptedRefresh) {
-      // No refresh token — user must reconnect
-      throw new Error(
-        `${PLATFORM_CONFIGS[platform].displayName} token expired and no refresh token available. ` +
-        'Please reconnect your account.'
-      )
+    const lockKey = `lock:token:${platform}:${userId}`
+
+    let lockAcquired = false
+    try {
+      // Try to acquire distributed lock (30s TTL)
+      const result = await redis.set(lockKey, '1', { nx: true, ex: 30 })
+      lockAcquired = result === 'OK'
+    } catch {
+      // Redis down — proceed without lock (best-effort)
+      lockAcquired = true
     }
 
-    const refreshed = await refreshToken(platform, decryptedRefresh)
+    if (!lockAcquired) {
+      // Another isolate is refreshing — wait 2s then read the fresh token
+      await new Promise(r => setTimeout(r, 2000))
+      const { data: freshRow } = await admin
+        .from('social_accounts')
+        .select('access_token, refresh_token, token_expires_at')
+        .eq('id', row.id)
+        .single()
 
-    // Update DB with new tokens
-    const updateData: Record<string, string | null> = {
-      access_token: safeEncrypt(refreshed.accessToken)!,
-      token_expires_at: refreshed.expiresAt?.toISOString() ?? null,
+      if (freshRow && !isTokenExpired(freshRow.token_expires_at as string | null)) {
+        return {
+          accessToken: safeDecrypt(freshRow.access_token as string)!,
+          refreshToken: safeDecrypt(freshRow.refresh_token as string | null),
+          expiresAt: freshRow.token_expires_at ? new Date(freshRow.token_expires_at as string) : null,
+        }
+      }
+      // Other isolate failed or took too long — fall through to refresh ourselves
     }
-    // Some platforms rotate refresh tokens
-    if (refreshed.refreshToken) {
-      updateData.refresh_token = safeEncrypt(refreshed.refreshToken)
+
+    try {
+      const decryptedRefresh = safeDecrypt(row.refresh_token)
+      if (!decryptedRefresh) {
+        throw new Error(
+          `${PLATFORM_CONFIGS[platform].displayName} token expired and no refresh token available. ` +
+          'Please reconnect your account.'
+        )
+      }
+
+      const refreshed = await refreshToken(platform, decryptedRefresh)
+
+      // Update DB with new tokens
+      const updateData: Record<string, string | null> = {
+        access_token: safeEncrypt(refreshed.accessToken)!,
+        token_expires_at: refreshed.expiresAt?.toISOString() ?? null,
+      }
+      if (refreshed.refreshToken) {
+        updateData.refresh_token = safeEncrypt(refreshed.refreshToken)
+      }
+
+      await admin
+        .from('social_accounts')
+        .update(updateData)
+        .eq('id', row.id)
+
+      return refreshed
+    } finally {
+      // Always release the lock
+      if (lockAcquired) {
+        try { await redis.del(lockKey) } catch { /* best-effort cleanup */ }
+      }
     }
-
-    await admin
-      .from('social_accounts')
-      .update(updateData)
-      .eq('id', row.id)
-
-    return refreshed
   }
 
   return {

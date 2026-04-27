@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { rateLimit, RATE_LIMITS } from '@/lib/rate-limit'
 
 /**
  * GET /api/clips/video-url?slug=CLIP_SLUG
@@ -21,6 +22,12 @@ const cache = new Map<string, { url: string; ts: number }>()
 const CACHE_TTL = 3600_000 // 1 hour
 
 export async function GET(request: NextRequest) {
+  const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown'
+  const rl = await rateLimit(`video-url:${ip}`, RATE_LIMITS.videoUrl.limit, RATE_LIMITS.videoUrl.windowMs)
+  if (!rl.allowed) {
+    return NextResponse.json({ error: 'Rate limited' }, { status: 429 })
+  }
+
   const slug = request.nextUrl.searchParams.get('slug')
 
   if (!slug || typeof slug !== 'string' || slug.length > 200) {

@@ -3,11 +3,12 @@
  * Deduplicated from trending-card, trending-detail-modal, etc.
  */
 
-/** Format large numbers as compact strings: 1200 → "1K", 1500000 → "1.5M" */
+/** Format large numbers as compact strings: 842 → "842", 1200 → "1.2K", 12300 → "12.3K", 1500000 → "1.5M" */
 export function formatCount(n: number | null): string {
   if (n === null) return '--'
-  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`
-  if (n >= 1_000) return `${(n / 1_000).toFixed(0)}K`
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1).replace(/\.0$/, '')}M`
+  if (n >= 10_000) return `${(n / 1_000).toFixed(1).replace(/\.0$/, '')}K`
+  if (n >= 1_000) return `${(n / 1_000).toFixed(1).replace(/\.0$/, '')}K`
   return String(n)
 }
 

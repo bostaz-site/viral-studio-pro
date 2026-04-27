@@ -37,6 +37,8 @@ export interface MoodPreset {
   smartZoomMode: 'micro' | 'dynamic' | 'follow'
 
   audioEnhanceEnabled: boolean
+  bassBoost: 'off' | 'mild' | 'heavy'
+  speedRamp: 'off' | 'subtle' | 'dynamic'
 
   autoCutEnabled: boolean
   autoCutThreshold: number
@@ -60,6 +62,8 @@ export const BASE_SETTINGS = {
   tagSize: 85,
   aspectRatio: '9:16' as const,
   audioEnhanceEnabled: true,
+  bassBoost: 'off' as const,
+  speedRamp: 'off' as const,
   hookEnabled: true,
   hookTextEnabled: true,
   hookTextPosition: 15,
@@ -91,6 +95,8 @@ export const MOOD_PRESETS: Record<ClipMood, MoodPreset> = {
     emphasisEffect: 'scale',
     videoZoom: 'fill',
     smartZoomMode: 'dynamic',
+    bassBoost: 'heavy',
+    speedRamp: 'dynamic',
     autoCutEnabled: true,
     autoCutThreshold: 0.5,
     hookReorderEnabled: true,
@@ -110,6 +116,7 @@ export const MOOD_PRESETS: Record<ClipMood, MoodPreset> = {
     emphasisEffect: 'bounce',
     videoZoom: 'fill',
     smartZoomMode: 'micro',
+    speedRamp: 'subtle',
     autoCutEnabled: false,
     autoCutThreshold: 0.7,
     hookReorderEnabled: true,
@@ -129,6 +136,7 @@ export const MOOD_PRESETS: Record<ClipMood, MoodPreset> = {
     emphasisEffect: 'glow',
     videoZoom: 'immersive',
     smartZoomMode: 'follow',
+    bassBoost: 'mild',
     autoCutEnabled: false,
     autoCutThreshold: 0.7,
     hookReorderEnabled: true,
@@ -167,6 +175,8 @@ export const MOOD_PRESETS: Record<ClipMood, MoodPreset> = {
     emphasisEffect: 'scale',
     videoZoom: 'fill',
     smartZoomMode: 'dynamic',
+    bassBoost: 'heavy',
+    speedRamp: 'dynamic',
     autoCutEnabled: true,
     autoCutThreshold: 0.5,
     hookReorderEnabled: true,
@@ -186,6 +196,7 @@ export const MOOD_PRESETS: Record<ClipMood, MoodPreset> = {
     emphasisEffect: 'none',
     videoZoom: 'contain',
     smartZoomMode: 'micro',
+    bassBoost: 'mild',
     autoCutEnabled: true,
     autoCutThreshold: 0.7,
     hookReorderEnabled: false,

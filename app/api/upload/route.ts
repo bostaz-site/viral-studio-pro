@@ -1,11 +1,20 @@
 import { NextResponse } from 'next/server'
 import { withAuth } from '@/lib/api/withAuth'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { rateLimit, RATE_LIMITS } from '@/lib/rate-limit'
 
 export const maxDuration = 60
 
 // POST /api/upload — Upload a video file to Supabase Storage + create video record
 export const POST = withAuth(async (request, user) => {
+  const rl = await rateLimit(`upload:${user.id}`, RATE_LIMITS.upload.limit, RATE_LIMITS.upload.windowMs)
+  if (!rl.allowed) {
+    return NextResponse.json(
+      { data: null, error: 'Rate limited', message: `Too many uploads. Retry in ${Math.ceil((rl.retryAfterMs || 60000) / 1000)}s` },
+      { status: 429 },
+    )
+  }
+
   const admin = createAdminClient()
 
   // Parse multipart form data

@@ -102,46 +102,81 @@ export async function downloadAsset(storagePath, localPath) {
  * @returns {Promise<{success: boolean, path: string, url: string}>}
  */
 export async function uploadToStorage(bucketName, filePath, storagePath) {
-  try {
-    const fileBuffer = await fs.readFile(filePath);
+  const fileBuffer = await fs.readFile(filePath);
+  const fileSizeMB = (fileBuffer.length / (1024 * 1024)).toFixed(1);
 
-    // Determine MIME type
-    const mimeTypes = {
-      '.mp4': 'video/mp4',
-      '.png': 'image/png',
-      '.jpg': 'image/jpeg',
-      '.jpeg': 'image/jpeg',
-    };
+  // Determine MIME type
+  const mimeTypes = {
+    '.mp4': 'video/mp4',
+    '.png': 'image/png',
+    '.jpg': 'image/jpeg',
+    '.jpeg': 'image/jpeg',
+  };
 
-    const ext = filePath.toLowerCase().match(/\.[^.]+$/)?.[0] || '.mp4';
-    const contentType = mimeTypes[ext] || 'application/octet-stream';
+  const ext = filePath.toLowerCase().match(/\.[^.]+$/)?.[0] || '.mp4';
+  const contentType = mimeTypes[ext] || 'application/octet-stream';
 
-    const { data, error } = await supabase.storage
-      .from(bucketName)
-      .upload(storagePath, fileBuffer, {
-        contentType,
-        upsert: true,
-        duplex: 'half',
-      });
+  console.log(`[Supabase] Uploading ${storagePath} to bucket "${bucketName}" (${fileSizeMB} MB, ${contentType})`);
 
-    if (error) {
-      throw new Error(`Upload failed: ${error.message}`);
+  // Retry up to 3 times (Supabase transient errors)
+  const MAX_RETRIES = 3;
+  let lastError = null;
+
+  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      const { data, error } = await supabase.storage
+        .from(bucketName)
+        .upload(storagePath, fileBuffer, {
+          contentType,
+          upsert: true,
+          duplex: 'half',
+        });
+
+      if (error) {
+        // Log full error object for debugging
+        console.error(`[Supabase] Upload attempt ${attempt}/${MAX_RETRIES} failed:`, JSON.stringify({
+          message: error.message,
+          statusCode: error.statusCode,
+          error: error.error,
+          name: error.name,
+          bucket: bucketName,
+          path: storagePath,
+          fileSizeMB,
+        }));
+        lastError = error;
+        if (attempt < MAX_RETRIES) {
+          const delay = attempt * 2000; // 2s, 4s
+          console.log(`[Supabase] Retrying in ${delay}ms...`);
+          await new Promise(r => setTimeout(r, delay));
+          continue;
+        }
+        throw new Error(`Upload failed after ${MAX_RETRIES} attempts: ${error.message || error.error || JSON.stringify(error)} (bucket=${bucketName}, size=${fileSizeMB}MB)`);
+      }
+
+      console.log(`[Supabase] Uploaded to ${storagePath} (${fileSizeMB} MB, attempt ${attempt})`);
+
+      // Get public URL
+      const { data: urlData } = supabase.storage.from(bucketName).getPublicUrl(storagePath);
+
+      return {
+        success: true,
+        path: storagePath,
+        url: urlData?.publicUrl,
+      };
+    } catch (err) {
+      if (err.message?.startsWith('Upload failed after')) throw err;
+      console.error(`[Supabase] Upload attempt ${attempt}/${MAX_RETRIES} exception:`, err.message);
+      lastError = err;
+      if (attempt < MAX_RETRIES) {
+        const delay = attempt * 2000;
+        await new Promise(r => setTimeout(r, delay));
+        continue;
+      }
+      throw new Error(`Upload failed after ${MAX_RETRIES} attempts: ${err.message} (bucket=${bucketName}, size=${fileSizeMB}MB)`);
     }
-
-    console.log(`[Supabase] Uploaded to ${storagePath} (${fileBuffer.length} bytes)`);
-
-    // Get public URL
-    const { data: urlData } = supabase.storage.from(bucketName).getPublicUrl(storagePath);
-
-    return {
-      success: true,
-      path: storagePath,
-      url: urlData?.publicUrl,
-    };
-  } catch (err) {
-    console.error(`[Supabase Error] Failed to upload to ${storagePath}:`, err.message);
-    throw err;
   }
+
+  throw lastError || new Error('Upload failed: unknown error');
 }
 
 /**

@@ -107,7 +107,7 @@ export const POST = withAuth(
     // Get signed URL for the clip video
     const { data: signedUrlData, error: signedUrlError } = await admin.storage
       .from('clips')
-      .createSignedUrl(clipStoragePath, 3600) // 1 hour
+      .createSignedUrl(clipStoragePath, 14400) // 4 hours
 
     if (signedUrlError || !signedUrlData?.signedUrl) {
       return errorResponse('Failed to get video URL for publishing', 500)

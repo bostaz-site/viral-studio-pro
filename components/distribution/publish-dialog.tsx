@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import {
   Loader2,
   CheckCircle2,
@@ -9,6 +9,7 @@ import {
   Hash,
   X,
   ExternalLink,
+  Clock,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -16,6 +17,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Dialog } from '@/components/ui/dialog'
 import { useDistributionStore } from '@/stores/distribution-store'
+import { isGoodTimeToPost } from '@/lib/distribution/posting-schedule'
 
 interface PublishDialogProps {
   open: boolean
@@ -49,6 +51,35 @@ const PLATFORM_LABELS: Record<string, { name: string; icon: React.ReactNode }> =
       </svg>
     ),
   },
+}
+
+function PostingTimeAdvice({ platforms }: { platforms: string[] }) {
+  const advices = useMemo(
+    () => platforms.map(p => ({ platform: p, ...isGoodTimeToPost(p) })),
+    [platforms]
+  )
+
+  if (advices.length === 0) return null
+
+  return (
+    <div className="space-y-1.5">
+      {advices.map(a => {
+        const color = a.quality === 'best'
+          ? 'text-green-400 bg-green-500/10 border-green-500/20'
+          : a.quality === 'good'
+            ? 'text-amber-400 bg-amber-500/10 border-amber-500/20'
+            : 'text-red-400 bg-red-500/10 border-red-500/20'
+
+        return (
+          <div key={a.platform} className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs ${color}`}>
+            <Clock className="h-3 w-3 shrink-0" />
+            <span className="font-medium capitalize">{a.platform}:</span>
+            <span>{a.suggestion}</span>
+          </div>
+        )
+      })}
+    </div>
+  )
 }
 
 export function PublishDialog({ open, onClose, clipId, clipTitle }: PublishDialogProps) {
@@ -189,6 +220,11 @@ export function PublishDialog({ open, onClose, clipId, clipTitle }: PublishDialo
             </div>
           )}
         </div>
+
+        {/* Posting time advice */}
+        {enabledTargets.length > 0 && !hasResults && (
+          <PostingTimeAdvice platforms={enabledTargets.map(t => t.platform)} />
+        )}
 
         {/* Caption */}
         <div>

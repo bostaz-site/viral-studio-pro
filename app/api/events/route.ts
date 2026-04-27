@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { rateLimit as redisRateLimit, RATE_LIMITS } from '@/lib/rate-limit'
 
 export const runtime = 'nodejs'
 
@@ -58,6 +59,12 @@ function rateLimit(key: string, n: number): boolean {
 }
 
 export async function POST(req: NextRequest) {
+  const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown'
+  const ipRl = await redisRateLimit(`browse:${ip}`, RATE_LIMITS.browse.limit, RATE_LIMITS.browse.windowMs)
+  if (!ipRl.allowed) {
+    return NextResponse.json({ data: null, error: 'rate_limited' }, { status: 429 })
+  }
+
   let parsed: z.infer<typeof bodySchema>
   try {
     const json = await req.json()

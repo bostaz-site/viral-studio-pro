@@ -1,34 +1,16 @@
 /**
- * Hybrid rate limiter: in-memory for single-instance + Supabase fallback.
+ * Distributed rate limiter using Upstash Redis sliding window counter.
  *
- * On serverless (Netlify Functions), each cold start gets a fresh Map.
- * The in-memory limiter still helps within a warm instance, and the
- * Supabase-based limiter provides persistent cross-instance protection.
+ * Redis key = `rl:{identifier}`, value = counter, TTL = window in seconds.
+ * Each request does INCR + EXPIRE (on first hit).
+ * Works across all serverless isolates.
  *
- * For MVP this is sufficient. For scale, migrate to Upstash Redis.
+ * Failure modes:
+ * - Fail-open (default): if Redis is unreachable, allow the request.
+ * - Fail-closed ({ failClosed: true }): if Redis is unreachable, DENY with 503.
  */
 
-interface RateLimitEntry {
-  timestamps: number[]
-}
-
-const store = new Map<string, RateLimitEntry>()
-
-// Clean up old entries every 5 minutes
-const CLEANUP_INTERVAL = 5 * 60 * 1000
-let lastCleanup = Date.now()
-
-function cleanup(windowMs: number) {
-  const now = Date.now()
-  if (now - lastCleanup < CLEANUP_INTERVAL) return
-  lastCleanup = now
-
-  const cutoff = now - windowMs
-  for (const [key, entry] of store) {
-    entry.timestamps = entry.timestamps.filter((t) => t > cutoff)
-    if (entry.timestamps.length === 0) store.delete(key)
-  }
-}
+import { redis } from '@/lib/upstash'
 
 export interface RateLimitResult {
   allowed: boolean
@@ -37,88 +19,42 @@ export interface RateLimitResult {
   retryAfterMs?: number
 }
 
-/**
- * Check and consume a rate limit token (in-memory, per-instance).
- *
- * @param identifier - Unique key (e.g., userId, IP address)
- * @param limit - Max requests allowed in the window
- * @param windowMs - Time window in milliseconds (default: 60s)
- */
-export function rateLimit(
+export async function rateLimit(
   identifier: string,
   limit: number,
-  windowMs: number = 60_000
-): RateLimitResult {
-  cleanup(windowMs)
-
-  const now = Date.now()
-  const cutoff = now - windowMs
-
-  let entry = store.get(identifier)
-  if (!entry) {
-    entry = { timestamps: [] }
-    store.set(identifier, entry)
-  }
-
-  // Remove timestamps outside the window
-  entry.timestamps = entry.timestamps.filter((t) => t > cutoff)
-
-  if (entry.timestamps.length >= limit) {
-    const oldestInWindow = entry.timestamps[0]
-    const retryAfterMs = oldestInWindow + windowMs - now
-
-    return {
-      allowed: false,
-      remaining: 0,
-      limit,
-      retryAfterMs: Math.max(0, retryAfterMs),
-    }
-  }
-
-  // Consume a token
-  entry.timestamps.push(now)
-
-  return {
-    allowed: true,
-    remaining: limit - entry.timestamps.length,
-    limit,
-  }
-}
-
-/**
- * Supabase-based rate limiter for persistent cross-instance limiting.
- * Uses a dedicated table `rate_limit_log` for tracking requests.
- * Falls back to allowing the request if the DB check fails (fail-open).
- */
-export async function rateLimitDb(
-  admin: { rpc: (fn: string, args: Record<string, unknown>) => Promise<{ data: unknown; error: unknown }> },
-  identifier: string,
-  limit: number,
-  windowMs: number = 60_000
+  windowMs: number = 60_000,
+  options?: { failClosed?: boolean },
 ): Promise<RateLimitResult> {
   try {
-    const { data, error } = await admin.rpc('check_rate_limit', {
-      p_identifier: identifier,
-      p_limit: limit,
-      p_window_ms: windowMs,
-    })
+    const key = `rl:${identifier}`
+    const windowSec = Math.ceil(windowMs / 1000)
 
-    if (error || data === null) {
-      // Fail-open: if DB check fails, allow the request
-      // but still check in-memory as a safety net
-      return rateLimit(identifier, limit, windowMs)
+    const count = await redis.incr(key)
+    if (count === 1) {
+      await redis.expire(key, windowSec)
     }
 
-    const allowed = Boolean(data)
+    if (count > limit) {
+      return {
+        allowed: false,
+        remaining: 0,
+        limit,
+        retryAfterMs: windowMs,
+      }
+    }
+
     return {
-      allowed,
-      remaining: allowed ? limit - 1 : 0,
+      allowed: true,
+      remaining: limit - count,
       limit,
-      retryAfterMs: allowed ? undefined : windowMs,
     }
   } catch {
-    // Fail-open with in-memory fallback
-    return rateLimit(identifier, limit, windowMs)
+    // Redis unreachable
+    if (options?.failClosed) {
+      return { allowed: false, remaining: 0, limit, retryAfterMs: windowMs }
+    }
+    // Fail-open: allow the request
+    return { allowed: true, remaining: limit, limit }
   }
 }
 
@@ -126,7 +62,7 @@ export async function rateLimitDb(
  * Preset rate limits for different route types.
  */
 export const RATE_LIMITS = {
-  /** Expensive AI operations (Whisper, Claude) */
+  /** Expensive AI operations (render, mood detection) */
   ai: { limit: 5, windowMs: 60_000 },
 
   /** Standard API calls */
@@ -137,4 +73,16 @@ export const RATE_LIMITS = {
 
   /** Webhook endpoints (higher limit) */
   webhook: { limit: 100, windowMs: 60_000 },
+
+  /** Browse / trending feed */
+  browse: { limit: 60, windowMs: 60_000 },
+
+  /** Video URL resolution */
+  videoUrl: { limit: 30, windowMs: 60_000 },
+
+  /** Render status polling */
+  status: { limit: 120, windowMs: 60_000 },
+
+  /** Data endpoints (sparkline, remixes) */
+  data: { limit: 30, windowMs: 60_000 },
 } as const

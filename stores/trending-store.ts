@@ -1,7 +1,6 @@
 import { create } from 'zustand'
 import type { TrendingClip, TrendingStats, TrendingFiltersState, ViralNotification, SavedClip, FeedFilter, ClipRank } from '@/types/trending'
 import { clipRank } from '@/types/trending'
-import { SEED_CLIPS } from '@/lib/trending/seed-data'
 
 // Re-export types for backward compatibility
 export type { TrendingClip, TrendingStats, TrendingFiltersState, ViralNotification, SortOption, SavedClip, ClipRank } from '@/types/trending'
@@ -141,6 +140,54 @@ function filterAndSortClips(
   return result
 }
 
+// ─── Bootstrap types ────────────────────────────────────────────────────────
+
+export interface BootstrapRemix {
+  id: string
+  clip_id: string
+  source: string
+  status: string
+  storage_path: string | null
+  error_message: string | null
+  created_at: string
+  updated_at: string
+}
+
+interface BootstrapResponse {
+  saved_clip_ids: string[]
+  recent_remixes: BootstrapRemix[]
+  profile: { plan: string; monthly_videos_used: number; bonus_videos: number } | null
+}
+
+// ─── Helpers ────────────────────────────────────────────────────────────────
+
+/** Check if any server-filterable filters are active */
+function hasServerFilters(f: TrendingFiltersState): boolean {
+  return (
+    f.search !== '' ||
+    f.games.length > 0 ||
+    f.platforms.length > 0 ||
+    f.duration !== 'all' ||
+    (f.feed !== 'all' && f.feed !== 'saved' && f.feed !== 'remixes')
+  )
+}
+
+/** Build URLSearchParams from filters for the /api/trending call */
+function buildFilterParams(f: TrendingFiltersState): URLSearchParams {
+  const params = new URLSearchParams({ sort: f.sort })
+
+  // Server-side filters — only add when active
+  if (f.search) params.set('search', f.search)
+  if (f.games.length > 0) params.set('niche', f.games.join(','))
+  if (f.platforms.length > 0) params.set('platform', f.platforms.join(','))
+  if (f.duration !== 'all') params.set('duration', f.duration)
+  if (f.feed === 'hot_now' || f.feed === 'early_gem' || f.feed === 'proven' || f.feed === 'recent') {
+    params.set('feed', f.feed)
+  }
+
+  return params
+}
+
 // ─── Store ──────────────────────────────────────────────────────────────────
 
 interface TrendingState {
@@ -151,7 +198,8 @@ interface TrendingState {
   trendingClips: TrendingClip[]
   stats: TrendingStats
 
-  // Pagination
+  // Pagination (cursor-based)
+  cursor: string | null
   hasMore: boolean
   loadingMore: boolean
   totalCount: number
@@ -160,6 +208,15 @@ interface TrendingState {
   savedClipIds: Set<string>
   savedClips: SavedClip[]
 
+  // Stream grouping
+  expandedGroups: Set<string>
+
+  // Bootstrap data
+  userPlan: string | null
+  monthlyVideosUsed: number
+  bonusVideos: number
+  recentRemixes: BootstrapRemix[]
+
   // Filters
   filters: TrendingFiltersState
 
@@ -167,7 +224,6 @@ interface TrendingState {
   loading: boolean
   refreshing: boolean
   error: string | null
-  usingSeed: boolean
   autoRefreshEnabled: boolean
   autoRefreshInterval: number
   lastRefreshed: string | null
@@ -175,6 +231,9 @@ interface TrendingState {
   // Notifications
   notifications: ViralNotification[]
   notificationsRead: boolean
+
+  // Internal — debounce timer for search
+  _searchDebounce: ReturnType<typeof setTimeout> | null
 
   // Actions
   setFilters: (filters: TrendingFiltersState) => void
@@ -185,8 +244,10 @@ interface TrendingState {
   loadMore: () => Promise<void>
   computeStats: () => void
   applyFilters: () => void
+  fetchBootstrap: () => Promise<void>
   fetchSavedClips: () => Promise<void>
   toggleSaveClip: (clipId: string) => Promise<void>
+  toggleGroup: (groupId: string) => void
 }
 
 export const useTrendingStore = create<TrendingState>((set, get) => ({
@@ -195,31 +256,87 @@ export const useTrendingStore = create<TrendingState>((set, get) => ({
   megaViralClips: [],
   trendingClips: [],
   stats: EMPTY_STATS,
+  cursor: null,
   hasMore: false,
   loadingMore: false,
   totalCount: 0,
   savedClipIds: new Set(),
   savedClips: [],
+  expandedGroups: new Set(),
+  userPlan: null,
+  monthlyVideosUsed: 0,
+  bonusVideos: 0,
+  recentRemixes: [],
   filters: DEFAULT_FILTERS,
   loading: true,
   refreshing: false,
   error: null,
-  usingSeed: false,
   autoRefreshEnabled: true,
   autoRefreshInterval: 60_000,
   lastRefreshed: null,
   notifications: [],
   notificationsRead: true,
+  _searchDebounce: null,
 
-  setFilters: (filters) => {
-    set({ filters })
-    get().applyFilters()
+  setFilters: (newFilters) => {
+    const prev = get().filters
+    set({ filters: newFilters })
+
+    // If search text changed, debounce the server fetch
+    if (newFilters.search !== prev.search) {
+      const timer = get()._searchDebounce
+      if (timer) clearTimeout(timer)
+      set({
+        _searchDebounce: setTimeout(() => {
+          get().fetchClips(true)
+        }, 300),
+      })
+      // Apply client-side filter immediately for responsiveness
+      get().applyFilters()
+      return
+    }
+
+    // For any other filter change that affects server query, re-fetch
+    const serverChanged =
+      newFilters.games.join(',') !== prev.games.join(',') ||
+      newFilters.platforms.join(',') !== prev.platforms.join(',') ||
+      newFilters.duration !== prev.duration ||
+      newFilters.sort !== prev.sort
+
+    if (serverChanged) {
+      get().fetchClips(true)
+    } else {
+      get().applyFilters()
+    }
   },
 
   setFeed: (feed) => {
     const { filters } = get()
+    const prev = filters.feed
     set({ filters: { ...filters, feed } })
+
+    // saved/remixes have their own fetch logic — just filter client-side
+    if (feed === 'saved' || feed === 'remixes') {
+      get().applyFilters()
+      return
+    }
+
+    // Switching from a client-only tab (saved/remixes) back to a server tab
+    // always needs a re-fetch since clips array may be stale
+    if (prev === 'saved' || prev === 'remixes') {
+      get().fetchClips(true)
+      return
+    }
+
+    // For feed tab changes (hot_now, early_gem, proven, recent, all):
+    // Apply client filter immediately, then re-fetch from server in background
+    // to ensure we have the full dataset for this category
     get().applyFilters()
+    const { filteredClips } = get()
+    if (filteredClips.length < 10) {
+      // Not enough results client-side — fetch from server
+      get().fetchClips(true)
+    }
   },
 
   setAutoRefresh: (enabled) => set({ autoRefreshEnabled: enabled }),
@@ -232,7 +349,10 @@ export const useTrendingStore = create<TrendingState>((set, get) => ({
     set({ error: null })
 
     try {
-      const params = new URLSearchParams({ sort: state.filters.sort, limit: '200' })
+      const params = buildFilterParams(state.filters)
+      // Load 200 when unfiltered (bulk for client-side tab switching),
+      // 50 when filtered (server does the work)
+      params.set('limit', hasServerFilters(state.filters) ? '50' : '200')
       const res = await fetch(`/api/trending?${params}`)
 
       // Handle non-JSON responses (e.g. Netlify 500 returning plain text)
@@ -241,28 +361,23 @@ export const useTrendingStore = create<TrendingState>((set, get) => ({
         throw new Error('Server error — clips are loading from cache')
       }
 
-      const json = await res.json() as { data: TrendingClip[] | null; error: string | null; meta?: { total: number } }
+      const json = await res.json() as {
+        data: TrendingClip[] | null
+        error: string | null
+        meta?: { total: number; next_cursor: string | null }
+      }
 
       if (!res.ok || json.error) throw new Error(json.error ?? 'Network error')
 
       const prevClips = state.clips
-      let clips: TrendingClip[]
-      let usingSeed: boolean
-
-      if (!json.data || json.data.length === 0) {
-        clips = SEED_CLIPS
-        usingSeed = true
-      } else {
-        clips = json.data
-        usingSeed = false
-      }
+      const clips = json.data ?? []
 
       const totalCount = json.meta?.total ?? clips.length
-      const hasMore = clips.length < totalCount
+      const nextCursor = json.meta?.next_cursor ?? null
 
       // Detect new viral clips for notifications
       const newNotifications: ViralNotification[] = []
-      if (prevClips.length > 0 && !usingSeed) {
+      if (prevClips.length > 0) {
         const prevIds = new Set(prevClips.map((c) => c.id))
         for (const clip of clips) {
           if (!prevIds.has(clip.id) && (clip.velocity_score ?? 0) >= 80) {
@@ -279,9 +394,9 @@ export const useTrendingStore = create<TrendingState>((set, get) => ({
 
       set({
         clips,
-        usingSeed,
         totalCount,
-        hasMore,
+        cursor: nextCursor,
+        hasMore: nextCursor !== null,
         lastRefreshed: new Date().toISOString(),
         ...(newNotifications.length > 0 ? {
           notifications: [...newNotifications, ...state.notifications].slice(0, 20),
@@ -294,8 +409,7 @@ export const useTrendingStore = create<TrendingState>((set, get) => ({
     } catch (err) {
       set({
         error: err instanceof Error ? err.message : 'Unknown error',
-        clips: SEED_CLIPS,
-        usingSeed: true,
+        clips: [],
       })
       get().computeStats()
       get().applyFilters()
@@ -305,29 +419,34 @@ export const useTrendingStore = create<TrendingState>((set, get) => ({
   },
 
   loadMore: async () => {
-    const { clips, totalCount, loadingMore, filters } = get()
-    if (loadingMore || clips.length >= totalCount) return
+    const { clips, cursor, loadingMore, hasMore, filters } = get()
+    if (loadingMore || !hasMore || !cursor) return
 
     set({ loadingMore: true })
     try {
-      const params = new URLSearchParams({
-        sort: filters.sort,
-        limit: '50',
-        offset: String(clips.length),
-      })
+      const params = buildFilterParams(filters)
+      params.set('limit', '50')
+      params.set('cursor', cursor)
       const res = await fetch(`/api/trending?${params}`)
-      const json = await res.json() as { data: TrendingClip[] | null; error: string | null; meta?: { total: number } }
+      const json = await res.json() as {
+        data: TrendingClip[] | null
+        error: string | null
+        meta?: { total: number; next_cursor: string | null }
+      }
 
       if (!res.ok || json.error) throw new Error(json.error ?? 'Network error')
 
       const newClips = json.data ?? []
-      const allClips = [...clips, ...newClips]
-      const newTotal = json.meta?.total ?? totalCount
+      const existingIds = new Set(clips.map(c => c.id))
+      const deduped = newClips.filter(c => !existingIds.has(c.id))
+      const allClips = [...clips, ...deduped]
+      const nextCursor = json.meta?.next_cursor ?? null
 
       set({
         clips: allClips,
-        totalCount: newTotal,
-        hasMore: allClips.length < newTotal,
+        totalCount: json.meta?.total ?? allClips.length,
+        cursor: nextCursor,
+        hasMore: nextCursor !== null,
       })
 
       get().computeStats()
@@ -345,11 +464,39 @@ export const useTrendingStore = create<TrendingState>((set, get) => ({
   },
 
   applyFilters: () => {
-    const { clips, filters, savedClipIds } = get()
-    const filtered = filterAndSortClips(clips, filters, savedClipIds)
+    const { clips, filters, savedClipIds, expandedGroups } = get()
+    let filtered = filterAndSortClips(clips, filters, savedClipIds)
+
+    // Hide collapsed stream group clips unless their group is expanded
+    filtered = filtered.filter(c => {
+      if (!c.stream_group_collapsed) return true
+      return c.stream_group_id ? expandedGroups.has(c.stream_group_id) : true
+    })
+
     const megaViralClips = filtered.filter((c) => clipRank(c) === 'master' || clipRank(c) === 'legendary')
     const trendingClips = filtered.filter((c) => clipRank(c) !== 'master' && clipRank(c) !== 'legendary')
     set({ filteredClips: filtered, megaViralClips, trendingClips })
+  },
+
+  fetchBootstrap: async () => {
+    try {
+      const res = await fetch('/api/bootstrap')
+      if (!res.ok) return
+      const json = await res.json() as { data: BootstrapResponse | null; error: string | null }
+      if (json.error || !json.data) return
+
+      const { saved_clip_ids, recent_remixes, profile } = json.data
+      set({
+        savedClipIds: new Set(saved_clip_ids),
+        recentRemixes: recent_remixes,
+        userPlan: profile?.plan ?? null,
+        monthlyVideosUsed: profile?.monthly_videos_used ?? 0,
+        bonusVideos: profile?.bonus_videos ?? 0,
+      })
+      get().applyFilters()
+    } catch {
+      // Silent — individual fetches remain as fallback
+    }
   },
 
   fetchSavedClips: async () => {
@@ -365,6 +512,18 @@ export const useTrendingStore = create<TrendingState>((set, get) => ({
     } catch {
       // silent
     }
+  },
+
+  toggleGroup: (groupId) => {
+    const { expandedGroups } = get()
+    const next = new Set(expandedGroups)
+    if (next.has(groupId)) {
+      next.delete(groupId)
+    } else {
+      next.add(groupId)
+    }
+    set({ expandedGroups: next })
+    get().applyFilters()
   },
 
   toggleSaveClip: async (clipId) => {

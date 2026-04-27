@@ -12,7 +12,7 @@ import { withAuth } from '@/lib/api/withAuth'
  */
 export const POST = withAuth(async (req, user) => {
   // Rate limit: 1 per minute per user
-  const rl = rateLimit(`streams-refresh:${user.id}`, 1, 60_000)
+  const rl = await rateLimit(`streams-refresh:${user.id}`, 1, 60_000)
   if (!rl.allowed) {
     return NextResponse.json(
       { data: null, error: 'Rate limited', message: `Retry in ${Math.ceil((rl.retryAfterMs ?? 0) / 1000)}s` },

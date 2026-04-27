@@ -10,7 +10,7 @@ import { detectFaces } from '../lib/face-tracker.js';
 import { detectPeakMoment, generateHookTexts, calculateReorderTimestamps } from '../lib/hook-generator.js';
 // caption-png.js and drawtext-wordpop.js removed — all animations now use ASS subtitles
 import { transcribeWithWhisper } from '../lib/whisper-client.js';
-import { applyAutoCut } from '../lib/auto-cut.js';
+import { applyAutoCut, classifyIntensity, getAdaptiveThreshold } from '../lib/auto-cut.js';
 import { enqueueRender, getQueueStatus } from '../lib/render-queue.js';
 import {
   getClip,
@@ -812,7 +812,18 @@ router.post('/', async (req, res) => {
     // already-remapped word timestamps.
     if (settings.autoCut?.enabled && captionWordTimestamps.length > 0) {
       try {
-        const threshold = settings.autoCut.silenceThreshold || 0.7;
+        let threshold = settings.autoCut.silenceThreshold;
+
+        // Adaptive threshold: if no explicit threshold, compute from mood + audio intensity
+        if (!threshold) {
+          const { analyzeAudioPeaks } = await import('../lib/audio-peaks.js');
+          const peaks = await analyzeAudioPeaks(inputPath, clipStartTime, duration);
+          const intensity = classifyIntensity(peaks, duration);
+          const mood = settings.autoCut.mood || null;
+          threshold = getAdaptiveThreshold({ mood, intensity });
+          trc(`AUTO-CUT: adaptive threshold — mood=${mood || 'none'}, intensity=${intensity}, threshold=${threshold}s`);
+        }
+
         trc(`AUTO-CUT: enabled with threshold=${threshold}s, ${captionWordTimestamps.length} words`);
         const cutResult = await applyAutoCut(inputPath, tempDir, captionWordTimestamps, duration, {
           silenceThreshold: threshold,

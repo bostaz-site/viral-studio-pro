@@ -108,6 +108,76 @@ async function prepareHookOverlay(hookText, hookLength, canvasW, canvasH, textPo
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Audio Enhancement (bass boost + compression)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Build FFmpeg audio filters for bass boost on peaks.
+ *
+ * V1: global bass boost (not per-peak). Per-peak would require
+ * complex filter_complex chains with segment-based processing.
+ *
+ * @param {Object} settings
+ * @param {string} settings.bassBoost - 'off' | 'mild' | 'heavy'
+ * @returns {string[]} FFmpeg filter chain segments
+ */
+function buildBassBoostFilters(settings) {
+  if (!settings.bassBoost || settings.bassBoost === 'off') return [];
+
+  const filters = [];
+
+  if (settings.bassBoost === 'mild') {
+    filters.push('bass=g=4:f=80:w=100');
+    filters.push('acompressor=threshold=-20dB:ratio=3:attack=5:release=50');
+  } else if (settings.bassBoost === 'heavy') {
+    filters.push('bass=g=8:f=60:w=120');
+    filters.push('acompressor=threshold=-16dB:ratio=5:attack=3:release=30');
+  }
+
+  // Always add limiter to prevent clipping
+  filters.push('alimiter=limit=0.95:attack=5:release=50');
+  return filters;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Speed Ramp
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Build FFmpeg speed ramp filters.
+ *
+ * V1: constant subtle speed-up. True per-segment speed ramps require
+ * complex setpts+atempo chains with timestamp recalculation.
+ *
+ * @param {Object} settings
+ * @param {string} settings.speedRamp - 'off' | 'subtle' | 'dynamic'
+ * @returns {{ video: string[], audio: string[], factor: number }}
+ */
+function buildSpeedRampFilters(settings) {
+  if (!settings.speedRamp || settings.speedRamp === 'off') {
+    return { video: [], audio: [], factor: 1.0 };
+  }
+
+  if (settings.speedRamp === 'subtle') {
+    return {
+      video: ['setpts=PTS/1.03'],
+      audio: ['atempo=1.03'],
+      factor: 1.03,
+    };
+  }
+
+  if (settings.speedRamp === 'dynamic') {
+    return {
+      video: ['setpts=PTS/1.05'],
+      audio: ['atempo=1.05'],
+      factor: 1.05,
+    };
+  }
+
+  return { video: [], audio: [], factor: 1.0 };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Render Pipeline
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -378,6 +448,8 @@ export async function renderClip(inputPath, outputPath, options = {}) {
     videoZoom = 'contain',
     hook = null,
     audioEnhance = false, // loudnorm + highpass + denoise
+    bassBoost = 'off',    // 'off' | 'mild' | 'heavy'
+    speedRamp = 'off',    // 'off' | 'subtle' | 'dynamic'
   } = options;
 
   if (!inputPath || !outputPath) {
@@ -419,6 +491,8 @@ export async function renderClip(inputPath, outputPath, options = {}) {
       audioPeaks,
       hook,
       audioEnhance,
+      bassBoost,
+      speedRamp,
     });
   }
 
@@ -678,22 +752,43 @@ export async function renderClip(inputPath, outputPath, options = {}) {
   args.push('-maxrate', '1500k');      // Lower bitrate cap to reduce memory pressure
   args.push('-bufsize', '3M');
 
-  // Audio: enhance or passthrough
+  // ── Audio filter chain ──
+  const audioFilters = [];
   if (audioEnhance) {
-    // highpass=80 → remove low rumble/mic handling noise
-    // afftdn=nf=-20 → FFT-based denoise (light, preserves voice)
-    // loudnorm → EBU R128 normalization (consistent volume)
-    args.push('-af', 'highpass=f=80,afftdn=nf=-20,loudnorm=I=-16:TP=-1.5:LRA=11');
-    args.push('-c:a', 'aac');
-    args.push('-b:a', '128k');  // Higher bitrate for enhanced audio quality
+    audioFilters.push('highpass=f=80', 'afftdn=nf=-20', 'loudnorm=I=-16:TP=-1.5:LRA=11');
     console.log('[FFmpeg] Audio enhancement enabled: highpass + denoise + loudnorm');
+  }
+  const bassFilters = buildBassBoostFilters({ bassBoost });
+  if (bassFilters.length > 0) {
+    audioFilters.push(...bassFilters);
+    console.log(`[FFmpeg] Bass boost enabled: ${bassBoost}`);
+  }
+  const speedFilters = buildSpeedRampFilters({ speedRamp });
+  if (speedFilters.audio.length > 0) {
+    audioFilters.push(...speedFilters.audio);
+    console.log(`[FFmpeg] Speed ramp enabled: ${speedRamp} (${speedFilters.factor}x)`);
+  }
+  if (audioFilters.length > 0) {
+    args.push('-af', audioFilters.join(','));
+    args.push('-c:a', 'aac');
+    args.push('-b:a', '128k');
   } else {
     args.push('-c:a', 'aac');
     args.push('-b:a', '96k');
   }
+  // Speed ramp video filter (applied after all other video filters)
+  if (speedFilters.video.length > 0) {
+    // Prepend to the existing -vf or add new one
+    const vfIdx = args.lastIndexOf('-vf');
+    if (vfIdx !== -1 && args[vfIdx + 1]) {
+      args[vfIdx + 1] = args[vfIdx + 1] + ',' + speedFilters.video.join(',');
+    } else {
+      args.push('-vf', speedFilters.video.join(','));
+    }
+  }
   args.push('-movflags', '+faststart');
   args.push('-pix_fmt', 'yuv420p');
-  args.push('-max_muxing_queue_size', '256'); // Limit muxer buffer to prevent OOM
+  args.push('-max_muxing_queue_size', '256');
   args.push(outputPath);
 
   return execRender(args, outputPath, timeout);
@@ -732,6 +827,8 @@ async function renderSplitScreen(inputPath, outputPath, opts) {
     audioPeaks = [],
     hook = null,
     audioEnhance = false,
+    bassBoost = 'off',
+    speedRamp = 'off',
   } = opts;
 
   const layout = splitScreen.layout || 'top-bottom';
@@ -955,20 +1052,34 @@ async function renderSplitScreen(inputPath, outputPath, opts) {
   args.push('-maxrate', '1.5M');         // Cap bitrate for faster streaming from Supabase
   args.push('-bufsize', '3M');
 
-  // Audio: enhance or passthrough
+  // ── Audio filter chain (split-screen) ──
+  const audioFiltersSplit = [];
   if (audioEnhance) {
-    args.push('-af', 'highpass=f=80,afftdn=nf=-20,loudnorm=I=-16:TP=-1.5:LRA=11');
+    audioFiltersSplit.push('highpass=f=80', 'afftdn=nf=-20', 'loudnorm=I=-16:TP=-1.5:LRA=11');
+    console.log('[FFmpeg-Split] Audio enhancement enabled');
+  }
+  const bassFiltersSplit = buildBassBoostFilters({ bassBoost });
+  if (bassFiltersSplit.length > 0) {
+    audioFiltersSplit.push(...bassFiltersSplit);
+    console.log(`[FFmpeg-Split] Bass boost enabled: ${bassBoost}`);
+  }
+  const speedFiltersSplit = buildSpeedRampFilters({ speedRamp });
+  if (speedFiltersSplit.audio.length > 0) {
+    audioFiltersSplit.push(...speedFiltersSplit.audio);
+    console.log(`[FFmpeg-Split] Speed ramp enabled: ${speedRamp} (${speedFiltersSplit.factor}x)`);
+  }
+  if (audioFiltersSplit.length > 0) {
+    args.push('-af', audioFiltersSplit.join(','));
     args.push('-c:a', 'aac');
     args.push('-b:a', '128k');
-    console.log('[FFmpeg-Split] Audio enhancement enabled');
   } else {
     args.push('-c:a', 'aac');
     args.push('-b:a', '96k');
   }
-  args.push('-max_muxing_queue_size', '256'); // Limit muxer buffer to prevent OOM
+  args.push('-max_muxing_queue_size', '256');
   args.push('-movflags', '+faststart');
   args.push('-pix_fmt', 'yuv420p');
-  args.push('-shortest');                // End when shortest input ends
+  args.push('-shortest');
   args.push(outputPath);
 
   console.log(`[FFmpeg] Split-screen render: layout=${layout}, ratio=${ratio}, broll=${brollPath}`);

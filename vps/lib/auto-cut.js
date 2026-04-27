@@ -17,6 +17,47 @@ import { promisify } from 'util';
 const execFileAsync = promisify(execFile);
 
 /**
+ * Classify audio intensity level from peak analysis.
+ *
+ * @param {number[]} peaks - Array of peak timestamps
+ * @param {number} duration - Total clip duration in seconds
+ * @returns {'high' | 'medium' | 'low'}
+ */
+export function classifyIntensity(peaks, duration) {
+  if (!peaks || peaks.length === 0 || duration <= 0) return 'medium';
+  const peakDensity = peaks.length / duration;
+  if (peakDensity >= 0.5) return 'high';
+  if (peakDensity >= 0.2) return 'medium';
+  return 'low';
+}
+
+/**
+ * Get adaptive silence threshold based on mood and/or audio intensity.
+ *
+ * @param {object} options
+ * @param {string} [options.mood] - Detected mood (rage, funny, drama, wholesome, hype, story)
+ * @param {string} [options.intensity] - Audio intensity ('high', 'medium', 'low')
+ * @returns {number} Silence threshold in seconds
+ */
+export function getAdaptiveThreshold({ mood, intensity } = {}) {
+  const moodThresholds = {
+    rage: 0.35,
+    hype: 0.40,
+    funny: 0.45,
+    drama: 0.55,
+    wholesome: 0.60,
+    story: 0.70,
+  };
+
+  let threshold = moodThresholds[mood] || 0.55;
+
+  if (intensity === 'high') threshold = Math.max(0.3, threshold - 0.1);
+  if (intensity === 'low') threshold = Math.min(0.8, threshold + 0.1);
+
+  return Math.round(threshold * 100) / 100;
+}
+
+/**
  * Compute speech segments from word timestamps by merging consecutive words
  * and detecting silence gaps.
  *

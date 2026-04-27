@@ -1,7 +1,7 @@
 "use client"
 
 import Link from 'next/link'
-import { Wand2, Sparkles } from 'lucide-react'
+import { Wand2, Sparkles, Upload } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 
 export default function EnhanceLandingPage() {
@@ -16,12 +16,20 @@ export default function EnhanceLandingPage() {
           Pick a trending clip or upload your own, then boost its virality with karaoke captions, split-screen, hooks and more.
         </p>
       </div>
-      <Link href="/dashboard">
-        <Button className="gap-2 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white font-bold shadow-lg shadow-orange-500/25">
-          <Sparkles className="h-4 w-4" />
-          Browse clips
-        </Button>
-      </Link>
+      <div className="flex items-center gap-3">
+        <Link href="/dashboard">
+          <Button className="gap-2 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white font-bold shadow-lg shadow-orange-500/25">
+            <Sparkles className="h-4 w-4" />
+            Browse clips
+          </Button>
+        </Link>
+        <Link href="/dashboard?tab=upload">
+          <Button variant="outline" className="gap-2 text-zinc-400 hover:text-white">
+            <Upload className="h-4 w-4" />
+            Upload
+          </Button>
+        </Link>
+      </div>
     </div>
   )
 }
