@@ -1180,9 +1180,10 @@ export default function EnhancePage() {
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <span className="text-xs text-muted-foreground uppercase tracking-widest font-medium">Style</span>
-              {selectedMood !== null && (
-                <span className="text-[10px] text-muted-foreground">{MOOD_PRESETS[selectedMood].description}</span>
-              )}
+              {(() => {
+                const m = selectedMood
+                return m ? <span className="text-[10px] text-muted-foreground">{MOOD_PRESETS[m].description}</span> : null
+              })()}
             </div>
             <div className="grid grid-cols-3 gap-1.5">
               {ALL_MOODS.map((mood) => {
