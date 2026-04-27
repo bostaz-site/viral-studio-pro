@@ -1175,45 +1175,7 @@ export default function EnhancePage() {
 
           {/* AI optimization badge removed — the button itself now shows the optimized state */}
 
-          {/* ── Style selector (hidden — internal mechanic, not user-facing) ── */}
-          {false && (
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="text-xs text-muted-foreground uppercase tracking-widest font-medium">Style</span>
-              {(() => {
-                const m = selectedMood
-                return m ? <span className="text-[10px] text-muted-foreground">{MOOD_PRESETS[m].description}</span> : null
-              })()}
-            </div>
-            <div className="grid grid-cols-3 gap-1.5">
-              {ALL_MOODS.map((mood) => {
-                const preset = MOOD_PRESETS[mood]
-                const isSelected = selectedMood === mood
-                const isDetected = detectedMood === mood && moodAiDetected
-                return (
-                  <button
-                    key={mood}
-                    onClick={() => handleMoodSelect(mood)}
-                    className={cn(
-                      'relative flex flex-col items-center gap-0.5 px-2 py-2 rounded-xl border text-xs font-medium transition-all duration-200',
-                      isSelected
-                        ? `${MOOD_COLORS[mood]} bg-white/5 shadow-lg text-white border-2`
-                        : 'border-white/10 text-muted-foreground hover:bg-white/5 hover:text-foreground hover:border-white/20'
-                    )}
-                  >
-                    <span className="text-base">{preset.emoji}</span>
-                    <span className="text-[11px]">{preset.label}</span>
-                    {isDetected && (
-                      <span className="absolute -top-1.5 -right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-emerald-500 text-white">
-                        <Check className="h-2.5 w-2.5" strokeWidth={3} />
-                      </span>
-                    )}
-                  </button>
-                )
-              })}
-            </div>
-          </div>
-          )}
+          {/* Style selector removed — internal mechanic handled by AI Optimize */}
 
           {/* Preview video player (from real render) */}
           {previewVideoUrl && (
