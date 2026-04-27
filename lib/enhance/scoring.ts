@@ -449,6 +449,125 @@ export function computeCurrentScore(
   return Math.min(CAP, Math.round((baseline + boost) * 10) / 10)
 }
 
+// ─── Score Breakdown ──────────────────────────────────────────────────────
+
+/**
+ * Per-section point breakdown for the enhance UI.
+ * Each value = how many points that section adds to the score.
+ */
+export interface ScoreBreakdown {
+  captions: number
+  splitScreen: number
+  tag: number
+  smartZoom: number
+  audio: number
+  autoCut: number
+  hook: number
+  total: number
+}
+
+/**
+ * Compute per-section point contributions.
+ * Uses the same diminishing-returns logic as computeCurrentScore
+ * but returns the breakdown by section.
+ */
+export function computeScoreBreakdown(
+  settings: EnhanceSettings,
+  baseline: number,
+  detectedMood?: ClipMood | null
+): ScoreBreakdown {
+  const CAP = 99.0
+  const headroom = Math.max(0, CAP - baseline)
+
+  // Define per-section weights (same weights as computeCurrentScore)
+  const sections: { key: keyof Omit<ScoreBreakdown, 'total'>; weight: number }[] = []
+
+  // Captions
+  let captionWeight = 0
+  if (settings.captionsEnabled && settings.captionStyle !== 'none') captionWeight += 0.14
+  if (settings.emphasisEffect !== 'none') captionWeight += 0.08
+  if (detectedMood && MOOD_PRESETS[detectedMood]) {
+    const preset = MOOD_PRESETS[detectedMood]
+    if (settings.captionsEnabled && settings.captionStyle === preset.captionStyle) captionWeight += 0.06
+    if (settings.emphasisEffect === preset.emphasisEffect) captionWeight += 0.04
+    if (settings.emphasisColor === preset.emphasisColor) captionWeight += 0.03
+  }
+  sections.push({ key: 'captions', weight: captionWeight })
+
+  // Split-Screen
+  let splitWeight = 0
+  if (settings.splitScreenEnabled) splitWeight += 0.12
+  sections.push({ key: 'splitScreen', weight: splitWeight })
+
+  // Tag
+  let tagWeight = 0
+  if (settings.tagStyle !== 'none') tagWeight += 0.08
+  sections.push({ key: 'tag', weight: tagWeight })
+
+  // Smart Zoom — mood-match bonuses only when enabled
+  let zoomWeight = 0
+  if (settings.smartZoomEnabled) {
+    zoomWeight += 0.05
+    if (detectedMood && MOOD_PRESETS[detectedMood]) {
+      const preset = MOOD_PRESETS[detectedMood]
+      if (settings.videoZoom === preset.videoZoom) zoomWeight += 0.02
+      if (settings.smartZoomMode === preset.smartZoomMode) zoomWeight += 0.02
+    }
+  }
+  sections.push({ key: 'smartZoom', weight: zoomWeight })
+
+  // Audio
+  let audioWeight = 0
+  if (settings.audioEnhanceEnabled) audioWeight += 0.03
+  if (settings.bassBoost === 'mild') audioWeight += 0.03
+  else if (settings.bassBoost === 'heavy') audioWeight += 0.05
+  if (settings.speedRamp === 'subtle') audioWeight += 0.02
+  else if (settings.speedRamp === 'dynamic') audioWeight += 0.03
+  sections.push({ key: 'audio', weight: audioWeight })
+
+  // Auto-Cut — mood-match bonus only when actually enabled
+  let cutWeight = 0
+  if (settings.autoCutEnabled) {
+    cutWeight += 0.03
+    if (detectedMood && MOOD_PRESETS[detectedMood]) {
+      if (settings.autoCutEnabled === MOOD_PRESETS[detectedMood].autoCutEnabled) cutWeight += 0.02
+    }
+  }
+  sections.push({ key: 'autoCut', weight: cutWeight })
+
+  // Hook — only count sub-options when master toggle is on
+  let hookWeight = 0
+  if (settings.hookEnabled) {
+    hookWeight += 0.11
+    if (settings.hookReorderEnabled) hookWeight += 0.05
+  }
+  sections.push({ key: 'hook', weight: hookWeight })
+
+  // Compute points per section using diminishing returns
+  const result: ScoreBreakdown = {
+    captions: 0,
+    splitScreen: 0,
+    tag: 0,
+    smartZoom: 0,
+    audio: 0,
+    autoCut: 0,
+    hook: 0,
+    total: 0,
+  }
+
+  // Total weight for proportional distribution
+  const totalWeight = sections.reduce((sum, s) => sum + s.weight, 0)
+  const totalBoost = headroom * totalWeight
+
+  for (const section of sections) {
+    const pts = headroom * section.weight
+    result[section.key] = Math.round(pts * 10) / 10
+  }
+  result.total = Math.round(totalBoost * 10) / 10
+
+  return result
+}
+
 // ─── Score Label ────────────────────────────────────────────────────────────
 
 /**

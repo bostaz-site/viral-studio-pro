@@ -1,11 +1,11 @@
 'use client'
 
 import { useEffect, useState, useCallback, useMemo } from 'react'
-import { Loader2, Play } from 'lucide-react'
+import { Loader2, Play, Eye } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
 import {
-  CAPTION_STYLES, EMPHASIS_EFFECTS, EMPHASIS_COLORS, BROLL_OPTIONS, TAG_STYLES,
+  CAPTION_STYLES, EMPHASIS_EFFECTS, EMPHASIS_COLORS, TAG_STYLES,
   type TrendingClipData, type EnhanceSettings,
 } from '@/lib/enhance/scoring'
 import { PLATFORM_THEME } from '@/lib/ai/mood-presets'
@@ -48,7 +48,6 @@ export function LivePreview({
   isRenderedVideo: boolean
   renderedThumbnailUrl: string | null
 }) {
-  const broll = BROLL_OPTIONS.find((b) => b.id === settings.brollVideo)
   const captionStyle = CAPTION_STYLES.find((s) => s.id === settings.captionStyle)
   const tagStyle = TAG_STYLES.find((t) => t.id === settings.tagStyle)
   const streamerName = clip.author_handle ? `@${clip.author_handle}` : clip.author_name ?? ''
@@ -512,19 +511,18 @@ export function LivePreview({
         />
       )}
 
-      {/* Bottom: B-roll */}
-      {showEnhancements && settings.splitScreenEnabled && broll && (
+      {/* Bottom: Blur fill */}
+      {showEnhancements && settings.splitScreenEnabled && (
         <div
-          className={cn('absolute inset-x-0 bottom-0 overflow-hidden transition-all duration-500', `bg-gradient-to-br ${broll.color}`)}
+          className="absolute inset-x-0 bottom-0 overflow-hidden transition-all duration-500 bg-gradient-to-b from-zinc-700/80 to-zinc-900/90 backdrop-blur-xl"
           style={{ height: `${100 - settings.splitRatio}%` }}
         >
-          <div className="absolute inset-0 opacity-20" style={{
-            backgroundImage: 'repeating-linear-gradient(-45deg, transparent, transparent 8px, rgba(255,255,255,0.15) 8px, rgba(255,255,255,0.15) 16px)',
-            backgroundSize: '22px 22px',
+          <div className="absolute inset-0 opacity-30" style={{
+            background: 'radial-gradient(ellipse at center, rgba(255,255,255,0.08) 0%, transparent 70%)',
           }} />
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-1">
-            <Play className="h-5 w-5 text-white/40" />
-            <span className="text-[10px] text-white/60 font-semibold">{broll.label}</span>
+            <Eye className="h-4 w-4 text-white/30" />
+            <span className="text-[10px] text-white/40 font-medium">Blur fill</span>
           </div>
         </div>
       )}
@@ -540,3 +538,4 @@ export function LivePreview({
     </>
   )
 }
+

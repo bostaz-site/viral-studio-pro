@@ -22,9 +22,9 @@ import { ALL_MOODS, MOOD_PRESETS, MOOD_COLORS, PLATFORM_THEME, getMoodPresetForC
 import { captureHookOverlayPNG } from '@/lib/capture-hook-overlay'
 import { captureTagOverlayPNG } from '@/lib/capture-tag-overlay'
 import {
-  CAPTION_STYLES, EMPHASIS_EFFECTS, EMPHASIS_COLORS, BROLL_OPTIONS, TAG_STYLES,
-  formatCount, computeScores, computeCurrentScore, computeBaselineScore, getScoreLabel,
-  type TrendingClipData, type EnhanceSettings, type ScoredOption,
+  CAPTION_STYLES, EMPHASIS_EFFECTS, EMPHASIS_COLORS, TAG_STYLES,
+  formatCount, computeScores, computeCurrentScore, computeBaselineScore, getScoreLabel, computeScoreBreakdown,
+  type TrendingClipData, type EnhanceSettings, type ScoredOption, type ScoreBreakdown,
 } from '@/lib/enhance/scoring'
 import { LivePreview, ScoreBadge } from '@/components/enhance/live-preview'
 import { AIAnalysisSequence } from '@/components/enhance/ai-analysis-sequence'
@@ -577,6 +577,12 @@ export default function EnhancePage() {
     return () => cancelAnimationFrame(raf)
   }, [currentScore])
 
+  // Per-section score breakdown for "+X pts" labels
+  const scoreBreakdown = useMemo(() => {
+    const activeMood = selectedMood ?? detectedMood
+    return computeScoreBreakdown(settings, baselineScore, activeMood)
+  }, [settings, baselineScore, selectedMood, detectedMood])
+
   // Helper: compute real impact on "Blowup Chance" for each option
   // Helper: compute real impact on "Blowup Chance" using diminishing returns
   // Only show score badges AFTER the user has clicked "Make it viral" or manually selected a mood.
@@ -584,7 +590,7 @@ export default function EnhancePage() {
   const hasAiAnalyzed = !!(selectedMood || detectedMood)
 
   const getRealImpact = useCallback((
-    category: 'caption' | 'emphasis' | 'broll' | 'tag',
+    category: 'caption' | 'emphasis' | 'tag',
     optionId: string,
     bestId: string
   ): { impact: number; isMoodPick: boolean } => {
@@ -592,15 +598,14 @@ export default function EnhancePage() {
     if (!selectedMood && !detectedMood) return { impact: 0, isMoodPick: false }
 
     const headroom = Math.max(0, 99 - baselineScore)
-    const BASE_W: Record<string, number> = { caption: 0.14, emphasis: 0.08, broll: 0.12, tag: 0.08 }
-    const MOOD_W: Record<string, number> = { caption: 0.06, emphasis: 0.04, broll: 0, tag: 0 }
+    const BASE_W: Record<string, number> = { caption: 0.14, emphasis: 0.08, tag: 0.08 }
+    const MOOD_W: Record<string, number> = { caption: 0.06, emphasis: 0.04, tag: 0 }
 
     if (optionId === 'none') {
       if (selectedMood) {
         const preset = MOOD_PRESETS[selectedMood]
         const moodVal = category === 'caption' ? preset.captionStyle
           : category === 'emphasis' ? preset.emphasisEffect
-          : category === 'broll' ? preset.brollVideo
           : preset.tagStyle
         if (moodVal === 'none') return { impact: 0, isMoodPick: true }
       }
@@ -614,7 +619,6 @@ export default function EnhancePage() {
       const preset = MOOD_PRESETS[selectedMood]
       const moodVal = category === 'caption' ? preset.captionStyle
         : category === 'emphasis' ? preset.emphasisEffect
-        : category === 'broll' ? preset.brollVideo
         : preset.tagStyle
       if (optionId === moodVal) {
         weight += MOOD_W[category]
@@ -625,6 +629,13 @@ export default function EnhancePage() {
     const impact = Math.round(headroom * weight * 10) / 10
     return { impact, isMoodPick }
   }, [selectedMood, detectedMood, baselineScore])
+
+  // Helper: compute points for a given weight (used for toggle options in zoom/audio/cut/hook)
+  const getOptionPts = useCallback((weight: number): number => {
+    if (!hasAiAnalyzed) return 0
+    const headroom = Math.max(0, 99 - baselineScore)
+    return Math.round(headroom * weight * 10) / 10
+  }, [hasAiAnalyzed, baselineScore])
 
   const applyMoodPreset = useCallback((preset: MoodPreset) => {
     appliedCaptionStyleRef.current = preset.captionStyle
@@ -1091,40 +1102,53 @@ export default function EnhancePage() {
 
         {/* Right: Actions + Settings — scrollable (hidden once render is done) */}
         <div className="space-y-6">
-          {/* ── Make it viral button ── */}
+          {/* ── AI Optimize button ── */}
           {(() => {
             const viralBusy = makeViralLoading || analysisSequenceActive || pendingAutoRenderRef.current || rendering
-            const viralLabel = makeViralLoading || analysisSequenceActive
-              ? 'AI is analyzing your clip...'
-              : rendering
-                ? 'Rendering...'
-                : 'Make it viral'
-            const viralSubLabel = makeViralLoading || analysisSequenceActive
-              ? 'Optimizing every parameter for this clip'
-              : rendering
-                ? 'Applying AI-optimized settings'
-                : '1 click = AI-optimized viral clip'
+            const isAnalyzing = makeViralLoading || analysisSequenceActive
+            const isComplete = analysisComplete && !viralBusy
+
             return (
               <button
                 onClick={applyBestCombo}
                 disabled={viralBusy}
-                className="group relative w-full rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-orange-600 p-[1px] shadow-lg shadow-orange-500/25 hover:shadow-orange-500/40 transition-all duration-300 animate-[glow_3s_ease-in-out_infinite] disabled:opacity-80"
+                className={cn(
+                  'group relative w-full rounded-xl p-[1px] transition-all duration-500 overflow-hidden',
+                  isComplete
+                    ? 'bg-gradient-to-b from-emerald-400/70 to-emerald-600/70 shadow-md shadow-emerald-500/15'
+                    : viralBusy
+                      ? 'bg-gradient-to-b from-orange-400/80 to-orange-600/80 shadow-lg shadow-orange-500/20'
+                      : 'bg-gradient-to-b from-orange-400 to-orange-600 shadow-lg shadow-orange-500/25 hover:shadow-orange-500/40 hover:scale-[1.01]'
+                )}
               >
-                <div className="relative flex items-center justify-center gap-3 rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-orange-600 px-4 py-3.5">
-                  {viralBusy ? (
-                    <Loader2 className="h-5 w-5 text-white animate-spin" />
+                {/* Shimmer effect during loading */}
+                {isAnalyzing && (
+                  <div className="absolute inset-0 -translate-x-full animate-[shimmer_2s_infinite] bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+                )}
+                <div className={cn(
+                  'relative flex items-center gap-3 rounded-[11px] px-4 py-3 transition-all duration-500 border-t',
+                  isComplete
+                    ? 'bg-emerald-950/80 border-emerald-400/20'
+                    : 'bg-gradient-to-b from-orange-500/95 to-orange-700/95 border-white/15'
+                )}>
+                  {isAnalyzing ? (
+                    <Loader2 className="h-[18px] w-[18px] text-white animate-spin shrink-0" />
+                  ) : isComplete ? (
+                    <Check className="h-[18px] w-[18px] text-white shrink-0" />
                   ) : (
-                    <Zap className="h-5 w-5 text-white drop-shadow-lg" />
+                    <Sparkles className="h-[18px] w-[18px] text-white shrink-0 group-hover:rotate-12 transition-transform" />
                   )}
-                  <div className="text-left">
-                    <span className="text-base font-black text-white tracking-tight block leading-tight">
-                      {viralLabel}
+                  <div className="flex-1 text-left min-w-0">
+                    <span className="text-sm font-bold tracking-tight block leading-tight text-white">
+                      {isAnalyzing ? 'Analyzing clip...' : rendering ? 'Rendering...' : isComplete ? 'AI-optimized' : 'AI Optimize'}
                     </span>
-                    <span className="text-[10px] font-medium text-white/70 block">
-                      {viralSubLabel}
+                    <span className={cn(
+                      'text-[10px] block',
+                      isComplete ? 'text-emerald-300/60' : 'text-white/50'
+                    )}>
+                      {isAnalyzing ? 'Tuning every parameter' : rendering ? 'Applying settings' : isComplete ? 'All settings tuned for this clip' : 'Best settings in one click'}
                     </span>
                   </div>
-                  <Sparkles className={cn('h-4 w-4 text-white/80 ml-auto', viralBusy ? 'animate-spin' : 'group-hover:animate-spin')} />
                 </div>
               </button>
             )
@@ -1149,16 +1173,7 @@ export default function EnhancePage() {
             />
           )}
 
-          {/* ── AI optimization badge (shows AFTER sequence completes) ── */}
-          {analysisComplete && detectedMood && moodAiDetected && !analysisSequenceActive && (
-            <div className="px-3 py-2.5 rounded-xl border border-emerald-500/20 bg-emerald-500/5 flex items-center gap-2">
-              <Zap className="h-4 w-4 text-emerald-400 shrink-0" />
-              <p className="text-xs text-foreground">
-                <span className="font-bold text-emerald-400">AI-optimized</span>
-                <span className="text-muted-foreground"> — 6 parameters tuned for this clip</span>
-              </p>
-            </div>
-          )}
+          {/* AI optimization badge removed — the button itself now shows the optimized state */}
 
           {/* ── Style selector (hidden — internal mechanic, not user-facing) ── */}
           {false && (
@@ -1229,10 +1244,22 @@ export default function EnhancePage() {
           <div className="opacity-90 hover:opacity-100 transition-opacity duration-300">
 
           {/* Blowup score bar */}
+          {(() => {
+            // Dynamic color based on total score level
+            const total = currentScore
+            const barColor = total >= 80
+              ? { from: 'from-emerald-500', to: 'to-cyan-400', glow: 'shadow-emerald-500/30', text: 'text-emerald-300' }
+              : total >= 60
+              ? { from: 'from-amber-400', to: 'to-orange-400', glow: 'shadow-amber-500/25', text: 'text-amber-300' }
+              : { from: 'from-orange-500', to: 'to-red-400', glow: 'shadow-orange-500/20', text: 'text-orange-300' }
+
+            const totalWidth = Math.min(total, 99)
+
+            return (
           <div className="sticky top-0 z-10 bg-background/80 backdrop-blur-md border-b border-white/5 -mx-1 px-1 pb-3 pt-1 mb-4">
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-2">
-                <Flame className="h-4 w-4 text-orange-400" />
+                <Flame className={cn('h-4 w-4 transition-colors duration-500', total >= 80 ? 'text-emerald-400' : 'text-orange-400')} />
                 <span className="text-xs text-muted-foreground uppercase tracking-widest font-medium">Blowup Chance</span>
               </div>
               <span className={cn(
@@ -1242,23 +1269,54 @@ export default function EnhancePage() {
                 {getScoreLabel(currentScore).text}
               </span>
             </div>
-            {/* Progress bar */}
-            <div className="relative w-full h-8 rounded-full bg-card/60 border border-white/10 overflow-hidden">
+
+            {/* Progress bar — unified gradient with glow */}
+            <div className={cn(
+              'relative w-full h-8 rounded-full bg-card/60 border border-white/10 overflow-hidden transition-shadow duration-700',
+              total >= 60 && `shadow-lg ${barColor.glow}`,
+              total >= 80 && 'shadow-xl',
+            )}>
+              {/* Single unified bar — base (orange) + boost (green) */}
+              {/* Base segment */}
               <div
-                className={cn(
-                  'absolute inset-y-0 left-0 rounded-full transition-all duration-700 ease-out',
-                  currentScore >= 75 ? 'bg-gradient-to-r from-orange-500 to-amber-400' :
-                  currentScore >= 50 ? 'bg-gradient-to-r from-blue-500 to-cyan-400' :
-                  currentScore >= 30 ? 'bg-gradient-to-r from-yellow-500 to-amber-400' :
-                  'bg-gradient-to-r from-slate-500 to-slate-400'
-                )}
-                style={{ width: `${currentScore}%` }}
+                className="absolute inset-y-0 left-0 bg-gradient-to-r from-orange-500 to-amber-400 transition-all duration-700 ease-out"
+                style={{ width: `${baselineScore}%` }}
               />
+              {/* Boost segment — starts exactly where base ends, no gap */}
+              {scoreBreakdown.total > 0 && (
+                <div
+                  className="absolute inset-y-0 bg-gradient-to-r from-emerald-500 to-emerald-400 transition-all duration-700 ease-out"
+                  style={{ left: `${baselineScore}%`, width: `${Math.min(scoreBreakdown.total, 99 - baselineScore)}%` }}
+                />
+              )}
+              {/* Glow overlay pulse when score is high */}
+              {total >= 70 && (
+                <div
+                  className="absolute inset-y-0 left-0 bg-gradient-to-r from-white/0 via-white/8 to-white/0 animate-[barGlow_3s_ease-in-out_infinite]"
+                  style={{ width: `${totalWidth}%` }}
+                />
+              )}
+              {/* Score text */}
               <div className="absolute inset-0 flex items-center justify-center">
-                <span className="text-sm font-black text-white drop-shadow-md">{displayScore} / 100</span>
+                <span className="text-sm font-black text-white drop-shadow-md">
+                  {displayScore} / 100
+                  {scoreBreakdown.total > 0 && (
+                    <span className="text-emerald-300 text-xs font-bold ml-1.5 animate-[scorePop_0.4s_ease-out]">(+{scoreBreakdown.total})</span>
+                  )}
+                </span>
               </div>
             </div>
+
+            {/* Congrats message at 90+ */}
+            {total >= 90 && (
+              <div className="flex items-center gap-1.5 mt-2 animate-[confettiDrop_0.5s_ease-out]">
+                <span className="text-sm">🔥</span>
+                <span className="text-xs font-semibold text-emerald-400">Maximum viral potential reached!</span>
+              </div>
+            )}
           </div>
+            )
+          })()}
 
             <Accordion multiple defaultValue={[]} className="space-y-3">
 
@@ -1275,6 +1333,9 @@ export default function EnhancePage() {
                     {settings.emphasisEffect !== 'none' && ` · ${EMPHASIS_EFFECTS.find(e => e.id === settings.emphasisEffect)?.label ?? ''}`}
                     {settings.emphasisEffect !== 'none' && settings.emphasisColor && ` · ${EMPHASIS_COLORS.find(c => c.id === settings.emphasisColor)?.label ?? ''}`}
                   </span>
+                  {scoreBreakdown.captions > 0 && (
+                    <span className="ml-auto text-[11px] font-bold text-emerald-400">+{scoreBreakdown.captions} pts</span>
+                  )}
                 </span>
               </AccordionTrigger>
               <AccordionContent>
@@ -1535,59 +1596,48 @@ export default function EnhancePage() {
                   <Monitor className="h-4 w-4 text-primary" />
                   Split-Screen
                   <span className="text-xs text-zinc-500 font-normal">
-                    {settings.brollVideo !== 'none'
-                      ? `· ${BROLL_OPTIONS.find(b => b.id === settings.brollVideo)?.label ?? settings.brollVideo} · ${settings.splitRatio}/${100 - settings.splitRatio}`
+                    {settings.splitScreenEnabled
+                      ? `· Blur fill · ${settings.splitRatio}/${100 - settings.splitRatio}`
                       : '· Off'}
                   </span>
+                  {scoreBreakdown.splitScreen > 0 && (
+                    <span className="ml-auto text-[11px] font-bold text-emerald-400">+{scoreBreakdown.splitScreen} pts</span>
+                  )}
                 </span>
               </AccordionTrigger>
               <AccordionContent>
                 {scores && (
                   <div className="space-y-5">
-                    <div className="space-y-2">
-                      <Label className="text-xs uppercase tracking-wider text-muted-foreground">B-roll video</Label>
-                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                        {BROLL_OPTIONS.map((broll) => {
-                          const { impact, isMoodPick } = getRealImpact('broll', broll.id, scores.best.brollVideo)
-                          const isHighlight = isMoodPick || (!selectedMood && broll.id === scores.best.brollVideo)
-                          return (
-                            <button
-                              key={broll.id}
-                              onClick={() => {
-                                updateSetting('brollVideo', broll.id)
-                                updateSetting('splitScreenEnabled', broll.id !== 'none')
-                              }}
-                              className={cn(
-                                'relative rounded-xl border p-3 transition-all',
-                                settings.brollVideo === broll.id
-                                  ? 'border-primary bg-primary/10 ring-1 ring-primary/30'
-                                  : isMoodPick
-                                  ? 'border-green-500/40 bg-green-500/5 hover:bg-green-500/10'
-                                  : isHighlight
-                                  ? 'border-orange-500/40 bg-orange-500/5 hover:bg-orange-500/10'
-                                  : 'border-border hover:border-primary/40'
-                              )}
-                            >
-                              <div className={`w-full h-8 rounded-lg bg-gradient-to-r ${broll.color} mb-1.5`} />
-                              <div className="flex items-center justify-between">
-                                <span className={cn('text-[10px]', isMoodPick ? 'text-green-400 font-bold' : isHighlight ? 'text-orange-400 font-bold' : 'text-muted-foreground')}>
-                                  {broll.label}
-                                  {analysisComplete && moodAiDetected && settings.brollVideo === broll.id && broll.id !== 'none' && (
-                                    <span className="ml-1 text-[8px] font-bold text-emerald-400 bg-emerald-400/10 px-1.5 py-0.5 rounded-full border border-emerald-400/20">AI</span>
-                                  )}
-                                </span>
-                                {hasAiAnalyzed && <ScoreBadge score={impact} isBest={isHighlight} isMoodPick={isMoodPick} />}
-                              </div>
-                            </button>
-                          )
-                        })}
+                    {/* Toggle blur fill split-screen */}
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <Label className="text-xs font-semibold">Blur fill</Label>
+                        <p className="text-[10px] text-muted-foreground">Fills vertical space with a blurred version of the clip</p>
                       </div>
+                      <button
+                        onClick={() => {
+                          const next = !settings.splitScreenEnabled
+                          updateSetting('splitScreenEnabled', next)
+                          updateSetting('brollVideo', next ? 'blur-fill' : 'none')
+                        }}
+                        className={cn(
+                          'relative inline-flex h-5 w-9 items-center rounded-full transition-colors shrink-0',
+                          settings.splitScreenEnabled ? 'bg-emerald-500' : 'bg-muted'
+                        )}
+                      >
+                        <span className={cn(
+                          'inline-block h-4 w-4 rounded-full bg-white shadow-lg transition-transform',
+                          settings.splitScreenEnabled ? 'translate-x-4' : 'translate-x-0.5'
+                        )} />
+                      </button>
                     </div>
 
-                    {settings.brollVideo !== 'none' && (
+                    {settings.splitScreenEnabled && (
+                    <>
+                    {/* Ratio slider */}
                     <div className="space-y-2">
                       <div className="flex items-center justify-between">
-                        <Label className="text-xs uppercase tracking-wider text-muted-foreground">Ratio stream / B-roll</Label>
+                        <Label className="text-xs uppercase tracking-wider text-muted-foreground">Ratio stream / blur</Label>
                         <span className="text-sm font-semibold text-foreground">{settings.splitRatio}% / {100 - settings.splitRatio}%</span>
                       </div>
                       <Slider
@@ -1599,8 +1649,8 @@ export default function EnhancePage() {
                         className="accent-orange-500 [&::-webkit-slider-thumb]:bg-orange-500 [&::-webkit-slider-thumb]:border-orange-400 [&::-webkit-slider-thumb]:w-5 [&::-webkit-slider-thumb]:h-5 [&::-webkit-slider-thumb]:shadow-lg [&::-webkit-slider-thumb]:shadow-orange-500/30 [&::-moz-range-thumb]:bg-orange-500 [&::-moz-range-thumb]:border-orange-400 [&::-moz-range-thumb]:w-5 [&::-moz-range-thumb]:h-5 h-2 bg-orange-500/20"
                       />
                     </div>
-                    )}
 
+                    {/* Video framing */}
                     <div className="space-y-2">
                       <Label className="text-xs uppercase tracking-wider text-muted-foreground">Video framing</Label>
                       <p className="text-[10px] text-muted-foreground">Zoom on main video</p>
@@ -1626,6 +1676,8 @@ export default function EnhancePage() {
                         ))}
                       </div>
                     </div>
+                    </>
+                    )}
                   </div>
                 )}
               </AccordionContent>
@@ -1642,6 +1694,9 @@ export default function EnhancePage() {
                       ? `· ${TAG_STYLES.find(t => t.id === settings.tagStyle)?.label ?? settings.tagStyle}`
                       : '· Off'}
                   </span>
+                  {scoreBreakdown.tag > 0 && (
+                    <span className="ml-auto text-[11px] font-bold text-emerald-400">+{scoreBreakdown.tag} pts</span>
+                  )}
                 </span>
               </AccordionTrigger>
               <AccordionContent>
@@ -1651,6 +1706,7 @@ export default function EnhancePage() {
                   scores={scores}
                   selectedMood={selectedMood}
                   baselineScore={baselineScore}
+                  hasMoodActive={hasAiAnalyzed}
                   analysisComplete={analysisComplete}
                   moodAiDetected={moodAiDetected}
                   noCard
@@ -1671,6 +1727,9 @@ export default function EnhancePage() {
                       ? `· ${settings.smartZoomMode === 'micro' ? 'Micro zoom' : settings.smartZoomMode === 'dynamic' ? 'Dynamic' : 'Follow face'}`
                       : '· Off'}
                   </span>
+                  {scoreBreakdown.smartZoom > 0 && (
+                    <span className="text-[11px] font-bold text-emerald-400">+{scoreBreakdown.smartZoom} pts</span>
+                  )}
                   <span className="ml-auto text-[10px] font-normal text-muted-foreground bg-primary/10 text-primary px-2 py-0.5 rounded-full border border-primary/20">
                     New
                   </span>
@@ -1691,6 +1750,7 @@ export default function EnhancePage() {
                     <div>
                       <span className="text-sm font-semibold text-foreground block">
                         {settings.smartZoomEnabled ? 'Enabled' : 'Disabled'}
+                        {hasAiAnalyzed && <span className="text-[10px] font-bold text-emerald-400 ml-2">+{getOptionPts(0.05)} pts</span>}
                       </span>
                       <span className="text-[10px] text-muted-foreground block mt-0.5">
                         Dynamic zoom for more movement & retention
@@ -1698,7 +1758,7 @@ export default function EnhancePage() {
                     </div>
                     <div className={cn(
                       'w-10 h-5 rounded-full relative transition-all',
-                      settings.smartZoomEnabled ? 'bg-primary' : 'bg-border'
+                      settings.smartZoomEnabled ? 'bg-emerald-500' : 'bg-border'
                     )}>
                       <div className={cn(
                         'absolute top-0.5 w-4 h-4 rounded-full bg-white transition-all',
@@ -1744,6 +1804,13 @@ export default function EnhancePage() {
                           >
                             <div className="flex items-center gap-2 mb-1">
                               <span className="text-xs font-semibold text-foreground flex-1">{mode.label}</span>
+                              {hasAiAnalyzed && (() => {
+                                const activeMood = selectedMood ?? detectedMood
+                                const isMoodMatch = activeMood && MOOD_PRESETS[activeMood].smartZoomMode === mode.id
+                                return isMoodMatch ? (
+                                  <span className="text-[9px] font-bold text-emerald-400">+{getOptionPts(0.02)}</span>
+                                ) : null
+                              })()}
                               <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/20">
                                 {mode.badge}
                               </span>
@@ -1767,6 +1834,9 @@ export default function EnhancePage() {
                   <span className="text-xs text-zinc-500 font-normal">
                     {settings.audioEnhanceEnabled ? '· On' : '· Off'}
                   </span>
+                  {scoreBreakdown.audio > 0 && (
+                    <span className="text-[11px] font-bold text-emerald-400">+{scoreBreakdown.audio} pts</span>
+                  )}
                   <span className="ml-auto text-[10px] font-normal text-muted-foreground bg-primary/10 text-primary px-2 py-0.5 rounded-full border border-primary/20">
                     New
                   </span>
@@ -1786,6 +1856,7 @@ export default function EnhancePage() {
                     <div>
                       <span className="text-sm font-semibold text-foreground block">
                         {settings.audioEnhanceEnabled ? 'Enabled' : 'Disabled'}
+                        {hasAiAnalyzed && <span className="text-[10px] font-bold text-emerald-400 ml-2">+{getOptionPts(0.03)} pts</span>}
                       </span>
                       <span className="text-[10px] text-muted-foreground block mt-0.5">
                         Removes background noise, normalizes volume (EBU R128)
@@ -1793,7 +1864,7 @@ export default function EnhancePage() {
                     </div>
                     <div className={cn(
                       'w-10 h-5 rounded-full relative transition-all',
-                      settings.audioEnhanceEnabled ? 'bg-primary' : 'bg-border'
+                      settings.audioEnhanceEnabled ? 'bg-emerald-500' : 'bg-border'
                     )}>
                       <div className={cn(
                         'absolute top-0.5 w-4 h-4 rounded-full bg-white transition-all',
@@ -1822,6 +1893,9 @@ export default function EnhancePage() {
                   <span className="text-xs text-zinc-500 font-normal">
                     {settings.autoCutEnabled ? `· On · ${settings.autoCutThreshold.toFixed(1)}s threshold` : '· Off'}
                   </span>
+                  {scoreBreakdown.autoCut > 0 && (
+                    <span className="text-[11px] font-bold text-emerald-400">+{scoreBreakdown.autoCut} pts</span>
+                  )}
                   <span className="ml-auto text-[10px] font-normal text-muted-foreground bg-primary/10 text-primary px-2 py-0.5 rounded-full border border-primary/20">
                     New
                   </span>
@@ -1841,6 +1915,7 @@ export default function EnhancePage() {
                     <div>
                       <span className="text-sm font-semibold text-foreground block">
                         {settings.autoCutEnabled ? 'Enabled' : 'Disabled'}
+                        {hasAiAnalyzed && <span className="text-[10px] font-bold text-emerald-400 ml-2">+{getOptionPts(0.03)} pts</span>}
                       </span>
                       <span className="text-[10px] text-muted-foreground block mt-0.5">
                         Automatically removes silences for a punchier clip
@@ -1848,7 +1923,7 @@ export default function EnhancePage() {
                     </div>
                     <div className={cn(
                       'w-10 h-5 rounded-full relative transition-all',
-                      settings.autoCutEnabled ? 'bg-primary' : 'bg-border'
+                      settings.autoCutEnabled ? 'bg-emerald-500' : 'bg-border'
                     )}>
                       <div className={cn(
                         'absolute top-0.5 w-4 h-4 rounded-full bg-white transition-all',
@@ -1898,6 +1973,9 @@ export default function EnhancePage() {
                       ? `· ${settings.hookStyle.charAt(0).toUpperCase() + settings.hookStyle.slice(1)}${settings.hookText ? ` · "${settings.hookText.slice(0, 20)}${settings.hookText.length > 20 ? '...' : ''}"` : ''}`
                       : '· Off'}
                   </span>
+                  {scoreBreakdown.hook > 0 && (
+                    <span className="text-[11px] font-bold text-emerald-400">+{scoreBreakdown.hook} pts</span>
+                  )}
                   <span className="ml-auto text-[10px] font-normal text-muted-foreground bg-orange-500/10 text-orange-400 px-2 py-0.5 rounded-full border border-orange-500/20">
                     New
                   </span>
@@ -1918,6 +1996,7 @@ export default function EnhancePage() {
                     <div>
                       <span className="text-sm font-semibold text-foreground block">
                         {settings.hookEnabled ? 'Enabled' : 'Disabled'}
+                        {hasAiAnalyzed && <span className="text-[10px] font-bold text-emerald-400 ml-2">+{getOptionPts(0.11)} pts</span>}
                       </span>
                       <span className="text-[10px] text-muted-foreground block mt-0.5">
                         Big moment first → context after. Perfect loop for TikTok.
@@ -1957,7 +2036,6 @@ export default function EnhancePage() {
                           onClick={() => {
                             const newVal = !settings.hookReorderEnabled
                             updateSetting('hookReorderEnabled', newVal)
-                            // Auto-generate hook analysis if toggling ON with no reorder data
                             if (newVal && !settings.hookReorder) {
                               generateHook()
                             }
@@ -1972,6 +2050,7 @@ export default function EnhancePage() {
                           <Zap className="h-4 w-4 mx-auto mb-1 text-orange-400" />
                           <span className="text-[10px] font-bold text-foreground block">Moment fort 1er</span>
                           <span className="text-[8px] text-muted-foreground block">Reorder clip</span>
+                          {hasAiAnalyzed && <span className="text-[9px] font-bold text-emerald-400 block mt-0.5">+{getOptionPts(0.05)} pts</span>}
                         </button>
                       </div>
 
@@ -2067,7 +2146,7 @@ export default function EnhancePage() {
                                     seg.label === 'context' && 'text-blue-400',
                                     seg.label === 'payoff' && 'text-emerald-400',
                                   )}>
-                                    {seg.label === 'hook' ? 'HOOK' : seg.label === 'context' ? 'CONTEXTE' : 'PAYOFF'}
+                                    {seg.label === 'hook' ? 'HOOK' : seg.label === 'context' ? 'CONTEXT' : 'PAYOFF'}
                                   </span>
                                   <span className="text-[8px] text-muted-foreground block">{seg.duration.toFixed(1)}s</span>
                                 </div>
@@ -2087,7 +2166,6 @@ export default function EnhancePage() {
                                 key={style.id}
                                 onClick={() => {
                                   updateSetting('hookStyle', style.id)
-                                  // Auto-select matching hook text
                                   const match = hookAnalysis?.hooks.find((h) => h.style === style.id)
                                   if (match) updateSetting('hookText', match.text)
                                 }}
@@ -2099,7 +2177,15 @@ export default function EnhancePage() {
                                 )}
                               >
                                 <span className="text-lg block">{style.emoji}</span>
-                                <span className="text-[10px] font-bold text-foreground block mt-1">{style.label}</span>
+                                <span className="text-[10px] font-bold text-foreground block mt-1">
+                                  {style.label}
+                                  {analysisComplete && moodAiDetected && (() => {
+                                    const activeMood = selectedMood ?? detectedMood
+                                    return activeMood && MOOD_PRESETS[activeMood].hookStyle === style.id ? (
+                                      <span className="ml-1 text-[8px] font-bold text-emerald-400 bg-emerald-400/10 px-1.5 py-0.5 rounded-full border border-emerald-400/20">AI</span>
+                                    ) : null
+                                  })()}
+                                </span>
                                 <span className="text-[8px] text-muted-foreground block">{style.desc}</span>
                               </button>
                             ))}
@@ -2142,7 +2228,7 @@ export default function EnhancePage() {
                               type="text"
                               value={settings.hookText}
                               onChange={(e) => updateSetting('hookText', e.target.value)}
-                              placeholder="VOTRE HOOK PERSONNALISÉ..."
+                              placeholder="YOUR CUSTOM HOOK..."
                               className="w-full rounded-lg border border-border bg-background/50 px-3 py-2 text-xs font-bold text-foreground placeholder:text-muted-foreground/50 focus:border-orange-500 focus:ring-1 focus:ring-orange-500/30 outline-none transition-all"
                               maxLength={60}
                             />
@@ -2169,3 +2255,4 @@ export default function EnhancePage() {
     </div>
   )
 }
+
