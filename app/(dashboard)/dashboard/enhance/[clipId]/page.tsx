@@ -1180,7 +1180,7 @@ export default function EnhancePage() {
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <span className="text-xs text-muted-foreground uppercase tracking-widest font-medium">Style</span>
-              {selectedMood && (
+              {selectedMood !== null && (
                 <span className="text-[10px] text-muted-foreground">{MOOD_PRESETS[selectedMood].description}</span>
               )}
             </div>
