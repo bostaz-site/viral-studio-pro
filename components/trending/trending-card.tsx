@@ -365,9 +365,9 @@ export const TrendingCard = memo(function TrendingCard({ clip, onRemix, onQuickE
             </div>
             <div className="leg-divider" />
             <button className="leg-cta"
-              onClick={(e) => { e.stopPropagation(); onQuickExport?.(clip) }}
-              disabled={isExporting}>
-              {isExporting ? 'Exporting...' : '✦ Make it Viral'}
+              onClick={(e) => { e.stopPropagation(); onRemix?.(clip) }}
+              disabled={remixing}>
+              {remixing ? 'Creating...' : '✦ Make it Viral'}
             </button>
           </div>
         </div>

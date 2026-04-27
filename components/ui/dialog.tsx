@@ -45,7 +45,7 @@ export function Dialog({ open, onClose, title, description, children, className 
         <button
           onClick={onClose}
           className="absolute top-4 right-4 p-1.5 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors z-10"
-          aria-label="Fermer"
+          aria-label="Close"
         >
           <X className="h-4 w-4" />
         </button>

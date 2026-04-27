@@ -5,29 +5,29 @@ import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 import { useParams, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import {
-  ChevronLeft, Loader2, AlertCircle, Sparkles, Download, CheckCircle,
+  ChevronLeft, Loader2, AlertCircle, Sparkles, Download, CheckCircle, Check,
   Type, Wand2, Eye, ExternalLink, Play,
   Monitor, Zap, Send,
   Flame, Focus, X, Plus, Volume2, Scissors, RotateCcw,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from '@/components/ui/accordion'
 import { Slider } from '@/components/ui/slider'
 import { Label } from '@/components/ui/label'
-import { Badge } from '@/components/ui/badge'
 import { ErrorCard, classifyError } from '@/components/ui/error-card'
 import { createClient } from '@/lib/supabase/client'
 import { useTrendingStore } from '@/stores/trending-store'
 import { cn } from '@/lib/utils'
-import { ALL_MOODS, MOOD_PRESETS, MOOD_COLORS, PLATFORM_THEME, getMoodPresetForClip, type ClipMood, type MoodPresetWithPlatform } from '@/lib/ai/mood-presets'
+import { ALL_MOODS, MOOD_PRESETS, MOOD_COLORS, PLATFORM_THEME, getMoodPresetForClip, type ClipMood, type MoodPreset } from '@/lib/ai/mood-presets'
 import { captureHookOverlayPNG } from '@/lib/capture-hook-overlay'
 import { captureTagOverlayPNG } from '@/lib/capture-tag-overlay'
 import {
-  CAPTION_STYLES, EMPHASIS_EFFECTS, EMPHASIS_COLORS, BROLL_OPTIONS,
+  CAPTION_STYLES, EMPHASIS_EFFECTS, EMPHASIS_COLORS, BROLL_OPTIONS, TAG_STYLES,
   formatCount, computeScores, computeCurrentScore, computeBaselineScore, getScoreLabel,
   type TrendingClipData, type EnhanceSettings, type ScoredOption,
 } from '@/lib/enhance/scoring'
 import { LivePreview, ScoreBadge } from '@/components/enhance/live-preview'
+import { AIAnalysisSequence } from '@/components/enhance/ai-analysis-sequence'
 import { TagPanel } from '@/components/enhance/tag-panel'
 import { PublishDialog } from '@/components/distribution/publish-dialog'
 
@@ -315,7 +315,7 @@ export default function EnhancePage() {
           }
           // Keep isRenderedVideo false — user can click "Rendered" tab to see baked video
           setShowEnhancements(true)
-          setRenderMessage('✅ Clip rendu avec sous-titres ! Regarde la preview ci-dessus.')
+          setRenderMessage('✅ Clip rendered with captions! Check the preview above.')
           setRendering(false)
         } else if (json.data.status === 'error') {
           if (pollRef.current) clearInterval(pollRef.current)
@@ -363,11 +363,11 @@ export default function EnhancePage() {
         if (json.data.status === 'done' || json.data.status === 'error') {
           // Let startPolling handle the terminal state + cleanup in one tick
           setRendering(true)
-          setRenderMessage('⏳ Reprise du suivi…')
+          setRenderMessage('⏳ Resuming tracking...')
           startPolling(storedJobId!)
         } else {
           setRendering(true)
-          setRenderMessage('⏳ Reprise du suivi du rendu en cours…')
+          setRenderMessage('⏳ Resuming render tracking...')
           startPolling(storedJobId!)
         }
       })
@@ -377,7 +377,7 @@ export default function EnhancePage() {
   const handleRender = useCallback(async () => {
     if (!clip) return
     setRendering(true)
-    setRenderMessage('⏳ Lancement du rendu...')
+    setRenderMessage('⏳ Starting render...')
     setRenderDownloadUrl(null)
     setRenderOriginalUrl(null)
     // Revert to CSS preview mode (restore original video URL if we were showing rendered video)
@@ -388,7 +388,7 @@ export default function EnhancePage() {
 
     try {
       // Capture overlays as PNGs from browser (pixel-perfect match to CSS preview)
-      setRenderMessage('📸 Capture des overlays...')
+      setRenderMessage('📸 Capturing overlays...')
 
       // Resolve platform theme for overlay colors
       const platformKey = (clip.platform ?? 'twitch') as keyof typeof PLATFORM_THEME
@@ -421,7 +421,7 @@ export default function EnhancePage() {
         console.log('[handleRender] Tag capture:', tagOverlayData ? `OK ${tagOverlayData.w}x${tagOverlayData.h}` : 'FAILED/skipped')
       }
 
-      setRenderMessage('⏳ Lancement du rendu...')
+      setRenderMessage('⏳ Starting render...')
       const res = await fetch('/api/render', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -527,6 +527,8 @@ export default function EnhancePage() {
   }, [clip, settings, startPolling])
 
   const [makeViralLoading, setMakeViralLoading] = useState(false)
+  const [analysisSequenceActive, setAnalysisSequenceActive] = useState(false)
+  const [analysisComplete, setAnalysisComplete] = useState(false)
   const pendingAutoRenderRef = useRef(false)
   const appliedCaptionStyleRef = useRef<string | null>(null)
 
@@ -549,8 +551,34 @@ export default function EnhancePage() {
     return computeCurrentScore(settings, scores, baselineScore, activeMood)
   }, [settings, scores, baselineScore, selectedMood, detectedMood])
 
-  // Helper: compute real impact on "Chance de blowup" for each option
-  // Helper: compute real impact on "Chance de blowup" using diminishing returns
+  // ── Animated score count-up ──
+  const [displayScore, setDisplayScore] = useState(currentScore)
+  const prevScoreRef = useRef(currentScore)
+  useEffect(() => {
+    const from = prevScoreRef.current
+    const to = currentScore
+    prevScoreRef.current = to
+    if (from === to) return
+    const duration = 500 // ms
+    const startTime = performance.now()
+    let raf: number
+    const animate = (now: number) => {
+      const elapsed = now - startTime
+      const progress = Math.min(elapsed / duration, 1)
+      // ease-out cubic
+      const eased = 1 - Math.pow(1 - progress, 3)
+      const value = Math.round((from + (to - from) * eased) * 10) / 10
+      setDisplayScore(value)
+      if (progress < 1) {
+        raf = requestAnimationFrame(animate)
+      }
+    }
+    raf = requestAnimationFrame(animate)
+    return () => cancelAnimationFrame(raf)
+  }, [currentScore])
+
+  // Helper: compute real impact on "Blowup Chance" for each option
+  // Helper: compute real impact on "Blowup Chance" using diminishing returns
   // Only show score badges AFTER the user has clicked "Make it viral" or manually selected a mood.
   // Before that, no points are attributed to any option.
   const hasAiAnalyzed = !!(selectedMood || detectedMood)
@@ -598,7 +626,7 @@ export default function EnhancePage() {
     return { impact, isMoodPick }
   }, [selectedMood, detectedMood, baselineScore])
 
-  const applyMoodPreset = useCallback((preset: MoodPresetWithPlatform) => {
+  const applyMoodPreset = useCallback((preset: MoodPreset) => {
     appliedCaptionStyleRef.current = preset.captionStyle
     setSettings((s) => ({
       ...s,
@@ -638,11 +666,12 @@ export default function EnhancePage() {
   const applyBestCombo = useCallback(async () => {
     if (!clip) return
     setMakeViralLoading(true)
+    setAnalysisComplete(false)
 
     try {
-    // 1. Detect mood via AI
+    // 1. Detect mood via AI + generate hook — both run, then sequence plays
     const platform = clip.platform ?? 'twitch'
-    let preset: MoodPresetWithPlatform = getMoodPresetForClip('hype', platform) // fallback
+    let preset: MoodPreset = getMoodPresetForClip('hype', platform) // fallback
     try {
       const moodController = new AbortController()
       const moodTimeout = setTimeout(() => moodController.abort(), 15000)
@@ -683,10 +712,10 @@ export default function EnhancePage() {
       setMoodAiDetected(false)
     }
 
-    // 2. Apply the mood preset
+    // 2. Apply the mood preset (settings now have correct values)
     applyMoodPreset(preset)
 
-    // 3. Generate hook in parallel (Claude API) with the mood's hookStyle
+    // 3. Generate hook (Claude API) with the mood's hookStyle
     setHookGenerating(true)
     setHookError(null)
     try {
@@ -730,9 +759,13 @@ export default function EnhancePage() {
       setHookGenerating(false)
     }
 
-    // 4. Mark auto-render pending
+    // 4. API calls done, data is ready — NOW start the analysis sequence
+    setMakeViralLoading(false)
+    setAnalysisSequenceActive(true)
+
+    // 5. Auto-render will trigger after sequence completes (onComplete callback)
     pendingAutoRenderRef.current = true
-    } finally {
+    } catch {
       setMakeViralLoading(false)
     }
   }, [clip, applyMoodPreset])
@@ -933,7 +966,7 @@ export default function EnhancePage() {
           />
 
           {/* Generate button — hidden when AI flow active or render done */}
-          {!renderDownloadUrl && !makeViralLoading && !rendering && (
+          {!renderDownloadUrl && !makeViralLoading && !analysisSequenceActive && !rendering && (
             <Button
               className="w-full h-12 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white font-bold text-base gap-2 shadow-lg shadow-orange-500/25 rounded-xl"
               onClick={handleRender}
@@ -943,8 +976,8 @@ export default function EnhancePage() {
           )}
 
           {/* Render error messages */}
-          {renderMessage && (renderMessage.includes('Erreur') || renderMessage.includes('❌')) && (() => {
-            const cleaned = renderMessage.replace(/^❌\s*/, '').replace(/^Erreur\s*:\s*/, '')
+          {renderMessage && (renderMessage.includes('Error') || renderMessage.includes('❌')) && (() => {
+            const cleaned = renderMessage.replace(/^❌\s*/, '').replace(/^Error\s*:\s*/, '')
             const kind = classifyError(cleaned)
             return (
               <ErrorCard
@@ -974,10 +1007,10 @@ export default function EnhancePage() {
           })()}
 
           {/* Download + Publish — visible once AI flow starts or render done */}
-          {(makeViralLoading || rendering || renderDownloadUrl) && (
+          {(makeViralLoading || analysisSequenceActive || rendering || renderDownloadUrl) && (
             <div className="flex flex-col gap-2">
               {/* Progress / success message */}
-              {renderMessage && !renderMessage.includes('Erreur') && !renderMessage.includes('❌') && (
+              {renderMessage && !renderMessage.includes('Error') && !renderMessage.includes('❌') && (
                 <p className={cn(
                   'text-sm font-medium text-center',
                   renderMessage.includes('⚠️') ? 'text-amber-400' :
@@ -988,11 +1021,11 @@ export default function EnhancePage() {
                 </p>
               )}
 
-              {/* Rendering progress indicator */}
-              {(makeViralLoading || rendering) && !renderDownloadUrl && (
+              {/* Rendering progress indicator — shows after analysis completes */}
+              {rendering && !analysisSequenceActive && !renderDownloadUrl && (
                 <div className="flex items-center justify-center gap-2 py-2 text-sm text-zinc-400">
                   <Loader2 className="h-4 w-4 animate-spin" />
-                  <span>{makeViralLoading ? 'AI is optimizing...' : 'Rendering your clip...'}</span>
+                  <span>Rendering your clip...</span>
                 </div>
               )}
 
@@ -1040,6 +1073,8 @@ export default function EnhancePage() {
                   setMoodAiDetected(false)
                   setHookAnalysis(null)
                   setMakeViralLoading(false)
+                  setAnalysisSequenceActive(false)
+                  setAnalysisComplete(false)
                   setRendering(false)
                   setShowEnhancements(false)
                   hasUserChangedSettings.current = false
@@ -1058,16 +1093,16 @@ export default function EnhancePage() {
         <div className="space-y-6">
           {/* ── Make it viral button ── */}
           {(() => {
-            const viralBusy = makeViralLoading || pendingAutoRenderRef.current || rendering
-            const viralLabel = makeViralLoading
+            const viralBusy = makeViralLoading || analysisSequenceActive || pendingAutoRenderRef.current || rendering
+            const viralLabel = makeViralLoading || analysisSequenceActive
               ? 'AI is analyzing your clip...'
               : rendering
                 ? 'Rendering...'
                 : 'Make it viral'
-            const viralSubLabel = makeViralLoading
-              ? 'Finding the best parameters for this clip'
+            const viralSubLabel = makeViralLoading || analysisSequenceActive
+              ? 'Optimizing every parameter for this clip'
               : rendering
-                ? 'Subtitles + hook + smart zoom'
+                ? 'Applying AI-optimized settings'
                 : '1 click = AI-optimized viral clip'
             return (
               <button
@@ -1095,21 +1130,41 @@ export default function EnhancePage() {
             )
           })()}
 
-          {/* ── AI optimization badge ── */}
-          {detectedMood && moodAiDetected && (
-            <div className="px-3 py-2.5 rounded-xl border border-primary/20 bg-primary/5 flex items-center gap-2">
-              <Sparkles className="h-4 w-4 text-primary shrink-0" />
+          {/* ── AI Analysis Sequence (plays in right panel after API calls) ── */}
+          {analysisSequenceActive && (
+            <AIAnalysisSequence
+              clipId={clip?.id ?? ''}
+              clipDuration={clip?.duration_seconds}
+              detectedMood={detectedMood}
+              confidence={moodConfidence}
+              captionStyle={settings.captionStyle}
+              emphasisEffect={settings.emphasisEffect}
+              emphasisColor={settings.emphasisColor}
+              hookText={settings.hookText ?? null}
+              isActive={analysisSequenceActive}
+              onComplete={() => {
+                setAnalysisComplete(true)
+                setAnalysisSequenceActive(false)
+              }}
+            />
+          )}
+
+          {/* ── AI optimization badge (shows AFTER sequence completes) ── */}
+          {analysisComplete && detectedMood && moodAiDetected && !analysisSequenceActive && (
+            <div className="px-3 py-2.5 rounded-xl border border-emerald-500/20 bg-emerald-500/5 flex items-center gap-2">
+              <Zap className="h-4 w-4 text-emerald-400 shrink-0" />
               <p className="text-xs text-foreground">
-                <span className="font-bold">AI-optimized</span>
-                <span className="text-muted-foreground"> — {MOOD_PRESETS[detectedMood].emoji} {MOOD_PRESETS[detectedMood].label} detected{moodConfidence > 0 ? ` (${moodConfidence}%)` : ''}</span>
+                <span className="font-bold text-emerald-400">AI-optimized</span>
+                <span className="text-muted-foreground"> — 6 parameters tuned for this clip</span>
               </p>
             </div>
           )}
 
-          {/* ── Mood selector ── */}
+          {/* ── Style selector (hidden — internal mechanic, not user-facing) ── */}
+          {false && (
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <span className="text-xs text-muted-foreground uppercase tracking-widest font-medium">Mood</span>
+              <span className="text-xs text-muted-foreground uppercase tracking-widest font-medium">Style</span>
               {selectedMood && (
                 <span className="text-[10px] text-muted-foreground">{MOOD_PRESETS[selectedMood].description}</span>
               )}
@@ -1133,13 +1188,16 @@ export default function EnhancePage() {
                     <span className="text-base">{preset.emoji}</span>
                     <span className="text-[11px]">{preset.label}</span>
                     {isDetected && (
-                      <span className="absolute -top-1 -right-1 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-primary text-[8px] text-white font-bold">AI</span>
+                      <span className="absolute -top-1.5 -right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-emerald-500 text-white">
+                        <Check className="h-2.5 w-2.5" strokeWidth={3} />
+                      </span>
                     )}
                   </button>
                 )
               })}
             </div>
           </div>
+          )}
 
           {/* Preview video player (from real render) */}
           {previewVideoUrl && (
@@ -1175,8 +1233,14 @@ export default function EnhancePage() {
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-2">
                 <Flame className="h-4 w-4 text-orange-400" />
-                <span className="text-xs text-muted-foreground uppercase tracking-widest font-medium">Chance de blowup</span>
+                <span className="text-xs text-muted-foreground uppercase tracking-widest font-medium">Blowup Chance</span>
               </div>
+              <span className={cn(
+                'text-xs font-bold uppercase tracking-wide transition-colors duration-300',
+                getScoreLabel(currentScore).color
+              )}>
+                {getScoreLabel(currentScore).text}
+              </span>
             </div>
             {/* Progress bar */}
             <div className="relative w-full h-8 rounded-full bg-card/60 border border-white/10 overflow-hidden">
@@ -1191,24 +1255,31 @@ export default function EnhancePage() {
                 style={{ width: `${currentScore}%` }}
               />
               <div className="absolute inset-0 flex items-center justify-center">
-                <span className="text-sm font-black text-white drop-shadow-md">{currentScore} / 100</span>
+                <span className="text-sm font-black text-white drop-shadow-md">{displayScore} / 100</span>
               </div>
             </div>
           </div>
 
-            <div className="space-y-6">
+            <Accordion multiple defaultValue={[]} className="space-y-3">
 
             {/* ─── Captions Section ─── */}
-            <div ref={sectionRefs.captions} className="scroll-mt-32">
-              <Card className="bg-card/60 border-border">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-base flex items-center gap-2">
-                    <Type className="h-4 w-4 text-primary" />
-                    Karaoke captions
-                  </CardTitle>
-                </CardHeader>
+            <AccordionItem value="captions" ref={sectionRefs.captions} className="scroll-mt-32 rounded-xl border border-white/10 bg-card/60 px-4 overflow-hidden">
+              <AccordionTrigger className="text-zinc-400 hover:text-white">
+                <span className="flex items-center gap-2 text-sm font-medium text-foreground">
+                  <Type className="h-4 w-4 text-primary" />
+                  Karaoke captions
+                  <span className="text-xs text-zinc-500 font-normal">
+                    {settings.captionStyle !== 'none'
+                      ? `· ${CAPTION_STYLES.find(s => s.id === settings.captionStyle)?.label ?? settings.captionStyle}`
+                      : '· Off'}
+                    {settings.emphasisEffect !== 'none' && ` · ${EMPHASIS_EFFECTS.find(e => e.id === settings.emphasisEffect)?.label ?? ''}`}
+                    {settings.emphasisEffect !== 'none' && settings.emphasisColor && ` · ${EMPHASIS_COLORS.find(c => c.id === settings.emphasisColor)?.label ?? ''}`}
+                  </span>
+                </span>
+              </AccordionTrigger>
+              <AccordionContent>
                 {scores && (
-                  <CardContent className="space-y-5">
+                  <div className="space-y-5">
                     <div className="space-y-2">
                       <Label className="text-xs uppercase tracking-wider text-muted-foreground">Style</Label>
                       <div className="grid grid-cols-3 gap-2">
@@ -1239,6 +1310,9 @@ export default function EnhancePage() {
                               </div>
                               <span className={cn('text-[10px] block', isMoodPick ? 'text-green-400 font-bold' : isHighlight ? 'text-orange-400 font-bold' : 'text-muted-foreground')}>
                                 {style.label}
+                                {analysisComplete && moodAiDetected && settings.captionStyle === style.id && style.id !== 'none' && (
+                                  <span className="ml-1 text-[8px] font-bold text-emerald-400 bg-emerald-400/10 px-1.5 py-0.5 rounded-full border border-emerald-400/20">AI</span>
+                                )}
                               </span>
                               {style.animLabel && (
                                 <span className="text-[8px] block text-muted-foreground/60 mt-0.5">{style.animLabel}</span>
@@ -1280,7 +1354,12 @@ export default function EnhancePage() {
                                   : 'border-border hover:border-primary/40'
                               )}
                             >
-                              <span className={cn('text-[10px] font-medium block', isMoodPick ? 'text-green-400 font-bold' : isHighlight ? 'text-orange-400 font-bold' : 'text-foreground')}>{effect.label}</span>
+                              <span className={cn('text-[10px] font-medium block', isMoodPick ? 'text-green-400 font-bold' : isHighlight ? 'text-orange-400 font-bold' : 'text-foreground')}>
+                                {effect.label}
+                                {analysisComplete && moodAiDetected && settings.emphasisEffect === effect.id && effect.id !== 'none' && (
+                                  <span className="ml-1 text-[8px] font-bold text-emerald-400 bg-emerald-400/10 px-1.5 py-0.5 rounded-full border border-emerald-400/20">AI</span>
+                                )}
+                              </span>
                               {hasAiAnalyzed && <ScoreBadge score={impact} isBest={isHighlight} isMoodPick={isMoodPick} />}
                             </button>
                           )
@@ -1296,18 +1375,22 @@ export default function EnhancePage() {
                       )}
                       <div className="flex gap-2">
                         {EMPHASIS_COLORS.map((c) => (
-                          <button
-                            key={c.id}
-                            onClick={() => updateSetting('emphasisColor', c.id)}
-                            className={cn(
-                              'w-7 h-7 rounded-full transition-all',
-                              settings.emphasisColor === c.id
-                                ? 'ring-2 ring-primary ring-offset-2 ring-offset-background scale-110'
-                                : 'opacity-60 hover:opacity-100 hover:scale-105'
+                          <div key={c.id} className="relative">
+                            <button
+                              onClick={() => updateSetting('emphasisColor', c.id)}
+                              className={cn(
+                                'w-7 h-7 rounded-full transition-all',
+                                settings.emphasisColor === c.id
+                                  ? 'ring-2 ring-primary ring-offset-2 ring-offset-background scale-110'
+                                  : 'opacity-60 hover:opacity-100 hover:scale-105'
+                              )}
+                              style={{ backgroundColor: c.hex }}
+                              title={c.label}
+                            />
+                            {analysisComplete && moodAiDetected && settings.emphasisColor === c.id && (
+                              <span className="absolute -top-2 -right-2 text-[7px] font-bold text-emerald-400 bg-emerald-400/10 px-1 py-0.5 rounded-full border border-emerald-400/20 leading-none">AI</span>
                             )}
-                            style={{ backgroundColor: c.hex }}
-                            title={c.label}
-                          />
+                          </div>
                         ))}
                       </div>
                     </div>
@@ -1381,7 +1464,7 @@ export default function EnhancePage() {
 
                     <div className="space-y-2">
                       <div className="flex items-center justify-between">
-                        <Label className="text-xs uppercase tracking-wider text-muted-foreground">Position verticale</Label>
+                        <Label className="text-xs uppercase tracking-wider text-muted-foreground">Vertical Position</Label>
                         <span className="text-xs font-semibold text-foreground">{settings.captionPosition}%</span>
                       </div>
                       <div className="flex items-center gap-3">
@@ -1422,7 +1505,7 @@ export default function EnhancePage() {
                     {/* Words per line slider */}
                     <div className="space-y-2">
                       <div className="flex items-center justify-between">
-                        <Label className="text-xs uppercase tracking-wider text-muted-foreground">Mots par ligne</Label>
+                        <Label className="text-xs uppercase tracking-wider text-muted-foreground">Words per Line</Label>
                         <span className="text-xs font-mono text-muted-foreground">{settings.wordsPerLine}</span>
                       </div>
                       <input
@@ -1435,27 +1518,32 @@ export default function EnhancePage() {
                         className="w-full accent-primary"
                       />
                       <div className="flex justify-between text-[10px] text-muted-foreground/60">
-                        <span>1 (un mot)</span>
+                        <span>1 (single)</span>
                         <span>8 (compact)</span>
                       </div>
                     </div>
                     </>}
-                  </CardContent>
+                  </div>
                 )}
-              </Card>
-            </div>
+              </AccordionContent>
+            </AccordionItem>
 
             {/* ─── Split-Screen Section ─── */}
-            <div ref={sectionRefs.splitscreen} className="scroll-mt-32">
-              <Card className="bg-card/60 border-border">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-base flex items-center gap-2">
-                    <Monitor className="h-4 w-4 text-primary" />
-                    Split-Screen
-                  </CardTitle>
-                </CardHeader>
+            <AccordionItem value="splitscreen" ref={sectionRefs.splitscreen} className="scroll-mt-32 rounded-xl border border-white/10 bg-card/60 px-4 overflow-hidden">
+              <AccordionTrigger className="text-zinc-400 hover:text-white">
+                <span className="flex items-center gap-2 text-sm font-medium text-foreground">
+                  <Monitor className="h-4 w-4 text-primary" />
+                  Split-Screen
+                  <span className="text-xs text-zinc-500 font-normal">
+                    {settings.brollVideo !== 'none'
+                      ? `· ${BROLL_OPTIONS.find(b => b.id === settings.brollVideo)?.label ?? settings.brollVideo} · ${settings.splitRatio}/${100 - settings.splitRatio}`
+                      : '· Off'}
+                  </span>
+                </span>
+              </AccordionTrigger>
+              <AccordionContent>
                 {scores && (
-                  <CardContent className="space-y-5">
+                  <div className="space-y-5">
                     <div className="space-y-2">
                       <Label className="text-xs uppercase tracking-wider text-muted-foreground">B-roll video</Label>
                       <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
@@ -1482,7 +1570,12 @@ export default function EnhancePage() {
                             >
                               <div className={`w-full h-8 rounded-lg bg-gradient-to-r ${broll.color} mb-1.5`} />
                               <div className="flex items-center justify-between">
-                                <span className={cn('text-[10px]', isMoodPick ? 'text-green-400 font-bold' : isHighlight ? 'text-orange-400 font-bold' : 'text-muted-foreground')}>{broll.label}</span>
+                                <span className={cn('text-[10px]', isMoodPick ? 'text-green-400 font-bold' : isHighlight ? 'text-orange-400 font-bold' : 'text-muted-foreground')}>
+                                  {broll.label}
+                                  {analysisComplete && moodAiDetected && settings.brollVideo === broll.id && broll.id !== 'none' && (
+                                    <span className="ml-1 text-[8px] font-bold text-emerald-400 bg-emerald-400/10 px-1.5 py-0.5 rounded-full border border-emerald-400/20">AI</span>
+                                  )}
+                                </span>
                                 {hasAiAnalyzed && <ScoreBadge score={impact} isBest={isHighlight} isMoodPick={isMoodPick} />}
                               </div>
                             </button>
@@ -1533,36 +1626,58 @@ export default function EnhancePage() {
                         ))}
                       </div>
                     </div>
-                  </CardContent>
+                  </div>
                 )}
-              </Card>
-            </div>
+              </AccordionContent>
+            </AccordionItem>
 
             {/* ─── Tags Section ─── */}
-            <TagPanel
-              ref={sectionRefs.tags}
-              settings={settings}
-              updateSetting={updateSetting}
-              scores={scores}
-              selectedMood={selectedMood}
-              baselineScore={baselineScore}
-            />
+            <AccordionItem value="tags" ref={sectionRefs.tags} className="scroll-mt-32 rounded-xl border border-white/10 bg-card/60 px-4 overflow-hidden">
+              <AccordionTrigger className="text-zinc-400 hover:text-white">
+                <span className="flex items-center gap-2 text-sm font-medium text-foreground">
+                  <span className="text-primary">@</span>
+                  Streamer tag
+                  <span className="text-xs text-zinc-500 font-normal">
+                    {settings.tagStyle !== 'none'
+                      ? `· ${TAG_STYLES.find(t => t.id === settings.tagStyle)?.label ?? settings.tagStyle}`
+                      : '· Off'}
+                  </span>
+                </span>
+              </AccordionTrigger>
+              <AccordionContent>
+                <TagPanel
+                  settings={settings}
+                  updateSetting={updateSetting}
+                  scores={scores}
+                  selectedMood={selectedMood}
+                  baselineScore={baselineScore}
+                  analysisComplete={analysisComplete}
+                  moodAiDetected={moodAiDetected}
+                  noCard
+                />
+              </AccordionContent>
+            </AccordionItem>
 
             {/* Format is locked to 9:16 — no UI selector */}
 
             {/* ─── Smart Zoom Section ─── */}
-            <div className="scroll-mt-32">
-              <Card className="bg-card/60 border-border">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-base flex items-center gap-2">
-                    <Focus className="h-4 w-4 text-primary" />
-                    Smart Zoom
-                    <span className="ml-auto text-[10px] font-normal text-muted-foreground bg-primary/10 text-primary px-2 py-0.5 rounded-full border border-primary/20">
-                      New
-                    </span>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
+            <AccordionItem value="smartzoom" className="scroll-mt-32 rounded-xl border border-white/10 bg-card/60 px-4 overflow-hidden">
+              <AccordionTrigger className="text-zinc-400 hover:text-white">
+                <span className="flex items-center gap-2 text-sm font-medium text-foreground">
+                  <Focus className="h-4 w-4 text-primary" />
+                  Smart Zoom
+                  <span className="text-xs text-zinc-500 font-normal">
+                    {settings.smartZoomEnabled
+                      ? `· ${settings.smartZoomMode === 'micro' ? 'Micro zoom' : settings.smartZoomMode === 'dynamic' ? 'Dynamic' : 'Follow face'}`
+                      : '· Off'}
+                  </span>
+                  <span className="ml-auto text-[10px] font-normal text-muted-foreground bg-primary/10 text-primary px-2 py-0.5 rounded-full border border-primary/20">
+                    New
+                  </span>
+                </span>
+              </AccordionTrigger>
+              <AccordionContent>
+                <div className="space-y-4">
                   {/* Master toggle */}
                   <button
                     onClick={() => updateSetting('smartZoomEnabled', !settings.smartZoomEnabled)}
@@ -1639,23 +1754,26 @@ export default function EnhancePage() {
                       </div>
                     </div>
                   )}
-                </CardContent>
-              </Card>
-            </div>
+                </div>
+              </AccordionContent>
+            </AccordionItem>
 
             {/* ─── Audio Enhancement Section ─── */}
-            <div className="scroll-mt-32">
-              <Card className="bg-card/60 border-border">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-base flex items-center gap-2">
-                    <Volume2 className="h-4 w-4 text-primary" />
-                    Audio Enhancement
-                    <span className="ml-auto text-[10px] font-normal text-muted-foreground bg-primary/10 text-primary px-2 py-0.5 rounded-full border border-primary/20">
-                      New
-                    </span>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
+            <AccordionItem value="audio" className="scroll-mt-32 rounded-xl border border-white/10 bg-card/60 px-4 overflow-hidden">
+              <AccordionTrigger className="text-zinc-400 hover:text-white">
+                <span className="flex items-center gap-2 text-sm font-medium text-foreground">
+                  <Volume2 className="h-4 w-4 text-primary" />
+                  Audio Enhancement
+                  <span className="text-xs text-zinc-500 font-normal">
+                    {settings.audioEnhanceEnabled ? '· On' : '· Off'}
+                  </span>
+                  <span className="ml-auto text-[10px] font-normal text-muted-foreground bg-primary/10 text-primary px-2 py-0.5 rounded-full border border-primary/20">
+                    New
+                  </span>
+                </span>
+              </AccordionTrigger>
+              <AccordionContent>
+                <div className="space-y-4">
                   <button
                     onClick={() => updateSetting('audioEnhanceEnabled', !settings.audioEnhanceEnabled)}
                     className={cn(
@@ -1691,23 +1809,26 @@ export default function EnhancePage() {
                       <p>• Loudness normalization — constant broadcast-style volume</p>
                     </div>
                   )}
-                </CardContent>
-              </Card>
-            </div>
+                </div>
+              </AccordionContent>
+            </AccordionItem>
 
             {/* ─── Auto-Cut Silences Section ─── */}
-            <div className="scroll-mt-32">
-              <Card className="bg-card/60 border-border">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-base flex items-center gap-2">
-                    <Scissors className="h-4 w-4 text-primary" />
-                    Auto-Cut Silences
-                    <span className="ml-auto text-[10px] font-normal text-muted-foreground bg-primary/10 text-primary px-2 py-0.5 rounded-full border border-primary/20">
-                      New
-                    </span>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
+            <AccordionItem value="autocut" className="scroll-mt-32 rounded-xl border border-white/10 bg-card/60 px-4 overflow-hidden">
+              <AccordionTrigger className="text-zinc-400 hover:text-white">
+                <span className="flex items-center gap-2 text-sm font-medium text-foreground">
+                  <Scissors className="h-4 w-4 text-primary" />
+                  Auto-Cut Silences
+                  <span className="text-xs text-zinc-500 font-normal">
+                    {settings.autoCutEnabled ? `· On · ${settings.autoCutThreshold.toFixed(1)}s threshold` : '· Off'}
+                  </span>
+                  <span className="ml-auto text-[10px] font-normal text-muted-foreground bg-primary/10 text-primary px-2 py-0.5 rounded-full border border-primary/20">
+                    New
+                  </span>
+                </span>
+              </AccordionTrigger>
+              <AccordionContent>
+                <div className="space-y-4">
                   <button
                     onClick={() => updateSetting('autoCutEnabled', !settings.autoCutEnabled)}
                     className={cn(
@@ -1762,23 +1883,28 @@ export default function EnhancePage() {
                       </div>
                     </div>
                   )}
-                </CardContent>
-              </Card>
-            </div>
+                </div>
+              </AccordionContent>
+            </AccordionItem>
 
             {/* ─── Hook Viral Section ─── */}
-            <div className="scroll-mt-32">
-              <Card className="bg-card/60 border-border">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-base flex items-center gap-2">
-                    <Flame className="h-4 w-4 text-orange-500" />
-                    Hook Viral
-                    <span className="ml-auto text-[10px] font-normal text-muted-foreground bg-orange-500/10 text-orange-400 px-2 py-0.5 rounded-full border border-orange-500/20">
-                      New
-                    </span>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
+            <AccordionItem value="hook" className="scroll-mt-32 rounded-xl border border-white/10 bg-card/60 px-4 overflow-hidden">
+              <AccordionTrigger className="text-zinc-400 hover:text-white">
+                <span className="flex items-center gap-2 text-sm font-medium text-foreground">
+                  <Flame className="h-4 w-4 text-orange-500" />
+                  Hook Viral
+                  <span className="text-xs text-zinc-500 font-normal">
+                    {settings.hookEnabled
+                      ? `· ${settings.hookStyle.charAt(0).toUpperCase() + settings.hookStyle.slice(1)}${settings.hookText ? ` · "${settings.hookText.slice(0, 20)}${settings.hookText.length > 20 ? '...' : ''}"` : ''}`
+                      : '· Off'}
+                  </span>
+                  <span className="ml-auto text-[10px] font-normal text-muted-foreground bg-orange-500/10 text-orange-400 px-2 py-0.5 rounded-full border border-orange-500/20">
+                    New
+                  </span>
+                </span>
+              </AccordionTrigger>
+              <AccordionContent>
+                <div className="space-y-4">
                   {/* Master toggle */}
                   <button
                     onClick={() => updateSetting('hookEnabled', !settings.hookEnabled)}
@@ -2026,10 +2152,10 @@ export default function EnhancePage() {
                       )}
                     </div>
                   )}
-                </CardContent>
-              </Card>
-            </div>
-          </div>
+                </div>
+              </AccordionContent>
+            </AccordionItem>
+          </Accordion>
           </div>
         </div>
       </div>

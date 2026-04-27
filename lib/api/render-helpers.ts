@@ -233,7 +233,7 @@ export async function createRenderJob(
 
   if (jobError || !job) {
     return NextResponse.json(
-      { data: null, error: 'Job creation failed', message: 'Impossible de lancer le rendu' },
+      { data: null, error: 'Job creation failed', message: 'Unable to start the render' },
       { status: 500 },
     )
   }

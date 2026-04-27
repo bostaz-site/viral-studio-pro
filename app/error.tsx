@@ -22,10 +22,10 @@ export default function GlobalError({
       </div>
       <div className="text-center space-y-2">
         <h2 className="text-xl font-semibold">
-          Erreur inattendue
+          Unexpected Error
         </h2>
         <p className="text-sm text-muted-foreground max-w-md">
-          Une erreur critique est survenue. Veuillez rafra&icirc;chir la page.
+          A critical error occurred. Please refresh the page.
         </p>
       </div>
       <div className="flex gap-3">
@@ -34,14 +34,14 @@ export default function GlobalError({
           className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90"
         >
           <RefreshCcw className="w-4 h-4" />
-          R&eacute;essayer
+          Retry
         </button>
         <Link
           href="/"
           className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-border text-sm font-medium hover:bg-muted"
         >
           <Home className="w-4 h-4" />
-          Accueil
+          Home
         </Link>
       </div>
     </div>

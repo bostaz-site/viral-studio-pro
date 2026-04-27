@@ -67,7 +67,7 @@ export const GET = withAuth(async (_req, user) => {
 
   if (jobsError) {
     return NextResponse.json(
-      { data: null, error: 'Failed to load render jobs', message: 'Impossible de charger l\'historique' },
+      { data: null, error: 'Failed to load render jobs', message: 'Unable to load render history' },
       { status: 500 },
     )
   }

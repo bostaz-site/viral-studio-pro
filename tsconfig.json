@@ -32,7 +32,9 @@
     "next-env.d.ts",
     "**/*.ts",
     "**/*.tsx",
-    ".next/types/**/*.ts"
+    ".next/types/**/*.ts",
+    "C:\\Users\\samyc\\AppData\\Local\\Temp\\next-viral-animal/types/**/*.ts",
+    "C:\\Users\\samyc\\AppData\\Local\\Temp\\next-viral-animal/types/**/*.ts"
   ],
   "exclude": [
     "node_modules",

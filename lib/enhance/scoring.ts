@@ -433,6 +433,7 @@ export function computeCurrentScore(
     const preset = MOOD_PRESETS[detectedMood]
     if (settings.captionsEnabled && settings.captionStyle === preset.captionStyle) totalWeight += 0.06
     if (settings.emphasisEffect === preset.emphasisEffect) totalWeight += 0.04
+    if (settings.emphasisColor === preset.emphasisColor) totalWeight += 0.03
     if (settings.videoZoom === preset.videoZoom) totalWeight += 0.02
     if (settings.smartZoomEnabled && settings.smartZoomMode === preset.smartZoomMode) totalWeight += 0.02
     if (settings.autoCutEnabled === preset.autoCutEnabled) totalWeight += 0.02

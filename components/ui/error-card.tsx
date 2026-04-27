@@ -196,9 +196,9 @@ export function classifyError(raw: string | null | undefined, status?: number): 
   if (status && status >= 500) return 'server'
   if (!raw) return 'generic'
   const msg = raw.toLowerCase()
-  if (msg.includes('network') || msg.includes('fetch') || msg.includes('réseau') || msg.includes('offline')) return 'network'
+  if (msg.includes('network') || msg.includes('fetch') || msg.includes('offline')) return 'network'
   if (msg.includes('network error')) return 'network'
-  if (msg.includes('timeout') || msg.includes('timed out') || msg.includes('plus longtemps')) return 'timeout'
+  if (msg.includes('timeout') || msg.includes('timed out')) return 'timeout'
   if (msg.includes('rate limit') || msg.includes('too many') || msg.includes('retry in')) return 'rate_limit'
   if (msg.includes('quota') || msg.includes('monthly limit') || msg.includes('upgrade your plan')) return 'quota'
   if (msg.includes('unauthor') || msg.includes('forbidden') || msg.includes('session')) return 'auth'

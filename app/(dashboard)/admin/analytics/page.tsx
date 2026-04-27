@@ -118,7 +118,7 @@ export default function AdminAnalyticsPage() {
         error: string | null
       }
       if (!res.ok || !json.data) {
-        setError(json.error ?? 'Erreur de chargement')
+        setError(json.error ?? 'Failed to load data')
         return
       }
       setData(json.data)
