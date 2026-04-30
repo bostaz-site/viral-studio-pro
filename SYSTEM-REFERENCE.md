@@ -5,6 +5,55 @@
 
 ---
 
+## Glossaire des Scores (Source de Verite)
+
+| Score | Code | Ou | Ce que c'est | Range |
+|---|---|---|---|---|
+| **Algo Score** | `velocity_score` | Browse, DB `trending_clips` | Score composite V2 du clip (7 facteurs : momentum, authority, engagement, recency, early signal, format, saturation) | 0-100 |
+| **Blowup Chance** | `computeCurrentScore()` | Enhance | Score estime apres edition (baseline clip + poids des enhancements actives). C'est un score UI de potentiel, PAS une prediction reelle. | 0-99 |
+| **Breakout Probability** | `breakoutProbability` | Distribution Smart Queue | Probabilite simulee de performance si le clip est poste maintenant. Basee sur viralScore x timing x momentum. SIMULE, pas connecte a des vraies metriques post. | 0-100% |
+| **Creator Score** | `creator_score` | Settings, DB `social_accounts` | Score du compte YouTube (5 facteurs : performance, engagement, growth, audience, consistency). Requiert YouTube connecte. | 0-100 |
+| **Clip Momentum** | `momentum_score` | Browse, DB `trending_clips` | Sous-score V2 : vitesse de croissance des vues + acceleration. C'est UN des 7 facteurs du Algo Score. | 0-100 |
+| **Creator Momentum** | `calculateMomentumScore()` | Analytics | Score de dynamique de publication du createur (activite x qualite x consistance - decay). Base sur localStorage, PAS sur des vraies metriques. | 0-100 |
+| **Queue Confidence** | `confidence` | Distribution Smart Queue | Confiance dans la suggestion de la queue (nb de posts dans le learning data). SIMULE. | low/medium/high |
+| **Mood Confidence** | `moodConfidence` | Enhance | Confiance de la detection de mood par Claude Haiku (vrai appel AI). | 0-100 |
+
+### Regle absolue
+- `velocity_score` = seul score reel base sur des donnees Twitch/Kick
+- Tous les autres scores sont derives, estimes, ou simules
+- Ne JAMAIS confondre un score simule avec un score reel dans le code ou l'UI
+
+---
+
+## Lifecycle Global du Clip
+
+```
+Source                    Browse                  Enhance                 Distribution            Analytics
+------                    ------                  -------                 ------------            ---------
+Twitch API --> trending_clips --> /enhance/[id] --> render_jobs --> Clip Bank --> Publish --> Post metrics
+Kick API   -->     |                  |                |               |              |            |
+Upload     -->  videos table    AI mood detect    FFmpeg VPS      Queue engine    Social API   Streak/rewards
+                    |              |                   |               |              |            |
+               velocity_score  Blowup Chance      MP4 storage    Schedule post   Track perf   Creator momentum
+               feed_category   mood preset        Supabase         Breakout %     (TODO)       Learning loop
+               clip_rank       settings overlay   signed URL      Risk strategy   (TODO)       (localStorage)
+```
+
+### Tables DB par etape
+
+| Etape | Tables |
+|---|---|
+| Browse | `trending_clips`, `streamers`, `clip_snapshots`, `saved_clips` |
+| Enhance | `trending_clips` (lecture), `clips` (si upload), `transcriptions` |
+| Render | `render_jobs`, Supabase Storage `clips/` |
+| Distribution | `social_accounts`, localStorage (`queue-learning`, `queue-settings`, `persistent-stats`) |
+| Analytics | `social_accounts`, `account_snapshots`, localStorage (`persistent-stats`) |
+
+### Flow utilisateur principal
+Browse (decouvrir) -> Enhance (transformer) -> Distribution (publier) -> Analytics (progresser)
+
+---
+
 ## 1. Browse / Trending Feed
 
 Dashboard page displaying ranked streamer clips with feed tabs, filters, infinite scroll and hover video preview.

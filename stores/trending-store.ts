@@ -96,6 +96,12 @@ function filterAndSortClips(
     result = result.filter((c) => c.feed_category === 'early_gem')
   } else if (filters.feed === 'proven') {
     result = result.filter((c) => c.feed_category === 'proven')
+  } else if (filters.feed === 'recent') {
+    const sixHoursAgo = Date.now() - 6 * 60 * 60 * 1000
+    result = result.filter((c) => {
+      const createdAt = c.clip_created_at ?? c.scraped_at
+      return createdAt ? new Date(createdAt).getTime() > sixHoursAgo : false
+    })
   } else if (filters.feed === 'saved') {
     result = result.filter((c) => savedClipIds.has(c.id))
   }

@@ -20,6 +20,8 @@ interface TagPanelProps {
   moodAiDetected?: boolean
   /** When true, renders only the inner content without the Card wrapper */
   noCard?: boolean
+  /** Clip platform — filters tag options to show only matching platform tags */
+  platform?: string
 }
 
 /**
@@ -27,7 +29,7 @@ interface TagPanelProps {
  * Extracted from the enhance page to keep that file under control.
  */
 export const TagPanel = forwardRef<HTMLDivElement, TagPanelProps>(function TagPanel(
-  { settings, updateSetting, scores, selectedMood, baselineScore = 30, hasMoodActive = false, analysisComplete = false, moodAiDetected = false, noCard = false },
+  { settings, updateSetting, scores, selectedMood, baselineScore = 30, hasMoodActive = false, analysisComplete = false, moodAiDetected = false, noCard = false, platform },
   ref,
 ) {
   // Compute real impact for tag options (diminishing returns)
@@ -52,6 +54,15 @@ export const TagPanel = forwardRef<HTMLDivElement, TagPanelProps>(function TagPa
     return { impact, isMoodPick }
   }
 
+  // Filter tags by platform
+  const filteredTags = TAG_STYLES.filter((tag) => {
+    if (tag.id === 'none') return true
+    const p = (platform ?? '').toLowerCase()
+    if (p === 'twitch') return tag.id === 'viral-glow' || tag.id === 'twitch-minimal'
+    if (p === 'kick') return tag.id === 'kick-glow' || tag.id === 'kick-minimal'
+    return true // upload or unknown: show all
+  })
+
   const tagContent = scores ? (
     <div className="space-y-5">
       <div className="space-y-2">
@@ -59,7 +70,7 @@ export const TagPanel = forwardRef<HTMLDivElement, TagPanelProps>(function TagPa
           Tag style
         </Label>
         <div className="grid grid-cols-2 gap-2">
-          {TAG_STYLES.map((tag) => {
+          {filteredTags.map((tag) => {
             const { impact, isMoodPick } = getTagImpact(tag.id)
             const isHighlight = hasMoodActive && (isMoodPick || (!selectedMood && tag.id === scores.best.tagStyle))
             return (

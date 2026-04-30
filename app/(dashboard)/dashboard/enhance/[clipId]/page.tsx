@@ -2,13 +2,13 @@
 'use client'
 
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
-import { useParams, useSearchParams } from 'next/navigation'
+import { useParams, useSearchParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import {
   ChevronLeft, Loader2, AlertCircle, Sparkles, Download, CheckCircle, Check,
   Type, Wand2, Eye, ExternalLink, Play,
   Monitor, Zap, Send,
-  Flame, Focus, X, Plus, Volume2, Scissors, RotateCcw,
+  Flame, Focus, X, Plus, Volume2, Scissors, RotateCcw, Rocket,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from '@/components/ui/accordion'
@@ -29,7 +29,6 @@ import {
 import { LivePreview, ScoreBadge } from '@/components/enhance/live-preview'
 import { AIAnalysisSequence } from '@/components/enhance/ai-analysis-sequence'
 import { TagPanel } from '@/components/enhance/tag-panel'
-import { PublishDialog } from '@/components/distribution/publish-dialog'
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -75,7 +74,7 @@ export default function EnhancePage() {
   const [hookAnalysis, setHookAnalysis] = useState<HookAnalysis | null>(null)
   const [hookGenerating, setHookGenerating] = useState(false)
   const [hookError, setHookError] = useState<string | null>(null)
-  const [publishDialogOpen, setPublishDialogOpen] = useState(false)
+  const router = useRouter()
   const sectionRefs = {
     captions: useRef<HTMLDivElement>(null),
     splitscreen: useRef<HTMLDivElement>(null),
@@ -639,6 +638,18 @@ export default function EnhancePage() {
 
   const applyMoodPreset = useCallback((preset: MoodPreset) => {
     appliedCaptionStyleRef.current = preset.captionStyle
+
+    // Correct cross-platform tags
+    let tagStyle = preset.tagStyle
+    const p = (clip?.platform ?? '').toLowerCase()
+    if (p === 'twitch') {
+      if (tagStyle === 'kick-glow') tagStyle = 'viral-glow'
+      else if (tagStyle === 'kick-minimal') tagStyle = 'twitch-minimal'
+    } else if (p === 'kick') {
+      if (tagStyle === 'viral-glow') tagStyle = 'kick-glow'
+      else if (tagStyle === 'twitch-minimal') tagStyle = 'kick-minimal'
+    }
+
     setSettings((s) => ({
       ...s,
       captionsEnabled: true,
@@ -651,7 +662,7 @@ export default function EnhancePage() {
       brollVideo: preset.brollVideo,
       splitRatio: preset.splitRatio,
       videoZoom: preset.videoZoom,
-      tagStyle: preset.tagStyle,
+      tagStyle,
       tagSize: preset.tagSize,
       aspectRatio: preset.aspectRatio,
       smartZoomEnabled: preset.smartZoomEnabled,
@@ -666,7 +677,7 @@ export default function EnhancePage() {
       hookTextPosition: preset.hookTextPosition,
       hookLength: preset.hookLength,
     }))
-  }, [])
+  }, [clip?.platform])
 
   const handleMoodSelect = useCallback((mood: ClipMood) => {
     setSelectedMood(mood)
@@ -906,6 +917,12 @@ export default function EnhancePage() {
 
   return (
     <div className="animate-in fade-in duration-500">
+      <style jsx>{`
+        @keyframes stepFade {
+          0% { opacity: 0; transform: translateY(4px); }
+          100% { opacity: 1; transform: translateY(0); }
+        }
+      `}</style>
       {/* Back button + clip info header */}
       <div className="flex items-start justify-between gap-4 mb-6">
         <div className="flex items-start gap-4">
@@ -1040,62 +1057,79 @@ export default function EnhancePage() {
                 </div>
               )}
 
-              {/* Publish button — primary CTA */}
-              <button
-                onClick={() => setPublishDialogOpen(true)}
-                disabled={!renderDownloadUrl}
-                className={cn(
-                  "inline-flex items-center justify-center gap-2 w-full rounded-xl font-bold text-lg transition-all",
-                  renderDownloadUrl
-                    ? "h-14 bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 hover:from-blue-600 hover:via-purple-600 hover:to-pink-600 text-white shadow-lg shadow-purple-500/25"
-                    : "h-14 bg-zinc-800 text-zinc-500 cursor-not-allowed"
-                )}
-              >
-                <Send className="h-5 w-5" />
-                Publish to socials
-              </button>
+              {/* Post-render CTAs */}
+              {renderDownloadUrl && (
+                <div className="flex flex-col gap-2.5" style={{ animation: 'stepFade 0.4s ease-out' }}>
+                  {/* Primary: Distribute Now */}
+                  <button
+                    onClick={() => router.push(`/dashboard/distribution?clip=${clipId}`)}
+                    className="inline-flex items-center justify-center gap-2.5 w-full h-14 rounded-xl font-bold text-lg bg-gradient-to-r from-purple-500 via-purple-600 to-purple-500 hover:from-purple-600 hover:via-purple-700 hover:to-purple-600 text-white shadow-lg shadow-purple-500/25 hover:shadow-purple-500/40 transition-all hover:scale-[1.01]"
+                  >
+                    <Rocket className="h-5 w-5" />
+                    Distribute Now
+                  </button>
 
-              {/* Download button — secondary */}
-              {renderDownloadUrl ? (
-                <a
-                  href={renderDownloadUrl}
-                  download="viral-clip.mp4"
-                  className="inline-flex items-center justify-center gap-2 w-full h-10 rounded-lg border border-zinc-700 hover:border-zinc-500 text-zinc-400 hover:text-white text-sm font-medium transition-all"
-                >
-                  <Download className="h-4 w-4" />
-                  Download clip (with captions)
-                </a>
-              ) : (
-                <div className="inline-flex items-center justify-center gap-2 w-full h-10 rounded-lg border border-zinc-800 text-zinc-600 text-sm font-medium cursor-not-allowed">
-                  <Download className="h-4 w-4" />
-                  Download clip (with captions)
+                  {/* Secondary: Save to Bank */}
+                  <button
+                    onClick={() => {
+                      setRenderMessage('Clip saved to your bank! Find it in Distribution whenever you\'re ready.')
+                    }}
+                    className="inline-flex items-center justify-center gap-2 w-full h-11 rounded-lg border border-purple-500/30 bg-purple-500/10 text-purple-400 hover:bg-purple-500/15 hover:border-purple-500/40 text-sm font-semibold transition-all"
+                  >
+                    <Plus className="h-4 w-4" />
+                    Save to Bank — publish later
+                  </button>
+
+                  {/* Tertiary: Download */}
+                  <a
+                    href={renderDownloadUrl}
+                    download="viral-clip.mp4"
+                    className="inline-flex items-center justify-center gap-2 w-full h-10 rounded-lg border border-zinc-700 hover:border-zinc-500 text-zinc-400 hover:text-white text-sm font-medium transition-all"
+                  >
+                    <Download className="h-4 w-4" />
+                    Download MP4
+                  </a>
+
+                  {/* Reset */}
+                  <button
+                    onClick={() => {
+                      setSettings({ ...DEFAULT_SETTINGS })
+                      setIsRenderedVideo(false)
+                      setRenderDownloadUrl(null)
+                      setRenderMessage(null)
+                      setDetectedMood(null)
+                      setSelectedMood(null)
+                      setMoodAiDetected(false)
+                      setHookAnalysis(null)
+                      setMakeViralLoading(false)
+                      setAnalysisSequenceActive(false)
+                      setAnalysisComplete(false)
+                      setRendering(false)
+                      setShowEnhancements(false)
+                      hasUserChangedSettings.current = false
+                      if (originalVideoUrl) setVideoUrl(originalVideoUrl)
+                    }}
+                    className="inline-flex items-center justify-center gap-2 w-full h-9 text-xs text-zinc-500 hover:text-zinc-300 transition-colors"
+                  >
+                    <RotateCcw className="h-3.5 w-3.5" />
+                    Reset &amp; start over
+                  </button>
                 </div>
               )}
 
-              {/* Reset button */}
-              <button
-                onClick={() => {
-                  setSettings({ ...DEFAULT_SETTINGS })
-                  setIsRenderedVideo(false)
-                  setRenderDownloadUrl(null)
-                  setRenderMessage(null)
-                  setDetectedMood(null)
-                  setSelectedMood(null)
-                  setMoodAiDetected(false)
-                  setHookAnalysis(null)
-                  setMakeViralLoading(false)
-                  setAnalysisSequenceActive(false)
-                  setAnalysisComplete(false)
-                  setRendering(false)
-                  setShowEnhancements(false)
-                  hasUserChangedSettings.current = false
-                  if (originalVideoUrl) setVideoUrl(originalVideoUrl)
-                }}
-                className="inline-flex items-center justify-center gap-2 w-full h-10 rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 text-sm font-medium text-zinc-400 hover:text-white transition-all"
-              >
-                <RotateCcw className="h-4 w-4" />
-                Reset &amp; start over
-              </button>
+              {/* Pre-render: disabled publish + download placeholders */}
+              {!renderDownloadUrl && (
+                <>
+                  <div className="inline-flex items-center justify-center gap-2 w-full h-14 rounded-xl bg-zinc-800 text-zinc-500 cursor-not-allowed font-bold text-lg">
+                    <Rocket className="h-5 w-5" />
+                    Distribute Now
+                  </div>
+                  <div className="inline-flex items-center justify-center gap-2 w-full h-10 rounded-lg border border-zinc-800 text-zinc-600 text-sm font-medium cursor-not-allowed">
+                    <Download className="h-4 w-4" />
+                    Download MP4
+                  </div>
+                </>
+              )}
             </div>
           )}
         </div>
@@ -1673,6 +1707,7 @@ export default function EnhancePage() {
                   analysisComplete={analysisComplete}
                   moodAiDetected={moodAiDetected}
                   noCard
+                  platform={clip?.platform}
                 />
               </AccordionContent>
             </AccordionItem>
@@ -2209,13 +2244,6 @@ export default function EnhancePage() {
         </div>
       </div>
 
-      <PublishDialog
-        open={publishDialogOpen}
-        onClose={() => setPublishDialogOpen(false)}
-        clipId={clipId}
-        clipTitle={clip?.title ?? undefined}
-      />
     </div>
   )
 }
-

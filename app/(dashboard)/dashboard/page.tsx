@@ -278,7 +278,12 @@ export default function DashboardPage() {
   }, [router])
 
   const feedTabs: { key: FeedFilter; label: string; icon: typeof Flame; count?: number }[] = [
-    { key: 'all', label: 'All Clips', icon: Film },
+    { key: 'all', label: 'All Clips', icon: Flame },
+    { key: 'hot_now', label: 'Exploding Now', icon: Zap, count: stats.hotNowCount || undefined },
+    { key: 'early_gem', label: 'Undervalued Gems', icon: Diamond, count: stats.earlyGemCount || undefined },
+    { key: 'proven', label: 'Proven Winners', icon: Trophy, count: stats.provenCount || undefined },
+    { key: 'recent', label: 'Fresh Drops', icon: Clock },
+    { key: 'saved', label: 'Saved', icon: Bookmark, count: savedClipIds.size || undefined },
     { key: 'remixes', label: 'My Remixes', icon: Scissors, count: remixCount || undefined },
   ]
 

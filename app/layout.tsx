@@ -49,6 +49,11 @@ export const metadata: Metadata = {
   alternates: {
     canonical: siteUrl,
   },
+  icons: {
+    icon: '/favicon.svg',
+    shortcut: '/favicon.svg',
+    apple: '/icons/icon-192.svg',
+  },
 }
 
 const orgJsonLd = {
@@ -56,7 +61,7 @@ const orgJsonLd = {
   '@type': 'Organization',
   name: 'Viral Animal',
   url: siteUrl,
-  logo: `${siteUrl}/favicon.ico`,
+  logo: `${siteUrl}/favicon.svg`,
   founder: {
     '@type': 'Person',
     name: 'Samy',

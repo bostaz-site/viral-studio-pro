@@ -216,7 +216,7 @@ export const TAG_STYLES: TagStyle[] = [
     label: 'Viral Glow',
     description: 'Black capsule + neon purple border + glow',
     icon: '🔥',
-    baseScore: 14,
+    baseScore: 16,
     position: 'bottom-left',
   },
   {
@@ -224,7 +224,7 @@ export const TAG_STYLES: TagStyle[] = [
     label: 'Kick Glow',
     description: 'Black capsule + neon green border + glow',
     icon: '💚',
-    baseScore: 14,
+    baseScore: 16,
     position: 'bottom-left',
   },
   {

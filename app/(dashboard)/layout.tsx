@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { Settings, Menu, X, LogOut, Zap, Compass, Wand2, Crown, Radio, BarChart3, Users } from 'lucide-react'
+import { ViralAnimalLogo } from '@/components/brand/viral-animal-logo'
 import { useUiStore } from '@/stores/ui-store'
 import { Button } from '@/components/ui/button'
 import { NotificationBell } from '@/components/trending/notification-bell'
@@ -92,9 +93,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       <aside className={`fixed md:static inset-y-0 left-0 z-40 w-64 bg-card border-r border-border transform transition-transform duration-200 ease-in-out flex flex-col ${sidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}>
         <div className="flex items-center justify-between h-16 px-6 border-b border-border shrink-0">
           <Link href="/" className="flex items-center gap-2">
-            <h1 className="text-xl font-black tracking-tight bg-gradient-to-r from-blue-500 to-indigo-600 bg-clip-text text-transparent">
-              VIRAL ANIMAL
-            </h1>
+            <ViralAnimalLogo size={32} />
             {currentPlan !== 'free' && (
               <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-gradient-to-r from-amber-500 to-orange-500 text-white uppercase">
                 {planLabel[currentPlan]}
@@ -187,7 +186,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <Button variant="ghost" size="icon" onClick={() => setSidebarOpen(true)}>
             <Menu className="h-5 w-5" />
           </Button>
-          <span className="font-bold tracking-tight text-lg bg-gradient-to-r from-blue-500 to-indigo-600 bg-clip-text text-transparent">VIRAL ANIMAL</span>
+          <ViralAnimalLogo size={28} iconOnly />
           <div className="w-10"></div>
         </header>
 

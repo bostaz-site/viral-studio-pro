@@ -3,8 +3,9 @@
 
 import { useState, useRef, useCallback, useEffect, memo } from 'react'
 import { motion } from 'framer-motion'
-import { ExternalLink, Sparkles, Flame, Bookmark, Play, SlidersHorizontal, Loader2 } from 'lucide-react'
+import { ExternalLink, Sparkles, Flame, Bookmark, Play, SlidersHorizontal, Loader2, Zap } from 'lucide-react'
 import { getRankTierClass, MasterCorner, MasterCrown, SkullIcon } from '@/components/trending/rank-badge'
+import { getClipVerdict, getDynamicCTA, getVerdictColor, type CTAIcon } from '@/lib/browse/clip-verdict'
 import { useTilt } from '@/lib/hooks/use-tilt'
 import { cn } from '@/lib/utils'
 import { timeAgo, formatCount } from '@/lib/trending/utils'
@@ -209,14 +210,30 @@ export const TrendingCard = memo(function TrendingCard({ clip, onRemix, onQuickE
   const isLegendary = rank === 'legendary'
   const isEpic = rank === 'epic'
 
+  const wolfColorClass = isMaster ? '' : isLegendary ? '' : isEpic ? '' : rank === 'super_rare' ? 'text-[#9CA3AF]' : rank === 'rare' ? 'text-[#9CA3AF]' : 'text-[#9CA3AF]'
+  const wolfColorStyle = isMaster ? { color: '#FFE066' } : isLegendary ? { color: '#D4A840' } : isEpic ? { color: '#A78BFA' } : undefined
+  const wolfGlow = isMaster || isLegendary
+
   const tiltAmplitude = isMaster ? 12 : isLegendary ? 10 : isEpic ? 8 : 5
   const tilt = useTilt({ rotateAmplitude: tiltAmplitude, scaleOnHover: 1.0 })
 
   const isExporting = quickExportState?.clipId === clip.id && quickExportState.status === 'rendering'
 
+  const verdict = getClipVerdict(clip)
+  const dynamicCTA = getDynamicCTA(clip)
+  const verdictColor = getVerdictColor(score ?? 0)
+
+  const CTAIconComponent = ({ icon }: { icon: CTAIcon }) => {
+    switch (icon) {
+      case 'Flame': return <Flame className="h-3.5 w-3.5" />
+      case 'Sparkles': return <Sparkles className="h-3.5 w-3.5" />
+      case 'SlidersHorizontal': return <SlidersHorizontal className="h-3.5 w-3.5" />
+      case 'Zap': return <Zap className="h-3.5 w-3.5" />
+    }
+  }
+
   // ── Legendary rendering path — ornate gold frame design ──
   if (isLegendary) {
-    const legendaryHook = '🔥 Peak viral potential'
 
     return (
       <motion.article
@@ -348,16 +365,15 @@ export const TrendingCard = memo(function TrendingCard({ clip, onRemix, onQuickE
                   {clip.author_handle && gameLabel ? ' · ' : ''}
                   {gameLabel || ''}
                 </p>
-                <p className="leg-hook">
-                  {legendaryHook}
+                <p className="leg-hook" style={{ color: verdictColor }}>
+                  {verdict.text}
                 </p>
+                <p className="text-[10px] text-zinc-500 mt-0.5">{'\u2191'} {verdict.reason}</p>
               </div>
               {score !== null && (
                 <div className="leg-score-block">
-                  <svg width="18" height="22" viewBox="0 0 110 140" fill="none">
-                    <path d="M10 42 L35 42 L55 10Z" fill="url(#gc1)"/><path d="M35 42 L55 10 L75 42Z" fill="url(#gc2)"/><path d="M75 42 L55 10 L100 42Z" fill="url(#gc3)"/>
-                    <path d="M10 42 L35 42 L55 120Z" fill="url(#gpl)"/><path d="M35 42 L55 42 L55 120Z" fill="url(#gpml)"/>
-                    <path d="M55 42 L75 42 L55 120Z" fill="url(#gpmr)"/><path d="M75 42 L100 42 L55 120Z" fill="url(#gpr)"/>
+                  <svg viewBox="0 0 149 183" width="18" height="22" className="inline-block" style={{ color: '#D4A840', filter: 'drop-shadow(0 0 4px rgba(212, 168, 64, 0.5))' }}>
+                    <path fill="currentColor" fillRule="evenodd" d="M 16.0 5.0 L 16.0 46.0 L 21.0 63.0 L 27.0 59.0 L 24.0 27.0 L 41.0 53.0 L 35.0 53.0 L 36.0 69.0 L 28.0 63.0 L 8.0 80.0 L 17.0 85.0 L 4.0 103.0 L 14.0 102.0 L 14.0 112.0 L 31.0 111.0 L 28.0 101.0 L 40.0 111.0 L 41.0 106.0 L 50.0 112.0 L 49.0 125.0 L 62.0 149.0 L 63.0 142.0 L 71.0 138.0 L 62.0 126.0 L 64.0 122.0 L 85.0 123.0 L 77.0 137.0 L 84.0 141.0 L 86.0 149.0 L 98.0 127.0 L 96.0 111.0 L 106.0 106.0 L 108.0 110.0 L 119.0 101.0 L 116.0 111.0 L 134.0 112.0 L 132.0 103.0 L 144.0 103.0 L 130.0 85.0 L 139.0 80.0 L 119.0 63.0 L 111.0 69.0 L 113.0 53.0 L 106.0 53.0 L 123.0 27.0 L 120.0 59.0 L 126.0 64.0 L 131.0 44.0 L 130.0 4.0 L 88.0 41.0 L 59.0 41.0 Z M 51.0 137.0 L 56.0 163.0 L 64.0 173.0 L 64.0 172.0 L 66.0 171.0 L 72.0 177.0 L 74.0 178.0 L 76.0 177.0 L 81.0 172.0 L 83.0 173.0 L 89.0 167.0 L 92.0 162.0 L 92.0 159.0 L 93.0 158.0 L 93.0 153.0 L 94.0 152.0 L 94.0 148.0 L 95.0 147.0 L 96.0 138.0 L 94.0 142.0 L 94.0 145.0 L 91.0 150.0 L 90.0 155.0 L 87.0 160.0 L 85.0 159.0 L 83.0 153.0 L 82.0 157.0 L 81.0 158.0 L 81.0 161.0 L 79.0 164.0 L 68.0 164.0 L 67.0 163.0 L 67.0 159.0 L 66.0 158.0 L 65.0 153.0 L 62.0 160.0 L 61.0 160.0 L 59.0 158.0 L 58.0 154.0 L 56.0 151.0 L 55.0 146.0 L 53.0 143.0 L 52.0 138.0 Z M 110.0 82.0 L 110.0 83.0 L 109.0 84.0 L 109.0 86.0 L 108.0 87.0 L 108.0 89.0 L 107.0 90.0 L 107.0 91.0 L 106.0 92.0 L 105.0 95.0 L 103.0 97.0 L 101.0 97.0 L 100.0 98.0 L 95.0 98.0 L 94.0 99.0 L 91.0 100.0 L 91.0 101.0 L 90.0 102.0 L 89.0 102.0 L 87.0 104.0 L 86.0 104.0 L 85.0 103.0 L 85.0 101.0 L 86.0 100.0 L 86.0 96.0 L 89.0 93.0 L 90.0 93.0 L 92.0 91.0 L 93.0 91.0 L 95.0 89.0 L 96.0 89.0 L 98.0 87.0 L 99.0 87.0 L 104.0 83.0 L 105.0 83.0 L 108.0 81.0 L 109.0 81.0 Z M 38.0 82.0 L 39.0 81.0 L 42.0 82.0 L 44.0 84.0 L 45.0 84.0 L 47.0 86.0 L 48.0 86.0 L 50.0 88.0 L 51.0 88.0 L 53.0 90.0 L 54.0 90.0 L 56.0 92.0 L 57.0 92.0 L 59.0 94.0 L 60.0 94.0 L 61.0 95.0 L 61.0 98.0 L 62.0 99.0 L 62.0 103.0 L 61.0 104.0 L 60.0 104.0 L 55.0 99.0 L 52.0 99.0 L 51.0 98.0 L 47.0 98.0 L 46.0 97.0 L 45.0 97.0 L 42.0 94.0 L 42.0 93.0 L 40.0 90.0 L 40.0 88.0 L 38.0 85.0 Z M 28.0 116.0 L 31.0 117.0 L 33.0 119.0 L 34.0 119.0 L 36.0 121.0 L 37.0 121.0 L 37.0 119.0 L 36.0 118.0 L 36.0 116.0 L 34.0 113.0 L 32.0 113.0 L 30.0 115.0 L 29.0 115.0 Z M 119.0 116.0 L 118.0 115.0 L 117.0 115.0 L 115.0 113.0 L 113.0 113.0 L 113.0 114.0 L 112.0 115.0 L 112.0 117.0 L 111.0 118.0 L 111.0 120.0 L 110.0 121.0 L 113.0 120.0 L 115.0 118.0 L 116.0 118.0 L 118.0 116.0 Z M 103.0 88.0 L 100.0 89.0 L 98.0 91.0 L 97.0 91.0 L 95.0 93.0 L 94.0 93.0 L 93.0 94.0 L 99.0 94.0 L 100.0 93.0 L 101.0 93.0 L 102.0 92.0 L 102.0 90.0 L 103.0 89.0 Z M 45.0 88.0 L 45.0 90.0 L 46.0 91.0 L 46.0 92.0 L 48.0 94.0 L 54.0 94.0 L 52.0 92.0 L 51.0 92.0 L 49.0 90.0 L 48.0 90.0 Z" />
                   </svg>
                   <span className="leg-score-big">{score}</span>
                 </div>
@@ -367,7 +383,7 @@ export const TrendingCard = memo(function TrendingCard({ clip, onRemix, onQuickE
             <button className="leg-cta"
               onClick={(e) => { e.stopPropagation(); onRemix?.(clip) }}
               disabled={remixing}>
-              {remixing ? 'Creating...' : '✦ Make it Viral'}
+              {remixing ? 'Creating...' : `${dynamicCTA.icon === 'Flame' ? '\uD83D\uDD25' : '\u2726'} ${dynamicCTA.label}`}
             </button>
           </div>
         </div>
@@ -451,9 +467,14 @@ export const TrendingCard = memo(function TrendingCard({ clip, onRemix, onQuickE
         {/* Master crown pediment */}
         {isMaster && <MasterCrown className="master-crown" />}
 
-        {/* Score — big Archivo Black number */}
+        {/* Score — wolf icon + big number */}
         {score !== null && (
-          <span className="rank-score">{score}</span>
+          <span className="rank-score">
+            <svg viewBox="0 0 149 183" width="16" height="20" className={cn('inline-block -mt-0.5 mr-0.5', wolfColorClass)} style={{ ...wolfColorStyle, ...(wolfGlow ? { filter: 'drop-shadow(0 0 4px rgba(250, 204, 21, 0.4))' } : {}) }}>
+              <path fill="currentColor" fillRule="evenodd" d="M 16.0 5.0 L 16.0 46.0 L 21.0 63.0 L 27.0 59.0 L 24.0 27.0 L 41.0 53.0 L 35.0 53.0 L 36.0 69.0 L 28.0 63.0 L 8.0 80.0 L 17.0 85.0 L 4.0 103.0 L 14.0 102.0 L 14.0 112.0 L 31.0 111.0 L 28.0 101.0 L 40.0 111.0 L 41.0 106.0 L 50.0 112.0 L 49.0 125.0 L 62.0 149.0 L 63.0 142.0 L 71.0 138.0 L 62.0 126.0 L 64.0 122.0 L 85.0 123.0 L 77.0 137.0 L 84.0 141.0 L 86.0 149.0 L 98.0 127.0 L 96.0 111.0 L 106.0 106.0 L 108.0 110.0 L 119.0 101.0 L 116.0 111.0 L 134.0 112.0 L 132.0 103.0 L 144.0 103.0 L 130.0 85.0 L 139.0 80.0 L 119.0 63.0 L 111.0 69.0 L 113.0 53.0 L 106.0 53.0 L 123.0 27.0 L 120.0 59.0 L 126.0 64.0 L 131.0 44.0 L 130.0 4.0 L 88.0 41.0 L 59.0 41.0 Z M 51.0 137.0 L 56.0 163.0 L 64.0 173.0 L 64.0 172.0 L 66.0 171.0 L 72.0 177.0 L 74.0 178.0 L 76.0 177.0 L 81.0 172.0 L 83.0 173.0 L 89.0 167.0 L 92.0 162.0 L 92.0 159.0 L 93.0 158.0 L 93.0 153.0 L 94.0 152.0 L 94.0 148.0 L 95.0 147.0 L 96.0 138.0 L 94.0 142.0 L 94.0 145.0 L 91.0 150.0 L 90.0 155.0 L 87.0 160.0 L 85.0 159.0 L 83.0 153.0 L 82.0 157.0 L 81.0 158.0 L 81.0 161.0 L 79.0 164.0 L 68.0 164.0 L 67.0 163.0 L 67.0 159.0 L 66.0 158.0 L 65.0 153.0 L 62.0 160.0 L 61.0 160.0 L 59.0 158.0 L 58.0 154.0 L 56.0 151.0 L 55.0 146.0 L 53.0 143.0 L 52.0 138.0 Z M 110.0 82.0 L 110.0 83.0 L 109.0 84.0 L 109.0 86.0 L 108.0 87.0 L 108.0 89.0 L 107.0 90.0 L 107.0 91.0 L 106.0 92.0 L 105.0 95.0 L 103.0 97.0 L 101.0 97.0 L 100.0 98.0 L 95.0 98.0 L 94.0 99.0 L 91.0 100.0 L 91.0 101.0 L 90.0 102.0 L 89.0 102.0 L 87.0 104.0 L 86.0 104.0 L 85.0 103.0 L 85.0 101.0 L 86.0 100.0 L 86.0 96.0 L 89.0 93.0 L 90.0 93.0 L 92.0 91.0 L 93.0 91.0 L 95.0 89.0 L 96.0 89.0 L 98.0 87.0 L 99.0 87.0 L 104.0 83.0 L 105.0 83.0 L 108.0 81.0 L 109.0 81.0 Z M 38.0 82.0 L 39.0 81.0 L 42.0 82.0 L 44.0 84.0 L 45.0 84.0 L 47.0 86.0 L 48.0 86.0 L 50.0 88.0 L 51.0 88.0 L 53.0 90.0 L 54.0 90.0 L 56.0 92.0 L 57.0 92.0 L 59.0 94.0 L 60.0 94.0 L 61.0 95.0 L 61.0 98.0 L 62.0 99.0 L 62.0 103.0 L 61.0 104.0 L 60.0 104.0 L 55.0 99.0 L 52.0 99.0 L 51.0 98.0 L 47.0 98.0 L 46.0 97.0 L 45.0 97.0 L 42.0 94.0 L 42.0 93.0 L 40.0 90.0 L 40.0 88.0 L 38.0 85.0 Z M 28.0 116.0 L 31.0 117.0 L 33.0 119.0 L 34.0 119.0 L 36.0 121.0 L 37.0 121.0 L 37.0 119.0 L 36.0 118.0 L 36.0 116.0 L 34.0 113.0 L 32.0 113.0 L 30.0 115.0 L 29.0 115.0 Z M 119.0 116.0 L 118.0 115.0 L 117.0 115.0 L 115.0 113.0 L 113.0 113.0 L 113.0 114.0 L 112.0 115.0 L 112.0 117.0 L 111.0 118.0 L 111.0 120.0 L 110.0 121.0 L 113.0 120.0 L 115.0 118.0 L 116.0 118.0 L 118.0 116.0 Z M 103.0 88.0 L 100.0 89.0 L 98.0 91.0 L 97.0 91.0 L 95.0 93.0 L 94.0 93.0 L 93.0 94.0 L 99.0 94.0 L 100.0 93.0 L 101.0 93.0 L 102.0 92.0 L 102.0 90.0 L 103.0 89.0 Z M 45.0 88.0 L 45.0 90.0 L 46.0 91.0 L 46.0 92.0 L 48.0 94.0 L 54.0 94.0 L 52.0 92.0 L 51.0 92.0 L 49.0 90.0 L 48.0 90.0 Z" />
+            </svg>
+            {score}
+          </span>
         )}
 
         {/* Master sparks */}
@@ -517,12 +538,16 @@ export const TrendingCard = memo(function TrendingCard({ clip, onRemix, onQuickE
                     {gameLabel ? ` · ${gameLabel}` : ''}
                   </p>
                 )}
-                <p className="text-xs font-semibold mt-1.5" style={{ color: '#A78BFA' }}>
-                  ⚡ High viral potential
+                <p className="text-xs font-semibold mt-1.5" style={{ color: verdictColor }}>
+                  {verdict.text}
                 </p>
+                <p className="text-[10px] text-zinc-500 mt-0.5">{'\u2191'} {verdict.reason}</p>
               </div>
               {score !== null && (
                 <div className="epic-score-block">
+                  <svg viewBox="0 0 149 183" width="16" height="20" className="inline-block mb-0.5" style={{ color: '#A78BFA' }}>
+                    <path fill="currentColor" fillRule="evenodd" d="M 16.0 5.0 L 16.0 46.0 L 21.0 63.0 L 27.0 59.0 L 24.0 27.0 L 41.0 53.0 L 35.0 53.0 L 36.0 69.0 L 28.0 63.0 L 8.0 80.0 L 17.0 85.0 L 4.0 103.0 L 14.0 102.0 L 14.0 112.0 L 31.0 111.0 L 28.0 101.0 L 40.0 111.0 L 41.0 106.0 L 50.0 112.0 L 49.0 125.0 L 62.0 149.0 L 63.0 142.0 L 71.0 138.0 L 62.0 126.0 L 64.0 122.0 L 85.0 123.0 L 77.0 137.0 L 84.0 141.0 L 86.0 149.0 L 98.0 127.0 L 96.0 111.0 L 106.0 106.0 L 108.0 110.0 L 119.0 101.0 L 116.0 111.0 L 134.0 112.0 L 132.0 103.0 L 144.0 103.0 L 130.0 85.0 L 139.0 80.0 L 119.0 63.0 L 111.0 69.0 L 113.0 53.0 L 106.0 53.0 L 123.0 27.0 L 120.0 59.0 L 126.0 64.0 L 131.0 44.0 L 130.0 4.0 L 88.0 41.0 L 59.0 41.0 Z M 51.0 137.0 L 56.0 163.0 L 64.0 173.0 L 64.0 172.0 L 66.0 171.0 L 72.0 177.0 L 74.0 178.0 L 76.0 177.0 L 81.0 172.0 L 83.0 173.0 L 89.0 167.0 L 92.0 162.0 L 92.0 159.0 L 93.0 158.0 L 93.0 153.0 L 94.0 152.0 L 94.0 148.0 L 95.0 147.0 L 96.0 138.0 L 94.0 142.0 L 94.0 145.0 L 91.0 150.0 L 90.0 155.0 L 87.0 160.0 L 85.0 159.0 L 83.0 153.0 L 82.0 157.0 L 81.0 158.0 L 81.0 161.0 L 79.0 164.0 L 68.0 164.0 L 67.0 163.0 L 67.0 159.0 L 66.0 158.0 L 65.0 153.0 L 62.0 160.0 L 61.0 160.0 L 59.0 158.0 L 58.0 154.0 L 56.0 151.0 L 55.0 146.0 L 53.0 143.0 L 52.0 138.0 Z M 110.0 82.0 L 110.0 83.0 L 109.0 84.0 L 109.0 86.0 L 108.0 87.0 L 108.0 89.0 L 107.0 90.0 L 107.0 91.0 L 106.0 92.0 L 105.0 95.0 L 103.0 97.0 L 101.0 97.0 L 100.0 98.0 L 95.0 98.0 L 94.0 99.0 L 91.0 100.0 L 91.0 101.0 L 90.0 102.0 L 89.0 102.0 L 87.0 104.0 L 86.0 104.0 L 85.0 103.0 L 85.0 101.0 L 86.0 100.0 L 86.0 96.0 L 89.0 93.0 L 90.0 93.0 L 92.0 91.0 L 93.0 91.0 L 95.0 89.0 L 96.0 89.0 L 98.0 87.0 L 99.0 87.0 L 104.0 83.0 L 105.0 83.0 L 108.0 81.0 L 109.0 81.0 Z M 38.0 82.0 L 39.0 81.0 L 42.0 82.0 L 44.0 84.0 L 45.0 84.0 L 47.0 86.0 L 48.0 86.0 L 50.0 88.0 L 51.0 88.0 L 53.0 90.0 L 54.0 90.0 L 56.0 92.0 L 57.0 92.0 L 59.0 94.0 L 60.0 94.0 L 61.0 95.0 L 61.0 98.0 L 62.0 99.0 L 62.0 103.0 L 61.0 104.0 L 60.0 104.0 L 55.0 99.0 L 52.0 99.0 L 51.0 98.0 L 47.0 98.0 L 46.0 97.0 L 45.0 97.0 L 42.0 94.0 L 42.0 93.0 L 40.0 90.0 L 40.0 88.0 L 38.0 85.0 Z M 28.0 116.0 L 31.0 117.0 L 33.0 119.0 L 34.0 119.0 L 36.0 121.0 L 37.0 121.0 L 37.0 119.0 L 36.0 118.0 L 36.0 116.0 L 34.0 113.0 L 32.0 113.0 L 30.0 115.0 L 29.0 115.0 Z M 119.0 116.0 L 118.0 115.0 L 117.0 115.0 L 115.0 113.0 L 113.0 113.0 L 113.0 114.0 L 112.0 115.0 L 112.0 117.0 L 111.0 118.0 L 111.0 120.0 L 110.0 121.0 L 113.0 120.0 L 115.0 118.0 L 116.0 118.0 L 118.0 116.0 Z M 103.0 88.0 L 100.0 89.0 L 98.0 91.0 L 97.0 91.0 L 95.0 93.0 L 94.0 93.0 L 93.0 94.0 L 99.0 94.0 L 100.0 93.0 L 101.0 93.0 L 102.0 92.0 L 102.0 90.0 L 103.0 89.0 Z M 45.0 88.0 L 45.0 90.0 L 46.0 91.0 L 46.0 92.0 L 48.0 94.0 L 54.0 94.0 L 52.0 92.0 L 51.0 92.0 L 49.0 90.0 L 48.0 90.0 Z" />
+                  </svg>
                   <span className="epic-score-num">{score}</span>
                 </div>
               )}
@@ -533,8 +558,8 @@ export const TrendingCard = memo(function TrendingCard({ clip, onRemix, onQuickE
               onClick={(e) => { e.stopPropagation(); onRemix?.(clip) }}
               disabled={remixing}
             >
-              <Sparkles className="h-3.5 w-3.5" />
-              <span className="relative z-10">{remixing ? 'Creating...' : 'Make It Viral'}</span>
+              <CTAIconComponent icon={dynamicCTA.icon} />
+              <span className="relative z-10">{remixing ? 'Creating...' : dynamicCTA.label}</span>
             </button>
           </>
         ) : (
@@ -573,14 +598,20 @@ export const TrendingCard = memo(function TrendingCard({ clip, onRemix, onQuickE
               </div>
             )}
 
+            {/* Verdict */}
+            <p className="text-[11px] font-medium mt-1" style={{ color: verdictColor }}>
+              {verdict.text}
+            </p>
+            <p className="text-[10px] text-zinc-500">{'\u2191'} {verdict.reason}</p>
+
             {/* CTA button */}
             <button
               className="cta-viral w-full h-9 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-all relative z-10"
               onClick={(e) => { e.stopPropagation(); onRemix?.(clip) }}
               disabled={remixing}
             >
-              {isMaster ? <SkullIcon className="h-3.5 w-3.5" /> : <Sparkles className="h-3.5 w-3.5" />}
-              <span className="relative z-10">{remixing ? 'Creating...' : 'Make It Viral'}</span>
+              {isMaster ? <SkullIcon className="h-3.5 w-3.5" /> : <CTAIconComponent icon={dynamicCTA.icon} />}
+              <span className="relative z-10">{remixing ? 'Creating...' : dynamicCTA.label}</span>
             </button>
           </div>
         )}
