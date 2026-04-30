@@ -175,13 +175,19 @@ export const TrendingCard = memo(function TrendingCard({ clip, onRemix, onQuickE
       fetchedRef.current = true
       const slug = getClipSlug()
       if (slug) {
+        const currentClipId = clip.id
         fetch(`/api/clips/video-url?slug=${encodeURIComponent(slug)}`)
           .then((r) => r.ok ? r.json() : null)
-          .then((data) => { if (data?.video_url) setResolvedVideoUrl(data.video_url) })
+          .then((data) => {
+            // Only set URL if this component still represents the same clip
+            if (data?.video_url && currentClipId === clip.id) {
+              setResolvedVideoUrl(data.video_url)
+            }
+          })
           .catch(() => {/* ignore */})
       }
     }
-  }, [clip.platform, getClipSlug])
+  }, [clip.id, clip.platform, getClipSlug])
 
   const handleMouseLeave = useCallback(() => {
     setHovered(false)
@@ -197,7 +203,14 @@ export const TrendingCard = memo(function TrendingCard({ clip, onRemix, onQuickE
     if (!hovered || !videoUrl) return
     setShowVideo(true)
     const t = setTimeout(() => {
-      videoRef.current?.play().catch(() => {})
+      if (videoRef.current) {
+        // Ensure the browser loads the correct source for this clip
+        if (videoRef.current.src !== videoUrl) {
+          videoRef.current.src = videoUrl
+          videoRef.current.load()
+        }
+        videoRef.current.play().catch(() => {})
+      }
     }, 30)
     return () => clearTimeout(t)
   }, [hovered, videoUrl])
@@ -283,7 +296,7 @@ export const TrendingCard = memo(function TrendingCard({ clip, onRemix, onQuickE
               <div className="leg-thumb">
                 {/* Video preview */}
                 {showVideo && videoUrl && (
-                  <video ref={videoRef} src={videoUrl}
+                  <video key={clip.id} ref={videoRef} src={videoUrl}
                     className="absolute inset-0 w-full h-full object-cover z-[5]"
                     autoPlay muted playsInline loop disablePictureInPicture controlsList="nodownload nofullscreen noremoteplayback" onPlaying={() => setVideoPlaying(true)} />
                 )}
@@ -407,6 +420,7 @@ export const TrendingCard = memo(function TrendingCard({ clip, onRemix, onQuickE
         {/* Video preview on hover */}
         {showVideo && videoUrl && (
           <video
+            key={clip.id}
             ref={videoRef}
             src={videoUrl}
             className="absolute inset-0 w-full h-full object-cover z-[5]"

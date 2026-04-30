@@ -235,11 +235,23 @@ export const POST = withAuth(async (request, user) => {
   }
 
   if (quotaAllowed === false) {
+    // Fetch current usage for diagnostics
+    const { data: usageRow } = await (admin
+      .from('profiles')
+      .select('monthly_videos_used, bonus_videos')
+      .eq('id', user.id)
+      .single() as unknown as Promise<{ data: { monthly_videos_used: number; bonus_videos: number } | null }>)
+
     return NextResponse.json(
       {
-        data: { plan: callerPlan },
+        data: {
+          plan: callerPlan,
+          current: usageRow?.monthly_videos_used ?? -1,
+          limit: maxVideos,
+          bonus: usageRow?.bonus_videos ?? 0,
+        },
         error: 'quota_exceeded',
-        message: `Monthly limit reached for ${callerPlan} plan. Upgrade to continue.`,
+        message: `Monthly limit reached for ${callerPlan} plan (${usageRow?.monthly_videos_used ?? '?'}/${maxVideos}). Upgrade to continue.`,
       },
       { status: 402 },
     )
