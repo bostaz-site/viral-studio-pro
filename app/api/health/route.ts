@@ -9,7 +9,10 @@ async function checkSupabase(): Promise<'ok' | 'error'> {
       headers: { apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? '' },
       signal: AbortSignal.timeout(5000),
     })
-    return res.ok ? 'ok' : 'error'
+    // Supabase responds 401 to unauthenticated GET on /rest/v1/ root — that's
+    // proof of life. Only treat 5xx, timeout, or network errors as 'error'.
+    if (res.status >= 500) return 'error'
+    return 'ok'
   } catch {
     return 'error'
   }
