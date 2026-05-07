@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { withAuth } from '@/lib/api/withAuth'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { logger } from '@/lib/logger'
 
 /**
  * GET /api/clips/download?clip_id=xxx&format=9:16
@@ -57,7 +58,7 @@ export const GET = withAuth(async (request, user) => {
     })
 
   if (signedError || !signedData?.signedUrl) {
-    console.error('[download] Signed URL error:', signedError)
+    logger.error('[download] Signed URL error:', signedError)
     return NextResponse.json(
       { data: null, error: 'Download failed', message: 'Failed to generate download link' },
       { status: 500 }

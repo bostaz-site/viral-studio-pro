@@ -104,6 +104,7 @@ export interface TrendingFiltersState {
   sort: SortOption
   duration: DurationFilter
   feed: FeedFilter
+  streamer?: string  // streamer name filter, '' = all
 }
 
 export interface ViralNotification {

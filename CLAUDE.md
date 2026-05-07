@@ -273,7 +273,9 @@ UPSTASH_REDIS_REST_TOKEN=
 # 2 instances with MAX_CONCURRENT=3 each gives 6 total slots.
 RENDER_MAX_CONCURRENT=3
 
-# Webhook security (optional, set true once VPS sends HMAC signatures)
+# Webhook HMAC (server-only, shared with VPS)
+# Signs VPS→Next.js webhook callbacks. Set WEBHOOK_HMAC_ONLY=true once VPS is deployed with HMAC.
+WEBHOOK_SECRET=
 WEBHOOK_HMAC_ONLY=false
 
 # Admin (server-only, never NEXT_PUBLIC_)
@@ -281,6 +283,13 @@ ADMIN_EMAILS=samycloutier30@gmail.com
 
 # App
 NEXT_PUBLIC_APP_URL=https://viralanimal.com
+
+# Sentry (error tracking + performance)
+NEXT_PUBLIC_SENTRY_DSN=
+SENTRY_DSN=
+SENTRY_AUTH_TOKEN=
+SENTRY_ORG=viral-animal
+SENTRY_PROJECT=viral-animal-web
 ```
 
 ## Conventions de Code
@@ -293,6 +302,8 @@ NEXT_PUBLIC_APP_URL=https://viralanimal.com
 - Server Components par defaut, Client Components seulement si interactivite
 - Toujours gerer les erreurs avec try/catch
 - Pas de console.log en production
+- Toujours utiliser `next/image` pour les `<img>` (lazy loading auto, srcset, AVIF/WebP)
+- Domaines externes d'images : ajouter a `next.config.mjs` > `images.remotePatterns`
 
 ### API Routes
 - Valider les inputs (zod)

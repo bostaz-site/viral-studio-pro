@@ -6,7 +6,9 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { releaseJob, processNextInQueue, enqueueRender } from '@/lib/render-queue'
 import { redis } from '@/lib/upstash'
 import { timingSafeCompare } from '@/lib/crypto'
+import { rateLimit, RATE_LIMITS } from '@/lib/rate-limit'
 import type { RenderStatus } from '@/types/enums'
+import { logger } from '@/lib/logger'
 
 // ── Hook text generation (frontend → VPS proxy) ──────────────────
 
@@ -41,27 +43,26 @@ const webhookSchema = z.object({
 
 /**
  * Verify VPS webhook authenticity.
- * Priority: HMAC signature > API key header (legacy fallback).
+ * Priority: HMAC signature (WEBHOOK_SECRET) > API key header (legacy fallback).
  *
- * Set WEBHOOK_HMAC_ONLY=true once VPS is updated to send HMAC signatures.
+ * Set WEBHOOK_HMAC_ONLY=true once VPS is deployed with HMAC signatures.
  * This disables the legacy X-Api-Key fallback, which is less secure because
  * a leaked API key allows forging arbitrary webhook payloads.
  */
 function verifyWebhook(req: NextRequest, body: string): boolean {
+  const webhookSecret = process.env.WEBHOOK_SECRET
   const vpsKey = process.env.VPS_RENDER_API_KEY
-  if (!vpsKey) return false
-
   const hmacOnly = process.env.WEBHOOK_HMAC_ONLY === 'true'
 
-  // 1. HMAC signature (preferred)
+  // 1. HMAC signature (preferred) — uses dedicated WEBHOOK_SECRET
   const signature = req.headers.get('x-webhook-signature')
-  if (signature) {
-    const expectedSig = createHmac('sha256', vpsKey).update(body).digest('hex')
-    return timingSafeCompare(signature, expectedSig)
+  if (signature && webhookSecret) {
+    const expected = 'sha256=' + createHmac('sha256', webhookSecret).update(body).digest('hex')
+    return expected.length === signature.length && timingSafeCompare(signature, expected)
   }
 
   // 2. API key header (legacy fallback — disabled when WEBHOOK_HMAC_ONLY=true)
-  if (!hmacOnly) {
+  if (!hmacOnly && vpsKey) {
     const apiKey = req.headers.get('x-api-key')
     if (apiKey) {
       return timingSafeCompare(apiKey, vpsKey)
@@ -88,9 +89,14 @@ export async function POST(req: NextRequest) {
 
 async function handleWebhook(req: NextRequest) {
   const body = await req.text()
+  const hmacValid = verifyWebhook(req, body)
+  const hmacOnly = process.env.WEBHOOK_HMAC_ONLY === 'true'
 
-  if (!verifyWebhook(req, body)) {
+  if (!hmacValid && hmacOnly) {
     return NextResponse.json({ error: 'Invalid signature' }, { status: 401 })
+  }
+  if (!hmacValid) {
+    logger.warn('[render/hook] HMAC missing or invalid (warn-only mode)')
   }
 
   let payload: z.infer<typeof webhookSchema>
@@ -127,7 +133,7 @@ async function handleWebhook(req: NextRequest) {
   // ── Retry / Dead-letter logic ──
   if (payload.status === 'error' && retryCount < maxRetries) {
     // Retriable failure — re-enqueue the job
-    console.log(`[webhook] Job ${payload.jobId} failed (attempt ${retryCount + 1}/${maxRetries}), re-queuing`)
+    logger.info(`[webhook] Job ${payload.jobId} failed (attempt ${retryCount + 1}/${maxRetries}), re-queuing`)
 
     await admin
       .from('render_jobs')
@@ -169,7 +175,7 @@ async function handleWebhook(req: NextRequest) {
     .eq('id', payload.jobId)
 
   if (error) {
-    console.error('[webhook] Failed to update job:', error.message)
+    logger.error('[webhook] Failed to update job:', error.message)
     return NextResponse.json({ error: 'DB update failed' }, { status: 500 })
   }
 
@@ -198,8 +204,33 @@ async function handleWebhook(req: NextRequest) {
 
 // ── Frontend Hook Generation Handler ─────────────────────────────
 
-const hookGenerationHandler = withAuth(async (req: NextRequest) => {
+const hookGenerationHandler = withAuth(async (req: NextRequest, user) => {
   try {
+    // Plan-aware rate limit: 50/day free, 500/day pro/studio
+    const admin = createAdminClient()
+    const { data: profile } = await admin
+      .from('profiles')
+      .select('plan')
+      .eq('id', user.id)
+      .single()
+    const plan = profile?.plan ?? 'free'
+    const rlConfig = plan === 'free'
+      ? RATE_LIMITS.renderHook
+      : RATE_LIMITS.renderHookPro
+    const rl = await rateLimit(`render-hook:${user.id}`, rlConfig.limit, rlConfig.windowMs)
+    if (!rl.allowed) {
+      return NextResponse.json(
+        {
+          data: null,
+          error: plan === 'free'
+            ? 'Daily limit reached (50/day). Upgrade to Pro for 500/day.'
+            : 'Daily limit reached. Please try again tomorrow.',
+          message: 'Rate limited',
+        },
+        { status: 429 },
+      )
+    }
+
     const body = await req.json()
     const parsed = inputSchema.safeParse(body)
 
@@ -244,7 +275,7 @@ const hookGenerationHandler = withAuth(async (req: NextRequest) => {
 
     return NextResponse.json(vpsJson)
   } catch (err) {
-    console.error('[API/render/hook] Error:', err)
+    logger.error('[API/render/hook] Error:', err)
     return NextResponse.json(
       { data: null, error: 'Internal error', message: 'Failed to generate hooks' },
       { status: 500 }

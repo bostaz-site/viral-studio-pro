@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { Settings, Menu, X, LogOut, Zap, Compass, Wand2, Crown, Radio, BarChart3, Users } from 'lucide-react'
+import { Settings, Menu, X, LogOut, Zap, Compass, Wand2, Radio, BarChart3, TrendingUp, Handshake, Users, ChevronRight } from 'lucide-react'
 import { ViralAnimalLogo } from '@/components/brand/viral-animal-logo'
 import { useUiStore } from '@/stores/ui-store'
 import { Button } from '@/components/ui/button'
@@ -57,19 +57,20 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     router.push('/login')
   }
 
-  const navigation = [
+  // User-facing nav (always visible)
+  const userNavigation = [
     { name: 'Browse', href: '/dashboard', icon: Compass },
     { name: 'Enhance', href: '/dashboard/enhance', icon: Wand2 },
     { name: 'Distribution', href: '/dashboard/distribution', icon: Radio },
     { name: 'Analytics', href: '/dashboard/analytics', icon: BarChart3 },
-    ...(isAdmin
-      ? [
-          { name: 'Growth (admin)', href: '/admin/growth', icon: Crown },
-          { name: 'Affiliates (admin)', href: '/admin/affiliates', icon: Crown },
-          { name: 'Streamers (admin)', href: '/admin/streamers', icon: Users },
-        ]
-      : []),
     { name: 'Settings', href: '/settings', icon: Settings },
+  ]
+
+  // Admin-only nav — distinct icons (no more duplicate Crown), shown under a labelled section
+  const adminNavigation = [
+    { name: 'Growth', href: '/admin/growth', icon: TrendingUp },
+    { name: 'Affiliates', href: '/admin/affiliates', icon: Handshake },
+    { name: 'Streamers', href: '/admin/streamers', icon: Users },
   ]
 
   const planLimits: Record<string, number> = { free: 3, pro: 50, studio: 999 }
@@ -108,26 +109,46 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           </div>
         </div>
 
-        <nav className="p-4 pt-6 space-y-1 flex-1">
-          {navigation.map((item) => {
-            const isActive = item.href === '/dashboard'
-              ? pathname === '/dashboard'
-              : item.href === '/dashboard/enhance'
-              ? pathname?.startsWith('/dashboard/enhance')
-              : item.href === '/dashboard/distribution'
-              ? pathname?.startsWith('/dashboard/distribution')
-              : item.href === '/dashboard/analytics'
-              ? pathname?.startsWith('/dashboard/analytics')
-              : pathname?.startsWith(item.href) && item.href !== '/dashboard'
-            return (
-              <Link key={item.name} href={item.href}>
-                <span className={`flex items-center px-4 py-2.5 text-sm font-medium rounded-xl transition-all duration-200 ${isActive ? 'bg-primary/10 text-primary shadow-sm' : 'text-muted-foreground hover:bg-muted hover:text-foreground'}`}>
-                  <item.icon className={`h-5 w-5 mr-3 ${isActive ? 'text-primary' : 'text-muted-foreground'}`} />
-                  {item.name}
-                </span>
-              </Link>
-            )
-          })}
+        <nav className="p-4 pt-6 flex-1 overflow-y-auto">
+          {/* User nav */}
+          <div className="space-y-1">
+            {userNavigation.map((item) => {
+              const isActive = item.href === '/dashboard'
+                ? pathname === '/dashboard'
+                : pathname?.startsWith(item.href)
+              return (
+                <Link key={item.name} href={item.href}>
+                  <span className={`flex items-center px-4 py-2.5 text-sm font-medium rounded-xl transition-all duration-200 ${isActive ? 'bg-primary/10 text-primary shadow-sm' : 'text-muted-foreground hover:bg-muted hover:text-foreground'}`}>
+                    <item.icon className={`h-5 w-5 mr-3 ${isActive ? 'text-primary' : 'text-muted-foreground'}`} />
+                    {item.name}
+                  </span>
+                </Link>
+              )
+            })}
+          </div>
+
+          {/* Admin nav — labelled section, only visible to admins */}
+          {isAdmin && (
+            <div className="mt-6">
+              <div className="flex items-center gap-2 px-4 mb-2">
+                <span className="text-[10px] font-bold tracking-wider text-zinc-500 uppercase">Admin</span>
+                <div className="flex-1 h-px bg-zinc-800/60" />
+              </div>
+              <div className="space-y-1">
+                {adminNavigation.map((item) => {
+                  const isActive = pathname?.startsWith(item.href)
+                  return (
+                    <Link key={item.name} href={item.href}>
+                      <span className={`flex items-center px-4 py-2.5 text-sm font-medium rounded-xl transition-all duration-200 ${isActive ? 'bg-amber-500/10 text-amber-400 shadow-sm' : 'text-zinc-500 hover:bg-muted hover:text-zinc-300'}`}>
+                        <item.icon className={`h-5 w-5 mr-3 ${isActive ? 'text-amber-400' : 'text-zinc-500'}`} />
+                        {item.name}
+                      </span>
+                    </Link>
+                  )
+                })}
+              </div>
+            </div>
+          )}
         </nav>
 
         {/* Usage + Plan */}
@@ -146,7 +167,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             {currentPlan === 'free' && (
               <Link href="/settings" className="flex items-center gap-1.5 text-xs text-amber-400 hover:text-amber-300 transition-colors font-medium">
                 <Zap className="h-3 w-3" />
-                Upgrade to Pro — 30 clips/mo
+                Upgrade to Pro — {planLimits.pro} clips/mo
               </Link>
             )}
           </div>
@@ -200,16 +221,64 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   )
 }
 
+// Rank thresholds (must match lib/scoring/account-scorer.ts CREATOR_RANK_CONFIG)
+// Used to compute progression toward the next rank tier.
+const RANK_THRESHOLDS: Record<string, number> = {
+  scout: 0,
+  hunter: 20,
+  alpha: 40,
+  apex: 60,
+  legend: 80,
+}
+const RANK_ORDER = ['scout', 'hunter', 'alpha', 'apex', 'legend']
+
 function SidebarRankBadge() {
   const { score, fetchAccountScore } = useAccountStore()
   useEffect(() => { fetchAccountScore() }, [fetchAccountScore])
   if (!score) return null
   const cfg = CREATOR_RANK_CONFIG[score.creator_rank]
+  const currentScore = score.creator_score
+  const currentIdx = RANK_ORDER.indexOf(score.creator_rank)
+  const nextRank = currentIdx >= 0 && currentIdx < RANK_ORDER.length - 1 ? RANK_ORDER[currentIdx + 1] : null
+  const nextThreshold = nextRank ? RANK_THRESHOLDS[nextRank] : null
+  const currentThreshold = RANK_THRESHOLDS[score.creator_rank] ?? 0
+  const progressPct = nextThreshold
+    ? Math.min(100, Math.max(0, ((currentScore - currentThreshold) / (nextThreshold - currentThreshold)) * 100))
+    : 100
+
   return (
-    <Link href="/settings" className="flex items-center gap-1.5 mb-2 px-1 py-1 rounded-lg hover:bg-muted/50 transition-colors">
-      <span className="text-sm">{cfg.emoji}</span>
-      <span className={`text-[10px] font-bold ${cfg.color}`}>{cfg.label}</span>
-      <span className="text-[10px] text-muted-foreground ml-auto">{score.creator_score}</span>
+    <Link
+      href="/dashboard/analytics"
+      className="block mb-3 px-3 py-2.5 rounded-xl bg-cyan-500/8 hover:bg-cyan-500/12 border border-cyan-500/15 hover:border-cyan-500/30 transition-all group"
+      title="View your full Creator Rank in Analytics"
+    >
+      <div className="flex items-center justify-between mb-1.5">
+        <div className="flex items-center gap-1.5 min-w-0">
+          <span className="text-sm">{cfg.emoji}</span>
+          <span className={`text-xs font-bold ${cfg.color} truncate`}>{cfg.label}</span>
+        </div>
+        <div className="flex items-center gap-1 text-[10px] text-muted-foreground tabular-nums shrink-0">
+          <span className="font-semibold text-zinc-300">{currentScore}</span>
+          <span>/100</span>
+          <ChevronRight className="h-3 w-3 ml-0.5 opacity-0 group-hover:opacity-60 transition-opacity" />
+        </div>
+      </div>
+      {nextRank && (
+        <>
+          <div className="h-1 bg-zinc-800/70 rounded-full overflow-hidden">
+            <div
+              className="h-full bg-gradient-to-r from-cyan-500 to-sky-400 rounded-full transition-all duration-500"
+              style={{ width: `${progressPct}%` }}
+            />
+          </div>
+          <p className="text-[9px] text-muted-foreground mt-1.5 truncate">
+            {(nextThreshold! - currentScore).toFixed(1)} to <span className="font-semibold text-cyan-400 uppercase">{nextRank}</span>
+          </p>
+        </>
+      )}
+      {!nextRank && (
+        <p className="text-[9px] text-amber-400/80 mt-1 font-medium uppercase tracking-wider">Max rank — keep dominating</p>
+      )}
     </Link>
   )
 }

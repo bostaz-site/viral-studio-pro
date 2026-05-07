@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { timingSafeCompare } from '@/lib/crypto'
+import { logger } from '@/lib/logger'
 
 /**
  * POST /api/cron/cleanup-storage
@@ -61,7 +62,7 @@ export async function POST(req: NextRequest) {
         .eq('plan', plan)
 
       if (usersError) {
-        console.error(`[cleanup-storage] Error fetching ${plan} users:`, usersError.message)
+        logger.error(`[cleanup-storage] Error fetching ${plan} users:`, usersError.message)
         continue
       }
       if (!users || users.length === 0) continue
@@ -79,7 +80,7 @@ export async function POST(req: NextRequest) {
         .limit(remaining)
 
       if (expiredError) {
-        console.error(`[cleanup-storage] Error fetching expired jobs (${plan}):`, expiredError.message)
+        logger.error(`[cleanup-storage] Error fetching expired jobs (${plan}):`, expiredError.message)
         continue
       }
       if (!expired || expired.length === 0) continue
@@ -96,7 +97,7 @@ export async function POST(req: NextRequest) {
             .remove([storagePath])
 
           if (clipDelError) {
-            console.warn(`[cleanup-storage] Failed to delete clip ${storagePath}:`, clipDelError.message)
+            logger.warn(`[cleanup-storage] Failed to delete clip ${storagePath}:`, clipDelError.message)
           }
 
           // Delete thumbnail (best-effort)
@@ -113,7 +114,7 @@ export async function POST(req: NextRequest) {
           if (updateError) throw updateError
 
           const ageDays = Math.round((Date.now() - new Date(cutoff).getTime()) / 86400000 + ttlDays)
-          console.log(`[cleanup-storage] Deleted ${storagePath} (user: ${job.user_id}, plan: ${plan}, age: ${ageDays}d)`)
+          logger.info(`[cleanup-storage] Deleted ${storagePath} (user: ${job.user_id}, plan: ${plan}, age: ${ageDays}d)`)
         })
       )
 
@@ -132,7 +133,7 @@ export async function POST(req: NextRequest) {
       ? `${totalDeleted} expired clips cleaned up`
       : 'No expired clips found'
 
-    console.log(`[cleanup-storage] ${message} (errors: ${totalErrors})`)
+    logger.info(`[cleanup-storage] ${message} (errors: ${totalErrors})`)
 
     return NextResponse.json({
       data: { deleted: totalDeleted, errors: totalErrors, byPlan },
@@ -141,7 +142,7 @@ export async function POST(req: NextRequest) {
     })
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Internal error'
-    console.error('[cleanup-storage] Error:', message)
+    logger.error('[cleanup-storage] Error:', message)
     return NextResponse.json({ data: null, error: message }, { status: 500 })
   }
 }

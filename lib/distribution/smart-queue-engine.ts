@@ -8,6 +8,7 @@
  */
 
 import type { PersistentStats } from './session-persistence'
+import type { LearnedDistributionProfile, ConfidenceLevel } from '@/types/learning'
 
 // ══════════════════════════════════════════════════════════════
 // TYPES
@@ -42,6 +43,7 @@ export interface ScheduledPost {
   confidence: number          // 0-100
   explanation: string         // "Why this order" line
   queuePriority: number       // internal score
+  learnedReasons: string[]    // reasons from LearnedDistributionProfile (empty if no profile)
 }
 
 export interface QueuePreview {
@@ -531,6 +533,70 @@ function estimateReach(posts: ScheduledPost[]): { low: number; high: number } {
 }
 
 // ══════════════════════════════════════════════════════════════
+// LAYER 6: LEARNED PROFILE INTEGRATION
+// ══════════════════════════════════════════════════════════════
+
+/** Confidence weighting: how much to trust the learned profile. */
+function getConfidenceWeight(confidence: ConfidenceLevel): number {
+  switch (confidence) {
+    case 'high': return 1.0
+    case 'medium': return 0.7
+    case 'early': return 0.3
+    default: return 0
+  }
+}
+
+/**
+ * Apply boosts/penalties from a LearnedDistributionProfile to a clip's priority.
+ * Returns the score adjustment and human-readable reasons.
+ */
+function applyLearnedProfile(
+  clip: QueueClip,
+  platform: string,
+  slotHour: number,
+  profile: LearnedDistributionProfile,
+): { adjustment: number; reasons: string[] } {
+  const weight = getConfidenceWeight(profile.confidence)
+  if (weight === 0) return { adjustment: 0, reasons: [] }
+
+  let adjustment = 0
+  const reasons: string[] = []
+
+  // ── Mood boost ──
+  const platformMoods = profile.bestMoodsByPlatform[platform]
+  if (platformMoods) {
+    const moodMatch = platformMoods.find(m => m.mood === clip.mood)
+    if (moodMatch && moodMatch.multiplier > 1.0) {
+      const rawBoost = Math.min((moodMatch.multiplier - 1.0) * 20, 15) // cap at +15
+      adjustment += rawBoost * weight
+      reasons.push(`${moodMatch.mood} clips perform ${moodMatch.multiplier}x on ${platform} (${moodMatch.postCount} posts)`)
+    }
+  }
+
+  // ── Timing boost ──
+  const windowMatch = profile.bestPostingWindows.find(
+    w => w.platform === platform && slotHour >= w.startHour && slotHour < w.endHour
+  )
+  if (windowMatch && windowMatch.multiplier > 1.0) {
+    const rawBoost = Math.min((windowMatch.multiplier - 1.0) * 15, 12) // cap at +12
+    adjustment += rawBoost * weight
+    reasons.push(`Optimal window ${windowMatch.startHour}:00-${windowMatch.endHour}:00 (${windowMatch.multiplier}x, ${windowMatch.postCount} posts)`)
+  }
+
+  // ── Underperforming penalty ──
+  const underMatch = profile.underperformingPatterns.find(
+    u => u.platform === platform && u.pattern.toLowerCase().includes(clip.mood)
+  )
+  if (underMatch) {
+    const rawPenalty = Math.min(underMatch.penalty * 15, 15) // cap at -15
+    adjustment -= rawPenalty * weight
+    reasons.push(`${underMatch.pattern} underperform on ${platform} (-${Math.round(underMatch.penalty * 100)}%)`)
+  }
+
+  return { adjustment: Math.round(adjustment), reasons }
+}
+
+// ══════════════════════════════════════════════════════════════
 // MAIN: GENERATE QUEUE
 // ══════════════════════════════════════════════════════════════
 
@@ -542,6 +608,7 @@ export function generateQueue(
   stats: PersistentStats,
   learning: LearningData | null,
   settings: Partial<QueueSettings> = {},
+  learnedProfile?: LearnedDistributionProfile | null,
 ): QueuePreview {
   const config = { ...DEFAULT_SETTINGS, ...settings }
   const learn = learning ?? createDefaultLearning()
@@ -592,7 +659,15 @@ export function generateQueue(
         const { priority, emotionalPenalty, killPenalty, momentumBoost } = calcQueuePriority(
           c, slot.platform, prevMood, learn, stats,
         )
-        return { clip: c, priority, emotionalPenalty, killPenalty, momentumBoost }
+        // Apply learned profile boost/penalty if available
+        let adjustedPriority = priority
+        let learnedReasons: string[] = []
+        if (learnedProfile && learnedProfile.totalPostsAnalyzed >= 5) {
+          const { adjustment, reasons } = applyLearnedProfile(c, slot.platform, slot.hour, learnedProfile)
+          adjustedPriority = clamp(priority + adjustment)
+          learnedReasons = reasons
+        }
+        return { clip: c, priority: adjustedPriority, emotionalPenalty, killPenalty, momentumBoost, learnedReasons }
       })
       .sort((a, b) => b.priority - a.priority)
 
@@ -639,6 +714,7 @@ export function generateQueue(
       confidence,
       explanation,
       queuePriority: best.priority,
+      learnedReasons: best.learnedReasons,
     })
 
     prevMood = best.clip.mood

@@ -3,9 +3,10 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import {
-  Sparkles, Loader2, Check, Plus, Clock, AlertCircle,
+  Sparkles, Loader2, Check, Plus, Clock, AlertCircle, Pause,
   Send, Radio, ExternalLink, Zap, Wand2, Film, ChevronRight,
   Calendar, TrendingUp, Target, Flame, Rocket, Trophy,
+  Settings, Layers, Play, Brain, Copy, RefreshCw, MapPin, CheckCircle2, X,
 } from 'lucide-react'
 import { Card } from '@/components/ui/card'
 import { Switch } from '@/components/ui/switch'
@@ -13,6 +14,7 @@ import { cn } from '@/lib/utils'
 import { useDistributionStore } from '@/stores/distribution-store'
 import { createClient } from '@/lib/supabase/client'
 import { generateVariants, detectTone, type BioVariant } from '@/lib/distribution/caption-engine'
+import type { DistributionCaptionResult, CaptionVariant, YouTubeVariant } from '@/lib/ai/caption-engine'
 import { simulatePostMetrics, formatMetricCount, type PostMetrics } from '@/lib/distribution/tracking-simulator'
 import { getPostFrequency, getPlatformPriority, getStrategyMessage, getConfidenceLevel } from '@/lib/distribution/strategy-engine'
 import { createSessionMemory, recordPublish, getPersonalizedInsights, getPersonalizedStrategyMessage, type UserSessionMemory } from '@/lib/distribution/user-memory'
@@ -20,6 +22,13 @@ import { loadPersistentStats, recordPersistentPublish, getWhatWorkedSummary, typ
 import { collectRewards, getCreatorLevel, type Reward } from '@/lib/distribution/reward-engine'
 import { useQueueStore } from '@/stores/queue-store'
 import type { QueueClip, MoodType } from '@/lib/distribution/smart-queue-engine'
+import { getConfidenceLabel } from '@/types/learning'
+import type { LearnedDistributionProfile } from '@/types/learning'
+import ElectricBorder from '@/components/ui/ElectricBorder'
+import { PlatformPickerModal } from './platform-picker-modal'
+import { ClipPickerModal } from './clip-picker-modal'
+import { ClipBankRail } from './clip-bank-rail'
+import './distribution-hub.css'
 
 /* ─── Types ─── */
 interface ClipBankItem {
@@ -30,6 +39,19 @@ interface ClipBankItem {
   status: 'draft' | 'scheduled' | 'publishing' | 'published' | 'failed'
   scheduledAt: string | null
   source: 'trending' | 'upload'
+}
+
+type ClipState = 'scheduled' | 'best' | 'priority' | 'ready' | 'draft' | 'needs-video' | 'broken-preview'
+
+function getClipState(clip: ClipBankItem, idx: number, brokenThumbs: Set<string>): ClipState {
+  const hasThumb = !!clip.thumbnailUrl && !brokenThumbs.has(clip.id)
+  if (clip.status === 'scheduled' && clip.scheduledAt) return 'scheduled'
+  if (idx === 0) return 'best'
+  if ((clip.score ?? 0) >= 80) return 'priority'
+  if (!clip.thumbnailUrl) return 'needs-video'
+  if (brokenThumbs.has(clip.id)) return 'broken-preview'
+  if (clip.status === 'draft' && hasThumb) return 'draft'
+  return 'ready'
 }
 
 interface PublishHistoryEntry {
@@ -67,7 +89,7 @@ const PLATFORMS: PlatformConfig[] = [
   { id: 'x', label: 'X / Twitter', icon: '𝕏', gradient: 'from-zinc-800 to-zinc-600', supported: false, optimalHours: ['9 AM', '12 PM', '5 PM'] },
 ]
 
-const BIO_STEPS = [
+const CAPTION_STEPS = [
   { text: 'Analyzing clip context & niche...', duration: 600 },
   { text: 'Scanning trending hooks...', duration: 800 },
   { text: 'Detecting optimal tone...', duration: 500 },
@@ -157,12 +179,48 @@ const EMOTIONAL_MIX_STYLES: Record<string, { label: string; color: string }> = {
 }
 
 /* ─── Smart Queue Section ─── */
+/* ─── AI Caption helpers ─── */
+
+function extractFirstCaption(result: DistributionCaptionResult): string | null {
+  if (result.tiktok?.variants[0]) {
+    const v = result.tiktok.variants[0]
+    return v.caption + '\n\n' + v.hashtags.join(' ')
+  }
+  if (result.instagram?.variants[0]) {
+    const v = result.instagram.variants[0]
+    return v.caption + '\n\n' + v.hashtags.join(' ')
+  }
+  if (result.youtube?.variants[0]) {
+    const v = result.youtube.variants[0]
+    return v.title + '\n\n' + v.description + '\n\n' + v.tags.join(', ')
+  }
+  return null
+}
+
+const PLATFORM_CAPTION_ICONS: Record<string, { icon: string; label: string }> = {
+  tiktok: { icon: '\u266A', label: 'TikTok' },
+  youtube: { icon: '\u25B6', label: 'YouTube Shorts' },
+  instagram: { icon: '\u25CE', label: 'Instagram Reels' },
+}
+
 function SmartQueueSection({ clipBank }: { clipBank: ClipBankItem[] }) {
-  const { queue, isGenerating, init, setClipBank, getDoNothingPreview, showOverrideToast, confirmOverrideLearning, dismissOverrideToast } = useQueueStore()
+  const { queue, isGenerating, init, setClipBank, setLearnedProfile, learnedProfile, getDoNothingPreview, showOverrideToast, confirmOverrideLearning, dismissOverrideToast } = useQueueStore()
   const [expanded, setExpanded] = useState(false)
 
   // Init store on mount
   useEffect(() => { init() }, [init])
+
+  // Fetch learned profile from analytics API
+  useEffect(() => {
+    fetch('/api/analytics/profile')
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (data?.data) setLearnedProfile(data.data as LearnedDistributionProfile)
+        else if (data?.totalPostsAnalyzed !== undefined) setLearnedProfile(data as LearnedDistributionProfile)
+      })
+      .catch(() => { /* continue without profile */ })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // Convert clip bank items to queue clips when bank changes
   useEffect(() => {
@@ -212,6 +270,16 @@ function SmartQueueSection({ clipBank }: { clipBank: ClipBankItem[] }) {
           <Calendar className="h-3.5 w-3.5 text-purple-400" />
           Next up — AI schedule
           <span className="text-[9px] font-medium px-1.5 py-0.5 rounded-full bg-purple-500/20 text-purple-400 border border-purple-500/30">Smart</span>
+          {learnedProfile && learnedProfile.totalPostsAnalyzed >= 5 && (
+            <span className={cn(
+              'text-[9px] font-medium px-1.5 py-0.5 rounded-full border',
+              learnedProfile.confidence === 'high' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                : learnedProfile.confidence === 'medium' ? 'bg-blue-500/10 text-blue-400 border-blue-500/20'
+                : 'bg-amber-500/10 text-amber-400 border-amber-500/20'
+            )} title={`Based on ${learnedProfile.totalPostsAnalyzed} published posts`}>
+              Learning: {getConfidenceLabel(learnedProfile.confidence)}
+            </span>
+          )}
         </h2>
         <ChevronRight className={cn(
           'h-4 w-4 text-muted-foreground transition-transform duration-200',
@@ -273,6 +341,17 @@ function SmartQueueSection({ clipBank }: { clipBank: ClipBankItem[] }) {
                   <Target className="h-2.5 w-2.5 flex-shrink-0" />
                   {post.explanation}
                 </p>
+
+                {/* Learned profile reasons */}
+                {post.learnedReasons && post.learnedReasons.length > 0 && (
+                  <div className="mt-1 flex items-start gap-1" title={post.learnedReasons.join('\n')}>
+                    <span className="inline-flex items-center gap-1 text-[9px] font-medium px-1.5 py-0.5 rounded bg-cyan-500/10 text-cyan-400 border border-cyan-500/15 cursor-help">
+                      <Sparkles className="h-2 w-2" />
+                      AI Learned
+                    </span>
+                    <span className="text-[9px] text-cyan-400/60 mt-0.5 truncate">{post.learnedReasons[0]}</span>
+                  </div>
+                )}
               </div>
 
               {/* Score badge */}
@@ -361,18 +440,22 @@ function SmartQueueSection({ clipBank }: { clipBank: ClipBankItem[] }) {
 export function DistributionHub() {
   const router = useRouter()
   const { accounts, fetchAccounts, publishTargets, togglePublishTarget, publishClip, publishProgress, isPublishing, resetPublishProgress } = useDistributionStore()
+  const { queue, init: initQueue, setClipBank: setQueueClipBank } = useQueueStore()
 
   const [clipBank, setClipBank] = useState<ClipBankItem[]>([])
   const [bankLoading, setBankLoading] = useState(true)
   const [selectedClipId, setSelectedClipId] = useState<string | null>(null)
   const [aiAutoDistribute, setAiAutoDistribute] = useState(false)
-  const [bioText, setBioText] = useState('')
-  const [bioGenerating, setBioGenerating] = useState(false)
-  const [bioStep, setBioStep] = useState(-1)
-  const [bioVariants, setBioVariants] = useState<BioVariant[]>([])
+  const [captionText, setBioText] = useState('')
+  const [captionGenerating, setBioGenerating] = useState(false)
+  const [captionStep, setBioStep] = useState(-1)
+  const [captionVariants, setBioVariants] = useState<BioVariant[]>([])
   const [selectedVariantId, setSelectedVariantId] = useState<string | null>(null)
+  const [aiCaptions, setAiCaptions] = useState<DistributionCaptionResult | null>(null)
+  const [aiCaptionError, setAiCaptionError] = useState<string | null>(null)
+  const aiCaptionCacheRef = useRef<Map<string, DistributionCaptionResult>>(new Map())
   const [showSchedule, setShowSchedule] = useState(false)
-  const bioRef = useRef<HTMLTextAreaElement>(null)
+  const captionRef = useRef<HTMLTextAreaElement>(null)
   const typewriterRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const [countdown, setCountdown] = useState('')
 
@@ -391,13 +474,152 @@ export function DistributionHub() {
   const [sessionMemory, setSessionMemory] = useState<UserSessionMemory>(() => createSessionMemory())
   const [persistentStats, setPersistentStats] = useState<PersistentStats>(() => loadPersistentStats())
   const [activeReward, setActiveReward] = useState<Reward | null>(null)
+  const [showPlatformPicker, setShowPlatformPicker] = useState(false)
+  const [showClipPicker, setShowClipPicker] = useState(false)
+  const [clipPickerTab, setClipPickerTab] = useState<'bank' | 'remixes'>('bank')
+  const [brokenThumbs, setBrokenThumbs] = useState<Set<string>>(new Set())
+  const [removedClipIds, setRemovedClipIds] = useState<Set<string>>(() => new Set())
+  const [removedClipsHydrated, setRemovedClipsHydrated] = useState(false)
+
+  // Hydrate from sessionStorage AFTER mount (avoids SSR hydration mismatch)
+  useEffect(() => {
+    try {
+      const stored = sessionStorage.getItem('viral-animal-removed-clips')
+      if (stored) setRemovedClipIds(new Set(JSON.parse(stored) as string[]))
+    } catch { /* ignore */ }
+    setRemovedClipsHydrated(true)
+  }, [])
+
+  // Persist removedClipIds to sessionStorage (only after hydration to avoid wiping on first mount)
+  useEffect(() => {
+    if (!removedClipsHydrated) return
+    try { sessionStorage.setItem('viral-animal-removed-clips', JSON.stringify([...removedClipIds])) } catch { /* full */ }
+  }, [removedClipIds, removedClipsHydrated])
+
+  // Connection map refs (for dynamic SVG paths from platforms to brain)
+  const connectionMapRef = useRef<HTMLDivElement>(null)
+  const brainCoreRef = useRef<HTMLDivElement>(null)
+  const pillRef = useRef<HTMLButtonElement>(null)
+  const platTiktokRef = useRef<HTMLDivElement>(null)
+  const platYoutubeRef = useRef<HTMLDivElement>(null)
+  const platInstagramRef = useRef<HTMLDivElement>(null)
+  const platFacebookRef = useRef<HTMLDivElement>(null)
+  const [flowPaths, setFlowPaths] = useState<{ tiktok: string; youtube: string; instagram: string; facebook: string }>({
+    tiktok: '', youtube: '', instagram: '', facebook: ''
+  })
+
+  // Compute flow paths from each platform icon to the brain core
+  useEffect(() => {
+    const compute = () => {
+      const map = connectionMapRef.current
+      const brain = brainCoreRef.current
+      if (!map || !brain) return
+      const mapBox = map.getBoundingClientRect()
+      const brainBox = brain.getBoundingClientRect()
+      const targetX = brainBox.left + brainBox.width / 2 - mapBox.left
+      const targetY = brainBox.top + brainBox.height / 2 - mapBox.top
+
+      const pathTo = (ref: { current: HTMLDivElement | null }) => {
+        const node = ref.current
+        if (!node) return ''
+        const box = node.getBoundingClientRect()
+        const cardL = box.left - mapBox.left
+        const cardT = box.top - mapBox.top
+        const cardR = box.right - mapBox.left
+        const cardB = box.bottom - mapBox.top
+        const cardCx = (cardL + cardR) / 2
+        const cardCy = (cardT + cardB) / 2
+        // Line starts at the card's INNER CORNER (closest to brain center)
+        const sx = cardCx < targetX ? cardR : cardL
+        const sy = cardCy < targetY ? cardB : cardT
+        // Curve toward brain edge (stop well before center so the panel below doesn't overlap)
+        const dx = targetX - sx
+        const dy = targetY - sy
+        const dist = Math.hypot(dx, dy)
+        const stopShort = 105
+        const ex = sx + dx * (1 - stopShort / dist)
+        const ey = sy + dy * (1 - stopShort / dist)
+        // Control points: line LEAVES the brain horizontally, then curves vertically
+        // (down for bottom apps, up for top apps) to land on the card's inner corner.
+        // Stronger weights make the L-shape clearly visible even when the vertical
+        // delta is small relative to the horizontal one.
+        const c1x = sx
+        const c1y = sy + (ey - sy) * 0.85   // long vertical from card (almost reaches brain y)
+        const c2x = sx + (ex - sx) * 0.25   // short horizontal lead-in near card; long horizontal at brain
+        const c2y = ey
+        return `M ${sx} ${sy} C ${c1x} ${c1y}, ${c2x} ${c2y}, ${ex} ${ey}`
+      }
+
+      setFlowPaths({
+        tiktok: pathTo(platTiktokRef),
+        youtube: pathTo(platYoutubeRef),
+        instagram: pathTo(platInstagramRef),
+        facebook: pathTo(platFacebookRef),
+      })
+    }
+
+    compute()
+    const ro = new ResizeObserver(() => compute())
+    // Observe the container AND each platform ref + brain core so any layout shift recomputes paths
+    if (connectionMapRef.current) ro.observe(connectionMapRef.current)
+    if (brainCoreRef.current) ro.observe(brainCoreRef.current)
+    if (platTiktokRef.current) ro.observe(platTiktokRef.current)
+    if (platYoutubeRef.current) ro.observe(platYoutubeRef.current)
+    if (platInstagramRef.current) ro.observe(platInstagramRef.current)
+    if (platFacebookRef.current) ro.observe(platFacebookRef.current)
+    window.addEventListener('resize', compute)
+    // Recompute after fonts/layout/images settle
+    const t1 = setTimeout(compute, 100)
+    const t2 = setTimeout(compute, 500)
+    return () => {
+      ro.disconnect()
+      window.removeEventListener('resize', compute)
+      clearTimeout(t1)
+      clearTimeout(t2)
+    }
+  }, [])
 
   useEffect(() => { fetchAccounts() }, [fetchAccounts])
+
+  // Init queue store
+  useEffect(() => { initQueue() }, [initQueue])
+
+  // Sync clip bank to queue store
+  useEffect(() => {
+    if (clipBank.length === 0) { setQueueClipBank([]); return }
+    const queueClips: QueueClip[] = clipBank
+      .filter(c => c.status === 'draft' || c.status === 'scheduled')
+      .map(c => ({
+        id: c.id,
+        title: c.title || 'Untitled clip',
+        viralScore: c.score ?? 50,
+        mood: 'unknown' as MoodType,
+        hookType: 'unknown' as const,
+        freshness: Math.max(0, Math.min(100, 100 - (c.scheduledAt ? (Date.now() - new Date(c.scheduledAt).getTime()) / 3600000 : 24) * 2)),
+        platformFit: { tiktok: 70, youtube: 65, instagram: 60 },
+        createdAt: c.scheduledAt ?? new Date().toISOString(),
+        thumbnailUrl: c.thumbnailUrl,
+      }))
+    setQueueClipBank(queueClips)
+  }, [clipBank, setQueueClipBank])
 
   // Cleanup typewriter on unmount
   useEffect(() => {
     return () => { if (typewriterRef.current) clearInterval(typewriterRef.current) }
   }, [])
+
+  // Modal Escape key close
+  useEffect(() => {
+    if (!showPlatformPicker && !showClipPicker) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        if (showPlatformPicker && !publishSequenceActive) setShowPlatformPicker(false)
+        if (showClipPicker) setShowClipPicker(false)
+      }
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [showPlatformPicker, showClipPicker, publishSequenceActive])
 
   /* Countdown for next post (fake, next 6h slot) */
   useEffect(() => {
@@ -611,23 +833,38 @@ export function DistributionHub() {
       }
 
       setClipBank(items)
-      if (items.length > 0 && !selectedClipId) setSelectedClipId(items[0].id)
+      // Do NOT auto-select first clip — Publish strip stays empty until user explicitly stages a clip
+      // (via Rocket button on bank card, or ?action=publish from Enhance)
       setBankLoading(false)
     }
     loadClipBank()
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // Auto-select clip from URL query param (from Enhance -> Distribute Now)
+  // Auto-select clip from URL query param (from Enhance -> Publish now / Place in bank)
+  const [bankHighlightClipId, setBankHighlightClipId] = useState<string | null>(null)
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
     const clipParam = params.get('clip')
+    const actionParam = params.get('action')
+    const scrollTo = params.get('scrollTo')
+    const highlightParam = params.get('highlight')
+
     if (clipParam && clipBank.length > 0) {
       const found = clipBank.find(c => c.id === clipParam)
       if (found) {
         setSelectedClipId(clipParam)
+        if (actionParam === 'publish') {
+          setShowPlatformPicker(true)
+        }
         window.history.replaceState({}, '', window.location.pathname)
       }
+    }
+
+    // Scroll to bank + highlight a specific clip
+    if (scrollTo === 'bank' && clipBank.length > 0) {
+      if (highlightParam) setBankHighlightClipId(highlightParam)
+      window.history.replaceState({}, '', window.location.pathname)
     }
   }, [clipBank])
 
@@ -650,30 +887,90 @@ export function DistributionHub() {
     }, 20)
   }, [])
 
-  /* Bio generator with step-by-step sequence */
-  const generateBio = useCallback(async () => {
+  /* AI caption generator — calls Claude Haiku via API */
+  const generateCaption = useCallback(async () => {
     if (!selectedClip) return
+
+    const enabledPlatforms = publishTargets
+      .filter(t => t.enabled)
+      .map(t => t.platform)
+      .filter((p): p is 'tiktok' | 'youtube' | 'instagram' => ['tiktok', 'youtube', 'instagram'].includes(p))
+
+    if (enabledPlatforms.length === 0) {
+      enabledPlatforms.push('tiktok') // default if none selected
+    }
+
+    // Check session cache (skip if regenerating)
+    const cacheKey = `${selectedClip.id}:${enabledPlatforms.sort().join(',')}`
+    const isRegenerating = aiCaptions !== null || captionText !== ''
+    const cached = !isRegenerating ? aiCaptionCacheRef.current.get(cacheKey) : undefined
+    if (cached) {
+      setAiCaptions(cached)
+      setAiCaptionError(null)
+      // Also set captionText from first available variant for publish flow
+      const firstCaption = extractFirstCaption(cached)
+      if (firstCaption) setBioText(firstCaption)
+      return
+    }
+
     setBioGenerating(true)
     setBioText('')
+    setAiCaptions(null)
+    setAiCaptionError(null)
     setBioVariants([])
     setSelectedVariantId(null)
     if (typewriterRef.current) { clearInterval(typewriterRef.current); typewriterRef.current = null }
 
-    for (let i = 0; i < BIO_STEPS.length; i++) {
+    // Show generation steps
+    for (let i = 0; i < CAPTION_STEPS.length; i++) {
       setBioStep(i)
-      await new Promise((r) => setTimeout(r, BIO_STEPS[i].duration))
+      await new Promise((r) => setTimeout(r, CAPTION_STEPS[i].duration))
     }
 
-    const title = selectedClip.title || 'this clip'
-    const enabledCount = publishTargets.filter(t => t.enabled).length
-    const variants = generateVariants(title, selectedClip.id, {
-      clipScore: selectedClip.score ?? 30,
-      platformCount: enabledCount || 1,
-    })
-    setBioVariants(variants)
-    setBioStep(-1)
-    setBioGenerating(false)
-    selectVariant(variants[0])
+    try {
+      const { tone } = detectTone(selectedClip.title || '')
+      const res = await fetch('/api/captions/distribution', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          clipId: selectedClip.id,
+          transcript: selectedClip.title || '',
+          mood: tone === 'general' ? 'hype' : tone,
+          streamerName: undefined,
+          sourceStreamer: undefined,
+          platforms: enabledPlatforms,
+        }),
+      })
+
+      const json = await res.json()
+
+      if (!res.ok || json.error) {
+        throw new Error(json.error || `API error ${res.status}`)
+      }
+
+      const result = json.data as DistributionCaptionResult
+      setAiCaptions(result)
+      aiCaptionCacheRef.current.set(cacheKey, result)
+
+      // Set captionText from first variant for the publish flow
+      const firstCaption = extractFirstCaption(result)
+      if (firstCaption) setBioText(firstCaption)
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Caption generation failed'
+      setAiCaptionError(msg)
+      // Fallback to template engine
+      const title = selectedClip.title || 'this clip'
+      const enabledCount = publishTargets.filter(t => t.enabled).length
+      const variants = generateVariants(title, selectedClip.id, {
+        clipScore: selectedClip.score ?? 30,
+        platformCount: enabledCount || 1,
+      })
+      setBioVariants(variants)
+      selectVariant(variants[0])
+    } finally {
+      setBioStep(-1)
+      setBioGenerating(false)
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedClip, selectVariant, publishTargets])
 
@@ -709,20 +1006,30 @@ export function DistributionHub() {
     setPublishSteps(s => s.map((step, i) => i === 1 ? { ...step, status: 'done' } : step))
 
     // Steps 3+: Real API calls (useEffect syncs from publishProgress)
-    const hashtags = bioText.match(/#\w+/g) || []
-    const caption = bioText.replace(/#\w+/g, '').trim()
-    await publishClip(selectedClip.id, caption, hashtags)
+    const hashtags = captionText.match(/#\w+/g) || []
+    const caption = captionText.replace(/#\w+/g, '').trim()
+    const now = new Date()
+    await publishClip(selectedClip.id, caption, hashtags, {
+      posted_hour_local: now.getHours(),
+      posted_weekday: now.getDay(),
+      blowup_chance_at_render: selectedClip.score ?? undefined,
+    })
 
     // Let React process final publishProgress updates
     await new Promise(r => setTimeout(r, 50))
     setPublishSequenceActive(false)
     setPublishDone(true)
-  }, [selectedClip, bioText, isPublishing, publishClip, publishSequenceActive, publishTargets])
+  }, [selectedClip, captionText, isPublishing, publishClip, publishSequenceActive, publishTargets])
 
   const connectedPlatforms = accounts.map((a) => a.platform)
   const activePlatformCount = publishTargets.filter(
     (t) => t.enabled && connectedPlatforms.includes(t.platform)
   ).length
+
+  const isPlatActive = (pid: string) =>
+    aiAutoDistribute &&
+    connectedPlatforms.includes(pid as typeof connectedPlatforms[number]) &&
+    (publishTargets.find(t => t.platform === pid)?.enabled ?? false)
 
   const hasAnyProgress = Object.keys(publishProgress).length > 0
   const publishedCount = hasAnyProgress && Object.values(publishProgress).every(p => p.status === 'published') ? 1 : 0
@@ -786,772 +1093,1018 @@ export function DistributionHub() {
   const confidence = getConfidenceLevel({
     clipScore,
     platformCount: activePlatformCount,
-    hasCaption: bioText.length > 0,
+    hasCaption: captionText.length > 0,
   })
 
   return (
-    <div className="space-y-6 pb-12">
-      {/* CSS for flow animation */}
-      <style jsx>{`
-        @keyframes flowDot {
-          0% { top: -6px; opacity: 0; }
-          20% { opacity: 1; }
-          100% { top: calc(100% + 6px); opacity: 0; }
-        }
-        @keyframes pulseGlow {
-          0%, 100% { box-shadow: 0 0 8px rgba(168,85,247,0.3); }
-          50% { box-shadow: 0 0 20px rgba(168,85,247,0.6); }
-        }
-        @keyframes stepFade {
-          0% { opacity: 0; transform: translateY(4px); }
-          100% { opacity: 1; transform: translateY(0); }
-        }
-        @keyframes scaleIn {
-          0% { opacity: 0; transform: scale(0.85); }
-          100% { opacity: 1; transform: scale(1); }
-        }
-        @keyframes orbitDot {
-          0% { transform: translate(-50%, -4px) rotate(0deg) translateY(-28px); }
-          100% { transform: translate(-50%, -4px) rotate(360deg) translateY(-28px); }
-        }
-      `}</style>
-
+    <div className="dist-page">
       {/* Reward toast */}
       {activeReward && (
-        <div className="fixed top-4 right-4 z-50 max-w-xs" style={{ animation: 'scaleIn 0.4s ease-out' }}>
-          <Card className={cn('p-4 border shadow-xl',
-            activeReward.rarity === 'legendary' ? 'bg-amber-950/90 border-amber-500/40'
-              : activeReward.rarity === 'rare' ? 'bg-purple-950/90 border-purple-500/40'
-              : 'bg-card/95 border-border'
-          )}>
-            <div className="flex items-center gap-3">
-              <span className="text-2xl">{activeReward.emoji}</span>
-              <div>
-                <p className="text-sm font-bold text-foreground">{activeReward.title}</p>
-                <p className="text-[11px] text-muted-foreground">{activeReward.subtitle}</p>
-              </div>
-            </div>
-          </Card>
-        </div>
-      )}
-
-      {/* Header */}
-      <div className="relative overflow-hidden rounded-xl bg-gradient-to-r from-purple-500/10 via-card/80 to-card/60 border border-purple-500/20 px-6 py-5">
-        <div className="absolute top-0 right-0 w-32 h-32 bg-purple-500/5 rounded-full blur-2xl -translate-y-1/2 translate-x-1/2" />
-        <div className="relative">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-purple-500/20 border border-purple-500/30 flex items-center justify-center">
-              <Radio className="h-5 w-5 text-purple-400" />
-            </div>
+        <div className="dist-reward-toast">
+          <div className={`dist-reward-card ${activeReward.rarity === 'legendary' ? 'legendary' : activeReward.rarity === 'rare' ? 'rare' : 'common'}`}>
+            <span style={{ fontSize: 28 }}>{activeReward.emoji}</span>
             <div>
-              <h1 className="text-2xl font-bold text-foreground">Distribution</h1>
-              <p className="text-sm text-muted-foreground mt-0.5">
-                Drop your enhanced clips into the bank, activate AI distribution, and let it handle the rest.
-              </p>
+              <p style={{ fontSize: 14, fontWeight: 700, color: '#fff', margin: 0 }}>{activeReward.title}</p>
+              <p style={{ fontSize: 11, color: 'var(--va-text-muted)', margin: '2px 0 0' }}>{activeReward.subtitle}</p>
             </div>
           </div>
-        </div>
-      </div>
-
-      {/* ─── STRATEGY BLOCK ─── */}
-      <Card className="bg-card/60 border-border border-l-2 border-l-purple-500/40 px-5 py-3">
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-1.5 flex-shrink-0">
-            <Target className={cn('h-3.5 w-3.5', aiAutoDistribute ? 'text-purple-400' : 'text-muted-foreground')} />
-            <span className={cn('text-xs font-semibold', aiAutoDistribute ? 'text-purple-400' : 'text-muted-foreground')}>Strategy</span>
-            <span className={cn('text-[9px] font-medium px-1.5 py-0.5 rounded-full border',
-              confidence.level === 'high' ? 'bg-purple-500/10 text-purple-400 border-purple-500/20'
-                : confidence.level === 'medium' ? 'bg-amber-500/10 text-amber-400 border-amber-500/20'
-                : 'bg-zinc-500/10 text-zinc-400 border-zinc-500/20'
-            )}>{confidence.percent}%</span>
-          </div>
-          <div className="flex items-center gap-4 text-xs flex-1 min-w-0">
-            <span className={cn(aiAutoDistribute ? 'text-purple-300' : 'text-muted-foreground')} title={frequencyRec.reasoning}>
-              Frequency: <span className="font-medium">{frequencyRec.label}</span>
-            </span>
-            <span className={cn('hidden sm:inline', aiAutoDistribute ? 'text-purple-300' : 'text-muted-foreground')} title={priorityRec.reasoning}>
-              Priority: <span className="font-medium">{priorityRec.label}</span>
-            </span>
-            <span className={cn(aiAutoDistribute ? 'text-purple-300' : 'text-muted-foreground')}>
-              Next post: <span className="font-medium">in {countdown || '\u2014'}</span>
-            </span>
-          </div>
-        </div>
-        <p className="text-[10px] text-muted-foreground/60 mt-1.5">{strategyMessage}</p>
-      </Card>
-
-      {/* ─── PERSONALIZED INSIGHTS ─── */}
-      {personalizedInsights.length > 0 && (
-        <div className="flex flex-wrap gap-1.5">
-          {personalizedInsights.slice(0, 2).map((insight, i) => (
-            <span key={i} className="inline-flex items-center gap-1 text-[10px] text-purple-300/80 bg-purple-500/5 border border-purple-500/10 rounded-full px-2.5 py-1">
-              <Sparkles className="h-2.5 w-2.5 flex-shrink-0" />
-              {insight.text}
-            </span>
-          ))}
         </div>
       )}
 
-      {/* ─── CLIP BANK ─── */}
-      <div>
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="text-xs uppercase tracking-widest text-muted-foreground font-medium">
-            Clip bank
-          </h2>
-          <span className="text-xs text-muted-foreground">{clipBank.length} clip{clipBank.length !== 1 ? 's' : ''}</span>
+      {/* ═══ HEADER ═══ */}
+      <div className="dist-page-head">
+        <div className="dist-title-block">
+          <div className="dist-icon-mark">
+            <Radio size={22} />
+          </div>
+          <div>
+            <h1>Distribution</h1>
+            <p className="sub">Your bank · the AI core · your routes — all running together.</p>
+          </div>
         </div>
-        <Card className="bg-card/60 border-border p-4">
-          {bankLoading ? (
-            <div className="flex gap-3 overflow-hidden">
-              {Array.from({ length: 5 }).map((_, i) => (
-                <div key={i} className="flex-shrink-0 w-[72px] h-[128px] rounded-xl bg-zinc-800/50 border border-border animate-pulse" />
-              ))}
-            </div>
-          ) : clipBank.length === 0 ? (
-            /* ─── Empty State ─── */
-            <div className="flex flex-col items-center py-10 gap-4">
-              <div className="w-14 h-14 rounded-2xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center">
-                <Film className="h-7 w-7 text-purple-400" />
-              </div>
-              <div className="text-center">
-                <p className="text-sm font-semibold text-foreground">No clips ready yet</p>
-                <p className="text-xs text-muted-foreground mt-1 max-w-xs">
-                  Enhance a trending clip or upload your own, then it will appear here for distribution.
-                </p>
-              </div>
-              <div className="flex gap-2">
-                <button onClick={() => router.push('/dashboard')}
-                  className="flex items-center gap-1.5 text-xs font-semibold px-4 py-2 rounded-lg bg-gradient-to-r from-orange-500 to-amber-500 text-white shadow-lg shadow-orange-500/20 hover:shadow-orange-500/30 transition-all">
-                  <Sparkles className="h-3.5 w-3.5" /> Browse clips
-                </button>
-                <button onClick={() => router.push('/dashboard?tab=upload')}
-                  className="flex items-center gap-1.5 text-xs font-medium px-4 py-2 rounded-lg border border-border text-muted-foreground hover:text-foreground hover:border-purple-500/30 transition-all">
-                  <Plus className="h-3.5 w-3.5" /> Upload
-                </button>
-              </div>
-            </div>
-          ) : (
-            /* ─── Clip thumbnails ─── */
-            <div className="flex gap-3 overflow-x-auto pb-2">
-              {clipBank.map((clip, idx) => {
-                const platProgress = Object.values(publishProgress)
-                const clipPublished = hasAnyProgress && platProgress.every(p => p.status === 'published')
-                return (
-                  <button
-                    key={clip.id}
-                    title={clip.title || 'Untitled clip'}
-                    onClick={() => { setSelectedClipId(clip.id); resetPublishProgress(); setPublishDone(false); setPublishSteps([]) }}
-                    className={cn(
-                      'relative flex-shrink-0 w-[72px] h-[128px] rounded-xl border-2 transition-all overflow-hidden group hover:scale-105 transition-transform duration-200',
-                      selectedClipId === clip.id
-                        ? 'border-purple-500 ring-2 ring-purple-500/30'
-                        : clip.score !== null && clip.score >= 80
-                          ? 'border-border hover:border-orange-500/40 hover:ring-2 hover:ring-orange-500/30'
-                          : clip.score !== null && clip.score >= 60
-                            ? 'border-border hover:border-emerald-500/40 hover:ring-2 hover:ring-emerald-500/30'
-                            : 'border-border hover:border-purple-500/40'
-                    )}
-                  >
-                    {clip.thumbnailUrl ? (
-                      <img src={clip.thumbnailUrl} alt="" className="absolute inset-0 w-full h-full object-cover" />
-                    ) : (
-                      <div className="absolute inset-0 bg-gradient-to-b from-zinc-700 to-zinc-900" />
-                    )}
-                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors" />
-                    <div className="absolute top-1.5 right-1.5 w-[18px] h-[18px] rounded-full bg-purple-500/80 flex items-center justify-center">
-                      <span className="text-[9px] font-bold text-white">{idx + 1}</span>
-                    </div>
-                    {/* Smart labels */}
-                    <div className="absolute top-1 left-1 flex flex-col gap-0.5">
-                      {idx === 0 && (
-                        <span className="text-[8px] font-bold px-1 py-px rounded bg-purple-500/70 text-white leading-tight">Best next</span>
-                      )}
-                      {clip.score !== null && clip.score >= 80 ? (
-                        <span className="flex items-center gap-px text-[8px] font-bold px-1 py-px rounded bg-orange-500/60 text-white leading-tight">
-                          <Flame className="h-2 w-2 flex-shrink-0" />Priority
-                        </span>
-                      ) : clip.score !== null && clip.score >= 60 ? (
-                        <span className="text-[8px] font-bold px-1 py-px rounded bg-emerald-500/50 text-white leading-tight">Ready</span>
-                      ) : (
-                        <span className="text-[8px] font-bold px-1 py-px rounded bg-zinc-600/60 text-white leading-tight">Draft</span>
-                      )}
-                    </div>
-                    {clip.score && (
-                      <div className="absolute bottom-2 left-1/2 -translate-x-1/2">
-                        <span className="text-[10px] font-bold bg-black/60 text-white px-2 py-0.5 rounded-full">{clip.score}</span>
-                      </div>
-                    )}
-                    {clipPublished && selectedClipId === clip.id && (
-                      <div className="absolute inset-0 bg-emerald-500/20 flex items-center justify-center">
-                        <Check className="h-6 w-6 text-emerald-400" />
-                      </div>
-                    )}
-                  </button>
-                )
-              })}
-              <button
-                onClick={() => router.push('/dashboard')}
-                className="flex-shrink-0 w-[72px] h-[128px] rounded-xl border-2 border-dashed border-border hover:border-purple-500/40 flex flex-col items-center justify-center gap-1 transition-colors"
-              >
-                <Plus className="h-5 w-5 text-muted-foreground" />
-                <span className="text-[9px] text-muted-foreground">Add</span>
-              </button>
-            </div>
-          )}
-        </Card>
+        <div className="dist-head-right">
+          <div className={`dist-running-chip ${aiAutoDistribute ? '' : 'paused'}`}>
+            <span className="dot" />
+            CLIP FARM {aiAutoDistribute ? 'ONLINE' : 'PAUSED'}
+          </div>
+          <button className="dist-icon-btn" title="Settings" onClick={() => router.push('/settings')}>
+            <Settings size={15} />
+          </button>
+        </div>
       </div>
 
-      {/* ─── BIO & PUBLISH ─── */}
-      <div className={cn(
-        'grid grid-cols-1 lg:grid-cols-2 gap-4 transition-all duration-300',
-        selectedClip ? 'opacity-100 translate-y-0' : 'opacity-60 translate-y-1',
-      )}>
-        {/* Bio Generator */}
-        <Card className={cn('bg-card/60 p-5', selectedClip ? 'border-purple-500/15' : 'border-border')}>
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-xs uppercase tracking-widest text-muted-foreground font-medium flex items-center gap-1.5">
-              <Wand2 className="h-3.5 w-3.5 text-purple-400" />
-              AI-generated bio
-            </h2>
-            <button onClick={generateBio} disabled={bioGenerating || !selectedClip}
-              className={cn('flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg border transition-all',
-                bioGenerating ? 'text-muted-foreground border-border cursor-not-allowed'
-                  : !selectedClip ? 'text-muted-foreground/50 border-border/50 cursor-not-allowed'
-                  : 'text-purple-400 border-purple-500/30 hover:bg-purple-500/10')}>
-              {bioGenerating ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
-              {bioGenerating ? 'Generating...' : 'Generate'}
+      {/* ═══ PUBLISH STRIP — caption + publish ═══ */}
+      <div id="publish-strip" className="dist-console-grid">
+        {/* ─── Left: Caption ─── */}
+        <div className="dist-glass dist-console-card">
+          <div className="dist-console-card-head">
+            <div className="dist-console-card-titles">
+              <h3 className="dist-console-card-title">
+                <Sparkles size={14} />
+                Caption
+              </h3>
+              <p className="dist-console-card-sub">AI writes per-platform captions with trending hashtags.</p>
+            </div>
+            <button
+              className="dist-cyan-btn"
+              onClick={generateCaption}
+              disabled={captionGenerating || !selectedClip}
+            >
+              {captionGenerating ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
+              {captionGenerating ? 'Writing captions…' : (aiCaptions || captionText) ? 'Regenerate' : 'Generate AI captions'}
             </button>
           </div>
 
-          {/* Step-by-step loading sequence */}
-          {bioGenerating && bioStep >= 0 && (
-            <div className="mb-3 space-y-1.5">
-              {BIO_STEPS.map((step, i) => (
-                <div key={i} className={cn(
-                  'flex items-center gap-2 text-xs transition-all duration-300',
-                  i < bioStep ? 'text-emerald-400' : i === bioStep ? 'text-purple-400' : 'text-muted-foreground/30'
-                )} style={i <= bioStep ? { animation: 'stepFade 0.3s ease-out' } : undefined}>
-                  {i < bioStep ? (
-                    <Check className="h-3 w-3 flex-shrink-0" />
-                  ) : i === bioStep ? (
-                    <Loader2 className="h-3 w-3 flex-shrink-0 animate-spin" />
-                  ) : (
-                    <div className="w-3 h-3 flex-shrink-0" />
-                  )}
+          {/* Generation steps */}
+          {captionGenerating && captionStep >= 0 && (
+            <div className="dist-console-steps">
+              {CAPTION_STEPS.map((step, i) => (
+                <div key={i} className={`dist-step-item ${i < captionStep ? 'done' : i === captionStep ? 'active' : 'pending'}`}>
+                  {i < captionStep ? <Check size={12} /> : i === captionStep ? <Loader2 size={12} className="animate-spin" /> : <div style={{ width: 12, height: 12 }} />}
                   <span>{step.text}</span>
                 </div>
               ))}
             </div>
           )}
 
-          {/* Variant selector tabs */}
-          {bioVariants.length > 0 && !bioGenerating && (
-            <div className="flex gap-2 mb-3">
-              {bioVariants.map((v) => {
-                const isSelected = selectedVariantId === v.id
-                const colors = VARIANT_COLORS[v.color]
+          {/* AI Caption results OR fallback OR empty state */}
+          {aiCaptions ? (
+            <div className="dist-ai-captions">
+              {(['tiktok', 'instagram', 'youtube'] as const).map(pid => {
+                const platData = aiCaptions[pid]
+                if (!platData) return null
+                const platInfo = PLATFORM_CAPTION_ICONS[pid]
                 return (
-                  <button
-                    key={v.id}
-                    onClick={() => selectVariant(v)}
-                    className={cn(
-                      'flex-1 text-left px-3 py-2 rounded-lg border transition-all duration-200',
-                      isSelected ? `${colors.active} shadow-sm` : 'border-border text-muted-foreground hover:border-border/80 hover:bg-card/40'
-                    )}
-                  >
-                    <div className="flex items-center gap-1.5">
-                      <span className={cn('w-1.5 h-1.5 rounded-full flex-shrink-0', colors.dot)} />
-                      <span className="text-xs font-semibold">{v.label}</span>
-                      {v.id === 'high-ctr' && <span className="text-[8px] opacity-50 ml-1">recommended</span>}
+                  <div key={pid} className="dist-ai-platform-group">
+                    <div className="dist-ai-platform-header">
+                      <span className="dist-ai-platform-icon">{platInfo.icon}</span>
+                      <span className="dist-ai-platform-label">{platInfo.label}</span>
                     </div>
-                    <p className="text-[10px] opacity-60 mt-0.5 ml-3">{v.riskLabel} · {v.projectedReachLabel}</p>
-                  </button>
+                    {'variants' in platData && (platData.variants as (CaptionVariant | YouTubeVariant)[]).map((variant, vi) => (
+                      <div key={vi} className="dist-ai-variant-card">
+                        <div className="dist-ai-variant-num">#{vi + 1}</div>
+                        <div className="dist-ai-variant-body">
+                          {pid === 'youtube' && 'title' in variant ? (
+                            <>
+                              <p className="dist-ai-variant-title">{(variant as YouTubeVariant).title}</p>
+                              <p className="dist-ai-variant-desc">{(variant as YouTubeVariant).description}</p>
+                              <div className="dist-ai-variant-tags">
+                                {(variant as YouTubeVariant).tags.map((t, ti) => (
+                                  <span key={ti} className="dist-ai-tag">{t}</span>
+                                ))}
+                              </div>
+                            </>
+                          ) : (
+                            <>
+                              <p className="dist-ai-variant-text">{(variant as CaptionVariant).caption}</p>
+                              <div className="dist-ai-variant-tags">
+                                {(variant as CaptionVariant).hashtags.map((h, hi) => (
+                                  <span key={hi} className="dist-ai-tag">{h}</span>
+                                ))}
+                              </div>
+                            </>
+                          )}
+                        </div>
+                        <button
+                          className="dist-ai-copy-btn"
+                          onClick={() => {
+                            const text = pid === 'youtube' && 'title' in variant
+                              ? `${(variant as YouTubeVariant).title}\n\n${(variant as YouTubeVariant).description}\n\n${(variant as YouTubeVariant).tags.join(', ')}`
+                              : `${(variant as CaptionVariant).caption}\n\n${(variant as CaptionVariant).hashtags.join(' ')}`
+                            navigator.clipboard?.writeText(text)
+                            setBioText(text)
+                          }}
+                          title="Copy and use this variant"
+                        >
+                          <Copy size={11} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
                 )
               })}
             </div>
-          )}
-
-          <textarea ref={bioRef} value={bioText}
-            onChange={(e) => {
-              if (typewriterRef.current) { clearInterval(typewriterRef.current); typewriterRef.current = null }
-              setBioText(e.target.value)
-            }}
-            placeholder={selectedClip ? 'Click Generate to create an AI-optimized caption with trending hashtags...' : 'Select a clip first, then generate a bio...'}
-            className="w-full min-h-[120px] rounded-lg border border-border bg-background/50 px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/50 focus:border-purple-500/60 focus:ring-2 focus:ring-purple-500/20 outline-none transition-all resize-vertical" />
-          {bioText && (
-            <div className="flex flex-wrap gap-1.5 mt-2">
-              {bioText.match(/#\w+/g)?.map((tag, i) => (
-                <span key={i} className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-400 border border-purple-500/20">{tag}</span>
-              ))}
+          ) : captionText ? (
+            <>
+              <div className="dist-caption-box">
+                <textarea
+                  ref={captionRef}
+                  value={captionText}
+                  onChange={(e) => {
+                    if (typewriterRef.current) { clearInterval(typewriterRef.current); typewriterRef.current = null }
+                    setBioText(e.target.value)
+                  }}
+                  className="dist-caption-textarea"
+                />
+              </div>
+              <div className="dist-caption-actions">
+                <button
+                  className="dist-ghost-btn"
+                  onClick={() => navigator.clipboard?.writeText(captionText)}
+                  title="Copy caption to clipboard"
+                >
+                  <Copy size={11} /> Copy
+                </button>
+              </div>
+            </>
+          ) : aiCaptionError ? (
+            <div className="dist-caption-empty">
+              <div className="empty-icon" style={{ color: 'rgba(239,68,68,0.7)' }}>
+                <AlertCircle size={20} />
+              </div>
+              <p className="empty-title">Caption generation failed</p>
+              <p className="empty-sub">{aiCaptionError}</p>
+            </div>
+          ) : !captionGenerating && (
+            <div className="dist-caption-empty">
+              <div className="empty-icon">
+                <Sparkles size={20} />
+              </div>
+              <p className="empty-title">Generate AI captions for this clip.</p>
+              <p className="empty-sub">Per-platform captions · trending hashtags · 3 variants each.</p>
             </div>
           )}
-        </Card>
+        </div>
 
-        {/* Publish Panel */}
-        <Card className={cn('bg-card/60 p-5 flex flex-col justify-between', selectedClip && activePlatformCount > 0 ? 'border-orange-500/15' : 'border-border')}>
-          {/* Progress bar at top */}
-          {publishSequenceActive && publishSteps.length > 0 && (
-            <div className="h-1 rounded-full bg-zinc-800 mb-4 overflow-hidden">
-              <div
-                className={cn(
-                  'h-full rounded-full transition-all duration-500',
-                  aiAutoDistribute
-                    ? 'bg-gradient-to-r from-purple-500 to-purple-400'
-                    : 'bg-gradient-to-r from-orange-500 to-amber-400'
-                )}
-                style={{ width: `${progressPercent}%` }}
-              />
+        {/* ─── Right: Publish ─── */}
+        <div className="dist-glass dist-console-card">
+          <div className="dist-console-card-head">
+            <div className="dist-console-card-titles">
+              <h3 className="dist-console-card-title">
+                <Send size={14} />
+                Publish
+              </h3>
+              <p className="dist-console-card-sub">Send your clip to the connected platforms.</p>
             </div>
-          )}
-
-          <div>
-            <h2 className="text-xs uppercase tracking-widest text-muted-foreground font-medium mb-3 flex items-center gap-1.5">
-              <Send className="h-3.5 w-3.5 text-purple-400" />
-              Publish
-            </h2>
-
-            {/* Post-publish AI projections */}
-            {publishDone && publishedPlatformCount > 0 && !publishSequenceActive ? (
-              <div className="space-y-3" style={{ animation: 'scaleIn 0.4s ease-out' }}>
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center flex-shrink-0">
-                    <Rocket className="h-5 w-5 text-emerald-400" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-bold text-foreground">Distribution started!</p>
-                    <p className="text-[11px] text-muted-foreground">AI Growth Projections</p>
-                  </div>
-                </div>
-                <p className="text-[9px] text-muted-foreground/50">Predicted performance · Based on clip analysis & platform trends</p>
-
-                {trackingMetrics && (
-                  <>
-                    <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 p-3 rounded-lg bg-background/50 border border-border">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[10px] text-muted-foreground">Views</span>
-                        <span className="text-sm font-bold text-foreground">{formatMetricCount(trackingMetrics.views)}</span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-[10px] text-muted-foreground">Likes</span>
-                        <span className="text-sm font-bold text-foreground">{formatMetricCount(trackingMetrics.likes)}</span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-[10px] text-muted-foreground">Comments</span>
-                        <span className="text-sm font-bold text-foreground">{formatMetricCount(trackingMetrics.comments)}</span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-[10px] text-muted-foreground">Shares</span>
-                        <span className="text-sm font-bold text-foreground">{formatMetricCount(trackingMetrics.shares)}</span>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center justify-between text-xs">
-                      <span className={cn(
-                        'font-medium',
-                        trackingMetrics.growthPercent > 0 ? 'text-emerald-400' : 'text-muted-foreground'
-                      )}>
-                        {trackingMetrics.growthPercent > 0 ? '+' : ''}{trackingMetrics.growthPercent}% vs average clip
-                      </span>
-                      <span className="flex items-center gap-1 text-purple-400">
-                        <Zap className="h-3 w-3" />
-                        <span className="font-medium">{trackingMetrics.velocityLabel}</span>
-                      </span>
-                    </div>
-
-                    <div className="text-[11px] text-muted-foreground">
-                      <p className="font-medium text-muted-foreground/80 mb-1">Platform breakdown:</p>
-                      <div className="flex flex-wrap gap-x-3 gap-y-0.5">
-                        {Object.entries(trackingMetrics.platformBreakdown).map(([pid, data]) => {
-                          const p = PLATFORMS.find(pl => pl.id === pid)
-                          const isPrimary = priorityRec.order[0] === pid
-                          return (
-                            <span key={pid} className={isPrimary ? 'text-purple-300' : undefined}>
-                              {p?.label ?? pid}: {formatMetricCount(data.views)} views{isPrimary ? ' \u2191' : ''}
-                            </span>
-                          )
-                        })}
-                      </div>
-                    </div>
-                  </>
-                )}
-              </div>
-            ) : selectedClip ? (
-              <div className="space-y-3">
-                {/* Clip preview */}
-                <div className="flex items-center gap-3 p-3 rounded-lg bg-background/50 border border-border">
-                  <div className="w-10 h-[56px] rounded-lg bg-gradient-to-b from-zinc-700 to-zinc-900 flex-shrink-0 overflow-hidden">
-                    {selectedClip.thumbnailUrl && <img src={selectedClip.thumbnailUrl} alt="" className="w-full h-full object-cover" />}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate">{selectedClip.title || 'Untitled clip'}</p>
-                    <p className="text-[11px] text-muted-foreground">
-                      Score: {selectedClip.score ?? '\u2014'} · {selectedClip.source === 'trending' ? 'Trending' : 'Upload'}
-                    </p>
-                  </div>
-                  <ChevronRight className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                </div>
-
-                {/* Step-by-step publish sequence */}
-                {publishSequenceActive || (publishDone && publishSteps.length > 0 && publishedPlatformCount === 0) ? (
-                  <div className="space-y-1.5 pt-1">
-                    {publishSteps.map((step, i) => (
-                      <div
-                        key={i}
-                        className={cn(
-                          'flex items-center gap-2 text-xs transition-all duration-300',
-                          step.status === 'done' ? 'text-emerald-400'
-                            : step.status === 'active' ? 'text-purple-400'
-                            : step.status === 'error' ? 'text-red-400'
-                            : 'text-muted-foreground/30'
-                        )}
-                        style={step.status !== 'pending' ? { animation: 'stepFade 0.3s ease-out' } : undefined}
-                      >
-                        {step.status === 'done' ? (
-                          <Check className="h-3 w-3 flex-shrink-0" />
-                        ) : step.status === 'active' ? (
-                          <Loader2 className="h-3 w-3 flex-shrink-0 animate-spin" />
-                        ) : step.status === 'error' ? (
-                          <AlertCircle className="h-3 w-3 flex-shrink-0" />
-                        ) : (
-                          <div className="w-3 h-3 flex-shrink-0" />
-                        )}
-                        <span>{step.label}</span>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                    <TrendingUp className="h-3.5 w-3.5" />
-                    <span>
-                      Publishing to {activePlatformCount} platform{activePlatformCount !== 1 ? 's' : ''}
-                      {aiAutoDistribute ? ' · AI timing active' : ''}
-                    </span>
-                  </div>
-                )}
-              </div>
-            ) : (
-              <div className="flex flex-col items-center py-6 gap-2 text-center">
-                <Film className="h-8 w-8 text-muted-foreground/30" />
-                <p className="text-sm text-muted-foreground">Select a clip from the bank to publish</p>
-              </div>
-            )}
           </div>
 
-          <button
-            onClick={handlePublish}
-            disabled={!selectedClip || activePlatformCount === 0 || isPublishing || publishSequenceActive}
-            className={cn('w-full mt-4 rounded-xl p-[1px] transition-all duration-300 overflow-hidden',
-              !selectedClip || activePlatformCount === 0 || isPublishing || publishSequenceActive ? 'bg-muted cursor-not-allowed'
-                : aiAutoDistribute ? 'bg-gradient-to-b from-purple-500 to-purple-700 shadow-lg shadow-purple-500/25 hover:shadow-purple-500/40 hover:scale-[1.01]'
-                : 'bg-gradient-to-b from-orange-400 to-orange-600 shadow-lg shadow-orange-500/25 hover:shadow-orange-500/40 hover:scale-[1.01]')}>
-            <div className={cn('flex items-center justify-center gap-2 rounded-[11px] px-4 py-3 border-t transition-all',
-              !selectedClip || activePlatformCount === 0 || isPublishing || publishSequenceActive ? 'bg-muted text-muted-foreground'
-                : aiAutoDistribute ? 'bg-purple-950/80 border-purple-400/20 text-white'
-                : 'bg-gradient-to-b from-orange-500/95 to-orange-700/95 border-white/15 text-white')}>
-              {publishSequenceActive ? (
-                <>
-                  <Loader2 className="h-[18px] w-[18px] animate-spin" />
-                  <div className="text-left flex-1">
-                    <span className="text-sm font-bold block leading-tight">
-                      Publishing... {platformStepsDone}/{platformStepsTotal} platform{platformStepsTotal !== 1 ? 's' : ''}
-                    </span>
-                    <div className="h-1 rounded-full bg-white/10 mt-1.5 overflow-hidden">
-                      <div
-                        className={cn(
-                          'h-full rounded-full transition-all duration-500',
-                          aiAutoDistribute ? 'bg-purple-400' : 'bg-orange-400'
-                        )}
-                        style={{ width: `${progressPercent}%` }}
-                      />
-                    </div>
+          {publishDone && publishedPlatformCount > 0 && !publishSequenceActive ? (
+            <div style={{ animation: 'dist-scaleIn 0.4s ease-out' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
+                <div style={{ width: 40, height: 40, borderRadius: '50%', background: 'rgba(56,189,248,.15)', border: '1px solid rgba(56,189,248,.3)', display: 'grid', placeItems: 'center', flexShrink: 0 }}>
+                  <Rocket size={20} style={{ color: '#38BDF8' }} />
+                </div>
+                <div>
+                  <p style={{ fontSize: 14, fontWeight: 700, color: '#fff', margin: 0 }}>Distribution started!</p>
+                  <p style={{ fontSize: 11, color: 'var(--va-text-muted)', margin: 0 }}>AI Growth Projections</p>
+                </div>
+              </div>
+              {trackingMetrics && (
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px 16px', padding: '12px', borderRadius: 12, background: 'rgba(255,255,255,.025)', border: '1px solid rgba(42,42,62,.6)' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span style={{ fontSize: 10, color: 'var(--va-text-dim)' }}>Views</span>
+                    <span style={{ fontSize: 14, fontWeight: 800, color: '#fff' }}>{formatMetricCount(trackingMetrics.views)}</span>
                   </div>
-                </>
-              ) : aiAutoDistribute ? (
-                <Zap className="h-[18px] w-[18px]" />
-              ) : (
-                <Send className="h-[18px] w-[18px]" />
-              )}
-              {!publishSequenceActive && (
-                <div className="text-left">
-                  <span className="text-sm font-bold block leading-tight">
-                    {aiAutoDistribute ? 'Activate AI distribution' : 'Publish now'}
-                  </span>
-                  <span className="text-[10px] opacity-60 block">
-                    {aiAutoDistribute
-                      ? `${clipBank.length} clip${clipBank.length !== 1 ? 's' : ''} queued · ${activePlatformCount} platform${activePlatformCount !== 1 ? 's' : ''}`
-                      : `Send to ${activePlatformCount} platform${activePlatformCount !== 1 ? 's' : ''}`}
-                  </span>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span style={{ fontSize: 10, color: 'var(--va-text-dim)' }}>Likes</span>
+                    <span style={{ fontSize: 14, fontWeight: 800, color: '#fff' }}>{formatMetricCount(trackingMetrics.likes)}</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span style={{ fontSize: 10, color: 'var(--va-text-dim)' }}>Comments</span>
+                    <span style={{ fontSize: 14, fontWeight: 800, color: '#fff' }}>{formatMetricCount(trackingMetrics.comments)}</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span style={{ fontSize: 10, color: 'var(--va-text-dim)' }}>Shares</span>
+                    <span style={{ fontSize: 14, fontWeight: 800, color: '#fff' }}>{formatMetricCount(trackingMetrics.shares)}</span>
+                  </div>
                 </div>
               )}
             </div>
-          </button>
-        </Card>
+          ) : selectedClip ? (
+            <>
+              {/* Clip preview — click to change */}
+              <button
+                className="dist-next-clip dist-next-clip-btn"
+                onClick={() => setShowClipPicker(true)}
+                disabled={publishSequenceActive}
+                title="Change clip"
+              >
+                <div className="dist-next-thumb">
+                  {selectedClip.thumbnailUrl ? (
+                    <img src={selectedClip.thumbnailUrl} alt="" />
+                  ) : (
+                    <div className="fill" />
+                  )}
+                  {(selectedClip.score ?? 0) >= 80 && (
+                    <span className="thumb-score-badge">
+                      <Flame size={9} /> {selectedClip.score}
+                    </span>
+                  )}
+                </div>
+                <div className="dist-next-info">
+                  <div className="title">{selectedClip.title || 'Untitled clip'}</div>
+                  <div className="meta">
+                    <span>Score{' · '}<strong>{selectedClip.score ?? '—'}</strong></span>
+                    <span className="dot">·</span>
+                    <span>{selectedClip.source === 'trending' ? 'Remix' : 'Bank'}</span>
+                  </div>
+                </div>
+                <span className="dist-next-clip-change">
+                  <RefreshCw size={11} /> Change
+                </span>
+              </button>
+
+              {/* Publish steps (during active publish) */}
+              {(publishSequenceActive || (publishDone && publishSteps.length > 0 && publishedPlatformCount === 0)) && (
+                <div className="dist-console-steps">
+                  {publishSteps.map((step, i) => (
+                    <div key={i} className={`dist-step-item ${step.status}`}>
+                      {step.status === 'done' ? <Check size={12} /> : step.status === 'active' ? <Loader2 size={12} className="animate-spin" /> : step.status === 'error' ? <AlertCircle size={12} /> : <div style={{ width: 12, height: 12 }} />}
+                      <span>{step.label}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Platforms target line — shows current selection */}
+              <button
+                className="dist-publish-targets dist-publish-targets-btn"
+                onClick={() => setShowPlatformPicker(true)}
+                disabled={publishSequenceActive}
+                title="Choose platforms"
+              >
+                <TrendingUp size={12} />
+                <span>
+                  Posting to{' '}
+                  <strong>
+                    {activePlatformCount > 0
+                      ? `${activePlatformCount} platform${activePlatformCount !== 1 ? 's' : ''}`
+                      : 'no platform yet'}
+                  </strong>
+                </span>
+                <ChevronRight size={13} className="chev" />
+              </button>
+
+              {/* Single primary action */}
+              <button
+                className="dist-cyan-btn primary"
+                onClick={() => {
+                  if (activePlatformCount === 0) {
+                    setShowPlatformPicker(true)
+                  } else {
+                    setShowPlatformPicker(true)
+                  }
+                }}
+                disabled={!selectedClip || isPublishing || publishSequenceActive}
+              >
+                {publishSequenceActive ? (
+                  <Loader2 size={14} className="animate-spin" />
+                ) : (
+                  <Send size={13} />
+                )}
+                {publishSequenceActive
+                  ? `Publishing… ${platformStepsDone}/${platformStepsTotal}`
+                  : activePlatformCount === 0 ? 'Choose platforms' : 'Post now'}
+              </button>
+            </>
+          ) : (
+            <div className="dist-next-empty">
+              <Rocket size={28} style={{ color: 'rgba(56,189,248,0.4)' }} />
+              <p className="empty-title">No clip staged</p>
+              <p className="empty-sub">Pick a clip from your bank to publish now, or wait for AI Schedule.</p>
+              <button
+                className="dist-cyan-btn"
+                style={{ marginTop: 10 }}
+                onClick={() => document.getElementById('clip-bank-section')?.scrollIntoView({ behavior: 'smooth', block: 'center' })}
+              >
+                <Film size={12} /> Pick from bank
+              </button>
+            </div>
+          )}
+        </div>
       </div>
 
-      {/* ─── SMART QUEUE — AI Schedule ─── */}
-      <SmartQueueSection clipBank={clipBank} />
-
-      {/* ─── FLOW LINE: Bank → AI ─── */}
-      <FlowLine active={clipBank.length > 0} />
-
-      {/* ─── AI ENGINE NODE ─── */}
-      <div className="flex flex-col items-center py-2">
-        {/* Outer glow ring */}
-        <div className="relative">
-          {aiAutoDistribute && (
-            <div className="absolute inset-0 w-20 h-20 -m-2 rounded-full border border-purple-500/20"
-              style={{ animation: 'pulseGlow 3s ease-in-out infinite' }} />
-          )}
-          <div className={cn(
-            'relative w-16 h-16 rounded-full flex items-center justify-center transition-all duration-700',
-            aiAutoDistribute
-              ? 'bg-gradient-to-br from-purple-500/25 to-purple-600/15 border-2 border-purple-400/50 shadow-[0_0_30px_rgba(168,85,247,0.15)]'
-              : 'bg-purple-500/10 border-2 border-purple-500/20'
-          )} style={aiAutoDistribute ? { animation: 'pulseGlow 2s ease-in-out infinite' } : undefined}>
-            <Sparkles className={cn(
-              'h-7 w-7 transition-all duration-500',
-              aiAutoDistribute ? 'text-purple-300 drop-shadow-[0_0_8px_rgba(168,85,247,0.5)]' : 'text-purple-400/70'
-            )} />
-          </div>
-          {/* Orbiting dots when active */}
-          {aiAutoDistribute && (
+      {/* ═══ CONNECTION MAP ═══ */}
+      <div className="dist-connection-map" ref={connectionMapRef}>
+        {/* Flow lines (dynamic paths — actually touch icons) + animated particles */}
+        <svg className="dist-map-svg" preserveAspectRatio="none">
+          <defs>
+            <filter id="particle-glow" x="-100%" y="-100%" width="300%" height="300%">
+              <feGaussianBlur stdDeviation="2" result="b" />
+              <feMerge>
+                <feMergeNode in="b" />
+                <feMergeNode in="SourceGraphic" />
+              </feMerge>
+            </filter>
+          </defs>
+          <path id="flow-path-tiktok" className={`dist-flow-path ${isPlatActive('tiktok') ? 'blue' : 'dim'}`} d={flowPaths.tiktok} />
+          <path id="flow-path-youtube" className={`dist-flow-path ${isPlatActive('youtube') ? 'blue' : 'dim'}`} d={flowPaths.youtube} />
+          <path id="flow-path-instagram" className={`dist-flow-path ${isPlatActive('instagram') ? 'blue' : 'dim'}`} d={flowPaths.instagram} />
+          <path id="flow-path-facebook" className="dist-flow-path dim" d={flowPaths.facebook} />
+          {/* Animated glowing particles flowing along each path */}
+          {flowPaths.tiktok && isPlatActive('tiktok') && (
             <>
-              <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1 w-1.5 h-1.5 rounded-full bg-purple-400/60" style={{ animation: 'orbitDot 4s linear infinite' }} />
-              <div className="absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-1 w-1 h-1 rounded-full bg-purple-400/40" style={{ animation: 'orbitDot 4s linear infinite 2s' }} />
+              <circle r="3.5" fill="#38BDF8" filter="url(#particle-glow)">
+                <animateMotion dur="2.6s" repeatCount="indefinite" path={flowPaths.tiktok} />
+              </circle>
+              <circle r="2" fill="#7dd3fc" filter="url(#particle-glow)" opacity="0.7">
+                <animateMotion dur="2.6s" begin="0.9s" repeatCount="indefinite" path={flowPaths.tiktok} />
+              </circle>
             </>
           )}
-        </div>
-        <span className="text-sm font-semibold text-purple-400 mt-3 flex items-center gap-1.5">
-          AI distribution engine
-          <span className="text-[9px] font-medium px-1.5 py-0.5 rounded-full bg-purple-500/20 text-purple-400 border border-purple-500/30">Beta</span>
-        </span>
-        <span className="text-[11px] text-muted-foreground mt-0.5">Bio, timing & platform optimization</span>
+          {flowPaths.youtube && isPlatActive('youtube') && (
+            <>
+              <circle r="3.5" fill="#38BDF8" filter="url(#particle-glow)">
+                <animateMotion dur="2.8s" repeatCount="indefinite" path={flowPaths.youtube} />
+              </circle>
+              <circle r="2" fill="#7dd3fc" filter="url(#particle-glow)" opacity="0.7">
+                <animateMotion dur="2.8s" begin="1.2s" repeatCount="indefinite" path={flowPaths.youtube} />
+              </circle>
+            </>
+          )}
+          {flowPaths.instagram && isPlatActive('instagram') && (
+            <>
+              <circle r="3.5" fill="#38BDF8" filter="url(#particle-glow)">
+                <animateMotion dur="2.5s" repeatCount="indefinite" path={flowPaths.instagram} />
+              </circle>
+              <circle r="2" fill="#7dd3fc" filter="url(#particle-glow)" opacity="0.7">
+                <animateMotion dur="2.5s" begin="0.7s" repeatCount="indefinite" path={flowPaths.instagram} />
+              </circle>
+            </>
+          )}
+        </svg>
 
-        <Card className="bg-card/60 border-border px-5 py-3 flex items-center gap-3 mt-3">
-          <Zap className={cn('h-4 w-4 transition-colors', aiAutoDistribute ? 'text-emerald-400' : 'text-muted-foreground')} />
-          <span className="text-sm font-medium">AI auto-distribute</span>
-          <Switch checked={aiAutoDistribute} onCheckedChange={(v) => { setAiAutoDistribute(v); if (v) setShowSchedule(true) }} />
-        </Card>
-
-        {/* Schedule preview when AI is ON */}
-        {aiAutoDistribute && showSchedule && (
-          <Card className="bg-card/60 border-purple-500/20 px-4 py-3 mt-2 w-full max-w-md" style={{ animation: 'stepFade 0.3s ease-out' }}>
-            <div className="flex items-center justify-between mb-2">
-              <div className="flex items-center gap-2">
-                <Calendar className="h-3.5 w-3.5 text-purple-400" />
-                <span className="text-xs font-medium text-purple-400">Optimal posting times</span>
-              </div>
-              <span className="text-[9px] text-muted-foreground/60">Based on 12,482 viral clips analyzed</span>
-            </div>
-            <div className="space-y-1.5">
-              {PLATFORMS.filter(p => p.supported && publishTargets.find(t => t.platform === p.id)?.enabled).map(p => (
-                <div key={p.id} className="flex items-center justify-between text-xs">
-                  <span className="text-muted-foreground">{p.label}</span>
-                  <div className="flex gap-1.5">
-                    {getOptimalPostingTimes(p.id).map((h, i) => (
-                      <span key={i} className="px-1.5 py-0.5 rounded bg-purple-500/10 text-purple-300 text-[10px] font-medium">{h}</span>
-                    ))}
-                  </div>
-                </div>
-              ))}
-              {PLATFORMS.filter(p => p.supported && publishTargets.find(t => t.platform === p.id)?.enabled).length === 0 && (
-                <p className="text-[11px] text-muted-foreground">Enable platforms below to see optimal times</p>
+        {/* Platform nodes — compact icon style */}
+        {PLATFORMS.filter(p => ['tiktok', 'youtube', 'instagram', 'facebook'].includes(p.id)).map((p) => {
+          const isConn = connectedPlatforms.includes(p.id as typeof connectedPlatforms[number])
+          const isComingSoon = !p.supported
+          const isEnabled = publishTargets.find(t => t.platform === p.id)?.enabled ?? false
+          const isActive = isConn && isEnabled && aiAutoDistribute
+          const posClass = p.id === 'tiktok' ? 'pos-tl' : p.id === 'youtube' ? 'pos-bl' : p.id === 'instagram' ? 'pos-tr' : 'pos-br'
+          const platRef = p.id === 'tiktok' ? platTiktokRef : p.id === 'youtube' ? platYoutubeRef : p.id === 'instagram' ? platInstagramRef : platFacebookRef
+          return (
+            <div key={p.id} ref={platRef} className={`dist-plat-node ${posClass} ${isActive ? 'active' : isComingSoon ? 'dim' : ''}`}>
+              {isActive ? (
+                <ElectricBorder color="#38BDF8" speed={0.8} chaos={0.08} borderRadius={20}>
+                  <div className="plat-icon-wrap">{p.icon}</div>
+                </ElectricBorder>
+              ) : (
+                <div className="plat-icon-wrap">{p.icon}</div>
+              )}
+              <span className="plat-name">{p.label}</span>
+              {isComingSoon ? (
+                <span className="plat-toggle soon">Soon</span>
+              ) : isConn ? (
+                <button className={`plat-toggle ${isActive ? 'on' : 'off'}`} onClick={() => togglePublishTarget(p.id)}>
+                  <span className="toggle-dot" />
+                  {isActive ? 'ON' : 'OFF'}
+                </button>
+              ) : (
+                <button className="plat-toggle connect" onClick={() => router.push('/settings')}>Connect</button>
               )}
             </div>
-          </Card>
-        )}
-      </div>
+          )
+        })}
 
-      {/* ─── FLOW LINE: AI → Platforms ─── */}
-      <FlowLine active={aiAutoDistribute || activePlatformCount > 0} />
+        {/* AI Brain Core — premium glass system */}
+        <div ref={brainCoreRef} className={`dist-core-wrap ${aiAutoDistribute ? "" : "off"}`}>
+          <div className="dist-core-glow" />
+          <div className="dist-core-glass" />
+          <svg className="dist-brain-svg" viewBox="0 0 320 320" aria-hidden="true">
+            <defs>
+              <linearGradient id="cyan-orange" x1="0" y1="0" x2="1" y2="0">
+                <stop offset="0%" stopColor="#38BDF8" />
+                <stop offset="100%" stopColor="#F97316" />
+              </linearGradient>
+              <filter id="wolf-glow" x="-60%" y="-60%" width="220%" height="220%">
+                {/* Tight bright halo right at the stroke edge */}
+                <feDropShadow dx="0" dy="0" stdDeviation="1.2" floodColor="#FED7AA" floodOpacity="0.85" />
+                {/* Mid orange glow */}
+                <feDropShadow dx="0" dy="0" stdDeviation="4" floodColor="#FB923C" floodOpacity="0.55" />
+                {/* Soft diffused outer aura */}
+                <feDropShadow dx="0" dy="0" stdDeviation="12" floodColor="#F97316" floodOpacity="0.22" />
+              </filter>
+              <filter id="brainGlow" x="-40%" y="-40%" width="180%" height="180%">
+                <feGaussianBlur stdDeviation="5" result="blur" />
+                <feColorMatrix
+                  in="blur"
+                  type="matrix"
+                  values="0 0 0 0 0.15  0 0 0 0 0.75  0 0 0 0 1  0 0 0 0.85 0"
+                  result="glow"
+                />
+                <feMerge>
+                  <feMergeNode in="glow" />
+                  <feMergeNode in="SourceGraphic" />
+                </feMerge>
+              </filter>
+              <linearGradient id="brainStroke" x1="60" y1="60" x2="260" y2="260" gradientUnits="userSpaceOnUse">
+                <stop offset="0%" stopColor="#7DD3FC" />
+                <stop offset="50%" stopColor="#38BDF8" />
+                <stop offset="100%" stopColor="#0EA5E9" />
+              </linearGradient>
+              <linearGradient id="brainSoftFill" x1="160" y1="50" x2="160" y2="270" gradientUnits="userSpaceOnUse">
+                <stop offset="0%" stopColor="#38BDF8" stopOpacity="0.16" />
+                <stop offset="100%" stopColor="#0EA5E9" stopOpacity="0.04" />
+              </linearGradient>
+            </defs>
 
-      {/* ─── PLATFORMS ─── */}
-      <div>
-        <h2 className="text-xs uppercase tracking-widest text-muted-foreground font-medium mb-3 text-center">Platforms</h2>
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-          {PLATFORMS.map((platform) => {
-            const isConnected = connectedPlatforms.includes(platform.id as 'tiktok' | 'youtube' | 'instagram')
-            const isActive = (publishTargets.find(t => t.platform === platform.id)?.enabled ?? false) && isConnected
-            const progress = publishProgress[platform.id]
-            const isComingSoon = !platform.supported
+            {/* ── Concentric glass rings ── */}
+            <circle cx="160" cy="160" r="148" fill="rgba(8,15,28,0.32)" stroke="rgba(56,189,248,0.22)" strokeWidth="1" />
+            <circle cx="160" cy="160" r="142" fill="none" stroke="rgba(56,189,248,0.12)" strokeWidth="0.6" />
+            <circle cx="160" cy="160" r="128" fill="none" stroke="rgba(56,189,248,0.07)" strokeWidth="0.5" />
 
-            return (
-              <Card key={platform.id} className={cn(
-                'bg-card/60 border p-4 transition-all duration-300 relative overflow-hidden',
-                isActive ? 'border-purple-500/30 shadow-[0_0_15px_rgba(168,85,247,0.08)]' : 'border-border',
-                isComingSoon && 'opacity-50 grayscale'
-              )}>
-                {/* Active indicator glow */}
-                {isActive && (
-                  <div className="absolute inset-0 bg-gradient-to-b from-purple-500/5 to-transparent pointer-events-none" />
-                )}
-                {/* Platform icon */}
-                <div className={cn(
-                  'w-12 h-12 rounded-xl mx-auto flex items-center justify-center text-lg font-bold mb-3 bg-gradient-to-br',
-                  platform.gradient,
-                  'text-white',
-                  !isConnected && !isComingSoon && 'opacity-30'
-                )}>
-                  {platform.icon}
-                </div>
+            {/* ── Outer ring (rotating dashes) with subtle brand accents ── */}
+            <g className="dist-core-outer-ring">
+              <circle cx="160" cy="160" r="148" fill="none" stroke="rgba(56,189,248,0.55)" strokeWidth="1.1" strokeDasharray="2 7" strokeLinecap="round" />
+              {/* Cyan data nodes (rotate with ring) */}
+              <circle cx="308" cy="160" r="2.5" fill="#7DD3FC" opacity="0.9" />
+              <circle cx="12" cy="160" r="2" fill="#7DD3FC" opacity="0.6" />
+              {/* Single subtle orange node — brand hint, not anomaly */}
+              <circle cx="160" cy="12" r="2.5" fill="#FB923C" opacity="0.85">
+                <animate attributeName="opacity" values="0.5;1;0.5" dur="3s" repeatCount="indefinite" />
+              </circle>
+            </g>
 
-                <p className="text-xs font-semibold text-center">{platform.label}</p>
+            {/* Static inner ring (counter-stable, gives depth without rotation) */}
+            <circle cx="160" cy="160" r="138" fill="none" stroke="rgba(56,189,248,0.18)" strokeWidth="0.5" strokeDasharray="1 5" strokeLinecap="round" />
 
-                {isComingSoon ? (
-                  /* Coming Soon badge */
-                  <div className="mt-3 text-center">
-                    <span className="text-[10px] font-medium px-2.5 py-1 rounded-full bg-zinc-800 text-zinc-400 border border-zinc-700">
-                      Coming soon
-                    </span>
-                  </div>
-                ) : isConnected ? (
-                  <div className="mt-3 space-y-2">
-                    <div className="flex items-center justify-center gap-1.5">
-                      <div className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                      <span className="text-[10px] text-emerald-400 font-medium">Connected</span>
+            {/* ── New Brain (shifted +30 to vertically center within 320x320 viewBox) ── */}
+            <g transform="translate(0 30)">
+              {/* Soft background fill */}
+              <path
+                d="M153 48 C132 24 92 30 79 58 C48 63 35 91 47 116 C23 138 35 176 65 184 C68 219 111 235 153 207 Z"
+                fill="url(#brainSoftFill)"
+                opacity="0.85"
+              />
+              <path
+                d="M167 48 C188 24 228 30 241 58 C272 63 285 91 273 116 C297 138 285 176 255 184 C252 219 209 235 167 207 Z"
+                fill="url(#brainSoftFill)"
+                opacity="0.85"
+              />
+
+              {/* Outer lobes with glow */}
+              <g filter="url(#brainGlow)" stroke="url(#brainStroke)" strokeWidth="5.5" strokeLinecap="round" strokeLinejoin="round" fill="none">
+                <path d="M153 48 C132 24 92 30 79 58 C48 63 35 91 47 116 C23 138 35 176 65 184 C68 219 111 235 153 207" />
+                <path d="M167 48 C188 24 228 30 241 58 C272 63 285 91 273 116 C297 138 285 176 255 184 C252 219 209 235 167 207" />
+                {/* Center fissure split into two segments — skips the wolf face/jaw area */}
+                <path d="M160 45 L160 78" opacity="0.9" />
+                <path d="M160 188 L160 218" opacity="0.9" />
+                <path d="M151 55 C156 68 156 86 151 102" opacity="0.55" />
+                <path d="M169 55 C164 68 164 86 169 102" opacity="0.55" />
+              </g>
+
+              {/* Inner grooves */}
+              <g
+                stroke="#38BDF8"
+                strokeWidth="3.2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                fill="none"
+                opacity="0.78"
+              >
+                {/* left upper */}
+                <path d="M130 61 C108 61 92 72 88 91" />
+                <path d="M137 78 C115 82 104 96 102 112" />
+                <path d="M112 72 C104 82 103 92 111 101" />
+                <path d="M81 91 C69 101 69 116 82 124" />
+                {/* left middle */}
+                <path d="M58 132 C78 123 101 126 116 140" />
+                <path d="M83 149 C103 144 126 150 138 166" />
+                <path d="M67 171 C92 169 113 179 127 195" />
+                {/* left lower */}
+                <path d="M101 202 C117 201 135 194 148 181" />
+                <path d="M76 184 C86 194 101 200 116 198" />
+                {/* right upper */}
+                <path d="M190 61 C212 61 228 72 232 91" />
+                <path d="M183 78 C205 82 216 96 218 112" />
+                <path d="M208 72 C216 82 217 92 209 101" />
+                <path d="M239 91 C251 101 251 116 238 124" />
+                {/* right middle */}
+                <path d="M262 132 C242 123 219 126 204 140" />
+                <path d="M237 149 C217 144 194 150 182 166" />
+                <path d="M253 171 C228 169 207 179 193 195" />
+                {/* right lower */}
+                <path d="M219 202 C203 201 185 194 172 181" />
+                <path d="M244 184 C234 194 219 200 204 198" />
+              </g>
+
+              {/* Neural nodes */}
+              <g fill="#7DD3FC" opacity="0.9">
+                <circle cx="88" cy="91" r="3" />
+                <circle cx="102" cy="112" r="2.6" />
+                <circle cx="116" cy="140" r="2.6" />
+                <circle cx="138" cy="166" r="2.6" />
+                <circle cx="232" cy="91" r="3" />
+                <circle cx="218" cy="112" r="2.6" />
+                <circle cx="204" cy="140" r="2.6" />
+                <circle cx="182" cy="166" r="2.6" />
+              </g>
+
+            </g>
+
+            {/* ── Wolf — integrated in the brain's negative-space rect ── */}
+            {/* Negative-space rect (after brain translate +30): x=118-202, y=106-216, center (160, 161).
+                Wolf head bbox (4,4)-(144,149), center (74, 76.5).
+                Matrix(0.55 0 0 0.55 119.3 118.925) places head center exactly at (160, 161). */}
+            <g className="dist-brain-wolf" transform="matrix(0.55 0 0 0.55 119.3 118.925)" filter="url(#wolf-glow)">
+              <path
+                fill="rgba(2,6,23,0.55)"
+                stroke="#FFC58A"
+                strokeWidth="2.4"
+                strokeLinejoin="round"
+                strokeLinecap="round"
+                fillRule="evenodd"
+                d="M 16.0 5.0 L 16.0 46.0 L 21.0 63.0 L 27.0 59.0 L 24.0 27.0 L 41.0 53.0 L 35.0 53.0 L 36.0 69.0 L 28.0 63.0 L 8.0 80.0 L 17.0 85.0 L 4.0 103.0 L 14.0 102.0 L 14.0 112.0 L 31.0 111.0 L 28.0 101.0 L 40.0 111.0 L 41.0 106.0 L 50.0 112.0 L 49.0 125.0 L 62.0 149.0 L 63.0 142.0 L 71.0 138.0 L 62.0 126.0 L 64.0 122.0 L 85.0 123.0 L 77.0 137.0 L 84.0 141.0 L 86.0 149.0 L 98.0 127.0 L 96.0 111.0 L 106.0 106.0 L 108.0 110.0 L 119.0 101.0 L 116.0 111.0 L 134.0 112.0 L 132.0 103.0 L 144.0 103.0 L 130.0 85.0 L 139.0 80.0 L 119.0 63.0 L 111.0 69.0 L 113.0 53.0 L 106.0 53.0 L 123.0 27.0 L 120.0 59.0 L 126.0 64.0 L 131.0 44.0 L 130.0 4.0 L 88.0 41.0 L 59.0 41.0 Z M 51.0 137.0 L 56.0 163.0 L 64.0 173.0 L 64.0 172.0 L 66.0 171.0 L 72.0 177.0 L 74.0 178.0 L 76.0 177.0 L 81.0 172.0 L 83.0 173.0 L 89.0 167.0 L 92.0 162.0 L 92.0 159.0 L 93.0 158.0 L 93.0 153.0 L 94.0 152.0 L 94.0 148.0 L 95.0 147.0 L 96.0 138.0 L 94.0 142.0 L 94.0 145.0 L 91.0 150.0 L 90.0 155.0 L 87.0 160.0 L 85.0 159.0 L 83.0 153.0 L 82.0 157.0 L 81.0 158.0 L 81.0 161.0 L 79.0 164.0 L 68.0 164.0 L 67.0 163.0 L 67.0 159.0 L 66.0 158.0 L 65.0 153.0 L 62.0 160.0 L 61.0 160.0 L 59.0 158.0 L 58.0 154.0 L 56.0 151.0 L 55.0 146.0 L 53.0 143.0 L 52.0 138.0 Z M 110.0 82.0 L 110.0 83.0 L 109.0 84.0 L 109.0 86.0 L 108.0 87.0 L 108.0 89.0 L 107.0 90.0 L 107.0 91.0 L 106.0 92.0 L 105.0 95.0 L 103.0 97.0 L 101.0 97.0 L 100.0 98.0 L 95.0 98.0 L 94.0 99.0 L 91.0 100.0 L 91.0 101.0 L 90.0 102.0 L 89.0 102.0 L 87.0 104.0 L 86.0 104.0 L 85.0 103.0 L 85.0 101.0 L 86.0 100.0 L 86.0 96.0 L 89.0 93.0 L 90.0 93.0 L 92.0 91.0 L 93.0 91.0 L 95.0 89.0 L 96.0 89.0 L 98.0 87.0 L 99.0 87.0 L 104.0 83.0 L 105.0 83.0 L 108.0 81.0 L 109.0 81.0 Z M 38.0 82.0 L 39.0 81.0 L 42.0 82.0 L 44.0 84.0 L 45.0 84.0 L 47.0 86.0 L 48.0 86.0 L 50.0 88.0 L 51.0 88.0 L 53.0 90.0 L 54.0 90.0 L 56.0 92.0 L 57.0 92.0 L 59.0 94.0 L 60.0 94.0 L 61.0 95.0 L 61.0 98.0 L 62.0 99.0 L 62.0 103.0 L 61.0 104.0 L 60.0 104.0 L 55.0 99.0 L 52.0 99.0 L 51.0 98.0 L 47.0 98.0 L 46.0 97.0 L 45.0 97.0 L 42.0 94.0 L 42.0 93.0 L 40.0 90.0 L 40.0 88.0 L 38.0 85.0 Z M 28.0 116.0 L 31.0 117.0 L 33.0 119.0 L 34.0 119.0 L 36.0 121.0 L 37.0 121.0 L 37.0 119.0 L 36.0 118.0 L 36.0 116.0 L 34.0 113.0 L 32.0 113.0 L 30.0 115.0 L 29.0 115.0 Z M 119.0 116.0 L 118.0 115.0 L 117.0 115.0 L 115.0 113.0 L 113.0 113.0 L 113.0 114.0 L 112.0 115.0 L 112.0 117.0 L 111.0 118.0 L 111.0 120.0 L 110.0 121.0 L 113.0 120.0 L 115.0 118.0 L 116.0 118.0 L 118.0 116.0 Z M 103.0 88.0 L 100.0 89.0 L 98.0 91.0 L 97.0 91.0 L 95.0 93.0 L 94.0 93.0 L 93.0 94.0 L 99.0 94.0 L 100.0 93.0 L 101.0 93.0 L 102.0 92.0 L 102.0 90.0 L 103.0 89.0 Z M 45.0 88.0 L 45.0 90.0 L 46.0 91.0 L 46.0 92.0 L 48.0 94.0 L 54.0 94.0 L 52.0 92.0 L 51.0 92.0 L 49.0 90.0 L 48.0 90.0 Z"
+              />
+            </g>
+
+            {/* ── Subtle bridges from inner-most neural nodes to wolf edges ── */}
+            <g className="dist-brain-bridges" stroke="url(#cyan-orange)" strokeWidth="1" fill="none" strokeDasharray="2 4" strokeLinecap="round">
+              {/* From left bottom node (138, 196) toward wolf bottom-left jaw */}
+              <path d="M 138 196 Q 145 192, 150 189" />
+              {/* From right bottom node (182, 196) toward wolf bottom-right jaw */}
+              <path d="M 182 196 Q 175 192, 170 189" />
+              {/* From left mid node (116, 170) toward wolf cheek-left */}
+              <path d="M 116 170 Q 124 168, 130 167" />
+              {/* From right mid node (204, 170) toward wolf cheek-right */}
+              <path d="M 204 170 Q 196 168, 190 167" />
+            </g>
+          </svg>
+          {/* Connector line from brain to panel */}
+          <div className="dist-core-connector-line" />
+          <div className={`dist-core-panel ${aiAutoDistribute ? 'on' : 'off'}`}>
+            <div className="dist-core-panel-head">
+              <span className="dist-core-panel-title">CLIP FARM {aiAutoDistribute ? 'RUNNING' : 'PAUSED'}</span>
+              {aiAutoDistribute ? (
+                <span className="dist-core-panel-subtext">
+                  {(() => {
+                    const syncedCount = clipBank.filter(c => !removedClipIds.has(c.id)).length
+                    const scheduledCount = queue ? queue.posts.filter(p => !removedClipIds.has(p.clip.id)).length : 0
+                    return `${syncedCount} clip${syncedCount !== 1 ? 's' : ''} synced \u00b7 ${scheduledCount} scheduled \u00b7 learning enabled`
+                  })()}
+                </span>
+              ) : (
+                <span className="dist-core-panel-hint">Your queue is safe. Nothing will post until you resume.</span>
+              )}
+            </div>
+            <button
+              ref={pillRef}
+              className={`dist-core-pill ${aiAutoDistribute ? 'on' : 'off'}`}
+              onClick={() => setAiAutoDistribute(prev => !prev)}
+              aria-label={aiAutoDistribute ? 'Pause auto-distribute' : 'Resume auto-distribute'}
+            >
+              <span className="pill-orb" />
+              <span className="pill-label">{aiAutoDistribute ? 'Auto-Distribute' : 'Resume Auto-Distribute'}</span>
+              <span className="pill-state">{aiAutoDistribute ? 'On' : 'Off'}</span>
+            </button>
+            <div className="dist-core-panel-stats">
+              {(() => {
+                const visibleQueuePosts = queue?.posts.filter(p => !removedClipIds.has(p.clip.id)) ?? []
+                const nextPost = visibleQueuePosts[0]
+                return (
+                  <>
+                    <div className="dist-core-stat">
+                      <span className="stat-label">Next post</span>
+                      <span className="stat-value" style={!aiAutoDistribute ? { color: '#FBBF24', opacity: 0.7 } : undefined}>
+                        {nextPost
+                          ? `Today ${new Date(nextPost.scheduledAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}`
+                          : '\u2014'}
+                      </span>
+                      <span className="stat-sub" style={!aiAutoDistribute && nextPost ? { color: '#F59E0B', opacity: 0.8, fontStyle: 'italic' } : undefined}>
+                        {!aiAutoDistribute && nextPost
+                          ? 'Paused'
+                          : nextPost
+                            ? (PLATFORMS.find(p => p.id === nextPost.platform)?.label
+                               ?? (nextPost.platform.charAt(0).toUpperCase() + nextPost.platform.slice(1)))
+                            : 'No posts'}
+                      </span>
                     </div>
-                    <div className="flex justify-center">
-                      <Switch
-                        checked={publishTargets.find(t => t.platform === platform.id)?.enabled ?? false}
-                        onCheckedChange={() => togglePublishTarget(platform.id)}
-                      />
+                    <div className="dist-core-stat-divider" />
+                    <div className="dist-core-stat">
+                      <span className="stat-label">Queue</span>
+                      <span className="stat-value" style={!aiAutoDistribute ? { color: '#71717A' } : undefined}>
+                        {visibleQueuePosts.length} scheduled
+                      </span>
+                      <span className="stat-sub" style={!aiAutoDistribute ? { color: 'rgba(245,158,11,0.7)' } : undefined}>
+                        {!aiAutoDistribute
+                          ? 'Waiting to resume'
+                          : (() => {
+                              const readyCount = clipBank.filter(c => !removedClipIds.has(c.id) && (c.score ?? 0) >= 60).length - visibleQueuePosts.length
+                              return readyCount > 0 ? `+${readyCount} ready next` : ''
+                            })()}
+                      </span>
                     </div>
-                    {isActive && aiAutoDistribute && (
-                      <div className="flex items-center justify-center gap-1 text-[10px] text-purple-400">
-                        <Clock className="h-3 w-3" /><span>AI timing</span>
-                      </div>
-                    )}
-                    {/* Publish progress */}
-                    {progress?.status === 'publishing' && (
-                      <div className="flex items-center justify-center gap-1 text-[10px] text-amber-400">
-                        <Loader2 className="h-3 w-3 animate-spin" /><span>Publishing...</span>
-                      </div>
-                    )}
-                    {progress?.status === 'published' && (
-                      <div className="flex items-center justify-center gap-1 text-[10px] text-emerald-400">
-                        <Check className="h-3 w-3" /><span>Published!</span>
-                      </div>
-                    )}
-                    {progress?.status === 'error' && (
-                      <div className="flex items-center justify-center gap-1 text-[10px] text-red-400">
-                        <AlertCircle className="h-3 w-3" /><span>Failed</span>
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  <button onClick={() => router.push('/settings')}
-                    className="mt-3 w-full text-[11px] font-semibold flex items-center justify-center gap-1.5 py-2 rounded-lg bg-orange-500/10 text-orange-400 hover:bg-orange-500/15 border border-orange-500/25 hover:border-orange-500/40 transition-all">
-                    <ExternalLink className="h-3 w-3" /> Connect account
-                  </button>
-                )}
-              </Card>
-            )
-          })}
+                  </>
+                )
+              })()}
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* ─── RECENT ACTIVITY ─── */}
-      <Card className="bg-card/60 border-border p-4">
-        <h2 className="text-xs uppercase tracking-widest text-muted-foreground font-medium flex items-center gap-1.5 mb-2">
-          <Clock className="h-3.5 w-3.5 text-purple-400" />
-          Recent activity
-        </h2>
-        {publishHistory.length === 0 ? (
-          <p className="text-xs text-muted-foreground/50 py-2">No recent activity</p>
-        ) : (
-          <div className="space-y-2">
-            {publishHistory.map((entry, i) => (
-              <div key={i} className="flex items-center gap-3 p-2.5 rounded-lg bg-background/50 border border-border/50 hover:border-border transition-colors">
-                <div className={cn(
-                  'w-2 h-2 rounded-full flex-shrink-0',
-                  entry.status === 'live' ? 'bg-emerald-400' : 'bg-red-400'
-                )} />
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs font-medium text-foreground truncate">{entry.clipTitle}</p>
-                  <div className="flex items-center gap-2 mt-0.5">
-                    {entry.status === 'live' && entry.views > 0 && (
-                      <span className="text-[10px] text-muted-foreground">
-                        {formatMetricCount(entry.views)} views
-                        {entry.growthPercent > 0 && <span className="text-emerald-400 ml-1">+{entry.growthPercent}%</span>}
+      {/* ═══ FUNNEL — tight 3-line fan from CLIP FARM panel center down to Clip Bank ═══ */}
+      {/* viewBox is 0 0 1316 100; convergence at (660, 100) which after scaleY(-1) becomes top-center */}
+      {/* Tight fan (520-800 instead of 90-1230) so lines clearly emerge from the box, not the page edges */}
+      <svg className="dist-funnel flipped" viewBox="0 0 1316 100" preserveAspectRatio="none" aria-hidden="true">
+        <path className={`dist-flow-path ${aiAutoDistribute ? 'blue' : 'dim'}`} d="M 540 0 C 580 40, 620 70, 660 100" />
+        <path className={`dist-flow-path ${aiAutoDistribute ? 'blue' : 'dim'}`} d="M 660 0 L 660 100" />
+        <path className={`dist-flow-path ${aiAutoDistribute ? 'blue' : 'dim'}`} d="M 780 0 C 740 40, 700 70, 660 100" />
+        {aiAutoDistribute && (
+          <>
+            <circle r="3" fill="#38BDF8" opacity=".9"><animateMotion dur="2.5s" repeatCount="indefinite" path="M 540 0 C 580 40, 620 70, 660 100" /></circle>
+            <circle r="3" fill="#38BDF8" opacity=".9"><animateMotion dur="2.8s" begin="0.5s" repeatCount="indefinite" path="M 780 0 C 740 40, 700 70, 660 100" /></circle>
+          </>
+        )}
+      </svg>
+
+      {/* ═══ CLIP BANK ═══ */}
+      <ClipBankRail
+        clipBank={clipBank}
+        removedClipIds={removedClipIds}
+        selectedClipId={selectedClipId}
+        brokenThumbs={brokenThumbs}
+        bankLoading={bankLoading}
+        queue={queue}
+        hasAnyProgress={hasAnyProgress}
+        publishProgress={publishProgress as Record<string, { status: string }>}
+        isOn={aiAutoDistribute}
+        highlightClipId={bankHighlightClipId}
+        onSelect={(id) => { setSelectedClipId(id); resetPublishProgress(); setPublishDone(false); setPublishSteps([]) }}
+        onRemove={(id) => {
+          setRemovedClipIds(prev => { const next = new Set(prev); next.add(id); return next })
+          if (selectedClipId === id) setSelectedClipId(null)
+        }}
+        onThumbError={(id) => setBrokenThumbs(prev => { const next = new Set(prev); next.add(id); return next })}
+        onBrowse={() => router.push('/dashboard')}
+        onUpload={() => router.push('/dashboard?tab=upload')}
+        onScrollToToggle={() => {
+          pillRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+          pillRef.current?.classList.add('dist-pill-pulse-highlight')
+          setTimeout(() => pillRef.current?.classList.remove('dist-pill-pulse-highlight'), 2000)
+        }}
+        onQuickPublish={(id) => {
+          setSelectedClipId(id)
+          resetPublishProgress()
+          setPublishDone(false)
+          setPublishSteps([])
+          document.getElementById('publish-strip')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+          setTimeout(() => setShowPlatformPicker(true), 600)
+        }}
+      />
+
+
+      {/* ═══ SMART QUEUE — AI Schedule ═══ */}
+      {(() => {
+        // Coherence rules:
+        // 1. AI Schedule must match the visible Clip Bank (after user removes clips via X)
+        // 2. If visible bank is empty → no schedule (nothing to schedule)
+        // 3. If a queue post points to a removed clip → filter it out
+        const visibleBankCount = clipBank.filter(c => !removedClipIds.has(c.id)).length
+        const filteredQueuePosts = queue?.posts.filter(p => !removedClipIds.has(p.clip.id)) ?? []
+        if (visibleBankCount === 0 || filteredQueuePosts.length === 0) return null
+        const visiblePosts = filteredQueuePosts.slice(0, 3)
+        let consecutiveWildcards = 0
+        let hasBackToBackWildcards = false
+        for (const p of visiblePosts) {
+          if (p.riskLevel === 'wildcard') {
+            consecutiveWildcards++
+            if (consecutiveWildcards >= 2) hasBackToBackWildcards = true
+          } else {
+            consecutiveWildcards = 0
+          }
+        }
+        const provenInBank = clipBank.some(c => (c.score ?? 0) >= 70)
+
+        // Emotional mix actionable suggestion
+        const mixData = queue ? EMOTIONAL_MIX_STYLES[queue.emotionalMix] : null
+        const mixSuggestion = queue?.emotionalMix === 'repetitive'
+          ? 'Swap one wildcard for a different mood'
+          : queue?.emotionalMix === 'moderate'
+          ? 'Add a different mood for stronger contrast'
+          : null  // diverse → no suggestion
+
+        // Smart reach display — never "0 — 0"
+        const totalReachLow = queue?.totalEstReach?.low ?? 0
+        const totalReachHigh = queue?.totalEstReach?.high ?? 0
+        const hasRealReach = totalReachLow > 0 || totalReachHigh > 0
+        const reachText = hasRealReach
+          ? `${formatReach(totalReachLow)} — ${formatReach(totalReachHigh)}`
+          : 'learning'
+
+        return (
+        <div className="dist-glass dist-schedule" style={!aiAutoDistribute ? { opacity: 0.7 } : undefined}>
+          <div className="dist-sched-head">
+            <h3>
+              <Calendar size={15} style={{ color: aiAutoDistribute ? '#7DD3FC' : '#71717A' }} />
+              Next up — AI Schedule
+              <span className="dist-smart-pill" style={!aiAutoDistribute ? { background: 'rgba(63,63,70,0.4)', color: '#71717A', borderColor: 'rgba(63,63,70,0.5)' } : undefined}>
+                {aiAutoDistribute ? 'Smart' : 'Paused'}
+              </span>
+            </h3>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button className="dist-ghost-btn">Show all</button>
+            </div>
+          </div>
+
+          {/* Paused-state reassurance — explains the queue is safe and what to do */}
+          {!aiAutoDistribute && (
+            <div style={{
+              fontSize: 11,
+              color: '#FBBF24',
+              background: 'rgba(245,158,11,0.08)',
+              border: '1px solid rgba(245,158,11,0.18)',
+              padding: '8px 12px',
+              borderRadius: 8,
+              marginBottom: 12,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+            }}>
+              <Pause size={11} />
+              <span>
+                <strong>{filteredQueuePosts.length} {filteredQueuePosts.length === 1 ? 'post is' : 'posts are'} ready</strong> but won&apos;t publish until auto-distribute is resumed.
+              </span>
+            </div>
+          )}
+
+          {/* Wildcard sequencing warning */}
+          {hasBackToBackWildcards && (
+            <div className="dist-sched-warning">
+              <AlertCircle size={12} />
+              {provenInBank
+                ? 'Two wildcards in a row — consider reordering to Proven → Wildcard → Proven.'
+                : 'Two wildcards in a row — no proven clips available in bank.'}
+            </div>
+          )}
+
+          <div className="dist-sched-list">
+            {visiblePosts.map((post, idx) => {
+              const time = post.scheduledAt
+              const timeStr = time.getHours().toString().padStart(2, '0') + ':' + time.getMinutes().toString().padStart(2, '0')
+              const isToday = time.toDateString() === new Date().toDateString()
+              const dayLabel = isToday ? 'Today' : 'Tomorrow'
+              const diffMs = time.getTime() - Date.now()
+              const inHours = Math.floor(diffMs / 3600000)
+              const inMins = Math.floor((diffMs % 3600000) / 60000)
+              const inLabel = diffMs > 0 ? `in ${inHours}h ${inMins.toString().padStart(2, '0')}min` : 'now'
+              const fitScore = post.breakoutProbability
+
+              // CTA tier by AI Fit
+              const ctaTier =
+                fitScore >= 70 ? 'primary' :
+                fitScore >= 50 ? 'secondary' :
+                'weak'
+              const fitClass = fitScore >= 70 ? '' : fitScore >= 50 ? 'mid' : 'low'
+
+              const hasThumb = !!post.clip.thumbnailUrl
+
+              return (
+                <div key={`${post.clip.id}-${idx}`} className={[
+                  'dist-post-card',
+                  post.riskLevel === 'wildcard' ? 'wildcard' : '',
+                  !hasThumb ? 'no-thumb' : '',
+                ].filter(Boolean).join(' ')} style={!aiAutoDistribute ? { opacity: 0.75 } : undefined}>
+                  <div className="dist-pc-time">
+                    <div className="hh" style={!aiAutoDistribute ? { color: '#FBBF24' } : undefined}>{timeStr}</div>
+                    <div className="day">{dayLabel}</div>
+                    <div className="in" style={!aiAutoDistribute ? { color: 'rgba(245,158,11,0.7)', fontStyle: 'italic' } : undefined}>
+                      {!aiAutoDistribute ? `${inLabel} (paused)` : inLabel}
+                    </div>
+                  </div>
+
+                  {hasThumb ? (
+                    <div className="dist-pc-thumb" style={{ backgroundImage: `url(${post.clip.thumbnailUrl})`, backgroundSize: 'cover' }} />
+                  ) : (
+                    <div className="dist-pc-thumb dist-pc-thumb-empty">
+                      <Film size={14} />
+                      <span>Preview unavailable</span>
+                    </div>
+                  )}
+
+                  <div className="dist-pc-info">
+                    <div className="dist-pc-title">{post.clip.title}</div>
+                    <div className="dist-pc-meta">
+                      <span className="dist-pl-badge">
+                        {PLATFORM_LABELS_MAP[post.platform] ?? post.platform}
                       </span>
+                      <span className={`dist-risk-pill ${post.riskLevel}`}>
+                        {post.riskLevel === 'proven' ? '✓ Proven' : '◇ Wildcard'}
+                      </span>
+                      {post.slotQuality === 'prime' && <span className="dist-pc-prime">⚡ Prime time</span>}
+                    </div>
+                    <div className="dist-pc-reason">
+                      <Target size={11} style={{ color: 'rgba(125,211,252,.7)', flexShrink: 0 }} />
+                      <span><span className="why">Why:</span> {post.explanation}</span>
+                    </div>
+                  </div>
+
+                  <div className={`dist-pc-fit ${fitClass}`}>
+                    <div className="fit-num">{fitScore}%</div>
+                    <div className="fit-lbl">AI Fit</div>
+                    <div className="fit-bar"><span style={{ width: `${fitScore}%` }} /></div>
+                  </div>
+
+                  <div className="dist-pc-actions">
+                    {ctaTier === 'primary' && (
+                      <button
+                        className="dist-pc-cta primary"
+                        onClick={() => { setSelectedClipId(post.clip.id); handlePublish() }}
+                        disabled={!aiAutoDistribute}
+                        title={!aiAutoDistribute ? 'Turn on AUTO-DISTRIBUTE to enable scheduled posts' : undefined}
+                        style={!aiAutoDistribute ? { opacity: 0.5, cursor: 'not-allowed' } : undefined}
+                      >
+                        <Send size={12} /> Post now
+                      </button>
                     )}
-                    {entry.tone !== 'general' && (
-                      <span className="text-[9px] text-purple-400/60">{entry.tone}</span>
+                    {ctaTier === 'secondary' && (
+                      <button className="dist-pc-cta secondary" onClick={() => setSelectedClipId(post.clip.id)} disabled={!aiAutoDistribute} style={!aiAutoDistribute ? { opacity: 0.5, cursor: 'not-allowed' } : undefined}>
+                        Review
+                      </button>
+                    )}
+                    {ctaTier === 'weak' && (
+                      <button className="dist-pc-cta weak" onClick={() => setSelectedClipId(post.clip.id)} disabled={!aiAutoDistribute} style={!aiAutoDistribute ? { opacity: 0.5, cursor: 'not-allowed' } : undefined}>
+                        <RefreshCw size={11} /> Reschedule
+                      </button>
                     )}
                   </div>
                 </div>
-                <div className="flex items-center gap-1 flex-shrink-0">
+              )
+            })}
+          </div>
+          <div className="dist-sched-foot" style={!aiAutoDistribute ? { opacity: 0.6 } : undefined}>
+            <div style={{ display: 'flex', gap: 16, alignItems: 'center', flexWrap: 'wrap' }}>
+              {filteredQueuePosts.length > 3 && <span><strong>+{filteredQueuePosts.length - 3}</strong> more scheduled</span>}
+              <span>
+                {!aiAutoDistribute && <span style={{ color: '#FBBF24', marginRight: 4 }}>Paused ·</span>}
+                Emotional mix:{' '}
+                <strong className={`dist-mix-${queue?.emotionalMix ?? 'diverse'}`}>{mixData?.label ?? 'Mixed'}</strong>
+                {mixSuggestion && <span className="dist-mix-suggestion"> · {mixSuggestion}</span>}
+              </span>
+              <span className="dist-sched-reach">
+                {!aiAutoDistribute
+                  ? <>Est. reach: <strong>{reachText}</strong> <span style={{ color: '#A1A1AA', fontStyle: 'italic' }}>if resumed</span></>
+                  : <>Est. reach: <strong>{reachText}</strong></>}
+              </span>
+            </div>
+          </div>
+        </div>
+        )
+      })()}
+
+      {/* ═══ BOTTOM ROW ═══ */}
+      {/* Collapsed into single compact card when both sections are empty */}
+      {publishHistory.length === 0 && persistentStats.totalClipsPublished < 2 ? (
+        <div className="dist-glass" style={{ padding: '16px 20px' }}>
+          <div className="dist-section-label" style={{ marginBottom: 10 }}>
+            <span className="dist-accent-bar" style={{ background: '#7DD3FC', boxShadow: '0 0 8px rgba(125,211,252,.4)' }} />
+            System status
+          </div>
+          <div style={{ display: 'flex', gap: 20, fontSize: 12, color: 'var(--va-text-dim)' }}>
+            <span>No recent activity</span>
+            <span style={{ color: 'rgba(148,163,184,.5)' }}>&middot;</span>
+            <span>{persistentStats.totalClipsPublished} clip{persistentStats.totalClipsPublished !== 1 ? 's' : ''} analyzed &middot; AI learning from your patterns</span>
+          </div>
+        </div>
+      ) : (
+      <div className="dist-grid-2-bottom">
+        {/* Recent Activity */}
+        <div className="dist-glass dist-activity">
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+            <div className="dist-section-label">
+              <span className="dist-accent-bar" style={{ background: '#4ADE80', boxShadow: '0 0 8px rgba(74,222,128,.5)' }} />
+              Recent activity
+            </div>
+            <div style={{ fontSize: 11, color: 'var(--va-text-dim)' }}>last 24h</div>
+          </div>
+          {publishHistory.length === 0 ? (
+            <p style={{ fontSize: 12, color: 'var(--va-text-dim)', padding: '8px 0' }}>No recent activity</p>
+          ) : (
+            publishHistory.map((entry, i) => (
+              <div key={i} className="dist-act-row">
+                <div className="dist-act-dot" style={entry.status === 'error' ? { background: '#F87171', boxShadow: '0 0 6px #F87171' } : {}} />
+                <div className="title">{entry.clipTitle}</div>
+                <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
                   {entry.platforms.map(pid => {
                     const p = PLATFORMS.find(pl => pl.id === pid)
-                    return p ? (
-                      <span key={pid} className="w-5 h-5 rounded bg-zinc-800 flex items-center justify-center text-[10px] text-zinc-300" title={p.label}>
-                        {p.icon}
-                      </span>
-                    ) : null
+                    return p ? <span key={pid} style={{ fontSize: 12 }} title={p.label}>{p.icon}</span> : null
                   })}
                 </div>
-                <span className="text-[10px] text-muted-foreground/50 flex-shrink-0">{getRelativeTime(entry.timestamp)}</span>
+                <div style={{ display: 'flex', gap: 14, alignItems: 'center' }}>
+                  {entry.views > 0 && <div className="perf">+{formatMetricCount(entry.views)} views</div>}
+                  <div className="when">{getRelativeTime(entry.timestamp)}</div>
+                </div>
               </div>
-            ))}
-          </div>
-        )}
-      </Card>
+            ))
+          )}
+        </div>
 
-      {/* ─── WHAT WORKED ─── */}
-      {persistentStats.totalClipsPublished >= 2 && (() => {
-        const ww = getWhatWorkedSummary(persistentStats)
-        return (
-          <Card className="bg-card/60 border-amber-500/15 px-5 py-3.5">
-            <h2 className="text-xs uppercase tracking-widest text-muted-foreground font-medium flex items-center gap-1.5 mb-2">
-              <Trophy className="h-3.5 w-3.5 text-amber-400" />
-              What worked
-            </h2>
-            <div className="flex flex-wrap gap-3 text-xs">
-              {ww.topTone && (
-                <span className="text-muted-foreground">
-                  Top tone: <span className="text-foreground font-medium">{ww.topTone.name}</span>
-                  {ww.topTone.performanceVsAvg > 0 && <span className="text-emerald-400 ml-1">+{ww.topTone.performanceVsAvg}%</span>}
-                </span>
-              )}
-              {ww.topPlatform && (
-                <span className="text-muted-foreground">
-                  Top platform: <span className="text-foreground font-medium">{ww.topPlatform.name}</span>
-                  {ww.topPlatform.multiplierVsOthers > 1 && <span className="text-emerald-400 ml-1">{ww.topPlatform.multiplierVsOthers}x</span>}
-                </span>
-              )}
-            </div>
-            <p className="text-[10px] text-muted-foreground/60 mt-1.5">{ww.recommendation}</p>
-          </Card>
-        )
-      })()}
-
-      {/* ─── STATS ─── */}
-      {(() => {
-        const level = getCreatorLevel(persistentStats.totalClipsPublished)
-        return (
-          <div className="grid grid-cols-4 gap-3 pt-2">
-            <Card className="bg-card/60 border-border p-4 text-center">
-              <p className="text-2xl font-bold text-foreground">{clipBank.length - publishedCount}</p>
-              <p className="text-xs text-muted-foreground mt-1">Queue</p>
-            </Card>
-            <Card className="bg-card/60 border-purple-500/20 p-4 text-center">
-              <p className="text-2xl font-bold text-purple-400">{persistentStats.totalClipsPublished}</p>
-              <p className="text-xs text-muted-foreground mt-1">All time</p>
-            </Card>
-            <Card className="bg-card/60 border-border p-4 text-center">
-              <p className="text-2xl font-bold text-foreground">{activePlatformCount}</p>
-              <p className="text-xs text-muted-foreground mt-1">Platforms</p>
-            </Card>
-            <Card className="bg-gradient-to-b from-purple-500/5 to-card/60 border-border p-4 text-center">
-              <p className="text-lg font-bold text-foreground">{level.title}</p>
-              <div className="h-1 rounded-full bg-zinc-800 mt-1.5 overflow-hidden">
-                <div className="h-full rounded-full bg-purple-500 transition-all duration-500" style={{ width: `${level.progress}%` }} />
-              </div>
-              <p className="text-xs text-muted-foreground mt-1">Lv.{level.level} · {level.progress}%</p>
-            </Card>
+        {/* AI Learning */}
+        <div className="dist-glass dist-learning">
+          <div className="dist-section-label">
+            <span className="dist-accent-bar" style={{ background: '#C4B5FD', boxShadow: '0 0 8px rgba(196,181,253,.5)' }} />
+            AI is learning
           </div>
-        )
-      })()}
+          <div className="dist-learning-list">
+            {persistentStats.totalClipsPublished >= 2 ? (() => {
+              const ww = getWhatWorkedSummary(persistentStats)
+              return (
+                <>
+                  {ww.topTone && (
+                    <div className="dist-learn-item">
+                      <span className="dist-learn-bullet" />
+                      <span><strong>{ww.topTone.name} tone</strong> outperforms by <strong>+{ww.topTone.performanceVsAvg}%</strong>. <span className="muted">Boosting weight.</span></span>
+                    </div>
+                  )}
+                  {ww.topPlatform && (
+                    <div className="dist-learn-item">
+                      <span className="dist-learn-bullet" />
+                      <span><strong>{ww.topPlatform.name}</strong> performs <strong>{ww.topPlatform.multiplierVsOthers}x</strong> vs others. <span className="muted">Prioritized.</span></span>
+                    </div>
+                  )}
+                  <div className="dist-learn-item">
+                    <span className="dist-learn-bullet" />
+                    <span>{ww.recommendation} <span className="muted">Learning applied.</span></span>
+                  </div>
+                </>
+              )
+            })() : (
+              <>
+                <div className="dist-learn-item">
+                  <span className="dist-learn-bullet" />
+                  <span>Publish clips to start building your AI distribution profile. <span className="muted">Need 2+ clips.</span></span>
+                </div>
+                <div className="dist-learn-item">
+                  <span className="dist-learn-bullet" />
+                  <span>AI learns your <strong>best times</strong>, <strong>tones</strong>, and <strong>platforms</strong>. <span className="muted">Automatic.</span></span>
+                </div>
+              </>
+            )}
+          </div>
+          <div className="dist-learning-footer">
+            <span className="dist-learning-badge">{persistentStats.totalClipsPublished} clip{persistentStats.totalClipsPublished !== 1 ? 's' : ''} analyzed</span>
+          </div>
+        </div>
+      </div>
+      )}
+
+      {/* ═══ CLIP PICKER MODAL ═══ */}
+      {showClipPicker && (
+        <ClipPickerModal
+          clipBank={clipBank}
+          selectedClipId={selectedClipId}
+          brokenThumbs={brokenThumbs}
+          removedClipIds={removedClipIds}
+          onSelectClip={setSelectedClipId}
+          onClose={() => setShowClipPicker(false)}
+          onBrokenThumb={(id) => setBrokenThumbs(prev => { const next = new Set(prev); next.add(id); return next })}
+        />
+      )}
+
+      {/* ═══ PLATFORM PICKER MODAL ═══ */}
+      {showPlatformPicker && (
+        <PlatformPickerModal
+          platforms={PLATFORMS}
+          connectedPlatforms={connectedPlatforms}
+          publishTargets={publishTargets}
+          togglePublishTarget={togglePublishTarget}
+          selectedClip={selectedClip}
+          activePlatformCount={activePlatformCount}
+          publishSequenceActive={publishSequenceActive}
+          onClose={() => setShowPlatformPicker(false)}
+          onPublish={handlePublish}
+        />
+      )}
+
     </div>
   )
 }

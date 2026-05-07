@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { timingSafeCompare } from '@/lib/crypto'
 import { scoreClip } from '@/lib/scoring/clip-scorer'
+import { logger } from '@/lib/logger'
 
 /**
  * POST /api/cron/rescore-clips
@@ -206,7 +207,7 @@ export async function POST(req: NextRequest) {
         snapshotInserts.push({ clip_id: clip.id, view_count: currentViews })
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err)
-        console.error(`[rescore] clip ${clip.id}: ${msg}`)
+        logger.error(`[rescore] clip ${clip.id}: ${msg}`)
       }
     }
 
@@ -214,7 +215,7 @@ export async function POST(req: NextRequest) {
     if (snapshotInserts.length > 0) {
       const { error: snapErr } = await admin.from('clip_snapshots').insert(snapshotInserts)
       if (snapErr) {
-        console.error('[rescore] batch snapshot insert failed:', snapErr.message)
+        logger.error('[rescore] batch snapshot insert failed:', snapErr.message)
       }
     }
 
@@ -235,7 +236,7 @@ export async function POST(req: NextRequest) {
         p_next_check_ats: bulkNextCheckAts,
       })
       if (rpcErr) {
-        console.error('[rescore] bulk_update_scores RPC failed:', rpcErr.message)
+        logger.error('[rescore] bulk_update_scores RPC failed:', rpcErr.message)
       }
     }
 

@@ -16,23 +16,6 @@ import { createAdminClient } from '@/lib/supabase/admin'
  * we double-check with .eq('user_id', user.id) to be safe.
  */
 
-interface RenderJobRow {
-  id: string
-  status: string
-  created_at: string
-  updated_at: string | null
-  storage_path: string | null
-  error_message: string | null
-  source: string | null
-}
-
-interface ProfileRow {
-  plan: string | null
-  monthly_videos_used: number | null
-  monthly_processing_minutes_used: number | null
-  bonus_videos: number | null
-}
-
 const PLAN_VIDEO_LIMITS: Record<string, number> = { free: 3, pro: 50, studio: 999 }
 const PLAN_MINUTES_LIMITS: Record<string, number> = { free: 30, pro: 500, studio: 5000 }
 
@@ -54,16 +37,12 @@ export const GET = withAuth(async (_req, user) => {
   const sinceIso = since.toISOString()
 
   // ── Fetch render jobs (last 30 days) ──
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: jobsData, error: jobsError } = await (admin as any)
+  const { data: jobsData, error: jobsError } = await admin
     .from('render_jobs')
     .select('id, status, created_at, updated_at, storage_path, error_message, source')
     .eq('user_id', user.id)
     .gte('created_at', sinceIso)
-    .order('created_at', { ascending: false }) as {
-      data: RenderJobRow[] | null
-      error: unknown
-    }
+    .order('created_at', { ascending: false })
 
   if (jobsError) {
     return NextResponse.json(
@@ -82,7 +61,7 @@ export const GET = withAuth(async (_req, user) => {
     if (j.status === 'done') {
       counts.done++
       if (j.updated_at) {
-        const durMs = new Date(j.updated_at).getTime() - new Date(j.created_at).getTime()
+        const durMs = new Date(j.updated_at).getTime() - new Date(j.created_at!).getTime()
         if (Number.isFinite(durMs) && durMs > 0 && durMs < 30 * 60 * 1000) {
           // Reject >30min outliers (stuck jobs)
           doneDurations.push(durMs / 1000)
@@ -103,12 +82,11 @@ export const GET = withAuth(async (_req, user) => {
   const avgDurationSec = median(doneDurations)
 
   // ── Fetch profile for usage + plan ──
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: profile } = await (admin as any)
+  const { data: profile } = await admin
     .from('profiles')
     .select('plan, monthly_videos_used, monthly_processing_minutes_used, bonus_videos')
     .eq('id', user.id)
-    .single() as { data: ProfileRow | null }
+    .single()
 
   const plan = (profile?.plan ?? 'free') as string
   const bonusVideos = profile?.bonus_videos ?? 0

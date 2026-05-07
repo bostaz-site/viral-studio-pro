@@ -1,6 +1,15 @@
 // Load environment variables FIRST (must be before any imports that read process.env)
 import 'dotenv/config';
 
+import * as Sentry from '@sentry/node';
+
+Sentry.init({
+  dsn: process.env.SENTRY_DSN,
+  enabled: !!process.env.SENTRY_DSN,
+  environment: process.env.NODE_ENV || 'production',
+  tracesSampleRate: 0.1,
+});
+
 import express from 'express';
 import cors from 'cors';
 import { fileURLToPath } from 'url';
@@ -10,6 +19,7 @@ import { dirname } from 'path';
 import renderRouter from './routes/render.js';
 import healthRouter from './routes/health.js';
 import downloadRouter from './routes/download.js';
+import { logger } from './lib/logger.js';
 
 // Setup
 const __filename = fileURLToPath(import.meta.url);
@@ -39,13 +49,13 @@ app.use((req, res, next) => {
   const timestamp = new Date().toISOString();
   const method = req.method;
   const path = req.path;
-  console.log(`[${timestamp}] ${method} ${path}`);
+  logger.info({ method, path }, 'request');
 
   // Log response when finished
   res.on('finish', () => {
     const statusCode = res.statusCode;
     const duration = Date.now() - req._startTime;
-    console.log(`[${timestamp}] ${method} ${path} → ${statusCode} (${duration}ms)`);
+    logger.info({ method, path, statusCode, duration }, 'response');
   });
 
   req._startTime = Date.now();
@@ -119,9 +129,12 @@ app.use((req, res) => {
   });
 });
 
+// Sentry error handler (must be before custom error handler)
+Sentry.setupExpressErrorHandler(app);
+
 // Error handler
 app.use((err, req, res, next) => {
-  console.error('[ERROR]', err);
+  logger.error({ err, method: req.method, path: req.path }, 'unhandled error');
 
   res.status(err.status || 500).json({
     success: false,
@@ -137,21 +150,19 @@ app.use((err, req, res, next) => {
 // ─────────────────────────────────────────────────────────────────────────────
 
 app.listen(PORT, () => {
-  console.log(`
-╔════════════════════════════════════════════════════════════════╗
-║  Viral Animal Render API                                   ║
-║  Environment: ${(process.env.NODE_ENV || 'development').padEnd(44)} ║
-║  Port: ${String(PORT).padEnd(55)} ║
-║  API Secret: ${(process.env.VPS_RENDER_API_KEY || process.env.API_SECRET) ? '✓ Configured' : '✗ NOT SET'.padEnd(42)} ║
-║  Supabase URL: ${process.env.SUPABASE_URL ? '✓ Configured' : '✗ NOT SET'.padEnd(36)} ║
-╚════════════════════════════════════════════════════════════════╝
-  `);
+  logger.info({
+    env: process.env.NODE_ENV || 'development',
+    port: PORT,
+    apiKey: !!(process.env.VPS_RENDER_API_KEY || process.env.API_SECRET),
+    supabase: !!process.env.SUPABASE_URL,
+    sentry: !!process.env.SENTRY_DSN,
+  }, 'Viral Animal Render API started');
 
   if (!process.env.VPS_RENDER_API_KEY && !process.env.API_SECRET) {
-    console.warn('⚠️  Warning: VPS_RENDER_API_KEY / API_SECRET not set! API requests will fail.');
+    logger.warn('VPS_RENDER_API_KEY / API_SECRET not set — API requests will fail');
   }
   if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
-    console.warn('⚠️  Warning: SUPABASE_SERVICE_ROLE_KEY not set! Database operations will fail.');
+    logger.warn('SUPABASE_SERVICE_ROLE_KEY not set — database operations will fail');
   }
 });
 

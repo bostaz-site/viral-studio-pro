@@ -54,7 +54,7 @@ export const useAccountStore = create<AccountState>((set) => ({
         set({
           score: {
             creator_score: yt.creator_score,
-            creator_rank: (yt.creator_rank ?? 'newcomer') as CreatorRank,
+            creator_rank: (yt.creator_rank ?? 'scout') as CreatorRank,
             performance_score: 0,
             engagement_score: 0,
             growth_score: 0,

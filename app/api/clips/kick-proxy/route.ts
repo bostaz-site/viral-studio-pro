@@ -11,6 +11,7 @@
  */
 import { NextRequest, NextResponse } from 'next/server'
 import { Redis } from '@upstash/redis'
+import { logger } from '@/lib/logger'
 
 // Edge Runtime for minimal latency on proxy requests
 export const runtime = 'edge'
@@ -130,7 +131,7 @@ export async function GET(request: NextRequest) {
     }
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'Unknown error'
-    console.error('[kick-proxy] Error:', msg)
+    logger.error('[kick-proxy] Error:', msg)
     const status = msg.includes('timed out') || msg.includes('abort') ? 504 : 502
     return NextResponse.json({ error: 'Proxy fetch failed', detail: msg }, { status })
   }

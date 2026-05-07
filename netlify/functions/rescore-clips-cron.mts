@@ -2,7 +2,7 @@ import type { Config } from "@netlify/functions"
 
 // Runs every 5 minutes — rescores clips whose next_check_at has elapsed
 export default async () => {
-  const baseUrl = process.env.URL || "https://viral-studio-pro.netlify.app"
+  const baseUrl = process.env.URL || "https://viralanimal.com"
   const cronSecret = process.env.CRON_SECRET
 
   if (!cronSecret) {

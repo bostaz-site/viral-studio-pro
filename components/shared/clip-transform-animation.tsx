@@ -1,7 +1,7 @@
-/* eslint-disable @next/next/no-img-element */
 "use client"
 
 import { useEffect, useState, useCallback } from 'react'
+import Image from 'next/image'
 import { motion, AnimatePresence } from 'framer-motion'
 import { TrendingUp, Eye, DollarSign } from 'lucide-react'
 
@@ -154,10 +154,12 @@ export function ClipTransformAnimation({ compact = false }: { compact?: boolean 
               transition={{ duration: 0.7, ease: [0.4, 0, 0.2, 1] }}
               className="absolute inset-x-0 top-0 overflow-hidden"
             >
-              <img
+              <Image
                 src={scene.thumbnail}
                 alt={scene.handle}
-                className="w-full h-full object-cover"
+                fill
+                sizes="320px"
+                className="object-cover"
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent" />
             </motion.div>
@@ -245,10 +247,12 @@ export function ClipTransformAnimation({ compact = false }: { compact?: boolean 
                   transition={{ duration: 0.5, ease: [0.4, 0, 0.2, 1] }}
                   className="absolute inset-x-0 bottom-0 h-[42%] overflow-hidden"
                 >
-                  <img
+                  <Image
                     src={GAMEPLAY_IMG}
                     alt="Gameplay"
-                    className="w-full h-full object-cover brightness-110 saturate-150"
+                    fill
+                    sizes="320px"
+                    className="object-cover brightness-110 saturate-150"
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent" />
                 </motion.div>

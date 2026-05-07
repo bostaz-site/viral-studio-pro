@@ -1,7 +1,7 @@
-# SYSTEM REFERENCE — Distribution Page (v7 — Smart Queue Engine)
+# SYSTEM REFERENCE — Distribution Page (v8 — AI Core Command Center)
 
-> Ce fichier est la source de verite pour la page Distribution.
-> Derniere mise a jour apres ajout du Smart Queue Engine (auto-distribution intelligente).
+> Source de verite pour la page Distribution.
+> Derniere mise a jour : redesign complet "clip farm online" — AI brain core, premium pill toggle, platform corner-targeting, clip/platform picker modals, polished Clip Bank avec state hierarchy.
 
 ---
 
@@ -9,49 +9,778 @@
 
 | Fichier | Role |
 |---|---|
-| `components/distribution/distribution-hub.tsx` | Composant principal (~1480 lignes, inclut SmartQueueSection) |
-| `lib/distribution/caption-engine.ts` | Moteur de captions : 10 tones, block mixing, risk/reward metadata |
+| `components/distribution/distribution-hub.tsx` | Composant principal (~2177 lignes) — header, Caption + Publish strip, Connection Map (brain core + platforms), Smart Queue, Clip Bank |
+| `components/distribution/distribution-hub.css` | Styles dedies (~3554 lignes) — cyan theme, glass cards, modal overlays, scrollbars, animations |
+| `components/distribution/platform-picker-modal.tsx` | Modal Platform Picker (~165 lignes) — selectionner plateformes, accessibilite (Escape, aria-modal) |
+| `components/distribution/clip-picker-modal.tsx` | Modal Clip Picker (~153 lignes) — Bank/Remixes tabs, selectionner clip a publier |
+| `lib/ai/caption-engine.ts` | AI Caption Engine : Claude Haiku per-platform captions + hashtags (WIRED_REAL) |
+| `app/api/captions/distribution/route.ts` | POST endpoint : auth, Zod, rate limit, cache, DB persist |
+| `lib/distribution/caption-engine.ts` | Moteur de captions template (fallback) : 10 tones, block mixing, risk/reward metadata |
 | `lib/distribution/tracking-simulator.ts` | Simulation post-publish : chaos engine + variant-aware projections |
 | `lib/distribution/strategy-engine.ts` | Strategie dynamique : frequence, priorite, messages, confidence |
 | `lib/distribution/user-memory.ts` | Memoire session : tracking patterns, insights personnalises |
-| `lib/distribution/session-persistence.ts` | Persistance cross-session (localStorage) : streaks, progression, "What Worked" (NEW v6) |
-| `lib/distribution/reward-engine.ts` | Systeme de recompenses : milestones, streaks, rare events, creator levels (NEW v6) |
-| `lib/distribution/smart-queue-engine.ts` | Smart Queue Engine — timing, sequencing, risk, learning, confidence, explanations (NEW v7) |
-| `stores/queue-store.ts` | Zustand store — queue state, learning data, settings, override handling (NEW v7) |
-| `stores/distribution-store.ts` | Zustand store — accounts, publish targets, publish logic |
+| `lib/distribution/session-persistence.ts` | Persistance cross-session (localStorage) : streaks, progression, "What Worked" |
+| `lib/distribution/reward-engine.ts` | Recompenses : milestones, streaks, rare events, creator levels |
+| `lib/distribution/smart-queue-engine.ts` | Smart Queue — timing, sequencing, risk, learning, confidence |
+| `stores/queue-store.ts` | Zustand — queue state, learning data, settings, override handling |
+| `stores/distribution-store.ts` | Zustand — accounts, publish targets, publish logic |
 | `app/(dashboard)/dashboard/distribution/page.tsx` | Page wrapper (Suspense + metadata) |
 
 ---
 
-## Layout (top to bottom)
+## Layout (top to bottom, v8)
 
 ```
-1. Header (titre "Distribution" + description)
-2. Reward Toast (top-right, auto-dismiss 5s, rare events/milestones) (v6)
+1. Header — "Distribution" + sub + CLIP FARM ONLINE/STANDBY chip + settings icon
+2. Reward Toast (top-right, auto-dismiss 5s)
 3. Strategy Block — frequency, priority, countdown, confidence %, strategy message, streak badge
-4. Personalized Insights (pills, apparait apres 1+ publish)
-5. Clip Bank — scroll horizontal, smart labels, micro-interactions
-6. Bio & Publish (grid 2 colonnes) — MONTE juste apres le clip bank (v8)
-   ├── Bio Generator — 6-step sequence + 3 variantes (block mixing) + risk/reward labels (v6)
-   └── Publish Panel — step-by-step sequence + AI Growth Projections (variant-aware) (v6)
-7. Smart Queue Section (v7) — AI Schedule timeline
-   ├── Scheduled posts (time, platform, risk, breakout %, explanation)
-   ├── Strategy label + confidence
-   ├── Emotional mix assessment
-   ├── "If you do nothing" preview
-   └── Override learning toast
-8. FlowLine (animated)
-9. AI Distribution Engine — cercle pulse + toggle + schedule preview + Beta badge
-10. FlowLine
-11. Platforms Grid — 5 cartes (TikTok, YouTube, Instagram, Facebook[soon], X[soon])
-12. Recent Activity — metriques + tone insight
-13. What Worked — feedback loop persistent (v6)
-14. Stats Row — Queue, All Time (persistent), Platforms, Creator Level + progress bar (v6)
+4. Personalized Insights (apparait apres 1+ publish)
+5. Publish Strip — 2-col grid (mobile: stack)
+   ├── Caption Studio (AI) — Generate AI captions / per-platform variants / copy / regenerate
+   └── Publish card — clip preview (clickable, opens picker) + targets line + Post now CTA
+6. Connection Map (brain core section)
+   ├── 4 platform cards positioned at circle edges (TikTok TL, IG TR, YouTube BL, Facebook BR)
+   ├── Dynamic SVG flow lines (corner-targeting, L-shaped bezier, animated particles)
+   ├── AI Brain Core (centered)
+   │   ├── 3 concentric glass rings + outer rotating dashed ring + cyan/orange node accents
+   │   ├── Brain SVG (cyan gyri + neural nodes)
+   │   ├── Wolf SVG (orange neon emblem) — centered in brain negative space
+   │   └── 4 subtle bridges (neural nodes ↔ wolf edges)
+   └── CLIP FARM panel (below brain)
+       ├── Title: "CLIP FARM RUNNING" / "CLIP FARM OFF"
+       ├── Subtext (RUNNING): "{N} clips synced · {M} scheduled · learning enabled"
+       ├── Hint (OFF): "Turn on to start distributing your clips"
+       ├── Pill toggle: "● Auto-Distribute │ On/Off"
+       └── Stats: NEXT POST · QUEUE
+7. Smart Queue Section (v7) — AI Schedule timeline (existing)
+8. Clip Bank — horizontal rail, cyan theme, state hierarchy, X remove buttons, + Add clips
+9. Recent Activity
+10. What Worked
+11. Stats Row + Creator Level
+12. Modals (overlay):
+    ├── Platform picker — opens on "Post now" click
+    └── Clip picker — opens on clip preview/empty state click (Bank/Remixes tabs)
+```
+
+> **Note:** PLATFORMS const `optimalHours` arrays use AM/PM legacy format (e.g. `'7 PM'`, `'11 AM'`). Consider migrating to 24h integers for consistency with `en-GB` time formatting used elsewhere.
+
+---
+
+## AI Brain Core (Connection Map center) — v8 NEW
+
+### Concept
+Centre visuel de la page. Symbolise le "AI control center" qui orchestre la distribution.
+
+### Structure JSX
+```jsx
+<div className="dist-core-wrap">
+  <div className="dist-core-glow" />
+  <div className="dist-core-glass" />
+  <svg viewBox="0 0 320 320">
+    <defs>...filters + gradients...</defs>
+
+    {/* Concentric rings — depth */}
+    <circle r="148" /> {/* outer glass */}
+    <circle r="142" /> {/* mid */}
+    <circle r="128" /> {/* inner */}
+
+    {/* Outer ring (rotating dashes + accent nodes) */}
+    <g className="dist-core-outer-ring">
+      <circle r="148" strokeDasharray="2 7" />
+      <circle cx="308" cy="160" fill="#7DD3FC" />  {/* cyan node */}
+      <circle cx="12" cy="160" fill="#7DD3FC" />
+      <circle cx="160" cy="12" fill="#FB923C" />   {/* orange brand accent */}
+    </g>
+
+    {/* Static dashed inner ring (counter-stable) */}
+    <circle r="138" strokeDasharray="1 5" />
+
+    {/* Brain (translated +30 to fit viewBox) */}
+    <g transform="translate(0 30)">
+      {/* soft fills, lobes with brainGlow filter, fissure (split to skip wolf area),
+          inner grooves (cyan), neural nodes */}
+    </g>
+
+    {/* Wolf — neon emblem, centered in brain negative space */}
+    <g transform="matrix(0.55 0 0 0.55 119.3 118.925)" filter="url(#wolf-glow)">
+      <path fill="rgba(2,6,23,0.55)" stroke="#FFC58A" strokeWidth="2.4" />
+    </g>
+
+    {/* 4 subtle bridges neural-node → wolf */}
+    <g className="dist-brain-bridges">...</g>
+  </svg>
+
+  <div className="dist-core-connector-line" />
+  <div className="dist-core-panel">...CLIP FARM panel...</div>
+</div>
+```
+
+### Filters (defs)
+- `wolf-glow` : 3-layer drop shadow (1.2px / 4px / 12px) avec couleurs #FED7AA / #FB923C / #F97316
+- `brainGlow` : feGaussianBlur stdDeviation=5 + feColorMatrix cyan (0.15, 0.75, 1) + feMerge
+
+### Gradients (defs)
+- `brainStroke` : linear cyan #7DD3FC → #38BDF8 → #0EA5E9
+- `brainSoftFill` : vertical fade #38BDF8 (0.16) → #0EA5E9 (0.04)
+- `cyan-orange` : pour les bridges (cyan → orange)
+
+### Wolf positioning (matrix transform)
+- Wolf head bbox center : (74, 76.5) en coords original
+- Brain center after translate(0 30) : (160, 161)
+- Matrix : `matrix(0.55 0 0 0.55 119.3 118.925)` → place head center exactement a (160, 161)
+- Scale 0.55 → wolf occupe ~38% du diametre du brain
+
+### Fissure split
+La fissure centrale est coupee en 2 segments pour ne pas traverser le visage du loup :
+- Segment haut : `M160 45 L160 78`
+- Segment bas : `M160 188 L160 218`
+
+### Animations
+- `.dist-core-outer-ring` : rotation 50s linear infinite (anneau dashed + nodes)
+- `.dist-brain-bridges` : opacity pulse 4s (`dist-bridge-pulse`)
+- Orange accent node : opacity 0.5→1 breathing 3s
+- `.dist-core-glow` : scale pulse 4s (`dist-breathe`)
+- `.dist-core-wrap.off *` : grayscale + animation paused
+
+---
+
+## CLIP FARM Panel — v8 NEW
+
+### Position
+Absolute, `bottom: -185px` from brain wrap (15px plus proche que la version initiale).
+
+### Structure
+```jsx
+<div className="dist-core-panel {on|off}">
+  <div className="dist-core-panel-head">
+    <span className="dist-core-panel-title">CLIP FARM RUNNING|OFF</span>
+    {RUNNING && <span className="dist-core-panel-subtext">N clips synced · M scheduled · learning enabled</span>}
+    {OFF && <span className="dist-core-panel-hint">Turn on to start distributing your clips</span>}
+  </div>
+
+  <button className="dist-core-pill {on|off}">
+    <span className="pill-orb" />        {/* 8px circle, pulses when off */}
+    <span className="pill-label">Auto-Distribute</span>
+    <span className="pill-state">On|Off</span>  {/* border-left separator */}
+  </button>
+
+  <div className="dist-core-panel-stats">
+    <div className="dist-core-stat">
+      <span className="stat-label">Next post</span>
+      <span className="stat-value">Today HH:MM</span>  {/* en-GB locale → 24h */}
+      <span className="stat-sub">Instagram Reels</span>  {/* PLATFORMS.find(...).label */}
+    </div>
+    <div className="dist-core-stat-divider" />
+    <div className="dist-core-stat">
+      <span className="stat-label">Queue</span>
+      <span className="stat-value">N scheduled</span>
+      <span className="stat-sub">+M ready next</span>
+    </div>
+  </div>
+</div>
+```
+
+### Pill toggle (dist-core-pill) — premium horizontal
+- Forme : pill 999px radius, 9px padding
+- ON : border cyan 0.6, glow box-shadow inset+outer cyan, state cyan #38BDF8
+- OFF : border cyan 0.35 (still cyan, not gray), pill `breathe` animation 2.4s, orb pulse + scale 1→1.25 (1.6s), pulsing outer ring `::after` (cyan, scale 1→1.06)
+- Hover (off) : border 0.7, glow 0.32, animations stop, orb fixed cyan
+- Le but de l'etat OFF : "system en attente, click pour activer" (inviting, pas mort)
+
+### Connector line (brain → panel)
+```css
+.dist-core-connector-line {
+  bottom: -10px;
+  height: 140px;   /* tall enough to bridge brain SVG bottom to panel top */
+  background-image: repeating-linear-gradient(to bottom, #38BDF8 0-8px, transparent 8-20px);
+  animation: dist-connector-flow 1.4s linear (background-position scroll);
+  box-shadow: 0 0 6px rgba(56,189,248,0.55);
+}
+.dist-core-connector-line::before/::after { /* 6px cyan dots on each end */ }
+```
+- OFF state : gradient gray, no animation
+- Visually bridges the full gap between brain bottom and CLIP FARM panel top
+
+### Funnel lines (panel → Clip Bank)
+```
+SVG .dist-funnel.flipped — viewBox 1316×100, 7 bezier paths
+- Converge from spread-out top points → center bottom (flipped via scaleY(-1))
+- ON state: .dist-flow-path.blue (cyan animated dashes + 2 particle circles)
+- OFF state: .dist-flow-path.dim (gray, no animation)
+- Height: 100px (CSS), margin: -4px 0 (tight coupling to adjacent elements)
+- Visually connects bottom of CLIP FARM panel to top of Clip Bank rail
 ```
 
 ---
 
-## Session Persistence (`lib/distribution/session-persistence.ts`) — NEW v6
+## Connection Map (platforms ↔ brain) — v8 NEW
+
+### Container
+```css
+.dist-connection-map {
+  min-height: 640px;
+  box-sizing: border-box;
+  display: grid;
+  place-items: start center;  /* brain anchored to TOP */
+  padding-top: 20px;
+  padding-bottom: 40px;
+}
+```
+
+### Math
+- Container total : 640px (border-box)
+- Padding : top 20 + bottom 40 = 60
+- Content area : 580px
+- Brain wrap (400×400) at TOP of content → wrap from y=20 to y=420
+- Outer circle (radius 148, centered at wrap center y=220) → y=72 to y=368
+- Apps with 32px overhang :
+  - Top apps : `top: 40px` → app extends 40-160 (32px above circle top y=72)
+  - Bottom apps : `bottom: 240px` → app extends 280-400 (32px below circle bottom y=368)
+  - Gap top-app-bottom (160) ↔ bottom-app-top (280) = **120px**
+
+### Platform card positions
+```css
+.dist-plat-node {
+  width: 110px;
+  text-align: center;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+.pos-tl { left: 40px; top: 40px; }
+.pos-tr { right: 40px; top: 40px; }
+.pos-bl { left: 40px; bottom: 240px; }
+.pos-br { right: 40px; bottom: 240px; }
+```
+
+### Platform card content
+- Icon (72×72 glass) — wrapped in `<ElectricBorder>` if active
+- Name (12px, white-space: nowrap, max-width: 110px)
+- Toggle/badge :
+  - Connected + active (master toggle ON) : `● ON` (green dot + label)
+  - Connected + master OFF : `● OFF` (gray) — auto-OFF when master toggle is off
+  - Not connected : `Connect` (purple dashed pill → /settings)
+  - Coming soon : `Soon` (gray)
+
+### Active state logic
+```ts
+const isActive = isConn && isEnabled && aiAutoDistribute
+// → toutes les apps deviennent visuellement OFF si master toggle OFF
+```
+
+### Flow lines (dynamic SVG paths)
+```jsx
+<svg className="dist-map-svg" preserveAspectRatio="none">
+  <defs>
+    <filter id="particle-glow">...feGaussianBlur stdDeviation=2...</filter>
+  </defs>
+  <path id="flow-path-{id}" className="dist-flow-path {blue|dim}" d={flowPaths[id]} />
+  {/* Animated particles when active */}
+  {isPlatActive(id) && (
+    <>
+      <circle r="3.5" fill="#38BDF8" filter="url(#particle-glow)">
+        <animateMotion dur="2.6s" repeatCount="indefinite" path={flowPaths[id]} />
+      </circle>
+      <circle r="2" fill="#7dd3fc" opacity="0.7">
+        <animateMotion dur="2.6s" begin="0.9s" repeatCount="indefinite" path={flowPaths[id]} />
+      </circle>
+    </>
+  )}
+</svg>
+```
+
+### Path computation (pathTo)
+```ts
+// Click → corner of card closest to brain center
+const sx = cardCx < targetX ? cardR : cardL  // inner X (right or left)
+const sy = cardCy < targetY ? cardB : cardT  // inner Y (bottom or top)
+
+// End point: 105px short of brain center (lands at outer ring)
+const stopShort = 105
+
+// Bezier control points: line LEAVES brain horizontally, then curves vertically to card
+// (down for bottom apps, up for top apps)
+const c1 = (sx, sy + (ey - sy) * 0.85)      // long vertical from card
+const c2 = (sx + (ex - sx) * 0.25, ey)      // short horizontal lead-in near card
+return `M ${sx} ${sy} C ${c1x} ${c1y}, ${c2x} ${c2y}, ${ex} ${ey}`
+```
+
+### ResizeObservers
+- Observe : `.dist-connection-map`, brain wrap, chaque platform ref
+- Window resize listener
+- Double settle : `setTimeout(100)` + `setTimeout(500)` post-mount
+- N'importe quel layout shift recalcule les paths
+
+### Path style
+```css
+.dist-flow-path {
+  stroke-dasharray: 8 12;
+  stroke-linecap: round;
+  filter: drop-shadow(0 0 6px currentColor) drop-shadow(0 0 14px currentColor);
+  animation: dist-dash 9s linear infinite;
+}
+.dist-flow-path.blue { stroke: #38BDF8; opacity: .8; }
+.dist-flow-path.dim  { stroke: #475569; opacity: .22; filter: none; }
+```
+- Master toggle OFF → toutes les paths passent en `dim`, particules ne sont plus rendues
+
+---
+
+## Publish Strip — v8 REDESIGN
+
+### Layout
+2-col grid, gap 16px, mobile stack. Replace previous "AI-Generated Caption" + "Publish" cards with simpler versions.
+
+### Card Caption
+```jsx
+<div className="dist-glass dist-console-card">
+  <div className="dist-console-card-head">
+    <h3>Caption</h3>
+    <p>AI writes a caption for your clip.</p>
+    <button className="dist-cyan-btn" onClick={generateBio}>
+      Generate | Regenerate | Generating…
+    </button>
+  </div>
+
+  {/* Steps de generation (progressive) */}
+  {bioGenerating && bioStep >= 0 && (
+    <div className="dist-console-steps">{BIO_STEPS}</div>
+  )}
+
+  {/* Resultat OU empty state */}
+  {bioText ? (
+    <>
+      <div className="dist-caption-box">
+        <textarea value={bioText} onChange={...} className="dist-caption-textarea" />
+      </div>
+      <div className="dist-caption-actions">
+        <button onClick={() => navigator.clipboard.writeText(bioText)}><Copy /> Copy</button>
+      </div>
+    </>
+  ) : (
+    <div className="dist-caption-empty">
+      <Sparkles /> {/* cyan icon in glass circle */}
+      <p>Generate a caption for this clip.</p>
+      <p>Trending hashtags · tuned for your platforms.</p>
+    </div>
+  )}
+</div>
+```
+
+### Card Publish
+```jsx
+<div className="dist-glass dist-console-card">
+  <div className="dist-console-card-head">
+    <h3>Publish</h3>
+    <p>Send your clip to the connected platforms.</p>
+  </div>
+
+  {selectedClip ? (
+    <>
+      {/* Clip preview clickable → opens clip picker */}
+      <button className="dist-next-clip dist-next-clip-btn" onClick={() => setShowClipPicker(true)}>
+        <thumbnail with score badge if >= 80>
+        <info: title + meta>
+        <span className="dist-next-clip-change"><RefreshCw /> Change</span>
+      </button>
+
+      {/* Targets line clickable → opens platform picker */}
+      <button className="dist-publish-targets dist-publish-targets-btn" onClick={() => setShowPlatformPicker(true)}>
+        <TrendingUp /> Posting to <strong>{N} platforms</strong> <ChevronRight />
+      </button>
+
+      {/* Single primary action */}
+      <button className="dist-cyan-btn primary" onClick={() => setShowPlatformPicker(true)}>
+        <Send /> Post now
+      </button>
+    </>
+  ) : (
+    /* Empty state — no clip staged */
+    <div className="dist-next-empty">
+      <Rocket /> "No clip staged"
+      <p>"Pick a clip from your bank to publish now, or wait for AI Schedule."</p>
+      <button className="dist-cyan-btn" onClick={scrollToBank}><Film /> Pick from bank</button>
+      <p>Choose from your bank or your remixes.</p>
+    </button>
+  )}
+</div>
+```
+
+### selectedClipId logic (Publish strip — MANUAL ONLY)
+- **NOT auto-set** on mount. Publish strip stays EMPTY until explicit user action.
+- **NEVER auto-filled from queue.posts[0]** — AI Schedule is a separate world from manual publishing.
+- Set when: user clicks Rocket button on a bank card, or arrives from Enhance with `?action=publish&clip={id}`
+- NOT set when: user clicks "Place in bank" (bank only, Publish stays empty)
+- Empty state (same in ON and OFF modes): Rocket icon muted + "No clip staged" + "Pick from bank" CTA
+
+### Separation: AI-driven vs Manual
+| World | Sections | Behavior |
+|---|---|---|
+| **AI-driven** (machine runs) | Brain panel, AI Schedule, Bank synced badge | Reflects queue state truthfully. Amber when OFF. |
+| **Manual** (user action) | Caption strip, Publish strip | ALWAYS empty until user explicitly picks a clip via Rocket. Same empty state in ON and OFF. |
+
+### Plurals & counts rules
+- `"1 clip synced"` / `"N clips synced"` — singular when count === 1
+- `"1 clip queued"` / `"N clips queued"` — same pattern
+- `"+N ready next"` — only shown when N > 0. Hidden (empty string) when N === 0.
+- Ready count formula: `max(0, visibleClipsAbove60 - scheduledCount)`
+- `"1 clip analyzed"` / `"N clips analyzed"` in learning footer
+
+### Buttons (cyan theme — replaces previous mauve)
+- `.dist-cyan-btn` : pill, border cyan 0.4, gradient fill cyan 0.15→0.06, color #7dd3fc, hover glow
+- `.dist-cyan-btn.primary` : padding 10px 18px, fill plus opaque, white text, flex: 1
+- `.dist-ghost-btn` : pill, border gray 0.18, transparent bg, color #94a3b8, hover cyan 0.4
+
+### Visual Brand (header icon)
+- `.dist-icon-mark` uses cyan brand: `linear-gradient(135deg, rgba(56,189,248,.2), rgba(56,189,248,.08))`, border cyan 0.35, color `#7DD3FC`
+- No more violet/purple in the Distribution header
+
+---
+
+## Caption Studio (AI Engine) — v9 NEW
+
+### Architecture
+- **AI Engine:** `lib/ai/caption-engine.ts` — calls Claude Haiku (`claude-haiku-4-5-20251001`) with 15s timeout
+- **API Route:** `POST /api/captions/distribution` — auth, Zod validation, daily rate limit, in-memory cache (24h TTL), DB persist
+- **DB Table:** `distribution_captions` — stores all generated captions per clip/user/platforms
+- **Fallback:** if AI fails, falls back to `lib/distribution/caption-engine.ts` (template-based block mixing)
+
+### Flow
+1. User selects clip + platforms in Distribution
+2. Clicks "Generate AI captions"
+3. 6-step progress animation plays (fake steps for UX)
+4. `POST /api/captions/distribution` called with clipId, transcript (clip title), mood (auto-detected from title), platforms
+5. Claude Haiku generates 3 variants per requested platform
+6. Response cached in-memory (server: 24h) and client (session ref)
+7. Variants displayed as platform-grouped cards with Copy buttons
+8. "Regenerate" skips client cache and fetches fresh from API
+
+### Platform constraints (enforced server-side)
+| Platform | Caption | Hashtags | Title | Description | Tags |
+|---|---|---|---|---|---|
+| TikTok | <= 150 chars | 8 | — | — | — |
+| Instagram | <= 220 chars | 12 | — | — | — |
+| YouTube Shorts | — | — | <= 60 chars | <= 200 chars | 5 |
+
+### Rate limits
+- Free plan: 10 generations/day
+- Pro/Studio: 100 generations/day
+- Uses Upstash Redis sliding window (`captions:{userId}`, 86400s window)
+
+### DB table: `distribution_captions`
+```sql
+id UUID PK, clip_id TEXT, user_id UUID FK profiles, platforms TEXT[],
+variants JSONB, model TEXT, tokens_used INT, created_at TIMESTAMPTZ
+```
+RLS: SELECT/INSERT where `user_id = auth.uid()`. Indexes on `(clip_id, user_id)` and `(user_id, created_at DESC)`.
+
+### UI
+- Platform-grouped variant cards with platform icon + label
+- Each variant shows caption/title + hashtags/tags as pills
+- Copy button per variant (copies to clipboard + sets as active caption for publish)
+- Error state with AlertCircle icon + error message
+- Empty state: "Generate AI captions for this clip."
+
+---
+
+## Modals — v8 NEW
+
+### Platform Picker Modal
+**Trigger** : click on "Post now" OR on the "Posting to N platforms" line.
+
+```jsx
+{showPlatformPicker && (
+  <div className="dist-modal-overlay" onClick={close}>
+    <div className="dist-modal-card">
+      <div className="dist-modal-head">
+        <h3>Where to post?</h3>
+        <p>Pick the platforms for this clip.</p>
+        <button className="dist-modal-close">×</button>
+      </div>
+
+      {/* Clip preview */}
+      <div className="dist-modal-clip">{thumbnail + title + score}</div>
+
+      {/* Platform list */}
+      <div className="dist-modal-platforms">
+        {PLATFORMS.map(p => {
+          if (comingSoon)  return <div className="soon">...</div>
+          if (!isConn)     return <div className="disconnected">...<Connect btn>...</div>
+          return (
+            <button className={`dist-modal-platform ${isEnabled ? 'enabled' : ''}`}
+                    onClick={() => togglePublishTarget(p.id)}>
+              <icon> <name + status: "Selected"|"Tap to select"> <checkbox cyan>
+            </button>
+          )
+        })}
+      </div>
+
+      <div className="dist-modal-actions">
+        <button className="dist-ghost-btn">Cancel</button>
+        <button className="dist-cyan-btn primary" onClick={async () => { close(); await handlePublish() }}>
+          {activePlatformCount === 0 ? 'Pick at least one platform' : `Post to ${N} platforms`}
+        </button>
+      </div>
+    </div>
+  </div>
+)}
+```
+
+**State** : reuses existing `publishTargets` from store via `togglePublishTarget`. Choices persistent + sync with brain core platforms.
+
+### Clip Picker Modal
+**Trigger** : click on selected clip preview OR on empty state in Publish card.
+
+```jsx
+{showClipPicker && (() => {
+  const bankClips = clipBank                                    // Bank = ALL clips (queue auto-farm)
+  const remixClips = clipBank.filter(c => c.source === 'trending')  // Remixes subset
+  const visibleClips = clipPickerTab === 'bank' ? bankClips : remixClips
+  return (
+    <div className="dist-modal-overlay" onClick={close}>
+      <div className="dist-modal-card dist-clip-picker-card">
+        <h3>Pick a clip</h3>
+        <p>Choose what to publish next.</p>
+
+        {/* Tabs cyan */}
+        <div className="dist-clip-tabs">
+          <button className={`dist-clip-tab ${active}`}><Film /> Bank <span className="tab-count">{N}</span></button>
+          <button className={`dist-clip-tab ${active}`}><Sparkles /> Remixes <span className="tab-count">{N}</span></button>
+        </div>
+
+        {/* Scrollable list */}
+        <div className="dist-clip-picker-list">
+          {visibleClips.length === 0 ? (
+            <div className="dist-clip-picker-empty">
+              <Film />
+              <p>No clips queued yet | No remixes yet</p>
+              <p>Browse trending or upload your own | Enhance a trending clip…</p>
+              <button className="dist-cyan-btn"><Layers /> Browse</button>
+            </div>
+          ) : (
+            visibleClips.map(clip => (
+              <button className={`dist-clip-picker-item ${selected}`}
+                      onClick={() => { setSelectedClipId(clip.id); close() }}>
+                <thumbnail (with score badge if >= 80)>
+                <info: title + Score · {scheduled tag if applicable}>
+                {selected && <span className="dist-clip-picker-check"><Check /></span>}
+              </button>
+            ))
+          )}
+        </div>
+      </div>
+    </div>
+  )
+})()}
+```
+
+**Bank vs Remixes** :
+- **Bank** = `clipBank` complet (all clips queued for auto-farm posting)
+- **Remixes** = `clipBank.filter(c => c.source === 'trending')` (subset remixed from trending)
+- Si la majorite des clips sont remixes (workflow typique), Bank et Remixes peuvent overlap presque totalement
+
+### Modal styles
+- Overlay : fixed, z-index 1000, `rgba(2,6,23,0.7)` + backdrop-filter blur(8px), fade-in 0.2s
+- Card : max-width 460px (clip picker 540px), gradient bg + border cyan 0.22, box-shadow + glow, pop-in animation (translateY+scale)
+- Tabs (clip picker) : pills, active = bg cyan 0.12 + text #7dd3fc + count cyan brighter
+- List : max-height 360px, scrollbar cyan custom (6px, rgba(56,189,248,0.2)→0.4 hover)
+
+---
+
+## Clip Bank — v8 REDESIGN
+
+### Header
+```jsx
+<div className="dist-clip-bank-head">
+  <h3>
+    <span className="dist-clip-bank-dot" />  {/* cyan dot, no longer purple */}
+    Clip Bank
+    <span className="dist-smart-pill">Synced</span>  {/* cyan pill */}
+  </h3>
+  <div className="meta">
+    <strong>{N} clips</strong> queued
+    · <span className="scheduled">{queue.posts.length} scheduled</span>  {/* GREEN */}
+    · <span className="priority">{N >= 80} priority</span>                {/* ORANGE */}
+  </div>
+  <div className="dist-clip-bank-actions">
+    <button className="dist-ghost-btn"><Layers /> Sort by score</button>
+    <button className="dist-ghost-btn"><Plus /> Add clips</button>
+    <button className="dist-ghost-btn">Manage bank</button>
+  </div>
+</div>
+```
+
+**IMPORTANT** : counts coherence with AI core panel — `scheduled` count uses `queue.posts.length` (same source as the brain panel "M scheduled" subtext).
+
+### State hierarchy (mutually exclusive)
+```ts
+const isBest          = idx === 0
+const isScheduled     = clip.status === 'scheduled' && !!clip.scheduledAt
+const isPriority      = !isBest && !isScheduled && (clip.score ?? 0) >= 80
+const hasThumb        = !!clip.thumbnailUrl && !brokenThumbs.has(clip.id)
+const isMissingVideo  = !clip.thumbnailUrl
+const isBrokenPreview = !!clip.thumbnailUrl && brokenThumbs.has(clip.id)
+const isPlaceholder   = !hasThumb  // dim only if no real thumbnail
+const isDraftWithThumb = clip.status === 'draft' && hasThumb && !isBest && !isPriority && !isScheduled
+const isReady         = !isBest && !isPriority && !isScheduled && !isDraftWithThumb && hasThumb
+```
+
+### Status pills
+| Pill | Couleur | Condition | Affichage |
+|---|---|---|---|
+| Scheduled HH:MM | green/cyan | `isScheduled` (wins everywhere — overrides Best/Priority) | `<Clock /> Scheduled 14:30` |
+| ★ Best next | cyan glow gradient | `isBest && !isScheduled` | `★ Best next` |
+| Priority | orange gradient | `isPriority` | `<Flame /> Priority` |
+| Ready | cyan light | `isReady` | `Ready` |
+| Draft | gray muted | `isDraftWithThumb` | `Draft` |
+| Needs video | gray foncé | `isMissingVideo && !isBest && !isScheduled` | `Needs video` |
+| Preview unavailable | gray foncé | `isBrokenPreview && !isBest && !isScheduled` | `Preview unavailable` |
+
+### Card visuals
+- **Real clip (hasThumb)** : pleine opacite, border cyan 0.12, hover lift + cyan glow
+  - `.best-next` : border cyan 0.5 + box-shadow cyan glow
+  - `.priority-clip` : border orange 0.4 + box-shadow orange glow
+  - `.draft-with-thumb` : border gray 0.18, mais opacite reste 1 — overlay subtil sur la thumbnail seulement (`.dist-clip-thumb-overlay` linear-gradient sombre 0.35→0.55, fade au hover)
+- **Placeholder card (no thumb)** : `.placeholder-clip` opacity 0.55, border gray 0.1, no box-shadow, hover opacity 0.85
+- **Premium placeholder** (`.dist-clip-thumb-placeholder`) : Film icon size=14, opacity 0.55, text 8.5px uppercase color rgba(100,116,139,0.7), background radial-gradient cyan subtle + dark linear-gradient
+- **Broken thumbnail handling** : `<img onError={() => setBrokenThumbs(prev => new Set([...prev, clip.id]))} />` → fallback to placeholder
+- **Drag prevention** : `user-select: none` + `-webkit-user-drag: none` on .dist-clip * + `pointer-events: none` on img + `draggable={false}` + `onDragStart={e => e.preventDefault()}`
+
+### Remove (X) button
+```jsx
+<button className="dist-clip-remove" onPointerDown={preventBubble} onClick={(e) => {
+  e.stopPropagation(); e.preventDefault()
+  setRemovedClipIds(prev => new Set([...prev, clip.id]))
+  if (selectedClipId === clip.id) setSelectedClipId(null)
+}}>
+  <X size={12} />
+</button>
+```
+- 24×24 cercle, top: 8 right: 8, z-index: 10, opacity 0 → 1 on `.dist-clip:hover`
+- Hover X : background red `rgba(239,68,68,0.85)` + scale 1.08 + glow red
+- **Robust delete approach** : utilise un `removedClipIds: Set<string>` separé du `clipBank` state. Filtrage a l'affichage : `clipBank.filter(c => !removedClipIds.has(c.id)).map(...)`. Counts du header aussi filtres. Resilient aux re-fetch.
+
+### Scrollbar
+- Subtle cyan : `rgba(56,189,248,0.2)` → `0.4` hover
+- 6px height, Webkit + Firefox
+
+### "+ Add clips" card (last in row)
+- Border dashed cyan 0.18, transparent bg cyan 0.02, hover lift + glow cyan
+- Plus icon + "Add clips" cyan text
+- Onclick → `/dashboard`
+
+### Empty bank state
+```jsx
+<div className="dist-clip-bank-empty">
+  <div className="empty-icon"><Film /></div>      {/* cyan glass circle */}
+  <p>No clips ready yet</p>
+  <p>Enhance a trending clip or upload your own…</p>
+  <button className="dist-cyan-btn"><Sparkles /> Browse trending</button>
+  <button className="dist-ghost-btn"><Plus /> Upload</button>
+</div>
+```
+
+---
+
+## Clip Bank — Interactive Features
+
+### Click-to-Play Video Preview
+- Click on play glyph (or on the video to stop): toggles video playback
+- First click: fetches video URL from `/api/clips/video-url?clipId=...` then plays
+- Cached in a `Map<string, string>` ref (no re-fetch on subsequent clicks)
+- Renders `<video autoPlay muted loop playsInline>` overlay on thumb area
+- Re-click on video: pauses + returns to thumbnail
+- Loading state: subtle spinner overlay
+- Respects `prefers-reduced-motion` (skipped if active)
+- Touch-device friendly (no hover dependency)
+
+### Quick Publish Button (Rocket)
+- Visible on hover: absolute **top-right** (shifted left of X button: `right: 36px; top: 8px;`), cyan Rocket icon (28x28px)
+- Click behavior:
+  1. Sets the clip as selected (`setSelectedClipId`)
+  2. Smooth scrolls to `#publish-strip`
+  3. After 600ms delay: opens Platform Picker modal
+- `e.stopPropagation()` prevents card selection conflict with X remove button
+
+### Scroll-from-Enhance (Place in bank)
+- Enhance page navigates to `/dashboard/distribution?scrollTo=bank&highlight={clipId}`
+- Distribution reads params on mount via `useEffect`
+- If `scrollTo=bank`: auto-scrolls to `#clip-bank-section`
+- If `highlight={id}`: adds `dist-clip-highlight` class (cyan ring pulse, 2.5s animation)
+- URL params cleaned via `history.replaceState` after reading
+
+## URL Params
+
+| Param | Source | Behavior |
+|---|---|---|
+| `clip={id}` | Enhance "Distribute Now" | Selects this clip in publish strip |
+| `action=publish` | Enhance "Distribute Now" | Auto-opens Platform Picker |
+| `scrollTo=bank` | Enhance "Place in bank" | Scrolls to Clip Bank section |
+| `highlight={id}` | Enhance "Place in bank" | Highlights the clip card with cyan ring pulse |
+
+---
+
+## OFF state — system coherence
+
+When `aiAutoDistribute === false`:
+- **CLIP FARM panel** : title shows "OFF", subtext replaced by hint, pill in OFF inviting state (pulsing)
+- **Brain core** : `dist-core-wrap.off` → `grayscale(1)` filter on brain SVG, opacity 0.45, animations paused (outer ring rotation, glow pulse)
+- **Connector line** brain→panel : gray gradient instead of cyan, no animation
+- **Platform cards** : ALL connected platforms display `● OFF` (gray) regardless of individual `isEnabled` (uses `isActive = isConn && isEnabled && aiAutoDistribute`). Choice preserved in store.
+- **Platform→brain flow lines** : all switch to `dim` class (gray, no glow). Particles not rendered (`{isPlatActive(id) && <circle>...}`).
+- **Funnel lines** below CLIP FARM panel (going to clip bank) : also switch to `dim`, particles removed
+- **Hint visible everywhere** : "Turn on to start distributing your clips" + pulsing pill ring → invites click
+
+### Amber OFF indicators (UX clarity)
+
+These additional changes ensure the user IMMEDIATELY sees that nothing will fire until ON:
+
+| Element | ON state | OFF state |
+|---|---|---|
+| Next post time | Normal cyan | Amber-400, opacity 70% |
+| Next post sub | Platform name | "Paused" (italic, amber) |
+| Queue count | Green "N scheduled" | Zinc-500 "N scheduled" |
+| Queue sub | "+N ready next" | "Frozen until ON" (amber-500/70) |
+| Clip Bank badge | "Synced" (cyan pill) | "Frozen" (amber pill + Pause icon) |
+| Clip Bank banner | None | Amber CTA: "Turn on AUTO-DISTRIBUTE above to start posting" (clickable, scrolls to pill) |
+| Clip rail opacity | 100% | 70% |
+| "Best next" pill | Cyan glow | Amber-400, no glow shadow |
+| "Best next" tooltip | None | "Will post when auto-distribute is ON" |
+| AI Schedule section | Full opacity | 70% opacity overall |
+| AI Schedule "Smart" badge | Cyan pill | Gray "Paused" pill (zinc) |
+| Schedule time | Normal | Amber-400 |
+| Schedule "in Xh" | Normal | Amber italic + "(paused)" suffix |
+| Schedule post cards | Full opacity | 75% opacity |
+| Schedule "Post now" buttons | Active | Disabled + cursor-not-allowed + tooltip |
+| Schedule footer (mix + reach) | Normal | 60% opacity + "Frozen —" prefix |
+
+### Clip Bank features
+- **Sort by score** button removed (clips ordered by AI, not user-sortable)
+- **"Ordered by AI"** subtle text in header actions area
+
+### Scroll-to-toggle behavior
+Clicking the amber CTA in Clip Bank:
+1. Smooth scrolls to the pill toggle (via `pillRef.scrollIntoView`)
+2. Adds `dist-pill-pulse-highlight` class (amber box-shadow pulse, 2s)
+3. Class auto-removed after 2s via setTimeout
+
+---
+
+## Time / Date formatting
+
+Consistent across the app :
+```ts
+new Date(scheduledAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
+// → "14:30" (24h, no AM/PM messy)
+
+// In context, prefixed with "Today":
+`Today ${time}`  // → "Today 14:30"
+```
+
+Used in : CLIP FARM panel "Next post", Clip Bank scheduled pills, "Scheduled HH:MM" label.
+
+---
+
+## Session Persistence (`lib/distribution/session-persistence.ts`) — unchanged from v6
 
 ### PersistentStats (localStorage)
 ```typescript
@@ -63,418 +792,234 @@
   clipScores: number[]              // last 50 scores
   weeklyClipsCount: number
   weeklyAvgScore: number
-  lastWeekAvgScore: number | null   // for "vs last week"
-  weekNumber: number                // ISO week
+  lastWeekAvgScore: number | null
+  weekNumber: number
   bestClipScore: number
   bestClipTitle: string | null
-  currentStreak: number             // consecutive days
+  currentStreak: number
   longestStreak: number
-  lastPublishDate: string | null    // ISO date
+  lastPublishDate: string | null
   lastSessionDate: string | null
   sessionsCount: number
   firstUseDate: string
 }
 ```
-
-### Key: `"viral-animal-distribution-stats"`
-
-### Streak Logic
-- `lastPublishDate` = yesterday → increment `currentStreak`
-- `lastPublishDate` = today → keep unchanged
-- `lastPublishDate` older than yesterday → reset to 1
-- Track `longestStreak` (max ever)
-
-### Weekly Rollover
-- Track ISO week number
-- Week change: `weeklyAvgScore` → `lastWeekAvgScore`, reset `weeklyClipsCount`
-- Enables "Avg score: 74 → +6 vs last week"
+Key: `"viral-animal-distribution-stats"`
 
 ### "What Worked" Summary (`getWhatWorkedSummary`)
 ```typescript
-{
-  topTone: { name: string; performanceVsAvg: number } | null
-  topPlatform: { name: string; multiplierVsOthers: number } | null
-  bestTimeOfDay: string | null
-  recommendation: string  // "Double down on hype content on TikTok"
-}
+{ topTone, topPlatform, bestTimeOfDay, recommendation }
 ```
-Based on accumulated `clipsByTone` and `clipsByPlatform`.
-
-### Graceful Fallback
-localStorage indisponible (SSR, private browsing) → defaults, aucune erreur.
 
 ---
 
-## Reward Engine (`lib/distribution/reward-engine.ts`) — NEW v6
+## Reward Engine (`lib/distribution/reward-engine.ts`) — unchanged from v6
 
-### Reward Interface
-```typescript
-{
-  id: string
-  type: 'milestone' | 'streak' | 'rare_event' | 'personal_best' | 'level_up'
-  title: string
-  subtitle: string
-  emoji: string
-  rarity: 'common' | 'uncommon' | 'rare' | 'legendary'
-}
-```
+### Milestones / Streaks / Rare Events / Creator Levels
+(See unchanged tables — Lv.1 Rookie → Lv.10 Legend, milestones 1/5/10/25/50/100, streak 3/7/14/30, etc.)
 
-### Milestones (one-time, total clips)
-| Clips | Titre | Emoji | Rarete |
-|---|---|---|---|
-| 1 | First Blood | 🎯 | common |
-| 5 | Getting Serious | 💪 | common |
-| 10 | Double Digits | 🔥 | uncommon |
-| 25 | Content Machine | ⚡ | uncommon |
-| 50 | Half Century | 💎 | rare |
-| 100 | Centurion | 👑 | legendary |
+---
 
-### Streak Rewards (consecutive days)
-| Jours | Titre | Emoji | Rarete |
-|---|---|---|---|
-| 3 | Hat Trick | 🔥 | common |
-| 7 | Full Week | 💪 | uncommon |
-| 14 | Two Weeks Strong | ⚡ | rare |
-| 30 | Monthly Legend | 👑 | legendary |
+## Smart Queue Engine (`lib/distribution/smart-queue-engine.ts`) — unchanged from v7
 
-### Rare Events (conditional, max 1 par publish)
-- "Potential Breakout" (rare) — score > 85 AND 3+ platforms
-- "Score Spike" (uncommon) — score > avg + 20
-- "Triple Threat" (uncommon) — 3 clips session, all > 70
-- "Perfect Setup" (rare) — score > 80 + caption + 3 platforms
-- "Sniper" (uncommon) — first clip session > 85
-- "New Personal Best" (common) — clipScore > bestClipScore
+### 5 Layers + 3 Systems
+- Timing Engine, Sequencing Engine, Risk Strategy, Learning Loop, Confidence Layer
+- Emotional Rotation (-15 same-mood penalty), Momentum Window (1.5x boost), Kill Switch (-20 pattern)
+- Breakout Probability formula : `base × timingMultiplier × momentumMultiplier`
+- Strategy labels : "Build → Breakout → Capitalize", etc.
+- Override Learning : ×1.05/×0.97 affinity adjustments + toast
 
-### Session Milestones
-- 3 clips: "Triple Drop ⚡"
-- 5 clips: "Power Session 🔥"
-- 10 clips: "Marathon Runner 💎"
+### Data Storage
+- `viral-animal-queue-learning` : LearningData
+- `viral-animal-queue-settings` : QueueSettings
 
-### Creator Levels (`getCreatorLevel`)
-| Level | Titre | Clips requis |
+---
+
+## Stores
+
+### `stores/distribution-store.ts`
+- `accounts: SocialAccount[]`
+- `publishTargets: PublishTarget[]` — `[{platform, enabled}]`
+- `publishProgress: Record<string, PublishProgress>`
+- `isPublishing: boolean`
+- Actions : `fetchAccounts`, `togglePublishTarget(platform)`, `publishClip(clipId, caption, hashtags)` (parallel API calls), `resetPublishProgress`
+
+### `stores/queue-store.ts`
+- `queue: QueuePreview | null`
+- `learning: LearningData`
+- `settings: QueueSettings`
+- `clipBank: QueueClip[]`
+- Actions : `init`, `setClipBank`, `regenerateQueue`, `updateSettings`, `recordResult`, `handleOverride`, `getDoNothingPreview`
+
+---
+
+## Local State (in distribution-hub.tsx)
+
+### Clip selection / publish
+- `clipBank: ClipBankItem[]` — fetched from Supabase render_jobs (status='done')
+- `selectedClipId: string | null`
+- `removedClipIds: Set<string>` — clips manually removed (X button), filtered at display
+- `brokenThumbs: Set<string>` — clips whose thumbnail failed to load
+- `bankLoading: boolean`
+
+### AI / publish flow
+- `aiAutoDistribute: boolean` — master toggle (CLIP FARM ON/OFF)
+- `bioText: string`, `bioGenerating`, `bioStep`, `bioVariants`, `selectedVariantId`
+- `publishSteps`, `publishSequenceActive`, `publishDone`
+- `trackingMetrics: PostMetrics | null`
+
+### Modals
+- `showPlatformPicker: boolean`
+- `showClipPicker: boolean`
+- `clipPickerTab: 'bank' | 'remixes'`
+
+### Connection map (refs)
+- `connectionMapRef: HTMLDivElement`
+- `brainCoreRef: HTMLDivElement`
+- `platTiktokRef`, `platYoutubeRef`, `platInstagramRef`, `platFacebookRef`
+- `flowPaths: { tiktok, youtube, instagram, facebook }` — recalculated via `pathTo()` on layout shift
+
+---
+
+## CSS Animations (Distribution-specific)
+
+| Animation | Duree | Usage |
 |---|---|---|
-| 1 | Rookie | 0 |
-| 2 | Starter | 3 |
-| 3 | Creator | 8 |
-| 4 | Distributor | 15 |
-| 5 | Strategist | 25 |
-| 6 | Expert | 40 |
-| 7 | Pro | 60 |
-| 8 | Elite | 85 |
-| 9 | Master | 120 |
-| 10 | Legend | 200 |
-
-Retourne: `{ level, title, nextLevelAt, progress (0-100%) }`
-
-### Reward Collection (`collectRewards`)
-Appele apres chaque publish avec contexte complet (totalClips, streak, sessionCount, score, platforms).
-Retourne un tableau de rewards, affiche seulement le premier (le plus rare).
+| `dist-flow-path` (`stroke-dashoffset`) | 9s | Dashes flowing along platform→brain lines |
+| `dist-connector-flow` (`background-position`) | 1.4s | Vertical dashes scrolling on brain→panel connector |
+| `dist-pill-breathe` (box-shadow) | 2.4s | OFF pill breathing glow |
+| `dist-pill-ring-pulse` (opacity + scale) | 2.4s | OFF pill outer ring |
+| `dist-pill-orb-pulse` (opacity + scale) | 1.6s | OFF pill orb breathing |
+| `dist-core-ring-rotate` (rotate) | 50s | Brain outer dashed ring slow rotation |
+| `dist-bridge-pulse` (opacity) | 4s | Bridges brain↔wolf subtle pulse |
+| `dist-breathe` (scale + opacity) | 4s | Brain core glow background pulse |
+| `dist-modal-fade-in` / `dist-modal-pop-in` | 0.2s / 0.25s | Modal entrance |
+| `dist-hint-fade-in` | 0.4s | OFF hint text under panel title |
+| `flowDot`, `pulseGlow`, `stepFade`, `scaleIn` | unchanged | Existing |
 
 ---
 
-## Smart Queue Engine (`lib/distribution/smart-queue-engine.ts`) — NEW v7
-
-### Concept
-Moteur d'auto-distribution intelligent. Decide QUOI poster, QUAND, OU, et dans QUEL ORDRE.
-Apprend des resultats et s'adapte dans le temps. 5 couches + 3 systemes additionnels.
-
-### 5 Couches
-
-| Couche | Role |
-|---|---|
-| Timing Engine | Score chaque heure par plateforme (base + learned). Recency weighting (dernieres 48h comptent 3x). |
-| Sequencing Engine | Queue priority par clip. Formule: viralScore×0.30 + freshness×0.20 + platformFit×0.20 + momentumWindow×0.15 + emotionalDiversity×0.10 - killPenalty×0.05 |
-| Risk Strategy | 2 niveaux: Proven (score >= 70) et Wildcard (< 70). Regle: jamais 2 wildcards consecutifs, prime time = proven prefere. |
-| Learning Loop | Apprend de chaque post. Stocke: platformAffinity, timeBucketPerformance, moodPerformance, hookPerformance. Fast learning (1 post cree un signal). |
-| Confidence Layer | 0-100% base sur l'historique. 0 posts = 35%, 3 = 45%, 7 = 55%, 15 = 70%, 30+ = 80-95%. |
-
-### 3 Systemes additionnels
-
-| Systeme | Role |
-|---|---|
-| Emotional Rotation | Penalty de -15 si meme mood que le post precedent (pas hard rule, penalty soft). |
-| Momentum Window | Si un post performe 1.5x+, les 2-3 posts suivants recoivent un boost (multiplier 1.0-1.3). |
-| Kill Switch | Si les 2 derniers clips similaires (mood/hook) performent < 0.7x, penalty -20 sur les clips similaires. Pattern-based, pas binaire. |
-
-### Breakout Probability (contextuelle)
-```typescript
-breakoutProbability = base(30-80 from viralScore) × timingMultiplier × momentumMultiplier
-// timingMult: prime=1.15, good=1.0, offpeak=0.85
-// momentumMult: streak >= 7 → 1.2, >= 3 → 1.1, 0 clips/week → 0.85
-// Context string: "↑ good timing", "↓ low momentum", etc.
-```
-
-### Queue Preview (output)
-```typescript
-{
-  posts: ScheduledPost[]         // clip + platform + time + risk + breakout% + explanation
-  totalEstReach: { low, high }   // estimated total reach
-  confidence: number             // average confidence
-  emotionalMix: 'diverse' | 'moderate' | 'repetitive'
-  strategy: string               // "Build → Breakout → Capitalize"
-}
-```
-
-### Strategy Labels
-- `proven-wildcard-proven` → "Build → Breakout → Capitalize"
-- `proven-proven-proven` → "Consistent Push"
-- `proven-proven-wildcard` → "Build → Build → Test"
-- `wildcard-proven-proven` → "Test → Capitalize → Push"
-
-### Override Learning
-Quand l'utilisateur reordonne manuellement:
-- Boost la plateforme cible (×1.05)
-- Baisse la plateforme source (×0.97)
-- Boost le time bucket choisi (×1.05)
-- Toast "Want us to learn from this?" → Yes/No
-
-### Data Storage (localStorage)
-- `viral-animal-queue-learning` : LearningData (postHistory, affinities, performances)
-- `viral-animal-queue-settings` : QueueSettings (maxPerDay, blackoutHours, activePlatforms, autoMode)
-
----
-
-## Queue Store (`stores/queue-store.ts`) — NEW v7
-
-### State
-```typescript
-{
-  queue: QueuePreview | null
-  learning: LearningData
-  settings: QueueSettings
-  clipBank: QueueClip[]
-  isGenerating: boolean
-  showOverrideToast: boolean
-}
-```
-
-### Actions
-- `init()` : charge learning + settings depuis localStorage
-- `setClipBank(clips)` : met a jour le bank + auto-regenere la queue
-- `regenerateQueue()` : recalcule la queue complete (requestAnimationFrame pour pas bloquer UI)
-- `updateSettings(partial)` : sauvegarde + regenere
-- `recordResult(result)` : enregistre performance, met a jour learning, regenere
-- `handleOverride(...)` : enregistre override, affiche toast
-- `getDoNothingPreview()` : retourne { postCount, estReach, confidence }
-
----
-
-## Smart Queue UI (SmartQueueSection dans distribution-hub.tsx) — NEW v7
-
-### Position
-Entre "Clip Bank" et "FlowLine: Bank → AI"
-
-### Layout
-```
-Header: "NEXT UP — AI SCHEDULE" (Calendar icon purple, badge "Smart")
-Card:
-  ├── Scheduled posts (max 3, expandable):
-  │   ├── Time column (HH:MM, Today/Tomorrow)
-  │   ├── Risk icon (✅ Proven / 🎲 Wildcard)
-  │   ├── Clip title (truncate)
-  │   ├── Platform badge + slot quality
-  │   ├── Breakout probability (Zap icon amber, "Breakout: 72%")
-  │   ├── Context ("↑ good timing")
-  │   └── Explanation ("Capitalizing on previous performance · Prime time slot")
-  ├── Expand button (+N more scheduled)
-  └── Footer:
-      ├── Strategy label + Confidence %
-      ├── Emotional mix (✅ Diverse / ⚠️ Moderate / ❌ Repetitive)
-      └── "If you do nothing" preview (posts count, est. reach, confidence)
-Override toast (conditionnelle): "You changed the order. Want us to learn?" [Yes] [No]
-```
-
-### Score badge colors
-- >= 80: orange-500/15 text-orange-400
-- >= 60: emerald-500/15 text-emerald-400
-- < 60: zinc-700/50 text-zinc-400
-
----
-
-## Variant Risk/Reward (UPGRADED v6)
-
-### BioVariant (extended)
-```typescript
-{
-  id: 'high-ctr' | 'safe-reach' | 'viral-bait'
-  label: string
-  style: string
-  color: 'orange' | 'emerald' | 'red'
-  caption: string
-  hashtags: string[]
-  reachMultiplier: number       // NEW
-  failureChance: number         // NEW (0-100%)
-  riskLabel: string             // NEW ("Proven formula" | "Safe & steady" | "High risk, high reward")
-  projectedReachLabel: string   // NEW ("5.8K-11K")
-}
-```
-
-### Valeurs par variant
-| Variant | reachMultiplier | failureChance | riskLabel |
-|---|---|---|---|
-| Best (high-ctr) | 1.3 | 15% | "Proven formula" |
-| Alternative (safe-reach) | 1.0 | 5% | "Safe & steady" |
-| Risky (viral-bait) | 2.0 | 35% | "High risk, high reward" |
-
-### Affichage dans les onglets
-Sous chaque label de variant : `"{riskLabel} · {projectedReachLabel}"` en text-[10px].
-Exemple: "Proven formula · 5.8K-11K" vs "High risk, high reward · 2.3K-18K"
-
-### Impact sur le tracking
-`simulatePostMetrics` accepte maintenant `variantId`:
-- `viral-bait`: 35% chance (seeded) de "failure mode" (plateau early) vs 65% boost 1.5-2x
-- `high-ctr`: 85% chance de boost 1.2-1.4x
-- `safe-reach`: range tight 0.9-1.1x
-
----
-
-## Reward Toast
-
-Notification top-right apres publish quand un reward est declenche.
-
-### Style par rarete
-- legendary: `bg-amber-950/90 border-amber-500/40`
-- rare: `bg-purple-950/90 border-purple-500/40`
-- uncommon/common: `bg-card border-border`
-
-### Contenu
-- Emoji en text-2xl
-- Title en font-bold
-- Subtitle en text-muted
-
-### Auto-dismiss: 5 secondes (`setTimeout`)
-
----
-
-## "What Worked" Block — NEW v6
-
-Card entre Recent Activity et Stats Row. Apparait quand `totalClipsPublished >= 2`.
-
-### Contenu
-- Icone Trophy (amber)
-- Titre: "What worked" (uppercase tracking-widest)
-- Top tone + performance vs average (ex: "Hype +62%")
-- Top platform + multiplicateur (ex: "TikTok 2.3x")
-- Recommendation en text-[10px] muted (ex: "Double down on hype content on TikTok")
-
-### Source de donnees
-`getWhatWorkedSummary(persistentStats)` — base sur les donnees accumulees cross-session.
-
----
-
-## Stats Row (UPGRADED v6)
-
-4 stats:
-- **Queue**: `clipBank.length - publishedCount`
-- **All time**: `persistentStats.totalClipsPublished` (persistent, survit au refresh)
-- **Platforms**: nombre de plateformes actives
-- **Creator Level**: titre + progress bar vers le prochain niveau
-  - Titre en text-lg font-bold
-  - Barre de progression purple (h-1)
-  - "Lv.{N} · {progress}%" en text-[10px]
-
----
-
-## Store (`stores/distribution-store.ts`)
-
-Zustand store pour les comptes sociaux et la publication.
-- `accounts: SocialAccount[]` — fetched via GET /api/social-accounts
-- `publishTargets: PublishTarget[]` — [{platform, enabled}] auto-enabled pour les comptes connectes
-- `publishProgress: Record<string, PublishProgress>` — status par plateforme (idle/publishing/published/error)
-- `isPublishing: boolean` — true pendant les API calls publish
-- Actions : `fetchAccounts()`, `togglePublishTarget(platform)`, `publishClip(clipId, caption, hashtags)` (parallele), `resetPublishProgress()`
-
-## Strategy Block
-
-Card en haut de la page avec bordure gauche purple. Contient :
-- Confidence badge (high=purple, medium=amber, low=zinc) via `getConfidenceLevel()`
-- Frequency : `getPostFrequency()` — label contextuel (ex: "3x today, 2x tomorrow")
-- Priority : `getPlatformPriority()` — label avec ordre stagger (ex: "TikTok first -> YouTube 2h later")
-- Countdown : prochaine fenetre de post (fake, next 6h slot)
-- Strategy message : `getStrategyMessage()` — pool contextuel jour/heure/score
-- Streak badge si streak >= 3 (emoji flamme)
-
-## Clip Bank
-
-Scroll horizontal de thumbnails 9:16 des clips rendus. Source : `render_jobs WHERE status='done'`.
-- Smart labels : "Best next" (1er), "Priority" (score >= 80, Flame icon), "Ready" (>= 60), "Draft" (autres)
-- Micro-interactions : hover:scale-105, glow ring orange (>= 80) ou emerald (>= 60)
-- Click : selectionne le clip + reset publish progress
-
-## AI Engine Node
-
-Cercle central avec effets visuels quand AI ON : outer glow ring, gradient bg, orbiting dots, drop-shadow sur Sparkles icon. Badge "Beta". Toggle AI auto-distribute + schedule preview (heures optimales par plateforme via `getOptimalPostingTimes()`).
-
-## Platforms Grid
-
-5 cartes (TikTok, YouTube, Instagram, Facebook[soon], X[soon]). Etats : coming soon (grayscale), not connected (bouton "Connect account"), connected (toggle ON/OFF, dot vert), active (glow purple), publishing/published/error.
-
-## Bio Generator
-
-6-step sequence animee (stepFade). Caption Engine : detecte tone du titre, assemble hook + bridge + payoff + amplifier par variant. 3 variantes : Best (high-ctr, recommended), Alternative (safe-reach), Risky (viral-bait). Chaque variant affiche riskLabel + projectedReachLabel. Typewriter effect sur selection. Textarea editable + hashtags en pills.
-
-## Publish Panel
-
-Clip preview + step-by-step publish sequence (2 fake steps + real API calls). Progress bar globale + progress dans le bouton. Post-publish : AI Growth Projections via `simulatePostMetrics()` (variant-aware) avec disclaimer "Predicted performance". Metriques : views, likes, comments, shares, growth %, velocity label, platform breakdown.
-
-## Recent Activity
-
-Historique des publishes de la session. Chaque entree : dot vert/rouge, titre, plateformes (icons), tone, metriques simulees (views + growth %), timestamp relatif.
-
----
-
-## CSS Animations
-
-```css
-@keyframes flowDot    — dot qui descend les FlowLines (1.5s)
-@keyframes pulseGlow  — glow pulse sur AI engine circle (2s)
-@keyframes stepFade   — fade-in des steps bio/publish (0.3s)
-@keyframes scaleIn    — scale+fade pour post-publish projections (0.4s)
-```
-
----
-
-## Statut par Feature
+## Statut par feature (v8)
 
 | Feature | Status |
 |---|---|
 | Clip bank (Supabase) | WIRED_REAL |
+| Clip bank → local removal (X button) | WIRED_LOCAL (Set in component state, not persisted DB) |
+| Broken thumbnail fallback | WIRED_LOCAL |
 | Social accounts fetch | WIRED_REAL |
 | Platform toggles (store sync) | WIRED_REAL |
+| Master toggle (CLIP FARM ON/OFF) auto-disables platforms visually | WIRED_REAL |
 | Publish API calls | WIRED_REAL |
+| Publish → published_posts logging | WIRED_REAL (inserts metadata snapshot on successful publish) |
 | Publish progress tracking | WIRED_REAL |
-| Publish step-by-step sequence | WIRED_REAL (2 fake steps + real API) |
-| Caption Engine (10 tones, block mixing, ~2000 combos) | SIMULATED (templates avances, pas d'AI API, unique par clip) |
-| Variant risk/reward metadata | SIMULATED (multiplicateurs fixes, pas de donnees reelles) |
-| AI Growth Projections (chaos engine, variant-aware) | SIMULATED (chaos deterministe, labele "Predicted") |
-| Strategy Engine (40+ messages, contexte jour/heure) | SIMULATED (pas de vrais analytics) |
-| User Memory session | SIMULATED (patterns reels de la session) |
-| Session Persistence (localStorage) | WIRED_LOCAL (survit au refresh, cross-session) |
-| Reward Engine (milestones, streaks, rare events) | WIRED_LOCAL (base sur totalClipsPublished reel) |
-| Creator Levels (progression) | WIRED_LOCAL (base sur totalClipsPublished reel) |
-| "What Worked" feedback loop | SIMULATED (base sur donnees accumulees, pas de vrais metrics API) |
-| Streak tracking | WIRED_LOCAL (localStorage, dates reelles) |
-| Smart labels clips | WIRED_REAL (velocity_score reel) |
-| Recent activity avec metriques | SIMULATED (vues via tracking-simulator) |
-| Smart Queue Engine (timing, sequencing) | WIRED_LOCAL (localStorage learning + real clip data) |
-| Smart Queue Breakout Probability | SIMULATED (contextuel, base sur viralScore + timing + momentum) |
-| Smart Queue Learning Loop | WIRED_LOCAL (localStorage, fast learning) |
-| Smart Queue Override Learning | WIRED_LOCAL (toast + affinity adjustment) |
-| Smart Queue Reach Estimation | SIMULATED (formule interne, labele "est.") |
-| Smart Queue Kill Switch | SIMULATED (pattern detection, pas de vrais metrics API) |
-| Smart Queue Emotional Rotation | SIMULATED (mood from clip data, pas mood detector API) |
+| Platform picker modal (per-clip selection) | WIRED_REAL (uses togglePublishTarget store) |
+| Clip picker modal (Bank/Remixes tabs) | WIRED_REAL |
+| Caption Studio AI (Claude Haiku, per-platform) | WIRED_REAL (API call, 3 variants/platform, fallback to templates) |
+| Caption Engine templates (fallback) | SIMULATED (used when AI fails or no API key) |
+| Variant risk/reward metadata | SIMULATED |
+| AI Growth Projections | SIMULATED (chaos engine, "Predicted") |
+| Strategy Engine | SIMULATED |
+| User Memory session | SIMULATED |
+| Session Persistence (localStorage) | WIRED_LOCAL |
+| Reward Engine | WIRED_LOCAL |
+| Creator Levels | WIRED_LOCAL |
+| "What Worked" feedback loop | SIMULATED |
+| Streak tracking | WIRED_LOCAL |
+| Smart labels clips | WIRED_REAL (velocity_score) |
+| Recent activity metriques | SIMULATED |
+| Smart Queue Engine | WIRED_LOCAL (localStorage learning + real clips) |
+| Smart Queue Profile Consumption | WIRED_REAL (consumes LearnedDistributionProfile from /api/analytics/profile) |
+| Smart Queue Breakout / Reach / Kill / Mood | SIMULATED |
+| AI Brain Core SVG (cyan brain + orange wolf) | UI_ONLY (visual representation of "running" state) |
+| CLIP FARM pill toggle | WIRED_REAL (controls aiAutoDistribute) |
+| Connection map dynamic flow paths | WIRED_REAL (computed via getBoundingClientRect + ResizeObserver) |
+| Animated SVG particles on flow lines | UI_ONLY (visual when active) |
+| Brain → panel connector animated dashes | UI_ONLY |
+| Time formatting (en-GB, "Today HH:MM") | WIRED_REAL |
+| Counts coherence (brain panel ↔ clip bank) | WIRED_REAL (queue.posts.length shared source) |
 | Facebook/X | NOT_IMPLEMENTED |
 
 ---
 
-## Axes d'amelioration restants (post v7)
+## Smart Queue Profile Consumption
 
-1. **Smart Queue → Real Publish** — Connecter le scheduling a la publication reelle via APIs TikTok/YouTube/Instagram
-2. **Mood tagging** — Utiliser le mood detector existant pour tagger chaque clip dans la queue (actuellement "unknown")
-3. **Hook type detection** — Parser le titre/transcription pour detecter le type de hook (question/shock/story)
-4. **Tracking reel** — API TikTok/YouTube/Instagram pour vraies vues/likes → nourrir le learning loop avec des vrais performance metrics
-5. **Bio generation reelle** — Connecter a Claude API pour remplacer les templates
-6. **Persistance Supabase** — Migrer learning data localStorage vers Supabase pour cross-device
-7. **Drag & drop** — Permettre le reordering manuel des posts dans la queue (actuellement override pas wired)
-8. **Queue settings UI** — Panel pour ajuster maxPerDay, blackoutHours, etc.
-9. **Refactoring composant** — Splitter distribution-hub.tsx en sous-composants (SmartQueueSection deja separe)
+The Smart Queue Engine now integrates the `LearnedDistributionProfile` (from `pattern-detector.ts` via `/api/analytics/profile`) to make data-driven scheduling decisions.
+
+### Architecture
+
+```
+SmartQueueSection (distribution-hub.tsx)
+  |
+  | fetch /api/analytics/profile on mount
+  v
+queue-store.setLearnedProfile(profile)
+  |
+  v
+generateQueue(clips, stats, learning, settings, learnedProfile)
+  |
+  v
+applyLearnedProfile(clip, platform, hour, profile)
+  → mood boost (capped ×1.3)
+  → timing window boost (capped ×1.2)
+  → underperforming penalty (min ×0.7)
+  → confidence weighting (early=30%, medium=70%, high=100%)
+```
+
+### Confidence weighting
+
+| Profile confidence | Weight applied | Effect |
+|---|---|---|
+| none / collecting (< 5 posts) | 0% | Profile ignored entirely |
+| early (5-14 posts) | 30% | Soft hint — minor reordering |
+| medium (15-29 posts) | 70% | Strong influence on queue order |
+| high (30+ posts) | 100% | Full reorder based on learned data |
+
+### Boost/penalty caps
+
+| Signal | Max boost | Cap |
+|---|---|---|
+| Mood match (bestMoodsByPlatform) | +15 priority points | ×1.3 source multiplier |
+| Timing window match (bestPostingWindows) | +12 priority points | ×1.2 source multiplier |
+| Underperforming pattern match | -15 priority points | ×0.7 source penalty |
+
+### UI indicators
+
+- **Header badge**: "Learning: {confidenceLabel}" shown when profile has 5+ posts. Color: amber (early), blue (medium), emerald (high). Hover tooltip shows post count.
+- **Post badge**: Cyan "AI Learned" badge on posts influenced by the profile. Shows first learned reason inline, full list on hover.
+
+### Data flow
+
+```
+published_posts (Supabase)
+  → pattern-detector.ts (server-side aggregation)
+  → /api/analytics/profile (cached 1h)
+  → queue-store.learnedProfile (client state)
+  → generateQueue() Layer 6 (applyLearnedProfile)
+  → ScheduledPost.learnedReasons[]
+  → SmartQueueSection UI (badges)
+```
+
+---
+
+## Improvements left (post v8)
+
+1. **Persistent clip removal** — connecter `removedClipIds` a Supabase (soft delete or status='archived')
+2. **Real publish scheduling** — connecter Smart Queue au scheduling reel via APIs TikTok/YouTube/Instagram
+3. **Mood tagging** — utiliser le mood detector existant pour tagger chaque clip
+4. **Hook type detection** — parser titres/transcriptions pour detecter type
+5. **Tracking reel** — APIs platforms pour vraies metriques → nourrir learning
+6. **Bio generation reelle** — Claude API pour remplacer templates
+7. **Persistance Supabase** — migrer learning data localStorage → Supabase cross-device
+8. **Drag & drop reorder** — queue posts manual reorder
+9. **Queue settings UI** — panel pour maxPerDay, blackoutHours
+10. **Brain core analytics overlay** — afficher stats temps reel dans le brain (clips processed, success rate)
+11. **Distinct Bank vs Remixes filter** — actuellement Bank = all clips, Remixes = subset trending. Si tous les clips sont des remixes, les deux tabs sont identiques. A clarifier au niveau data model (peut-etre filter Bank = scheduled/ready uniquement).
+
+---
+
+## Recent visual evolution
+
+| Version | Changement principal |
+|---|---|
+| v7 | Smart Queue Engine + Reward Engine + Persistence + initial brain SVG (purple) |
+| v8 | Cyan command center direction : nouveau brain (cyan + orange wolf neon emblem), pill toggle premium, connection map dynamique avec corner-targeting et particules, modals platform/clip picker, Clip Bank state hierarchy + X remove, time format unifie, master toggle propage l'etat OFF a tout le systeme |

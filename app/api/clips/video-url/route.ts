@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { rateLimit, RATE_LIMITS } from '@/lib/rate-limit'
+import { logger } from '@/lib/logger'
 
 /**
  * GET /api/clips/video-url?slug=CLIP_SLUG
@@ -29,6 +30,7 @@ export async function GET(request: NextRequest) {
   }
 
   const slug = request.nextUrl.searchParams.get('slug')
+  const platform = (request.nextUrl.searchParams.get('platform') || 'twitch').toLowerCase()
 
   if (!slug || typeof slug !== 'string' || slug.length > 200) {
     return NextResponse.json(
@@ -37,8 +39,9 @@ export async function GET(request: NextRequest) {
     )
   }
 
-  // Check cache
-  const cached = cache.get(slug)
+  // Check cache (key includes platform to avoid collisions)
+  const cacheKey = `${platform}:${slug}`
+  const cached = cache.get(cacheKey)
   if (cached && Date.now() - cached.ts < CACHE_TTL) {
     return NextResponse.json(
       { video_url: cached.url },
@@ -46,6 +49,38 @@ export async function GET(request: NextRequest) {
     )
   }
 
+  // ─── KICK branch ───────────────────────────────────────────────
+  if (platform === 'kick') {
+    try {
+      const cleanSlug = slug.replace(/[^a-zA-Z0-9_-]/g, '')
+      const kickRes = await fetch(`https://kick.com/api/v2/clips/${cleanSlug}`, {
+        headers: {
+          'Accept': 'application/json',
+          'User-Agent': 'ViralAnimal/1.0',
+        },
+      })
+      if (!kickRes.ok) {
+        return NextResponse.json({ error: 'Kick clip fetch failed', status: kickRes.status }, { status: 502 })
+      }
+      const kickData = await kickRes.json()
+      // Kick API responses can have the clip object at top level or nested
+      const clipObj = kickData?.clip ?? kickData
+      const videoUrl: string | undefined = clipObj?.video_url ?? clipObj?.clip_url ?? clipObj?.video?.url
+      if (!videoUrl) {
+        return NextResponse.json({ error: 'No video URL in Kick clip response' }, { status: 404 })
+      }
+      cache.set(cacheKey, { url: videoUrl, ts: Date.now() })
+      return NextResponse.json(
+        { video_url: videoUrl },
+        { headers: { 'Cache-Control': 'public, max-age=3600' } }
+      )
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      return NextResponse.json({ error: `Kick fetch error: ${msg}` }, { status: 502 })
+    }
+  }
+
+  // ─── TWITCH branch (default, existing logic) ───────────────────
   try {
     // Use Twitch's persisted query `VideoAccessToken_Clip` — it returns both
     // the video qualities AND the playback access token (sig + value) needed
@@ -130,14 +165,14 @@ export async function GET(request: NextRequest) {
       signedUrl = `${signedUrl}${sep}sig=${token.signature}&token=${encodeURIComponent(token.value)}`
     }
 
-    cache.set(slug, { url: signedUrl, ts: Date.now() })
+    cache.set(cacheKey, { url: signedUrl, ts: Date.now() })
 
     return NextResponse.json(
       { video_url: signedUrl },
       { headers: { 'Cache-Control': 'public, max-age=3600' } }
     )
   } catch (err) {
-    console.error('[clips/video-url] Error:', err)
+    logger.error('[clips/video-url] Error:', err)
     return NextResponse.json(
       { error: 'Failed to resolve clip video URL' },
       { status: 500 }

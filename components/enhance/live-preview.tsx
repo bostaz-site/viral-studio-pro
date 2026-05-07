@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback, useMemo } from 'react'
+import Image from 'next/image'
 import { Loader2, Play, Eye } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
@@ -127,10 +128,12 @@ export function LivePreview({
       >
         {/* Show thumbnail as poster while video loads */}
         {renderedThumbnailUrl && !renderedVideoReady && (
-          <img
+          <Image
             src={renderedThumbnailUrl}
             alt="Rendered clip preview"
-            className="absolute inset-0 w-full h-full object-contain z-[1]"
+            fill
+            sizes="280px"
+            className="object-contain z-[1]"
           />
         )}
         {/* Loading spinner overlay */}
@@ -210,10 +213,12 @@ export function LivePreview({
                   autoPlay loop muted playsInline
                 />
               ) : (
-                <img
+                <Image
                   src={clip.thumbnail_url!}
                   alt=""
-                  className="absolute inset-0 w-full h-full object-cover scale-110"
+                  fill
+                  sizes="280px"
+                  className="object-cover scale-110"
                   style={{ filter: 'blur(12px) brightness(0.65) saturate(1.25) contrast(1.1)' }}
                   aria-hidden="true"
                 />
@@ -280,9 +285,12 @@ export function LivePreview({
                   autoPlay loop muted playsInline
                 />
               ) : (
-                <img
+                <Image
                   src={clip.thumbnail_url!}
                   alt={clip.title ?? 'Clip'}
+                  width={360}
+                  height={640}
+                  sizes="280px"
                   className={cn(
                     'z-[1] transition-all duration-500',
                     objectFit,

@@ -3,6 +3,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { timingSafeCompare } from '@/lib/crypto'
 import { redis } from '@/lib/upstash'
 import { releaseJob, processNextInQueue } from '@/lib/render-queue'
+import { logger } from '@/lib/logger'
 
 /**
  * POST /api/cron/reconcile-render
@@ -38,7 +39,7 @@ export async function POST(req: NextRequest) {
       if (!job || ['done', 'error', 'failed', 'cancelled', 'expired'].includes(job.status)) {
         await releaseJob(jobId)
         freed++
-        console.log(`[reconcile] Removed stale job ${jobId} (status: ${job?.status ?? 'missing'})`)
+        logger.info(`[reconcile] Removed stale job ${jobId} (status: ${job?.status ?? 'missing'})`)
       }
     }
   }
@@ -60,7 +61,7 @@ export async function POST(req: NextRequest) {
         updated_at: new Date().toISOString(),
       }).eq('id', job.id)
     }
-    console.log(`[reconcile] Cancelled ${stuckQueued.length} stuck queued jobs`)
+    logger.info(`[reconcile] Cancelled ${stuckQueued.length} stuck queued jobs`)
   }
 
   // 4. After cleanup, dispatch any queued jobs into freed slots
@@ -75,7 +76,7 @@ export async function POST(req: NextRequest) {
 
   // 5. Log summary
   const finalCount = await redis.scard('render:active_jobs')
-  console.log(`[reconcile] Active jobs after cleanup: ${finalCount} (freed ${freed}, dispatched ${dispatched})`)
+  logger.info(`[reconcile] Active jobs after cleanup: ${finalCount} (freed ${freed}, dispatched ${dispatched})`)
 
   return NextResponse.json({
     data: { freed, dispatched, stuckCancelled: stuckQueued?.length ?? 0, activeAfter: finalCount },

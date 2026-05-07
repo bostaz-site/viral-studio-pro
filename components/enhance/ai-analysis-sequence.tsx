@@ -27,6 +27,12 @@ interface AnalysisStep {
   isWow?: boolean
 }
 
+interface AIReasons {
+  caption?: string
+  emphasis?: string
+  hook?: string
+}
+
 interface AIAnalysisSequenceProps {
   clipId: string
   clipDuration: number | null | undefined
@@ -38,6 +44,15 @@ interface AIAnalysisSequenceProps {
   hookText: string | null
   isActive: boolean
   onComplete: () => void
+  // Called when each step finishes — parent uses this to incrementally apply settings
+  // so the Blowup Chance score climbs in real-time as the analysis progresses.
+  onStepComplete?: (stepIndex: number) => void
+  // Real data props (fallback to seeded random if not provided)
+  audioPeaksCount?: number
+  peakTime?: number
+  peakScore?: number
+  wordTimestampsCount?: number
+  aiReasons?: AIReasons
 }
 
 // ── Typing Effect Hook ─────────────────────────────────────────────────────
@@ -76,6 +91,12 @@ export function AIAnalysisSequence({
   hookText,
   isActive,
   onComplete,
+  onStepComplete,
+  audioPeaksCount,
+  peakTime,
+  peakScore,
+  wordTimestampsCount,
+  aiReasons,
 }: AIAnalysisSequenceProps) {
   const [currentStep, setCurrentStep] = useState(-1)
   const [completedSteps, setCompletedSteps] = useState<number[]>([])
@@ -90,24 +111,42 @@ export function AIAnalysisSequence({
     [clipId, clipDuration]
   )
 
-  // Get justifications for detected mood
+  // Get justifications for detected mood (AI reasons override static fallback)
   const mood = detectedMood ?? 'hype'
-  const justif = JUSTIFICATIONS[mood]
+  const staticJustif = JUSTIFICATIONS[mood]
+  const justif = {
+    captionStyle: aiReasons?.caption ?? staticJustif.captionStyle,
+    emphasisEffect: aiReasons?.emphasis ?? staticJustif.emphasisEffect,
+    emphasisColor: aiReasons?.emphasis ?? staticJustif.emphasisColor,
+    hook: aiReasons?.hook ?? staticJustif.hook,
+    zoom: staticJustif.zoom,
+  }
 
   // Color hex for display
   const colorHex = EMPHASIS_COLORS.find((c) => c.id === emphasisColor)?.hex ?? '#FFFFFF'
+
+  // Real vs fallback peak time formatting
+  const realPeakTimeStr = peakTime != null
+    ? `${Math.floor(peakTime / 60)}:${Math.floor(peakTime % 60).toString().padStart(2, '0')}`
+    : null
+
+  // Use real data when available, fallback to seeded random
+  const peaksCount = audioPeaksCount ?? dynamicData.peaksDetected
+  const peakTimeDisplay = realPeakTimeStr ?? dynamicData.keyMomentTimestamp
+  const dataPointsCount = wordTimestampsCount ?? (dynamicData.peaksDetected + dynamicData.highEnergySegments)
+  const isViralPattern = peakScore != null ? peakScore > 7 : true
 
   // Build steps dynamically
   const steps: AnalysisStep[] = useMemo(() => [
     {
       label: 'Scanning audio waveform...',
-      sub: `${dynamicData.audioDuration}s of audio · ${dynamicData.peaksDetected} volume peaks detected`,
+      sub: `${dynamicData.audioDuration}s of audio · ${peaksCount} volume peaks detected`,
       color: '#3B82F6',
       duration: 500,
     },
     {
       label: 'Detecting emotional peaks...',
-      sub: `Key moment identified at ${dynamicData.keyMomentTimestamp}`,
+      sub: `Key moment identified at ${peakTimeDisplay}`,
       color: '#8B5CF6',
       duration: 700,
     },
@@ -130,15 +169,15 @@ export function AIAnalysisSequence({
       sub: justif.hook,
       color: '#EAB308',
       duration: 1000,
-      isWow: true,
+      isWow: isViralPattern,
     },
     {
       label: 'Finalizing parameters...',
-      sub: `${dynamicData.peaksDetected + dynamicData.highEnergySegments} data points analyzed`,
+      sub: `${dataPointsCount} data points analyzed`,
       color: '#22C55E',
       duration: 500,
     },
-  ], [dynamicData, captionStyle, emphasisEffect, emphasisColor, justif])
+  ], [dynamicData, captionStyle, emphasisEffect, emphasisColor, justif, peaksCount, peakTimeDisplay, dataPointsCount, isViralPattern])
 
   // Typing effect for hook text (step 5)
   const isHookStep = currentStep === 4 && !completedSteps.includes(4)
@@ -187,13 +226,16 @@ export function AIAnalysisSequence({
     const step = steps[currentStep]
     timerRef.current = setTimeout(() => {
       setCompletedSteps((prev) => [...prev, currentStep])
+      // Notify parent that this step finished — parent uses this to incrementally
+      // apply mood preset settings so the score climbs in real-time
+      onStepComplete?.(currentStep)
       setCurrentStep((prev) => prev + 1)
     }, step.duration)
 
     return () => {
       if (timerRef.current) clearTimeout(timerRef.current)
     }
-  }, [isActive, currentStep, steps, confidence, onComplete])
+  }, [isActive, currentStep, steps, confidence, onComplete, onStepComplete])
 
   if (!isActive) return null
 

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { withAuth } from '@/lib/api/withAuth'
+import { logger } from '@/lib/logger'
 
 export const maxDuration = 30
 export const dynamic = 'force-dynamic'
@@ -38,7 +39,7 @@ export const POST = withAuth(async (req, _user) => {
 
     if (!vpsResponse.ok) {
       const errText = await vpsResponse.text().catch(() => 'Unknown error')
-      console.error('[Preview API] VPS error:', errText)
+      logger.error('[Preview API] VPS error:', errText)
       return NextResponse.json(
         { error: 'Preview render failed', details: errText },
         { status: 502 }
@@ -64,7 +65,7 @@ export const POST = withAuth(async (req, _user) => {
       },
     })
   } catch (err) {
-    console.error('[Preview API] Error:', err)
+    logger.error('[Preview API] Error:', err)
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

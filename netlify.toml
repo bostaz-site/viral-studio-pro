@@ -28,6 +28,17 @@
     Permissions-Policy = "camera=(), microphone=(), geolocation=()"
     Content-Security-Policy = "default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https: ; media-src 'self' blob: https: ; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.anthropic.com https://api.openai.com https://api.stripe.com; font-src 'self'; frame-src 'self' https://js.stripe.com https://checkout.stripe.com https://clips.twitch.tv https://player.twitch.tv; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
 
+# ── Cron jobs (triggered externally or via Netlify Scheduled Functions) ──
+# These Next.js API routes are called with x-api-key: CRON_SECRET header.
+# Schedule via Netlify UI, cron-job.org, or GitHub Actions:
+#   POST /api/cron/fetch-twitch-clips      — every 3h
+#   POST /api/cron/rescore-clips           — every 15min
+#   POST /api/cron/cleanup-render-jobs     — every 5min
+#   POST /api/cron/cleanup-storage         — daily 4AM
+#   POST /api/cron/reset-usage             — monthly 1st
+#   POST /api/cron/reconcile-render        — every 30min
+#   POST /api/cron/refresh-post-stats      — every 6h
+
 # Cache agressif sur les assets statiques Next.js
 [[headers]]
   for = "/_next/static/*"
@@ -40,9 +51,9 @@
   [headers.values]
     Cache-Control = "public, max-age=0, must-revalidate"
 
-# Redirect www → apex (à adapter si tu as un domaine custom)
-# [[redirects]]
-#   from = "https://www.votredomaine.com/*"
-#   to   = "https://votredomaine.com/:splat"
-#   status = 301
-#   force  = true
+# Redirect www → apex (SEO + OAuth callbacks consistency)
+[[redirects]]
+  from = "https://www.viralanimal.com/*"
+  to   = "https://viralanimal.com/:splat"
+  status = 301
+  force  = true

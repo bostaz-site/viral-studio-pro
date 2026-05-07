@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { withAuth } from '@/lib/api/withAuth'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { rateLimit, RATE_LIMITS } from '@/lib/rate-limit'
+import { logger } from '@/lib/logger'
 
 export const maxDuration = 60
 
@@ -71,7 +72,7 @@ export const POST = withAuth(async (request, user) => {
     })
 
   if (uploadError) {
-    console.error('[upload] Storage error:', uploadError)
+    logger.error('[upload] Storage error:', uploadError)
     return NextResponse.json(
       { data: null, error: uploadError.message, message: 'Failed to upload video' },
       { status: 500 }
@@ -93,7 +94,7 @@ export const POST = withAuth(async (request, user) => {
     .single()
 
   if (videoError) {
-    console.error('[upload] DB error:', videoError)
+    logger.error('[upload] DB error:', videoError)
     // Try to clean up the uploaded file
     await admin.storage.from('videos').remove([storagePath])
     return NextResponse.json(

@@ -116,6 +116,16 @@ function filterAndSortClips(
     )
   }
 
+  // Streamer filter (single value)
+  if (filters.streamer && filters.streamer !== '') {
+    const s = filters.streamer.toLowerCase()
+    result = result.filter(
+      (c) =>
+        c.author_name?.toLowerCase() === s ||
+        c.author_handle?.toLowerCase() === s
+    )
+  }
+
   if (filters.platforms.length > 0) {
     result = result.filter((c) => filters.platforms.includes(c.platform.toLowerCase()))
   }

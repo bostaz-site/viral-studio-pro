@@ -1,0 +1,61 @@
+.electric-border {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.eb-canvas-container {
+  position: absolute;
+  inset: -60px;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.eb-canvas {
+  width: 100%;
+  height: 100%;
+}
+
+.eb-layers {
+  position: absolute;
+  inset: -2px;
+  border-radius: inherit;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.eb-glow-1 {
+  position: absolute;
+  inset: -4px;
+  border-radius: inherit;
+  border: 1px solid var(--electric-border-color, #5227FF);
+  opacity: 0.4;
+  filter: blur(2px);
+}
+
+.eb-glow-2 {
+  position: absolute;
+  inset: -8px;
+  border-radius: inherit;
+  border: 1px solid var(--electric-border-color, #5227FF);
+  opacity: 0.15;
+  filter: blur(6px);
+}
+
+.eb-background-glow {
+  position: absolute;
+  inset: -12px;
+  border-radius: inherit;
+  background: radial-gradient(
+    ellipse at center,
+    color-mix(in srgb, var(--electric-border-color, #5227FF) 8%, transparent),
+    transparent 70%
+  );
+  filter: blur(8px);
+}
+
+.eb-content {
+  position: relative;
+  z-index: 2;
+}

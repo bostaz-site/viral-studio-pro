@@ -29,6 +29,10 @@ import {
 import { LivePreview, ScoreBadge } from '@/components/enhance/live-preview'
 import { AIAnalysisSequence } from '@/components/enhance/ai-analysis-sequence'
 import { TagPanel } from '@/components/enhance/tag-panel'
+import { BlowupChanceBar } from '@/components/enhance/blowup-chance-bar'
+import { CaptionsSection } from '@/components/enhance/accordion-sections/captions-section'
+import { SplitScreenSection } from '@/components/enhance/accordion-sections/split-screen-section'
+import { PageHeader } from '@/components/dashboard/page-header'
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -61,6 +65,7 @@ export default function EnhancePage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [rendering, setRendering] = useState(false)
+  const [placedInBank, setPlacedInBank] = useState(false)
   const [renderMessage, setRenderMessage] = useState<string | null>(null)
   const [renderOriginalUrl, setRenderOriginalUrl] = useState<string | null>(null)
   const [renderDownloadUrl, setRenderDownloadUrl] = useState<string | null>(null)
@@ -303,16 +308,17 @@ export default function EnhancePage() {
           if (pollRef.current) clearInterval(pollRef.current)
           try { sessionStorage.removeItem(`render-job:${clipId}`) } catch { /* ignore */ }
           setRenderDownloadUrl(json.data.downloadUrl)
-          // Save rendered video URL for the "Rendered" tab — but keep Enhanced preview active
+          // Save rendered video URL and AUTO-SWITCH to the Rendered tab
+          // (Enhanced CSS preview becomes redundant once we have the actual MP4)
           if (json.data.publicUrl) {
             setOriginalVideoUrl(videoUrl)
-            // Store rendered URL but DON'T switch preview — user stays on Enhanced view
             setVideoUrl(json.data.publicUrl)
             if (json.data.thumbnailUrl) {
               setRenderedThumbnailUrl(json.data.thumbnailUrl)
             }
           }
-          // Keep isRenderedVideo false — user can click "Rendered" tab to see baked video
+          // Auto-switch to Rendered view
+          setIsRenderedVideo(true)
           setShowEnhancements(true)
           setRenderMessage('✅ Clip rendered with captions! Check the preview above.')
           setRendering(false)
@@ -402,7 +408,6 @@ export default function EnhancePage() {
           videoHeight: 1280,
           glowColor: theme.hookGlowColor,
         })
-        console.log('[handleRender] Hook capture:', hookOverlayData ? `OK ${hookOverlayData.capsuleW}x${hookOverlayData.capsuleH}` : 'FAILED')
       }
 
       let tagOverlayData: { png: string; w: number; h: number; anchorX: number; anchorY: number } | null = null
@@ -417,7 +422,6 @@ export default function EnhancePage() {
           splitScreenEnabled: settings.splitScreenEnabled,
           splitRatio: settings.splitRatio,
         })
-        console.log('[handleRender] Tag capture:', tagOverlayData ? `OK ${tagOverlayData.w}x${tagOverlayData.h}` : 'FAILED/skipped')
       }
 
       setRenderMessage('⏳ Starting render...')
@@ -467,19 +471,9 @@ export default function EnhancePage() {
             autoCut: {
               enabled: settings.autoCutEnabled,
               silenceThreshold: settings.autoCutThreshold,
+              mood: (selectedMood ?? detectedMood) || undefined,
             },
             hook: (() => {
-              console.log('[handleRender] Hook settings:', {
-                enabled: settings.hookEnabled,
-                textEnabled: settings.hookTextEnabled,
-                reorderEnabled: settings.hookReorderEnabled,
-                hasReorder: !!settings.hookReorder,
-                segments: settings.hookReorder?.segments?.length || 0,
-                segmentDetails: settings.hookReorder?.segments?.map(s => `${s.label}(${s.start}-${s.end}s)`) || [],
-                totalDuration: settings.hookReorder?.totalDuration || 0,
-                hookText: settings.hookText?.substring(0, 30) || '(empty)',
-                hookLength: settings.hookLength,
-              })
               return {
               enabled: settings.hookEnabled,
               textEnabled: settings.hookTextEnabled,
@@ -535,6 +529,10 @@ export default function EnhancePage() {
   const [previewVideoUrl] = useState<string | null>(null)
   const [previewRenderTime] = useState<number | null>(null)
 
+  // Pending preset for incremental application during AI Analysis Sequence
+  // (settings get applied step-by-step so the Blowup Chance score climbs in real-time)
+  const pendingPresetRef = useRef<MoodPreset | null>(null)
+
   // Mood detection state
   const [detectedMood, setDetectedMood] = useState<ClipMood | null>(null)
   const [moodConfidence, setMoodConfidence] = useState<number>(0)
@@ -542,6 +540,7 @@ export default function EnhancePage() {
   const [secondaryMood, setSecondaryMood] = useState<ClipMood | null>(null)
   const [selectedMood, setSelectedMood] = useState<ClipMood | null>(null)
   const [moodAiDetected, setMoodAiDetected] = useState(false)
+  const [aiReasons, setAiReasons] = useState<{ caption?: string; emphasis?: string; hook?: string }>({})
 
   // Viral score — mood-match bonus uses detected/selected mood
   const currentScore = useMemo(() => {
@@ -685,6 +684,77 @@ export default function EnhancePage() {
     applyMoodPreset(getMoodPresetForClip(mood, clip?.platform ?? 'twitch'))
   }, [applyMoodPreset, clip])
 
+  // Apply mood preset INCREMENTALLY as the AI Analysis Sequence advances.
+  // Each step that completes triggers application of the settings for the NEXT step,
+  // so when the next phrase appears, the Blowup Chance score has already updated.
+  // This makes the score climb in real-time as the user watches the AI "work".
+  const applyMoodPresetStage = useCallback((completedStepIdx: number) => {
+    const preset = pendingPresetRef.current
+    if (!preset) return
+
+    let tagStyle = preset.tagStyle
+    const p = (clip?.platform ?? '').toLowerCase()
+    if (p === 'twitch') {
+      if (tagStyle === 'kick-glow') tagStyle = 'viral-glow'
+      else if (tagStyle === 'kick-minimal') tagStyle = 'twitch-minimal'
+    } else if (p === 'kick') {
+      if (tagStyle === 'viral-glow') tagStyle = 'kick-glow'
+      else if (tagStyle === 'twitch-minimal') tagStyle = 'kick-minimal'
+    }
+
+    setSettings((s) => {
+      // Apply settings for the step ABOUT TO display (completedStepIdx + 1)
+      switch (completedStepIdx) {
+        case 0: // Next: "Detecting emotional peaks..." → small frame match bonus
+          return {
+            ...s,
+            videoZoom: preset.videoZoom,
+            aspectRatio: preset.aspectRatio,
+          }
+        case 1: // Next: "Optimizing caption style..." → big captions boost
+          return {
+            ...s,
+            captionsEnabled: true,
+            captionStyle: preset.captionStyle,
+            captionPosition: preset.captionPosition,
+            wordsPerLine: preset.wordsPerLine,
+          }
+        case 2: // Next: "Selecting emphasis & color..." → emphasis boost
+          return {
+            ...s,
+            emphasisEffect: preset.emphasisEffect,
+            emphasisColor: preset.emphasisColor,
+          }
+        case 3: // Next: "Crafting viral hook..." → hook + smart zoom big boost
+          return {
+            ...s,
+            hookEnabled: preset.hookEnabled,
+            hookTextEnabled: preset.hookTextEnabled,
+            hookReorderEnabled: preset.hookReorderEnabled,
+            hookStyle: preset.hookStyle,
+            hookTextPosition: preset.hookTextPosition,
+            hookLength: preset.hookLength,
+            smartZoomEnabled: preset.smartZoomEnabled,
+            smartZoomMode: preset.smartZoomMode,
+          }
+        case 4: // Next: "Finalizing parameters..." → tag + audio + autocut remaining
+          return {
+            ...s,
+            tagStyle,
+            tagSize: preset.tagSize,
+            splitScreenEnabled: false,
+            brollVideo: preset.brollVideo,
+            splitRatio: preset.splitRatio,
+            audioEnhanceEnabled: preset.audioEnhanceEnabled,
+            autoCutEnabled: preset.autoCutEnabled,
+            autoCutThreshold: preset.autoCutThreshold,
+          }
+        default:
+          return s
+      }
+    })
+  }, [clip?.platform])
+
   const applyBestCombo = useCallback(async () => {
     if (!clip) return
     setMakeViralLoading(true)
@@ -719,6 +789,12 @@ export default function EnhancePage() {
         setMoodExplanation(moodJson.data.explanation ?? null)
         setSecondaryMood(moodJson.data.secondary_mood ?? null)
         setMoodAiDetected(true)
+        // Store AI-generated justifications for the analysis sequence
+        setAiReasons({
+          caption: typeof moodJson.data.caption_reason === 'string' ? moodJson.data.caption_reason : undefined,
+          emphasis: typeof moodJson.data.emphasis_reason === 'string' ? moodJson.data.emphasis_reason : undefined,
+          hook: typeof moodJson.data.hook_reason === 'string' ? moodJson.data.hook_reason : undefined,
+        })
         // Auto-populate important words from AI detection
         const aiWords = moodJson.data.important_words
         if (Array.isArray(aiWords) && aiWords.length > 0) {
@@ -734,8 +810,12 @@ export default function EnhancePage() {
       setMoodAiDetected(false)
     }
 
-    // 2. Apply the mood preset (settings now have correct values)
-    applyMoodPreset(preset)
+    // 2. Stash preset for incremental application during the analysis sequence
+    // (settings get applied piece-by-piece via applyMoodPresetStage so the score climbs
+    // in real-time as each step displays). appliedCaptionStyleRef is still set so the
+    // auto-render guard can verify correct captionStyle was applied at the end.
+    pendingPresetRef.current = preset
+    appliedCaptionStyleRef.current = preset.captionStyle
 
     // 3. Generate hook (Claude API) with the mood's hookStyle
     setHookGenerating(true)
@@ -792,13 +872,16 @@ export default function EnhancePage() {
     }
   }, [clip, applyMoodPreset])
 
-  // Auto-trigger render once applyBestCombo has propagated the new settings.
-  // We wait until settings.captionStyle matches the applied preset AND
-  // (if reorder enabled) the reorder data has been populated.
+  // Auto-render is now triggered from the AIAnalysisSequence onComplete callback
+  // (after ALL staged settings have been applied), so the render uses the full preset.
+  // We keep this useEffect as a safety net in case the sequence is somehow skipped:
+  // it only fires if the sequence is no longer active AND analysis is complete.
   useEffect(() => {
     if (!pendingAutoRenderRef.current) return
     if (rendering) return
-    // Check the caption style matches what we applied
+    if (analysisSequenceActive) return // wait for sequence to finish before auto-rendering
+    if (!analysisComplete) return // need full analysis cycle done
+    // Check captionStyle matches the applied preset (final staged setting)
     const expected = appliedCaptionStyleRef.current
     if (expected && settings.captionStyle !== expected) return
     // Hook reorder must be ready if we expect it
@@ -806,7 +889,7 @@ export default function EnhancePage() {
     pendingAutoRenderRef.current = false
     appliedCaptionStyleRef.current = null
     handleRender()
-  }, [settings, rendering, handleRender])
+  }, [settings, rendering, handleRender, analysisSequenceActive, analysisComplete])
 
   // ── Hook Generator ────────────────────────────────────────────────────
   const generateHook = useCallback(async () => {
@@ -923,25 +1006,21 @@ export default function EnhancePage() {
           100% { opacity: 1; transform: translateY(0); }
         }
       `}</style>
-      {/* Back button + clip info header */}
-      <div className="flex items-start justify-between gap-4 mb-6">
-        <div className="flex items-start gap-4">
+      {/* Back button + unified PageHeader (Wand2 icon + cyan accent for brand consistency) */}
+      <PageHeader
+        icon={Wand2}
+        title="Enhance Clip"
+        subtitle={`${clip.title ?? 'Clip de stream'} — ${clip.author_handle ? `@${clip.author_handle}` : clip.author_name}`}
+        accent="cyan"
+        rightSlot={
           <Link href="/dashboard">
-            <Button variant="ghost" size="icon" className="mt-0.5">
-              <ChevronLeft className="h-5 w-5" />
+            <Button variant="ghost" size="sm" className="gap-1.5 h-9">
+              <ChevronLeft className="h-4 w-4" />
+              <span className="hidden sm:inline">Back</span>
             </Button>
           </Link>
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
-              <Wand2 className="h-6 w-6 text-primary" />
-              Enhance Clip
-            </h1>
-            <p className="text-sm text-muted-foreground mt-0.5">
-              {clip.title ?? 'Clip de stream'} &mdash; {clip.author_handle ? `@${clip.author_handle}` : clip.author_name}
-            </p>
-          </div>
-        </div>
-      </div>
+        }
+      />
 
       {/* Two-column layout: Sticky Preview | Scrollable Settings */}
       <div className="grid lg:grid-cols-[300px_1fr] gap-6">
@@ -952,7 +1031,11 @@ export default function EnhancePage() {
         <div
           className="lg:sticky lg:top-4 lg:self-start space-y-3 lg:max-h-[calc(100vh-2rem)] lg:overflow-y-auto lg:pr-1 lg:[scrollbar-width:thin]"
         >
-          {/* ── Preview Toggle ── */}
+          {/* ── Preview Toggle ──
+              Initial (no settings touched, no render): [Original] only — clean entry state
+              After user enables any enhancement: [Original | Enhanced] — CSS preview kicks in
+              After render: [Original | Rendered] — Enhanced becomes redundant
+              The Enhanced tab is gated by `showEnhancements` which flips true on first user change. */}
           <div className="flex gap-2">
             <Button
               variant={!showEnhancements ? 'default' : 'outline'}
@@ -962,14 +1045,16 @@ export default function EnhancePage() {
             >
               Original
             </Button>
-            <Button
-              variant={showEnhancements && !isRenderedVideo ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => { setShowEnhancements(true); setIsRenderedVideo(false) }}
-              className="flex-1 text-xs h-8"
-            >
-              Enhanced
-            </Button>
+            {showEnhancements && !renderDownloadUrl && (
+              <Button
+                variant={showEnhancements && !isRenderedVideo ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => { setShowEnhancements(true); setIsRenderedVideo(false) }}
+                className="flex-1 text-xs h-8"
+              >
+                Enhanced
+              </Button>
+            )}
             {renderDownloadUrl && (
               <Button
                 variant={isRenderedVideo ? 'default' : 'outline'}
@@ -1057,27 +1142,45 @@ export default function EnhancePage() {
                 </div>
               )}
 
-              {/* Post-render CTAs */}
+              {/* Post-render CTAs — Bank is primary (AI orchestration), Publish is escape hatch */}
               {renderDownloadUrl && (
                 <div className="flex flex-col gap-2.5" style={{ animation: 'stepFade 0.4s ease-out' }}>
-                  {/* Primary: Distribute Now */}
-                  <button
-                    onClick={() => router.push(`/dashboard/distribution?clip=${clipId}`)}
-                    className="inline-flex items-center justify-center gap-2.5 w-full h-14 rounded-xl font-bold text-lg bg-gradient-to-r from-purple-500 via-purple-600 to-purple-500 hover:from-purple-600 hover:via-purple-700 hover:to-purple-600 text-white shadow-lg shadow-purple-500/25 hover:shadow-purple-500/40 transition-all hover:scale-[1.01]"
-                  >
-                    <Rocket className="h-5 w-5" />
-                    Distribute Now
-                  </button>
+                  {/* PRIMARY: Place in bank — main path that lets AI orchestrate distribution */}
+                  {!placedInBank ? (
+                    <button
+                      onClick={() => {
+                        setPlacedInBank(true)
+                        setRenderMessage('✓ Clip placed in your bank — Smart Queue will schedule it.')
+                      }}
+                      className="group inline-flex flex-col items-center justify-center gap-1 w-full h-16 rounded-xl font-bold bg-gradient-to-r from-cyan-500 via-sky-500 to-cyan-500 hover:from-cyan-400 hover:via-sky-400 hover:to-cyan-400 text-white shadow-lg shadow-cyan-500/25 hover:shadow-cyan-500/40 transition-all hover:scale-[1.01]"
+                    >
+                      <span className="inline-flex items-center gap-2.5 text-lg">
+                        <Plus className="h-5 w-5" />
+                        Place in bank
+                      </span>
+                      <span className="text-[10px] font-medium opacity-90">Smart Queue picks the optimal time + platform</span>
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => router.push(`/dashboard/distribution?scrollTo=bank&highlight=${clipId}`)}
+                      className="inline-flex flex-col items-center justify-center gap-1 w-full h-16 rounded-xl font-bold bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 text-white shadow-lg shadow-emerald-500/25 transition-all hover:scale-[1.01]"
+                    >
+                      <span className="inline-flex items-center gap-2.5 text-lg">
+                        <Check className="h-5 w-5" />
+                        In bank
+                      </span>
+                      <span className="text-[10px] font-medium opacity-90">View in Distribution →</span>
+                    </button>
+                  )}
 
-                  {/* Secondary: Save to Bank */}
+                  {/* SECONDARY: Publish now — bypass AI for immediate manual post */}
                   <button
-                    onClick={() => {
-                      setRenderMessage('Clip saved to your bank! Find it in Distribution whenever you\'re ready.')
-                    }}
-                    className="inline-flex items-center justify-center gap-2 w-full h-11 rounded-lg border border-purple-500/30 bg-purple-500/10 text-purple-400 hover:bg-purple-500/15 hover:border-purple-500/40 text-sm font-semibold transition-all"
+                    onClick={() => router.push(`/dashboard/distribution?clip=${clipId}&action=publish`)}
+                    className="inline-flex items-center justify-center gap-2 w-full h-11 rounded-lg border border-cyan-500/35 bg-cyan-500/8 text-cyan-300 hover:bg-cyan-500/15 hover:border-cyan-500/55 hover:text-cyan-200 text-sm font-semibold transition-all"
+                    title="Skip Smart Queue and publish manually right now"
                   >
-                    <Plus className="h-4 w-4" />
-                    Save to Bank — publish later
+                    <Rocket className="h-4 w-4" />
+                    Publish now
                   </button>
 
                   {/* Tertiary: Download */}
@@ -1106,6 +1209,7 @@ export default function EnhancePage() {
                       setAnalysisComplete(false)
                       setRendering(false)
                       setShowEnhancements(false)
+                      setPlacedInBank(false)
                       hasUserChangedSettings.current = false
                       if (originalVideoUrl) setVideoUrl(originalVideoUrl)
                     }}
@@ -1199,7 +1303,13 @@ export default function EnhancePage() {
               emphasisEffect={settings.emphasisEffect}
               emphasisColor={settings.emphasisColor}
               hookText={settings.hookText ?? null}
+              audioPeaksCount={hookAnalysis ? hookAnalysis.peak.scores.length : undefined}
+              peakTime={hookAnalysis?.peak.peakTime}
+              peakScore={hookAnalysis?.peak.peakScore}
+              wordTimestampsCount={undefined}
+              aiReasons={moodAiDetected ? aiReasons : undefined}
               isActive={analysisSequenceActive}
+              onStepComplete={applyMoodPresetStage}
               onComplete={() => {
                 setAnalysisComplete(true)
                 setAnalysisSequenceActive(false)
@@ -1241,444 +1351,39 @@ export default function EnhancePage() {
           <div className="opacity-90 hover:opacity-100 transition-opacity duration-300">
 
           {/* Blowup score bar */}
-          {(() => {
-            // Dynamic color based on total score level
-            const total = currentScore
-            const barColor = total >= 80
-              ? { from: 'from-emerald-500', to: 'to-cyan-400', glow: 'shadow-emerald-500/30', text: 'text-emerald-300' }
-              : total >= 60
-              ? { from: 'from-amber-400', to: 'to-orange-400', glow: 'shadow-amber-500/25', text: 'text-amber-300' }
-              : { from: 'from-orange-500', to: 'to-red-400', glow: 'shadow-orange-500/20', text: 'text-orange-300' }
-
-            const totalWidth = Math.min(total, 99)
-
-            return (
-          <div className="sticky top-0 z-10 bg-background/80 backdrop-blur-md border-b border-white/5 -mx-1 px-1 pb-3 pt-1 mb-4">
-            <div className="flex items-center justify-between mb-2">
-              <div className="flex items-center gap-2">
-                <Flame className={cn('h-4 w-4 transition-colors duration-500', total >= 80 ? 'text-emerald-400' : 'text-orange-400')} />
-                <span className="text-xs text-muted-foreground uppercase tracking-widest font-medium">Blowup Chance</span>
-              </div>
-              <span className={cn(
-                'text-xs font-bold uppercase tracking-wide transition-colors duration-300',
-                getScoreLabel(currentScore).color
-              )}>
-                {getScoreLabel(currentScore).text}
-              </span>
-            </div>
-
-            {/* Progress bar — unified gradient with glow */}
-            <div className={cn(
-              'relative w-full h-8 rounded-full bg-card/60 border border-white/10 overflow-hidden transition-shadow duration-700',
-              total >= 60 && `shadow-lg ${barColor.glow}`,
-              total >= 80 && 'shadow-xl',
-            )}>
-              {/* Single unified bar — base (orange) + boost (green) */}
-              {/* Base segment */}
-              <div
-                className="absolute inset-y-0 left-0 bg-gradient-to-r from-orange-500 to-amber-400 transition-all duration-700 ease-out"
-                style={{ width: `${baselineScore}%` }}
-              />
-              {/* Boost segment — starts exactly where base ends, no gap */}
-              {scoreBreakdown.total > 0 && (
-                <div
-                  className="absolute inset-y-0 bg-gradient-to-r from-emerald-500 to-emerald-400 transition-all duration-700 ease-out"
-                  style={{ left: `${baselineScore}%`, width: `${Math.min(scoreBreakdown.total, 99 - baselineScore)}%` }}
-                />
-              )}
-              {/* Glow overlay pulse when score is high */}
-              {total >= 70 && (
-                <div
-                  className="absolute inset-y-0 left-0 bg-gradient-to-r from-white/0 via-white/8 to-white/0 animate-[barGlow_3s_ease-in-out_infinite]"
-                  style={{ width: `${totalWidth}%` }}
-                />
-              )}
-              {/* Score text */}
-              <div className="absolute inset-0 flex items-center justify-center">
-                <span className="text-sm font-black text-white drop-shadow-md">
-                  {displayScore} / 100
-                  {scoreBreakdown.total > 0 && (
-                    <span className="text-emerald-300 text-xs font-bold ml-1.5 animate-[scorePop_0.4s_ease-out]">(+{scoreBreakdown.total})</span>
-                  )}
-                </span>
-              </div>
-            </div>
-
-            {/* Congrats message at 90+ */}
-            {total >= 90 && (
-              <div className="flex items-center gap-1.5 mt-2 animate-[confettiDrop_0.5s_ease-out]">
-                <span className="text-sm">🔥</span>
-                <span className="text-xs font-semibold text-emerald-400">Maximum viral potential reached!</span>
-              </div>
-            )}
-          </div>
-            )
-          })()}
+          <BlowupChanceBar
+            currentScore={currentScore}
+            displayScore={displayScore}
+            baselineScore={baselineScore}
+            scoreBreakdown={scoreBreakdown}
+          />
 
             <Accordion multiple defaultValue={[]} className="space-y-3">
 
             {/* ─── Captions Section ─── */}
-            <AccordionItem value="captions" ref={sectionRefs.captions} className="scroll-mt-32 rounded-xl border border-white/10 bg-card/60 px-4 overflow-hidden">
-              <AccordionTrigger className="text-zinc-400 hover:text-white">
-                <span className="flex items-center gap-2 text-sm font-medium text-foreground">
-                  <Type className="h-4 w-4 text-primary" />
-                  Karaoke captions
-                  <span className="text-xs text-zinc-500 font-normal">
-                    {settings.captionStyle !== 'none'
-                      ? `· ${CAPTION_STYLES.find(s => s.id === settings.captionStyle)?.label ?? settings.captionStyle}`
-                      : '· Off'}
-                    {settings.emphasisEffect !== 'none' && ` · ${EMPHASIS_EFFECTS.find(e => e.id === settings.emphasisEffect)?.label ?? ''}`}
-                    {settings.emphasisEffect !== 'none' && settings.emphasisColor && ` · ${EMPHASIS_COLORS.find(c => c.id === settings.emphasisColor)?.label ?? ''}`}
-                  </span>
-                  {scoreBreakdown.captions > 0 && (
-                    <span className="ml-auto text-[11px] font-bold text-emerald-400">+{scoreBreakdown.captions} pts</span>
-                  )}
-                </span>
-              </AccordionTrigger>
-              <AccordionContent>
-                {scores && (
-                  <div className="space-y-5">
-                    <div className="space-y-2">
-                      <Label className="text-xs uppercase tracking-wider text-muted-foreground">Style</Label>
-                      <div className="grid grid-cols-3 gap-2">
-                        {CAPTION_STYLES.map((style) => {
-                          const { impact, isMoodPick } = getRealImpact('caption', style.id, scores.best.captionStyle)
-                          const isHighlight = isMoodPick || (!selectedMood && style.id === scores.best.captionStyle)
-                          return (
-                            <button
-                              key={style.id}
-                              onClick={() => {
-                                updateSetting('captionStyle', style.id)
-                                updateSetting('captionsEnabled', style.id !== 'none')
-                              }}
-                              className={cn(
-                                'relative rounded-xl border p-3 text-left transition-all',
-                                settings.captionStyle === style.id
-                                  ? 'border-primary bg-primary/10 ring-1 ring-primary/30'
-                                  : isMoodPick
-                                  ? 'border-green-500/40 bg-green-500/5 hover:bg-green-500/10'
-                                  : isHighlight
-                                  ? 'border-orange-500/40 bg-orange-500/5 hover:bg-orange-500/10'
-                                  : 'border-border hover:border-primary/40'
-                              )}
-                            >
-                              <div className="flex items-center justify-between mb-1">
-                                <span className={cn('text-xs block', style.preview, isHighlight && !isMoodPick && 'drop-shadow-[0_0_6px_rgba(249,115,22,0.4)]')}>Aa</span>
-                                {hasAiAnalyzed && <ScoreBadge score={impact} isBest={isHighlight} isMoodPick={isMoodPick} />}
-                              </div>
-                              <span className={cn('text-[10px] block', isMoodPick ? 'text-green-400 font-bold' : isHighlight ? 'text-orange-400 font-bold' : 'text-muted-foreground')}>
-                                {style.label}
-                                {analysisComplete && moodAiDetected && settings.captionStyle === style.id && style.id !== 'none' && (
-                                  <span className="ml-1 text-[8px] font-bold text-emerald-400 bg-emerald-400/10 px-1.5 py-0.5 rounded-full border border-emerald-400/20">AI</span>
-                                )}
-                              </span>
-                              {style.animLabel && (
-                                <span className="text-[8px] block text-muted-foreground/60 mt-0.5">{style.animLabel}</span>
-                              )}
-                            </button>
-                          )
-                        })}
-                      </div>
-                    </div>
-
-                    {settings.captionStyle !== 'none' && <>
-                    {/* Animation is part of the style — display info only */}
-                    <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-muted/30 border border-border/50">
-                      <Zap className="h-3.5 w-3.5 text-muted-foreground" />
-                      <span className="text-xs text-muted-foreground">Animation:</span>
-                      <span className="text-xs font-semibold text-foreground">{CAPTION_STYLES.find(s => s.id === settings.captionStyle)?.animLabel || 'Highlight'}</span>
-                    </div>
-
-                    {/* Emphasize key words */}
-                    <div className="space-y-2">
-                      <Label className="text-xs uppercase tracking-wider text-muted-foreground">Keyword emphasis</Label>
-                      <p className="text-[10px] text-muted-foreground">Effect applied to detected important words</p>
-                      <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
-                        {EMPHASIS_EFFECTS.map((effect) => {
-                          const { impact, isMoodPick } = getRealImpact('emphasis', effect.id, scores.best.emphasisEffect)
-                          const isHighlight = isMoodPick || (!selectedMood && effect.id === scores.best.emphasisEffect)
-                          return (
-                            <button
-                              key={effect.id}
-                              onClick={() => updateSetting('emphasisEffect', effect.id)}
-                              className={cn(
-                                'relative rounded-xl border px-3 py-2.5 text-center transition-all',
-                                settings.emphasisEffect === effect.id
-                                  ? 'border-primary bg-primary/10 ring-1 ring-primary/30'
-                                  : isMoodPick
-                                  ? 'border-green-500/40 bg-green-500/5 hover:bg-green-500/10'
-                                  : isHighlight
-                                  ? 'border-orange-500/40 bg-orange-500/5 hover:bg-orange-500/10'
-                                  : 'border-border hover:border-primary/40'
-                              )}
-                            >
-                              <span className={cn('text-[10px] font-medium block', isMoodPick ? 'text-green-400 font-bold' : isHighlight ? 'text-orange-400 font-bold' : 'text-foreground')}>
-                                {effect.label}
-                                {analysisComplete && moodAiDetected && settings.emphasisEffect === effect.id && effect.id !== 'none' && (
-                                  <span className="ml-1 text-[8px] font-bold text-emerald-400 bg-emerald-400/10 px-1.5 py-0.5 rounded-full border border-emerald-400/20">AI</span>
-                                )}
-                              </span>
-                              {hasAiAnalyzed && <ScoreBadge score={impact} isBest={isHighlight} isMoodPick={isMoodPick} />}
-                            </button>
-                          )
-                        })}
-                      </div>
-                    </div>
-
-                    {/* Emphasis color — always visible, disabled if no effect */}
-                    <div className={cn('space-y-2 transition-opacity', settings.emphasisEffect === 'none' && 'opacity-40 pointer-events-none')}>
-                      <Label className="text-xs uppercase tracking-wider text-muted-foreground">Emphasis color</Label>
-                      {settings.emphasisEffect === 'none' && (
-                        <p className="text-[10px] text-muted-foreground">Select an effect above to choose the color</p>
-                      )}
-                      <div className="flex gap-2">
-                        {EMPHASIS_COLORS.map((c) => (
-                          <div key={c.id} className="relative">
-                            <button
-                              onClick={() => updateSetting('emphasisColor', c.id)}
-                              className={cn(
-                                'w-7 h-7 rounded-full transition-all',
-                                settings.emphasisColor === c.id
-                                  ? 'ring-2 ring-primary ring-offset-2 ring-offset-background scale-110'
-                                  : 'opacity-60 hover:opacity-100 hover:scale-105'
-                              )}
-                              style={{ backgroundColor: c.hex }}
-                              title={c.label}
-                            />
-                            {analysisComplete && moodAiDetected && settings.emphasisColor === c.id && (
-                              <span className="absolute -top-2 -right-2 text-[7px] font-bold text-emerald-400 bg-emerald-400/10 px-1 py-0.5 rounded-full border border-emerald-400/20 leading-none">AI</span>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Important words — auto-detected + custom */}
-                    <div className="space-y-2">
-                      <Label className="text-xs uppercase tracking-wider text-muted-foreground">Important words</Label>
-                      <p className="text-[10px] text-muted-foreground">
-                        Words in <span className="text-red-400 font-bold">red</span> in the captions. Auto-detected (CAPS, viral words) + your own words.
-                      </p>
-
-                      {/* Auto-detected words preview */}
-                      <div className="flex flex-wrap gap-1.5">
-                        <span className="text-[9px] text-muted-foreground/50 uppercase tracking-wider mr-1 self-center">Auto</span>
-                        {['CAPS', 'OMG', 'CRAZY', 'INSANE', 'WTF'].map((w) => (
-                          <span key={w} className="inline-flex items-center px-2 py-0.5 rounded-md bg-red-500/10 border border-red-500/20 text-[10px] font-bold text-red-400">
-                            {w}
-                          </span>
-                        ))}
-                        <span className="text-[9px] text-muted-foreground/40 self-center">+ mots viraux</span>
-                      </div>
-
-                      {/* Custom words */}
-                      {settings.customImportantWords.length > 0 && (
-                        <div className="flex flex-wrap gap-1.5">
-                          <span className="text-[9px] text-muted-foreground/50 uppercase tracking-wider mr-1 self-center">Custom</span>
-                          {settings.customImportantWords.map((w) => (
-                            <span key={w} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-red-500/15 border border-red-500/30 text-[10px] font-bold text-red-400">
-                              {w}
-                              <button
-                                onClick={() => setSettings((s) => ({
-                                  ...s,
-                                  customImportantWords: s.customImportantWords.filter((cw) => cw !== w),
-                                }))}
-                                className="hover:text-red-300 transition-colors"
-                              >
-                                <X className="h-2.5 w-2.5" />
-                              </button>
-                            </span>
-                          ))}
-                        </div>
-                      )}
-
-                      {/* Add custom word input */}
-                      <form
-                        className="flex gap-2"
-                        onSubmit={(e) => {
-                          e.preventDefault()
-                          const input = (e.currentTarget.elements.namedItem('newWord') as HTMLInputElement)
-                          const word = input.value.trim()
-                          if (word && !settings.customImportantWords.includes(word.toLowerCase())) {
-                            setSettings((s) => ({
-                              ...s,
-                              customImportantWords: [...s.customImportantWords, word.toLowerCase()],
-                            }))
-                            input.value = ''
-                          }
-                        }}
-                      >
-                        <input
-                          name="newWord"
-                          type="text"
-                          placeholder="Add a word..."
-                          className="flex-1 rounded-lg border border-border bg-background px-3 py-1.5 text-xs text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-1 focus:ring-primary/50"
-                        />
-                        <Button type="submit" size="sm" variant="outline" className="h-7 px-2">
-                          <Plus className="h-3.5 w-3.5" />
-                        </Button>
-                      </form>
-                    </div>
-
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <Label className="text-xs uppercase tracking-wider text-muted-foreground">Vertical Position</Label>
-                        <span className="text-xs font-semibold text-foreground">{settings.captionPosition}%</span>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <span className="text-[10px] text-muted-foreground whitespace-nowrap">Top</span>
-                        <input
-                          type="range"
-                          min={0}
-                          max={100}
-                          step={1}
-                          value={settings.captionPosition}
-                          onChange={(e) => updateSetting('captionPosition', Number(e.target.value))}
-                          className="w-full h-1.5 bg-border rounded-full appearance-none cursor-pointer accent-primary [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3.5 [&::-webkit-slider-thumb]:h-3.5 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-primary [&::-webkit-slider-thumb]:shadow-md"
-                        />
-                        <span className="text-[10px] text-muted-foreground whitespace-nowrap">Bottom</span>
-                      </div>
-                      <div className="flex justify-center gap-2">
-                        {([
-                          { label: 'Top', value: 8 },
-                          { label: 'Middle', value: 42 },
-                          { label: 'Bottom', value: 72 },
-                        ]).map((preset) => (
-                          <button
-                            key={preset.label}
-                            onClick={() => updateSetting('captionPosition', preset.value)}
-                            className={cn(
-                              'rounded-lg border px-2.5 py-1 text-[10px] font-medium transition-all',
-                              Math.abs(settings.captionPosition - preset.value) <= 3
-                                ? 'border-primary bg-primary/10 text-foreground'
-                                : 'border-border hover:border-primary/40 text-muted-foreground'
-                            )}
-                          >
-                            {preset.label}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Words per line slider */}
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <Label className="text-xs uppercase tracking-wider text-muted-foreground">Words per Line</Label>
-                        <span className="text-xs font-mono text-muted-foreground">{settings.wordsPerLine}</span>
-                      </div>
-                      <input
-                        type="range"
-                        min={1}
-                        max={8}
-                        step={1}
-                        value={settings.wordsPerLine}
-                        onChange={(e) => updateSetting('wordsPerLine', Number(e.target.value))}
-                        className="w-full accent-primary"
-                      />
-                      <div className="flex justify-between text-[10px] text-muted-foreground/60">
-                        <span>1 (single)</span>
-                        <span>8 (compact)</span>
-                      </div>
-                    </div>
-                    </>}
-                  </div>
-                )}
-              </AccordionContent>
-            </AccordionItem>
+            <CaptionsSection
+              settings={settings}
+              updateSetting={updateSetting}
+              scoreBreakdown={scoreBreakdown}
+              hasAiAnalyzed={hasAiAnalyzed}
+              analysisComplete={analysisComplete}
+              moodAiDetected={moodAiDetected}
+              selectedMood={selectedMood}
+              detectedMood={detectedMood}
+              getRealImpact={getRealImpact}
+              getOptionPts={getOptionPts}
+              scores={scores}
+              sectionRef={sectionRefs.captions}
+            />
 
             {/* ─── Split-Screen Section ─── */}
-            <AccordionItem value="splitscreen" ref={sectionRefs.splitscreen} className="scroll-mt-32 rounded-xl border border-white/10 bg-card/60 px-4 overflow-hidden">
-              <AccordionTrigger className="text-zinc-400 hover:text-white">
-                <span className="flex items-center gap-2 text-sm font-medium text-foreground">
-                  <Monitor className="h-4 w-4 text-primary" />
-                  Split-Screen
-                  <span className="text-xs text-zinc-500 font-normal">
-                    {settings.splitScreenEnabled
-                      ? `· Blur fill · ${settings.splitRatio}/${100 - settings.splitRatio}`
-                      : '· Off'}
-                  </span>
-                  {scoreBreakdown.splitScreen > 0 && (
-                    <span className="ml-auto text-[11px] font-bold text-emerald-400">+{scoreBreakdown.splitScreen} pts</span>
-                  )}
-                </span>
-              </AccordionTrigger>
-              <AccordionContent>
-                {scores && (
-                  <div className="space-y-5">
-                    {/* Toggle blur fill split-screen */}
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <Label className="text-xs font-semibold">Blur fill</Label>
-                        <p className="text-[10px] text-muted-foreground">Fills vertical space with a blurred version of the clip</p>
-                      </div>
-                      <button
-                        onClick={() => {
-                          const next = !settings.splitScreenEnabled
-                          updateSetting('splitScreenEnabled', next)
-                          updateSetting('brollVideo', next ? 'blur-fill' : 'none')
-                        }}
-                        className={cn(
-                          'relative inline-flex h-5 w-9 items-center rounded-full transition-colors shrink-0',
-                          settings.splitScreenEnabled ? 'bg-emerald-500' : 'bg-muted'
-                        )}
-                      >
-                        <span className={cn(
-                          'inline-block h-4 w-4 rounded-full bg-white shadow-lg transition-transform',
-                          settings.splitScreenEnabled ? 'translate-x-4' : 'translate-x-0.5'
-                        )} />
-                      </button>
-                    </div>
-
-                    {settings.splitScreenEnabled && (
-                    <>
-                    {/* Ratio slider */}
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <Label className="text-xs uppercase tracking-wider text-muted-foreground">Ratio stream / blur</Label>
-                        <span className="text-sm font-semibold text-foreground">{settings.splitRatio}% / {100 - settings.splitRatio}%</span>
-                      </div>
-                      <Slider
-                        value={[settings.splitRatio]}
-                        onValueChange={([v]) => updateSetting('splitRatio', v)}
-                        min={40}
-                        max={80}
-                        step={5}
-                        className="accent-orange-500 [&::-webkit-slider-thumb]:bg-orange-500 [&::-webkit-slider-thumb]:border-orange-400 [&::-webkit-slider-thumb]:w-5 [&::-webkit-slider-thumb]:h-5 [&::-webkit-slider-thumb]:shadow-lg [&::-webkit-slider-thumb]:shadow-orange-500/30 [&::-moz-range-thumb]:bg-orange-500 [&::-moz-range-thumb]:border-orange-400 [&::-moz-range-thumb]:w-5 [&::-moz-range-thumb]:h-5 h-2 bg-orange-500/20"
-                      />
-                    </div>
-
-                    {/* Video framing */}
-                    <div className="space-y-2">
-                      <Label className="text-xs uppercase tracking-wider text-muted-foreground">Video framing</Label>
-                      <p className="text-[10px] text-muted-foreground">Zoom on main video</p>
-                      <div className="grid grid-cols-3 gap-2">
-                        {([
-                          { id: 'contain' as const, label: 'Contain', desc: '100% visible' },
-                          { id: 'fill' as const, label: 'Fill', desc: 'Subtle zoom' },
-                          { id: 'immersive' as const, label: 'Immersive', desc: 'Medium zoom' },
-                        ]).map((opt) => (
-                          <button
-                            key={opt.id}
-                            onClick={() => updateSetting('videoZoom', opt.id)}
-                            className={cn(
-                              'relative rounded-xl border p-3 transition-all text-left',
-                              settings.videoZoom === opt.id
-                                ? 'border-primary bg-primary/10 ring-1 ring-primary/30'
-                                : 'border-border hover:border-primary/40'
-                            )}
-                          >
-                            <span className="text-xs font-semibold block">{opt.label}</span>
-                            <span className="text-[10px] text-muted-foreground">{opt.desc}</span>
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                    </>
-                    )}
-                  </div>
-                )}
-              </AccordionContent>
-            </AccordionItem>
+            <SplitScreenSection
+              settings={settings}
+              updateSetting={updateSetting}
+              scoreBreakdown={scoreBreakdown}
+              scores={scores}
+              sectionRef={sectionRefs.splitscreen}
+            />
 
             {/* ─── Tags Section ─── */}
             <AccordionItem value="tags" ref={sectionRefs.tags} className="scroll-mt-32 rounded-xl border border-white/10 bg-card/60 px-4 overflow-hidden">
@@ -1947,6 +1652,17 @@ export default function EnhancePage() {
                           <span>Aggressive (0.3s)</span>
                           <span>Gentle (2s)</span>
                         </div>
+                        {(selectedMood ?? detectedMood) && (
+                          <p className="text-[10px] text-purple-400 mt-1.5">
+                            AI suggests {
+                              (selectedMood ?? detectedMood) === 'rage' || (selectedMood ?? detectedMood) === 'hype'
+                                ? '0.5s'
+                                : (selectedMood ?? detectedMood) === 'drama'
+                                  ? '0.7s'
+                                  : `${settings.autoCutThreshold.toFixed(1)}s`
+                            } for {selectedMood ?? detectedMood} clips
+                          </p>
+                        )}
                       </div>
                       <div className="text-[10px] text-muted-foreground bg-muted/50 rounded-lg p-3 space-y-1">
                         <p className="font-medium text-foreground text-xs">What it does:</p>

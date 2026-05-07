@@ -14,6 +14,7 @@ import {
   type ScheduledPost,
 } from '@/lib/distribution/smart-queue-engine'
 import { loadPersistentStats } from '@/lib/distribution/session-persistence'
+import type { LearnedDistributionProfile } from '@/types/learning'
 
 // ── LocalStorage keys ──
 const LEARNING_KEY = 'viral-animal-queue-learning'
@@ -68,10 +69,12 @@ export interface QueueState {
   isGenerating: boolean
   showOverrideToast: boolean
   overrideClipId: string | null
+  learnedProfile: LearnedDistributionProfile | null
 
   // Actions
   init: () => void
   setClipBank: (clips: QueueClip[]) => void
+  setLearnedProfile: (profile: LearnedDistributionProfile | null) => void
   regenerateQueue: () => void
   updateSettings: (partial: Partial<QueueSettings>) => void
 
@@ -94,6 +97,7 @@ export const useQueueStore = create<QueueState>((set, get) => ({
   isGenerating: false,
   showOverrideToast: false,
   overrideClipId: null,
+  learnedProfile: null,
 
   init: () => {
     const learning = loadLearning()
@@ -103,12 +107,16 @@ export const useQueueStore = create<QueueState>((set, get) => ({
 
   setClipBank: (clips) => {
     set({ clipBank: clips })
-    // Auto-regenerate queue when bank changes
+    get().regenerateQueue()
+  },
+
+  setLearnedProfile: (profile) => {
+    set({ learnedProfile: profile })
     get().regenerateQueue()
   },
 
   regenerateQueue: () => {
-    const { clipBank, learning, settings } = get()
+    const { clipBank, learning, settings, learnedProfile } = get()
     if (clipBank.length === 0) {
       set({ queue: null })
       return
@@ -116,10 +124,9 @@ export const useQueueStore = create<QueueState>((set, get) => ({
 
     set({ isGenerating: true })
 
-    // Use requestAnimationFrame to not block UI
     requestAnimationFrame(() => {
       const stats = loadPersistentStats()
-      const queue = generateQueue(clipBank, stats, learning, settings)
+      const queue = generateQueue(clipBank, stats, learning, settings, learnedProfile)
       set({ queue, isGenerating: false })
     })
   },

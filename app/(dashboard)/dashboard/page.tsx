@@ -3,13 +3,14 @@
 import { useEffect, useCallback, useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import {
-  TrendingUp, RefreshCw, AlertCircle, Loader2, Sparkles,
-  Download, Flame, Zap, Clock, X, Diamond, Trophy, Bookmark, Lock, Film,
-  UploadCloud, Scissors, CheckCircle2,
+  TrendingUp, RefreshCw, AlertCircle, Loader2, Sparkles, Compass,
+  Download, Flame, X, Bookmark, Lock, Film,
+  UploadCloud, CheckCircle2,
 } from 'lucide-react'
+import { PageHeader } from '@/components/dashboard/page-header'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
-import { RemixCard, type RemixJob } from '@/components/trending/remix-card'
+import { type RemixJob } from '@/components/trending/remix-card'
 import { ExportTicker } from '@/components/trending/export-ticker'
 import { TrendingCard, type QuickExportState } from '@/components/trending/trending-card'
 import { TrendingFilters } from '@/components/trending/trending-filters'
@@ -277,14 +278,10 @@ export default function DashboardPage() {
     xhr.send(formData)
   }, [router])
 
+  // Simplified main tabs — radar style: just All / Saved
   const feedTabs: { key: FeedFilter; label: string; icon: typeof Flame; count?: number }[] = [
     { key: 'all', label: 'All Clips', icon: Flame },
-    { key: 'hot_now', label: 'Exploding Now', icon: Zap, count: stats.hotNowCount || undefined },
-    { key: 'early_gem', label: 'Undervalued Gems', icon: Diamond, count: stats.earlyGemCount || undefined },
-    { key: 'proven', label: 'Proven Winners', icon: Trophy, count: stats.provenCount || undefined },
-    { key: 'recent', label: 'Fresh Drops', icon: Clock },
     { key: 'saved', label: 'Saved', icon: Bookmark, count: savedClipIds.size || undefined },
-    { key: 'remixes', label: 'My Remixes', icon: Scissors, count: remixCount || undefined },
   ]
 
   const remaining = totalCount - clips.length
@@ -294,60 +291,57 @@ export default function DashboardPage() {
       <WelcomeModal />
       <ReferralBonusBanner />
 
-      {/* Header */}
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight flex items-center gap-2">
-            <Sparkles className="h-7 w-7 text-primary" />
-            Browse Clips
-          </h1>
-          <p className="text-muted-foreground mt-1">
-            The clips blowing up right now — engineered for the algorithm.
-          </p>
-        </div>
-        <div className="flex items-center gap-2 shrink-0 mt-1">
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="video/mp4,video/quicktime,video/x-matroska,video/avi,video/webm,.mp4,.mov,.mkv,.avi,.webm"
-            className="hidden"
-            onChange={handleFileSelect}
-          />
-          <Button
-            variant="outline"
-            size="sm"
-            className={cn(
-              'gap-2 h-8 border-dashed',
-              uploadSuccess
-                ? 'border-emerald-500/30 text-emerald-400'
-                : 'border-primary/30 text-primary hover:bg-primary/5'
-            )}
-            onClick={() => fileInputRef.current?.click()}
-            disabled={uploading || uploadSuccess}
-          >
-            {uploadSuccess ? (
-              <CheckCircle2 className="h-3.5 w-3.5" />
-            ) : uploading ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            ) : (
-              <UploadCloud className="h-3.5 w-3.5" />
-            )}
-            <span className="hidden sm:inline">
-              {uploadSuccess ? 'Redirecting...' : uploading ? `${uploadProgress}%` : 'Upload clip'}
-            </span>
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            className="gap-2 h-8"
-            onClick={() => fetchClips(true)}
-            disabled={refreshing}
-          >
-            <RefreshCw className={cn('h-3.5 w-3.5', refreshing && 'animate-spin')} />
-            <span className="hidden sm:inline">Refresh</span>
-          </Button>
-        </div>
-      </div>
+      {/* Header — unified PageHeader pattern (Compass icon + cyan accent) */}
+      <PageHeader
+        icon={Compass}
+        title="Browse Clips"
+        subtitle="Discover what's blowing up — pick your next viral hit."
+        accent="cyan"
+        rightSlot={
+          <>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="video/mp4,video/quicktime,video/x-matroska,video/avi,video/webm,.mp4,.mov,.mkv,.avi,.webm"
+              className="hidden"
+              onChange={handleFileSelect}
+            />
+            <Button
+              variant="outline"
+              size="sm"
+              className={cn(
+                'gap-2 h-8 border-dashed',
+                uploadSuccess
+                  ? 'border-emerald-500/30 text-emerald-400'
+                  : 'border-primary/30 text-primary hover:bg-primary/5'
+              )}
+              onClick={() => fileInputRef.current?.click()}
+              disabled={uploading || uploadSuccess}
+            >
+              {uploadSuccess ? (
+                <CheckCircle2 className="h-3.5 w-3.5" />
+              ) : uploading ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <UploadCloud className="h-3.5 w-3.5" />
+              )}
+              <span className="hidden sm:inline">
+                {uploadSuccess ? 'Redirecting...' : uploading ? `${uploadProgress}%` : 'Upload clip'}
+              </span>
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-2 h-8"
+              onClick={() => fetchClips(true)}
+              disabled={refreshing}
+            >
+              <RefreshCw className={cn('h-3.5 w-3.5', refreshing && 'animate-spin')} />
+              <span className="hidden sm:inline">Refresh</span>
+            </Button>
+          </>
+        }
+      />
 
       {/* Live export ticker */}
       <ExportTicker />
@@ -377,39 +371,57 @@ export default function DashboardPage() {
         </Card>
       )}
 
-      {/* Feed tabs */}
-      <div className="flex items-center gap-2 overflow-x-auto pb-1">
-        {feedTabs.map(({ key, label, icon: Icon, count }) => (
-          <Button
-            key={key}
-            variant={filters.feed === key ? 'default' : 'outline'}
-            size="sm"
-            className={cn(
-              'gap-1.5 h-8 text-xs shrink-0 transition-all',
-              filters.feed === key
-                ? 'shadow-md shadow-primary/20'
-                : 'text-muted-foreground hover:text-foreground'
-            )}
-            onClick={() => setFeed(key)}
-            aria-pressed={filters.feed === key}
-          >
-            <Icon className="h-3.5 w-3.5" />
-            {label}
-            {count !== undefined && count > 0 && (
-              <span className="ml-0.5 text-[10px] opacity-70">({count})</span>
-            )}
-          </Button>
-        ))}
-      </div>
+      {/* Tabs + Filters — tight grouping (radar header) */}
+      <div className="space-y-2">
+        {/* Feed tabs — segmented control style, compact */}
+        <div className="inline-flex items-center gap-0.5 p-0.5 rounded-lg border border-border bg-card/50 w-fit">
+          {feedTabs.map(({ key, label, icon: Icon, count }) => {
+            const active = filters.feed === key
+            return (
+              <button
+                key={key}
+                onClick={() => setFeed(key)}
+                aria-pressed={active}
+                className={cn(
+                  'inline-flex items-center gap-1.5 h-7 px-3 rounded-md text-xs font-medium transition-all',
+                  active
+                    ? 'bg-primary text-primary-foreground shadow-sm'
+                    : 'text-muted-foreground hover:text-foreground hover:bg-muted/40'
+                )}
+              >
+                <Icon className="h-3 w-3" />
+                {label}
+                {count !== undefined && count > 0 && (
+                  <span className={cn(
+                    'tabular-nums text-[10px]',
+                    active ? 'opacity-80' : 'opacity-60'
+                  )}>
+                    {count}
+                  </span>
+                )}
+              </button>
+            )
+          })}
+        </div>
 
-      {/* Filters */}
-      <TrendingFilters
-        filters={filters}
-        onChange={setFilters}
-        totalCount={clips.length}
-        filteredCount={filteredClips.length}
-        availableNiches={stats.games}
-      />
+        {/* Filters */}
+        <TrendingFilters
+          filters={filters}
+          onChange={setFilters}
+          totalCount={clips.length}
+          filteredCount={filteredClips.length}
+          availableNiches={stats.games}
+          availableStreamers={(() => {
+            const counts = new Map<string, number>()
+            for (const c of clips) {
+              const name = c.author_name || c.author_handle
+              if (!name) continue
+              counts.set(name, (counts.get(name) ?? 0) + 1)
+            }
+            return Array.from(counts.entries()).map(([name, count]) => ({ name, count }))
+          })()}
+        />
+      </div>
 
       {/* Error */}
       {error && (
@@ -421,47 +433,8 @@ export default function DashboardPage() {
         </Card>
       )}
 
-      {/* Remixes tab */}
-      {filters.feed === 'remixes' ? (
-        loadingRemixes ? (
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4">
-            {Array.from({ length: 6 }).map((_, i) => (
-              <div key={i} className="rounded-xl border border-border bg-card/60 overflow-hidden animate-pulse">
-                <div className="aspect-video bg-gradient-to-br from-muted/40 to-muted/20" />
-                <div className="p-3 space-y-2">
-                  <div className="h-3.5 w-3/4 rounded bg-muted/50" />
-                  <div className="h-3 w-1/2 rounded bg-muted/30" />
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : remixes.length === 0 ? (
-          <Card className="border-border bg-card/50">
-            <CardContent className="p-10 md:p-14 text-center">
-              <div className="inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-orange-500/15 to-amber-500/15 border border-orange-500/20 mb-4">
-                <Scissors className="h-8 w-8 text-orange-400" />
-              </div>
-              <h3 className="text-lg font-bold text-foreground mb-1">No remixes yet</h3>
-              <p className="text-sm text-muted-foreground max-w-md mx-auto mb-5">
-                Boost a clip to create your first remix — it will appear here.
-              </p>
-              <Button size="sm" onClick={() => setFeed('all')}>
-                <Sparkles className="h-3.5 w-3.5 mr-1.5" />
-                Browse clips
-              </Button>
-            </CardContent>
-          </Card>
-        ) : (
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4">
-            {remixes.map((remix) => (
-              <RemixCard key={remix.id} remix={remix} />
-            ))}
-          </div>
-        )
-      ) :
-
-      /* Clip Grid */
-      loading ? (
+      {/* Clip Grid (Remixes tab removed from Browse — clips live in Distribution / Clip Bank) */}
+      {loading ? (
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4">
           {Array.from({ length: 10 }).map((_, i) => (
             <div key={i} className="rounded-xl border border-border bg-card/60 overflow-hidden animate-pulse">
@@ -499,15 +472,15 @@ export default function DashboardPage() {
                 </div>
                 <h3 className="text-lg font-bold text-foreground mb-1">
                   {noClipsAtAll
-                    ? 'No clips in the library yet'
-                    : 'No clips match your filters'}
+                    ? 'Nothing here yet'
+                    : 'No clips match'}
                 </h3>
                 <p className="text-sm text-muted-foreground max-w-md mx-auto mb-5">
                   {noClipsAtAll
-                    ? "Import clips from Twitch & Kick to get started."
+                    ? "Clips from Twitch & Kick will appear here once imported."
                     : hasFilters
-                      ? 'Try removing a filter or switching feeds.'
-                      : 'Refresh the library — new clips are coming in.'}
+                      ? 'Loosen your filters or try another category.'
+                      : 'Try refreshing \u2014 new clips drop every few minutes.'}
                 </p>
                 <div className="flex flex-wrap items-center justify-center gap-2">
                   {hasFilters && (

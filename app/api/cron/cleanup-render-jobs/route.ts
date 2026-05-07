@@ -3,6 +3,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { timingSafeCompare } from '@/lib/crypto'
 import { redis } from '@/lib/upstash'
 import { releaseJob, processNextInQueue } from '@/lib/render-queue'
+import { logger } from '@/lib/logger'
 
 /**
  * POST /api/cron/cleanup-render-jobs
@@ -105,12 +106,12 @@ export async function POST(req: NextRequest) {
         p_count: count,
       })
       if (!refundError) refunded += count
-      else console.warn(`[cleanup-render-jobs] Failed to refund ${count} for user ${userId}:`, refundError)
+      else logger.warn(`[cleanup-render-jobs] Failed to refund ${count} for user ${userId}:`, refundError)
     }
 
     // Free orphaned render queue slots in Redis + clean heartbeat keys
     for (const z of zombies) {
-      console.log('[cleanup] Freed orphaned slot for job:', z.id)
+      logger.info('[cleanup] Freed orphaned slot for job:', z.id)
       await releaseJob(z.id)
       redis.del(`render:heartbeat:${z.id}`).catch(() => {})
     }
@@ -132,7 +133,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    console.log(`[cleanup-render-jobs] Cleaned ${zombies.length} zombie jobs, refunded ${refunded} credits`)
+    logger.info(`[cleanup-render-jobs] Cleaned ${zombies.length} zombie jobs, refunded ${refunded} credits`)
 
     return NextResponse.json({
       data: { cleaned: zombies.length, refunded },
@@ -141,7 +142,7 @@ export async function POST(req: NextRequest) {
     })
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Internal error'
-    console.error('[cleanup-render-jobs] Error:', message)
+    logger.error('[cleanup-render-jobs] Error:', message)
     return NextResponse.json({ data: null, error: message }, { status: 500 })
   }
 }

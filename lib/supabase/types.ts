@@ -325,6 +325,59 @@ export type Database = {
         }
         Relationships: []
       }
+      ai_calls: {
+        Row: {
+          cost_usd: number | null
+          created_at: string
+          error: string | null
+          feature: string
+          id: number
+          latency_ms: number | null
+          metadata: Json | null
+          model: string
+          success: boolean | null
+          tokens_input: number | null
+          tokens_output: number | null
+          user_id: string | null
+        }
+        Insert: {
+          cost_usd?: number | null
+          created_at?: string
+          error?: string | null
+          feature: string
+          id?: number
+          latency_ms?: number | null
+          metadata?: Json | null
+          model: string
+          success?: boolean | null
+          tokens_input?: number | null
+          tokens_output?: number | null
+          user_id?: string | null
+        }
+        Update: {
+          cost_usd?: number | null
+          created_at?: string
+          error?: string | null
+          feature?: string
+          id?: number
+          latency_ms?: number | null
+          metadata?: Json | null
+          model?: string
+          success?: boolean | null
+          tokens_input?: number | null
+          tokens_output?: number | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_calls_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       analytics_events: {
         Row: {
           created_at: string
@@ -542,6 +595,47 @@ export type Database = {
           },
         ]
       }
+      distribution_captions: {
+        Row: {
+          clip_id: string
+          created_at: string | null
+          id: string
+          model: string
+          platforms: string[]
+          tokens_used: number | null
+          user_id: string
+          variants: Json
+        }
+        Insert: {
+          clip_id: string
+          created_at?: string | null
+          id?: string
+          model?: string
+          platforms: string[]
+          tokens_used?: number | null
+          user_id: string
+          variants: Json
+        }
+        Update: {
+          clip_id?: string
+          created_at?: string | null
+          id?: string
+          model?: string
+          platforms?: string[]
+          tokens_used?: number | null
+          user_id?: string
+          variants?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "distribution_captions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       distribution_settings: {
         Row: {
           ai_optimized: boolean | null
@@ -643,6 +737,7 @@ export type Database = {
           referred_by: string | null
           stripe_customer_id: string | null
           updated_at: string | null
+          usage_reset_month: number | null
         }
         Insert: {
           avatar_url?: string | null
@@ -658,6 +753,7 @@ export type Database = {
           referred_by?: string | null
           stripe_customer_id?: string | null
           updated_at?: string | null
+          usage_reset_month?: number | null
         }
         Update: {
           avatar_url?: string | null
@@ -673,6 +769,7 @@ export type Database = {
           referred_by?: string | null
           stripe_customer_id?: string | null
           updated_at?: string | null
+          usage_reset_month?: number | null
         }
         Relationships: [
           {
@@ -847,6 +944,136 @@ export type Database = {
             columns: ["social_account_id"]
             isOneToOne: false
             referencedRelation: "social_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      published_posts: {
+        Row: {
+          account_handle: string | null
+          account_id: string | null
+          algo_score_at_pick: number | null
+          blowup_chance_at_render: number | null
+          caption_style: string | null
+          caption_tone: string | null
+          clip_id: string
+          clip_mood: string | null
+          comments: number | null
+          created_at: string
+          duration_seconds: number | null
+          hook_enabled: boolean | null
+          hook_style: string | null
+          id: string
+          likes: number | null
+          niche: string | null
+          platform: string
+          platform_post_id: string | null
+          posted_hour_local: number | null
+          posted_weekday: number | null
+          published_at: string
+          render_job_id: string | null
+          retention_rate: number | null
+          saves: number | null
+          shares: number | null
+          smart_zoom_mode: string | null
+          source_platform: string | null
+          source_streamer: string | null
+          split_screen_enabled: boolean | null
+          updated_at: string
+          user_id: string
+          views: number | null
+          watch_time_avg: number | null
+        }
+        Insert: {
+          account_handle?: string | null
+          account_id?: string | null
+          algo_score_at_pick?: number | null
+          blowup_chance_at_render?: number | null
+          caption_style?: string | null
+          caption_tone?: string | null
+          clip_id: string
+          clip_mood?: string | null
+          comments?: number | null
+          created_at?: string
+          duration_seconds?: number | null
+          hook_enabled?: boolean | null
+          hook_style?: string | null
+          id?: string
+          likes?: number | null
+          niche?: string | null
+          platform: string
+          platform_post_id?: string | null
+          posted_hour_local?: number | null
+          posted_weekday?: number | null
+          published_at?: string
+          render_job_id?: string | null
+          retention_rate?: number | null
+          saves?: number | null
+          shares?: number | null
+          smart_zoom_mode?: string | null
+          source_platform?: string | null
+          source_streamer?: string | null
+          split_screen_enabled?: boolean | null
+          updated_at?: string
+          user_id: string
+          views?: number | null
+          watch_time_avg?: number | null
+        }
+        Update: {
+          account_handle?: string | null
+          account_id?: string | null
+          algo_score_at_pick?: number | null
+          blowup_chance_at_render?: number | null
+          caption_style?: string | null
+          caption_tone?: string | null
+          clip_id?: string
+          clip_mood?: string | null
+          comments?: number | null
+          created_at?: string
+          duration_seconds?: number | null
+          hook_enabled?: boolean | null
+          hook_style?: string | null
+          id?: string
+          likes?: number | null
+          niche?: string | null
+          platform?: string
+          platform_post_id?: string | null
+          posted_hour_local?: number | null
+          posted_weekday?: number | null
+          published_at?: string
+          render_job_id?: string | null
+          retention_rate?: number | null
+          saves?: number | null
+          shares?: number | null
+          smart_zoom_mode?: string | null
+          source_platform?: string | null
+          source_streamer?: string | null
+          split_screen_enabled?: boolean | null
+          updated_at?: string
+          user_id?: string
+          views?: number | null
+          watch_time_avg?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "published_posts_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "social_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "published_posts_render_job_id_fkey"
+            columns: ["render_job_id"]
+            isOneToOne: false
+            referencedRelation: "render_jobs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "published_posts_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]

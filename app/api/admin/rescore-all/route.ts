@@ -2,6 +2,7 @@ import { withAdmin } from '@/lib/api/withAdmin'
 import { jsonResponse, errorResponse } from '@/lib/api/withAuth'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { scoreClip } from '@/lib/scoring/clip-scorer'
+import { logger } from '@/lib/logger'
 
 /**
  * POST /api/admin/rescore-all
@@ -139,7 +140,7 @@ export const POST = withAdmin(async () => {
 
       rescored++
     } catch (err) {
-      console.error(`[rescore-all] clip ${clip.id}: ${err instanceof Error ? err.message : String(err)}`)
+      logger.error(`[rescore-all] clip ${clip.id}: ${err instanceof Error ? err.message : String(err)}`)
     }
   }
 

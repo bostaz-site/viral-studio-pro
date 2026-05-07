@@ -2,6 +2,53 @@
    Rank Cards V2 — 4 visual tiers: Neutral, Epic, Legendary, Master
    ═══════════════════════════════════════════════════════════════════════ */
 
+/* ─────────────────────────────────────────────────────────────────────
+   "6-7" easter egg — score === 67 gets rainbow holographic styling.
+   Marketing hook: meme reference for ad video, sparks "what was that?"
+   reaction. Only triggers on Browse page (trending-card), not Distribution.
+   ───────────────────────────────────────────────────────────────────── */
+.score-six-seven {
+  background-image: linear-gradient(
+    90deg,
+    #ef4444 0%,    /* red */
+    #f97316 14%,   /* orange */
+    #facc15 28%,   /* yellow */
+    #22c55e 42%,   /* green */
+    #06b6d4 56%,   /* cyan */
+    #6366f1 70%,   /* indigo */
+    #d946ef 84%,   /* magenta */
+    #ef4444 100%   /* red (loop) */
+  );
+  background-size: 300% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent !important;
+  filter: drop-shadow(0 0 6px rgba(216, 180, 254, 0.45)) drop-shadow(0 0 3px rgba(56, 189, 248, 0.35));
+  animation: score-67-flow 3s linear infinite;
+  font-weight: 900;
+}
+@keyframes score-67-flow {
+  0% { background-position: 0% 50%; }
+  100% { background-position: 300% 50%; }
+}
+/* Subtle scale pulse to grab attention without being aggressive */
+.score-six-seven {
+  animation: score-67-flow 3s linear infinite, score-67-pulse 2.4s ease-in-out infinite;
+}
+@keyframes score-67-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.06); }
+}
+/* Respect reduced motion preference */
+@media (prefers-reduced-motion: reduce) {
+  .score-six-seven {
+    animation: none;
+    background-position: 50% 50%;
+  }
+}
+
+
 /* ── Custom property for Master conic rotation ── */
 @property --rot {
   syntax: '<angle>';
@@ -43,17 +90,17 @@
 .r-neutral:hover .cta-viral { opacity: 1; background: #1B2132; color: #E4E4E7; border-color: #2E3650; }
 
 /* ══════════════════════════════════════════════════════════════════
-   EPIC — score 65-79, violet theme
+   EPIC — score 65-79, cyan theme (aligned with Distribution)
    ══════════════════════════════════════════════════════════════════ */
-.r-epic { border: 1px solid rgba(139,92,246,.18) !important; transition: all .3s ease; }
-.r-epic:hover { transform: translateY(-2px); border-color: rgba(139,92,246,.4) !important; }
-.r-epic .rank-score { color: #A78BFA; font-size: 48px; font-weight: 700; text-shadow: 0 2px 8px rgba(0,0,0,.6); }
+.r-epic { border: 1px solid rgba(56,189,248,.22) !important; transition: all .3s ease; }
+.r-epic:hover { transform: translateY(-2px); border-color: rgba(56,189,248,.5) !important; box-shadow: 0 0 18px rgba(56,189,248,.12); }
+.r-epic .rank-score { color: #7DD3FC; font-size: 48px; font-weight: 700; text-shadow: 0 2px 8px rgba(0,0,0,.6); }
 
 /* Epic corner brackets */
 .r-epic .rank-frame .corner {
   width: 16px; height: 16px;
-  border-top: 1.5px solid #A78BFA; border-left: 1.5px solid #A78BFA;
-  opacity: .8;
+  border-top: 1.5px solid #7DD3FC; border-left: 1.5px solid #7DD3FC;
+  opacity: .85;
 }
 .r-epic .rank-frame .corner.tl { top: 4px; left: 4px; }
 .r-epic .rank-frame .corner.tr { top: 4px; right: 4px; transform: scaleX(-1); }
@@ -69,23 +116,23 @@
 .epic-score-num {
   font-family: var(--font-score), 'Archivo Black', 'Arial Black', sans-serif;
   font-size: 38px; font-weight: 900; line-height: .9; letter-spacing: -.03em;
-  color: #A78BFA;
-  text-shadow: 0 0 12px rgba(139,92,246,.4);
+  color: #7DD3FC;
+  text-shadow: 0 0 12px rgba(56,189,248,.45);
 }
 
 /* Epic divider */
 .epic-divider {
   height: 1px; margin: 8px 0;
-  background: linear-gradient(90deg, transparent 0%, rgba(139,92,246,.15) 20%, rgba(167,139,250,.3) 50%, rgba(139,92,246,.15) 80%, transparent 100%);
+  background: linear-gradient(90deg, transparent 0%, rgba(56,189,248,.18) 20%, rgba(125,211,252,.35) 50%, rgba(56,189,248,.18) 80%, transparent 100%);
 }
 
 .r-epic .cta-viral {
-  background: linear-gradient(180deg, #7C3AED 0%, #6D28D9 100%);
-  border: 1px solid rgba(167,139,250,.5); color: #F5F3FF;
-  box-shadow: 0 2px 0 rgba(76,29,149,.4), inset 0 1px 0 rgba(196,181,253,.4);
-  opacity: .7; transition: all .2s;
+  background: linear-gradient(180deg, #0EA5E9 0%, #0284C7 100%);
+  border: 1px solid rgba(125,211,252,.55); color: #F0F9FF;
+  box-shadow: 0 2px 0 rgba(7,89,133,.4), inset 0 1px 0 rgba(186,230,253,.4);
+  opacity: .75; transition: all .2s;
 }
-.r-epic:hover .cta-viral { opacity: 1; background: linear-gradient(180deg, #8B5CF6 0%, #7C3AED 100%); }
+.r-epic:hover .cta-viral { opacity: 1; background: linear-gradient(180deg, #38BDF8 0%, #0EA5E9 100%); }
 
 /* ══════════════════════════════════════════════════════════════════
    LEGENDARY — score 80-94, ornate gold frame

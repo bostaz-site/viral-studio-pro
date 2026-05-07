@@ -1,4 +1,5 @@
 import express from 'express';
+import crypto from 'crypto';
 import { promises as fs } from 'fs';
 import path from 'path';
 import { v4 as uuidv4 } from 'uuid';
@@ -43,6 +44,45 @@ async function updateRenderJob(jobId, updates) {
       .eq('id', jobId);
   } catch (err) {
     console.warn(`[RenderJob] Failed to update job ${jobId}:`, err.message);
+  }
+}
+
+/**
+ * Send HMAC-signed webhook callback to Next.js after render completion.
+ * Requires WEBHOOK_SECRET and APP_URL env vars.
+ */
+async function sendWebhookCallback(jobId, status, storagePath, errorMessage) {
+  const webhookSecret = process.env.WEBHOOK_SECRET;
+  const appUrl = process.env.APP_URL || 'https://viralanimal.com';
+
+  if (!webhookSecret) {
+    console.warn('[Webhook] WEBHOOK_SECRET not set, skipping callback');
+    return;
+  }
+
+  const payload = {
+    jobId,
+    status,
+    storagePath: storagePath || null,
+    errorMessage: errorMessage || null,
+    timestamp: Date.now(),
+  };
+
+  const bodyString = JSON.stringify(payload);
+  const signature = 'sha256=' + crypto.createHmac('sha256', webhookSecret).update(bodyString).digest('hex');
+
+  try {
+    const res = await fetch(`${appUrl}/api/render/hook`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Webhook-Signature': signature,
+      },
+      body: bodyString,
+    });
+    console.log(`[Webhook] Callback sent for job ${jobId}: ${res.status}`);
+  } catch (err) {
+    console.error(`[Webhook] Failed to send callback for job ${jobId}:`, err.message);
   }
 }
 
@@ -965,6 +1005,9 @@ router.post('/', async (req, res) => {
       debug_log: trace.join('\n'),
     });
 
+    // Send HMAC-signed webhook callback to Next.js (queue management + export tracking)
+    sendWebhookCallback(req.body.jobId, 'done', clipStoragePath, null).catch(() => {});
+
     res.json({
       success: true,
       data: {
@@ -993,6 +1036,9 @@ router.post('/', async (req, res) => {
     } catch (jobErr) {
       console.error(`[Render ${renderSessionId}] Failed to update render job:`, jobErr?.message);
     }
+
+    // Send HMAC-signed webhook callback to Next.js (queue management + retry logic)
+    sendWebhookCallback(req.body?.jobId, 'error', null, errorMsg.substring(0, 2000)).catch(() => {});
 
     // Mark clip as error (only for user clips)
     if (clipId && req.body?.source !== 'trending') {

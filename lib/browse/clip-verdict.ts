@@ -39,15 +39,15 @@ export function getClipVerdict(clip: TrendingClip): { text: string; reason: stri
     return { text: 'Early signal detected', reason: 'Gaining traction fast' }
 
   if (vs >= 60)
-    return { text: 'Solid performer', reason: 'Consistent metrics across the board' }
+    return { text: 'Consistent banger', reason: 'Solid metrics across the board' }
 
   if (vs >= 40)
-    return { text: 'Moderate potential', reason: 'Needs a strong hook to stand out' }
+    return { text: 'Could pop with the right hook', reason: 'Needs a strong intro to stand out' }
 
   if (rec <= 20 && vs >= 30)
     return { text: 'Late but still climbing', reason: 'Older clip still gaining views' }
 
-  return { text: 'Worth a shot', reason: 'Test with your audience' }
+  return { text: 'Wild card', reason: 'Test it with your audience' }
 }
 
 // ── 2. Dynamic CTA ──
@@ -57,10 +57,10 @@ export type CTAIcon = 'Flame' | 'Sparkles' | 'SlidersHorizontal' | 'Zap'
 export function getDynamicCTA(clip: TrendingClip): { label: string; icon: CTAIcon } {
   const vs = clip.velocity_score ?? 0
 
-  if (vs >= 80) return { label: 'Capture this trend', icon: 'Flame' }
-  if (vs >= 65) return { label: 'Boost & post', icon: 'Sparkles' }
-  if (vs >= 45) return { label: 'Optimize first', icon: 'SlidersHorizontal' }
-  return { label: 'Risky play', icon: 'Zap' }
+  if (vs >= 80) return { label: 'Steal this clip', icon: 'Flame' }
+  if (vs >= 65) return { label: 'Remix & post', icon: 'Sparkles' }
+  if (vs >= 45) return { label: 'Needs a hook', icon: 'SlidersHorizontal' }
+  return { label: 'Test it', icon: 'Zap' }
 }
 
 // ── 3. Verdict color ──

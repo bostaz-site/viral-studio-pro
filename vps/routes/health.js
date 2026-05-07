@@ -1,4 +1,5 @@
 import express from 'express';
+import { logger } from '../lib/logger.js';
 import { promises as fs } from 'fs';
 import { checkFfmpegAvailability } from '../lib/ffmpeg-render.js';
 import { checkYtdlpAvailability } from '../lib/yt-dlp-wrapper.js';
@@ -68,7 +69,7 @@ router.get('/', async (req, res) => {
       },
     });
   } catch (err) {
-    console.error('[Health Check Error]', err.message);
+    logger.error({ err }, 'health check failed');
 
     res.status(503).json({
       status: 'error',

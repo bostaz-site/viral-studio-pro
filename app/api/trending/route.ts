@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { timingSafeCompare } from '@/lib/crypto'
 import { rateLimit, RATE_LIMITS } from '@/lib/rate-limit'
+import { logger } from '@/lib/logger'
 
 const postSchema = z.object({
   external_url: z.string().url(),
@@ -201,7 +202,7 @@ export async function GET(req: NextRequest) {
     const { data, error, count } = await query
 
     if (error) {
-      console.error('[Trending API] Supabase error:', error)
+      logger.error('[Trending API] Supabase error:', error)
       return NextResponse.json({ data: null, error: 'Fetch failed', message: error.message ?? 'Failed to fetch clips' }, { status: 500 })
     }
 
@@ -226,7 +227,7 @@ export async function GET(req: NextRequest) {
       meta: { total: count ?? 0, limit, next_cursor: nextCursor },
     })
   } catch (err) {
-    console.error('[Trending API] Unexpected error:', err)
+    logger.error('[Trending API] Unexpected error:', err)
     return NextResponse.json(
       { data: null, error: 'Internal server error', message: err instanceof Error ? err.message : 'Unexpected error' },
       { status: 500 }

@@ -63,6 +63,28 @@ export const JUSTIFICATIONS: Record<ClipMood, {
   },
 }
 
+// ── Dynamic justifications (AI override or static fallback) ──────────────
+
+export interface AIJustificationReasons {
+  caption?: string
+  emphasis?: string
+  hook?: string
+}
+
+export function getJustifications(
+  mood: ClipMood,
+  aiReasons?: AIJustificationReasons,
+): { captionStyle: string; emphasisEffect: string; emphasisColor: string; hook: string; zoom: string } {
+  const base = JUSTIFICATIONS[mood]
+  return {
+    captionStyle: aiReasons?.caption ?? base.captionStyle,
+    emphasisEffect: aiReasons?.emphasis ?? base.emphasisEffect,
+    emphasisColor: aiReasons?.emphasis ?? base.emphasisColor,
+    hook: aiReasons?.hook ?? base.hook,
+    zoom: base.zoom,
+  }
+}
+
 // ── Emphasis Color Display Names ───────────────────────────────────────────
 
 export const COLOR_DISPLAY_NAMES: Record<string, string> = {
@@ -116,6 +138,10 @@ export interface AnalysisDynamicData {
   highEnergySegments: number
 }
 
+/**
+ * @deprecated Used as fallback only. Real data should come from hookAnalysis (peakScore, peakTime, audioPeaksCount).
+ * Keep for backwards compat but do not extend.
+ */
 export function generateDynamicData(
   clipId: string,
   durationSeconds: number | null | undefined

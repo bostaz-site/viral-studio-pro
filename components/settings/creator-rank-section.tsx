@@ -34,42 +34,38 @@ function ScoreBar({ label, score, color, glowColor, icon: Icon }: {
 }
 
 const RANK_MESSAGES: Record<CreatorRank, string> = {
-  newcomer: "Everyone starts here. Sync your channel and start climbing.",
-  creator: "You're building momentum. Your breakout is coming.",
-  trending_creator: "The algorithm is noticing you. Keep pushing.",
-  viral_creator: "You cracked the code. Your content consistently outperforms.",
-  elite_creator: "Top 5% of creators. You set trends, not follow them.",
-  legendary: "The algorithm's favorite. Everything you post has viral DNA.",
+  scout: "Everyone starts here. Sync your channel and start climbing.",
+  hunter: "You're building momentum. Your breakout is coming.",
+  alpha: "The algorithm is noticing you. Keep pushing.",
+  apex: "You cracked the code. Your content consistently outperforms.",
+  legend: "The algorithm's favorite. Everything you post has viral DNA.",
   hidden_gem: "Your content is INSANE for your audience size. You're about to explode.",
 }
 
 const RANK_GRADIENTS: Record<CreatorRank, string> = {
-  newcomer: 'from-zinc-600 to-zinc-500',
-  creator: 'from-amber-700 to-amber-600',
-  trending_creator: 'from-slate-400 to-slate-300',
-  viral_creator: 'from-yellow-500 to-amber-400',
-  elite_creator: 'from-cyan-400 to-blue-500',
-  legendary: 'from-orange-500 via-red-500 to-pink-500',
+  scout: 'from-zinc-600 to-zinc-500',
+  hunter: 'from-amber-700 to-amber-600',
+  alpha: 'from-cyan-400 to-blue-500',
+  apex: 'from-yellow-500 to-amber-400',
+  legend: 'from-orange-500 via-red-500 to-pink-500',
   hidden_gem: 'from-orange-500 to-red-500',
 }
 
 const RANK_BORDER: Record<CreatorRank, string> = {
-  newcomer: 'border-zinc-700/50',
-  creator: 'border-amber-700/40',
-  trending_creator: 'border-slate-400/30',
-  viral_creator: 'border-yellow-500/40',
-  elite_creator: 'border-cyan-400/40',
-  legendary: 'border-orange-500/50',
+  scout: 'border-zinc-700/50',
+  hunter: 'border-amber-700/40',
+  alpha: 'border-cyan-400/40',
+  apex: 'border-yellow-500/40',
+  legend: 'border-orange-500/50',
   hidden_gem: 'border-orange-500/40',
 }
 
 const RANK_GLOW: Record<CreatorRank, string> = {
-  newcomer: '',
-  creator: '',
-  trending_creator: '',
-  viral_creator: 'shadow-[0_0_30px_rgba(234,179,8,0.15)]',
-  elite_creator: 'shadow-[0_0_40px_rgba(34,211,238,0.2)]',
-  legendary: 'shadow-[0_0_50px_rgba(249,115,22,0.25)]',
+  scout: '',
+  hunter: '',
+  alpha: 'shadow-[0_0_40px_rgba(34,211,238,0.2)]',
+  apex: 'shadow-[0_0_30px_rgba(234,179,8,0.15)]',
+  legend: 'shadow-[0_0_50px_rgba(249,115,22,0.25)]',
   hidden_gem: 'shadow-[0_0_40px_rgba(249,115,22,0.2)]',
 }
 
@@ -106,7 +102,7 @@ function ScoreRing({ value, rank }: { value: number; rank: CreatorRank }) {
   return (
     <div className="relative w-36 h-36 mx-auto">
       {/* Glow behind */}
-      {['legendary', 'elite_creator', 'hidden_gem', 'viral_creator'].includes(rank) && (
+      {['legend', 'apex', 'hidden_gem', 'apex'].includes(rank) && (
         <div className={cn(
           'absolute inset-0 rounded-full blur-xl opacity-30 bg-gradient-to-br',
           gradient,
@@ -126,13 +122,12 @@ function ScoreRing({ value, rank }: { value: number; rank: CreatorRank }) {
         />
         <defs>
           <linearGradient id="rankGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-            {rank === 'legendary' && <><stop offset="0%" stopColor="#f97316" /><stop offset="50%" stopColor="#ef4444" /><stop offset="100%" stopColor="#ec4899" /></>}
-            {rank === 'elite_creator' && <><stop offset="0%" stopColor="#22d3ee" /><stop offset="100%" stopColor="#3b82f6" /></>}
+            {rank === 'legend' && <><stop offset="0%" stopColor="#f97316" /><stop offset="50%" stopColor="#ef4444" /><stop offset="100%" stopColor="#ec4899" /></>}
+            {rank === 'apex' && <><stop offset="0%" stopColor="#eab308" /><stop offset="100%" stopColor="#f59e0b" /></>}
             {rank === 'hidden_gem' && <><stop offset="0%" stopColor="#f97316" /><stop offset="100%" stopColor="#ef4444" /></>}
-            {rank === 'viral_creator' && <><stop offset="0%" stopColor="#eab308" /><stop offset="100%" stopColor="#f59e0b" /></>}
-            {rank === 'trending_creator' && <><stop offset="0%" stopColor="#94a3b8" /><stop offset="100%" stopColor="#cbd5e1" /></>}
-            {rank === 'creator' && <><stop offset="0%" stopColor="#b45309" /><stop offset="100%" stopColor="#d97706" /></>}
-            {rank === 'newcomer' && <><stop offset="0%" stopColor="#71717a" /><stop offset="100%" stopColor="#a1a1aa" /></>}
+            {rank === 'alpha' && <><stop offset="0%" stopColor="#94a3b8" /><stop offset="100%" stopColor="#cbd5e1" /></>}
+            {rank === 'hunter' && <><stop offset="0%" stopColor="#b45309" /><stop offset="100%" stopColor="#d97706" /></>}
+            {rank === 'scout' && <><stop offset="0%" stopColor="#71717a" /><stop offset="100%" stopColor="#a1a1aa" /></>}
           </linearGradient>
         </defs>
       </svg>
@@ -168,7 +163,7 @@ export function CreatorRankSection() {
     )
   }
 
-  const rank = score?.creator_rank ?? 'newcomer'
+  const rank = score?.creator_rank ?? 'scout'
   const rankCfg = CREATOR_RANK_CONFIG[rank]
   const hasScore = score != null
 
@@ -194,7 +189,7 @@ export function CreatorRankSection() {
 
           {/* Rank preview */}
           <div className="flex items-center justify-center gap-3 py-2">
-            {(['newcomer', 'creator', 'trending_creator', 'viral_creator', 'elite_creator', 'legendary'] as CreatorRank[]).map((r) => (
+            {(['scout', 'hunter', 'alpha', 'apex', 'legend'] as CreatorRank[]).map((r) => (
               <div key={r} className="flex flex-col items-center gap-1 opacity-40 hover:opacity-80 transition-opacity">
                 <span className="text-lg">{CREATOR_RANK_CONFIG[r].emoji}</span>
                 <span className="text-[9px] text-zinc-500 font-medium">{CREATOR_RANK_CONFIG[r].label.split(' ')[0]}</span>
@@ -251,10 +246,10 @@ export function CreatorRankSection() {
       'bg-gradient-to-br from-card via-card to-card',
     )}>
       {/* Animated background for top ranks */}
-      {rank === 'legendary' && (
+      {rank === 'legend' && (
         <div className="absolute inset-0 bg-gradient-to-br from-orange-500/5 via-transparent to-pink-500/5 animate-pulse" style={{ animationDuration: '4s' }} />
       )}
-      {rank === 'elite_creator' && (
+      {rank === 'apex' && (
         <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/5 via-transparent to-blue-500/5" />
       )}
       {rank === 'hidden_gem' && (
@@ -290,13 +285,12 @@ export function CreatorRankSection() {
           <div className="text-center">
             <p className={cn(
               'text-lg font-black tracking-wide',
-              rank === 'legendary' && 'bg-gradient-to-r from-orange-400 via-red-400 to-pink-400 bg-clip-text text-transparent',
-              rank === 'elite_creator' && 'bg-gradient-to-r from-cyan-400 to-blue-400 bg-clip-text text-transparent',
+              rank === 'legend' && 'bg-gradient-to-r from-orange-400 via-red-400 to-pink-400 bg-clip-text text-transparent',
+              rank === 'apex' && 'text-yellow-400',
               rank === 'hidden_gem' && 'bg-gradient-to-r from-orange-400 to-red-400 bg-clip-text text-transparent',
-              rank === 'viral_creator' && 'text-yellow-400',
-              rank === 'trending_creator' && 'text-slate-300',
-              rank === 'creator' && 'text-amber-600',
-              rank === 'newcomer' && 'text-zinc-400',
+              rank === 'alpha' && 'text-slate-300',
+              rank === 'hunter' && 'text-amber-600',
+              rank === 'scout' && 'text-zinc-400',
             )}>
               {rankCfg.label}
             </p>
@@ -310,8 +304,8 @@ export function CreatorRankSection() {
         <div className={cn(
           'mx-auto max-w-sm text-center px-4 py-2.5 rounded-xl text-sm',
           rank === 'hidden_gem' ? 'bg-orange-500/10 border border-orange-500/20 text-orange-300 font-semibold' :
-          rank === 'legendary' ? 'bg-orange-500/10 border border-orange-500/20 text-orange-300' :
-          rank === 'elite_creator' ? 'bg-cyan-500/10 border border-cyan-500/20 text-cyan-300' :
+          rank === 'legend' ? 'bg-orange-500/10 border border-orange-500/20 text-orange-300' :
+          rank === 'apex' ? 'bg-cyan-500/10 border border-cyan-500/20 text-cyan-300' :
           'bg-white/5 text-zinc-400',
         )}>
           {rank === 'hidden_gem' && <Flame className="h-4 w-4 inline mr-1.5 text-orange-400" />}

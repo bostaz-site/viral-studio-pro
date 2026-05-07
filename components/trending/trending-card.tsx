@@ -1,9 +1,9 @@
-/* eslint-disable @next/next/no-img-element */
 "use client"
 
 import { useState, useRef, useCallback, useEffect, memo } from 'react'
+import Image from 'next/image'
 import { motion } from 'framer-motion'
-import { ExternalLink, Sparkles, Flame, Bookmark, Play, SlidersHorizontal, Loader2, Zap } from 'lucide-react'
+import { ExternalLink, Sparkles, Flame, Bookmark, SlidersHorizontal, Loader2, Zap } from 'lucide-react'
 import { getRankTierClass, MasterCorner, MasterCrown, SkullIcon } from '@/components/trending/rank-badge'
 import { getClipVerdict, getDynamicCTA, getVerdictColor, type CTAIcon } from '@/lib/browse/clip-verdict'
 import { useTilt } from '@/lib/hooks/use-tilt'
@@ -55,6 +55,16 @@ function formatDuration(seconds: number | null): string {
   const m = Math.floor(seconds / 60)
   const s = Math.round(seconds % 60)
   return `${m}:${s.toString().padStart(2, '0')}`
+}
+
+// ── CTA icon by dynamic type ──
+function CTAIconComponent({ icon }: { icon: CTAIcon }) {
+  switch (icon) {
+    case 'Flame': return <Flame className="h-3.5 w-3.5" />
+    case 'Sparkles': return <Sparkles className="h-3.5 w-3.5" />
+    case 'SlidersHorizontal': return <SlidersHorizontal className="h-3.5 w-3.5" />
+    case 'Zap': return <Zap className="h-3.5 w-3.5" />
+  }
 }
 
 // ── Decorative frame overlays ──
@@ -157,6 +167,7 @@ export const TrendingCard = memo(function TrendingCard({ clip, onRemix, onQuickE
   const getClipSlug = useCallback((): string | null => {
     try {
       const u = new URL(clip.external_url)
+      // Twitch
       if (u.hostname === 'clips.twitch.tv') {
         const slug = u.pathname.replace('/', '')
         return slug && !slug.includes('/') ? slug : null
@@ -165,18 +176,29 @@ export const TrendingCard = memo(function TrendingCard({ clip, onRemix, onQuickE
         const m = u.pathname.match(/^\/[^/]+\/clip\/([^/]+)$/)
         return m ? m[1] : null
       }
+      // Kick — patterns: /streamer/clips/clip_xxx OR /clip/clip_xxx
+      if (u.hostname === 'kick.com' || u.hostname === 'www.kick.com') {
+        // Try /streamer/clips/{slug}
+        const m1 = u.pathname.match(/^\/[^/]+\/clips?\/([^/?]+)$/)
+        if (m1) return m1[1]
+        // Try /clip/{slug}
+        const m2 = u.pathname.match(/^\/clips?\/([^/?]+)$/)
+        if (m2) return m2[1]
+      }
     } catch { /* invalid URL */ }
     return null
   }, [clip.external_url])
 
   const handleMouseEnter = useCallback(() => {
     setHovered(true)
-    if (!fetchedRef.current && clip.platform === 'twitch') {
+    const platform = clip.platform?.toLowerCase()
+    if (!fetchedRef.current && (platform === 'twitch' || platform === 'kick')) {
       fetchedRef.current = true
       const slug = getClipSlug()
       if (slug) {
         const currentClipId = clip.id
-        fetch(`/api/clips/video-url?slug=${encodeURIComponent(slug)}`)
+        const url = `/api/clips/video-url?slug=${encodeURIComponent(slug)}&platform=${platform}`
+        fetch(url)
           .then((r) => r.ok ? r.json() : null)
           .then((data) => {
             // Only set URL if this component still represents the same clip
@@ -193,6 +215,8 @@ export const TrendingCard = memo(function TrendingCard({ clip, onRemix, onQuickE
     setHovered(false)
     setShowVideo(false)
     setVideoPlaying(false)
+    setResolvedVideoUrl(null)
+    fetchedRef.current = false
     if (videoRef.current) {
       videoRef.current.pause()
       videoRef.current.currentTime = 0
@@ -202,23 +226,14 @@ export const TrendingCard = memo(function TrendingCard({ clip, onRemix, onQuickE
   useEffect(() => {
     if (!hovered || !videoUrl) return
     setShowVideo(true)
-    const t = setTimeout(() => {
-      if (videoRef.current) {
-        // Ensure the browser loads the correct source for this clip
-        if (videoRef.current.src !== videoUrl) {
-          videoRef.current.src = videoUrl
-          videoRef.current.load()
-        }
-        videoRef.current.play().catch(() => {})
-      }
-    }, 30)
-    return () => clearTimeout(t)
   }, [hovered, videoUrl])
 
   const rank = clipRank(clip)
   const insight = getClipInsight(clip)
   const tierClass = getRankTierClass(rank)
   const score = clip.velocity_score !== null ? Math.round(clip.velocity_score) : null
+  // 6-7 easter egg — score === 67 gets rainbow holographic styling (meme reference)
+  const isSixSeven = score === 67
   const isMaster = rank === 'master'
   const isLegendary = rank === 'legendary'
   const isEpic = rank === 'epic'
@@ -235,15 +250,6 @@ export const TrendingCard = memo(function TrendingCard({ clip, onRemix, onQuickE
   const verdict = getClipVerdict(clip)
   const dynamicCTA = getDynamicCTA(clip)
   const verdictColor = getVerdictColor(score ?? 0)
-
-  const CTAIconComponent = ({ icon }: { icon: CTAIcon }) => {
-    switch (icon) {
-      case 'Flame': return <Flame className="h-3.5 w-3.5" />
-      case 'Sparkles': return <Sparkles className="h-3.5 w-3.5" />
-      case 'SlidersHorizontal': return <SlidersHorizontal className="h-3.5 w-3.5" />
-      case 'Zap': return <Zap className="h-3.5 w-3.5" />
-    }
-  }
 
   // ── Legendary rendering path — ornate gold frame design ──
   if (isLegendary) {
@@ -296,15 +302,16 @@ export const TrendingCard = memo(function TrendingCard({ clip, onRemix, onQuickE
               <div className="leg-thumb">
                 {/* Video preview */}
                 {showVideo && videoUrl && (
-                  <video key={clip.id} ref={videoRef} src={videoUrl}
+                  <video key={`${clip.id}-${videoUrl}`} ref={videoRef} src={videoUrl}
                     className="absolute inset-0 w-full h-full object-cover z-[5]"
                     autoPlay muted playsInline loop disablePictureInPicture controlsList="nodownload nofullscreen noremoteplayback" onPlaying={() => setVideoPlaying(true)} />
                 )}
 
                 {/* Thumbnail image */}
                 {clip.thumbnail_url && !imgError && (
-                  <img src={clip.thumbnail_url} alt={clip.title ?? 'Clip'}
-                    className={cn('w-full h-full object-cover transition-all duration-500', hovered && 'scale-105 brightness-75')}
+                  <Image src={clip.thumbnail_url} alt={clip.title ?? 'Clip'} fill
+                    sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                    className={cn('object-cover transition-all duration-500', hovered && 'scale-105 brightness-75')}
                     onError={() => setImgError(true)} />
                 )}
                 {(!clip.thumbnail_url || imgError) && (
@@ -336,30 +343,6 @@ export const TrendingCard = memo(function TrendingCard({ clip, onRemix, onQuickE
                   </span>
                 )}
 
-                {/* Play button — hidden when hovering */}
-                {!showVideo && (
-                  <div className="play-btn">
-                    <Play className="h-5 w-5 text-white ml-0.5" fill="white" />
-                  </div>
-                )}
-
-                {/* Bookmark + external — hidden when hovering */}
-                {!showVideo && (
-                  <div className="absolute bottom-2 right-2 z-[6] flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                    {onToggleSave && (
-                      <button onClick={(e) => { e.stopPropagation(); onToggleSave(clip.id) }}
-                        className={cn('p-1.5 rounded-lg backdrop-blur-sm transition-colors', isSaved ? 'bg-primary/80 text-white' : 'bg-black/60 text-white/70 hover:text-white')}
-                        title={isSaved ? 'Unsave' : 'Save'}>
-                        <Bookmark className={cn('h-3.5 w-3.5', isSaved && 'fill-current')} />
-                      </button>
-                    )}
-                    <a href={clip.external_url} target="_blank" rel="noopener noreferrer"
-                      className="p-1.5 rounded-lg bg-black/60 backdrop-blur-sm text-white/70 hover:text-white transition-colors"
-                      onClick={(e) => e.stopPropagation()} title="View original">
-                      <ExternalLink className="h-3.5 w-3.5" />
-                    </a>
-                  </div>
-                )}
               </div>
             </div>
           </div>
@@ -388,16 +371,30 @@ export const TrendingCard = memo(function TrendingCard({ clip, onRemix, onQuickE
                   <svg viewBox="0 0 149 183" width="18" height="22" className="inline-block" style={{ color: '#D4A840', filter: 'drop-shadow(0 0 4px rgba(212, 168, 64, 0.5))' }}>
                     <path fill="currentColor" fillRule="evenodd" d="M 16.0 5.0 L 16.0 46.0 L 21.0 63.0 L 27.0 59.0 L 24.0 27.0 L 41.0 53.0 L 35.0 53.0 L 36.0 69.0 L 28.0 63.0 L 8.0 80.0 L 17.0 85.0 L 4.0 103.0 L 14.0 102.0 L 14.0 112.0 L 31.0 111.0 L 28.0 101.0 L 40.0 111.0 L 41.0 106.0 L 50.0 112.0 L 49.0 125.0 L 62.0 149.0 L 63.0 142.0 L 71.0 138.0 L 62.0 126.0 L 64.0 122.0 L 85.0 123.0 L 77.0 137.0 L 84.0 141.0 L 86.0 149.0 L 98.0 127.0 L 96.0 111.0 L 106.0 106.0 L 108.0 110.0 L 119.0 101.0 L 116.0 111.0 L 134.0 112.0 L 132.0 103.0 L 144.0 103.0 L 130.0 85.0 L 139.0 80.0 L 119.0 63.0 L 111.0 69.0 L 113.0 53.0 L 106.0 53.0 L 123.0 27.0 L 120.0 59.0 L 126.0 64.0 L 131.0 44.0 L 130.0 4.0 L 88.0 41.0 L 59.0 41.0 Z M 51.0 137.0 L 56.0 163.0 L 64.0 173.0 L 64.0 172.0 L 66.0 171.0 L 72.0 177.0 L 74.0 178.0 L 76.0 177.0 L 81.0 172.0 L 83.0 173.0 L 89.0 167.0 L 92.0 162.0 L 92.0 159.0 L 93.0 158.0 L 93.0 153.0 L 94.0 152.0 L 94.0 148.0 L 95.0 147.0 L 96.0 138.0 L 94.0 142.0 L 94.0 145.0 L 91.0 150.0 L 90.0 155.0 L 87.0 160.0 L 85.0 159.0 L 83.0 153.0 L 82.0 157.0 L 81.0 158.0 L 81.0 161.0 L 79.0 164.0 L 68.0 164.0 L 67.0 163.0 L 67.0 159.0 L 66.0 158.0 L 65.0 153.0 L 62.0 160.0 L 61.0 160.0 L 59.0 158.0 L 58.0 154.0 L 56.0 151.0 L 55.0 146.0 L 53.0 143.0 L 52.0 138.0 Z M 110.0 82.0 L 110.0 83.0 L 109.0 84.0 L 109.0 86.0 L 108.0 87.0 L 108.0 89.0 L 107.0 90.0 L 107.0 91.0 L 106.0 92.0 L 105.0 95.0 L 103.0 97.0 L 101.0 97.0 L 100.0 98.0 L 95.0 98.0 L 94.0 99.0 L 91.0 100.0 L 91.0 101.0 L 90.0 102.0 L 89.0 102.0 L 87.0 104.0 L 86.0 104.0 L 85.0 103.0 L 85.0 101.0 L 86.0 100.0 L 86.0 96.0 L 89.0 93.0 L 90.0 93.0 L 92.0 91.0 L 93.0 91.0 L 95.0 89.0 L 96.0 89.0 L 98.0 87.0 L 99.0 87.0 L 104.0 83.0 L 105.0 83.0 L 108.0 81.0 L 109.0 81.0 Z M 38.0 82.0 L 39.0 81.0 L 42.0 82.0 L 44.0 84.0 L 45.0 84.0 L 47.0 86.0 L 48.0 86.0 L 50.0 88.0 L 51.0 88.0 L 53.0 90.0 L 54.0 90.0 L 56.0 92.0 L 57.0 92.0 L 59.0 94.0 L 60.0 94.0 L 61.0 95.0 L 61.0 98.0 L 62.0 99.0 L 62.0 103.0 L 61.0 104.0 L 60.0 104.0 L 55.0 99.0 L 52.0 99.0 L 51.0 98.0 L 47.0 98.0 L 46.0 97.0 L 45.0 97.0 L 42.0 94.0 L 42.0 93.0 L 40.0 90.0 L 40.0 88.0 L 38.0 85.0 Z M 28.0 116.0 L 31.0 117.0 L 33.0 119.0 L 34.0 119.0 L 36.0 121.0 L 37.0 121.0 L 37.0 119.0 L 36.0 118.0 L 36.0 116.0 L 34.0 113.0 L 32.0 113.0 L 30.0 115.0 L 29.0 115.0 Z M 119.0 116.0 L 118.0 115.0 L 117.0 115.0 L 115.0 113.0 L 113.0 113.0 L 113.0 114.0 L 112.0 115.0 L 112.0 117.0 L 111.0 118.0 L 111.0 120.0 L 110.0 121.0 L 113.0 120.0 L 115.0 118.0 L 116.0 118.0 L 118.0 116.0 Z M 103.0 88.0 L 100.0 89.0 L 98.0 91.0 L 97.0 91.0 L 95.0 93.0 L 94.0 93.0 L 93.0 94.0 L 99.0 94.0 L 100.0 93.0 L 101.0 93.0 L 102.0 92.0 L 102.0 90.0 L 103.0 89.0 Z M 45.0 88.0 L 45.0 90.0 L 46.0 91.0 L 46.0 92.0 L 48.0 94.0 L 54.0 94.0 L 52.0 92.0 L 51.0 92.0 L 49.0 90.0 L 48.0 90.0 Z" />
                   </svg>
-                  <span className="leg-score-big">{score}</span>
+                  <span className={`leg-score-big${isSixSeven ? ' score-six-seven' : ''}`}>{score}</span>
                 </div>
               )}
             </div>
             <div className="leg-divider" />
-            <button className="leg-cta"
-              onClick={(e) => { e.stopPropagation(); onRemix?.(clip) }}
-              disabled={remixing}>
-              {remixing ? 'Creating...' : `${dynamicCTA.icon === 'Flame' ? '\uD83D\uDD25' : '\u2726'} ${dynamicCTA.label}`}
-            </button>
+            <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+              <button className="leg-cta" style={{ flex: 1 }}
+                onClick={(e) => { e.stopPropagation(); onRemix?.(clip) }}
+                disabled={remixing}>
+                {remixing ? 'Creating...' : `${dynamicCTA.icon === 'Flame' ? '\uD83D\uDD25' : '\u2726'} ${dynamicCTA.label}`}
+              </button>
+              {onToggleSave && (
+                <button
+                  onClick={(e) => { e.stopPropagation(); onToggleSave(clip.id) }}
+                  className={cn(
+                    'h-9 w-9 flex-shrink-0 rounded-lg flex items-center justify-center border transition-colors',
+                    isSaved ? 'bg-amber-500/20 border-amber-500/30 text-amber-400' : 'bg-zinc-900/60 border-zinc-700 text-zinc-500 hover:text-amber-400 hover:border-amber-500/30'
+                  )}
+                  title={isSaved ? 'Unsave' : 'Save'}
+                >
+                  <Bookmark className={cn('h-3.5 w-3.5', isSaved && 'fill-current')} />
+                </button>
+              )}
+            </div>
           </div>
         </div>
       </motion.article>
@@ -420,7 +417,7 @@ export const TrendingCard = memo(function TrendingCard({ clip, onRemix, onQuickE
         {/* Video preview on hover */}
         {showVideo && videoUrl && (
           <video
-            key={clip.id}
+            key={`${clip.id}-${videoUrl}`}
             ref={videoRef}
             src={videoUrl}
             className="absolute inset-0 w-full h-full object-cover z-[5]"
@@ -431,11 +428,13 @@ export const TrendingCard = memo(function TrendingCard({ clip, onRemix, onQuickE
 
         {/* Thumbnail image or avatar fallback */}
         {clip.thumbnail_url && !imgError ? (
-          <img
+          <Image
             src={clip.thumbnail_url}
             alt={clip.title ?? 'Clip de stream'}
+            fill
+            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
             className={cn(
-              'w-full h-full object-cover transition-all duration-500',
+              'object-cover transition-all duration-500',
               hovered ? 'scale-110 brightness-75' : ''
             )}
             onError={() => setImgError(true)}
@@ -481,11 +480,11 @@ export const TrendingCard = memo(function TrendingCard({ clip, onRemix, onQuickE
         {/* Master crown pediment */}
         {isMaster && <MasterCrown className="master-crown" />}
 
-        {/* Score — wolf icon + big number */}
-        {score !== null && (
-          <span className="rank-score">
-            <svg viewBox="0 0 149 183" width="16" height="20" className={cn('inline-block -mt-0.5 mr-0.5', wolfColorClass)} style={{ ...wolfColorStyle, ...(wolfGlow ? { filter: 'drop-shadow(0 0 4px rgba(250, 204, 21, 0.4))' } : {}) }}>
-              <path fill="currentColor" fillRule="evenodd" d="M 16.0 5.0 L 16.0 46.0 L 21.0 63.0 L 27.0 59.0 L 24.0 27.0 L 41.0 53.0 L 35.0 53.0 L 36.0 69.0 L 28.0 63.0 L 8.0 80.0 L 17.0 85.0 L 4.0 103.0 L 14.0 102.0 L 14.0 112.0 L 31.0 111.0 L 28.0 101.0 L 40.0 111.0 L 41.0 106.0 L 50.0 112.0 L 49.0 125.0 L 62.0 149.0 L 63.0 142.0 L 71.0 138.0 L 62.0 126.0 L 64.0 122.0 L 85.0 123.0 L 77.0 137.0 L 84.0 141.0 L 86.0 149.0 L 98.0 127.0 L 96.0 111.0 L 106.0 106.0 L 108.0 110.0 L 119.0 101.0 L 116.0 111.0 L 134.0 112.0 L 132.0 103.0 L 144.0 103.0 L 130.0 85.0 L 139.0 80.0 L 119.0 63.0 L 111.0 69.0 L 113.0 53.0 L 106.0 53.0 L 123.0 27.0 L 120.0 59.0 L 126.0 64.0 L 131.0 44.0 L 130.0 4.0 L 88.0 41.0 L 59.0 41.0 Z M 51.0 137.0 L 56.0 163.0 L 64.0 173.0 L 64.0 172.0 L 66.0 171.0 L 72.0 177.0 L 74.0 178.0 L 76.0 177.0 L 81.0 172.0 L 83.0 173.0 L 89.0 167.0 L 92.0 162.0 L 92.0 159.0 L 93.0 158.0 L 93.0 153.0 L 94.0 152.0 L 94.0 148.0 L 95.0 147.0 L 96.0 138.0 L 94.0 142.0 L 94.0 145.0 L 91.0 150.0 L 90.0 155.0 L 87.0 160.0 L 85.0 159.0 L 83.0 153.0 L 82.0 157.0 L 81.0 158.0 L 81.0 161.0 L 79.0 164.0 L 68.0 164.0 L 67.0 163.0 L 67.0 159.0 L 66.0 158.0 L 65.0 153.0 L 62.0 160.0 L 61.0 160.0 L 59.0 158.0 L 58.0 154.0 L 56.0 151.0 L 55.0 146.0 L 53.0 143.0 L 52.0 138.0 Z M 110.0 82.0 L 110.0 83.0 L 109.0 84.0 L 109.0 86.0 L 108.0 87.0 L 108.0 89.0 L 107.0 90.0 L 107.0 91.0 L 106.0 92.0 L 105.0 95.0 L 103.0 97.0 L 101.0 97.0 L 100.0 98.0 L 95.0 98.0 L 94.0 99.0 L 91.0 100.0 L 91.0 101.0 L 90.0 102.0 L 89.0 102.0 L 87.0 104.0 L 86.0 104.0 L 85.0 103.0 L 85.0 101.0 L 86.0 100.0 L 86.0 96.0 L 89.0 93.0 L 90.0 93.0 L 92.0 91.0 L 93.0 91.0 L 95.0 89.0 L 96.0 89.0 L 98.0 87.0 L 99.0 87.0 L 104.0 83.0 L 105.0 83.0 L 108.0 81.0 L 109.0 81.0 Z M 38.0 82.0 L 39.0 81.0 L 42.0 82.0 L 44.0 84.0 L 45.0 84.0 L 47.0 86.0 L 48.0 86.0 L 50.0 88.0 L 51.0 88.0 L 53.0 90.0 L 54.0 90.0 L 56.0 92.0 L 57.0 92.0 L 59.0 94.0 L 60.0 94.0 L 61.0 95.0 L 61.0 98.0 L 62.0 99.0 L 62.0 103.0 L 61.0 104.0 L 60.0 104.0 L 55.0 99.0 L 52.0 99.0 L 51.0 98.0 L 47.0 98.0 L 46.0 97.0 L 45.0 97.0 L 42.0 94.0 L 42.0 93.0 L 40.0 90.0 L 40.0 88.0 L 38.0 85.0 Z M 28.0 116.0 L 31.0 117.0 L 33.0 119.0 L 34.0 119.0 L 36.0 121.0 L 37.0 121.0 L 37.0 119.0 L 36.0 118.0 L 36.0 116.0 L 34.0 113.0 L 32.0 113.0 L 30.0 115.0 L 29.0 115.0 Z M 119.0 116.0 L 118.0 115.0 L 117.0 115.0 L 115.0 113.0 L 113.0 113.0 L 113.0 114.0 L 112.0 115.0 L 112.0 117.0 L 111.0 118.0 L 111.0 120.0 L 110.0 121.0 L 113.0 120.0 L 115.0 118.0 L 116.0 118.0 L 118.0 116.0 Z M 103.0 88.0 L 100.0 89.0 L 98.0 91.0 L 97.0 91.0 L 95.0 93.0 L 94.0 93.0 L 93.0 94.0 L 99.0 94.0 L 100.0 93.0 L 101.0 93.0 L 102.0 92.0 L 102.0 90.0 L 103.0 89.0 Z M 45.0 88.0 L 45.0 90.0 L 46.0 91.0 L 46.0 92.0 L 48.0 94.0 L 54.0 94.0 L 52.0 92.0 L 51.0 92.0 L 49.0 90.0 L 48.0 90.0 Z" />
+        {/* Score — wolf icon + big number — only for master tier on thumbnail */}
+        {score !== null && isMaster && (
+          <span className={`rank-score${isSixSeven ? ' score-six-seven' : ''}`}>
+            <svg viewBox="0 0 149 183" width="16" height="20" className="inline-block -mt-0.5 mr-0.5" style={{ color: '#FFE066', filter: 'drop-shadow(0 0 4px rgba(250, 204, 21, 0.4))' }}>
+              <path fill="currentColor" fillRule="evenodd" d="M 16.0 5.0 L 16.0 46.0 L 21.0 63.0 L 27.0 59.0 L 24.0 27.0 L 41.0 53.0 L 35.0 53.0 L 36.0 69.0 L 28.0 63.0 L 8.0 80.0 L 17.0 85.0 L 4.0 103.0 L 14.0 102.0 L 14.0 112.0 L 31.0 111.0 L 28.0 101.0 L 40.0 111.0 L 41.0 106.0 L 50.0 112.0 L 49.0 125.0 L 62.0 149.0 L 63.0 142.0 L 71.0 138.0 L 62.0 126.0 L 64.0 122.0 L 85.0 123.0 L 77.0 137.0 L 84.0 141.0 L 86.0 149.0 L 98.0 127.0 L 96.0 111.0 L 106.0 106.0 L 108.0 110.0 L 119.0 101.0 L 116.0 111.0 L 134.0 112.0 L 132.0 103.0 L 144.0 103.0 L 130.0 85.0 L 139.0 80.0 L 119.0 63.0 L 111.0 69.0 L 113.0 53.0 L 106.0 53.0 L 123.0 27.0 L 120.0 59.0 L 126.0 64.0 L 131.0 44.0 L 130.0 4.0 L 88.0 41.0 L 59.0 41.0 Z" />
             </svg>
             {score}
           </span>
@@ -501,40 +500,6 @@ export const TrendingCard = memo(function TrendingCard({ clip, onRemix, onQuickE
           </span>
         )}
 
-        {/* Play button — hidden when hovering */}
-        {!showVideo && (
-          <div className="play-btn">
-            <Play className="h-5 w-5 text-white ml-0.5" fill="white" />
-          </div>
-        )}
-
-        {/* Bookmark + External link — hidden when hovering */}
-        {!showVideo && (
-          <div className="absolute bottom-2 right-2 z-[6] flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-            {onToggleSave && (
-              <button
-                onClick={(e) => { e.stopPropagation(); onToggleSave(clip.id) }}
-                className={cn(
-                  'p-1.5 rounded-lg backdrop-blur-sm transition-colors',
-                  isSaved ? 'bg-primary/80 text-white' : 'bg-black/60 text-white/70 hover:text-white'
-                )}
-                title={isSaved ? 'Unsave' : 'Save'}
-              >
-                <Bookmark className={cn('h-3.5 w-3.5', isSaved && 'fill-current')} />
-              </button>
-            )}
-            <a
-              href={clip.external_url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="p-1.5 rounded-lg bg-black/60 backdrop-blur-sm text-white/70 hover:text-white transition-colors"
-              onClick={(e) => e.stopPropagation()}
-              title="View original"
-            >
-              <ExternalLink className="h-3.5 w-3.5" />
-            </a>
-          </div>
-        )}
       </div>
 
       {/* Meta section */}
@@ -559,40 +524,57 @@ export const TrendingCard = memo(function TrendingCard({ clip, onRemix, onQuickE
               </div>
               {score !== null && (
                 <div className="epic-score-block">
-                  <svg viewBox="0 0 149 183" width="16" height="20" className="inline-block mb-0.5" style={{ color: '#A78BFA' }}>
-                    <path fill="currentColor" fillRule="evenodd" d="M 16.0 5.0 L 16.0 46.0 L 21.0 63.0 L 27.0 59.0 L 24.0 27.0 L 41.0 53.0 L 35.0 53.0 L 36.0 69.0 L 28.0 63.0 L 8.0 80.0 L 17.0 85.0 L 4.0 103.0 L 14.0 102.0 L 14.0 112.0 L 31.0 111.0 L 28.0 101.0 L 40.0 111.0 L 41.0 106.0 L 50.0 112.0 L 49.0 125.0 L 62.0 149.0 L 63.0 142.0 L 71.0 138.0 L 62.0 126.0 L 64.0 122.0 L 85.0 123.0 L 77.0 137.0 L 84.0 141.0 L 86.0 149.0 L 98.0 127.0 L 96.0 111.0 L 106.0 106.0 L 108.0 110.0 L 119.0 101.0 L 116.0 111.0 L 134.0 112.0 L 132.0 103.0 L 144.0 103.0 L 130.0 85.0 L 139.0 80.0 L 119.0 63.0 L 111.0 69.0 L 113.0 53.0 L 106.0 53.0 L 123.0 27.0 L 120.0 59.0 L 126.0 64.0 L 131.0 44.0 L 130.0 4.0 L 88.0 41.0 L 59.0 41.0 Z M 51.0 137.0 L 56.0 163.0 L 64.0 173.0 L 64.0 172.0 L 66.0 171.0 L 72.0 177.0 L 74.0 178.0 L 76.0 177.0 L 81.0 172.0 L 83.0 173.0 L 89.0 167.0 L 92.0 162.0 L 92.0 159.0 L 93.0 158.0 L 93.0 153.0 L 94.0 152.0 L 94.0 148.0 L 95.0 147.0 L 96.0 138.0 L 94.0 142.0 L 94.0 145.0 L 91.0 150.0 L 90.0 155.0 L 87.0 160.0 L 85.0 159.0 L 83.0 153.0 L 82.0 157.0 L 81.0 158.0 L 81.0 161.0 L 79.0 164.0 L 68.0 164.0 L 67.0 163.0 L 67.0 159.0 L 66.0 158.0 L 65.0 153.0 L 62.0 160.0 L 61.0 160.0 L 59.0 158.0 L 58.0 154.0 L 56.0 151.0 L 55.0 146.0 L 53.0 143.0 L 52.0 138.0 Z M 110.0 82.0 L 110.0 83.0 L 109.0 84.0 L 109.0 86.0 L 108.0 87.0 L 108.0 89.0 L 107.0 90.0 L 107.0 91.0 L 106.0 92.0 L 105.0 95.0 L 103.0 97.0 L 101.0 97.0 L 100.0 98.0 L 95.0 98.0 L 94.0 99.0 L 91.0 100.0 L 91.0 101.0 L 90.0 102.0 L 89.0 102.0 L 87.0 104.0 L 86.0 104.0 L 85.0 103.0 L 85.0 101.0 L 86.0 100.0 L 86.0 96.0 L 89.0 93.0 L 90.0 93.0 L 92.0 91.0 L 93.0 91.0 L 95.0 89.0 L 96.0 89.0 L 98.0 87.0 L 99.0 87.0 L 104.0 83.0 L 105.0 83.0 L 108.0 81.0 L 109.0 81.0 Z M 38.0 82.0 L 39.0 81.0 L 42.0 82.0 L 44.0 84.0 L 45.0 84.0 L 47.0 86.0 L 48.0 86.0 L 50.0 88.0 L 51.0 88.0 L 53.0 90.0 L 54.0 90.0 L 56.0 92.0 L 57.0 92.0 L 59.0 94.0 L 60.0 94.0 L 61.0 95.0 L 61.0 98.0 L 62.0 99.0 L 62.0 103.0 L 61.0 104.0 L 60.0 104.0 L 55.0 99.0 L 52.0 99.0 L 51.0 98.0 L 47.0 98.0 L 46.0 97.0 L 45.0 97.0 L 42.0 94.0 L 42.0 93.0 L 40.0 90.0 L 40.0 88.0 L 38.0 85.0 Z M 28.0 116.0 L 31.0 117.0 L 33.0 119.0 L 34.0 119.0 L 36.0 121.0 L 37.0 121.0 L 37.0 119.0 L 36.0 118.0 L 36.0 116.0 L 34.0 113.0 L 32.0 113.0 L 30.0 115.0 L 29.0 115.0 Z M 119.0 116.0 L 118.0 115.0 L 117.0 115.0 L 115.0 113.0 L 113.0 113.0 L 113.0 114.0 L 112.0 115.0 L 112.0 117.0 L 111.0 118.0 L 111.0 120.0 L 110.0 121.0 L 113.0 120.0 L 115.0 118.0 L 116.0 118.0 L 118.0 116.0 Z M 103.0 88.0 L 100.0 89.0 L 98.0 91.0 L 97.0 91.0 L 95.0 93.0 L 94.0 93.0 L 93.0 94.0 L 99.0 94.0 L 100.0 93.0 L 101.0 93.0 L 102.0 92.0 L 102.0 90.0 L 103.0 89.0 Z M 45.0 88.0 L 45.0 90.0 L 46.0 91.0 L 46.0 92.0 L 48.0 94.0 L 54.0 94.0 L 52.0 92.0 L 51.0 92.0 L 49.0 90.0 L 48.0 90.0 Z" />
-                  </svg>
-                  <span className="epic-score-num">{score}</span>
+                  <span className={`epic-score-num${isSixSeven ? ' score-six-seven' : ''}`}>{score}</span>
                 </div>
               )}
             </div>
             <div className="epic-divider" />
-            <button
-              className="cta-viral w-full h-9 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-all relative z-10"
-              onClick={(e) => { e.stopPropagation(); onRemix?.(clip) }}
-              disabled={remixing}
-            >
-              <CTAIconComponent icon={dynamicCTA.icon} />
-              <span className="relative z-10">{remixing ? 'Creating...' : dynamicCTA.label}</span>
-            </button>
+            <div className="flex items-center gap-1.5">
+              <button
+                className="cta-viral flex-1 h-9 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-all relative z-10"
+                onClick={(e) => { e.stopPropagation(); onRemix?.(clip) }}
+                disabled={remixing}
+              >
+                <CTAIconComponent icon={dynamicCTA.icon} />
+                <span className="relative z-10">{remixing ? 'Creating...' : dynamicCTA.label}</span>
+              </button>
+              {onToggleSave && (
+                <button
+                  onClick={(e) => { e.stopPropagation(); onToggleSave(clip.id) }}
+                  className={cn(
+                    'h-9 w-9 flex-shrink-0 rounded-lg flex items-center justify-center border transition-colors relative z-10',
+                    isSaved ? 'bg-purple-500/20 border-purple-500/30 text-purple-400' : 'bg-card/60 border-border text-muted-foreground hover:text-foreground hover:border-purple-500/30'
+                  )}
+                  title={isSaved ? 'Unsave' : 'Save'}
+                >
+                  <Bookmark className={cn('h-3.5 w-3.5', isSaved && 'fill-current')} />
+                </button>
+              )}
+            </div>
           </>
         ) : (
           <div className="space-y-2">
-            <p className="text-sm font-medium leading-tight line-clamp-2 text-foreground">
-              {clip.title ?? clip.author_name ?? 'Stream clip'}
-            </p>
-
-            {clip.author_handle && (
-              <div className="flex items-center gap-1.5 text-xs text-zinc-400 truncate">
-                <span className="w-4 h-4 rounded-full bg-muted/60 shrink-0 flex items-center justify-center text-[8px] font-bold text-zinc-400">
-                  {(clip.author_handle ?? 'U')[0].toUpperCase()}
-                </span>
-                <b className="text-zinc-300">@{clip.author_handle}</b>
-                {gameLabel && (
-                  <span className="text-zinc-500">&middot; {gameLabel}</span>
+            <div className="flex items-start gap-2">
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium leading-tight line-clamp-2 text-foreground">
+                  {clip.title ?? clip.author_name ?? 'Stream clip'}
+                </p>
+                {clip.author_handle && (
+                  <div className="flex items-center gap-1.5 text-xs text-zinc-400 truncate mt-1">
+                    <span className="w-4 h-4 rounded-full bg-muted/60 shrink-0 flex items-center justify-center text-[8px] font-bold text-zinc-400">
+                      {(clip.author_handle ?? 'U')[0].toUpperCase()}
+                    </span>
+                    <b className="text-zinc-300">@{clip.author_handle}</b>
+                    {gameLabel && (
+                      <span className="text-zinc-500">&middot; {gameLabel}</span>
+                    )}
+                  </div>
                 )}
               </div>
-            )}
+              {score !== null && !isMaster && (
+                <span className={`flex-shrink-0 text-xl font-bold ${isSixSeven ? 'score-six-seven' : 'text-zinc-400'}`}>{score}</span>
+              )}
+            </div>
 
             {/* Signal tags (hover reveal) */}
             {insight && (clip.feed_category === 'hot_now' || clip.feed_category === 'early_gem') && (
@@ -618,15 +600,29 @@ export const TrendingCard = memo(function TrendingCard({ clip, onRemix, onQuickE
             </p>
             <p className="text-[10px] text-zinc-500">{'\u2191'} {verdict.reason}</p>
 
-            {/* CTA button */}
-            <button
-              className="cta-viral w-full h-9 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-all relative z-10"
-              onClick={(e) => { e.stopPropagation(); onRemix?.(clip) }}
-              disabled={remixing}
-            >
-              {isMaster ? <SkullIcon className="h-3.5 w-3.5" /> : <CTAIconComponent icon={dynamicCTA.icon} />}
-              <span className="relative z-10">{remixing ? 'Creating...' : dynamicCTA.label}</span>
-            </button>
+            {/* CTA button + Bookmark */}
+            <div className="flex items-center gap-1.5">
+              <button
+                className="cta-viral flex-1 h-9 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-all relative z-10"
+                onClick={(e) => { e.stopPropagation(); onRemix?.(clip) }}
+                disabled={remixing}
+              >
+                {isMaster ? <SkullIcon className="h-3.5 w-3.5" /> : <CTAIconComponent icon={dynamicCTA.icon} />}
+                <span className="relative z-10">{remixing ? 'Creating...' : dynamicCTA.label}</span>
+              </button>
+              {onToggleSave && (
+                <button
+                  onClick={(e) => { e.stopPropagation(); onToggleSave(clip.id) }}
+                  className={cn(
+                    'h-9 w-9 flex-shrink-0 rounded-lg flex items-center justify-center border transition-colors relative z-10',
+                    isSaved ? 'bg-orange-500/20 border-orange-500/30 text-orange-400' : 'bg-card/60 border-border text-muted-foreground hover:text-foreground hover:border-orange-500/30'
+                  )}
+                  title={isSaved ? 'Unsave' : 'Save'}
+                >
+                  <Bookmark className={cn('h-3.5 w-3.5', isSaved && 'fill-current')} />
+                </button>
+              )}
+            </div>
           </div>
         )}
       </div>

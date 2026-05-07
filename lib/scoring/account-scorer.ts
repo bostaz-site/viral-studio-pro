@@ -7,12 +7,11 @@
  */
 
 export type CreatorRank =
-  | 'newcomer'
-  | 'creator'
-  | 'trending_creator'
-  | 'viral_creator'
-  | 'elite_creator'
-  | 'legendary'
+  | 'scout'
+  | 'hunter'
+  | 'alpha'
+  | 'apex'
+  | 'legend'
   | 'hidden_gem'
 
 export interface AccountScoreInput {
@@ -116,12 +115,11 @@ function classifyCreatorRank(
   audienceScore: number
 ): CreatorRank {
   if (performanceScore > 80 && audienceScore < 55) return 'hidden_gem'
-  if (score >= 90) return 'legendary'
-  if (score >= 80) return 'elite_creator'
-  if (score >= 60) return 'viral_creator'
-  if (score >= 40) return 'trending_creator'
-  if (score >= 20) return 'creator'
-  return 'newcomer'
+  if (score >= 80) return 'legend'
+  if (score >= 60) return 'apex'
+  if (score >= 40) return 'alpha'
+  if (score >= 20) return 'hunter'
+  return 'scout'
 }
 
 // ── Main Scoring Function ───────────────────────────────────────────────────
@@ -157,11 +155,10 @@ export function scoreAccount(input: AccountScoreInput): AccountScoreOutput {
 // ── Rank Display Config ─────────────────────────────────────────────────────
 
 export const CREATOR_RANK_CONFIG: Record<CreatorRank, { label: string; emoji: string; color: string }> = {
-  newcomer:         { label: 'Newcomer',         emoji: '🌱', color: 'text-gray-400' },
-  creator:          { label: 'Creator',           emoji: '🥉', color: 'text-[#CD7F32]' },
-  trending_creator: { label: 'Trending Creator',  emoji: '🥈', color: 'text-[#C0C0C0]' },
-  viral_creator:    { label: 'Viral Creator',     emoji: '🥇', color: 'text-[#FFD700]' },
-  elite_creator:    { label: 'Elite Creator',     emoji: '💎', color: 'text-[#7DF9FF]' },
-  legendary:        { label: 'Legendary',         emoji: '👑', color: 'text-[#FF4500]' },
-  hidden_gem:       { label: 'Hidden Gem',        emoji: '🔥', color: 'text-[#FF6B35]' },
+  scout:      { label: 'Scout',      emoji: '\uD83D\uDC3E', color: 'text-gray-400' },
+  hunter:     { label: 'Hunter',     emoji: '\uD83C\uDFAF', color: 'text-[#CD7F32]' },
+  alpha:      { label: 'Alpha',      emoji: '\u26A1',       color: 'text-[#38BDF8]' },
+  apex:       { label: 'Apex',       emoji: '\uD83D\uDD25', color: 'text-[#F97316]' },
+  legend:     { label: 'Legend',     emoji: '\uD83D\uDC51', color: 'text-[#FF4500]' },
+  hidden_gem: { label: 'Hidden Gem', emoji: '\uD83D\uDC8E', color: 'text-[#FF6B35]' },
 }

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { rateLimit as redisRateLimit, RATE_LIMITS } from '@/lib/rate-limit'
+import { logger } from '@/lib/logger'
 
 export const runtime = 'nodejs'
 
@@ -109,7 +110,7 @@ export async function POST(req: NextRequest) {
 
   if (error) {
     // Never block the UI on analytics failures — log and return 200.
-    console.error('[analytics] insert failed:', error.message)
+    logger.error('[analytics] insert failed:', error.message)
     return NextResponse.json({ data: null, error: 'insert_failed' }, { status: 200 })
   }
 

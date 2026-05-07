@@ -4,6 +4,7 @@
  */
 
 import type { ClipMood } from './mood-presets'
+import { logAiCall } from './call-logger'
 
 export interface MoodDetectionResult {
   mood: ClipMood
@@ -11,6 +12,9 @@ export interface MoodDetectionResult {
   explanation: string
   secondary_mood?: ClipMood
   important_words?: string[]
+  caption_reason?: string
+  emphasis_reason?: string
+  hook_reason?: string
 }
 
 const VALID_MOODS: ClipMood[] = ['rage', 'funny', 'drama', 'wholesome', 'hype', 'story']
@@ -18,7 +22,12 @@ const VALID_MOODS: ClipMood[] = ['rage', 'funny', 'drama', 'wholesome', 'hype', 
 const SYSTEM_PROMPT = `You are a clip mood analyzer for a viral video editing app. Analyze the given clip transcript, title, and context to determine the dominant mood AND identify the most impactful words for subtitle emphasis.
 
 Return ONLY valid JSON with this exact structure:
-{"mood": "...", "confidence": 0-100, "explanation": "...", "secondary_mood": "...", "important_words": ["word1", "word2", ...]}
+{"mood": "...", "confidence": 0-100, "explanation": "...", "secondary_mood": "...", "important_words": ["word1", "word2", ...], "caption_reason": "...", "emphasis_reason": "...", "hook_reason": "..."}
+
+Additional fields (1 short sentence each, max 150 chars, specific to THIS clip):
+- caption_reason: why you chose this caption style for this clip's content
+- emphasis_reason: why the emphasis effect fits this clip's energy
+- hook_reason: why this hook approach works for this clip's retention
 
 The mood MUST be exactly one of: rage, funny, drama, wholesome, hype, story
 
@@ -50,6 +59,9 @@ export async function detectMood(
 
   const userMessage = buildUserMessage(transcript, title, streamer, niche)
 
+  const startMs = Date.now()
+  const MODEL = 'claude-haiku-4-5-20251001'
+
   try {
     const controller = new AbortController()
     const timeout = setTimeout(() => controller.abort(), 15000)
@@ -61,7 +73,7 @@ export async function detectMood(
         'anthropic-version': '2023-06-01',
       },
       body: JSON.stringify({
-        model: 'claude-haiku-4-5-20251001',
+        model: MODEL,
         max_tokens: 512,
         system: SYSTEM_PROMPT,
         messages: [{ role: 'user', content: userMessage }],
@@ -70,13 +82,29 @@ export async function detectMood(
     })
     clearTimeout(timeout)
 
+    const latencyMs = Date.now() - startMs
+
     if (!res.ok) {
       const errText = await res.text().catch(() => 'Unknown error')
       console.error(`[MoodDetector] Claude API ${res.status}: ${errText}`)
+      logAiCall({ model: MODEL, feature: 'mood_detection', latencyMs, success: false, error: `HTTP ${res.status}` })
       return fallbackResult(`API error: ${res.status}`)
     }
 
     const data = await res.json()
+    const tokensInput = data.usage?.input_tokens as number | undefined
+    const tokensOutput = data.usage?.output_tokens as number | undefined
+
+    logAiCall({
+      model: MODEL,
+      feature: 'mood_detection',
+      tokensInput,
+      tokensOutput,
+      latencyMs,
+      success: true,
+      metadata: { title, streamer },
+    })
+
     const textBlock = data.content?.find((b: { type: string }) => b.type === 'text')
     if (!textBlock?.text) {
       return fallbackResult('No text in response')
@@ -85,7 +113,9 @@ export async function detectMood(
     return parseMoodResponse(textBlock.text)
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err)
+    const latencyMs = Date.now() - startMs
     console.error(`[MoodDetector] Error: ${msg}`)
+    logAiCall({ model: MODEL, feature: 'mood_detection', latencyMs, success: false, error: msg })
     return fallbackResult(msg)
   }
 }
@@ -126,7 +156,17 @@ function parseMoodResponse(text: string): MoodDetectionResult {
       ? parsed.important_words.filter((w: unknown) => typeof w === 'string').map((w: string) => w.toLowerCase()).slice(0, 10)
       : undefined
 
-    return { mood, confidence, explanation, secondary_mood: secondaryMood, important_words: importantWords }
+    const captionReason = typeof parsed.caption_reason === 'string'
+      ? parsed.caption_reason.slice(0, 150) : undefined
+    const emphasisReason = typeof parsed.emphasis_reason === 'string'
+      ? parsed.emphasis_reason.slice(0, 150) : undefined
+    const hookReason = typeof parsed.hook_reason === 'string'
+      ? parsed.hook_reason.slice(0, 150) : undefined
+
+    return {
+      mood, confidence, explanation, secondary_mood: secondaryMood, important_words: importantWords,
+      caption_reason: captionReason, emphasis_reason: emphasisReason, hook_reason: hookReason,
+    }
   } catch {
     return fallbackResult('Failed to parse response')
   }

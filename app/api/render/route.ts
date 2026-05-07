@@ -5,6 +5,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { rateLimit, RATE_LIMITS } from '@/lib/rate-limit'
 import { resolveTwitchClipFromUrlOrSlug } from '@/lib/twitch/resolve-clip-url'
 import { checkClipDuration, getPlanConfig } from '@/lib/plans'
+import { logger } from '@/lib/logger'
 
 // Allow larger request body for hook overlay PNG (base64 ~500KB-2MB)
 export const maxDuration = 60
@@ -227,7 +228,7 @@ export const POST = withAuth(async (request, user) => {
   })
 
   if (quotaError) {
-    console.error('[render] increment_video_usage failed:', quotaError)
+    logger.error('[render] increment_video_usage failed:', quotaError)
     return NextResponse.json(
       { data: null, error: 'quota_check_failed', message: 'Failed to check quota. Try again.' },
       { status: 500 },
@@ -270,10 +271,9 @@ export const POST = withAuth(async (request, user) => {
   if (foundSource === 'trending' && videoUrl.includes('twitch.tv')) {
     try {
       const resolved = await resolveTwitchClipFromUrlOrSlug(videoUrl)
-      console.log(`[render] Resolved Twitch clip to signed CDN URL`)
       videoUrl = resolved
     } catch (err) {
-      console.warn(
+      logger.warn(
         '[render] Twitch clip resolution failed, falling back to raw URL:',
         err instanceof Error ? err.message : err,
       )
@@ -384,10 +384,9 @@ export const POST = withAuth(async (request, user) => {
         err instanceof Error &&
         (err.name === 'AbortError' || err.name === 'TimeoutError')
       if (isAbort) {
-        console.log('[render] VPS POST body delivered, letting VPS drive the job')
         return
       }
-      console.error('[render] VPS unreachable:', err)
+      logger.error('[render] VPS unreachable:', err)
       await admin
         .from('render_jobs')
         .update({

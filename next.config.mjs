@@ -1,3 +1,5 @@
+import { withSentryConfig } from '@sentry/nextjs'
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   // ── Security Headers ──────────────────────────────────────────────────────
@@ -67,6 +69,22 @@ const nextConfig = {
         protocol: 'https',
         hostname: 'clips-media-assets2.twitch.tv',
       },
+      {
+        protocol: 'https',
+        hostname: 'files.kick.com',
+      },
+      {
+        protocol: 'https',
+        hostname: 'clips.kick.com',
+      },
+      {
+        protocol: 'https',
+        hostname: '*.kick.com',
+      },
+      {
+        protocol: 'https',
+        hostname: 'yt3.ggpht.com',
+      },
     ],
   },
 
@@ -86,6 +104,27 @@ const nextConfig = {
   typescript: {
     ignoreBuildErrors: false,
   },
+
+  // ── Dev: fresh webpack cache each startup (prevents .next corruption) ───
+  webpack: (config, { dev }) => {
+    if (dev) {
+      config.cache = {
+        type: 'filesystem',
+        version: Date.now().toString(),
+      }
+    }
+    return config
+  },
 };
 
-export default nextConfig;
+export default withSentryConfig(nextConfig, {
+  // Suppresses source map upload logs during build
+  silent: true,
+  org: process.env.SENTRY_ORG,
+  project: process.env.SENTRY_PROJECT,
+  // Disable source map upload when no auth token (local dev)
+  authToken: process.env.SENTRY_AUTH_TOKEN,
+  // Prevents Sentry from failing the build when not configured
+  disableServerWebpackPlugin: !process.env.SENTRY_AUTH_TOKEN,
+  disableClientWebpackPlugin: !process.env.SENTRY_AUTH_TOKEN,
+});

@@ -39,7 +39,7 @@ Alternative : user change les settings manuellement (sans AI Optimize)
 | `app/(dashboard)/dashboard/enhance/page.tsx` | Landing page (sans clipId) — CTA "Browse clips" + "Upload" |
 | `app/(dashboard)/dashboard/enhance/[clipId]/page.tsx` | Page principale (~2220 lignes) — state machine, settings, render, toute l'UI |
 | `components/enhance/live-preview.tsx` | Preview CSS temps reel : video, captions, tags, hook, split-screen, smart zoom (~540 lignes) |
-| `components/enhance/ai-analysis-sequence.tsx` | Sequence animee 6 etapes post-AI avec framer-motion (~340 lignes) |
+| `components/enhance/ai-analysis-sequence.tsx` | Sequence animee 6 etapes post-AI avec framer-motion (~377 lignes) |
 | `components/enhance/tag-panel.tsx` | Panel "Streamer tag" extrait — grille de styles + slider taille (~150 lignes) |
 | `lib/enhance/scoring.ts` | Scoring engine : types, constantes, `computeScores()`, `computeCurrentScore()`, `computeScoreBreakdown()` (~580 lignes) |
 | `lib/enhance/analysis-copy.ts` | Justifications par mood, display names, fake dynamic data seeded, confidence labels (~150 lignes) |
@@ -72,8 +72,12 @@ Alternative : user change les settings manuellement (sans AI Optimize)
 7. Action Buttons (apparaissent apres AI flow start OU render done):
    ├── Progress message (bleu/vert/amber selon etat)
    ├── Rendering spinner (apres sequence, avant done)
-   ├── "Publish to socials" — primary CTA (gradient blue→purple→pink, disabled si pas de downloadUrl)
-   ├── "Download clip" — secondary (outline, <a download>)
+   ├── "Publish now" — primary CTA (cyan gradient, navigates to Distribution with action=publish)
+   ├── "Place in bank" — secondary CTA (cyan outline):
+   │     - First click: confirms placement, shows checkmark
+   │     - Second click: navigates to `/dashboard/distribution?scrollTo=bank&highlight={clipId}`
+   │     - Distribution page auto-scrolls to Clip Bank + highlights the clip with cyan ring pulse
+   ├── "Download MP4" — tertiary (outline, <a download>)
    └── "Reset & start over" — remet tout a zero
 
 === Colonne droite (scrollable) ===
@@ -614,6 +618,8 @@ Utilise pour les ScoreBadge sur chaque option dans l'UI.
 **Contenu** :
 - **Master toggle** : enable/disable avec pts display
 - **Silence threshold slider** : 0.3-2.0s, step 0.1. Labels "Aggressive (0.3s)" / "Gentle (2s)".
+- **Adaptive hint** : When a mood is detected/selected, shows "AI suggests Xs for {mood} clips" (rage/hype=0.5s, drama=0.7s, others=current value). Purple text.
+- **Mood in payload** : `autoCut.mood` is sent to the VPS for server-side adaptive threshold.
 - **Info card** : Detects silences (Whisper), cuts pauses, realigns captions.
 
 ### 7. Hook Viral [New badge, orange]
@@ -673,20 +679,27 @@ Merge `MOOD_PRESETS[mood]` + `PLATFORM_THEME[platform].tagStyle`.
 ### POST `/api/enhance/ai-optimize`
 
 **Auth** : `withAuth` (user connecte requis)
+**Rate limit** : 30/jour (free) | 300/jour (pro/studio) — cle `ai-optimize:{userId}`
 **Input** (Zod) :
 ```typescript
 { transcript: string(max 5000), title?: string(max 500), streamer?: string(max 200), niche?: string(max 100) }
 ```
 **Output** :
 ```typescript
-{ data: { mood, confidence, explanation, secondary_mood, important_words[], preset: MoodPreset } }
+{ data: { mood, confidence, explanation, secondary_mood, important_words[], caption_reason?, emphasis_reason?, hook_reason?, preset: MoodPreset } }
 ```
+- `caption_reason` : 1 sentence explaining why this caption style fits THIS clip's content (max 150 chars)
+- `emphasis_reason` : 1 sentence explaining why the emphasis effect fits THIS clip's energy
+- `hook_reason` : 1 sentence explaining why this hook approach works for THIS clip
 **Fallback** : sur erreur, retourne `mood:'hype'`, `confidence:30`.
+**429** : "Daily limit reached (30/day). Upgrade to Pro for 300/day."
 
 ### POST `/api/render/hook`
 
-**Auth** : `withAuth`
-**Input** (Zod) :
+**Auth** : `withAuth` (frontend hook generation) | HMAC signature (VPS webhook callback)
+**Rate limit** (frontend only) : 50/jour (free) | 500/jour (pro/studio) — cle `render-hook:{userId}`
+**HMAC** : VPS webhook signe avec `WEBHOOK_SECRET` via header `X-Webhook-Signature: sha256=<hex>`. Mode warn-only quand `WEBHOOK_HMAC_ONLY=false`.
+**Input** (Zod — frontend) :
 ```typescript
 {
   transcript: string, wordTimestamps: [{word, start, end}], audioPeaks: [{time, amplitude}],
@@ -699,6 +712,7 @@ Merge `MOOD_PRESETS[mood]` + `PLATFORM_THEME[platform].tagStyle`.
 ```typescript
 { data: { peak: { peakTime, peakScore, scores[], windowSize }, hooks: [{ style, label, text }], reorder: { segments, totalDuration, peakTime } } }
 ```
+**429** : "Daily limit reached (50/day). Upgrade to Pro for 500/day."
 
 ### POST `/api/render`
 
@@ -992,10 +1006,10 @@ AlertCircle + message + "Back to feed" button.
 | Render polling | **WIRED_REAL** | 3s interval, sessionStorage persistence |
 | Blowup Chance scoring | **WIRED_REAL** | Real diminishing-returns formula |
 | Score breakdown (+X pts) | **WIRED_REAL** | `computeScoreBreakdown()` avec mood bonuses |
-| AI Analysis Sequence | **SIMULATED** | Fake dynamic data, timing fixe, UX pure (pas d'analyse reelle) |
-| Analysis justifications | **SIMULATED** | Strings statiques par mood, pas de per-clip analysis |
-| "Viral pattern detected" | **SIMULATED** | Toujours affiche au step 5, pas lie au contenu |
-| Audio peaks / segments counts | **SIMULATED** | `generateDynamicData()` — seeded random, pas d'audio analysis |
+| AI Analysis Sequence | **WIRED_REAL** | Uses real hookAnalysis data (peaks, peakTime, peakScore) with seeded fallback |
+| Analysis justifications | **WIRED_REAL** | AI-generated per-clip reasons from mood detector (caption_reason, emphasis_reason, hook_reason) with static fallback |
+| "Viral pattern detected" | **WIRED_REAL** | Conditional on peakScore > 7 (real hook analysis data) |
+| Audio peaks / segments counts | **WIRED_REAL** | Uses hookAnalysis.peak.scores.length when available, seeded fallback otherwise |
 | Before/After player | **NOT_IMPLEMENTED** | Composant existe (`before-after-player.tsx`) mais pas wire dans la page |
 | Mood selector (user override) | **WIRED_REAL** | `handleMoodSelect()` applique le preset |
 | Overlay capture (Canvas PNG) | **WIRED_REAL** | Capture reelle pour VPS render |
@@ -1023,8 +1037,8 @@ AlertCircle + message + "Back to feed" button.
 
 7. **Score animation** — le count-up fonctionne mais la `displayScore` initiale = `currentScore` ce qui skip l'animation au premier render.
 
-8. **Adaptive auto-cut UI** — l'UI montre le slider mais pas le hint "AI suggests Xs" quand un mood est detecte. Le VPS supporte `settings.autoCut.mood` pour l'adaptive threshold mais le frontend n'envoie pas le mood.
+8. **B-roll cleanup** — `BROLL_OPTIONS` et `brollScores` dans scoring.ts sont dead code depuis le remplacement par Blur fill. Nettoyer.
 
-9. **B-roll cleanup** — `BROLL_OPTIONS` et `brollScores` dans scoring.ts sont dead code depuis le remplacement par Blur fill. Nettoyer.
+9. ~~**Adaptive auto-cut hint**~~ — RESOLU (2026-05-04). Le hint adaptatif par mood est implemente dans Accordion Section 6 : "AI suggests Xs for {mood} clips" (rage/hype=0.5s, drama=0.7s). `autoCut.mood` envoye au VPS pour threshold server-side.
 
 10. **Timeout recovery** — mentionne dans SYSTEM-REFERENCE.md (60s auto-transition to error si stuck) mais pas implemente dans le code actuel. Le seul guard est le polling max 200 * 3s = 10min.

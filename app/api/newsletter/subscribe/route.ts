@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createHash } from 'crypto'
 import { z } from 'zod'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { logger } from '@/lib/logger'
 
 export const runtime = 'nodejs'
 
@@ -85,7 +86,7 @@ export async function POST(req: NextRequest) {
         message: 'Already subscribed — thanks!',
       })
     }
-    console.error('[newsletter] insert failed:', error)
+    logger.error('[newsletter] insert failed:', error)
     return NextResponse.json(
       { data: null, error: 'db_error', message: 'Server error. Try again.' },
       { status: 500 },

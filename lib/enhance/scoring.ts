@@ -382,12 +382,20 @@ export function computeScores(clip: TrendingClipData): ComputedScores {
 
 /**
  * Baseline viral score for the Enhance page.
- * velocity_score already includes the display curve (40–95 range),
- * so we use it directly. Floor at 30 for uploaded clips with no data.
+ * Baseline = clip's intrinsic viral velocity, identical to the score shown in Browse.
+ *
+ * Floor at 30 for uploads with no velocity data. Cap at 99 (no clip is ever 100/100).
+ *
+ * Enhancement options still add value via diminishing returns in computeCurrentScore.
+ * For very high baselines (e.g. 95+), the boost will be small but visible.
+ *
+ * The "Maximum viral potential reached!" message only triggers at >= 95 AND
+ * after enhancements have been applied (see Blowup Chance bar logic) so a
+ * naturally-high baseline doesn't immediately claim "max reached".
  */
 export function computeBaselineScore(clip: TrendingClipData): number {
   const velocity = clip.velocity_score ?? 0
-  return Math.max(30, velocity)
+  return Math.min(99, Math.max(30, velocity))
 }
 
 /**
@@ -419,7 +427,8 @@ export function computeCurrentScore(
   if (settings.splitScreenEnabled) totalWeight += 0.12
   if (settings.tagStyle !== 'none') totalWeight += 0.08
   if (settings.hookEnabled) totalWeight += 0.11
-  if (settings.hookReorderEnabled) totalWeight += 0.05
+  // hookReorderEnabled is a SUB-feature of hookEnabled — only count if master hook is ON
+  if (settings.hookEnabled && settings.hookReorderEnabled) totalWeight += 0.05
   if (settings.smartZoomEnabled) totalWeight += 0.05
   if (settings.audioEnhanceEnabled) totalWeight += 0.03
   if (settings.bassBoost === 'mild') totalWeight += 0.03

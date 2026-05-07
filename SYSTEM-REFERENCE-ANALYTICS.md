@@ -1,262 +1,270 @@
-# SYSTEM REFERENCE — Analytics Page (v4 — Learning Engine)
+# SYSTEM REFERENCE — Analytics Page (v5)
 
-> Ce fichier est la source de verite pour la page Analytics.
-> Refonte complete : remplacement du dashboard dopamine par un Learning Engine.
-
----
-
-## Philosophie
-
-**Analytics is not a vanity dashboard. Analytics is the Learning Engine of Viral Animal.**
-
-Its job is to:
-1. Collect real performance data from connected social accounts (when APIs approved)
-2. Detect which clip patterns perform or underperform per account and per platform
-3. Feed those learnings back into the Smart Queue Engine so Distribution improves automatically
-
-Analytics tells Distribution how to post better.
-
-### Ce qui a ete SUPPRIME (v3 -> v4)
-- Rank Hero (score counter, XP bar, radial gradient backgrounds)
-- Daily Quest
-- Missed Views (fake projections)
-- Next Breakout Prediction (fake)
-- Achievements / badges / milestones
-- Dopamine layer (future projection, loss engine, urgency)
-- Projected views
-- Momentum score (remplace par confidence level du learning)
-- Quick Stats (views, avg score, momentum)
-
-### Ce qui est GARDE
-- Creator Score + Creator Rank (YouTube) — affiche dans Account Breakdown, WIRED_REAL
-- Total clips published + streak — petits badges dans le Learning Summary header
+> Source of truth for the Analytics page. Complete rewrite 2026-05-05.
+> v5: Guided Learning Engine + Creator Rank Hero + Recharts charts + Smart Queue transparency.
 
 ---
 
-## Architecture
+## 1. TL;DR + Philosophy
 
-| Fichier | Role |
+Analytics is the **Learning Engine** of Viral Animal. It answers:
+> "What's working? What's not? What should I change?"
+
+**Core principle: the page never feels empty.** Every state — from 0 posts to 30+ — guides the user toward the next meaningful action. Locked sections are PROMISES with checklists, not blurred fake data.
+
+Data flow: `published_posts` (Supabase) -> `pattern-detector.ts` (server aggregation) -> `/api/analytics/profile` (cached 1h) -> UI (charts + adjustments).
+
+---
+
+## 2. Architecture
+
+| File | Lines | Role |
+|---|---|---|
+| `app/(dashboard)/dashboard/analytics/page.tsx` | ~23 | Page wrapper (Suspense + metadata) |
+| `components/analytics/analytics-dashboard.tsx` | ~732 | Main orchestrator — all 10 sections, data fetching, derived state |
+| `components/analytics/creator-rank-hero.tsx` | ~247 | Hero: score ring SVG, rank label, progression bar, sync, count-up animation |
+| `components/analytics/charts/insight-bar-chart.tsx` | ~84 | Recharts horizontal bar chart — best/worst patterns |
+| `components/analytics/charts/posting-heatmap.tsx` | ~141 | Custom CSS grid heatmap — hour x weekday performance |
+| `components/analytics/charts/progression-line-chart.tsx` | ~87 | Recharts area chart — score/followers over time (ready, not yet wired) |
+| `lib/analytics/pattern-detector.ts` | ~327 | Server-side: `computeProfileForUser()` -> `LearnedDistributionProfile` |
+| `app/api/analytics/profile/route.ts` | ~24 | GET endpoint, withAuth, in-memory cache 1h TTL, `?force=true` bypass |
+| `lib/analytics/trackers/youtube.ts` | — | YouTube Data API tracker (WIRED_REAL) |
+| `lib/analytics/trackers/tiktok.ts` | — | TikTok Video Query API tracker (PENDING) |
+| `lib/analytics/trackers/meta.ts` | — | Instagram Graph API tracker (PENDING) |
+| `app/api/cron/refresh-post-stats/route.ts` | — | Cron: batch refresh metrics from platform APIs (every 6h) |
+| `types/learning.ts` | ~106 | Types: ConfidenceLevel, LearnedDistributionProfile, LearnedInsight, AccountBreakdown |
+| `stores/account-store.ts` | — | Zustand: Creator Rank, YouTube stats, sync actions |
+| `supabase/migrations/20260503_published_posts.sql` | — | Table `published_posts` — clip metadata + metrics snapshot |
+
+---
+
+## 3. Layout (top to bottom)
+
+```
+1. Creator Rank Hero (conditional: renders only when hasYouTube)
+   |- Score ring SVG (80px, count-up 0->score, 800ms easeOutCubic)
+   |- Rank label (gradient text + emoji: Scout/Hunter/Alpha/Apex/Legend)
+   |- Progression bar (animated width to next threshold)
+   |- Sync Now button + last sync time
+
+2. Next Unlock card (cyan accent)
+   |- Progress bar with stripe animation (actively collecting)
+   |- Dynamic: "Next unlock: What's Working — 0/5" or "Full learning active"
+
+3. Learning Status (compact bar)
+   |- "N accounts · N tracked posts · Xh ago"
+   |- Streak badge, confidence pill, sync stale warning
+   |- Inline CTA if 0 accounts or 0 posts
+
+4. Smart Queue Adjustments (PROMOTED — position #4)
+   |- Unlocked: cards with Apply button (border-l cyan, hover lift)
+   |- Locked: "No adjustments yet" + explanation (max 180px)
+
+5. Smart Queue Influence Indicator
+   |- 4-segment bar: Ignored / Soft hint / Strong / Full reorder
+   |- Current stage highlighted cyan
+
+6. What's Working
+   |- Unlocked: Top Insight card + InsightBarChart (top 6)
+   |- Locked: preview checklist (moods, platforms, formats) — max 220px
+
+7. Best Posting Times
+   |- Unlocked: PostingHeatmap + best window conclusion
+   |- Locked: time window checklist (4 buckets) — max 220px
+
+8. What's Not Working
+   |- Unlocked: structured cards per underperformer (red border-l, hover lift)
+   |- Locked: "Once 5 tracked posts..." — max 180px
+
+9. Connected Accounts (grid 1-3 cols)
+   |- YouTube: score + rank + last sync
+   |- TikTok/Instagram: "Waiting for API approval"
+
+10. Post History (table, max 20 rows)
+    |- Columns: Clip, Source, Score, Tracking (pending badge), Posted
+```
+
+---
+
+## 4. Visual Brand
+
+| Element | Color |
 |---|---|
-| `app/(dashboard)/dashboard/analytics/page.tsx` | Page wrapper (Suspense + metadata + skeleton fallback) |
-| `components/analytics/analytics-dashboard.tsx` | Composant principal (~420 lignes) — Learning Engine UI |
-| `types/learning.ts` | Types Learning Engine : `ConfidenceLevel`, `PublishedPostPerformance`, `LearnedDistributionProfile`, helpers |
-| `stores/account-store.ts` | Store existant (Creator Rank, YouTube stats, fetchAccountScore) |
-| `lib/distribution/session-persistence.ts` | Stats persistantes localStorage (totalClipsPublished, streak) |
-| `lib/scoring/account-scorer.ts` | Creator rank scoring + CREATOR_RANK_CONFIG |
+| Primary accent | Cyan `#38BDF8` |
+| Score/urgency | Orange `#F97316` |
+| Underperformers | Red `#EF4444` (dim) |
+| Glass cards | `bg-card/60`, `border-border`, `backdrop-blur` |
+| Locked sections | Compact preview cards with checklists (no blur, no fake data) |
+| Text hierarchy | White > zinc-300 > zinc-500 > zinc-700 |
+| Instagram gradient | `from-pink-600 to-purple-600` (platform brand, not theme violation) |
 
-### Fichiers NON utilises (mais pas supprimes)
-- `lib/analytics/analytics-engine.ts` — ancien breakout/missed/quest (plus importe)
-- `lib/scoring/momentum-scorer.ts` — ancien momentum (plus importe)
-- `lib/distribution/reward-engine.ts` — milestones/streaks (plus importe)
+### Creator Ranks (rebranded 2026-05-05)
 
----
-
-## Layout (top to bottom)
-
-```
-1. Learning Summary (sticky header, bg-zinc-900/50 backdrop-blur)
-   |- System learning message (N connected accounts)
-   |- Clips published count + streak badge (si >= 3)
-   |- Confidence badge (none/collecting/early/medium/high)
-   |- Posts count + Last sync time
-
-2. [Conditional] No Accounts CTA — full-width card "Connect your accounts" -> Settings
-3. [Conditional] No Posts CTA — full-width card "Publish your first clip" -> Distribution
-
-4. What's Working (border-left emerald)
-   |- Real insights quand 5+ posts dans un pattern
-   |- Locked/greyed example cards quand pas assez de data
-   |- 3 exemples locked : TikTok funny, YouTube hype, Instagram short
-
-5. What's Not Working (border-left red)
-   |- Real insights quand 5+ posts dans un pattern
-   |- Locked/greyed example cards quand pas assez de data
-   |- 2 exemples locked : TikTok drama, YouTube long clips
-
-6. Distribution Adjustments (border-left blue)
-   |- Changements avec change/why/confidence
-   |- Locked/greyed example cards quand pas assez de data
-   |- 3 exemples locked : prioritize funny, shift posting window, enable word-pop
-
-7. Account Breakdown (grid 1-3 colonnes)
-   |- Card par compte connecte
-   |- YouTube : Creator Score + Creator Rank (WIRED_REAL) + "Performance tracking coming soon"
-   |- TikTok/Instagram : Lock icon + "Waiting for API approval"
-
-8. Post History (table scrollable)
-   |- Colonnes : Clip, Source, Score, Views (locked), Likes (locked), Posted
-   |- Views/Likes affichent Lock icon + dash (API pas encore disponible)
-   |- Refresh Stats button (disabled, "coming soon")
-   |- Message footer : "Views and likes will appear when platform API tracking is approved"
-```
-
----
-
-## Confidence System
-
-### Niveaux
-
-| Posts | Level | Label | Badge style |
+| Rank | Threshold | Color | Emoji |
 |---|---|---|---|
-| 0 | `none` | No data | zinc-800/50, zinc-500 |
-| 1-4 | `collecting` | Collecting signals | zinc-800/50, zinc-400 |
-| 5-14 | `early` | Early signals | amber-500/10, amber-400 |
-| 15-29 | `medium` | Medium confidence | blue-500/10, blue-400 |
-| 30+ | `high` | High confidence | emerald-500/10, emerald-400 |
-
-### Regles strictes
-- 0 posts = "No data yet"
-- 1-4 posts = "Collecting signals" (aucune conclusion)
-- 5-14 posts = "Early signals" (insights provisoires seulement)
-- 15-29 posts = "Medium confidence"
-- 30+ posts = "High confidence"
-- Ne JAMAIS dire "this works" ou afficher un multiplier avant 5 posts minimum dans le pattern concerne
-
-### Source de verite
-`types/learning.ts` : `getConfidenceLevel(postCount)`, `getConfidenceLabel(level)`, `getMinPostsForInsight()`
+| Scout | >= 0 | zinc/gray | paw |
+| Hunter | >= 20 | amber/bronze | target |
+| Alpha | >= 40 | cyan | lightning |
+| Apex | >= 60 | gold/amber | fire |
+| Legend | >= 80 | orange-red-pink gradient | crown |
+| Hidden Gem | perf > 80 AND audience < 55 | orange fire | gem |
 
 ---
 
-## Locked / Coming Soon Cards
+## 5. Hero Creator Rank
 
-### Design
-- `opacity-40` sur la Card entiere
-- `border-dashed` sur la Card
-- `border-l-4` avec couleur de section (emerald/red/blue)
-- `blur-[1px]` sur le contenu
-- Lock icon centre en overlay (z-10)
-- Texte `"Example insight:"` en italic, text-[10px], text-muted-foreground/80
-- Message footer : `"Coming soon — Publish clips and connect accounts to see real insights"`
-- Visuellement TRES different du contenu reel
-
-### Exemples affiches
-
-**What's Working (3 locked cards):**
-- TikTok - Funny clips posted 7-10 PM — 2.4x above average (18 posts)
-- YouTube Shorts - Hype clips with word-pop captions — 1.8x (12 posts)
-- Instagram Reels - Short clips under 30s — 1.6x (9 posts)
-
-**What's Not Working (2 locked cards):**
-- TikTok - Drama clips posted mornings — -0.6x (7 posts)
-- YouTube Shorts - Clips over 50s without hook — -0.4x (5 posts)
-
-**Adjustments (3 locked cards):**
-- Change: Prioritize funny/hype clips on TikTok — Why: 2.1x above average — Medium
-- Change: Shift posting window to 7-10 PM — Why: 1.8x more viewers — Early
-- Change: Enable word-pop captions by default — Why: +40% retention — Medium
+- **Score Ring**: SVG 80x80, `strokeDasharray` animated via rAF (800ms easeOutCubic)
+- **Count-up**: 0 -> actual score, respects `prefers-reduced-motion`
+- **Rank Label**: gradient text from `RANK_GRADIENT` map + emoji
+- **Progression Bar**: 6px, animated width (800ms), label "X / Y to NEXT — N pts away"
+- **Growth Trend**: optional `scoreDelta` prop (+N cyan, -N red, stable gray)
+- **Sync Button**: cyan when available, gray disabled, spin animation while syncing
+- **Responsive**: `flex flex-wrap` — wraps naturally below 768px
 
 ---
 
-## Account Breakdown Cards
+## 6. Confidence System
 
-### YouTube (connecte, WIRED_REAL)
-- Platform icon gradient (red)
-- @username
-- Creator Score (numerique)
-- Creator Rank (label)
-- "Performance tracking coming soon" avec Lock icon
+Based on **tracked posts** (`published_posts WHERE views IS NOT NULL`), not total clips.
 
-### TikTok / Instagram (connecte, pas de tracking API)
-- Platform icon gradient
-- @username
-- Lock icon centre
-- "Performance tracking coming soon"
-- "Waiting for [Platform] API approval"
+| Level | Posts | Badge | Color |
+|---|---|---|---|
+| none | 0 | No data | zinc |
+| collecting | 1-4 | Collecting signals | zinc |
+| early | 5-14 | Early signals | amber |
+| medium | 15-29 | Medium confidence | blue |
+| high | 30+ | High confidence | emerald |
 
-### Pas connecte
-- Message dans la section : "No accounts connected. Connect in Settings"
+Source: `profile.totalPostsAnalyzed` from `/api/analytics/profile`.
 
 ---
 
-## Post History Table
+## 7. Next Unlock Card
 
-### Colonnes
+Dynamic card showing distance to next milestone:
 
-| Colonne | Source | Status |
+| Tracked posts | Shows | Target |
 |---|---|---|
-| Clip | render_jobs + trending_clips | WIRED_REAL |
-| Source | render_jobs.source | WIRED_REAL |
-| Score | trending_clips.velocity_score | WIRED_REAL |
-| Views | PublishedPostPerformance.views | LOCKED (Lock icon + dash) |
-| Likes | PublishedPostPerformance.likes | LOCKED (Lock icon + dash) |
-| Posted | render_jobs.created_at | WIRED_REAL |
+| 0-4 | "Next unlock: What's Working" | 5 |
+| 5-14 | "Next unlock: Medium confidence" | 15 |
+| 15-29 | "Next unlock: Full learning" | 30 |
+| 30+ | "Full learning active" (emerald badge, no progress bar) | — |
 
-### Limites
-- 50 clips max fetchees, 20 affiches
-- "Showing 20 of N clips" footer si > 20
-- Refresh Stats button desactive (API tracking pas encore available)
+Progress bar has animated stripe pattern (`analytics-stripe-bar` CSS animation).
 
 ---
 
-## Types (`types/learning.ts`)
+## 8. Smart Queue Influence Indicator
 
-### ConfidenceLevel
-`'none' | 'collecting' | 'early' | 'medium' | 'high'`
+4-segment horizontal bar showing Learning Engine impact on distribution:
 
-### PublishedPostPerformance
-Represente un clip publie avec ses metriques. Les champs `views`, `likes`, `comments`, `shares` sont `number | null` — null tant que l'API tracking n'est pas approuvee.
-
-### LearnedDistributionProfile
-Profil appris par le systeme : meilleurs moods par plateforme, meilleures fenetres de publication, meilleurs styles de caption, patterns sous-performants, ajustements. Sera genere quand le tracking reel sera disponible.
-
-### AccountBreakdown
-Card par compte : platform, username, postsAnalyzed, bestMood, bestTime, bestFormat, avoid, confidence, hasApiTracking, creatorScore (YouTube only).
-
----
-
-## Data Sources
-
-### WIRED_REAL
-| Donnee | Source | Section |
+| Stage | Posts | Weight |
 |---|---|---|
-| Connected accounts | GET /api/social-accounts | Learning Summary, Account Breakdown |
-| Creator Score + Rank (YouTube) | account-store -> YouTube API | Account Breakdown |
-| Total clips published | localStorage (session-persistence) | Learning Summary |
-| Current streak | localStorage (session-persistence) | Learning Summary |
-| Post history (clips) | render_jobs + trending_clips (Supabase) | Post History |
+| Ignored | 0-4 | 0% |
+| Soft hint | 5-14 | 30% |
+| Strong influence | 15-29 | 70% |
+| Full reorder | 30+ | 100% |
 
-### LOCKED (Coming Soon)
-| Donnee | Raison | Section |
-|---|---|---|
-| Views/Likes/Comments/Shares | API tracking pas encore approuve | Post History |
-| What's Working insights | Pas assez de data / pas de tracking API | What's Working |
-| What's Not Working insights | Pas assez de data / pas de tracking API | What's Not Working |
-| Distribution Adjustments | Pas assez de data | Adjustments |
-| TikTok/Instagram performance | API pas approuvee | Account Breakdown |
-
-### PAS de fake
-- Aucune donnee simulee presentee comme reelle
-- Les exemples sont clairement locked (opacity-40, blur, lock icon, "Example insight" italic)
-- Pas de faux multipliers, pas de faux views, pas de faux reach
+Current stage highlighted with cyan fill. Description text below.
 
 ---
 
-## Statut par Feature
+## 9. Locked States Design
+
+**NO blurred fake data.** Locked sections use:
+- Preview cards with checklists ("What we'll detect: ...")
+- Max height enforced (180-220px)
+- Clear progress messaging ("Publish N more clips to unlock")
+- No Lock icon overlays, no `blur-[2px]`, no mock chart data
+- Every section guides the next action
+
+---
+
+## 10. Charts
+
+### InsightBarChart
+- Recharts `BarChart layout="vertical"`
+- Color: orange (2x+), cyan (1.3-2x), dim (<1.3x)
+- Used in: What's Working (top 6 patterns)
+
+### PostingHeatmap
+- Custom CSS grid: columns x rows (time buckets)
+- Cell colors: orange (2x+), cyan (1.3-2x), red (<1x), zinc (no data)
+- Used in: Best Posting Times
+
+### ProgressionLineChart
+- Recharts AreaChart, cyan gradient fill
+- Ready but not yet wired (needs 4+ weekly snapshots)
+
+---
+
+## 11. Pattern Detection Engine
+
+`lib/analytics/pattern-detector.ts` — server-side aggregation.
+
+### `computeProfileForUser(userId)` -> `LearnedDistributionProfile`
+1. Query `published_posts WHERE user_id = ? AND views IS NOT NULL`
+2. Compute `userAvgViews`
+3. Aggregate: bestMoodsByPlatform, bestPostingWindows, bestCaptionStyles, underperformingPatterns (min 5 posts per pattern)
+4. Generate adjustments from cross-analysis
+5. Return typed profile
+
+### Smart Queue consumption
+Profile is fetched by `queue-store.ts` via `GET /api/analytics/profile` and passed to `generateQueue()` as `learnedProfile`. The engine applies boosts/penalties weighted by confidence (30%/70%/100%).
+
+---
+
+## 12. API Trackers
+
+| Platform | File | API | Status |
+|---|---|---|---|
+| YouTube | `lib/analytics/trackers/youtube.ts` | `videos.list?part=statistics` | WIRED_REAL |
+| TikTok | `lib/analytics/trackers/tiktok.ts` | Video Query API v2 | PENDING |
+| Instagram | `lib/analytics/trackers/meta.ts` | Graph API + Insights | PENDING |
+
+Cron: `POST /api/cron/refresh-post-stats` every 6h, batch 100 posts, auth via `CRON_SECRET`.
+
+---
+
+## 13. Cache Invalidation
+
+`/api/analytics/profile` uses in-memory cache, 1h TTL.
+- `?force=true` bypasses cache (used after Sync Now)
+- Flow: syncAccount() -> success -> fetch with force=true -> setProfile(fresh)
+
+---
+
+## 14. Statut par Feature
 
 | Feature | Status |
 |---|---|
-| Learning Summary header | WIRED_REAL (comptes connectes + clips publies reels) |
-| Confidence level | WIRED_LOCAL (base sur totalClipsPublished) |
-| No Accounts CTA | WIRED_REAL (check social_accounts) |
-| No Posts CTA | WIRED_LOCAL (check totalClipsPublished) |
-| What's Working (real insights) | NOT_IMPLEMENTED (locked cards seulement) |
-| What's Not Working (real insights) | NOT_IMPLEMENTED (locked cards seulement) |
-| Distribution Adjustments (real) | NOT_IMPLEMENTED (locked cards seulement) |
-| Locked example cards (all sections) | WIRED_REAL (visuellement distinct) |
-| Account Breakdown (YouTube) | WIRED_REAL (Creator Score + Rank via YouTube API) |
-| Account Breakdown (TikTok/Instagram) | NOT_IMPLEMENTED (lock + "waiting for API") |
+| Creator Rank Hero (ring, progression, sync) | WIRED_REAL |
+| Next Unlock card | WIRED_LOCAL (based on trackedPosts) |
+| Learning Status bar | WIRED_REAL |
+| Smart Queue Adjustments (with Apply) | WIRED_REAL (UI), TODO (persist on Apply click) |
+| Smart Queue Influence Indicator | WIRED_LOCAL |
+| InsightBarChart (What's Working) | WIRED_REAL (pattern-detector) |
+| PostingHeatmap (Best Times) | WIRED_REAL (bestPostingWindows) |
+| What's Not Working cards | WIRED_REAL (underperformingPatterns) |
+| Connected Accounts breakdown | WIRED_REAL (YouTube score+rank, others locked) |
 | Post History table | WIRED_REAL (render_jobs + trending_clips) |
-| Post History views/likes columns | LOCKED (API tracking coming soon) |
-| Refresh Stats button | NOT_IMPLEMENTED (disabled) |
+| Published posts logging | WIRED_REAL (INSERT on publish) |
+| YouTube stats tracker (cron) | WIRED_REAL |
+| TikTok/Instagram trackers | PENDING (scope approval) |
+| Pattern detection engine | WIRED_REAL |
+| Smart Queue profile consumption | WIRED_REAL |
+| ProgressionLineChart | READY (needs snapshot data) |
+| Stripe animation (Next Unlock) | WIRED_REAL |
+| Hover lift + glow (cards) | WIRED_REAL |
+| prefers-reduced-motion | WIRED_REAL |
 
 ---
 
-## Axes d'amelioration (post v4)
+## 15. Axes d'amelioration
 
-1. **API tracking reel** — TikTok/YouTube/Instagram APIs pour vraies metriques post (views, likes, comments)
-2. **Pattern detection** — Quand tracking est live : detecter patterns (mood + timing + platform) avec 5+ posts
-3. **Distribution feed** — Nourrir `LearnedDistributionProfile` dans le Smart Queue Engine
-4. **Refresh flow** — Activer le bouton "Refresh stats" quand au moins 1 API tracking est approuvee
-5. **Post metadata** — Enregistrer mood/caption_style/hook_style au moment du publish pour analysis
-6. **Supabase table** — Creer table `published_posts` pour persister les performances (actuellement rien)
-7. **A/B testing insights** — Comparer les variants (high-ctr vs safe-reach vs viral-bait) avec vrais resultats
+1. **Adjustments -> Smart Queue**: On "Apply" click, persist preference in queue-store settings (currently log only)
+2. **ProgressionLineChart**: Wire once 4+ weekly snapshots exist per user
+3. **TikTok/Instagram API**: Pending scope approval, code ready
+4. **Heatmap multi-platform**: Split by platform when enough data per platform
+5. **A/B testing insights**: Compare caption variants with real results
+6. **Refresh Stats button**: Enable when at least 1 API tracker is approved

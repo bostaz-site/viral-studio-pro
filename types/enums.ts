@@ -25,5 +25,5 @@ export const PLANS = ['free', 'pro', 'studio'] as const
 export type Plan = typeof PLANS[number]
 
 // ── Creator Ranking ──
-export const CREATOR_RANKS = ['newcomer', 'creator', 'trending_creator', 'viral_creator', 'elite_creator', 'legendary', 'hidden_gem'] as const
+export const CREATOR_RANKS = ['scout', 'hunter', 'alpha', 'apex', 'legend', 'hidden_gem'] as const
 export type CreatorRank = typeof CREATOR_RANKS[number]

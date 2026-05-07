@@ -40,7 +40,8 @@ export interface DistributionState {
   publishClip: (
     clipId: string,
     caption: string,
-    hashtags: string[]
+    hashtags: string[],
+    metadata?: Record<string, unknown>
   ) => Promise<void>
   resetPublishProgress: () => void
 }
@@ -125,7 +126,7 @@ export const useDistributionStore = create<DistributionState>((set, get) => ({
     }))
   },
 
-  publishClip: async (clipId, caption, hashtags) => {
+  publishClip: async (clipId, caption, hashtags, metadata) => {
     const { publishTargets } = get()
     const enabledTargets = publishTargets.filter((t) => t.enabled)
 
@@ -149,7 +150,7 @@ export const useDistributionStore = create<DistributionState>((set, get) => ({
         const res = await fetch(`/api/publish/${target.platform}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ clip_id: clipId, caption, hashtags }),
+          body: JSON.stringify({ clip_id: clipId, caption, hashtags, metadata }),
         })
 
         const json = await res.json() as {

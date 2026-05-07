@@ -3,6 +3,7 @@ import { z } from 'zod'
 import Stripe from 'stripe'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { withAuth } from '@/lib/api/withAuth'
+import { logger } from '@/lib/logger'
 
 function getStripe() {
   return new Stripe(process.env.STRIPE_SECRET_KEY ?? 'sk_test_placeholder_build')
@@ -125,7 +126,7 @@ export const POST = withAuth(async (req, user) => {
     return NextResponse.json({ data: { url: session.url }, error: null, message: 'Session created' })
   } catch (err) {
     // Don't leak Stripe internal error details to the client
-    console.error('[stripe/checkout] Error:', err instanceof Error ? err.message : err)
+    logger.error('[stripe/checkout] Error:', err instanceof Error ? err.message : err)
     return NextResponse.json(
       { data: null, error: 'Stripe error', message: 'Failed to create checkout session' },
       { status: 500 }

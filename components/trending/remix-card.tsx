@@ -1,6 +1,7 @@
 'use client'
 
 import { memo, useState } from 'react'
+import Image from 'next/image'
 import { Download, RefreshCw, CheckCircle, Loader2, XCircle, Clock, SplitSquareHorizontal, TimerOff } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { timeAgo } from '@/lib/trending/utils'
@@ -59,11 +60,12 @@ export const RemixCard = memo(function RemixCard({ remix }: { remix: RemixJob })
             thumbnailUrl={remix.clip?.thumbnail_url}
           />
         ) : remix.clip?.thumbnail_url ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
+          <Image
             src={remix.clip.thumbnail_url}
             alt={remix.clip.title ?? 'Clip'}
-            className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+            fill
+            sizes="(max-width: 768px) 50vw, 200px"
+            className="object-cover transition-transform duration-300 group-hover:scale-105"
           />
         ) : (
           <div className="w-full h-full flex items-center justify-center text-muted-foreground/30 text-xs">

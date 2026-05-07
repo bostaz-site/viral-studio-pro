@@ -2,7 +2,9 @@
 
 import { useState, useEffect, useCallback, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { User, CreditCard, CheckCircle2, AlertCircle, Loader2, Bell, Activity, Film, Clock, Gift, Copy, Check, Share2 } from 'lucide-react'
+import { User, CreditCard, CheckCircle2, AlertCircle, Loader2, Bell, Activity, Film, Clock, Gift, Copy, Check, Share2, Settings as SettingsIcon } from 'lucide-react'
+import { PageHeader } from '@/components/dashboard/page-header'
+import { DangerZone } from '@/components/settings/danger-zone'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -202,10 +204,12 @@ function SettingsPageInner() {
 
   return (
     <div className="space-y-10 max-w-3xl animate-in fade-in duration-500">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Settings</h1>
-        <p className="text-muted-foreground mt-1">Manage your profile, notifications, and subscription.</p>
-      </div>
+      <PageHeader
+        icon={SettingsIcon}
+        title="Settings"
+        subtitle="Connections, plan, preferences."
+        accent="neutral"
+      />
 
       {/* Checkout status notice */}
       {checkoutStatus === 'success' && (
@@ -531,6 +535,11 @@ function SettingsPageInner() {
           </div>
         )}
       </Section>
+
+      <Separator />
+
+      {/* ── Danger Zone (GDPR account deletion) ── */}
+      {user?.email && <DangerZone userEmail={user.email} />}
     </div>
   )
 }

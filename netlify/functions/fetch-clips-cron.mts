@@ -2,7 +2,7 @@ import type { Config } from "@netlify/functions"
 
 // Runs every 3 hours — fetches new Twitch + Kick clips
 export default async () => {
-  const baseUrl = process.env.URL || "https://viral-studio-pro.netlify.app"
+  const baseUrl = process.env.URL || "https://viralanimal.com"
   const cronSecret = process.env.CRON_SECRET
 
   if (!cronSecret) {

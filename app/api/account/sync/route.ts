@@ -2,6 +2,7 @@ import { withAuth, jsonResponse, errorResponse } from '@/lib/api/withAuth'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { scoreAccount } from '@/lib/scoring/account-scorer'
 import { getValidToken } from '@/lib/distribution/token-manager'
+import { logger } from '@/lib/logger'
 
 /**
  * POST /api/account/sync
@@ -230,7 +231,7 @@ export const POST = withAuth(async (_req, user) => {
     })
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err)
-    console.error(`[account/sync] ${msg}`)
+    logger.error(`[account/sync] ${msg}`)
     return errorResponse(`Sync failed: ${msg}`, 500)
   }
 })

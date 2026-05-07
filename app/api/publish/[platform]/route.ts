@@ -9,6 +9,20 @@ const publishSchema = z.object({
   clip_id: z.string().uuid(),
   caption: z.string().min(1).max(2200),
   hashtags: z.array(z.string()).max(30).optional(),
+  // Optional metadata snapshot for published_posts logging
+  metadata: z.object({
+    clip_mood: z.string().optional(),
+    caption_style: z.string().optional(),
+    caption_tone: z.string().optional(),
+    hook_style: z.string().optional(),
+    hook_enabled: z.boolean().optional(),
+    split_screen_enabled: z.boolean().optional(),
+    smart_zoom_mode: z.string().optional(),
+    duration_seconds: z.number().optional(),
+    blowup_chance_at_render: z.number().optional(),
+    posted_hour_local: z.number().min(0).max(23).optional(),
+    posted_weekday: z.number().min(0).max(6).optional(),
+  }).optional(),
 })
 
 export const POST = withAuth(
@@ -38,7 +52,7 @@ export const POST = withAuth(
       return errorResponse(parsed.error.issues[0]?.message ?? 'Invalid input', 400)
     }
 
-    const { clip_id, caption, hashtags } = parsed.data
+    const { clip_id, caption, hashtags, metadata } = parsed.data
     const admin = createAdminClient()
 
     // Verify clip exists and belongs to user
@@ -166,15 +180,66 @@ export const POST = withAuth(
       )
 
       // Update publication record with success
+      const publishedAt = new Date().toISOString()
       await admin
         .from('publications')
         .update({
           status: 'published',
           platform_post_id: result.postId ?? null,
           tracking_url: result.trackingUrl ?? null,
-          published_at: new Date().toISOString(),
+          published_at: publishedAt,
         })
         .eq('id', publication.id)
+
+      // Log to published_posts for Learning Engine pattern detection
+      // Fetch source metadata from trending_clips if available
+      let sourcePlatform: string | null = null
+      let sourceStreamer: string | null = null
+      let niche: string | null = null
+      let algoScore: number | null = null
+      let durationFromSource: number | null = null
+
+      const { data: trendingClip } = await admin
+        .from('trending_clips')
+        .select('platform, author_name, niche, velocity_score, duration_seconds')
+        .eq('id', clip_id)
+        .single()
+
+      if (trendingClip) {
+        sourcePlatform = trendingClip.platform
+        sourceStreamer = trendingClip.author_name
+        niche = trendingClip.niche
+        algoScore = trendingClip.velocity_score
+        durationFromSource = trendingClip.duration_seconds
+      }
+
+      void admin
+        .from('published_posts')
+        .insert({
+          user_id: user.id,
+          clip_id,
+          render_job_id: renderJob?.id ?? null,
+          platform: platformParam,
+          account_id: socialAccount?.id ?? null,
+          account_handle: null,
+          platform_post_id: result.postId ?? null,
+          published_at: publishedAt,
+          posted_hour_local: metadata?.posted_hour_local ?? new Date().getHours(),
+          posted_weekday: metadata?.posted_weekday ?? new Date().getDay(),
+          clip_mood: metadata?.clip_mood ?? null,
+          caption_style: metadata?.caption_style ?? null,
+          caption_tone: metadata?.caption_tone ?? null,
+          hook_style: metadata?.hook_style ?? null,
+          hook_enabled: metadata?.hook_enabled ?? null,
+          split_screen_enabled: metadata?.split_screen_enabled ?? null,
+          smart_zoom_mode: metadata?.smart_zoom_mode ?? null,
+          duration_seconds: metadata?.duration_seconds ?? durationFromSource ?? null,
+          blowup_chance_at_render: metadata?.blowup_chance_at_render ?? null,
+          algo_score_at_pick: algoScore,
+          source_platform: sourcePlatform,
+          source_streamer: sourceStreamer,
+          niche,
+        })
 
       return jsonResponse({
         publicationId: publication.id,

@@ -85,4 +85,12 @@ export const RATE_LIMITS = {
 
   /** Data endpoints (sparkline, remixes) */
   data: { limit: 30, windowMs: 60_000 },
+
+  /** AI optimize — mood detection (Claude API, costly) */
+  aiOptimize: { limit: 30, windowMs: 24 * 60 * 60 * 1000 },
+  aiOptimizePro: { limit: 300, windowMs: 24 * 60 * 60 * 1000 },
+
+  /** Render hook — VPS hook generation (frontend-facing) */
+  renderHook: { limit: 50, windowMs: 24 * 60 * 60 * 1000 },
+  renderHookPro: { limit: 500, windowMs: 24 * 60 * 60 * 1000 },
 } as const

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import Stripe from 'stripe'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { rateLimit, RATE_LIMITS } from '@/lib/rate-limit'
+import { logger } from '@/lib/logger'
 
 function getStripe() {
   return new Stripe(process.env.STRIPE_SECRET_KEY ?? 'sk_test_placeholder_build')
@@ -145,7 +146,7 @@ export async function POST(req: NextRequest) {
         const failedInvoice = event.data.object as { customer?: string; attempt_count?: number }
         const failedCustomerId = typeof failedInvoice.customer === 'string' ? failedInvoice.customer : null
         if (failedCustomerId) {
-          console.error(`[Stripe] Payment failed for customer ${failedCustomerId}, attempt ${failedInvoice.attempt_count ?? '?'}`)
+          logger.error(`[Stripe] Payment failed for customer ${failedCustomerId}, attempt ${failedInvoice.attempt_count ?? '?'}`)
         }
         break
       }
