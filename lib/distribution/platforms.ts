@@ -29,7 +29,7 @@ export const PLATFORM_CONFIGS: Record<Platform, PlatformConfig> = {
     displayName: 'TikTok',
     authUrl: 'https://www.tiktok.com/v2/auth/authorize/',
     tokenUrl: 'https://open.tiktokapis.com/v2/oauth/token/',
-    scopes: ['user.info.basic', 'video.publish', 'video.upload', 'video.list'],
+    scopes: ['user.info.basic', 'video.publish', 'video.upload'],
     redirectUri: `${APP_URL}/api/auth/callback/tiktok`,
     clientIdEnv: 'TIKTOK_CLIENT_KEY',
     clientSecretEnv: 'TIKTOK_CLIENT_SECRET',
