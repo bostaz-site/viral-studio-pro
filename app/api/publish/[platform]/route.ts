@@ -4,6 +4,9 @@ import { withAuth, jsonResponse, errorResponse } from '@/lib/api/withAuth'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { isPlatform, PLATFORM_CONFIGS, type Platform } from '@/lib/distribution/platforms'
 import { getValidToken } from '@/lib/distribution/token-manager'
+import { buildSignedExternalUrl } from '@/app/api/clips/external/route'
+
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://viralanimal.com'
 
 const publishSchema = z.object({
   clip_id: z.string().uuid(),
@@ -119,16 +122,20 @@ export const POST = withAuth(
       )
     }
 
-    // Get signed URL for the clip video
-    const { data: signedUrlData, error: signedUrlError } = await admin.storage
-      .from('clips')
-      .createSignedUrl(clipStoragePath, 14400) // 4 hours
-
-    if (signedUrlError || !signedUrlData?.signedUrl) {
-      return errorResponse('Failed to get video URL for publishing', 500)
+    // Build a signed external URL served VIA viralanimal.com domain.
+    // TikTok requires PULL_FROM_URL videos to originate from a verified
+    // domain — viralanimal.com is ours; supabase.co is not.
+    // The /api/clips/external route streams the video from Supabase Storage
+    // after verifying the HMAC signature on the URL.
+    let videoUrl: string
+    try {
+      videoUrl = buildSignedExternalUrl(clipStoragePath, APP_URL)
+    } catch (err) {
+      return errorResponse(
+        `Failed to build external video URL: ${err instanceof Error ? err.message : 'unknown'}`,
+        500
+      )
     }
-
-    const videoUrl = signedUrlData.signedUrl
 
     // Build full caption with hashtags
     const hashtagString = hashtags?.length
