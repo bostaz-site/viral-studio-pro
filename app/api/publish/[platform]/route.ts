@@ -290,16 +290,74 @@ async function publishToPlatform(
   }
 }
 
-// ── TikTok Direct Post ─────────────────────────────────────────────────────────
-
+// ── TikTok Publish ─────────────────────────────────────────────────────────────
+//
+// Two modes available depending on TikTok app audit status:
+//
+// 1. INBOX (default, no audit required): Posts as DRAFT to user's TikTok inbox.
+//    User opens TikTok app → Drafts → finalizes the post manually.
+//    Endpoint: /v2/post/publish/inbox/video/init/
+//
+// 2. DIRECT POST (requires Direct Post API audit approval):
+//    Publishes directly live with full control over caption/privacy/etc.
+//    Endpoint: /v2/post/publish/video/init/
+//
+// Switch between modes via env var TIKTOK_DIRECT_POST_ENABLED=true (after audit).
 async function publishToTikTok(
   accessToken: string,
   videoUrl: string,
   caption: string
 ): Promise<PublishResult> {
-  // Step 1: Initialize video publish with pull-from-URL
+  const directPostEnabled = process.env.TIKTOK_DIRECT_POST_ENABLED === 'true'
+
+  if (directPostEnabled) {
+    // Direct Post (requires audit approval)
+    const initRes = await fetch(
+      'https://open.tiktokapis.com/v2/post/publish/video/init/',
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json; charset=UTF-8',
+        },
+        body: JSON.stringify({
+          post_info: {
+            title: caption.slice(0, 150),
+            privacy_level: 'SELF_ONLY', // Start as private — user can change on TikTok
+            disable_duet: false,
+            disable_comment: false,
+            disable_stitch: false,
+            video_cover_timestamp_ms: 1000,
+          },
+          source_info: {
+            source: 'PULL_FROM_URL',
+            video_url: videoUrl,
+          },
+        }),
+      }
+    )
+
+    const initData = await initRes.json() as {
+      data?: { publish_id?: string }
+      error?: { code?: string; message?: string; log_id?: string }
+    }
+
+    if (!initRes.ok || (initData.error?.code && initData.error.code !== 'ok')) {
+      throw new Error(
+        `TikTok Direct Post failed: ${initData.error?.message ?? 'Unknown error'} ` +
+        `(code: ${initData.error?.code ?? 'none'})`
+      )
+    }
+
+    return {
+      postId: initData.data?.publish_id ?? null,
+      trackingUrl: null,
+    }
+  }
+
+  // Inbox mode (default — no audit required, posts as draft)
   const initRes = await fetch(
-    'https://open.tiktokapis.com/v2/post/publish/video/init/',
+    'https://open.tiktokapis.com/v2/post/publish/inbox/video/init/',
     {
       method: 'POST',
       headers: {
@@ -307,14 +365,6 @@ async function publishToTikTok(
         'Content-Type': 'application/json; charset=UTF-8',
       },
       body: JSON.stringify({
-        post_info: {
-          title: caption.slice(0, 150), // TikTok title limit
-          privacy_level: 'SELF_ONLY', // Start as private — user can change on TikTok
-          disable_duet: false,
-          disable_comment: false,
-          disable_stitch: false,
-          video_cover_timestamp_ms: 1000,
-        },
         source_info: {
           source: 'PULL_FROM_URL',
           video_url: videoUrl,
@@ -328,18 +378,16 @@ async function publishToTikTok(
     error?: { code?: string; message?: string; log_id?: string }
   }
 
-  if (!initRes.ok || initData.error?.code) {
+  if (!initRes.ok || (initData.error?.code && initData.error.code !== 'ok')) {
     throw new Error(
-      `TikTok publish failed: ${initData.error?.message ?? 'Unknown error'} ` +
+      `TikTok upload failed: ${initData.error?.message ?? 'Unknown error'} ` +
       `(code: ${initData.error?.code ?? 'none'})`
     )
   }
 
-  const publishId = initData.data?.publish_id ?? null
-
   return {
-    postId: publishId,
-    trackingUrl: null, // TikTok doesn't return a direct URL immediately
+    postId: initData.data?.publish_id ?? null,
+    trackingUrl: null, // User finalizes draft on TikTok app
   }
 }
 
