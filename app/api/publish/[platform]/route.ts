@@ -4,7 +4,7 @@ import { withAuth, jsonResponse, errorResponse } from '@/lib/api/withAuth'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { isPlatform, PLATFORM_CONFIGS, type Platform } from '@/lib/distribution/platforms'
 import { getValidToken } from '@/lib/distribution/token-manager'
-import { buildSignedExternalUrl } from '@/app/api/clips/external/route'
+import { buildSignedExternalUrl } from '@/lib/distribution/external-url'
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://viralanimal.com'
 

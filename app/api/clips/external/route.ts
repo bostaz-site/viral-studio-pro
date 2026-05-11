@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import crypto from 'crypto'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { logger } from '@/lib/logger'
+import { generateExternalUrlHmac } from '@/lib/distribution/external-url'
 
 /**
  * GET /api/clips/external?path=<storage_path>&exp=<unix_ts>&sig=<hmac>
@@ -12,17 +13,7 @@ import { logger } from '@/lib/logger'
  *
  * Auth: HMAC-signed query params (path + exp). Tokens expire in 4 hours.
  * The publish route generates these signed URLs and passes them to TikTok.
- *
- * Flow:
- *   1. Validate HMAC signature + expiry
- *   2. Generate Supabase signed URL (server-side)
- *   3. Stream the video bytes back to caller (TikTok)
  */
-
-function generateHmac(path: string, exp: number, secret: string): string {
-  return crypto.createHmac('sha256', secret).update(`${path}:${exp}`).digest('hex')
-}
-
 export async function GET(request: NextRequest) {
   const url = request.nextUrl
   const path = url.searchParams.get('path')
@@ -47,7 +38,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Server misconfigured' }, { status: 500 })
   }
 
-  const expected = generateHmac(path, exp, secret)
+  const expected = generateExternalUrlHmac(path, exp, secret)
   // Constant-time comparison to prevent timing attacks
   if (
     expected.length !== sig.length ||
@@ -86,27 +77,4 @@ export async function GET(request: NextRequest) {
       'Accept-Ranges': videoResponse.headers.get('Accept-Ranges') ?? 'bytes',
     },
   })
-}
-
-/**
- * Helper: Generate a signed external URL for a clip storage path.
- * Used by the publish route to construct URLs that TikTok can fetch.
- */
-export function buildSignedExternalUrl(
-  storagePath: string,
-  appUrl: string,
-  ttlSeconds = 14400 // 4 hours
-): string {
-  const secret = process.env.ENCRYPTION_SECRET
-  if (!secret) {
-    throw new Error('ENCRYPTION_SECRET not configured')
-  }
-  const exp = Math.floor(Date.now() / 1000) + ttlSeconds
-  const sig = generateHmac(storagePath, exp, secret)
-  const params = new URLSearchParams({
-    path: storagePath,
-    exp: String(exp),
-    sig,
-  })
-  return `${appUrl}/api/clips/external?${params.toString()}`
 }
