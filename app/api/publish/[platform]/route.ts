@@ -7,7 +7,8 @@ import { getValidToken } from '@/lib/distribution/token-manager'
 
 const publishSchema = z.object({
   clip_id: z.string().uuid(),
-  caption: z.string().min(1).max(2200),
+  // Caption can be empty — user adds it on the platform (especially in Inbox mode)
+  caption: z.string().max(2200).default(''),
   hashtags: z.array(z.string()).max(30).optional(),
   // Optional metadata snapshot for published_posts logging
   metadata: z.object({
