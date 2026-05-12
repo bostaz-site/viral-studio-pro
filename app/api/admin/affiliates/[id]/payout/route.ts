@@ -37,14 +37,16 @@ export const POST = withAdmin(async (req) => {
   const { amount, notes, period_start, period_end } = parsed.data
 
   // Create payout record
+  const amountCents = Math.round(amount * 100)
   const { data: payout, error } = await supabase
     .from('affiliate_payouts')
     .insert({
-      affiliate_id: affiliateId,
-      amount,
-      notes: notes ?? null,
-      period_start: period_start ?? null,
-      period_end: period_end ?? null,
+      influencer_id: affiliateId,
+      gross_commission_cents: amountCents,
+      net_payout_cents: amountCents,
+      referrals_count: 0,
+      period_start_at: period_start ?? new Date().toISOString(),
+      period_end_at: period_end ?? new Date().toISOString(),
       status: 'pending',
     })
     .select()

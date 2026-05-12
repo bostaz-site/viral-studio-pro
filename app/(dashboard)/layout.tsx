@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { Settings, Menu, X, LogOut, Zap, Compass, Wand2, Radio, BarChart3, TrendingUp, Handshake, Users, ChevronRight } from 'lucide-react'
+import { Settings, Menu, X, LogOut, Zap, Compass, Wand2, Radio, BarChart3, TrendingUp, Handshake, Users, ChevronRight, Inbox, Mail, Upload, ShieldBan, RefreshCw, Webhook } from 'lucide-react'
 import { ViralAnimalLogo } from '@/components/brand/viral-animal-logo'
 import { useUiStore } from '@/stores/ui-store'
 import { Button } from '@/components/ui/button'
@@ -66,11 +66,17 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     { name: 'Settings', href: '/settings', icon: Settings },
   ]
 
-  // Admin-only nav — distinct icons (no more duplicate Crown), shown under a labelled section
+  // Admin-only nav — full ops hub
   const adminNavigation = [
     { name: 'Growth', href: '/admin/growth', icon: TrendingUp },
     { name: 'Affiliates', href: '/admin/affiliates', icon: Handshake },
     { name: 'Streamers', href: '/admin/streamers', icon: Users },
+    { name: 'Inbox', href: '/admin/inbox', icon: Inbox },
+    { name: 'Campaigns', href: '/admin/campaigns', icon: Mail },
+    { name: 'Import', href: '/admin/influencers/import', icon: Upload },
+    { name: 'Suppression', href: '/admin/suppression', icon: ShieldBan },
+    { name: 'Sync', href: '/admin/sync', icon: RefreshCw },
+    { name: 'Webhooks', href: '/admin/webhooks', icon: Webhook },
   ]
 
   const planLimits: Record<string, number> = { free: 3, pro: 50, studio: 999 }

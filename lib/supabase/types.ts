@@ -153,6 +153,148 @@ export type Database = {
           },
         ]
       }
+      admin_audit_log: {
+        Row: {
+          action: string
+          actor_id: string | null
+          changes: Json | null
+          created_at: string
+          id: string
+          ip_address: unknown
+          metadata: Json | null
+          resource_id: string | null
+          resource_type: string | null
+          user_agent: string | null
+        }
+        Insert: {
+          action: string
+          actor_id?: string | null
+          changes?: Json | null
+          created_at?: string
+          id?: string
+          ip_address?: unknown
+          metadata?: Json | null
+          resource_id?: string | null
+          resource_type?: string | null
+          user_agent?: string | null
+        }
+        Update: {
+          action?: string
+          actor_id?: string | null
+          changes?: Json | null
+          created_at?: string
+          id?: string
+          ip_address?: unknown
+          metadata?: Json | null
+          resource_id?: string | null
+          resource_type?: string | null
+          user_agent?: string | null
+        }
+        Relationships: []
+      }
+      admin_users: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          notes: string | null
+          permissions: Json | null
+          role: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          notes?: string | null
+          permissions?: Json | null
+          role: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          notes?: string | null
+          permissions?: Json | null
+          role?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      affiliate_clicks: {
+        Row: {
+          affiliate_code: string
+          clicked_at: string
+          fingerprint_hash: string | null
+          id: string
+          influencer_id: string | null
+          ip_country: string | null
+          ip_hash: string | null
+          landing_path: string | null
+          referrer_url: string | null
+          signup_completed_at: string | null
+          signup_user_id: string | null
+          user_agent: string | null
+          utm_campaign: string | null
+          utm_medium: string | null
+          utm_source: string | null
+        }
+        Insert: {
+          affiliate_code: string
+          clicked_at?: string
+          fingerprint_hash?: string | null
+          id?: string
+          influencer_id?: string | null
+          ip_country?: string | null
+          ip_hash?: string | null
+          landing_path?: string | null
+          referrer_url?: string | null
+          signup_completed_at?: string | null
+          signup_user_id?: string | null
+          user_agent?: string | null
+          utm_campaign?: string | null
+          utm_medium?: string | null
+          utm_source?: string | null
+        }
+        Update: {
+          affiliate_code?: string
+          clicked_at?: string
+          fingerprint_hash?: string | null
+          id?: string
+          influencer_id?: string | null
+          ip_country?: string | null
+          ip_hash?: string | null
+          landing_path?: string | null
+          referrer_url?: string | null
+          signup_completed_at?: string | null
+          signup_user_id?: string | null
+          user_agent?: string | null
+          utm_campaign?: string | null
+          utm_medium?: string | null
+          utm_source?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "affiliate_clicks_influencer_id_fkey"
+            columns: ["influencer_id"]
+            isOneToOne: false
+            referencedRelation: "influencers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "affiliate_clicks_influencer_id_fkey"
+            columns: ["influencer_id"]
+            isOneToOne: false
+            referencedRelation: "v_active_affiliates_leaderboard"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "affiliate_clicks_influencer_id_fkey"
+            columns: ["influencer_id"]
+            isOneToOne: false
+            referencedRelation: "v_affiliate_activation_stats"
+            referencedColumns: ["influencer_id"]
+          },
+        ]
+      }
       affiliate_codes: {
         Row: {
           active: boolean | null
@@ -203,56 +345,249 @@ export type Database = {
           },
         ]
       }
-      affiliate_payouts: {
+      affiliate_commission_ledger: {
         Row: {
-          affiliate_id: string | null
-          amount: number
-          created_at: string | null
-          currency: string | null
+          amount_cents: number
+          created_at: string
+          created_by: string | null
+          currency: string
+          event_type: string
           id: string
+          influencer_id: string
           notes: string | null
-          paid_at: string | null
-          payment_method: string | null
-          period_end: string | null
-          period_start: string | null
-          status: string | null
-          stripe_transfer_id: string | null
+          payout_id: string | null
+          referral_id: string | null
+          stripe_charge_id: string | null
+          stripe_invoice_id: string | null
+          stripe_payment_intent_id: string | null
+          stripe_refund_id: string | null
+          user_id: string | null
+          webhook_event_id: string | null
         }
         Insert: {
-          affiliate_id?: string | null
-          amount: number
-          created_at?: string | null
-          currency?: string | null
+          amount_cents: number
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          event_type: string
           id?: string
+          influencer_id: string
           notes?: string | null
-          paid_at?: string | null
-          payment_method?: string | null
-          period_end?: string | null
-          period_start?: string | null
-          status?: string | null
-          stripe_transfer_id?: string | null
+          payout_id?: string | null
+          referral_id?: string | null
+          stripe_charge_id?: string | null
+          stripe_invoice_id?: string | null
+          stripe_payment_intent_id?: string | null
+          stripe_refund_id?: string | null
+          user_id?: string | null
+          webhook_event_id?: string | null
         }
         Update: {
-          affiliate_id?: string | null
-          amount?: number
-          created_at?: string | null
-          currency?: string | null
+          amount_cents?: number
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          event_type?: string
           id?: string
+          influencer_id?: string
           notes?: string | null
-          paid_at?: string | null
-          payment_method?: string | null
-          period_end?: string | null
-          period_start?: string | null
-          status?: string | null
-          stripe_transfer_id?: string | null
+          payout_id?: string | null
+          referral_id?: string | null
+          stripe_charge_id?: string | null
+          stripe_invoice_id?: string | null
+          stripe_payment_intent_id?: string | null
+          stripe_refund_id?: string | null
+          user_id?: string | null
+          webhook_event_id?: string | null
         }
         Relationships: [
           {
-            foreignKeyName: "affiliate_payouts_affiliate_id_fkey"
-            columns: ["affiliate_id"]
+            foreignKeyName: "affiliate_commission_ledger_influencer_id_fkey"
+            columns: ["influencer_id"]
             isOneToOne: false
-            referencedRelation: "affiliates"
+            referencedRelation: "influencers"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "affiliate_commission_ledger_influencer_id_fkey"
+            columns: ["influencer_id"]
+            isOneToOne: false
+            referencedRelation: "v_active_affiliates_leaderboard"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "affiliate_commission_ledger_influencer_id_fkey"
+            columns: ["influencer_id"]
+            isOneToOne: false
+            referencedRelation: "v_affiliate_activation_stats"
+            referencedColumns: ["influencer_id"]
+          },
+          {
+            foreignKeyName: "affiliate_commission_ledger_payout_id_fkey"
+            columns: ["payout_id"]
+            isOneToOne: false
+            referencedRelation: "affiliate_payouts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "affiliate_commission_ledger_referral_id_fkey"
+            columns: ["referral_id"]
+            isOneToOne: false
+            referencedRelation: "affiliate_referrals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "affiliate_commission_ledger_webhook_event_id_fkey"
+            columns: ["webhook_event_id"]
+            isOneToOne: false
+            referencedRelation: "webhook_events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      affiliate_payouts: {
+        Row: {
+          adjustments_cents: number | null
+          created_at: string
+          failure_reason: string | null
+          gross_commission_cents: number
+          id: string
+          included_referral_ids: string[] | null
+          influencer_id: string
+          net_payout_cents: number
+          period_end_at: string
+          period_start_at: string
+          referrals_count: number
+          sent_at: string | null
+          status: string
+          stripe_transfer_id: string | null
+          stripe_transfer_status: string | null
+          updated_at: string
+        }
+        Insert: {
+          adjustments_cents?: number | null
+          created_at?: string
+          failure_reason?: string | null
+          gross_commission_cents: number
+          id?: string
+          included_referral_ids?: string[] | null
+          influencer_id: string
+          net_payout_cents: number
+          period_end_at: string
+          period_start_at: string
+          referrals_count: number
+          sent_at?: string | null
+          status?: string
+          stripe_transfer_id?: string | null
+          stripe_transfer_status?: string | null
+          updated_at?: string
+        }
+        Update: {
+          adjustments_cents?: number | null
+          created_at?: string
+          failure_reason?: string | null
+          gross_commission_cents?: number
+          id?: string
+          included_referral_ids?: string[] | null
+          influencer_id?: string
+          net_payout_cents?: number
+          period_end_at?: string
+          period_start_at?: string
+          referrals_count?: number
+          sent_at?: string | null
+          status?: string
+          stripe_transfer_id?: string | null
+          stripe_transfer_status?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "affiliate_payouts_influencer_id_fkey"
+            columns: ["influencer_id"]
+            isOneToOne: false
+            referencedRelation: "influencers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "affiliate_payouts_influencer_id_fkey"
+            columns: ["influencer_id"]
+            isOneToOne: false
+            referencedRelation: "v_active_affiliates_leaderboard"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "affiliate_payouts_influencer_id_fkey"
+            columns: ["influencer_id"]
+            isOneToOne: false
+            referencedRelation: "v_affiliate_activation_stats"
+            referencedColumns: ["influencer_id"]
+          },
+        ]
+      }
+      affiliate_referrals: {
+        Row: {
+          attribution_metadata: Json | null
+          attribution_type: string
+          created_at: string
+          first_paid_at: string | null
+          id: string
+          influencer_id: string
+          signed_up_at: string
+          status: string
+          total_commission_cents: number | null
+          total_revenue_cents: number | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          attribution_metadata?: Json | null
+          attribution_type: string
+          created_at?: string
+          first_paid_at?: string | null
+          id?: string
+          influencer_id: string
+          signed_up_at?: string
+          status?: string
+          total_commission_cents?: number | null
+          total_revenue_cents?: number | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          attribution_metadata?: Json | null
+          attribution_type?: string
+          created_at?: string
+          first_paid_at?: string | null
+          id?: string
+          influencer_id?: string
+          signed_up_at?: string
+          status?: string
+          total_commission_cents?: number | null
+          total_revenue_cents?: number | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "affiliate_referrals_influencer_id_fkey"
+            columns: ["influencer_id"]
+            isOneToOne: false
+            referencedRelation: "influencers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "affiliate_referrals_influencer_id_fkey"
+            columns: ["influencer_id"]
+            isOneToOne: false
+            referencedRelation: "v_active_affiliates_leaderboard"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "affiliate_referrals_influencer_id_fkey"
+            columns: ["influencer_id"]
+            isOneToOne: false
+            referencedRelation: "v_affiliate_activation_stats"
+            referencedColumns: ["influencer_id"]
           },
         ]
       }
@@ -327,6 +662,9 @@ export type Database = {
       }
       ai_calls: {
         Row: {
+          cached_tokens: number | null
+          context_id: string | null
+          context_type: string | null
           cost_usd: number | null
           created_at: string
           error: string | null
@@ -341,6 +679,9 @@ export type Database = {
           user_id: string | null
         }
         Insert: {
+          cached_tokens?: number | null
+          context_id?: string | null
+          context_type?: string | null
           cost_usd?: number | null
           created_at?: string
           error?: string | null
@@ -355,6 +696,9 @@ export type Database = {
           user_id?: string | null
         }
         Update: {
+          cached_tokens?: number | null
+          context_id?: string | null
+          context_type?: string | null
           cost_usd?: number | null
           created_at?: string
           error?: string | null
@@ -481,6 +825,94 @@ export type Database = {
           },
         ]
       }
+      campaign_recipients: {
+        Row: {
+          campaign_id: string
+          created_at: string
+          external_id: string | null
+          id: string
+          influencer_id: string
+          last_event_at: string | null
+          mailbox_id: string | null
+          scheduled_at: string | null
+          sent_at: string | null
+          sequence_step: number | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          campaign_id: string
+          created_at?: string
+          external_id?: string | null
+          id?: string
+          influencer_id: string
+          last_event_at?: string | null
+          mailbox_id?: string | null
+          scheduled_at?: string | null
+          sent_at?: string | null
+          sequence_step?: number | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          campaign_id?: string
+          created_at?: string
+          external_id?: string | null
+          id?: string
+          influencer_id?: string
+          last_event_at?: string | null
+          mailbox_id?: string | null
+          scheduled_at?: string | null
+          sent_at?: string | null
+          sequence_step?: number | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "campaign_recipients_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "email_campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "campaign_recipients_influencer_id_fkey"
+            columns: ["influencer_id"]
+            isOneToOne: false
+            referencedRelation: "influencers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "campaign_recipients_influencer_id_fkey"
+            columns: ["influencer_id"]
+            isOneToOne: false
+            referencedRelation: "v_active_affiliates_leaderboard"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "campaign_recipients_influencer_id_fkey"
+            columns: ["influencer_id"]
+            isOneToOne: false
+            referencedRelation: "v_affiliate_activation_stats"
+            referencedColumns: ["influencer_id"]
+          },
+          {
+            foreignKeyName: "campaign_recipients_mailbox_id_fkey"
+            columns: ["mailbox_id"]
+            isOneToOne: false
+            referencedRelation: "mailboxes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "campaign_recipients_mailbox_id_fkey"
+            columns: ["mailbox_id"]
+            isOneToOne: false
+            referencedRelation: "v_mailboxes_safe"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       clip_snapshots: {
         Row: {
           captured_at: string
@@ -595,6 +1027,79 @@ export type Database = {
           },
         ]
       }
+      demo_packages: {
+        Row: {
+          avg_viral_score: number | null
+          created_at: string
+          expires_at: string | null
+          generated_at: string | null
+          id: string
+          influencer_id: string
+          landing_page_first_visit_at: string | null
+          landing_page_slug: string | null
+          landing_page_visits: number | null
+          selected_clip_ids: string[] | null
+          shared_at: string | null
+          source_clips: Json | null
+          status: string
+          total_render_cost_cents: number | null
+        }
+        Insert: {
+          avg_viral_score?: number | null
+          created_at?: string
+          expires_at?: string | null
+          generated_at?: string | null
+          id?: string
+          influencer_id: string
+          landing_page_first_visit_at?: string | null
+          landing_page_slug?: string | null
+          landing_page_visits?: number | null
+          selected_clip_ids?: string[] | null
+          shared_at?: string | null
+          source_clips?: Json | null
+          status?: string
+          total_render_cost_cents?: number | null
+        }
+        Update: {
+          avg_viral_score?: number | null
+          created_at?: string
+          expires_at?: string | null
+          generated_at?: string | null
+          id?: string
+          influencer_id?: string
+          landing_page_first_visit_at?: string | null
+          landing_page_slug?: string | null
+          landing_page_visits?: number | null
+          selected_clip_ids?: string[] | null
+          shared_at?: string | null
+          source_clips?: Json | null
+          status?: string
+          total_render_cost_cents?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "demo_packages_influencer_id_fkey"
+            columns: ["influencer_id"]
+            isOneToOne: false
+            referencedRelation: "influencers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "demo_packages_influencer_id_fkey"
+            columns: ["influencer_id"]
+            isOneToOne: false
+            referencedRelation: "v_active_affiliates_leaderboard"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "demo_packages_influencer_id_fkey"
+            columns: ["influencer_id"]
+            isOneToOne: false
+            referencedRelation: "v_affiliate_activation_stats"
+            referencedColumns: ["influencer_id"]
+          },
+        ]
+      }
       distribution_captions: {
         Row: {
           clip_id: string
@@ -686,6 +1191,961 @@ export type Database = {
           },
         ]
       }
+      domains: {
+        Row: {
+          cost_yearly_usd: number | null
+          created_at: string
+          dkim_configured: boolean | null
+          dmarc_configured: boolean | null
+          domain: string
+          expires_at: string | null
+          id: string
+          notes: string | null
+          purchased_at: string | null
+          redirect_to: string | null
+          registrar: string | null
+          spf_configured: boolean | null
+          status: string | null
+          warmup_started_at: string | null
+        }
+        Insert: {
+          cost_yearly_usd?: number | null
+          created_at?: string
+          dkim_configured?: boolean | null
+          dmarc_configured?: boolean | null
+          domain: string
+          expires_at?: string | null
+          id?: string
+          notes?: string | null
+          purchased_at?: string | null
+          redirect_to?: string | null
+          registrar?: string | null
+          spf_configured?: boolean | null
+          status?: string | null
+          warmup_started_at?: string | null
+        }
+        Update: {
+          cost_yearly_usd?: number | null
+          created_at?: string
+          dkim_configured?: boolean | null
+          dmarc_configured?: boolean | null
+          domain?: string
+          expires_at?: string | null
+          id?: string
+          notes?: string | null
+          purchased_at?: string | null
+          redirect_to?: string | null
+          registrar?: string | null
+          spf_configured?: boolean | null
+          status?: string | null
+          warmup_started_at?: string | null
+        }
+        Relationships: []
+      }
+      email_campaigns: {
+        Row: {
+          ab_variants: Json | null
+          actual_start_at: string | null
+          completed_at: string | null
+          created_at: string
+          created_by: string | null
+          description: string | null
+          id: string
+          instantly_campaign_id: string | null
+          name: string
+          scheduled_start_at: string | null
+          sequence_steps: Json
+          status: string
+          target_segment: Json | null
+          total_bounced: number | null
+          total_converted: number | null
+          total_opened: number | null
+          total_recipients: number | null
+          total_replied: number | null
+          total_sent: number | null
+          total_unsubscribed: number | null
+          updated_at: string
+        }
+        Insert: {
+          ab_variants?: Json | null
+          actual_start_at?: string | null
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          instantly_campaign_id?: string | null
+          name: string
+          scheduled_start_at?: string | null
+          sequence_steps?: Json
+          status?: string
+          target_segment?: Json | null
+          total_bounced?: number | null
+          total_converted?: number | null
+          total_opened?: number | null
+          total_recipients?: number | null
+          total_replied?: number | null
+          total_sent?: number | null
+          total_unsubscribed?: number | null
+          updated_at?: string
+        }
+        Update: {
+          ab_variants?: Json | null
+          actual_start_at?: string | null
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          instantly_campaign_id?: string | null
+          name?: string
+          scheduled_start_at?: string | null
+          sequence_steps?: Json
+          status?: string
+          target_segment?: Json | null
+          total_bounced?: number | null
+          total_converted?: number | null
+          total_opened?: number | null
+          total_recipients?: number | null
+          total_replied?: number | null
+          total_sent?: number | null
+          total_unsubscribed?: number | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      email_events: {
+        Row: {
+          campaign_id: string | null
+          event_type: string
+          id: string
+          influencer_id: string | null
+          message_id: string | null
+          metadata: Json | null
+          occurred_at: string
+          webhook_event_id: string | null
+        }
+        Insert: {
+          campaign_id?: string | null
+          event_type: string
+          id?: string
+          influencer_id?: string | null
+          message_id?: string | null
+          metadata?: Json | null
+          occurred_at?: string
+          webhook_event_id?: string | null
+        }
+        Update: {
+          campaign_id?: string | null
+          event_type?: string
+          id?: string
+          influencer_id?: string | null
+          message_id?: string | null
+          metadata?: Json | null
+          occurred_at?: string
+          webhook_event_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_events_influencer_id_fkey"
+            columns: ["influencer_id"]
+            isOneToOne: false
+            referencedRelation: "influencers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_events_influencer_id_fkey"
+            columns: ["influencer_id"]
+            isOneToOne: false
+            referencedRelation: "v_active_affiliates_leaderboard"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_events_influencer_id_fkey"
+            columns: ["influencer_id"]
+            isOneToOne: false
+            referencedRelation: "v_affiliate_activation_stats"
+            referencedColumns: ["influencer_id"]
+          },
+          {
+            foreignKeyName: "email_events_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "email_messages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_events_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "v_email_messages_safe"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_events_webhook_event_id_fkey"
+            columns: ["webhook_event_id"]
+            isOneToOne: false
+            referencedRelation: "webhook_events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      email_messages: {
+        Row: {
+          ai_classified_at: string | null
+          ai_confidence: number | null
+          ai_intent: string | null
+          ai_sentiment: string | null
+          body_html: string | null
+          body_text: string | null
+          bounce_reason: string | null
+          bounce_type: string | null
+          bounced_at: string | null
+          campaign_id: string | null
+          created_at: string
+          delivered_at: string | null
+          direction: string
+          id: string
+          in_reply_to_message_id: string | null
+          influencer_id: string | null
+          is_archived: boolean | null
+          is_read: boolean | null
+          is_starred: boolean | null
+          mailbox_id: string | null
+          message_id_external: string | null
+          opened_at: string | null
+          replied_at: string | null
+          sent_at: string | null
+          subject: string | null
+          thread_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          ai_classified_at?: string | null
+          ai_confidence?: number | null
+          ai_intent?: string | null
+          ai_sentiment?: string | null
+          body_html?: string | null
+          body_text?: string | null
+          bounce_reason?: string | null
+          bounce_type?: string | null
+          bounced_at?: string | null
+          campaign_id?: string | null
+          created_at?: string
+          delivered_at?: string | null
+          direction: string
+          id?: string
+          in_reply_to_message_id?: string | null
+          influencer_id?: string | null
+          is_archived?: boolean | null
+          is_read?: boolean | null
+          is_starred?: boolean | null
+          mailbox_id?: string | null
+          message_id_external?: string | null
+          opened_at?: string | null
+          replied_at?: string | null
+          sent_at?: string | null
+          subject?: string | null
+          thread_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          ai_classified_at?: string | null
+          ai_confidence?: number | null
+          ai_intent?: string | null
+          ai_sentiment?: string | null
+          body_html?: string | null
+          body_text?: string | null
+          bounce_reason?: string | null
+          bounce_type?: string | null
+          bounced_at?: string | null
+          campaign_id?: string | null
+          created_at?: string
+          delivered_at?: string | null
+          direction?: string
+          id?: string
+          in_reply_to_message_id?: string | null
+          influencer_id?: string | null
+          is_archived?: boolean | null
+          is_read?: boolean | null
+          is_starred?: boolean | null
+          mailbox_id?: string | null
+          message_id_external?: string | null
+          opened_at?: string | null
+          replied_at?: string | null
+          sent_at?: string | null
+          subject?: string | null
+          thread_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_messages_in_reply_to_message_id_fkey"
+            columns: ["in_reply_to_message_id"]
+            isOneToOne: false
+            referencedRelation: "email_messages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_messages_in_reply_to_message_id_fkey"
+            columns: ["in_reply_to_message_id"]
+            isOneToOne: false
+            referencedRelation: "v_email_messages_safe"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_messages_influencer_id_fkey"
+            columns: ["influencer_id"]
+            isOneToOne: false
+            referencedRelation: "influencers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_messages_influencer_id_fkey"
+            columns: ["influencer_id"]
+            isOneToOne: false
+            referencedRelation: "v_active_affiliates_leaderboard"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_messages_influencer_id_fkey"
+            columns: ["influencer_id"]
+            isOneToOne: false
+            referencedRelation: "v_affiliate_activation_stats"
+            referencedColumns: ["influencer_id"]
+          },
+        ]
+      }
+      email_sequences: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          name: string
+          steps: Json
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          name: string
+          steps?: Json
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          name?: string
+          steps?: Json
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      email_templates: {
+        Row: {
+          avg_open_rate: number | null
+          avg_reply_rate: number | null
+          body_html: string | null
+          body_text: string
+          category: string | null
+          created_at: string
+          id: string
+          name: string
+          parent_template_id: string | null
+          subject: string
+          times_used: number | null
+          updated_at: string
+          variables: Json | null
+          version: number | null
+        }
+        Insert: {
+          avg_open_rate?: number | null
+          avg_reply_rate?: number | null
+          body_html?: string | null
+          body_text: string
+          category?: string | null
+          created_at?: string
+          id?: string
+          name: string
+          parent_template_id?: string | null
+          subject: string
+          times_used?: number | null
+          updated_at?: string
+          variables?: Json | null
+          version?: number | null
+        }
+        Update: {
+          avg_open_rate?: number | null
+          avg_reply_rate?: number | null
+          body_html?: string | null
+          body_text?: string
+          category?: string | null
+          created_at?: string
+          id?: string
+          name?: string
+          parent_template_id?: string | null
+          subject?: string
+          times_used?: number | null
+          updated_at?: string
+          variables?: Json | null
+          version?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_templates_parent_template_id_fkey"
+            columns: ["parent_template_id"]
+            isOneToOne: false
+            referencedRelation: "email_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      fraud_flags: {
+        Row: {
+          created_at: string
+          details: Json | null
+          flag_type: string
+          id: string
+          influencer_id: string | null
+          referral_id: string | null
+          resolved_at: string | null
+          resolved_by: string | null
+          severity: string
+          status: string | null
+        }
+        Insert: {
+          created_at?: string
+          details?: Json | null
+          flag_type: string
+          id?: string
+          influencer_id?: string | null
+          referral_id?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          severity: string
+          status?: string | null
+        }
+        Update: {
+          created_at?: string
+          details?: Json | null
+          flag_type?: string
+          id?: string
+          influencer_id?: string | null
+          referral_id?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          severity?: string
+          status?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fraud_flags_influencer_id_fkey"
+            columns: ["influencer_id"]
+            isOneToOne: false
+            referencedRelation: "influencers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fraud_flags_influencer_id_fkey"
+            columns: ["influencer_id"]
+            isOneToOne: false
+            referencedRelation: "v_active_affiliates_leaderboard"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fraud_flags_influencer_id_fkey"
+            columns: ["influencer_id"]
+            isOneToOne: false
+            referencedRelation: "v_affiliate_activation_stats"
+            referencedColumns: ["influencer_id"]
+          },
+          {
+            foreignKeyName: "fraud_flags_referral_id_fkey"
+            columns: ["referral_id"]
+            isOneToOne: false
+            referencedRelation: "affiliate_referrals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      funnel_events: {
+        Row: {
+          campaign_id: string | null
+          event_metadata: Json | null
+          event_type: string
+          id: string
+          influencer_id: string | null
+          message_id: string | null
+          occurred_at: string
+          source: string | null
+          source_metadata: Json | null
+          user_id: string | null
+        }
+        Insert: {
+          campaign_id?: string | null
+          event_metadata?: Json | null
+          event_type: string
+          id?: string
+          influencer_id?: string | null
+          message_id?: string | null
+          occurred_at?: string
+          source?: string | null
+          source_metadata?: Json | null
+          user_id?: string | null
+        }
+        Update: {
+          campaign_id?: string | null
+          event_metadata?: Json | null
+          event_type?: string
+          id?: string
+          influencer_id?: string | null
+          message_id?: string | null
+          occurred_at?: string
+          source?: string | null
+          source_metadata?: Json | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "funnel_events_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "email_campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "funnel_events_influencer_id_fkey"
+            columns: ["influencer_id"]
+            isOneToOne: false
+            referencedRelation: "influencers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "funnel_events_influencer_id_fkey"
+            columns: ["influencer_id"]
+            isOneToOne: false
+            referencedRelation: "v_active_affiliates_leaderboard"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "funnel_events_influencer_id_fkey"
+            columns: ["influencer_id"]
+            isOneToOne: false
+            referencedRelation: "v_affiliate_activation_stats"
+            referencedColumns: ["influencer_id"]
+          },
+          {
+            foreignKeyName: "funnel_events_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "email_messages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "funnel_events_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "v_email_messages_safe"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      import_batches: {
+        Row: {
+          completed_at: string | null
+          errors: Json | null
+          file_name: string | null
+          id: string
+          imported_by: string
+          metadata: Json | null
+          rows_failed: number
+          rows_imported: number
+          rows_skipped_duplicate: number
+          rows_skipped_suppression: number
+          rows_total: number
+          source: string
+          started_at: string
+          status: string | null
+        }
+        Insert: {
+          completed_at?: string | null
+          errors?: Json | null
+          file_name?: string | null
+          id?: string
+          imported_by: string
+          metadata?: Json | null
+          rows_failed?: number
+          rows_imported?: number
+          rows_skipped_duplicate?: number
+          rows_skipped_suppression?: number
+          rows_total?: number
+          source: string
+          started_at?: string
+          status?: string | null
+        }
+        Update: {
+          completed_at?: string | null
+          errors?: Json | null
+          file_name?: string | null
+          id?: string
+          imported_by?: string
+          metadata?: Json | null
+          rows_failed?: number
+          rows_imported?: number
+          rows_skipped_duplicate?: number
+          rows_skipped_suppression?: number
+          rows_total?: number
+          source?: string
+          started_at?: string
+          status?: string | null
+        }
+        Relationships: []
+      }
+      influencers: {
+        Row: {
+          affiliate_code: string | null
+          audience_size: number | null
+          country: string | null
+          created_at: string
+          data_retention_until: string | null
+          display_name: string | null
+          email: string
+          email_verified: boolean | null
+          estimated_value_usd: number | null
+          first_name: string | null
+          gdpr_consent: boolean | null
+          id: string
+          import_batch_id: string | null
+          language: string | null
+          last_active_at: string | null
+          last_contacted_at: string | null
+          last_name: string | null
+          lead_score: number | null
+          lead_score_reasons: Json | null
+          niche: string | null
+          notes: string | null
+          platform_handle: string | null
+          platform_url: string | null
+          primary_platform: string | null
+          source: string | null
+          status: string
+          status_changed_at: string | null
+          stripe_connect_account_id: string | null
+          stripe_connect_status: string | null
+          tags: string[] | null
+          timezone: string | null
+          total_commission_earned_cents: number | null
+          total_commission_paid_cents: number | null
+          total_emails_opened: number | null
+          total_emails_replied: number | null
+          total_emails_sent: number | null
+          total_paying_referrals: number | null
+          total_referrals: number | null
+          unsubscribed: boolean | null
+          unsubscribed_at: string | null
+          updated_at: string
+        }
+        Insert: {
+          affiliate_code?: string | null
+          audience_size?: number | null
+          country?: string | null
+          created_at?: string
+          data_retention_until?: string | null
+          display_name?: string | null
+          email: string
+          email_verified?: boolean | null
+          estimated_value_usd?: number | null
+          first_name?: string | null
+          gdpr_consent?: boolean | null
+          id?: string
+          import_batch_id?: string | null
+          language?: string | null
+          last_active_at?: string | null
+          last_contacted_at?: string | null
+          last_name?: string | null
+          lead_score?: number | null
+          lead_score_reasons?: Json | null
+          niche?: string | null
+          notes?: string | null
+          platform_handle?: string | null
+          platform_url?: string | null
+          primary_platform?: string | null
+          source?: string | null
+          status?: string
+          status_changed_at?: string | null
+          stripe_connect_account_id?: string | null
+          stripe_connect_status?: string | null
+          tags?: string[] | null
+          timezone?: string | null
+          total_commission_earned_cents?: number | null
+          total_commission_paid_cents?: number | null
+          total_emails_opened?: number | null
+          total_emails_replied?: number | null
+          total_emails_sent?: number | null
+          total_paying_referrals?: number | null
+          total_referrals?: number | null
+          unsubscribed?: boolean | null
+          unsubscribed_at?: string | null
+          updated_at?: string
+        }
+        Update: {
+          affiliate_code?: string | null
+          audience_size?: number | null
+          country?: string | null
+          created_at?: string
+          data_retention_until?: string | null
+          display_name?: string | null
+          email?: string
+          email_verified?: boolean | null
+          estimated_value_usd?: number | null
+          first_name?: string | null
+          gdpr_consent?: boolean | null
+          id?: string
+          import_batch_id?: string | null
+          language?: string | null
+          last_active_at?: string | null
+          last_contacted_at?: string | null
+          last_name?: string | null
+          lead_score?: number | null
+          lead_score_reasons?: Json | null
+          niche?: string | null
+          notes?: string | null
+          platform_handle?: string | null
+          platform_url?: string | null
+          primary_platform?: string | null
+          source?: string | null
+          status?: string
+          status_changed_at?: string | null
+          stripe_connect_account_id?: string | null
+          stripe_connect_status?: string | null
+          tags?: string[] | null
+          timezone?: string | null
+          total_commission_earned_cents?: number | null
+          total_commission_paid_cents?: number | null
+          total_emails_opened?: number | null
+          total_emails_replied?: number | null
+          total_emails_sent?: number | null
+          total_paying_referrals?: number | null
+          total_referrals?: number | null
+          unsubscribed?: boolean | null
+          unsubscribed_at?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      lead_enrichment_snapshots: {
+        Row: {
+          audience_size: number | null
+          cost_cents: number | null
+          engagement_rate: number | null
+          fetched_at: string
+          id: string
+          influencer_id: string
+          last_post_at: string | null
+          niche_detected: string | null
+          provider: string
+          raw_data: Json
+          recent_posts_count: number | null
+        }
+        Insert: {
+          audience_size?: number | null
+          cost_cents?: number | null
+          engagement_rate?: number | null
+          fetched_at?: string
+          id?: string
+          influencer_id: string
+          last_post_at?: string | null
+          niche_detected?: string | null
+          provider: string
+          raw_data: Json
+          recent_posts_count?: number | null
+        }
+        Update: {
+          audience_size?: number | null
+          cost_cents?: number | null
+          engagement_rate?: number | null
+          fetched_at?: string
+          id?: string
+          influencer_id?: string
+          last_post_at?: string | null
+          niche_detected?: string | null
+          provider?: string
+          raw_data?: Json
+          recent_posts_count?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lead_enrichment_snapshots_influencer_id_fkey"
+            columns: ["influencer_id"]
+            isOneToOne: false
+            referencedRelation: "influencers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_enrichment_snapshots_influencer_id_fkey"
+            columns: ["influencer_id"]
+            isOneToOne: false
+            referencedRelation: "v_active_affiliates_leaderboard"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_enrichment_snapshots_influencer_id_fkey"
+            columns: ["influencer_id"]
+            isOneToOne: false
+            referencedRelation: "v_affiliate_activation_stats"
+            referencedColumns: ["influencer_id"]
+          },
+        ]
+      }
+      mailbox_daily_stats: {
+        Row: {
+          created_at: string
+          emails_bounced: number | null
+          emails_complained: number | null
+          emails_delivered: number | null
+          emails_opened: number | null
+          emails_replied: number | null
+          emails_sent: number | null
+          emails_unsubscribed: number | null
+          id: string
+          mailbox_id: string
+          reputation_score: number | null
+          stat_date: string
+          warmup_emails: number | null
+        }
+        Insert: {
+          created_at?: string
+          emails_bounced?: number | null
+          emails_complained?: number | null
+          emails_delivered?: number | null
+          emails_opened?: number | null
+          emails_replied?: number | null
+          emails_sent?: number | null
+          emails_unsubscribed?: number | null
+          id?: string
+          mailbox_id: string
+          reputation_score?: number | null
+          stat_date: string
+          warmup_emails?: number | null
+        }
+        Update: {
+          created_at?: string
+          emails_bounced?: number | null
+          emails_complained?: number | null
+          emails_delivered?: number | null
+          emails_opened?: number | null
+          emails_replied?: number | null
+          emails_sent?: number | null
+          emails_unsubscribed?: number | null
+          id?: string
+          mailbox_id?: string
+          reputation_score?: number | null
+          stat_date?: string
+          warmup_emails?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mailbox_daily_stats_mailbox_id_fkey"
+            columns: ["mailbox_id"]
+            isOneToOne: false
+            referencedRelation: "mailboxes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mailbox_daily_stats_mailbox_id_fkey"
+            columns: ["mailbox_id"]
+            isOneToOne: false
+            referencedRelation: "v_mailboxes_safe"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      mailboxes: {
+        Row: {
+          bounce_rate_pct: number | null
+          complaint_rate_pct: number | null
+          created_at: string
+          credentials_encrypted: string | null
+          daily_send_limit: number | null
+          display_name: string | null
+          dkim_valid: boolean | null
+          dmarc_valid: boolean | null
+          domain: string
+          email: string
+          emails_sent_today: number | null
+          id: string
+          imap_host: string | null
+          instantly_account_id: string | null
+          last_dns_check_at: string | null
+          last_health_check_at: string | null
+          provider: string | null
+          reputation_score: number | null
+          retired_at: string | null
+          smtp_host: string | null
+          smtp_port: number | null
+          spf_valid: boolean | null
+          status: string
+          total_emails_sent: number | null
+          updated_at: string
+        }
+        Insert: {
+          bounce_rate_pct?: number | null
+          complaint_rate_pct?: number | null
+          created_at?: string
+          credentials_encrypted?: string | null
+          daily_send_limit?: number | null
+          display_name?: string | null
+          dkim_valid?: boolean | null
+          dmarc_valid?: boolean | null
+          domain: string
+          email: string
+          emails_sent_today?: number | null
+          id?: string
+          imap_host?: string | null
+          instantly_account_id?: string | null
+          last_dns_check_at?: string | null
+          last_health_check_at?: string | null
+          provider?: string | null
+          reputation_score?: number | null
+          retired_at?: string | null
+          smtp_host?: string | null
+          smtp_port?: number | null
+          spf_valid?: boolean | null
+          status?: string
+          total_emails_sent?: number | null
+          updated_at?: string
+        }
+        Update: {
+          bounce_rate_pct?: number | null
+          complaint_rate_pct?: number | null
+          created_at?: string
+          credentials_encrypted?: string | null
+          daily_send_limit?: number | null
+          display_name?: string | null
+          dkim_valid?: boolean | null
+          dmarc_valid?: boolean | null
+          domain?: string
+          email?: string
+          emails_sent_today?: number | null
+          id?: string
+          imap_host?: string | null
+          instantly_account_id?: string | null
+          last_dns_check_at?: string | null
+          last_health_check_at?: string | null
+          provider?: string | null
+          reputation_score?: number | null
+          retired_at?: string | null
+          smtp_host?: string | null
+          smtp_port?: number | null
+          spf_valid?: boolean | null
+          status?: string
+          total_emails_sent?: number | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       newsletter_leads: {
         Row: {
           confirmed: boolean | null
@@ -722,6 +2182,90 @@ export type Database = {
         }
         Relationships: []
       }
+      payout_holds: {
+        Row: {
+          created_at: string
+          held_until: string
+          hold_reason: string
+          id: string
+          ledger_entry_id: string
+          released_at: string | null
+        }
+        Insert: {
+          created_at?: string
+          held_until: string
+          hold_reason: string
+          id?: string
+          ledger_entry_id: string
+          released_at?: string | null
+        }
+        Update: {
+          created_at?: string
+          held_until?: string
+          hold_reason?: string
+          id?: string
+          ledger_entry_id?: string
+          released_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payout_holds_ledger_entry_id_fkey"
+            columns: ["ledger_entry_id"]
+            isOneToOne: false
+            referencedRelation: "affiliate_commission_ledger"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      product_activation_events: {
+        Row: {
+          event_name: string
+          id: string
+          metadata: Json | null
+          occurred_at: string
+          referred_by_influencer_id: string | null
+          user_id: string
+        }
+        Insert: {
+          event_name: string
+          id?: string
+          metadata?: Json | null
+          occurred_at?: string
+          referred_by_influencer_id?: string | null
+          user_id: string
+        }
+        Update: {
+          event_name?: string
+          id?: string
+          metadata?: Json | null
+          occurred_at?: string
+          referred_by_influencer_id?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_activation_events_referred_by_influencer_id_fkey"
+            columns: ["referred_by_influencer_id"]
+            isOneToOne: false
+            referencedRelation: "influencers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_activation_events_referred_by_influencer_id_fkey"
+            columns: ["referred_by_influencer_id"]
+            isOneToOne: false
+            referencedRelation: "v_active_affiliates_leaderboard"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_activation_events_referred_by_influencer_id_fkey"
+            columns: ["referred_by_influencer_id"]
+            isOneToOne: false
+            referencedRelation: "v_affiliate_activation_stats"
+            referencedColumns: ["influencer_id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -735,6 +2279,7 @@ export type Database = {
           plan: string | null
           referral_code: string | null
           referred_by: string | null
+          referred_by_influencer_id: string | null
           stripe_customer_id: string | null
           updated_at: string | null
           usage_reset_month: number | null
@@ -751,6 +2296,7 @@ export type Database = {
           plan?: string | null
           referral_code?: string | null
           referred_by?: string | null
+          referred_by_influencer_id?: string | null
           stripe_customer_id?: string | null
           updated_at?: string | null
           usage_reset_month?: number | null
@@ -767,6 +2313,7 @@ export type Database = {
           plan?: string | null
           referral_code?: string | null
           referred_by?: string | null
+          referred_by_influencer_id?: string | null
           stripe_customer_id?: string | null
           updated_at?: string | null
           usage_reset_month?: number | null
@@ -778,6 +2325,27 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "profiles_referred_by_influencer_id_fkey"
+            columns: ["referred_by_influencer_id"]
+            isOneToOne: false
+            referencedRelation: "influencers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "profiles_referred_by_influencer_id_fkey"
+            columns: ["referred_by_influencer_id"]
+            isOneToOne: false
+            referencedRelation: "v_active_affiliates_leaderboard"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "profiles_referred_by_influencer_id_fkey"
+            columns: ["referred_by_influencer_id"]
+            isOneToOne: false
+            referencedRelation: "v_affiliate_activation_stats"
+            referencedColumns: ["influencer_id"]
           },
         ]
       }
@@ -1516,6 +3084,42 @@ export type Database = {
         }
         Relationships: []
       }
+      suppression_list: {
+        Row: {
+          added_at: string
+          added_by: string | null
+          email: string | null
+          email_domain: string | null
+          expires_at: string | null
+          id: string
+          metadata: Json | null
+          reason: string
+          source: string | null
+        }
+        Insert: {
+          added_at?: string
+          added_by?: string | null
+          email?: string | null
+          email_domain?: string | null
+          expires_at?: string | null
+          id?: string
+          metadata?: Json | null
+          reason: string
+          source?: string | null
+        }
+        Update: {
+          added_at?: string
+          added_by?: string | null
+          email?: string | null
+          email_domain?: string | null
+          expires_at?: string | null
+          id?: string
+          metadata?: Json | null
+          reason?: string
+          source?: string | null
+        }
+        Relationships: []
+      }
       transcriptions: {
         Row: {
           created_at: string | null
@@ -1673,6 +3277,44 @@ export type Database = {
           },
         ]
       }
+      unsubscribe_tokens: {
+        Row: {
+          created_at: string
+          email: string
+          expires_at: string
+          id: string
+          source_campaign_id: string | null
+          token_hash: string
+          used_at: string | null
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          expires_at: string
+          id?: string
+          source_campaign_id?: string | null
+          token_hash: string
+          used_at?: string | null
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          expires_at?: string
+          id?: string
+          source_campaign_id?: string | null
+          token_hash?: string
+          used_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "unsubscribe_tokens_source_campaign_id_fkey"
+            columns: ["source_campaign_id"]
+            isOneToOne: false
+            referencedRelation: "email_campaigns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       videos: {
         Row: {
           created_at: string | null
@@ -1782,11 +3424,322 @@ export type Database = {
           },
         ]
       }
+      webhook_events: {
+        Row: {
+          error_message: string | null
+          event_id: string
+          event_type: string
+          id: string
+          payload: Json
+          payload_hash: string
+          processed_at: string | null
+          processing_status: string | null
+          provider: string
+          received_at: string
+          retry_count: number | null
+        }
+        Insert: {
+          error_message?: string | null
+          event_id: string
+          event_type: string
+          id?: string
+          payload: Json
+          payload_hash: string
+          processed_at?: string | null
+          processing_status?: string | null
+          provider: string
+          received_at?: string
+          retry_count?: number | null
+        }
+        Update: {
+          error_message?: string | null
+          event_id?: string
+          event_type?: string
+          id?: string
+          payload?: Json
+          payload_hash?: string
+          processed_at?: string | null
+          processing_status?: string | null
+          provider?: string
+          received_at?: string
+          retry_count?: number | null
+        }
+        Relationships: []
+      }
     }
     Views: {
-      [_ in never]: never
+      v_active_affiliates_leaderboard: {
+        Row: {
+          affiliate_code: string | null
+          display_name: string | null
+          email: string | null
+          id: string | null
+          last_active_at: string | null
+          new_paying_this_month: number | null
+          new_referrals_this_month: number | null
+          pending_commission_cents: number | null
+          total_commission_earned_cents: number | null
+          total_commission_paid_cents: number | null
+          total_paying_referrals: number | null
+          total_referrals: number | null
+        }
+        Relationships: []
+      }
+      v_affiliate_activation_stats: {
+        Row: {
+          activated_users: number | null
+          activation_rate_pct: number | null
+          display_name: string | null
+          influencer_id: string | null
+          paying_users: number | null
+          signups: number | null
+        }
+        Relationships: []
+      }
+      v_affiliate_balances: {
+        Row: {
+          available_balance_cents: number | null
+          clawback_cents: number | null
+          earned_cents: number | null
+          influencer_id: string | null
+          paid_out_cents: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "affiliate_commission_ledger_influencer_id_fkey"
+            columns: ["influencer_id"]
+            isOneToOne: false
+            referencedRelation: "influencers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "affiliate_commission_ledger_influencer_id_fkey"
+            columns: ["influencer_id"]
+            isOneToOne: false
+            referencedRelation: "v_active_affiliates_leaderboard"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "affiliate_commission_ledger_influencer_id_fkey"
+            columns: ["influencer_id"]
+            isOneToOne: false
+            referencedRelation: "v_affiliate_activation_stats"
+            referencedColumns: ["influencer_id"]
+          },
+        ]
+      }
+      v_daily_funnel_metrics: {
+        Row: {
+          day: string | null
+          event_count: number | null
+          event_type: string | null
+          unique_influencers: number | null
+        }
+        Relationships: []
+      }
+      v_email_messages_safe: {
+        Row: {
+          ai_classified_at: string | null
+          ai_confidence: number | null
+          ai_intent: string | null
+          ai_sentiment: string | null
+          body_html: string | null
+          body_text: string | null
+          bounce_reason: string | null
+          bounce_type: string | null
+          bounced_at: string | null
+          campaign_id: string | null
+          created_at: string | null
+          delivered_at: string | null
+          direction: string | null
+          id: string | null
+          influencer_id: string | null
+          is_archived: boolean | null
+          is_read: boolean | null
+          is_starred: boolean | null
+          mailbox_id: string | null
+          message_id_external: string | null
+          opened_at: string | null
+          replied_at: string | null
+          sent_at: string | null
+          subject: string | null
+          thread_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          ai_classified_at?: string | null
+          ai_confidence?: number | null
+          ai_intent?: string | null
+          ai_sentiment?: string | null
+          body_html?: never
+          body_text?: never
+          bounce_reason?: string | null
+          bounce_type?: string | null
+          bounced_at?: string | null
+          campaign_id?: string | null
+          created_at?: string | null
+          delivered_at?: string | null
+          direction?: string | null
+          id?: string | null
+          influencer_id?: string | null
+          is_archived?: boolean | null
+          is_read?: boolean | null
+          is_starred?: boolean | null
+          mailbox_id?: string | null
+          message_id_external?: string | null
+          opened_at?: string | null
+          replied_at?: string | null
+          sent_at?: string | null
+          subject?: string | null
+          thread_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          ai_classified_at?: string | null
+          ai_confidence?: number | null
+          ai_intent?: string | null
+          ai_sentiment?: string | null
+          body_html?: never
+          body_text?: never
+          bounce_reason?: string | null
+          bounce_type?: string | null
+          bounced_at?: string | null
+          campaign_id?: string | null
+          created_at?: string | null
+          delivered_at?: string | null
+          direction?: string | null
+          id?: string | null
+          influencer_id?: string | null
+          is_archived?: boolean | null
+          is_read?: boolean | null
+          is_starred?: boolean | null
+          mailbox_id?: string | null
+          message_id_external?: string | null
+          opened_at?: string | null
+          replied_at?: string | null
+          sent_at?: string | null
+          subject?: string | null
+          thread_id?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_messages_influencer_id_fkey"
+            columns: ["influencer_id"]
+            isOneToOne: false
+            referencedRelation: "influencers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_messages_influencer_id_fkey"
+            columns: ["influencer_id"]
+            isOneToOne: false
+            referencedRelation: "v_active_affiliates_leaderboard"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_messages_influencer_id_fkey"
+            columns: ["influencer_id"]
+            isOneToOne: false
+            referencedRelation: "v_affiliate_activation_stats"
+            referencedColumns: ["influencer_id"]
+          },
+        ]
+      }
+      v_influencer_funnel_stats: {
+        Row: {
+          avg_lead_score: number | null
+          count: number | null
+          new_this_month: number | null
+          new_this_week: number | null
+          status: string | null
+        }
+        Relationships: []
+      }
+      v_mailboxes_safe: {
+        Row: {
+          bounce_rate_pct: number | null
+          complaint_rate_pct: number | null
+          created_at: string | null
+          credentials_encrypted: string | null
+          daily_send_limit: number | null
+          display_name: string | null
+          dkim_valid: boolean | null
+          dmarc_valid: boolean | null
+          domain: string | null
+          email: string | null
+          emails_sent_today: number | null
+          id: string | null
+          provider: string | null
+          reputation_score: number | null
+          spf_valid: boolean | null
+          status: string | null
+          total_emails_sent: number | null
+        }
+        Insert: {
+          bounce_rate_pct?: number | null
+          complaint_rate_pct?: number | null
+          created_at?: string | null
+          credentials_encrypted?: never
+          daily_send_limit?: number | null
+          display_name?: string | null
+          dkim_valid?: boolean | null
+          dmarc_valid?: boolean | null
+          domain?: string | null
+          email?: string | null
+          emails_sent_today?: number | null
+          id?: string | null
+          provider?: string | null
+          reputation_score?: number | null
+          spf_valid?: boolean | null
+          status?: string | null
+          total_emails_sent?: number | null
+        }
+        Update: {
+          bounce_rate_pct?: number | null
+          complaint_rate_pct?: number | null
+          created_at?: string | null
+          credentials_encrypted?: never
+          daily_send_limit?: number | null
+          display_name?: string | null
+          dkim_valid?: boolean | null
+          dmarc_valid?: boolean | null
+          domain?: string | null
+          email?: string | null
+          emails_sent_today?: number | null
+          id?: string | null
+          provider?: string | null
+          reputation_score?: number | null
+          spf_valid?: boolean | null
+          status?: string | null
+          total_emails_sent?: number | null
+        }
+        Relationships: []
+      }
+      v_payout_summary_current_month: {
+        Row: {
+          failed_count: number | null
+          on_hold_count: number | null
+          pending_count: number | null
+          sent_count: number | null
+          total_adjustments_cents: number | null
+          total_gross_cents: number | null
+          total_net_cents: number | null
+          unique_affiliates: number | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
+      add_influencer_tag: {
+        Args: { p_influencer_id: string; p_tag: string }
+        Returns: undefined
+      }
+      add_to_suppression: {
+        Args: { p_email: string; p_notes?: string; p_reason: string }
+        Returns: string
+      }
+      auth_role: { Args: never; Returns: string }
       bulk_update_scores: {
         Args: {
           p_anomaly_scores: number[]
@@ -1804,13 +3757,31 @@ export type Database = {
         }
         Returns: undefined
       }
+      can_manage_campaigns: { Args: never; Returns: boolean }
+      can_manage_crm: { Args: never; Returns: boolean }
+      can_manage_payouts: { Args: never; Returns: boolean }
+      can_view_credentials: { Args: never; Returns: boolean }
+      can_view_crm: { Args: never; Returns: boolean }
+      can_view_finance: { Args: never; Returns: boolean }
+      can_view_inbox: { Args: never; Returns: boolean }
+      can_view_inbox_bodies: { Args: never; Returns: boolean }
       check_rate_limit: {
         Args: { p_identifier: string; p_limit: number; p_window_ms: number }
         Returns: boolean
       }
+      cleanup_old_affiliate_clicks: { Args: never; Returns: undefined }
       cleanup_rate_limit_log: { Args: never; Returns: undefined }
+      create_manual_ledger_adjustment: {
+        Args: {
+          p_amount_cents: number
+          p_influencer_id: string
+          p_reason: string
+        }
+        Returns: string
+      }
       decrement_video_usage: { Args: { p_user_id: string }; Returns: boolean }
       generate_referral_code: { Args: never; Returns: string }
+      get_suppression_stats: { Args: never; Returns: Json }
       increment_export_count: {
         Args: { p_clip_id: string }
         Returns: undefined
@@ -1819,9 +3790,29 @@ export type Database = {
         Args: { p_max_videos: number; p_user_id: string }
         Returns: boolean
       }
+      is_admin: { Args: never; Returns: boolean }
+      is_admin_any: { Args: never; Returns: boolean }
+      is_owner: { Args: never; Returns: boolean }
+      is_suppressed: { Args: { p_email: string }; Returns: boolean }
+      on_user_payment: {
+        Args: { p_amount_cents: number; p_user_id: string }
+        Returns: undefined
+      }
+      remove_influencer_tag: {
+        Args: { p_influencer_id: string; p_tag: string }
+        Returns: undefined
+      }
       try_consume_video_credit: {
         Args: { p_max_videos: number; p_user_id: string }
         Returns: boolean
+      }
+      update_influencer_notes: {
+        Args: { p_influencer_id: string; p_notes: string }
+        Returns: undefined
+      }
+      update_influencer_status: {
+        Args: { p_influencer_id: string; p_new_status: string }
+        Returns: undefined
       }
     }
     Enums: {
