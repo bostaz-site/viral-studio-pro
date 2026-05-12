@@ -108,7 +108,7 @@ POST /api/admin/webhooks/instantly
 | [Search]         | [Messages timeline]     |
 | [Thread 1] *     | [Context sidebar 264px] |
 | [Thread 2]       |                         |
-| [Thread 3]       | "Composer Week 2"       |
+| [Thread 3]       | [Reply Composer]        |
 +------------------+-------------------------+
 ```
 
@@ -122,7 +122,7 @@ POST /api/admin/webhooks/instantly
 - Messages en timeline chronologique (outbound = bleu, inbound = vert)
 - Auto-mark read a l'ouverture
 - Actions: Mark hot (tag), Star, Archive
-- PAS de composer (Semaine 2)
+- Reply composer (see "Reply Composer" section below)
 - Sidebar context: status, lead score, tags, platform, audience, stats
 
 ### Body Truncation (VAs)
@@ -196,16 +196,123 @@ Events: email_sent, email_replied, email_bounced, email_unsubscribed
 
 ---
 
-## Semaine 2 TODO
+## Reply Composer (Semaine 2)
 
-- [ ] Reply composer dans inbox (send via Resend ou Instantly API)
+### Architecture
+
+| Fichier | Role |
+|---|---|
+| `app/(dashboard)/admin/inbox/_components/reply-composer.tsx` | UI composer — textarea, from/to, subject, send button |
+| `app/(dashboard)/admin/inbox/_components/quick-reply-templates.tsx` | 4 quick-reply presets (1-click) |
+| `app/api/admin/inbox/reply/route.ts` | POST — auth, template vars, send via Instantly, INSERT email_messages |
+| `app/api/admin/inbox/mailboxes/route.ts` | GET — list active/warming mailboxes for composer dropdown |
+| `lib/admin/email/instantly-send.ts` | Instantly API v2 send client |
+| `lib/admin/email/template-vars.ts` | Server-side {{var}} interpolation |
+
+### Send Flow
+
+```
+User clicks "Send" in composer
+    |
+    v
+POST /api/admin/inbox/reply
+    |
+    v
+1. Auth check (withAdmin)
+2. Validate body (Zod)
+3. Fetch influencer from DB
+4. Check suppression_list (BLOCK if suppressed)
+5. Check influencer.unsubscribed (BLOCK if true)
+6. Interpolate {{template_vars}} server-side
+7. Lookup in_reply_to message for threading (message_id_external, thread_id)
+8. Verify mailbox exists + active/warming
+9. Send via Instantly API v2 (POST /api/v2/emails/send)
+10. INSERT email_messages (direction='outbound', sent_at=now)
+11. UPDATE influencers (total_emails_sent++, last_contacted_at)
+12. Return { sent: true, messageId }
+```
+
+### Compliance Checks
+- **Suppression list**: Checked before every send — blocked emails return 403
+- **Unsubscribed**: Influencer `unsubscribed=true` blocks sending
+- **Mailbox validation**: Must be `active` or `warming` status
+- **Template vars server-side only**: Never interpolated client-side
+
+### Template Variables
+
+| Variable | Source |
+|---|---|
+| `{{first_name}}` | influencer.first_name or display_name |
+| `{{last_name}}` | influencer.last_name |
+| `{{full_name}}` | first + last name |
+| `{{email}}` | influencer.email |
+| `{{handle}}` | influencer.platform_handle |
+| `{{platform}}` | influencer.primary_platform |
+| `{{niche}}` | influencer.niche |
+| `{{audience_size}}` | influencer.audience_size |
+| `{{affiliate_code}}` | influencer.affiliate_code |
+| `{{signup_link}}` | https://viralanimal.com/signup |
+| `{{calendly}}` | https://calendly.com/viralanimal/demo |
+| `{{link}}` | https://viralanimal.com |
+| `{{company}}` | Viral Animal |
+
+### Quick Reply Templates (presets)
+
+| Label | Description |
+|---|---|
+| Quick yes | Signup link + CTA |
+| Schedule a call | Calendly link |
+| Soft pitch | No pressure + link |
+| Decline politely | Thanks + goodbye |
+
+Templates are hardcoded in `quick-reply-templates.tsx`. Future: editable via `/admin/templates` (Vague 2+).
+
+### Composer UI
+
+```
++──────────────────────────────────────+
+| From: [mailbox dropdown]  To: email  |
+| Subject: Re: [last subject]         |
+| [Quick yes] [Schedule] [Soft] [Dec] |
+| ┌──────────────────────────────────┐ |
+| │ Write your reply...              │ |
+| │                                  │ |
+| └──────────────────────────────────┘ |
+| Template vars (show/hide)   [Send]   |
++──────────────────────────────────────+
+```
+
+### Email Provider
+
+Using **Instantly API v2** (`POST /api/v2/emails/send`).
+- Env var: `INSTANTLY_API_KEY`
+- Zero new npm dependency
+- Preserves sender reputation (sent through warmed mailbox)
+- Fallback: Resend planned if Instantly limits hit
+
+### Error Handling
+
+| Scenario | Behavior |
+|---|---|
+| Email sent but DB insert fails | Returns HTTP 207 (partial), logs error |
+| Instantly API down | Returns 502 with error message |
+| Suppressed email | Returns 403 |
+| Unsubscribed influencer | Returns 403 |
+| No active mailbox | UI shows warning, send button disabled |
+
+---
+
+## Semaine 2+ TODO (remaining)
+
+- [x] Reply composer dans inbox (send via Instantly API)
 - [ ] Body truncation via v_email_messages_safe view pour VAs
 - [ ] AI classification (Claude Haiku) des replies
 - [ ] Stripe webhook handler (via process-event.ts factory)
 - [ ] Campaign push vers Instantly API
 - [ ] Webhook signature verification (HMAC)
+- [ ] Editable quick-reply templates via /admin/templates
 
 ---
 
-*Document version 1.0 — Mai 2026*
-*Branch: feature/admin-inbox*
+*Document version 1.1 — Mai 2026*
+*Branches: feature/admin-inbox, feature/admin-reply-composer*

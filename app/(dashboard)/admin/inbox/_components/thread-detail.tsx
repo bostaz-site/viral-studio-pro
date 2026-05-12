@@ -1,8 +1,9 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { Star, Archive, Tag, Loader2, ArrowDown, ArrowUp } from 'lucide-react'
 import { InfluencerContextSidebar } from './influencer-context-sidebar'
+import { ReplyComposer } from './reply-composer'
 
 interface Message {
   id: string
@@ -56,8 +57,9 @@ export function ThreadDetail({ influencerId, onAction }: ThreadDetailProps) {
   const [loading, setLoading] = useState(false)
   const [influencer, setInfluencer] = useState<Influencer | null>(null)
   const [messages, setMessages] = useState<Message[]>([])
+  const [mailboxes, setMailboxes] = useState<{ email: string; status: string }[]>([])
 
-  useEffect(() => {
+  const loadThread = useCallback(() => {
     if (!influencerId) return
     setLoading(true)
     fetch(`/api/admin/inbox/${influencerId}`, { cache: 'no-store' })
@@ -71,6 +73,16 @@ export function ThreadDetail({ influencerId, onAction }: ThreadDetailProps) {
       .catch(() => {})
       .finally(() => setLoading(false))
   }, [influencerId])
+
+  useEffect(() => { loadThread() }, [loadThread])
+
+  // Fetch available mailboxes once
+  useEffect(() => {
+    fetch('/api/admin/inbox/mailboxes')
+      .then(r => r.json())
+      .then(json => setMailboxes(json.data || []))
+      .catch(() => {})
+  }, [])
 
   if (!influencerId) {
     return (
@@ -180,11 +192,19 @@ export function ThreadDetail({ influencerId, onAction }: ThreadDetailProps) {
             </div>
           )}
 
-          {/* No composer for Week 1 */}
-          <div className="text-center text-zinc-600 text-xs py-4 border-t border-zinc-800 mt-4">
-            Reply composer coming in Week 2
-          </div>
         </div>
+
+        {/* Reply composer */}
+        {influencer && (
+          <ReplyComposer
+            influencerId={influencer.id}
+            influencerEmail={influencer.email}
+            lastMessageId={messages.length > 0 ? messages[messages.length - 1].id : undefined}
+            lastSubject={messages.find(m => m.subject)?.subject ?? undefined}
+            mailboxes={mailboxes}
+            onSent={loadThread}
+          />
+        )}
       </div>
 
       {/* Context sidebar */}

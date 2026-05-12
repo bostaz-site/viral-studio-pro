@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { Settings, Menu, X, LogOut, Zap, Compass, Wand2, Radio, BarChart3, TrendingUp, Handshake, Users, ChevronRight, Inbox, Mail, Upload, ShieldBan, RefreshCw, Webhook } from 'lucide-react'
+import { Settings, Menu, X, LogOut, Zap, Compass, Wand2, Radio, BarChart3, TrendingUp, Handshake, Users, ChevronRight, Inbox, Mail, Upload, ShieldBan, RefreshCw, Webhook, ShieldAlert } from 'lucide-react'
 import { ViralAnimalLogo } from '@/components/brand/viral-animal-logo'
 import { useUiStore } from '@/stores/ui-store'
 import { Button } from '@/components/ui/button'
@@ -77,6 +77,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     { name: 'Suppression', href: '/admin/suppression', icon: ShieldBan },
     { name: 'Sync', href: '/admin/sync', icon: RefreshCw },
     { name: 'Webhooks', href: '/admin/webhooks', icon: Webhook },
+    { name: 'Watchdog', href: '/admin/watchdog', icon: ShieldAlert },
   ]
 
   const planLimits: Record<string, number> = { free: 3, pro: 50, studio: 999 }

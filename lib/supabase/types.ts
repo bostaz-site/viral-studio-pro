@@ -660,6 +660,48 @@ export type Database = {
         }
         Relationships: []
       }
+      agent_alerts: {
+        Row: {
+          category: string
+          description: string | null
+          detected_at: string
+          dismissed_at: string | null
+          dismissed_by: string | null
+          id: string
+          metadata: Json | null
+          notified: boolean | null
+          resolved_at: string | null
+          severity: string
+          title: string
+        }
+        Insert: {
+          category: string
+          description?: string | null
+          detected_at?: string
+          dismissed_at?: string | null
+          dismissed_by?: string | null
+          id?: string
+          metadata?: Json | null
+          notified?: boolean | null
+          resolved_at?: string | null
+          severity: string
+          title: string
+        }
+        Update: {
+          category?: string
+          description?: string | null
+          detected_at?: string
+          dismissed_at?: string | null
+          dismissed_by?: string | null
+          id?: string
+          metadata?: Json | null
+          notified?: boolean | null
+          resolved_at?: string | null
+          severity?: string
+          title?: string
+        }
+        Relationships: []
+      }
       ai_calls: {
         Row: {
           cached_tokens: number | null
@@ -3946,3 +3988,4 @@ export const Constants = {
     Enums: {},
   },
 } as const
+
