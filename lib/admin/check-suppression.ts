@@ -1,5 +1,9 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 
+// Re-export 4-way suppression check for new code
+export { isSuppressed4Way, filterSuppressed4Way } from '@/lib/admin/compliance/suppression-check'
+export { validateContact } from '@/lib/admin/compliance/contact-validator'
+
 interface SuppressedEntry {
   email: string
   reason: string

@@ -53,6 +53,9 @@ interface Influencer {
   status: string
   total_emails_sent: number
   total_emails_replied: number
+  platform_handle: string | null
+  platform_url: string | null
+  primary_platform: string | null
 }
 
 async function findInfluencer(
@@ -62,7 +65,7 @@ async function findInfluencer(
   if (!email) return null
   const { data } = await admin
     .from('influencers')
-    .select('id, status, total_emails_sent, total_emails_replied')
+    .select('id, status, total_emails_sent, total_emails_replied, platform_handle, platform_url, primary_platform')
     .eq('email', email)
     .single()
   return data
@@ -184,15 +187,20 @@ async function handleEmailBounced(
     webhook_event_id: webhookEventId,
   })
 
-  // 2. Auto-add to suppression_list
+  // 2. Auto-add to suppression_list (4-way: email + domain + handle + profile)
   if (email) {
+    const domain = email.split('@')[1] || null
     await admin
       .from('suppression_list')
       .upsert(
         {
           email,
+          email_domain: domain,
           reason: 'hard_bounce',
           source: 'instantly_webhook',
+          platform_handle: influencer?.platform_handle ?? null,
+          profile_url: influencer?.platform_url ?? null,
+          platform: influencer?.primary_platform ?? null,
         },
         { onConflict: 'email' }
       )
@@ -227,15 +235,20 @@ async function handleEmailUnsubscribed(
     webhook_event_id: webhookEventId,
   })
 
-  // 2. Auto-add to suppression_list
+  // 2. Auto-add to suppression_list (4-way: email + domain + handle + profile)
   if (email) {
+    const domain = email.split('@')[1] || null
     await admin
       .from('suppression_list')
       .upsert(
         {
           email,
+          email_domain: domain,
           reason: 'unsubscribe',
           source: 'instantly_webhook',
+          platform_handle: influencer?.platform_handle ?? null,
+          profile_url: influencer?.platform_url ?? null,
+          platform: influencer?.primary_platform ?? null,
         },
         { onConflict: 'email' }
       )

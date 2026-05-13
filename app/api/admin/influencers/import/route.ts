@@ -3,6 +3,7 @@ import { withAdmin } from '@/lib/api/withAdmin'
 import { jsonResponse, errorResponse } from '@/lib/api/withAuth'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { influencerRowSchema, type InfluencerCSVRow } from '@/lib/admin/csv-parser'
+import { filterSuppressed4Way } from '@/lib/admin/compliance/suppression-check'
 
 const BATCH_SIZE = 100
 
@@ -45,24 +46,23 @@ export const POST = withAdmin(async (req, user) => {
   for (let i = 0; i < rows.length; i += BATCH_SIZE) {
     const chunk = rows.slice(i, i + BATCH_SIZE)
 
-    // 1. Check suppression list (batch query)
-    const emails = chunk.map(r => r.email.toLowerCase())
-    const { data: suppressedEmails } = await supabase
-      .from('suppression_list')
-      .select('email')
-      .in('email', emails)
+    // 1. Check suppression list (4-way: email + domain + handle + profile)
+    const contacts = chunk.map(r => ({
+      email: r.email.toLowerCase(),
+      handle: r.platform_handle || null,
+      platform: r.primary_platform || null,
+      profileUrl: null as string | null,
+    }))
 
-    const suppressedSet = new Set(
-      (suppressedEmails ?? []).map(s => s.email?.toLowerCase()).filter(Boolean)
-    )
+    const filterResult = await filterSuppressed4Way(contacts)
+    const allowedIndices = new Set(filterResult.allowed)
+    suppressed += filterResult.suppressed.length
 
     // Filter out suppressed
     const notSuppressed: InfluencerCSVRow[] = []
-    for (const row of chunk) {
-      if (suppressedSet.has(row.email.toLowerCase())) {
-        suppressed++
-      } else {
-        notSuppressed.push(row)
+    for (let j = 0; j < chunk.length; j++) {
+      if (allowedIndices.has(j)) {
+        notSuppressed.push(chunk[j])
       }
     }
 
