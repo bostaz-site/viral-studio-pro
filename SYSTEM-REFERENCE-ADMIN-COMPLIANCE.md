@@ -1,7 +1,7 @@
-# SYSTEM REFERENCE — Admin Compliance Layer (v1)
+# SYSTEM REFERENCE — Admin Compliance Layer (v2 — V3 Extended)
 
-> Ce fichier est la source de verite pour le module Compliance (Suppression List + Unsubscribe).
-> Derniere mise a jour : 2026-05-11.
+> Ce fichier est la source de verite pour le module Compliance (Suppression List + Unsubscribe + 4-way + Provenance + FTC + GDPR).
+> Derniere mise a jour : 2026-05-13.
 
 ---
 
@@ -16,8 +16,22 @@
 | `app/unsubscribe/page.tsx` | Page publique unsubscribe — 1-click, no auth required |
 | `app/api/unsubscribe/route.ts` | API publique — verify token, add to suppression, mark influencer blocked, mark token used |
 | `lib/admin/unsubscribe-token.ts` | Token generation (randomBytes+sha256) + verification + mark used |
-| `lib/admin/check-suppression.ts` | `filterSuppressed(emails[])` + `isSuppressed(email)` — pre-export filtering |
-| `supabase/migrations/20260513_suppression_list.sql` | Migration — tables, indexes, RLS, `is_suppressed()`, `get_suppression_stats()` |
+| `lib/admin/check-suppression.ts` | `filterSuppressed(emails[])` + `isSuppressed(email)` — pre-export filtering (re-exports 4-way) |
+| `lib/admin/compliance/suppression-check.ts` | **V3** `isSuppressed4Way()` + `filterSuppressed4Way()` — 4-way batch check |
+| `lib/admin/compliance/contact-validator.ts` | **V3** `validateContact()` — master validation (provenance + suppression + email) |
+| `lib/admin/compliance/provenance-enforcer.ts` | **V3** `checkProvenance()` — NO source_url = NO contact |
+| `lib/admin/compliance/disclosure-checker.ts` | **V3** `captionHasDisclosure()` + `validateCaptionForKit()` — FTC check |
+| `lib/admin/compliance/audit-logger.ts` | **V3** `logComplianceAction()` — fire-and-forget audit log |
+| `app/(dashboard)/admin/compliance/page.tsx` | **V3** Compliance dashboard — stats, blocks, audit log, GDPR |
+| `app/(dashboard)/admin/compliance/_components/suppression-stats.tsx` | Stats cards |
+| `app/(dashboard)/admin/compliance/_components/audit-log-viewer.tsx` | Filterable audit log table |
+| `app/(dashboard)/admin/compliance/_components/recent-blocks.tsx` | Recent blocks panel |
+| `app/(dashboard)/admin/compliance/_components/gdpr-requests.tsx` | GDPR export/delete panel |
+| `app/api/admin/compliance/check/route.ts` | **V3** POST — validate contact before action |
+| `app/api/admin/compliance/audit/route.ts` | **V3** GET — query compliance audit log |
+| `app/api/admin/compliance/gdpr-export/route.ts` | **V3** POST — RGPD data export |
+| `app/api/admin/compliance/gdpr-delete/route.ts` | **V3** POST — RGPD right to be forgotten |
+| `supabase/migrations/20260513_suppression_list.sql` | Migration v1 — tables, indexes, RLS, `is_suppressed()` |
 
 ---
 
@@ -220,3 +234,155 @@ get_suppression_stats() → JSON { total, this_week, top_reasons[] }
 - Put unsubscribe behind auth
 - Allow re-use of unsubscribe tokens
 - Forget to mark influencer as blocked on unsubscribe
+- Contact without source_url (provenance required)
+- Send promo kit without FTC disclosure in caption
+
+---
+
+## V3 — 4-Way Suppression (Extended)
+
+### New suppression_list columns
+
+```sql
+platform_handle TEXT     -- @username on a platform
+profile_url TEXT         -- full profile URL
+platform TEXT            -- twitch, kick, youtube, tiktok, etc.
+
+INDEX on (lower(platform_handle), platform) WHERE platform_handle IS NOT NULL
+INDEX on profile_url WHERE profile_url IS NOT NULL
+```
+
+### `is_suppressed_4way()` Postgres function
+
+```sql
+is_suppressed_4way(p_email, p_handle, p_profile_url, p_platform) → BOOLEAN
+```
+
+Checks ANY of:
+1. email match (case-insensitive)
+2. email_domain match
+3. platform_handle + platform match
+4. profile_url match
+
+Respects `expires_at` (null = permanent).
+
+### TypeScript usage
+
+```typescript
+import { isSuppressed4Way, filterSuppressed4Way } from '@/lib/admin/compliance/suppression-check'
+
+// Single check
+const blocked = await isSuppressed4Way({ email, handle, profileUrl, platform })
+
+// Batch check (import flow)
+const { allowed, suppressed } = await filterSuppressed4Way(contacts)
+```
+
+---
+
+## V3 — Master Contact Validator
+
+```typescript
+import { validateContact } from '@/lib/admin/compliance/contact-validator'
+
+const result = await validateContact({
+  email: 'user@example.com',
+  handle: 'username',
+  platform: 'twitch',
+  profileUrl: 'https://twitch.tv/username',
+  sourceUrl: 'https://source.com/where-we-found-them',
+  intent: 'send_email',  // 'import' | 'export_campaign' | 'send_email' | 'add_to_kit'
+})
+
+// result = { allowed: boolean, blocks: string[], warnings: string[] }
+```
+
+Rules enforced:
+1. **NO source_url = NO contact** (except import intent)
+2. **4-way suppression** (email + domain + handle + profile_url)
+3. **Email required** for send_email intent
+
+All blocks are logged to `compliance_audit_log`.
+
+---
+
+## V3 — FTC Disclosure Checker
+
+```typescript
+import { captionHasDisclosure, validateCaptionForKit } from '@/lib/admin/compliance/disclosure-checker'
+
+const hasDisclosure = captionHasDisclosure(caption) // boolean
+const result = validateCaptionForKit(caption) // { valid, reason?, suggestion? }
+```
+
+Required keywords: #ad, #sponsored, affiliate, partner, use code, etc.
+
+---
+
+## V3 — Compliance Audit Log
+
+### `compliance_audit_log` table
+
+```sql
+id UUID PK
+action TEXT               -- 11 action types (see below)
+target_type TEXT           -- 'contact', 'influencer', etc.
+target_id UUID
+details JSONB
+triggered_by UUID
+occurred_at TIMESTAMPTZ
+```
+
+Action types:
+- `contact_blocked_no_source` — provenance missing
+- `contact_blocked_suppressed` — 4-way suppression match
+- `contact_blocked_no_email` — email required but missing
+- `caption_blocked_no_disclosure` — FTC disclosure missing
+- `contact_imported_with_source` — successful import
+- `suppression_added` / `suppression_removed`
+- `gdpr_export_requested` / `gdpr_delete_requested`
+- `unsubscribe_processed`
+- `contact_validated_ok` — passed all checks
+
+---
+
+## V3 — GDPR APIs
+
+### POST /api/admin/compliance/gdpr-export
+Body: `{ email }`
+Returns: All data for that email (influencer, messages, events, clicks, suppression)
+Downloads as JSON file.
+
+### POST /api/admin/compliance/gdpr-delete
+Body: `{ email, confirm: true }`
+Deletes: influencer + messages + events + clicks + sessions
+Auto-adds email to suppression_list (prevent re-contact).
+
+---
+
+## V3 — Compliance Dashboard
+
+```
+/dashboard/admin/compliance
+
+1. Header — ShieldCheck icon + "Compliance" + CAN-SPAM/CASL/GDPR/FTC subtitle
+2. Stats — Total Suppressed | Blocks Today | Blocks This Week | GDPR Requests
+3. Two columns:
+   Left: Recent Blocks (last 10)
+   Right: GDPR Requests (export/delete form)
+4. Audit Log — filterable by action type, searchable
+```
+
+---
+
+## V3 — Webhook Auto-Actions
+
+When Instantly webhook fires:
+- `email_bounced` → suppression_list entry includes: email + email_domain + platform_handle + profile_url + platform (from influencer CRM)
+- `email_unsubscribed` → same 4-way suppression entry
+
+---
+
+## V3 — Import Flow Integration
+
+`app/api/admin/influencers/import/route.ts` now uses `filterSuppressed4Way()` which checks all 4 dimensions (email + domain + handle + profile_url) instead of email-only.
