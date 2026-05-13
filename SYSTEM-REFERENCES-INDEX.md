@@ -4,7 +4,7 @@
 > Chaque module = 1 fichier `SYSTEM-REFERENCE-XXX.md` à jour.
 > Cet index dit **quoi lire** avant de toucher à quel système.
 
-**Dernière maj** : 2026-05-13
+**Dernière maj** : 2026-05-13 (V3 W1 merged)
 **Mainteneur** : Samy Cloutier ([samy@viralanimal.com](mailto:samy@viralanimal.com))
 
 ---
@@ -52,9 +52,9 @@ Si un système n'a **pas** de reference → c'est un bug. Créer le fichier en m
 │   └── SYSTEM-REFERENCE-DESIGN-SYSTEM.md
 │
 └── 🚀 V3 ACQUISITION
-    ├── SYSTEM-REFERENCE-ADMIN-SCRAPER.md             ← V3-1A ✅ CREATED
-    ├── SYSTEM-REFERENCE-ADMIN-REPOST-KIT.md          ← V3-1B CREATED
-    ├── SYSTEM-REFERENCE-ADMIN-COMPLIANCE.md (update) ← V3-1C
+    ├── SYSTEM-REFERENCE-ADMIN-SCRAPER.md             ← V3-1A ✅ MERGED
+    ├── SYSTEM-REFERENCE-ADMIN-REPOST-KIT.md          ← V3-1B ✅ MERGED
+    ├── SYSTEM-REFERENCE-ADMIN-COMPLIANCE.md (update) ← V3-1C ✅ MERGED
     └── (semaine 2+) SYSTEM-REFERENCE-ADMIN-MATCH-ENGINE.md
         + SYSTEM-REFERENCE-ADMIN-OFFER-GENERATOR.md
         + SYSTEM-REFERENCE-ADMIN-PUBLICATION-TRACKING.md
