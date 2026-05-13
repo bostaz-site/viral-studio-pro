@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { checkMailboxHealth } from '@/lib/admin/mailbox/health-checker'
 
 export interface AlertCandidate {
   severity: 'critical' | 'important' | 'info'
@@ -336,6 +337,14 @@ export async function runAllChecks(admin: SupabaseClient): Promise<AlertCandidat
     } else if (result.status === 'rejected') {
       console.error('[watchdog] Check failed:', result.reason)
     }
+  }
+
+  // Mailbox health checks (return multiple alerts)
+  try {
+    const mailboxAlerts = await checkMailboxHealth()
+    alerts.push(...mailboxAlerts)
+  } catch (err) {
+    console.error('[watchdog] Mailbox health check failed:', err)
   }
 
   return alerts

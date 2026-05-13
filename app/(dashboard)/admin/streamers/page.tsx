@@ -209,7 +209,7 @@ export default function AdminStreamersPage() {
                     <p className="text-sm font-semibold truncate">{s.display_name}</p>
                     <Badge variant="outline" className="text-[10px]">P{s.priority ?? 0}</Badge>
                     {s.twitch_login && (
-                      <Badge className="text-[10px] bg-purple-500/15 text-purple-400">Twitch: {s.twitch_login}</Badge>
+                      <Badge className="text-[10px] bg-amber-500/15 text-amber-400">Twitch: {s.twitch_login}</Badge>
                     )}
                     {s.kick_login && (
                       <Badge className="text-[10px] bg-green-500/15 text-green-400">Kick: {s.kick_login}</Badge>

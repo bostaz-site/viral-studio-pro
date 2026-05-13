@@ -38,17 +38,17 @@ function formatTimeAgo(iso: string): string {
 const SEVERITY_CONFIG: Record<string, { icon: React.ElementType; color: string; bg: string; border: string }> = {
   critical: { icon: XCircle, color: 'text-red-400', bg: 'bg-red-500/10', border: 'border-red-500/20' },
   important: { icon: AlertTriangle, color: 'text-amber-400', bg: 'bg-amber-500/10', border: 'border-amber-500/20' },
-  info: { icon: Info, color: 'text-blue-400', bg: 'bg-blue-500/10', border: 'border-blue-500/20' },
+  info: { icon: Info, color: 'text-cyan-400', bg: 'bg-cyan-500/10', border: 'border-cyan-500/20' },
 }
 
 const CATEGORY_COLORS: Record<string, string> = {
-  webhook: 'bg-purple-500/15 text-purple-400',
+  webhook: 'bg-amber-500/15 text-amber-400',
   stripe: 'bg-indigo-500/15 text-indigo-400',
   mailbox: 'bg-sky-500/15 text-sky-400',
   affiliate: 'bg-emerald-500/15 text-emerald-400',
   crm: 'bg-green-500/15 text-green-400',
   compliance: 'bg-orange-500/15 text-orange-400',
-  ai_insight: 'bg-violet-500/15 text-violet-400',
+  ai_insight: 'bg-amber-500/15 text-amber-400',
   app: 'bg-zinc-500/15 text-zinc-400',
 }
 

@@ -94,7 +94,7 @@ export function CampaignForm({ onSubmit, isSubmitting }: CampaignFormProps) {
               onClick={() => toggleArrayField('target_niches', niche)}
               className={`rounded-full border px-3 py-1 text-sm transition-colors ${
                 form.target_niches.includes(niche)
-                  ? 'border-blue-500 bg-blue-500/20 text-blue-400'
+                  ? 'border-cyan-500 bg-cyan-500/20 text-cyan-400'
                   : 'border-zinc-700 text-zinc-400 hover:border-zinc-500'
               }`}
             >
@@ -115,7 +115,7 @@ export function CampaignForm({ onSubmit, isSubmitting }: CampaignFormProps) {
               onClick={() => toggleArrayField('target_platforms', platform)}
               className={`rounded-full border px-3 py-1 text-sm capitalize transition-colors ${
                 form.target_platforms.includes(platform)
-                  ? 'border-purple-500 bg-purple-500/20 text-purple-400'
+                  ? 'border-amber-500 bg-amber-500/20 text-amber-400'
                   : 'border-zinc-700 text-zinc-400 hover:border-zinc-500'
               }`}
             >

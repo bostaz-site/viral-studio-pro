@@ -127,10 +127,10 @@ export default function AffiliateDetailPage() {
 
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <StatCard label="Clicks" value={clicks.length} icon={<MousePointerClick className="h-4 w-4" />} color="text-blue-400" />
+        <StatCard label="Clicks" value={clicks.length} icon={<MousePointerClick className="h-4 w-4" />} color="text-cyan-400" />
         <StatCard label="Referrals" value={referrals.length} icon={<Users className="h-4 w-4" />} color="text-green-400" />
         <StatCard label="Paying" value={referrals.filter(r => r.first_paid_at).length} icon={<DollarSign className="h-4 w-4" />} color="text-amber-400" />
-        <StatCard label="Link" value={linkUrl ?? '—'} icon={<Link2 className="h-4 w-4" />} color="text-purple-400" small />
+        <StatCard label="Link" value={linkUrl ?? '—'} icon={<Link2 className="h-4 w-4" />} color="text-amber-400" small />
       </div>
 
       {/* Commission Ledger */}

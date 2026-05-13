@@ -91,7 +91,7 @@ export default function AffiliatesAdminPage() {
 
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <StatCard label="Active Affiliates" value={activeCount} icon={<Users className="h-4 w-4" />} color="text-blue-400" />
+        <StatCard label="Active Affiliates" value={activeCount} icon={<Users className="h-4 w-4" />} color="text-cyan-400" />
         <StatCard label="Paying Referrals" value={payingReferrals} icon={<TrendingUp className="h-4 w-4" />} color="text-green-400" />
         <StatCard label="Total Earned" value={`$${(totalEarned / 100).toFixed(2)}`} icon={<DollarSign className="h-4 w-4" />} color="text-amber-400" />
         <StatCard label="Commission Due" value={`$${(totalDue / 100).toFixed(2)}`} icon={<DollarSign className="h-4 w-4" />} color="text-red-400" />

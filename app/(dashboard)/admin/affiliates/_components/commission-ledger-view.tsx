@@ -19,7 +19,7 @@ const EVENT_CONFIG: Record<string, { label: string; color: string }> = {
   refund_clawback: { label: 'Refund', color: 'text-red-400 border-red-400/40' },
   chargeback_clawback: { label: 'Chargeback', color: 'text-rose-400 border-rose-400/40' },
   manual_adjustment: { label: 'Adjustment', color: 'text-amber-400 border-amber-400/40' },
-  payout_deduction: { label: 'Payout', color: 'text-blue-400 border-blue-400/40' },
+  payout_deduction: { label: 'Payout', color: 'text-cyan-400 border-cyan-400/40' },
   expiration_writeoff: { label: 'Expired', color: 'text-zinc-400 border-zinc-400/40' },
 }
 

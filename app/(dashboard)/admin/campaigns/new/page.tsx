@@ -96,7 +96,7 @@ export default function NewCampaignPage() {
             <div
               className={`flex items-center gap-2 rounded-full border px-3 py-1 text-sm ${
                 step === s.key
-                  ? 'border-blue-500 bg-blue-500/20 text-blue-400'
+                  ? 'border-amber-500 bg-amber-500/20 text-amber-400'
                   : steps.findIndex((x) => x.key === step) > i
                     ? 'border-green-500/50 bg-green-500/10 text-green-400'
                     : 'border-zinc-700 text-zinc-500'

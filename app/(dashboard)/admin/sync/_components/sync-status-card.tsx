@@ -35,7 +35,7 @@ export function SyncStatusCard({
           {/* Last Sync */}
           <div className="flex items-center gap-3">
             {isSyncing ? (
-              <Loader2 className="h-5 w-5 animate-spin text-blue-500" />
+              <Loader2 className="h-5 w-5 animate-spin text-amber-500" />
             ) : success === true ? (
               <CheckCircle className="h-5 w-5 text-green-500" />
             ) : success === false ? (

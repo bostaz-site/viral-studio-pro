@@ -151,7 +151,7 @@ export function RecipientSelector({ onSelectionChange, selectedIds }: RecipientS
                 onClick={() => toggleFilter('niches', n)}
                 className={`rounded border px-2 py-0.5 text-xs transition-colors ${
                   filters.niches.includes(n)
-                    ? 'border-blue-500 bg-blue-500/20 text-blue-400'
+                    ? 'border-cyan-500 bg-cyan-500/20 text-cyan-400'
                     : 'border-zinc-700 text-zinc-500 hover:border-zinc-500'
                 }`}
               >
@@ -172,7 +172,7 @@ export function RecipientSelector({ onSelectionChange, selectedIds }: RecipientS
                 onClick={() => toggleFilter('platforms', p)}
                 className={`rounded border px-2 py-0.5 text-xs capitalize transition-colors ${
                   filters.platforms.includes(p)
-                    ? 'border-purple-500 bg-purple-500/20 text-purple-400'
+                    ? 'border-amber-500 bg-amber-500/20 text-amber-400'
                     : 'border-zinc-700 text-zinc-500 hover:border-zinc-500'
                 }`}
               >
@@ -287,14 +287,14 @@ export function RecipientSelector({ onSelectionChange, selectedIds }: RecipientS
                     key={inf.id}
                     onClick={() => toggleInfluencer(inf.id)}
                     className={`cursor-pointer border-t border-zinc-800/50 transition-colors ${
-                      isSelected ? 'bg-blue-500/10' : 'hover:bg-zinc-800/50'
+                      isSelected ? 'bg-amber-500/10' : 'hover:bg-zinc-800/50'
                     }`}
                   >
                     <td className="p-2 text-center">
                       <div
                         className={`mx-auto flex h-4 w-4 items-center justify-center rounded border ${
                           isSelected
-                            ? 'border-blue-500 bg-blue-500'
+                            ? 'border-amber-500 bg-amber-500'
                             : 'border-zinc-600'
                         }`}
                       >
@@ -321,7 +321,7 @@ export function RecipientSelector({ onSelectionChange, selectedIds }: RecipientS
                         inf.status === 'cold' ? 'bg-zinc-800 text-zinc-400' :
                         inf.status === 'contacted' ? 'bg-yellow-500/20 text-yellow-400' :
                         inf.status === 'replied' ? 'bg-green-500/20 text-green-400' :
-                        inf.status === 'interested' ? 'bg-blue-500/20 text-blue-400' :
+                        inf.status === 'interested' ? 'bg-cyan-500/20 text-cyan-400' :
                         'bg-zinc-800 text-zinc-400'
                       }`}>
                         {inf.status}

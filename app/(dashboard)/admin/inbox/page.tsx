@@ -30,6 +30,7 @@ interface ThreadItem {
     is_read: boolean
     is_starred: boolean
     is_archived: boolean
+    ai_sentiment: string | null
   }
   unreadCount: number
   messageCount: number
@@ -121,7 +122,7 @@ export default function AdminInboxPage() {
             </span>
           )}
         </div>
-        <span className="text-xs text-zinc-500">Read-only — Composer coming Week 2</span>
+        <span className="text-xs text-zinc-500">AI Triage active</span>
       </div>
 
       {/* Main content: 2-column layout */}

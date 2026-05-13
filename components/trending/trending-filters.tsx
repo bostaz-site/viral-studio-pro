@@ -240,14 +240,14 @@ export function TrendingFilters({
                     className={cn(
                       'px-3 py-1 rounded-full text-xs font-medium border transition-all flex items-center gap-1.5',
                       active
-                        ? 'bg-indigo-500/15 text-indigo-400 border-indigo-500/30'
-                        : 'bg-muted/30 text-muted-foreground border-border hover:border-indigo-500/30 hover:text-foreground'
+                        ? 'bg-amber-500/15 text-amber-400 border-amber-500/30'
+                        : 'bg-muted/30 text-muted-foreground border-border hover:border-amber-500/30 hover:text-foreground'
                     )}
                   >
                     {niche.label}
                     <span className={cn(
                       'text-[10px] tabular-nums',
-                      active ? 'text-indigo-400/80' : 'text-muted-foreground/60'
+                      active ? 'text-amber-400/80' : 'text-muted-foreground/60'
                     )}>
                       {niche.count}
                     </span>

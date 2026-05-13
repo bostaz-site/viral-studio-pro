@@ -1,8 +1,8 @@
 'use client'
 
-import { Search, Inbox, Star, Archive, Mail } from 'lucide-react'
+import { Search, Inbox, Star, Archive, Mail, Flame } from 'lucide-react'
 
-export type InboxFilter = 'all' | 'unread' | 'starred' | 'archived'
+export type InboxFilter = 'all' | 'unread' | 'starred' | 'archived' | 'hot'
 
 interface InboxFiltersProps {
   filter: InboxFilter
@@ -15,6 +15,7 @@ interface InboxFiltersProps {
 const FILTERS: { key: InboxFilter; label: string; icon: React.ElementType }[] = [
   { key: 'all', label: 'All', icon: Inbox },
   { key: 'unread', label: 'Unread', icon: Mail },
+  { key: 'hot', label: 'Hot Leads', icon: Flame },
   { key: 'starred', label: 'Starred', icon: Star },
   { key: 'archived', label: 'Archived', icon: Archive },
 ]

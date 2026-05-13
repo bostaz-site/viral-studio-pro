@@ -1875,6 +1875,9 @@ export type Database = {
           status: string
           status_changed_at: string | null
           stripe_connect_account_id: string | null
+          stripe_connect_charges_enabled: boolean | null
+          stripe_connect_onboarded_at: string | null
+          stripe_connect_payouts_enabled: boolean | null
           stripe_connect_status: string | null
           tags: string[] | null
           timezone: string | null
@@ -1918,6 +1921,9 @@ export type Database = {
           status?: string
           status_changed_at?: string | null
           stripe_connect_account_id?: string | null
+          stripe_connect_charges_enabled?: boolean | null
+          stripe_connect_onboarded_at?: string | null
+          stripe_connect_payouts_enabled?: boolean | null
           stripe_connect_status?: string | null
           tags?: string[] | null
           timezone?: string | null
@@ -1961,6 +1967,9 @@ export type Database = {
           status?: string
           status_changed_at?: string | null
           stripe_connect_account_id?: string | null
+          stripe_connect_charges_enabled?: boolean | null
+          stripe_connect_onboarded_at?: string | null
+          stripe_connect_payouts_enabled?: boolean | null
           stripe_connect_status?: string | null
           tags?: string[] | null
           timezone?: string | null
@@ -2223,6 +2232,61 @@ export type Database = {
           user_agent?: string | null
         }
         Relationships: []
+      }
+      partner_sessions: {
+        Row: {
+          created_at: string
+          expires_at: string
+          id: string
+          influencer_id: string
+          ip_address_hash: string | null
+          last_used_at: string | null
+          token_hash: string
+          user_agent: string | null
+        }
+        Insert: {
+          created_at?: string
+          expires_at: string
+          id?: string
+          influencer_id: string
+          ip_address_hash?: string | null
+          last_used_at?: string | null
+          token_hash: string
+          user_agent?: string | null
+        }
+        Update: {
+          created_at?: string
+          expires_at?: string
+          id?: string
+          influencer_id?: string
+          ip_address_hash?: string | null
+          last_used_at?: string | null
+          token_hash?: string
+          user_agent?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "partner_sessions_influencer_id_fkey"
+            columns: ["influencer_id"]
+            isOneToOne: false
+            referencedRelation: "influencers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_sessions_influencer_id_fkey"
+            columns: ["influencer_id"]
+            isOneToOne: false
+            referencedRelation: "v_active_affiliates_leaderboard"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_sessions_influencer_id_fkey"
+            columns: ["influencer_id"]
+            isOneToOne: false
+            referencedRelation: "v_affiliate_activation_stats"
+            referencedColumns: ["influencer_id"]
+          },
+        ]
       }
       payout_holds: {
         Row: {
@@ -3162,6 +3226,30 @@ export type Database = {
         }
         Relationships: []
       }
+      sync_log: {
+        Row: {
+          created_at: string
+          id: string
+          metadata: Json
+          provider: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          metadata?: Json
+          provider: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          metadata?: Json
+          provider?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       transcriptions: {
         Row: {
           created_at: string | null
@@ -3988,4 +4076,3 @@ export const Constants = {
     Enums: {},
   },
 } as const
-

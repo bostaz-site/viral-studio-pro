@@ -23,7 +23,7 @@ const NICHE_OPTIONS = [
 ]
 
 const PHASE_CONFIG = {
-  testing: { label: 'Testing', color: 'bg-blue-500/20 text-blue-400 border-blue-500/30' },
+  testing: { label: 'Testing', color: 'bg-cyan-500/20 text-cyan-400 border-cyan-500/30' },
   optimizing: { label: 'Optimizing', color: 'bg-amber-500/20 text-amber-400 border-amber-500/30' },
   scaling: { label: 'Scaling', color: 'bg-green-500/20 text-green-400 border-green-500/30' },
 }

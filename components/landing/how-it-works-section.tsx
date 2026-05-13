@@ -18,7 +18,7 @@ export function HowItWorksSection() {
           {/* Step 1 — Browse clips */}
           <div className="grid md:grid-cols-2 gap-8 items-center">
             <div>
-              <span className="inline-block text-xs font-bold text-purple-400 uppercase tracking-wider mb-2">Step 1</span>
+              <span className="inline-block text-xs font-bold text-amber-400 uppercase tracking-wider mb-2">Step 1</span>
               <h3 className="text-2xl font-bold text-foreground mb-3">Pick Your Stream Clip</h3>
               <p className="text-muted-foreground leading-relaxed">Browse top Twitch and YouTube Gaming moments ranked by viral score. AI auto-identifies the moments that hit hardest.</p>
             </div>
@@ -38,8 +38,8 @@ export function HowItWorksSection() {
                 </div>
                 {/* Clip cards */}
                 {[
-                  { name: 'xQc', game: 'Just Chatting', score: 92, color: 'from-purple-500/20 to-purple-600/10' },
-                  { name: 'Sardoche', game: 'League of Legends', score: 87, color: 'from-blue-500/20 to-blue-600/10' },
+                  { name: 'xQc', game: 'Just Chatting', score: 92, color: 'from-amber-500/20 to-amber-600/10' },
+                  { name: 'Sardoche', game: 'League of Legends', score: 87, color: 'from-cyan-500/20 to-cyan-600/10' },
                   { name: 'Kamet0', game: 'Valorant', score: 78, color: 'from-emerald-500/20 to-emerald-600/10' },
                 ].map((clip) => (
                   <div key={clip.name} className={cn('flex items-center gap-3 p-2 rounded-lg bg-gradient-to-r', clip.color)}>
@@ -75,11 +75,11 @@ export function HowItWorksSection() {
               <div className="p-3 flex gap-3">
                 {/* Preview */}
                 <div className="w-24 shrink-0">
-                  <div className="aspect-[9/16] rounded-lg bg-gradient-to-b from-indigo-900/30 to-gray-900 border border-border/30 relative overflow-hidden">
-                    <div className="absolute inset-x-0 top-0 h-[60%] bg-gradient-to-br from-purple-900/40 to-indigo-900/40 flex items-center justify-center">
-                      <span className="text-[7px] text-blue-300/60">Your Clip</span>
+                  <div className="aspect-[9/16] rounded-lg bg-gradient-to-b from-zinc-800/30 to-gray-900 border border-border/30 relative overflow-hidden">
+                    <div className="absolute inset-x-0 top-0 h-[60%] bg-gradient-to-br from-zinc-800/40 to-zinc-900/40 flex items-center justify-center">
+                      <span className="text-[7px] text-cyan-300/60">Your Clip</span>
                     </div>
-                    <div className="absolute inset-x-0 bottom-0 h-[40%] bg-gradient-to-br from-emerald-900/30 to-teal-900/30 flex items-center justify-center border-t border-blue-500/20">
+                    <div className="absolute inset-x-0 bottom-0 h-[40%] bg-gradient-to-br from-emerald-900/30 to-teal-900/30 flex items-center justify-center border-t border-cyan-500/20">
                       <span className="text-[7px] text-emerald-400/60">Satisfying Video</span>
                     </div>
                     <div className="absolute bottom-[42%] left-1/2 -translate-x-1/2 bg-black/70 rounded px-1.5 py-0.5">
@@ -112,7 +112,7 @@ export function HowItWorksSection() {
                   {/* Timeline mockup */}
                   <div className="pt-1">
                     <div className="h-3 rounded bg-muted/30 relative overflow-hidden">
-                      <div className="absolute left-[10%] right-[30%] top-0 bottom-0 bg-blue-500/20 border-x-2 border-blue-500/50 rounded" />
+                      <div className="absolute left-[10%] right-[30%] top-0 bottom-0 bg-cyan-500/20 border-x-2 border-cyan-500/50 rounded" />
                       <div className="absolute left-[35%] top-0 bottom-0 w-0.5 bg-white/60" />
                     </div>
                   </div>
@@ -120,7 +120,7 @@ export function HowItWorksSection() {
               </div>
             </div>
             <div className="md:order-2 order-1">
-              <span className="inline-block text-xs font-bold text-blue-400 uppercase tracking-wider mb-2">Step 2</span>
+              <span className="inline-block text-xs font-bold text-cyan-400 uppercase tracking-wider mb-2">Step 2</span>
               <h3 className="text-2xl font-bold text-foreground mb-3">Customize Your Clip</h3>
               <p className="text-muted-foreground leading-relaxed">Karaoke captions (9 styles), auto split-screen with satisfying video, and AI viral score analysis. Tweak everything in a few clicks.</p>
             </div>
@@ -161,7 +161,7 @@ export function HowItWorksSection() {
                   ))}
                 </div>
                 <div className="flex gap-2">
-                  <div className="flex-1 py-1.5 rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-[10px] font-medium text-center">
+                  <div className="flex-1 py-1.5 rounded-lg bg-gradient-to-r from-amber-500 to-amber-600 text-amber-950 text-[10px] font-medium text-center">
                     Download MP4
                   </div>
                   <div className="flex-1 py-1.5 rounded-lg border border-border/30 text-[10px] font-medium text-center text-muted-foreground">
@@ -177,7 +177,7 @@ export function HowItWorksSection() {
         <div className="text-center mt-16 pt-10 border-t border-border/20">
           <p className="text-muted-foreground mb-4">Ready to drop your first split-screen clip?</p>
           <Link href="/signup">
-            <Button size="lg" className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-lg shadow-blue-500/20 h-11 px-8 font-semibold gap-2">
+            <Button size="lg" className="bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-amber-950 shadow-lg shadow-amber-500/20 h-11 px-8 font-semibold gap-2">
               Create Free Account
               <ArrowRight className="h-4 w-4" />
             </Button>

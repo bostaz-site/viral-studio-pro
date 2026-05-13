@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { Send, Loader2, ChevronDown, AlertCircle, Info } from 'lucide-react'
 import { QuickReplyTemplates, type QuickTemplate } from './quick-reply-templates'
 
@@ -11,6 +11,8 @@ interface ReplyComposerProps {
   lastSubject?: string
   mailboxes: { email: string; status: string }[]
   onSent: () => void
+  prefillSubject?: string
+  prefillBody?: string
 }
 
 export function ReplyComposer({
@@ -20,6 +22,8 @@ export function ReplyComposer({
   lastSubject,
   mailboxes,
   onSent,
+  prefillSubject,
+  prefillBody,
 }: ReplyComposerProps) {
   const activeMailboxes = mailboxes.filter(m => m.status === 'active' || m.status === 'warming')
   const [fromEmail, setFromEmail] = useState(activeMailboxes[0]?.email ?? '')
@@ -29,6 +33,12 @@ export function ReplyComposer({
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
   const [showVars, setShowVars] = useState(false)
+
+  // Apply prefill from suggested drafts
+  useEffect(() => {
+    if (prefillBody) setBody(prefillBody)
+    if (prefillSubject) setSubject(prefillSubject)
+  }, [prefillBody, prefillSubject])
 
   const handleSend = useCallback(async () => {
     if (!body.trim() || !fromEmail || sending) return
@@ -101,7 +111,7 @@ export function ReplyComposer({
               <select
                 value={fromEmail}
                 onChange={e => setFromEmail(e.target.value)}
-                className="appearance-none bg-zinc-800 border border-zinc-700 rounded-md px-2 py-1 pr-6 text-xs text-zinc-300 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                className="appearance-none bg-zinc-800 border border-zinc-700 rounded-md px-2 py-1 pr-6 text-xs text-zinc-300 focus:outline-none focus:ring-1 focus:ring-amber-500"
               >
                 {activeMailboxes.map(m => (
                   <option key={m.email} value={m.email}>{m.email}</option>
@@ -136,7 +146,7 @@ export function ReplyComposer({
         placeholder="Write your reply..."
         rows={5}
         disabled={sending}
-        className="w-full bg-zinc-800/50 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:ring-1 focus:ring-blue-500 resize-y min-h-[100px] disabled:opacity-50"
+        className="w-full bg-zinc-800/50 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:ring-1 focus:ring-amber-500 resize-y min-h-[100px] disabled:opacity-50"
       />
 
       {/* Template vars hint */}
@@ -176,7 +186,7 @@ export function ReplyComposer({
         <button
           onClick={handleSend}
           disabled={!body.trim() || !fromEmail || sending}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-blue-600 text-white text-xs font-medium hover:bg-blue-500 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-amber-500 text-white text-xs font-medium hover:bg-amber-400 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
         >
           {sending ? (
             <>

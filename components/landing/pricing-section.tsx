@@ -136,7 +136,7 @@ export function PricingSection() {
                     className={cn(
                       'w-full',
                       plan.highlighted
-                        ? 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white'
+                        ? 'bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-amber-950'
                         : ''
                     )}
                     variant={plan.highlighted ? 'default' : 'outline'}

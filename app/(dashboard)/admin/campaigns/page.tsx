@@ -19,10 +19,10 @@ interface Campaign {
 
 const STATUS_COLORS: Record<string, string> = {
   draft: 'bg-zinc-700 text-zinc-300',
-  scheduled: 'bg-blue-500/20 text-blue-400',
+  scheduled: 'bg-cyan-500/20 text-cyan-400',
   running: 'bg-green-500/20 text-green-400',
   paused: 'bg-yellow-500/20 text-yellow-400',
-  completed: 'bg-purple-500/20 text-purple-400',
+  completed: 'bg-amber-500/20 text-amber-400',
   archived: 'bg-zinc-800 text-zinc-500',
 }
 

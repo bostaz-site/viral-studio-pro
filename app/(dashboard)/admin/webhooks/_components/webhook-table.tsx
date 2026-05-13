@@ -41,7 +41,7 @@ const STATUS_ICONS: Record<string, { icon: React.ElementType; color: string }> =
 }
 
 const EVENT_TYPE_COLORS: Record<string, string> = {
-  email_sent: 'bg-blue-500/15 text-blue-400',
+  email_sent: 'bg-cyan-500/15 text-cyan-400',
   email_replied: 'bg-green-500/15 text-green-400',
   email_bounced: 'bg-red-500/15 text-red-400',
   email_unsubscribed: 'bg-orange-500/15 text-orange-400',

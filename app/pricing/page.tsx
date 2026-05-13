@@ -75,7 +75,7 @@ const TIERS: PricingTier[] = [
     highlighted: true,
     trialNote: '7 days free, no commitment',
     cta: 'Start 7-day free trial',
-    accentColor: 'from-blue-500 to-indigo-600',
+    accentColor: 'from-amber-500 to-amber-600',
   },
   {
     id: 'studio',
@@ -96,7 +96,7 @@ const TIERS: PricingTier[] = [
     ],
     highlighted: false,
     cta: 'Go to Studio',
-    accentColor: 'from-purple-500 to-pink-600',
+    accentColor: 'from-amber-600 to-amber-700',
   },
 ]
 
@@ -142,7 +142,7 @@ export default function PricingPage() {
       {/* Nav */}
       <header className="border-b border-border bg-card/50 backdrop-blur-md sticky top-0 z-50">
         <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
-          <Link href="/" className="text-xl font-black tracking-tight bg-gradient-to-r from-blue-500 to-indigo-600 bg-clip-text text-transparent">
+          <Link href="/" className="text-xl font-black tracking-tight bg-gradient-to-r from-amber-400 to-amber-600 bg-clip-text text-transparent">
             VIRAL ANIMAL
           </Link>
           <div className="flex items-center gap-3">
@@ -168,7 +168,7 @@ export default function PricingPage() {
           </div>
           <h1 className="text-4xl sm:text-5xl font-black tracking-tight leading-tight">
             Viral clips,{' '}
-            <span className="bg-gradient-to-r from-blue-500 to-indigo-600 bg-clip-text text-transparent">
+            <span className="bg-gradient-to-r from-amber-400 to-amber-600 bg-clip-text text-transparent">
               at your scale
             </span>
           </h1>
@@ -194,7 +194,7 @@ export default function PricingPage() {
                 )}
               >
                 {tier.highlighted && (
-                  <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-blue-500 to-indigo-600" />
+                  <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-amber-500 to-amber-600" />
                 )}
 
                 <CardContent className="p-6 flex flex-col h-full">
@@ -254,7 +254,7 @@ export default function PricingPage() {
                     className={cn(
                       'w-full gap-2 h-11',
                       tier.highlighted
-                        ? 'bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white'
+                        ? 'bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-amber-950'
                         : ''
                     )}
                     variant={tier.highlighted ? 'default' : 'outline'}

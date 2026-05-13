@@ -29,7 +29,7 @@ const PLATFORM_LABELS: Record<string, { name: string; color: string }> = {
 const STATUS_CONFIG: Record<string, { icon: React.ReactNode; color: string; label: string }> = {
   scheduled: {
     icon: <Clock className="h-3.5 w-3.5" />,
-    color: 'text-blue-400 border-blue-400/40',
+    color: 'text-cyan-400 border-cyan-400/40',
     label: 'Scheduled',
   },
   publishing: {

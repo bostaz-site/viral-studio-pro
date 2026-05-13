@@ -41,16 +41,16 @@ interface ExportFile {
 
 const STATUS_COLORS: Record<string, string> = {
   draft: 'bg-zinc-700 text-zinc-300',
-  scheduled: 'bg-blue-500/20 text-blue-400',
+  scheduled: 'bg-cyan-500/20 text-cyan-400',
   running: 'bg-green-500/20 text-green-400',
   paused: 'bg-yellow-500/20 text-yellow-400',
-  completed: 'bg-purple-500/20 text-purple-400',
+  completed: 'bg-amber-500/20 text-amber-400',
   archived: 'bg-zinc-800 text-zinc-500',
 }
 
 const RECIPIENT_STATUS_COLORS: Record<string, string> = {
   queued: 'bg-zinc-700 text-zinc-300',
-  scheduled: 'bg-blue-500/20 text-blue-400',
+  scheduled: 'bg-cyan-500/20 text-cyan-400',
   sent: 'bg-green-500/20 text-green-400',
   opened: 'bg-cyan-500/20 text-cyan-400',
   clicked: 'bg-teal-500/20 text-teal-400',
@@ -237,12 +237,12 @@ export default function CampaignDetailPage() {
           <h3 className="text-sm font-medium text-zinc-300">Target Segment</h3>
           <div className="flex flex-wrap gap-2">
             {(campaign.target_segment.niches || []).map((n) => (
-              <span key={n} className="rounded-full border border-blue-500/30 bg-blue-500/10 px-2 py-0.5 text-xs text-blue-400">
+              <span key={n} className="rounded-full border border-cyan-500/30 bg-cyan-500/10 px-2 py-0.5 text-xs text-cyan-400">
                 {n}
               </span>
             ))}
             {(campaign.target_segment.platforms || []).map((p) => (
-              <span key={p} className="rounded-full border border-purple-500/30 bg-purple-500/10 px-2 py-0.5 text-xs capitalize text-purple-400">
+              <span key={p} className="rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-xs capitalize text-amber-400">
                 {p}
               </span>
             ))}
