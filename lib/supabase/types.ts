@@ -591,6 +591,77 @@ export type Database = {
           },
         ]
       }
+      affiliate_signal_snapshots: {
+        Row: {
+          competitor_products: string[] | null
+          discovery_result_id: string | null
+          id: string
+          influencer_id: string | null
+          keyword_score: number | null
+          linktree_detected: boolean | null
+          medium_signals: string[] | null
+          multi_monetization: boolean | null
+          raw_evidence: Json | null
+          scored_at: string
+          strong_signals: string[] | null
+        }
+        Insert: {
+          competitor_products?: string[] | null
+          discovery_result_id?: string | null
+          id?: string
+          influencer_id?: string | null
+          keyword_score?: number | null
+          linktree_detected?: boolean | null
+          medium_signals?: string[] | null
+          multi_monetization?: boolean | null
+          raw_evidence?: Json | null
+          scored_at?: string
+          strong_signals?: string[] | null
+        }
+        Update: {
+          competitor_products?: string[] | null
+          discovery_result_id?: string | null
+          id?: string
+          influencer_id?: string | null
+          keyword_score?: number | null
+          linktree_detected?: boolean | null
+          medium_signals?: string[] | null
+          multi_monetization?: boolean | null
+          raw_evidence?: Json | null
+          scored_at?: string
+          strong_signals?: string[] | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "affiliate_signal_snapshots_discovery_result_id_fkey"
+            columns: ["discovery_result_id"]
+            isOneToOne: false
+            referencedRelation: "lead_discovery_results"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "affiliate_signal_snapshots_influencer_id_fkey"
+            columns: ["influencer_id"]
+            isOneToOne: false
+            referencedRelation: "influencers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "affiliate_signal_snapshots_influencer_id_fkey"
+            columns: ["influencer_id"]
+            isOneToOne: false
+            referencedRelation: "v_active_affiliates_leaderboard"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "affiliate_signal_snapshots_influencer_id_fkey"
+            columns: ["influencer_id"]
+            isOneToOne: false
+            referencedRelation: "v_affiliate_activation_stats"
+            referencedColumns: ["influencer_id"]
+          },
+        ]
+      }
       affiliates: {
         Row: {
           commission_rate: number | null
@@ -1068,6 +1139,36 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      compliance_audit_log: {
+        Row: {
+          action: string
+          details: Json | null
+          id: string
+          occurred_at: string
+          target_id: string | null
+          target_type: string | null
+          triggered_by: string | null
+        }
+        Insert: {
+          action: string
+          details?: Json | null
+          id?: string
+          occurred_at?: string
+          target_id?: string | null
+          target_type?: string | null
+          triggered_by?: string | null
+        }
+        Update: {
+          action?: string
+          details?: Json | null
+          id?: string
+          occurred_at?: string
+          target_id?: string | null
+          target_type?: string | null
+          triggered_by?: string | null
+        }
+        Relationships: []
       }
       demo_packages: {
         Row: {
@@ -1794,6 +1895,62 @@ export type Database = {
           },
         ]
       }
+      high_intent_no_email: {
+        Row: {
+          added_at: string
+          audience_size: number | null
+          discovery_result_id: string | null
+          display_name: string | null
+          dm_attempted: boolean | null
+          dm_attempted_at: string | null
+          id: string
+          keyword_score: number | null
+          platform: string
+          platform_handle: string
+          profile_url: string | null
+          promoted_products: string[] | null
+          reason: string | null
+        }
+        Insert: {
+          added_at?: string
+          audience_size?: number | null
+          discovery_result_id?: string | null
+          display_name?: string | null
+          dm_attempted?: boolean | null
+          dm_attempted_at?: string | null
+          id?: string
+          keyword_score?: number | null
+          platform: string
+          platform_handle: string
+          profile_url?: string | null
+          promoted_products?: string[] | null
+          reason?: string | null
+        }
+        Update: {
+          added_at?: string
+          audience_size?: number | null
+          discovery_result_id?: string | null
+          display_name?: string | null
+          dm_attempted?: boolean | null
+          dm_attempted_at?: string | null
+          id?: string
+          keyword_score?: number | null
+          platform?: string
+          platform_handle?: string
+          profile_url?: string | null
+          promoted_products?: string[] | null
+          reason?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "high_intent_no_email_discovery_result_id_fkey"
+            columns: ["discovery_result_id"]
+            isOneToOne: false
+            referencedRelation: "lead_discovery_results"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       import_batches: {
         Row: {
           completed_at: string | null
@@ -1983,6 +2140,170 @@ export type Database = {
           unsubscribed?: boolean | null
           unsubscribed_at?: string | null
           updated_at?: string
+        }
+        Relationships: []
+      }
+      lead_discovery_results: {
+        Row: {
+          audience_size: number | null
+          avatar_url: string | null
+          bio: string | null
+          country: string | null
+          discovered_at: string
+          display_name: string | null
+          email: string | null
+          email_source_url: string | null
+          engagement_rate: number | null
+          has_email: boolean | null
+          id: string
+          import_status: string | null
+          influencer_id: string | null
+          keyword_score: number | null
+          language: string | null
+          links: string[] | null
+          niche: string | null
+          platform: string
+          platform_handle: string | null
+          platform_id: string | null
+          profile_url: string | null
+          promoted_products: string[] | null
+          raw_data: Json | null
+          recent_post_titles: string[] | null
+          run_id: string
+          skip_reason: string | null
+        }
+        Insert: {
+          audience_size?: number | null
+          avatar_url?: string | null
+          bio?: string | null
+          country?: string | null
+          discovered_at?: string
+          display_name?: string | null
+          email?: string | null
+          email_source_url?: string | null
+          engagement_rate?: number | null
+          has_email?: boolean | null
+          id?: string
+          import_status?: string | null
+          influencer_id?: string | null
+          keyword_score?: number | null
+          language?: string | null
+          links?: string[] | null
+          niche?: string | null
+          platform: string
+          platform_handle?: string | null
+          platform_id?: string | null
+          profile_url?: string | null
+          promoted_products?: string[] | null
+          raw_data?: Json | null
+          recent_post_titles?: string[] | null
+          run_id: string
+          skip_reason?: string | null
+        }
+        Update: {
+          audience_size?: number | null
+          avatar_url?: string | null
+          bio?: string | null
+          country?: string | null
+          discovered_at?: string
+          display_name?: string | null
+          email?: string | null
+          email_source_url?: string | null
+          engagement_rate?: number | null
+          has_email?: boolean | null
+          id?: string
+          import_status?: string | null
+          influencer_id?: string | null
+          keyword_score?: number | null
+          language?: string | null
+          links?: string[] | null
+          niche?: string | null
+          platform?: string
+          platform_handle?: string | null
+          platform_id?: string | null
+          profile_url?: string | null
+          promoted_products?: string[] | null
+          raw_data?: Json | null
+          recent_post_titles?: string[] | null
+          run_id?: string
+          skip_reason?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lead_discovery_results_influencer_id_fkey"
+            columns: ["influencer_id"]
+            isOneToOne: false
+            referencedRelation: "influencers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_discovery_results_influencer_id_fkey"
+            columns: ["influencer_id"]
+            isOneToOne: false
+            referencedRelation: "v_active_affiliates_leaderboard"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_discovery_results_influencer_id_fkey"
+            columns: ["influencer_id"]
+            isOneToOne: false
+            referencedRelation: "v_affiliate_activation_stats"
+            referencedColumns: ["influencer_id"]
+          },
+          {
+            foreignKeyName: "lead_discovery_results_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: false
+            referencedRelation: "lead_discovery_runs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lead_discovery_runs: {
+        Row: {
+          completed_at: string | null
+          duplicates_count: number | null
+          errors: Json | null
+          filters: Json | null
+          id: string
+          new_leads_count: number | null
+          query: string
+          results_count: number | null
+          source: string
+          started_at: string
+          started_by: string | null
+          status: string
+          suppressed_count: number | null
+        }
+        Insert: {
+          completed_at?: string | null
+          duplicates_count?: number | null
+          errors?: Json | null
+          filters?: Json | null
+          id?: string
+          new_leads_count?: number | null
+          query: string
+          results_count?: number | null
+          source: string
+          started_at?: string
+          started_by?: string | null
+          status?: string
+          suppressed_count?: number | null
+        }
+        Update: {
+          completed_at?: string | null
+          duplicates_count?: number | null
+          errors?: Json | null
+          filters?: Json | null
+          id?: string
+          new_leads_count?: number | null
+          query?: string
+          results_count?: number | null
+          source?: string
+          started_at?: string
+          started_by?: string | null
+          status?: string
+          suppressed_count?: number | null
         }
         Relationships: []
       }
@@ -2449,6 +2770,136 @@ export type Database = {
           {
             foreignKeyName: "profiles_referred_by_influencer_id_fkey"
             columns: ["referred_by_influencer_id"]
+            isOneToOne: false
+            referencedRelation: "v_affiliate_activation_stats"
+            referencedColumns: ["influencer_id"]
+          },
+        ]
+      }
+      promoted_products: {
+        Row: {
+          detected_at: string
+          discovery_result_id: string | null
+          evidence_text: string | null
+          evidence_url: string | null
+          id: string
+          influencer_id: string | null
+          product_category: string | null
+          product_name: string
+        }
+        Insert: {
+          detected_at?: string
+          discovery_result_id?: string | null
+          evidence_text?: string | null
+          evidence_url?: string | null
+          id?: string
+          influencer_id?: string | null
+          product_category?: string | null
+          product_name: string
+        }
+        Update: {
+          detected_at?: string
+          discovery_result_id?: string | null
+          evidence_text?: string | null
+          evidence_url?: string | null
+          id?: string
+          influencer_id?: string | null
+          product_category?: string | null
+          product_name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "promoted_products_discovery_result_id_fkey"
+            columns: ["discovery_result_id"]
+            isOneToOne: false
+            referencedRelation: "lead_discovery_results"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "promoted_products_influencer_id_fkey"
+            columns: ["influencer_id"]
+            isOneToOne: false
+            referencedRelation: "influencers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "promoted_products_influencer_id_fkey"
+            columns: ["influencer_id"]
+            isOneToOne: false
+            referencedRelation: "v_active_affiliates_leaderboard"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "promoted_products_influencer_id_fkey"
+            columns: ["influencer_id"]
+            isOneToOne: false
+            referencedRelation: "v_affiliate_activation_stats"
+            referencedColumns: ["influencer_id"]
+          },
+        ]
+      }
+      public_contact_points: {
+        Row: {
+          confidence: number | null
+          discovery_result_id: string | null
+          found_at: string
+          id: string
+          influencer_id: string | null
+          is_business_contact: boolean | null
+          source_context: string | null
+          source_url: string
+          type: string
+          value: string
+        }
+        Insert: {
+          confidence?: number | null
+          discovery_result_id?: string | null
+          found_at?: string
+          id?: string
+          influencer_id?: string | null
+          is_business_contact?: boolean | null
+          source_context?: string | null
+          source_url: string
+          type: string
+          value: string
+        }
+        Update: {
+          confidence?: number | null
+          discovery_result_id?: string | null
+          found_at?: string
+          id?: string
+          influencer_id?: string | null
+          is_business_contact?: boolean | null
+          source_context?: string | null
+          source_url?: string
+          type?: string
+          value?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "public_contact_points_discovery_result_id_fkey"
+            columns: ["discovery_result_id"]
+            isOneToOne: false
+            referencedRelation: "lead_discovery_results"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "public_contact_points_influencer_id_fkey"
+            columns: ["influencer_id"]
+            isOneToOne: false
+            referencedRelation: "influencers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "public_contact_points_influencer_id_fkey"
+            columns: ["influencer_id"]
+            isOneToOne: false
+            referencedRelation: "v_active_affiliates_leaderboard"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "public_contact_points_influencer_id_fkey"
+            columns: ["influencer_id"]
             isOneToOne: false
             referencedRelation: "v_affiliate_activation_stats"
             referencedColumns: ["influencer_id"]
@@ -2943,6 +3394,109 @@ export type Database = {
           },
         ]
       }
+      repost_kit_events: {
+        Row: {
+          event_type: string
+          id: string
+          metadata: Json | null
+          occurred_at: string
+          session_id: string
+        }
+        Insert: {
+          event_type: string
+          id?: string
+          metadata?: Json | null
+          occurred_at?: string
+          session_id: string
+        }
+        Update: {
+          event_type?: string
+          id?: string
+          metadata?: Json | null
+          occurred_at?: string
+          session_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "repost_kit_events_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "repost_kit_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      repost_kit_sessions: {
+        Row: {
+          campaign_id: string | null
+          id: string
+          influencer_id: string
+          ip_hash: string | null
+          last_activity_at: string | null
+          post_submitted_at: string | null
+          post_url: string | null
+          promo_video_id: string | null
+          session_token: string
+          started_at: string
+          user_agent: string | null
+        }
+        Insert: {
+          campaign_id?: string | null
+          id?: string
+          influencer_id: string
+          ip_hash?: string | null
+          last_activity_at?: string | null
+          post_submitted_at?: string | null
+          post_url?: string | null
+          promo_video_id?: string | null
+          session_token: string
+          started_at?: string
+          user_agent?: string | null
+        }
+        Update: {
+          campaign_id?: string | null
+          id?: string
+          influencer_id?: string
+          ip_hash?: string | null
+          last_activity_at?: string | null
+          post_submitted_at?: string | null
+          post_url?: string | null
+          promo_video_id?: string | null
+          session_token?: string
+          started_at?: string
+          user_agent?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "repost_kit_sessions_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "email_campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "repost_kit_sessions_influencer_id_fkey"
+            columns: ["influencer_id"]
+            isOneToOne: false
+            referencedRelation: "influencers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "repost_kit_sessions_influencer_id_fkey"
+            columns: ["influencer_id"]
+            isOneToOne: false
+            referencedRelation: "v_active_affiliates_leaderboard"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "repost_kit_sessions_influencer_id_fkey"
+            columns: ["influencer_id"]
+            isOneToOne: false
+            referencedRelation: "v_affiliate_activation_stats"
+            referencedColumns: ["influencer_id"]
+          },
+        ]
+      }
       saved_clips: {
         Row: {
           clip_id: string | null
@@ -3034,6 +3588,141 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      scraper_quota_usage: {
+        Row: {
+          calls_made: number | null
+          date: string
+          id: string
+          source: string
+          units_limit: number | null
+          units_used: number | null
+        }
+        Insert: {
+          calls_made?: number | null
+          date?: string
+          id?: string
+          source: string
+          units_limit?: number | null
+          units_used?: number | null
+        }
+        Update: {
+          calls_made?: number | null
+          date?: string
+          id?: string
+          source?: string
+          units_limit?: number | null
+          units_used?: number | null
+        }
+        Relationships: []
+      }
+      scraper_rate_limits: {
+        Row: {
+          calls_in_window: number | null
+          endpoint: string
+          id: string
+          last_call_at: string | null
+          max_calls_per_window: number | null
+          source: string
+          window_seconds: number | null
+          window_start: string | null
+        }
+        Insert: {
+          calls_in_window?: number | null
+          endpoint: string
+          id?: string
+          last_call_at?: string | null
+          max_calls_per_window?: number | null
+          source: string
+          window_seconds?: number | null
+          window_start?: string | null
+        }
+        Update: {
+          calls_in_window?: number | null
+          endpoint?: string
+          id?: string
+          last_call_at?: string | null
+          max_calls_per_window?: number | null
+          source?: string
+          window_seconds?: number | null
+          window_start?: string | null
+        }
+        Relationships: []
+      }
+      scraper_saved_searches: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          filters: Json | null
+          id: string
+          last_run_at: string | null
+          name: string
+          quality_metrics: Json | null
+          query: string
+          run_count: number | null
+          source: string
+          source_status: string | null
+          total_results: number | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          filters?: Json | null
+          id?: string
+          last_run_at?: string | null
+          name: string
+          quality_metrics?: Json | null
+          query: string
+          run_count?: number | null
+          source: string
+          source_status?: string | null
+          total_results?: number | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          filters?: Json | null
+          id?: string
+          last_run_at?: string | null
+          name?: string
+          quality_metrics?: Json | null
+          query?: string
+          run_count?: number | null
+          source?: string
+          source_status?: string | null
+          total_results?: number | null
+        }
+        Relationships: []
+      }
+      scraper_source_health: {
+        Row: {
+          avg_response_ms: number | null
+          error_rate: number | null
+          id: string
+          last_check_at: string | null
+          notes: string | null
+          source: string
+          status: string | null
+        }
+        Insert: {
+          avg_response_ms?: number | null
+          error_rate?: number | null
+          id?: string
+          last_check_at?: string | null
+          notes?: string | null
+          source: string
+          status?: string | null
+        }
+        Update: {
+          avg_response_ms?: number | null
+          error_rate?: number | null
+          id?: string
+          last_check_at?: string | null
+          notes?: string | null
+          source?: string
+          status?: string | null
+        }
+        Relationships: []
       }
       social_accounts: {
         Row: {
@@ -3199,6 +3888,9 @@ export type Database = {
           expires_at: string | null
           id: string
           metadata: Json | null
+          platform: string | null
+          platform_handle: string | null
+          profile_url: string | null
           reason: string
           source: string | null
         }
@@ -3210,6 +3902,9 @@ export type Database = {
           expires_at?: string | null
           id?: string
           metadata?: Json | null
+          platform?: string | null
+          platform_handle?: string | null
+          profile_url?: string | null
           reason: string
           source?: string | null
         }
@@ -3221,6 +3916,9 @@ export type Database = {
           expires_at?: string | null
           id?: string
           metadata?: Json | null
+          platform?: string | null
+          platform_handle?: string | null
+          profile_url?: string | null
           reason?: string
           source?: string | null
         }
@@ -3924,6 +4622,15 @@ export type Database = {
       is_admin_any: { Args: never; Returns: boolean }
       is_owner: { Args: never; Returns: boolean }
       is_suppressed: { Args: { p_email: string }; Returns: boolean }
+      is_suppressed_4way: {
+        Args: {
+          p_email?: string
+          p_handle?: string
+          p_platform?: string
+          p_profile_url?: string
+        }
+        Returns: boolean
+      }
       on_user_payment: {
         Args: { p_amount_cents: number; p_user_id: string }
         Returns: undefined
