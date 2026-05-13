@@ -4,6 +4,10 @@ import { useEffect, useState, useCallback } from 'react'
 import { Star, Archive, Tag, Loader2, ArrowDown, ArrowUp } from 'lucide-react'
 import { InfluencerContextSidebar } from './influencer-context-sidebar'
 import { ReplyComposer } from './reply-composer'
+import { SentimentBadge } from './sentiment-badge'
+import { SuggestedDrafts } from './suggested-drafts'
+import { ThreadSummary } from './thread-summary'
+import { LeadScoreCard } from './lead-score-card'
 
 interface Message {
   id: string
@@ -16,6 +20,10 @@ interface Message {
   is_read: boolean
   is_starred: boolean
   is_archived: boolean
+  ai_sentiment: string | null
+  ai_confidence: number | null
+  ai_intent: string | null
+  human_response_drafted: string | null
 }
 
 interface Influencer {
@@ -58,6 +66,8 @@ export function ThreadDetail({ influencerId, onAction }: ThreadDetailProps) {
   const [influencer, setInfluencer] = useState<Influencer | null>(null)
   const [messages, setMessages] = useState<Message[]>([])
   const [mailboxes, setMailboxes] = useState<{ email: string; status: string }[]>([])
+  const [draftSubject, setDraftSubject] = useState<string | undefined>()
+  const [draftBody, setDraftBody] = useState<string | undefined>()
 
   const loadThread = useCallback(() => {
     if (!influencerId) return
@@ -141,6 +151,27 @@ export function ThreadDetail({ influencerId, onAction }: ThreadDetailProps) {
 
         {/* Messages */}
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
+          {/* Thread summary for long threads */}
+          {influencer && messages.length >= 5 && (
+            <ThreadSummary
+              influencerId={influencer.id}
+              messageCount={messages.length}
+            />
+          )}
+
+          {/* Lead score inline */}
+          {influencer && (
+            <div className="flex items-center gap-2 text-xs text-zinc-500">
+              <span>Lead Score:</span>
+              <div className="w-32">
+                <LeadScoreCard
+                  influencerId={influencer.id}
+                  score={influencer.lead_score}
+                />
+              </div>
+            </div>
+          )}
+
           {messages.map(msg => (
             <div
               key={msg.id}
@@ -156,7 +187,7 @@ export function ThreadDetail({ influencerId, onAction }: ThreadDetailProps) {
                   {msg.direction === 'inbound' ? (
                     <ArrowDown className="h-3.5 w-3.5 text-green-400" />
                   ) : (
-                    <ArrowUp className="h-3.5 w-3.5 text-blue-400" />
+                    <ArrowUp className="h-3.5 w-3.5 text-amber-400" />
                   )}
                   <span className="text-xs font-medium text-zinc-300">
                     {msg.direction === 'inbound' ? influencer?.email : 'You'}
@@ -165,6 +196,9 @@ export function ThreadDetail({ influencerId, onAction }: ThreadDetailProps) {
                     <span className="text-[10px] px-1.5 py-0.5 rounded bg-green-500/15 text-green-400">
                       Reply
                     </span>
+                  )}
+                  {msg.direction === 'inbound' && msg.ai_sentiment && (
+                    <SentimentBadge sentiment={msg.ai_sentiment} confidence={msg.ai_confidence} />
                   )}
                 </div>
                 <span className="text-[10px] text-zinc-500">
@@ -183,6 +217,19 @@ export function ThreadDetail({ influencerId, onAction }: ThreadDetailProps) {
               <div className="text-sm text-zinc-300 whitespace-pre-wrap leading-relaxed">
                 {msg.body_text || '(no body)'}
               </div>
+
+              {/* Suggested drafts for inbound messages */}
+              {msg.direction === 'inbound' && (
+                <div className="mt-3 pt-2 border-t border-zinc-800">
+                  <SuggestedDrafts
+                    messageId={msg.id}
+                    onUseDraft={(subject, body) => {
+                      setDraftSubject(subject)
+                      setDraftBody(body)
+                    }}
+                  />
+                </div>
+              )}
             </div>
           ))}
 
@@ -203,6 +250,8 @@ export function ThreadDetail({ influencerId, onAction }: ThreadDetailProps) {
             lastSubject={messages.find(m => m.subject)?.subject ?? undefined}
             mailboxes={mailboxes}
             onSent={loadThread}
+            prefillSubject={draftSubject}
+            prefillBody={draftBody}
           />
         )}
       </div>

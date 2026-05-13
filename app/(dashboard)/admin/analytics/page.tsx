@@ -135,12 +135,37 @@ export default function AdminAnalyticsPage() {
 
   return (
     <div className="min-h-screen bg-background text-foreground">
+      {/* Sub-pages nav */}
+      <div className="border-b border-zinc-800 bg-zinc-900/30 px-6 py-2 flex items-center gap-1 overflow-x-auto">
+        {[
+          { label: 'Events', href: '/dashboard/admin/analytics', active: true },
+          { label: 'Funnel', href: '/dashboard/admin/analytics/funnel' },
+          { label: 'Revenue', href: '/dashboard/admin/analytics/revenue' },
+          { label: 'Affiliates', href: '/dashboard/admin/analytics/affiliates' },
+          { label: 'Campaigns', href: '/dashboard/admin/analytics/campaigns' },
+          { label: 'Cohorts', href: '/dashboard/admin/analytics/cohorts' },
+          { label: 'Costs', href: '/dashboard/admin/costs' },
+        ].map(tab => (
+          <a
+            key={tab.href}
+            href={tab.href}
+            className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+              tab.active
+                ? 'bg-amber-500/15 text-amber-400 border border-amber-500/30'
+                : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800'
+            }`}
+          >
+            {tab.label}
+          </a>
+        ))}
+      </div>
+
       {/* Header */}
       <div className="border-b border-border bg-card/30">
         <div className="max-w-6xl mx-auto px-6 py-8">
           <div className="flex items-start justify-between gap-4 flex-wrap">
             <div>
-              <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full border border-violet-500/30 bg-violet-500/10 text-[10px] font-bold uppercase tracking-wider text-violet-400 mb-2">
+              <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full border border-amber-500/30 bg-amber-500/10 text-[10px] font-bold uppercase tracking-wider text-amber-400 mb-2">
                 <Activity className="h-3 w-3" />
                 Admin
               </div>

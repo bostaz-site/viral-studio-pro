@@ -9,7 +9,7 @@ const FEATURES = [
     icon: Captions,
     title: 'Auto Captions',
     description: 'Karaoke-style subtitles generated instantly',
-    color: 'from-blue-500/20 to-indigo-500/20 border-blue-500/30 text-blue-400',
+    color: 'from-cyan-500/20 to-cyan-500/20 border-cyan-500/30 text-cyan-400',
   },
   {
     icon: MonitorPlay,
@@ -37,7 +37,7 @@ export function InvitePage() {
       {/* Hero */}
       <h1 className="text-4xl md:text-5xl font-black text-center tracking-tight text-foreground max-w-2xl leading-tight">
         Turn Your Streams Into{' '}
-        <span className="bg-gradient-to-r from-blue-500 to-indigo-600 bg-clip-text text-transparent">
+        <span className="bg-gradient-to-r from-amber-400 to-amber-600 bg-clip-text text-transparent">
           Viral Clips
         </span>
       </h1>
@@ -47,7 +47,7 @@ export function InvitePage() {
 
       {/* CTA */}
       <Link href="/signup" className="mt-8">
-        <Button size="lg" className="gap-2 h-12 px-8 text-base bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold shadow-lg shadow-blue-500/20">
+        <Button size="lg" className="gap-2 h-12 px-8 text-base bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-amber-950 font-bold shadow-lg shadow-amber-500/20">
           Start Free
           <ArrowRight className="h-4 w-4" />
         </Button>

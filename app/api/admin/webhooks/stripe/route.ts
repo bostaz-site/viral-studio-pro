@@ -7,6 +7,11 @@ import {
   handleChargeRefunded,
   handleDisputeCreated,
 } from '@/lib/admin/webhooks/stripe-processor'
+import {
+  handleAccountUpdated,
+  handleTransferPaid,
+  handleTransferFailed,
+} from '@/lib/admin/stripe/connect-webhooks'
 
 function getStripe() {
   return new Stripe(process.env.STRIPE_SECRET_KEY ?? 'sk_test_placeholder_build')
@@ -56,7 +61,7 @@ export async function POST(req: NextRequest) {
   const webhookEventId = inserted.id
 
   try {
-    switch (event.type) {
+    switch (event.type as string) {
       case 'invoice.payment_succeeded': {
         const invoice = event.data.object as Stripe.Invoice
         await handlePaymentSucceeded(invoice, webhookEventId)
@@ -72,6 +77,25 @@ export async function POST(req: NextRequest) {
       case 'charge.dispute.created': {
         const dispute = event.data.object as Stripe.Dispute
         await handleDisputeCreated(dispute, webhookEventId)
+        break
+      }
+
+      // Stripe Connect events
+      case 'account.updated': {
+        const account = event.data.object as Stripe.Account
+        await handleAccountUpdated(account)
+        break
+      }
+
+      case 'transfer.created': {
+        const transfer = event.data.object as Stripe.Transfer
+        await handleTransferPaid(transfer)
+        break
+      }
+
+      case 'transfer.reversed': {
+        const transfer = event.data.object as Stripe.Transfer
+        await handleTransferFailed(transfer)
         break
       }
 

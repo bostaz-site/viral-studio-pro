@@ -25,7 +25,7 @@ const STATUS_COLORS: Record<string, string> = {
   contacted: 'bg-sky-500/20 text-sky-400',
   replied: 'bg-green-500/20 text-green-400',
   interested: 'bg-emerald-500/20 text-emerald-400',
-  demo_sent: 'bg-purple-500/20 text-purple-400',
+  demo_sent: 'bg-amber-500/20 text-amber-400',
   onboarded: 'bg-amber-500/20 text-amber-400',
   paying: 'bg-yellow-500/20 text-yellow-400',
   declined: 'bg-red-500/20 text-red-400',

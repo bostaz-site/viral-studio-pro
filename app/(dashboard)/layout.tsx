@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { Settings, Menu, X, LogOut, Zap, Compass, Wand2, Radio, BarChart3, TrendingUp, Handshake, Users, ChevronRight, Inbox, Mail, Upload, ShieldBan, RefreshCw, Webhook, ShieldAlert } from 'lucide-react'
+import { Settings, Menu, X, LogOut, Zap, Compass, Wand2, Radio, BarChart3, TrendingUp, Handshake, Users, ChevronRight, Inbox, Mail, Upload, ShieldBan, RefreshCw, Webhook, ShieldAlert, MailCheck, Globe, PieChart, DollarSign, Banknote } from 'lucide-react'
 import { ViralAnimalLogo } from '@/components/brand/viral-animal-logo'
 import { useUiStore } from '@/stores/ui-store'
 import { Button } from '@/components/ui/button'
@@ -70,14 +70,19 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const adminNavigation = [
     { name: 'Growth', href: '/admin/growth', icon: TrendingUp },
     { name: 'Affiliates', href: '/admin/affiliates', icon: Handshake },
+    { name: 'Payouts', href: '/admin/payouts', icon: Banknote },
     { name: 'Streamers', href: '/admin/streamers', icon: Users },
     { name: 'Inbox', href: '/admin/inbox', icon: Inbox },
     { name: 'Campaigns', href: '/admin/campaigns', icon: Mail },
     { name: 'Import', href: '/admin/influencers/import', icon: Upload },
     { name: 'Suppression', href: '/admin/suppression', icon: ShieldBan },
+    { name: 'Mailboxes', href: '/admin/mailboxes', icon: MailCheck },
+    { name: 'Domains', href: '/admin/domains', icon: Globe },
     { name: 'Sync', href: '/admin/sync', icon: RefreshCw },
     { name: 'Webhooks', href: '/admin/webhooks', icon: Webhook },
     { name: 'Watchdog', href: '/admin/watchdog', icon: ShieldAlert },
+    { name: 'Analytics', href: '/admin/analytics', icon: PieChart },
+    { name: 'Costs', href: '/admin/costs', icon: DollarSign },
   ]
 
   const planLimits: Record<string, number> = { free: 3, pro: 50, studio: 999 }
@@ -125,8 +130,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 : pathname?.startsWith(item.href)
               return (
                 <Link key={item.name} href={item.href}>
-                  <span className={`flex items-center px-4 py-2.5 text-sm font-medium rounded-xl transition-all duration-200 ${isActive ? 'bg-primary/10 text-primary shadow-sm' : 'text-muted-foreground hover:bg-muted hover:text-foreground'}`}>
-                    <item.icon className={`h-5 w-5 mr-3 ${isActive ? 'text-primary' : 'text-muted-foreground'}`} />
+                  <span className={`flex items-center px-4 py-2.5 text-sm font-medium rounded-xl transition-all duration-200 ${isActive ? 'bg-amber-500/10 text-amber-400 shadow-sm' : 'text-muted-foreground hover:bg-muted hover:text-foreground'}`}>
+                    <item.icon className={`h-5 w-5 mr-3 ${isActive ? 'text-amber-400' : 'text-muted-foreground'}`} />
                     {item.name}
                   </span>
                 </Link>

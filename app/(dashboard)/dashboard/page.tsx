@@ -363,9 +363,9 @@ export default function DashboardPage() {
 
       {/* Twitch refresh toast */}
       {twitchMessage && (
-        <Card className="border-purple-500/20 bg-purple-500/5">
+        <Card className="border-amber-500/20 bg-amber-500/5">
           <CardContent className="p-3 flex items-center gap-3 text-sm">
-            <TrendingUp className="h-4 w-4 text-purple-400 shrink-0" />
+            <TrendingUp className="h-4 w-4 text-amber-400 shrink-0" />
             <p className="text-muted-foreground">{twitchMessage}</p>
           </CardContent>
         </Card>
@@ -498,7 +498,7 @@ export default function DashboardPage() {
                   {noClipsAtAll && (
                     <Button
                       size="sm"
-                      className="bg-purple-500 hover:bg-purple-600 text-white"
+                      className="bg-amber-500 hover:bg-amber-600 text-white"
                       onClick={handleTwitchRefresh}
                       disabled={twitchRefreshing}
                     >
@@ -573,14 +573,14 @@ export default function DashboardPage() {
         <div className={cn(
           'fixed bottom-6 right-6 z-50 flex items-center gap-3 px-5 py-3.5 rounded-2xl border shadow-2xl animate-in slide-in-from-bottom-2 fade-in max-w-sm backdrop-blur-sm',
           renderNotification.status === 'done'
-            ? 'bg-zinc-900/95 border-violet-500/40'
+            ? 'bg-zinc-900/95 border-amber-500/40'
             : 'bg-zinc-900/95 border-red-500/40'
         )}
-        style={renderNotification.status === 'done' ? { boxShadow: '0 0 25px rgba(139,92,246,.15), 0 8px 32px rgba(0,0,0,.5)' } : undefined}
+        style={renderNotification.status === 'done' ? { boxShadow: '0 0 25px rgba(245,158,11,.15), 0 8px 32px rgba(0,0,0,.5)' } : undefined}
         >
           {renderNotification.status === 'done' ? (
-            <div className="h-9 w-9 rounded-xl bg-violet-500/15 flex items-center justify-center shrink-0">
-              <CheckCircle2 className="h-5 w-5 text-violet-400" />
+            <div className="h-9 w-9 rounded-xl bg-amber-500/15 flex items-center justify-center shrink-0">
+              <CheckCircle2 className="h-5 w-5 text-amber-400" />
             </div>
           ) : (
             <div className="h-9 w-9 rounded-xl bg-red-500/15 flex items-center justify-center shrink-0">
@@ -601,7 +601,7 @@ export default function DashboardPage() {
             {renderNotification.status === 'done' && (
               <button
                 onClick={() => router.push(`/dashboard/enhance/${renderNotification.clipId}`)}
-                className="px-4 py-1.5 rounded-lg bg-violet-600 hover:bg-violet-500 text-white text-xs font-bold transition-colors"
+                className="px-4 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold transition-colors"
               >
                 Enhance
               </button>

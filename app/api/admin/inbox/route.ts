@@ -27,6 +27,7 @@ export const GET = withAdmin(async (req: NextRequest) => {
       is_read,
       is_archived,
       is_starred,
+      ai_sentiment,
       created_at,
       thread_id,
       influencers!inner (
@@ -51,6 +52,12 @@ export const GET = withAdmin(async (req: NextRequest) => {
     query = query.eq('is_starred', true)
   } else if (filter === 'archived') {
     query = query.eq('is_archived', true)
+  } else if (filter === 'hot') {
+    // Hot leads: score > 70, positive/neutral sentiment, recent reply
+    query = query
+      .eq('is_archived', false)
+      .eq('direction', 'inbound')
+      .in('ai_sentiment', ['positive', 'neutral'])
   } else {
     // 'all' — exclude archived
     query = query.eq('is_archived', false)
@@ -100,6 +107,7 @@ export const GET = withAdmin(async (req: NextRequest) => {
           is_read: msg.is_read,
           is_starred: msg.is_starred,
           is_archived: msg.is_archived,
+          ai_sentiment: msg.ai_sentiment,
         },
         unreadCount: msg.is_read ? 0 : 1,
         messageCount: 1,
@@ -110,7 +118,12 @@ export const GET = withAdmin(async (req: NextRequest) => {
     }
   }
 
-  const threads = Array.from(threadMap.values())
+  let threads = Array.from(threadMap.values())
+
+  // For hot filter, additionally filter by lead_score > 70
+  if (filter === 'hot') {
+    threads = threads.filter(t => (t.influencer as { lead_score?: number }).lead_score! >= 70)
+  }
 
   // Get total unread count
   const { count: totalUnread } = await admin

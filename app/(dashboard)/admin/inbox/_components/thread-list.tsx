@@ -1,6 +1,7 @@
 'use client'
 
 import { Star } from 'lucide-react'
+import { SentimentBadge } from './sentiment-badge'
 
 interface ThreadItem {
   influencer: {
@@ -25,6 +26,7 @@ interface ThreadItem {
     is_read: boolean
     is_starred: boolean
     is_archived: boolean
+    ai_sentiment: string | null
   }
   unreadCount: number
   messageCount: number
@@ -57,7 +59,7 @@ const STATUS_COLORS: Record<string, string> = {
   contacted: 'bg-sky-500/20 text-sky-400',
   replied: 'bg-green-500/20 text-green-400',
   interested: 'bg-emerald-500/20 text-emerald-400',
-  demo_sent: 'bg-purple-500/20 text-purple-400',
+  demo_sent: 'bg-amber-500/20 text-amber-400',
   onboarded: 'bg-amber-500/20 text-amber-400',
   paying: 'bg-yellow-500/20 text-yellow-400',
   declined: 'bg-red-500/20 text-red-400',
@@ -131,8 +133,13 @@ export function ThreadList({ threads, selectedId, onSelect, loading }: ThreadLis
                   </p>
                 )}
 
-                {/* Preview */}
-                <p className="text-xs text-zinc-500 mt-0.5 truncate">{msg.preview}</p>
+                {/* Preview + sentiment */}
+                <div className="flex items-center gap-1.5 mt-0.5">
+                  <p className="text-xs text-zinc-500 truncate flex-1">{msg.preview}</p>
+                  {msg.ai_sentiment && msg.direction === 'inbound' && (
+                    <SentimentBadge sentiment={msg.ai_sentiment} />
+                  )}
+                </div>
               </div>
 
               {/* Right side: time + status */}
@@ -143,6 +150,13 @@ export function ThreadList({ threads, selectedId, onSelect, loading }: ThreadLis
                 <span className={`text-[10px] px-1.5 py-0.5 rounded ${STATUS_COLORS[inf.status] || 'bg-zinc-700 text-zinc-400'}`}>
                   {inf.status}
                 </span>
+                {inf.lead_score > 0 && (
+                  <span className={`text-[10px] font-bold ${
+                    inf.lead_score >= 70 ? 'text-green-400' : inf.lead_score >= 40 ? 'text-amber-400' : 'text-zinc-500'
+                  }`}>
+                    {inf.lead_score}
+                  </span>
+                )}
                 {thread.unreadCount > 0 && (
                   <span className="text-[10px] bg-amber-500 text-black font-bold px-1.5 py-0.5 rounded-full">
                     {thread.unreadCount}

@@ -50,7 +50,7 @@ const PLANS: PlanConfig[] = [
     price: '$19',
     priceNote: '/month',
     icon: Crown,
-    color: 'text-blue-400',
+    color: 'text-amber-400',
     highlighted: true,
     features: [
       '30 videos/month',
@@ -71,7 +71,7 @@ const PLANS: PlanConfig[] = [
     priceOriginal: '$29',
     priceNote: '/month',
     icon: Sparkles,
-    color: 'text-violet-400',
+    color: 'text-amber-500',
     features: [
       '120 videos/month (90 + 30 bonus)',
       'Everything in Pro',
@@ -191,7 +191,7 @@ export function PricingCard({ currentPlan, onUpgrade, onManageBilling }: Pricing
                   className={cn(
                     'w-full',
                     plan.highlighted
-                      ? 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white'
+                      ? 'bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-amber-950'
                       : ''
                   )}
                   variant={plan.highlighted ? 'default' : 'outline'}

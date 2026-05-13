@@ -19,12 +19,12 @@ const REASONS = [
 ]
 
 const REASON_COLORS: Record<string, string> = {
-  unsubscribe: 'text-blue-400 border-blue-400/40',
+  unsubscribe: 'text-cyan-400 border-cyan-400/40',
   hard_bounce: 'text-red-400 border-red-400/40',
   soft_bounce_threshold: 'text-orange-400 border-orange-400/40',
   complaint: 'text-rose-400 border-rose-400/40',
   manual_block: 'text-amber-400 border-amber-400/40',
-  gdpr_request: 'text-purple-400 border-purple-400/40',
+  gdpr_request: 'text-amber-400 border-amber-400/40',
   fraud_flag: 'text-red-500 border-red-500/40',
 }
 

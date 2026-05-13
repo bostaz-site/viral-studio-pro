@@ -36,7 +36,7 @@ const DEMO_CLIPS: DemoClip[] = [
     title: 'The impossible 1v5 clutch',
     streamer: '@kameto',
     game: 'Valorant',
-    accent: 'from-indigo-900/60 to-violet-900/40',
+    accent: 'from-amber-900/60 to-amber-800/40',
     line: { pre: "This is", hit: 'ABSOLUTELY', post: 'insane' },
     score: 91,
   },
@@ -87,7 +87,7 @@ const CAPTION_STYLES: CaptionStyleConfig[] = [
     name: 'Hormozi Purple',
     description: 'Viral Animal branding, punchy violet.',
     baseClass: 'text-white font-black uppercase tracking-wider',
-    hitClass: 'text-violet-400',
+    hitClass: 'text-amber-400',
     wrapperClass: 'drop-shadow-[0_2px_4px_rgba(0,0,0,0.95)]',
   },
   {
@@ -150,7 +150,7 @@ export function DemoExperience() {
         <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
           <Link
             href="/"
-            className="text-xl font-black tracking-tight bg-gradient-to-r from-blue-500 to-indigo-600 bg-clip-text text-transparent"
+            className="text-xl font-black tracking-tight bg-gradient-to-r from-amber-400 to-amber-600 bg-clip-text text-transparent"
           >
             VIRAL ANIMAL
           </Link>
@@ -187,7 +187,7 @@ export function DemoExperience() {
           <h1 className="text-4xl sm:text-5xl font-black tracking-tight leading-[1.1] mb-4">
             Try without signing up.
             <br />
-            <span className="bg-gradient-to-r from-blue-500 to-indigo-600 bg-clip-text text-transparent">
+            <span className="bg-gradient-to-r from-amber-400 to-amber-600 bg-clip-text text-transparent">
               Change the options, watch the render.
             </span>
           </h1>
@@ -298,7 +298,7 @@ export function DemoExperience() {
             </ControlCard>
 
             {/* CTA */}
-            <div className="rounded-xl border border-primary/30 bg-gradient-to-br from-blue-500/10 via-indigo-500/5 to-transparent p-5">
+            <div className="rounded-xl border border-primary/30 bg-gradient-to-br from-amber-500/10 via-amber-500/5 to-transparent p-5">
               <div className="flex items-start gap-3 mb-4">
                 <div className="rounded-lg bg-primary/15 p-2">
                   <Zap className="h-4 w-4 text-primary" />
@@ -425,7 +425,7 @@ function PhonePreview({
           {/* Split-screen gameplay */}
           {splitScreen && (
             <>
-              <div className="absolute top-[60%] inset-x-0 h-[2px] bg-blue-500/40" />
+              <div className="absolute top-[60%] inset-x-0 h-[2px] bg-cyan-500/40" />
               <div className="absolute inset-x-0 bottom-0 h-[40%] bg-gradient-to-br from-emerald-900/40 via-teal-900/30 to-cyan-900/30 flex items-center justify-center overflow-hidden">
                 <div className="absolute inset-0 bg-[linear-gradient(45deg,rgba(16,185,129,0.08)_25%,transparent_25%,transparent_50%,rgba(16,185,129,0.08)_50%,rgba(16,185,129,0.08)_75%,transparent_75%)] bg-[length:16px_16px] animate-[pulse_3s_ease-in-out_infinite]" />
                 <div className="relative text-center">
@@ -525,7 +525,7 @@ function ToggleRow({ label, description, value, onChange }: ToggleRowProps) {
 function Stat({ value, label }: { value: string; label: string }) {
   return (
     <div>
-      <p className="text-3xl font-black bg-gradient-to-r from-blue-500 to-indigo-600 bg-clip-text text-transparent">
+      <p className="text-3xl font-black bg-gradient-to-r from-amber-400 to-amber-600 bg-clip-text text-transparent">
         {value}
       </p>
       <p className="text-xs text-muted-foreground mt-1">{label}</p>

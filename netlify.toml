@@ -39,6 +39,8 @@
 #   POST /api/cron/reconcile-render        — every 30min
 #   POST /api/cron/refresh-post-stats      — every 6h
 #   POST /api/cron/watchdog                — every 15min
+#   GET  /api/cron/ai-triage              — every 10min
+#   POST /api/cron/monthly-payouts        — monthly 1st 9AM (0 9 1 * *)
 
 # Cache agressif sur les assets statiques Next.js
 [[headers]]

@@ -1,67 +1,77 @@
-import { NextRequest } from 'next/server'
-import { z } from 'zod'
+import { NextRequest, NextResponse } from 'next/server'
 import { withAdmin } from '@/lib/api/withAdmin'
-import { jsonResponse, errorResponse } from '@/lib/api/withAuth'
+import { executePayout } from '@/lib/admin/stripe/payouts'
 import { createAdminClient } from '@/lib/supabase/admin'
 
-const payoutSchema = z.object({
-  amount: z.number().positive(),
-  notes: z.string().max(500).optional(),
-  period_start: z.string().datetime().optional(),
-  period_end: z.string().datetime().optional(),
-})
+// POST /api/admin/affiliates/[id]/payout
+// Approve or reject a pending_review payout for an affiliate
+export const POST = withAdmin(async (req: NextRequest) => {
+  const id = req.nextUrl.pathname.split('/').at(-2)
+  if (!id) {
+    return NextResponse.json({ data: null, error: 'Missing influencer ID' }, { status: 400 })
+  }
 
-function extractAffiliateId(req: NextRequest): string {
-  const segments = req.nextUrl.pathname.split('/')
-  // /api/admin/affiliates/[id]/payout → id is at index -2
-  return segments[segments.length - 2]
-}
+  try {
+    const body = await req.json()
+    const { action, payout_id } = body as { action: 'approve' | 'reject'; payout_id: string }
 
-export const POST = withAdmin(async (req) => {
-  const affiliateId = extractAffiliateId(req)
-  const body = await req.json()
-  const parsed = payoutSchema.safeParse(body)
-  if (!parsed.success) return errorResponse(parsed.error.issues[0].message)
+    if (!payout_id || !action) {
+      return NextResponse.json({ data: null, error: 'payout_id and action required' }, { status: 400 })
+    }
 
-  const supabase = createAdminClient()
+    const admin = createAdminClient()
 
-  // Verify affiliate exists
-  const { data: affiliate, error: affErr } = await supabase
-    .from('affiliates')
-    .select('id, total_commission_earned, total_commission_paid')
-    .eq('id', affiliateId)
-    .single()
+    // Verify payout belongs to this influencer
+    const { data: payout } = await admin
+      .from('affiliate_payouts')
+      .select('id, influencer_id, status')
+      .eq('id', payout_id)
+      .eq('influencer_id', id)
+      .single()
 
-  if (affErr || !affiliate) return errorResponse('Affiliate not found', 404)
+    if (!payout) {
+      return NextResponse.json({ data: null, error: 'Payout not found' }, { status: 404 })
+    }
 
-  const { amount, notes, period_start, period_end } = parsed.data
+    if (action === 'reject') {
+      await admin
+        .from('affiliate_payouts')
+        .update({ status: 'on_hold', failure_reason: 'Rejected by admin' })
+        .eq('id', payout_id)
 
-  // Create payout record
-  const amountCents = Math.round(amount * 100)
-  const { data: payout, error } = await supabase
-    .from('affiliate_payouts')
-    .insert({
-      influencer_id: affiliateId,
-      gross_commission_cents: amountCents,
-      net_payout_cents: amountCents,
-      referrals_count: 0,
-      period_start_at: period_start ?? new Date().toISOString(),
-      period_end_at: period_end ?? new Date().toISOString(),
-      status: 'pending',
-    })
-    .select()
-    .single()
+      return NextResponse.json({
+        data: { status: 'on_hold' },
+        error: null,
+        message: 'Payout rejected and put on hold',
+      })
+    }
 
-  if (error) return errorResponse(error.message, 500)
+    if (action === 'approve') {
+      if (payout.status !== 'pending_review') {
+        return NextResponse.json(
+          { data: null, error: `Cannot approve payout with status: ${payout.status}` },
+          { status: 400 },
+        )
+      }
 
-  // Update affiliate's total_commission_paid
-  await supabase
-    .from('affiliates')
-    .update({
-      total_commission_paid: (affiliate.total_commission_paid ?? 0) + amount,
-      updated_at: new Date().toISOString(),
-    })
-    .eq('id', affiliateId)
+      // Mark as approved then execute
+      await admin
+        .from('affiliate_payouts')
+        .update({ status: 'approved' })
+        .eq('id', payout_id)
 
-  return jsonResponse(payout)
+      await executePayout(payout_id)
+
+      return NextResponse.json({
+        data: { status: 'sending' },
+        error: null,
+        message: 'Payout approved and transfer initiated',
+      })
+    }
+
+    return NextResponse.json({ data: null, error: 'Invalid action' }, { status: 400 })
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : 'Unknown error'
+    return NextResponse.json({ data: null, error: msg }, { status: 500 })
+  }
 })

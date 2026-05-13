@@ -183,7 +183,7 @@ export default function SuppressionPage() {
           label="This Week"
           value={stats?.this_week ?? 0}
           icon={<Calendar className="h-4 w-4" />}
-          color="text-blue-400"
+          color="text-cyan-400"
         />
         <StatCard
           label="Top Reason"
