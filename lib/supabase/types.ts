@@ -835,6 +835,48 @@ export type Database = {
           },
         ]
       }
+      ai_scoring_jobs: {
+        Row: {
+          completed_at: string | null
+          cost_cents: number | null
+          created_at: string | null
+          error_message: string | null
+          failed_leads: number | null
+          id: string
+          job_type: string
+          processed_leads: number | null
+          started_at: string | null
+          status: string
+          total_leads: number | null
+        }
+        Insert: {
+          completed_at?: string | null
+          cost_cents?: number | null
+          created_at?: string | null
+          error_message?: string | null
+          failed_leads?: number | null
+          id?: string
+          job_type: string
+          processed_leads?: number | null
+          started_at?: string | null
+          status?: string
+          total_leads?: number | null
+        }
+        Update: {
+          completed_at?: string | null
+          cost_cents?: number | null
+          created_at?: string | null
+          error_message?: string | null
+          failed_leads?: number | null
+          id?: string
+          job_type?: string
+          processed_leads?: number | null
+          started_at?: string | null
+          status?: string
+          total_leads?: number | null
+        }
+        Relationships: []
+      }
       analytics_events: {
         Row: {
           created_at: string
@@ -2097,6 +2139,9 @@ export type Database = {
       influencers: {
         Row: {
           affiliate_code: string | null
+          ai_affiliate_score: number | null
+          ai_recommendation: string | null
+          ai_scored_at: string | null
           audience_size: number | null
           country: string | null
           created_at: string
@@ -2143,6 +2188,9 @@ export type Database = {
         }
         Insert: {
           affiliate_code?: string | null
+          ai_affiliate_score?: number | null
+          ai_recommendation?: string | null
+          ai_scored_at?: string | null
           audience_size?: number | null
           country?: string | null
           created_at?: string
@@ -2189,6 +2237,9 @@ export type Database = {
         }
         Update: {
           affiliate_code?: string | null
+          ai_affiliate_score?: number | null
+          ai_recommendation?: string | null
+          ai_scored_at?: string | null
           audience_size?: number | null
           country?: string | null
           created_at?: string
@@ -4474,6 +4525,127 @@ export type Database = {
             columns: ["source_campaign_id"]
             isOneToOne: false
             referencedRelation: "email_campaigns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      video_assignment_log: {
+        Row: {
+          assigned_at: string | null
+          email_sent_at: string | null
+          id: string
+          influencer_id: string
+          posted_at: string | null
+          promo_video_id: string
+        }
+        Insert: {
+          assigned_at?: string | null
+          email_sent_at?: string | null
+          id?: string
+          influencer_id: string
+          posted_at?: string | null
+          promo_video_id: string
+        }
+        Update: {
+          assigned_at?: string | null
+          email_sent_at?: string | null
+          id?: string
+          influencer_id?: string
+          posted_at?: string | null
+          promo_video_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "video_assignment_log_influencer_id_fkey"
+            columns: ["influencer_id"]
+            isOneToOne: false
+            referencedRelation: "influencers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "video_assignment_log_influencer_id_fkey"
+            columns: ["influencer_id"]
+            isOneToOne: false
+            referencedRelation: "v_active_affiliates_leaderboard"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "video_assignment_log_influencer_id_fkey"
+            columns: ["influencer_id"]
+            isOneToOne: false
+            referencedRelation: "v_affiliate_activation_stats"
+            referencedColumns: ["influencer_id"]
+          },
+          {
+            foreignKeyName: "video_assignment_log_promo_video_id_fkey"
+            columns: ["promo_video_id"]
+            isOneToOne: false
+            referencedRelation: "promo_videos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      video_influencer_matches: {
+        Row: {
+          computed_at: string | null
+          expires_at: string | null
+          id: string
+          influencer_id: string
+          is_admin_override: boolean | null
+          is_primary: boolean | null
+          match_breakdown: Json | null
+          match_score: number
+          promo_video_id: string
+        }
+        Insert: {
+          computed_at?: string | null
+          expires_at?: string | null
+          id?: string
+          influencer_id: string
+          is_admin_override?: boolean | null
+          is_primary?: boolean | null
+          match_breakdown?: Json | null
+          match_score: number
+          promo_video_id: string
+        }
+        Update: {
+          computed_at?: string | null
+          expires_at?: string | null
+          id?: string
+          influencer_id?: string
+          is_admin_override?: boolean | null
+          is_primary?: boolean | null
+          match_breakdown?: Json | null
+          match_score?: number
+          promo_video_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "video_influencer_matches_influencer_id_fkey"
+            columns: ["influencer_id"]
+            isOneToOne: false
+            referencedRelation: "influencers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "video_influencer_matches_influencer_id_fkey"
+            columns: ["influencer_id"]
+            isOneToOne: false
+            referencedRelation: "v_active_affiliates_leaderboard"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "video_influencer_matches_influencer_id_fkey"
+            columns: ["influencer_id"]
+            isOneToOne: false
+            referencedRelation: "v_affiliate_activation_stats"
+            referencedColumns: ["influencer_id"]
+          },
+          {
+            foreignKeyName: "video_influencer_matches_promo_video_id_fkey"
+            columns: ["promo_video_id"]
+            isOneToOne: false
+            referencedRelation: "promo_videos"
             referencedColumns: ["id"]
           },
         ]

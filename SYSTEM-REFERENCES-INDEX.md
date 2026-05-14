@@ -4,7 +4,7 @@
 > Chaque module = 1 fichier `SYSTEM-REFERENCE-XXX.md` à jour.
 > Cet index dit **quoi lire** avant de toucher à quel système.
 
-**Dernière maj** : 2026-05-13 (V3 W1 merged)
+**Dernière maj** : 2026-05-13 (V3 W1 + W2 merged)
 **Mainteneur** : Samy Cloutier ([samy@viralanimal.com](mailto:samy@viralanimal.com))
 
 ---
@@ -55,10 +55,10 @@ Si un système n'a **pas** de reference → c'est un bug. Créer le fichier en m
     ├── SYSTEM-REFERENCE-ADMIN-SCRAPER.md             ← V3-1A ✅ MERGED
     ├── SYSTEM-REFERENCE-ADMIN-REPOST-KIT.md          ← V3-1B ✅ MERGED
     ├── SYSTEM-REFERENCE-ADMIN-COMPLIANCE.md (update) ← V3-1C ✅ MERGED
-    ├── SYSTEM-REFERENCE-ADMIN-VIDEO-LIBRARY.md          ← V3-2A ✅ CREATED
-    ├── SYSTEM-REFERENCE-ADMIN-AI-SCORING.md            ← V3-2B ✅ CREATED
-    ├── SYSTEM-REFERENCE-ADMIN-MATCH-ENGINE.md          ← V3-2C CREATED
-    ├── SYSTEM-REFERENCE-ADMIN-OFFER-GENERATOR.md      ← V3-2D ✅ CREATED
+    ├── SYSTEM-REFERENCE-ADMIN-VIDEO-LIBRARY.md          ← V3-2A ✅ MERGED
+    ├── SYSTEM-REFERENCE-ADMIN-AI-SCORING.md            ← V3-2B ✅ MERGED
+    ├── SYSTEM-REFERENCE-ADMIN-MATCH-ENGINE.md          ← V3-2C ✅ MERGED
+    ├── SYSTEM-REFERENCE-ADMIN-OFFER-GENERATOR.md      ← V3-2D ✅ MERGED
         + SYSTEM-REFERENCE-ADMIN-PUBLICATION-TRACKING.md
         + SYSTEM-REFERENCE-ADMIN-LEARNING-LOOP.md
 ```

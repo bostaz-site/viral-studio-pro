@@ -1,7 +1,8 @@
-# MERGE V3 LOG — Acquisition System Week 1
+# MERGE V3 LOG — Acquisition System
 
-> Timeline of V3-1A/V3-1B/V3-1C merge into master.
-> Date: 2026-05-13
+> Timeline of V3 merges into master.
+> Week 1: V3-1A/V3-1B/V3-1C (2026-05-13)
+> Week 2: V3-2A/V3-2B/V3-2C/V3-2D (2026-05-13)
 
 ---
 
@@ -116,7 +117,7 @@ Shared foundation commit on master: `eeedbec` (types, nav, docs)
 
 ---
 
-## Next Steps
+## Next Steps (Week 1)
 
 1. Wait for Netlify deploy to complete (~2-3 min)
 2. Verify all 3 new routes respond
@@ -124,3 +125,88 @@ Shared foundation commit on master: `eeedbec` (types, nav, docs)
 4. Test repost kit mobile UX
 5. Test 4-way suppression on import
 6. Begin V3 Week 2: Match Engine + Offer Generator
+
+---
+---
+
+## V3 Week 2 — 2026-05-13
+
+### Pre-merge State
+
+All 4 modules were built on `feature/acquisition-v3-video-library` as uncommitted working tree changes.
+Branches for ai-scoring, match-engine, offer-generator did not exist properly.
+
+**Decision:** Created chained branches (A -> B -> C -> D) from video-library, committed relevant files to each.
+
+### Timeline
+
+#### 1. Branch Creation
+- `feature/acquisition-v3-video-library` — already committed (1 commit: `baa732b`)
+- `feature/acquisition-v3-ai-scoring` — created from video-library, 13 files committed (`b944332`)
+- `feature/acquisition-v3-match-engine` — created from ai-scoring, 14 files committed (`7cad594`)
+- `feature/acquisition-v3-offer-generator` — created from match-engine, 16 files committed (`8aedda2`)
+
+#### 2. Build Tests (all passed)
+| Branch | Build | Errors |
+|---|---|---|
+| feature/acquisition-v3-video-library | SUCCESS | 0 |
+| feature/acquisition-v3-ai-scoring | SUCCESS | 0 |
+| feature/acquisition-v3-match-engine | SUCCESS | 0 |
+| feature/acquisition-v3-offer-generator | SUCCESS | 0 |
+
+#### 3. Migrations Applied (Supabase prod)
+| Migration | Tables | Status |
+|---|---|---|
+| `20260608_promo_videos.sql` | promo_videos, promo_video_assets, promo_video_performance_daily | Previously applied via MCP |
+| `20260609_ai_scoring.sql` | ai_scoring_jobs + ALTER influencers (ai_affiliate_score) | Applied |
+| `20260615_match_engine.sql` | video_influencer_matches, video_assignment_log | Applied |
+| offer_templates + generated_offers | offer_templates, generated_offers | Previously applied via MCP |
+
+**5 offer templates seeded in DB (verified: 5 rows)**
+
+#### 4. Merge Order (into master)
+All 4 merged cleanly — no conflicts:
+1. `feature/acquisition-v3-video-library` — 18 files, 2,211 insertions
+2. `feature/acquisition-v3-ai-scoring` — 13 files, 1,795 insertions
+3. `feature/acquisition-v3-match-engine` — 14 files, 831 insertions
+4. `feature/acquisition-v3-offer-generator` — 16 files, 903 insertions
+
+#### 5. Post-merge
+- Supabase types regenerated (all V3-W2 tables present: 20 references)
+- `npm run build` — SUCCESS on master with all 4 merges
+- SYSTEM-REFERENCES-INDEX.md updated (V3-2A/B/C/D marked MERGED)
+
+### New Tables in Supabase (Week 2)
+
+| Module | Tables |
+|---|---|
+| V3-2A Video Library | promo_videos, promo_video_assets, promo_video_performance_daily |
+| V3-2B AI Scoring | ai_scoring_jobs + influencers.ai_affiliate_score |
+| V3-2C Match Engine | video_influencer_matches, video_assignment_log |
+| V3-2D Offer Generator | offer_templates (5 seeded), generated_offers |
+
+**Total: 8 new tables/major alterations**
+
+### Errors Encountered
+
+None. All 4 merges were clean, all builds passed first try.
+
+### URLs to Test Post-Deploy
+
+| URL | Type | Expected |
+|---|---|---|
+| `https://viralanimal.com/admin/video-library` | Admin | 200 (video library) |
+| `https://viralanimal.com/admin/ai-scoring` | Admin | 200 (AI scoring dashboard) |
+| `https://viralanimal.com/admin/match-engine` | Admin | 200 (match engine) |
+| `https://viralanimal.com/admin/offer-generator` | Admin | 200 (offer generator) |
+| `https://viralanimal.com/admin/scraper` | Admin (W1) | 200 (regression check) |
+| `https://viralanimal.com/admin/compliance` | Admin (W1) | 200 (regression check) |
+| `https://viralanimal.com/partner/repost/test` | Public (W1) | 200 (regression check) |
+
+### Next Steps (Week 3)
+
+1. Test Claude AI scoring with real ANTHROPIC_API_KEY on production leads
+2. Upload first promo video to video library
+3. Run match engine on scored leads
+4. Generate first batch of personalized offers
+5. Begin V3 Week 3: Publication Tracking + Learning Loop
