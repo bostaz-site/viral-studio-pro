@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { Settings, Menu, X, LogOut, Zap, Compass, Wand2, Radio, BarChart3, TrendingUp, Handshake, Users, ChevronRight, Inbox, Mail, Upload, ShieldBan, RefreshCw, Webhook, ShieldAlert, MailCheck, Globe, PieChart, DollarSign, Banknote, Home, Filter, Receipt, LineChart, ShieldCheck, Radar } from 'lucide-react'
+import { Settings, Menu, X, LogOut, Zap, Compass, Wand2, Radio, BarChart3, TrendingUp, Handshake, Users, ChevronRight, Mail, Inbox, Webhook, Brain, Film, Cpu, Sparkles } from 'lucide-react'
 import { ViralAnimalLogo } from '@/components/brand/viral-animal-logo'
 import { useUiStore } from '@/stores/ui-store'
 import { Button } from '@/components/ui/button'
@@ -66,67 +66,18 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     { name: 'Settings', href: '/settings', icon: Settings },
   ]
 
-  // Admin-only nav — grouped par section pour clarté à scale
-  // Pages futures (Scraper, Videos Library, Learning Engine, etc.) ajoutées au fur et à mesure du build V3
-  const adminNavigationGrouped = [
-    {
-      section: 'Overview',
-      items: [
-        { name: 'Dashboard', href: '/admin', icon: Home },
-        { name: 'Watchdog', href: '/admin/watchdog', icon: ShieldAlert },
-      ],
-    },
-    {
-      section: 'CRM & Leads',
-      items: [
-        { name: 'Scraper', href: '/admin/scraper', icon: Radar },
-        { name: 'Influencers', href: '/admin/influencers', icon: Users },
-        { name: 'Import', href: '/admin/influencers/import', icon: Upload },
-        { name: 'Suppression', href: '/admin/suppression', icon: ShieldBan },
-        { name: 'Compliance', href: '/admin/compliance', icon: ShieldCheck },
-      ],
-    },
-    {
-      section: 'Outreach',
-      items: [
-        { name: 'Campaigns', href: '/admin/campaigns', icon: Mail },
-        { name: 'Inbox', href: '/admin/inbox', icon: Inbox },
-      ],
-    },
-    {
-      section: 'Affiliates',
-      items: [
-        { name: 'Affiliates', href: '/admin/affiliates', icon: Handshake },
-      ],
-    },
-    {
-      section: 'Analytics',
-      items: [
-        { name: 'Overview', href: '/admin/analytics', icon: PieChart },
-        { name: 'Funnel', href: '/admin/analytics/funnel', icon: Filter },
-        { name: 'Revenue', href: '/admin/analytics/revenue', icon: BarChart3 },
-        { name: 'Leaderboard', href: '/admin/analytics/affiliates', icon: TrendingUp },
-        { name: 'Campaign Perf', href: '/admin/analytics/campaigns', icon: PieChart },
-        { name: 'Cohorts', href: '/admin/analytics/cohorts', icon: LineChart },
-        { name: 'User Growth', href: '/admin/growth', icon: TrendingUp },
-      ],
-    },
-    {
-      section: 'Finance',
-      items: [
-        { name: 'Payouts', href: '/admin/payouts', icon: Banknote },
-        { name: 'Costs', href: '/admin/costs', icon: Receipt },
-      ],
-    },
-    {
-      section: 'Infrastructure',
-      items: [
-        { name: 'Mailboxes', href: '/admin/mailboxes', icon: MailCheck },
-        { name: 'Domains', href: '/admin/domains', icon: Globe },
-        { name: 'Sync', href: '/admin/sync', icon: RefreshCw },
-        { name: 'Webhooks', href: '/admin/webhooks', icon: Webhook },
-      ],
-    },
+  // Admin-only nav — distinct icons (no more duplicate Crown), shown under a labelled section
+  const adminNavigation = [
+    { name: 'Growth', href: '/admin/growth', icon: TrendingUp },
+    { name: 'Inbox', href: '/admin/inbox', icon: Inbox },
+    { name: 'Affiliates', href: '/admin/affiliates', icon: Handshake },
+    { name: 'Campaigns', href: '/admin/campaigns', icon: Mail },
+    { name: 'Streamers', href: '/admin/streamers', icon: Users },
+    { name: 'Video Library', href: '/admin/video-library', icon: Film },
+    { name: 'Match Engine', href: '/admin/match-engine', icon: Cpu },
+    { name: 'Offer Generator', href: '/admin/offer-generator', icon: Sparkles },
+    { name: 'AI Scoring', href: '/admin/ai-scoring', icon: Brain },
+    { name: 'Webhooks', href: '/admin/webhooks', icon: Webhook },
   ]
 
   const planLimits: Record<string, number> = { free: 3, pro: 50, studio: 999 }
@@ -174,8 +125,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 : pathname?.startsWith(item.href)
               return (
                 <Link key={item.name} href={item.href}>
-                  <span className={`flex items-center px-4 py-2.5 text-sm font-medium rounded-xl transition-all duration-200 ${isActive ? 'bg-amber-500/10 text-amber-400 shadow-sm' : 'text-muted-foreground hover:bg-muted hover:text-foreground'}`}>
-                    <item.icon className={`h-5 w-5 mr-3 ${isActive ? 'text-amber-400' : 'text-muted-foreground'}`} />
+                  <span className={`flex items-center px-4 py-2.5 text-sm font-medium rounded-xl transition-all duration-200 ${isActive ? 'bg-primary/10 text-primary shadow-sm' : 'text-muted-foreground hover:bg-muted hover:text-foreground'}`}>
+                    <item.icon className={`h-5 w-5 mr-3 ${isActive ? 'text-primary' : 'text-muted-foreground'}`} />
                     {item.name}
                   </span>
                 </Link>
@@ -183,35 +134,26 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             })}
           </div>
 
-          {/* Admin nav — grouped sections, only visible to admins */}
+          {/* Admin nav — labelled section, only visible to admins */}
           {isAdmin && (
             <div className="mt-6">
-              <div className="flex items-center gap-2 px-4 mb-3">
-                <span className="text-[10px] font-bold tracking-wider text-amber-500/70 uppercase">Admin</span>
-                <div className="flex-1 h-px bg-amber-500/20" />
+              <div className="flex items-center gap-2 px-4 mb-2">
+                <span className="text-[10px] font-bold tracking-wider text-zinc-500 uppercase">Admin</span>
+                <div className="flex-1 h-px bg-zinc-800/60" />
               </div>
-              {adminNavigationGrouped.map((group) => (
-                <div key={group.section} className="mb-4">
-                  <div className="px-4 mb-1.5">
-                    <span className="text-[9px] font-bold tracking-widest text-zinc-600 uppercase">{group.section}</span>
-                  </div>
-                  <div className="space-y-1">
-                    {group.items.map((item) => {
-                      const isActive = item.href === '/admin'
-                        ? pathname === '/admin'
-                        : pathname?.startsWith(item.href)
-                      return (
-                        <Link key={item.name} href={item.href}>
-                          <span className={`flex items-center px-4 py-2 text-sm font-medium rounded-xl transition-all duration-200 ${isActive ? 'bg-amber-500/10 text-amber-400 shadow-sm' : 'text-zinc-500 hover:bg-muted hover:text-zinc-300'}`}>
-                            <item.icon className={`h-4 w-4 mr-3 ${isActive ? 'text-amber-400' : 'text-zinc-500'}`} />
-                            {item.name}
-                          </span>
-                        </Link>
-                      )
-                    })}
-                  </div>
-                </div>
-              ))}
+              <div className="space-y-1">
+                {adminNavigation.map((item) => {
+                  const isActive = pathname?.startsWith(item.href)
+                  return (
+                    <Link key={item.name} href={item.href}>
+                      <span className={`flex items-center px-4 py-2.5 text-sm font-medium rounded-xl transition-all duration-200 ${isActive ? 'bg-amber-500/10 text-amber-400 shadow-sm' : 'text-zinc-500 hover:bg-muted hover:text-zinc-300'}`}>
+                        <item.icon className={`h-5 w-5 mr-3 ${isActive ? 'text-amber-400' : 'text-zinc-500'}`} />
+                        {item.name}
+                      </span>
+                    </Link>
+                  )
+                })}
+              </div>
             </div>
           )}
         </nav>

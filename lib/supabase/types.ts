@@ -1895,6 +1895,98 @@ export type Database = {
           },
         ]
       }
+      generated_offers: {
+        Row: {
+          campaign_recipient_id: string | null
+          compliance_blocks: Json | null
+          generated_at: string | null
+          id: string
+          influencer_id: string
+          match_id: string | null
+          opened_at: string | null
+          passed_compliance: boolean | null
+          promo_video_id: string | null
+          rendered_body: string | null
+          rendered_subject: string | null
+          replied_at: string | null
+          repost_kit_url: string | null
+          selected_subject_variant: number | null
+          sent_at: string | null
+          status: string | null
+          template_id: string
+          variables_used: Json | null
+        }
+        Insert: {
+          campaign_recipient_id?: string | null
+          compliance_blocks?: Json | null
+          generated_at?: string | null
+          id?: string
+          influencer_id: string
+          match_id?: string | null
+          opened_at?: string | null
+          passed_compliance?: boolean | null
+          promo_video_id?: string | null
+          rendered_body?: string | null
+          rendered_subject?: string | null
+          replied_at?: string | null
+          repost_kit_url?: string | null
+          selected_subject_variant?: number | null
+          sent_at?: string | null
+          status?: string | null
+          template_id: string
+          variables_used?: Json | null
+        }
+        Update: {
+          campaign_recipient_id?: string | null
+          compliance_blocks?: Json | null
+          generated_at?: string | null
+          id?: string
+          influencer_id?: string
+          match_id?: string | null
+          opened_at?: string | null
+          passed_compliance?: boolean | null
+          promo_video_id?: string | null
+          rendered_body?: string | null
+          rendered_subject?: string | null
+          replied_at?: string | null
+          repost_kit_url?: string | null
+          selected_subject_variant?: number | null
+          sent_at?: string | null
+          status?: string | null
+          template_id?: string
+          variables_used?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "generated_offers_influencer_id_fkey"
+            columns: ["influencer_id"]
+            isOneToOne: false
+            referencedRelation: "influencers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "generated_offers_influencer_id_fkey"
+            columns: ["influencer_id"]
+            isOneToOne: false
+            referencedRelation: "v_active_affiliates_leaderboard"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "generated_offers_influencer_id_fkey"
+            columns: ["influencer_id"]
+            isOneToOne: false
+            referencedRelation: "v_affiliate_activation_stats"
+            referencedColumns: ["influencer_id"]
+          },
+          {
+            foreignKeyName: "generated_offers_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "offer_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       high_intent_no_email: {
         Row: {
           added_at: string
@@ -2554,6 +2646,72 @@ export type Database = {
         }
         Relationships: []
       }
+      offer_templates: {
+        Row: {
+          ab_variant_label: string | null
+          audience_max: number | null
+          audience_min: number | null
+          body_template: string
+          created_at: string | null
+          created_by: string | null
+          description: string | null
+          id: string
+          language: string | null
+          name: string
+          niche: string[] | null
+          status: string | null
+          subject_line_variants: Json
+          total_kit_views: number | null
+          total_opens: number | null
+          total_posts: number | null
+          total_replies: number | null
+          total_sent: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          ab_variant_label?: string | null
+          audience_max?: number | null
+          audience_min?: number | null
+          body_template: string
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          language?: string | null
+          name: string
+          niche?: string[] | null
+          status?: string | null
+          subject_line_variants?: Json
+          total_kit_views?: number | null
+          total_opens?: number | null
+          total_posts?: number | null
+          total_replies?: number | null
+          total_sent?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          ab_variant_label?: string | null
+          audience_max?: number | null
+          audience_min?: number | null
+          body_template?: string
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          language?: string | null
+          name?: string
+          niche?: string[] | null
+          status?: string | null
+          subject_line_variants?: Json
+          total_kit_views?: number | null
+          total_opens?: number | null
+          total_posts?: number | null
+          total_replies?: number | null
+          total_sent?: number | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       partner_sessions: {
         Row: {
           created_at: string
@@ -2773,6 +2931,183 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_affiliate_activation_stats"
             referencedColumns: ["influencer_id"]
+          },
+        ]
+      }
+      promo_video_assets: {
+        Row: {
+          asset_type: string
+          created_at: string | null
+          file_size_bytes: number | null
+          id: string
+          promo_video_id: string
+          storage_path: string
+        }
+        Insert: {
+          asset_type: string
+          created_at?: string | null
+          file_size_bytes?: number | null
+          id?: string
+          promo_video_id: string
+          storage_path: string
+        }
+        Update: {
+          asset_type?: string
+          created_at?: string | null
+          file_size_bytes?: number | null
+          id?: string
+          promo_video_id?: string
+          storage_path?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "promo_video_assets_promo_video_id_fkey"
+            columns: ["promo_video_id"]
+            isOneToOne: false
+            referencedRelation: "promo_videos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      promo_video_performance_daily: {
+        Row: {
+          code_copies: number | null
+          date: string
+          id: string
+          kit_views: number | null
+          kits_generated: number | null
+          posts_submitted: number | null
+          promo_video_id: string
+          revenue_cents: number | null
+          signups_attributed: number | null
+          video_completions: number | null
+        }
+        Insert: {
+          code_copies?: number | null
+          date: string
+          id?: string
+          kit_views?: number | null
+          kits_generated?: number | null
+          posts_submitted?: number | null
+          promo_video_id: string
+          revenue_cents?: number | null
+          signups_attributed?: number | null
+          video_completions?: number | null
+        }
+        Update: {
+          code_copies?: number | null
+          date?: string
+          id?: string
+          kit_views?: number | null
+          kits_generated?: number | null
+          posts_submitted?: number | null
+          promo_video_id?: string
+          revenue_cents?: number | null
+          signups_attributed?: number | null
+          video_completions?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "promo_video_performance_daily_promo_video_id_fkey"
+            columns: ["promo_video_id"]
+            isOneToOne: false
+            referencedRelation: "promo_videos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      promo_videos: {
+        Row: {
+          aspect_ratio: string | null
+          avg_engagement_rate: number | null
+          codec: string | null
+          created_at: string
+          created_by: string | null
+          description: string | null
+          duration_seconds: number | null
+          file_size_bytes: number | null
+          height: number | null
+          hook_type: string | null
+          id: string
+          language: string | null
+          niche: string[] | null
+          replaces_video_id: string | null
+          status: string | null
+          storage_bucket: string | null
+          storage_path: string
+          thumbnail_path: string | null
+          title: string
+          tone: string | null
+          total_kits_generated: number | null
+          total_posts: number | null
+          total_signups: number | null
+          total_views: number | null
+          updated_at: string | null
+          width: number | null
+        }
+        Insert: {
+          aspect_ratio?: string | null
+          avg_engagement_rate?: number | null
+          codec?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          duration_seconds?: number | null
+          file_size_bytes?: number | null
+          height?: number | null
+          hook_type?: string | null
+          id?: string
+          language?: string | null
+          niche?: string[] | null
+          replaces_video_id?: string | null
+          status?: string | null
+          storage_bucket?: string | null
+          storage_path: string
+          thumbnail_path?: string | null
+          title: string
+          tone?: string | null
+          total_kits_generated?: number | null
+          total_posts?: number | null
+          total_signups?: number | null
+          total_views?: number | null
+          updated_at?: string | null
+          width?: number | null
+        }
+        Update: {
+          aspect_ratio?: string | null
+          avg_engagement_rate?: number | null
+          codec?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          duration_seconds?: number | null
+          file_size_bytes?: number | null
+          height?: number | null
+          hook_type?: string | null
+          id?: string
+          language?: string | null
+          niche?: string[] | null
+          replaces_video_id?: string | null
+          status?: string | null
+          storage_bucket?: string | null
+          storage_path?: string
+          thumbnail_path?: string | null
+          title?: string
+          tone?: string | null
+          total_kits_generated?: number | null
+          total_posts?: number | null
+          total_signups?: number | null
+          total_views?: number | null
+          updated_at?: string | null
+          width?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "promo_videos_replaces_video_id_fkey"
+            columns: ["replaces_video_id"]
+            isOneToOne: false
+            referencedRelation: "promo_videos"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -4783,3 +5118,4 @@ export const Constants = {
     Enums: {},
   },
 } as const
+
