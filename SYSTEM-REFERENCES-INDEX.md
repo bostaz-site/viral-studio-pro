@@ -55,8 +55,10 @@ Si un système n'a **pas** de reference → c'est un bug. Créer le fichier en m
     ├── SYSTEM-REFERENCE-ADMIN-SCRAPER.md             ← V3-1A ✅ MERGED
     ├── SYSTEM-REFERENCE-ADMIN-REPOST-KIT.md          ← V3-1B ✅ MERGED
     ├── SYSTEM-REFERENCE-ADMIN-COMPLIANCE.md (update) ← V3-1C ✅ MERGED
-    └── (semaine 2+) SYSTEM-REFERENCE-ADMIN-MATCH-ENGINE.md
-        + SYSTEM-REFERENCE-ADMIN-OFFER-GENERATOR.md
+    ├── SYSTEM-REFERENCE-ADMIN-VIDEO-LIBRARY.md          ← V3-2A ✅ CREATED
+    ├── SYSTEM-REFERENCE-ADMIN-AI-SCORING.md            ← V3-2B ✅ CREATED
+    ├── SYSTEM-REFERENCE-ADMIN-MATCH-ENGINE.md          ← V3-2C CREATED
+    ├── SYSTEM-REFERENCE-ADMIN-OFFER-GENERATOR.md      ← V3-2D ✅ CREATED
         + SYSTEM-REFERENCE-ADMIN-PUBLICATION-TRACKING.md
         + SYSTEM-REFERENCE-ADMIN-LEARNING-LOOP.md
 ```
@@ -221,8 +223,8 @@ Si un système n'a **pas** de reference → c'est un bug. Créer le fichier en m
 
 | Fichier | Scope | Semaine |
 |---|---|---|
-| `SYSTEM-REFERENCE-ADMIN-MATCH-ENGINE.md` | Match algorithm vidéo ↔ influenceur (rule-based V1, ML V2) | S2 |
-| `SYSTEM-REFERENCE-ADMIN-OFFER-GENERATOR.md` | Personalized email generator + A/B variants + subject lines | S2-3 |
+| `SYSTEM-REFERENCE-ADMIN-MATCH-ENGINE.md` | Match algorithm video ↔ influencer (rule-based V1) | S2 DONE |
+| `SYSTEM-REFERENCE-ADMIN-OFFER-GENERATOR.md` | Personalized email generator + A/B variants + subject lines | ✅ S2 |
 | `SYSTEM-REFERENCE-ADMIN-VIDEO-LIBRARY.md` | Bibliothèque vidéos pub admin (upload + tags + métadonnées) | S2 |
 | `SYSTEM-REFERENCE-ADMIN-PUBLICATION-TRACKING.md` | Détection auto des reposts (yt-dlp + form manuel) | S3 |
 | `SYSTEM-REFERENCE-ADMIN-LEARNING-LOOP.md` | Feedback loop : ce qui convertit → re-feed le scoring | S4 |
