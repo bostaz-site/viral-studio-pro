@@ -9,7 +9,7 @@ import { trackQuotaUsage, getRemainingQuota } from '@/lib/admin/scraper/quota-tr
 
 const searchSchema = z.object({
   query: z.string().min(3).max(200),
-  maxResults: z.number().int().min(5).max(50).optional(),
+  maxResults: z.number().int().min(5).max(25).optional(),
   language: z.string().max(5).optional(),
   regionCode: z.string().max(2).optional(),
   savedSearchId: z.string().uuid().optional(),
@@ -54,21 +54,24 @@ export const POST = withAdmin(async (req, user) => {
 
     await trackQuotaUsage('youtube_api', quotaUsed)
 
-    // Process each channel
+    // Process channels in parallel batches of 5
     let newLeads = 0
     let duplicates = 0
-    const results = []
+    const results: Array<Record<string, unknown>> = []
 
-    for (const ch of channels) {
-      // Extract emails from description
+    const processChannel = async (ch: typeof channels[number]) => {
+      // Extract emails from description (bio)
       const emails = extractEmailsFromText(ch.description)
       const primaryEmail = emails[0]?.email ?? null
+      const isBusinessContact = emails[0]?.isBusinessContact ?? false
+      const profileUrl = `https://youtube.com/${ch.handle ? '@' + ch.handle : 'channel/' + ch.id}`
 
-      // Keyword pre-score
+      // Keyword pre-score (with email boost)
       const { score, strongSignals, mediumSignals } = keywordAffiliateScore({
         bio: ch.description,
         linksCount: ch.links.length,
         links: ch.links,
+        hasEmail: !!primaryEmail,
       })
 
       // Distributor graph
@@ -85,7 +88,7 @@ export const POST = withAdmin(async (req, user) => {
         .eq('run_id', run.id)
         .maybeSingle()
 
-      if (existing) { duplicates++; continue }
+      if (existing) { duplicates++; return }
 
       const { data: result } = await supabase
         .from('lead_discovery_results')
@@ -95,7 +98,7 @@ export const POST = withAdmin(async (req, user) => {
           platform_id: ch.id,
           platform_handle: ch.handle,
           display_name: ch.title,
-          profile_url: `https://youtube.com/${ch.handle ? '@' + ch.handle : 'channel/' + ch.id}`,
+          profile_url: profileUrl,
           avatar_url: ch.thumbnailUrl,
           bio: ch.description?.slice(0, 2000),
           audience_size: ch.subscriberCount,
@@ -107,9 +110,9 @@ export const POST = withAdmin(async (req, user) => {
           keyword_score: totalScore,
           has_email: !!primaryEmail,
           email: primaryEmail,
-          email_source_url: primaryEmail ? `https://youtube.com/${ch.handle ? '@' + ch.handle : 'channel/' + ch.id}/about` : null,
+          email_source_url: primaryEmail ? profileUrl : null,
           promoted_products: products.map(p => p.productName),
-          raw_data: { subscriberCount: ch.subscriberCount, videoCount: ch.videoCount, viewCount: ch.viewCount, strongSignals, mediumSignals } as Record<string, unknown>,
+          raw_data: { subscriberCount: ch.subscriberCount, videoCount: ch.videoCount, viewCount: ch.viewCount, strongSignals, mediumSignals, isBusinessContact } as Record<string, unknown>,
         })
         .select('id, platform_handle, display_name, audience_size, keyword_score, has_email, promoted_products')
         .single()
@@ -118,6 +121,13 @@ export const POST = withAdmin(async (req, user) => {
         results.push(result)
         newLeads++
       }
+    }
+
+    // Batch parallel processing (5 at a time) to avoid Netlify timeout
+    const BATCH_SIZE = 5
+    for (let i = 0; i < channels.length; i += BATCH_SIZE) {
+      const batch = channels.slice(i, i + BATCH_SIZE)
+      await Promise.all(batch.map(processChannel))
     }
 
     // Update run status
@@ -164,6 +174,7 @@ export const GET = withAdmin(async (req) => {
   const runId = url.searchParams.get('run_id')
   const status = url.searchParams.get('status')
   const minScore = parseInt(url.searchParams.get('min_score') ?? '0')
+  const hasEmail = url.searchParams.get('has_email')
 
   const supabase = getScraperDb()
 
@@ -176,6 +187,7 @@ export const GET = withAdmin(async (req) => {
 
   if (runId) query = query.eq('run_id', runId)
   if (status) query = query.eq('import_status', status)
+  if (hasEmail === 'true') query = query.eq('has_email', true)
 
   const { data, error } = await query
   if (error) return errorResponse(error.message, 500)

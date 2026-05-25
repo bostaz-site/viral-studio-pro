@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { Loader2, Radar, Search, Users, Mail, TrendingUp } from 'lucide-react'
+import { Loader2, Radar, Search, Users, Mail, TrendingUp, AlertCircle } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { Card, CardContent } from '@/components/ui/card'
 import { QuotaPanel } from './_components/quota-panel'
@@ -25,6 +25,7 @@ export default function ScraperPage() {
   const [authorized, setAuthorized] = useState(false)
   const [authLoading, setAuthLoading] = useState(true)
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [results, setResults] = useState<any[]>([])
   const [savedSearches, setSavedSearches] = useState<SavedSearch[]>([])
   const [quota, setQuota] = useState<QuotaData | null>(null)
@@ -32,6 +33,8 @@ export default function ScraperPage() {
   const [importLoading, setImportLoading] = useState(false)
   const [lastRunStats, setLastRunStats] = useState<{ total: number; newLeads: number; quotaUsed: number } | null>(null)
   const [tab, setTab] = useState<'youtube' | 'tiktok' | 'google' | 'instagram'>('youtube')
+  const [searchError, setSearchError] = useState<string | null>(null)
+  const [requireEmail, setRequireEmail] = useState(false)
 
   useEffect(() => {
     const supabase = createClient()
@@ -68,14 +71,20 @@ export default function ScraperPage() {
     }
   }, [authorized, fetchQuota, fetchSavedSearches])
 
-  const handleSearch = async (params: { query: string; maxResults: number; language?: string }) => {
+  const handleSearch = async (params: { query: string; maxResults: number; language?: string; requireEmail?: boolean }) => {
     setSearchLoading(true)
     setResults([])
+    setSearchError(null)
+    if (params.requireEmail !== undefined) setRequireEmail(params.requireEmail)
     try {
       const res = await fetch('/api/admin/scraper/youtube', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(params),
+        body: JSON.stringify({
+          query: params.query,
+          maxResults: params.maxResults,
+          language: params.language,
+        }),
       })
       const json = await res.json()
       if (!res.ok) throw new Error(json.error ?? 'Search failed')
@@ -84,14 +93,16 @@ export default function ScraperPage() {
 
       // Fetch full results
       if (json.data.run_id) {
-        const resultsRes = await fetch(`/api/admin/scraper/youtube?run_id=${json.data.run_id}`)
+        const hasEmailParam = params.requireEmail ? '&has_email=true' : ''
+        const resultsRes = await fetch(`/api/admin/scraper/youtube?run_id=${json.data.run_id}${hasEmailParam}`)
         const resultsJson = await resultsRes.json()
         if (resultsJson.data) setResults(resultsJson.data)
       }
 
       fetchQuota()
     } catch (err) {
-      console.error(err)
+      const msg = err instanceof Error ? err.message : 'Search failed'
+      setSearchError(msg)
     } finally {
       setSearchLoading(false)
     }
@@ -117,8 +128,9 @@ export default function ScraperPage() {
       const json = await res.json()
       if (json.data) {
         // Refresh results to show updated statuses
-        if (lastRunStats) {
-          const resultsRes = await fetch(`/api/admin/scraper/youtube?run_id=${results[0]?.run_id}`)
+        if (results[0]?.run_id) {
+          const hasEmailParam = requireEmail ? '&has_email=true' : ''
+          const resultsRes = await fetch(`/api/admin/scraper/youtube?run_id=${results[0].run_id}${hasEmailParam}`)
           const resultsJson = await resultsRes.json()
           if (resultsJson.data) setResults(resultsJson.data)
         }
@@ -154,6 +166,14 @@ export default function ScraperPage() {
         </div>
         {quota && <QuotaPanel used={quota.youtube.used} limit={quota.youtube.limit} />}
       </div>
+
+      {/* Error banner */}
+      {searchError && (
+        <div className="flex items-center gap-2 px-4 py-3 rounded-lg bg-red-500/10 border border-red-500/20 text-sm text-red-400">
+          <AlertCircle className="h-4 w-4 shrink-0" />
+          <span>{searchError}</span>
+        </div>
+      )}
 
       {/* Stats */}
       {lastRunStats && (
@@ -199,6 +219,7 @@ export default function ScraperPage() {
             results={results}
             onImport={handleImport}
             importing={importLoading}
+            requireEmail={requireEmail}
           />
         </div>
       )}
@@ -206,7 +227,7 @@ export default function ScraperPage() {
       {tab !== 'youtube' && (
         <Card className="border-border">
           <CardContent className="p-8 text-center text-muted-foreground">
-            <p className="text-sm">Coming soon. YouTube is active — start there.</p>
+            <p className="text-sm">Coming soon. YouTube is active -- start there.</p>
           </CardContent>
         </Card>
       )}

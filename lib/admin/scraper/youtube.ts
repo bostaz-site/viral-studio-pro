@@ -33,7 +33,7 @@ interface SearchParams {
  */
 export async function searchYouTubeChannels(params: SearchParams): Promise<{ channels: YouTubeChannel[]; quotaUsed: number }> {
   const key = getApiKey()
-  const maxResults = Math.min(params.maxResults ?? 50, 50)
+  const maxResults = Math.min(params.maxResults ?? 15, 25)
 
   const searchParams = new URLSearchParams({
     part: 'snippet',
@@ -111,18 +111,60 @@ function extractLinks(branding: any): string[] {
 
 /**
  * Extract emails from channel description + about page text.
+ * Filters false positives (file extensions, no-reply, placeholder domains).
+ * Detects business-contact proximity keywords.
  */
-export function extractEmailsFromText(text: string): Array<{ email: string; context: string }> {
-  const emailRegex = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g
+export function extractEmailsFromText(text: string): Array<{
+  email: string
+  context: string
+  isBusinessContact: boolean
+}> {
+  const emailRegex = /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g
   const matches = text.match(emailRegex) ?? []
 
-  // Filter out common false positives
-  const blacklist = ['example.com', 'email.com', 'youremail.com', 'gmail.com']
+  // Domain blacklist — placeholder/example domains only (NOT real providers like gmail)
+  const domainBlacklist = ['example.com', 'email.com', 'youremail.com', 'domain.com', 'test.com', 'sample.com']
+
+  // Local-part exact blacklist
+  const localBlacklist = [
+    /^no[-.]?reply$/i,
+    /^do[-.]?not[-.]?reply$/i,
+    /^support$/i,
+    /^example$/i,
+    /^your$/i,
+    /^name$/i,
+    /^email$/i,
+    /^someone$/i,
+    /^user(name)?$/i,
+  ]
+
+  // File-extension false positives (e.g. logo.png@2x won't match TLD, but logo.png@company.com could)
+  const fileExtPattern = /\.(png|jpg|jpeg|gif|svg|webp|bmp|ico|mp4|mov)$/i
+
+  const businessKeywords = /business|contact|inquir|collab|sponsor|booking|partnership|press|media|pr\b/i
+
+  const seen = new Set<string>()
+
   return matches
-    .filter(e => !blacklist.some(bl => e.endsWith(`@${bl}`)))
+    .filter(e => {
+      const atIdx = e.indexOf('@')
+      const local = e.slice(0, atIdx)
+      const domain = e.slice(atIdx + 1).toLowerCase()
+      if (domainBlacklist.includes(domain)) return false
+      if (`${local.toLowerCase()}@${domain}` === 'support@youtube.com') return false
+      if (localBlacklist.some(re => re.test(local))) return false
+      if (fileExtPattern.test(local)) return false
+      const lower = e.toLowerCase()
+      if (seen.has(lower)) return false
+      seen.add(lower)
+      return true
+    })
     .map(email => {
       const idx = text.indexOf(email)
-      const context = text.slice(Math.max(0, idx - 40), idx + email.length + 40).trim()
-      return { email: email.toLowerCase(), context }
+      const contextStart = Math.max(0, idx - 60)
+      const contextEnd = Math.min(text.length, idx + email.length + 60)
+      const context = text.slice(contextStart, contextEnd).trim()
+      const isBusinessContact = businessKeywords.test(context)
+      return { email: email.toLowerCase(), context, isBusinessContact }
     })
 }

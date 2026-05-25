@@ -7,6 +7,7 @@ export function keywordAffiliateScore(profile: {
   recentPostTitles?: string[]
   linksCount?: number
   links?: string[]
+  hasEmail?: boolean
 }): { score: number; strongSignals: string[]; mediumSignals: string[] } {
   let score = 0
   const strongSignals: string[] = []
@@ -45,6 +46,12 @@ export function keywordAffiliateScore(profile: {
   if (profile.links?.some(l => /linktr\.ee|beacons\.ai|stan\.store|carrd\.co/i.test(l))) {
     score += 10
     mediumSignals.push('linktree/beacons')
+  }
+
+  // Email contactability boost (+20)
+  if (profile.hasEmail) {
+    score += 20
+    strongSignals.push('has email')
   }
 
   return { score: Math.min(score, 100), strongSignals, mediumSignals }
