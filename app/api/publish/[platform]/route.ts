@@ -13,6 +13,20 @@ const publishSchema = z.object({
   // Caption can be empty — user adds it on the platform (especially in Inbox mode)
   caption: z.string().max(2200).default(''),
   hashtags: z.array(z.string()).max(30).optional(),
+  // TikTok Direct Post options (required by Content Sharing Guidelines)
+  tiktok_options: z.object({
+    privacy_level: z.enum([
+      'PUBLIC_TO_EVERYONE',
+      'MUTUAL_FOLLOW_FRIENDS',
+      'FOLLOWER_OF_CREATOR',
+      'SELF_ONLY',
+    ]),
+    disable_comment: z.boolean(),
+    disable_duet: z.boolean(),
+    disable_stitch: z.boolean(),
+    brand_content_toggle: z.boolean().optional(),
+    brand_organic_toggle: z.boolean().optional(),
+  }).optional(),
   // Optional metadata snapshot for published_posts logging
   metadata: z.object({
     clip_mood: z.string().optional(),
@@ -56,7 +70,7 @@ export const POST = withAuth(
       return errorResponse(parsed.error.issues[0]?.message ?? 'Invalid input', 400)
     }
 
-    const { clip_id, caption, hashtags, metadata } = parsed.data
+    const { clip_id, caption, hashtags, metadata, tiktok_options } = parsed.data
     const admin = createAdminClient()
 
     // Verify clip exists and belongs to user
@@ -184,7 +198,8 @@ export const POST = withAuth(
         tokenSet.accessToken,
         videoUrl,
         fullCaption,
-        clipTitle ?? 'Viral Animal Clip'
+        clipTitle ?? 'Viral Animal Clip',
+        tiktok_options
       )
 
       // Update publication record with success
@@ -279,16 +294,26 @@ interface PublishResult {
   trackingUrl: string | null
 }
 
+interface TikTokOptions {
+  privacy_level: string
+  disable_comment: boolean
+  disable_duet: boolean
+  disable_stitch: boolean
+  brand_content_toggle?: boolean
+  brand_organic_toggle?: boolean
+}
+
 async function publishToPlatform(
   platform: Platform,
   accessToken: string,
   videoUrl: string,
   caption: string,
-  title: string
+  title: string,
+  tiktokOptions?: TikTokOptions
 ): Promise<PublishResult> {
   switch (platform) {
     case 'tiktok':
-      return publishToTikTok(accessToken, videoUrl, caption)
+      return publishToTikTok(accessToken, videoUrl, caption, tiktokOptions)
     case 'youtube':
       return publishToYouTube(accessToken, videoUrl, caption, title)
     case 'instagram':
@@ -314,12 +339,32 @@ async function publishToPlatform(
 async function publishToTikTok(
   accessToken: string,
   videoUrl: string,
-  caption: string
+  caption: string,
+  tiktokOptions?: TikTokOptions
 ): Promise<PublishResult> {
   const directPostEnabled = process.env.TIKTOK_DIRECT_POST_ENABLED === 'true'
 
-  if (directPostEnabled) {
+  if (directPostEnabled && tiktokOptions) {
     // Direct Post (requires audit approval)
+    // Uses creator-selected privacy, interaction toggles, and commercial content
+    // as required by TikTok Content Sharing Developer Guidelines.
+    const postInfo: Record<string, unknown> = {
+      title: caption.slice(0, 150),
+      privacy_level: tiktokOptions.privacy_level,
+      disable_comment: tiktokOptions.disable_comment,
+      disable_duet: tiktokOptions.disable_duet,
+      disable_stitch: tiktokOptions.disable_stitch,
+      video_cover_timestamp_ms: 1000,
+    }
+
+    // Commercial content disclosure (only include if toggled on)
+    if (tiktokOptions.brand_content_toggle) {
+      postInfo.brand_content_toggle = true
+    }
+    if (tiktokOptions.brand_organic_toggle) {
+      postInfo.brand_organic_toggle = true
+    }
+
     const initRes = await fetch(
       'https://open.tiktokapis.com/v2/post/publish/video/init/',
       {
@@ -329,14 +374,7 @@ async function publishToTikTok(
           'Content-Type': 'application/json; charset=UTF-8',
         },
         body: JSON.stringify({
-          post_info: {
-            title: caption.slice(0, 150),
-            privacy_level: 'SELF_ONLY', // Start as private — user can change on TikTok
-            disable_duet: false,
-            disable_comment: false,
-            disable_stitch: false,
-            video_cover_timestamp_ms: 1000,
-          },
+          post_info: postInfo,
           source_info: {
             source: 'PULL_FROM_URL',
             video_url: videoUrl,

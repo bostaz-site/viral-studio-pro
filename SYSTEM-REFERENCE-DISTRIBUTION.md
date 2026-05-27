@@ -1023,3 +1023,81 @@ published_posts (Supabase)
 |---|---|
 | v7 | Smart Queue Engine + Reward Engine + Persistence + initial brain SVG (purple) |
 | v8 | Cyan command center direction : nouveau brain (cyan + orange wolf neon emblem), pill toggle premium, connection map dynamique avec corner-targeting et particules, modals platform/clip picker, Clip Bank state hierarchy + X remove, time format unifie, master toggle propage l'etat OFF a tout le systeme |
+| v8.1 | TikTok Direct Post compliance : TikTokPublishDialog, creator_info fetch, 7 requirements UX, polling status |
+
+---
+
+## TikTok Publish Dialog — Content Sharing Guidelines Compliance
+
+> Ref: [TikTok Content Sharing Developer Guidelines](https://developers.tiktok.com/doc/content-sharing-guidelines)
+> Composant: `components/distribution/tiktok-publish-dialog.tsx`
+> Types: `types/tiktok.ts`
+
+### Architecture
+
+| Fichier | Role |
+|---|---|
+| `components/distribution/tiktok-publish-dialog.tsx` | Dialog TikTok complet avec 7 requirements UX |
+| `types/tiktok.ts` | Types TypeScript (CreatorInfo, PrivacyLevel, PublishStatus, etc.) |
+| `app/api/tiktok/creator-info/route.ts` | Proxy GET → TikTok `/v2/post/publish/creator_info/query/` |
+| `app/api/tiktok/publish-status/route.ts` | Proxy POST → TikTok `/v2/post/publish/status/fetch/` |
+| `app/api/publish/[platform]/route.ts` | Publish endpoint — accepte `tiktok_options` avec privacy, toggles, commercial |
+
+### 7 Requirements UX obligatoires
+
+Le dialog "Post to TikTok" contient dans cet ordre :
+
+1. **Nickname TikTok** du createur connecte (avatar + @username) — depuis `creator_info`
+2. **Preview video** — thumbnail/player de la video a poster
+3. **Champ Title** — editable, PAS pre-rempli avec watermark/promo, max 150 chars
+4. **Dropdown Privacy** — options depuis `creator_info.privacy_level_options`, placeholder "Select privacy", PAS de valeur par defaut, selection manuelle obligatoire
+5. **Toggles Interaction** — Comment/Duet/Stitch :
+   - OFF par defaut (selection manuelle obligatoire)
+   - Greyed out si disabled dans les settings du createur (`comment_disabled`, `duet_disabled`, `stitch_disabled`)
+6. **Commercial Content Disclosure** :
+   - Toggle off par defaut
+   - Quand ON → 2 checkboxes : "Your Brand" (promotional) + "Branded Content" (paid partnership)
+   - Au moins 1 doit etre cochee pour publier
+   - Branded Content + privacy SELF_ONLY = conflit bloque
+7. **Declaration legale dynamique** AVANT le bouton Publish :
+   - Si commercial OFF ou "Your Brand" seul : "By posting, you agree to TikTok's Music Usage Confirmation"
+   - Si "Branded Content" coche : "By posting, you agree to TikTok's Branded Content Policy and Music Usage Confirmation"
+
+### Validations pre-submit
+
+- `privacy_level` doit etre selectionne (pas null)
+- Si commercial toggle ON, au moins 1 checkbox cochee
+- Si Branded Content + SELF_ONLY → erreur affichee
+- Si `clipDurationSeconds > max_video_post_duration_sec` → erreur affichee
+- `title` ne doit pas etre vide
+
+### creator_info fetch
+
+Au montage du dialog :
+```
+GET /api/tiktok/creator-info
+  → POST https://open.tiktokapis.com/v2/post/publish/creator_info/query/
+  → Retourne : creator_nickname, creator_username, creator_avatar_url,
+               privacy_level_options, comment_disabled, duet_disabled,
+               stitch_disabled, max_video_post_duration_sec
+```
+
+### Publish flow
+
+```
+1. User remplit le form + clique "Publish to TikTok"
+2. POST /api/publish/tiktok avec tiktok_options (privacy, toggles, commercial)
+3. Backend → POST /v2/post/publish/video/init/ (PULL_FROM_URL)
+4. Retourne publish_id
+5. Frontend polling toutes les 5s via POST /api/tiktok/publish-status
+   → POST /v2/post/publish/status/fetch/
+6. Statuts : PROCESSING_UPLOAD → PROCESSING_DOWNLOAD → PUBLISH_COMPLETE / FAILED
+7. Message : "It may take a few minutes for content to be visible on your TikTok profile"
+```
+
+### Notes importantes
+
+- `TIKTOK_DIRECT_POST_ENABLED=true` active le mode Direct Post (sinon fallback Inbox)
+- Le dialog TikTok est SEPARE du PublishDialog generique (qui gere multi-plateforme)
+- Les toggles interaction sont `disable_*` cote API (inverse du UI `allow_*`)
+- `max_video_post_duration_sec` varie selon le compte createur (peut etre 60s, 180s, ou 600s)

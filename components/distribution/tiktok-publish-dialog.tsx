@@ -1,0 +1,688 @@
+'use client'
+
+import { useState, useEffect, useCallback, useRef } from 'react'
+import {
+  Loader2,
+  CheckCircle2,
+  AlertCircle,
+  Send,
+  ChevronDown,
+  Info,
+  ExternalLink,
+} from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Dialog } from '@/components/ui/dialog'
+import type {
+  TikTokCreatorInfo,
+  TikTokPrivacyLevel,
+  TikTokPublishStatus,
+} from '@/types/tiktok'
+import { PRIVACY_LEVEL_LABELS } from '@/types/tiktok'
+
+// ── Props ────────────────────────────────────────────────────────────────────
+
+interface TikTokPublishDialogProps {
+  open: boolean
+  onClose: () => void
+  clipId: string
+  clipTitle?: string
+  clipDurationSeconds?: number
+  videoPreviewUrl?: string
+}
+
+// ── Component ────────────────────────────────────────────────────────────────
+
+export function TikTokPublishDialog({
+  open,
+  onClose,
+  clipId,
+  clipTitle,
+  clipDurationSeconds,
+  videoPreviewUrl,
+}: TikTokPublishDialogProps) {
+  // Creator info
+  const [creatorInfo, setCreatorInfo] = useState<TikTokCreatorInfo | null>(null)
+  const [creatorInfoLoading, setCreatorInfoLoading] = useState(false)
+  const [creatorInfoError, setCreatorInfoError] = useState<string | null>(null)
+
+  // Form fields
+  const [title, setTitle] = useState('')
+  const [privacyLevel, setPrivacyLevel] = useState<TikTokPrivacyLevel | null>(null)
+  const [allowComment, setAllowComment] = useState(false)
+  const [allowDuet, setAllowDuet] = useState(false)
+  const [allowStitch, setAllowStitch] = useState(false)
+
+  // Commercial content disclosure
+  const [commercialEnabled, setCommercialEnabled] = useState(false)
+  const [brandOrganic, setBrandOrganic] = useState(false) // "Your Brand"
+  const [brandContent, setBrandContent] = useState(false) // "Branded Content"
+
+  // Publish state
+  const [isPublishing, setIsPublishing] = useState(false)
+  const [publishId, setPublishId] = useState<string | null>(null)
+  const [publishStatus, setPublishStatus] = useState<TikTokPublishStatus | null>(null)
+  const [publishError, setPublishError] = useState<string | null>(null)
+
+  const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null)
+
+  // ── Fetch creator info on mount ──────────────────────────────────────────
+
+  useEffect(() => {
+    if (!open) return
+
+    // Reset state
+    setTitle(clipTitle ?? '')
+    setPrivacyLevel(null)
+    setAllowComment(false)
+    setAllowDuet(false)
+    setAllowStitch(false)
+    setCommercialEnabled(false)
+    setBrandOrganic(false)
+    setBrandContent(false)
+    setPublishId(null)
+    setPublishStatus(null)
+    setPublishError(null)
+    setIsPublishing(false)
+    setCreatorInfoError(null)
+
+    const fetchCreatorInfo = async () => {
+      setCreatorInfoLoading(true)
+      try {
+        const res = await fetch('/api/tiktok/creator-info')
+        const json = await res.json() as {
+          data?: { creatorInfo: TikTokCreatorInfo }
+          error?: string
+        }
+
+        if (json.error) {
+          setCreatorInfoError(json.error)
+          return
+        }
+
+        if (json.data?.creatorInfo) {
+          setCreatorInfo(json.data.creatorInfo)
+        }
+      } catch {
+        setCreatorInfoError('Failed to load TikTok account info')
+      } finally {
+        setCreatorInfoLoading(false)
+      }
+    }
+
+    fetchCreatorInfo()
+
+    return () => {
+      if (pollingRef.current) {
+        clearInterval(pollingRef.current)
+        pollingRef.current = null
+      }
+    }
+  }, [open, clipTitle])
+
+  // ── Validation ───────────────────────────────────────────────────────────
+
+  const durationExceedsMax =
+    creatorInfo &&
+    clipDurationSeconds != null &&
+    clipDurationSeconds > creatorInfo.max_video_post_duration_sec
+
+  const brandedConflict =
+    brandContent && privacyLevel === 'SELF_ONLY'
+
+  const commercialMissingSelection =
+    commercialEnabled && !brandOrganic && !brandContent
+
+  const canPublish =
+    !isPublishing &&
+    !publishId &&
+    creatorInfo &&
+    privacyLevel !== null &&
+    title.trim().length > 0 &&
+    !durationExceedsMax &&
+    !brandedConflict &&
+    (!commercialEnabled || (brandOrganic || brandContent))
+
+  // ── Publish handler ──────────────────────────────────────────────────────
+
+  const handlePublish = useCallback(async () => {
+    if (!canPublish || !creatorInfo) return
+
+    setIsPublishing(true)
+    setPublishError(null)
+
+    try {
+      const res = await fetch('/api/publish/tiktok', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          clip_id: clipId,
+          caption: title,
+          tiktok_options: {
+            privacy_level: privacyLevel,
+            disable_comment: !allowComment,
+            disable_duet: !allowDuet,
+            disable_stitch: !allowStitch,
+            brand_content_toggle: brandContent,
+            brand_organic_toggle: brandOrganic,
+          },
+        }),
+      })
+
+      const json = await res.json() as {
+        data?: { postId?: string; publishId?: string }
+        error?: string
+      }
+
+      if (json.error) {
+        setPublishError(json.error)
+        setIsPublishing(false)
+        return
+      }
+
+      const pid = json.data?.publishId ?? json.data?.postId ?? null
+      setPublishId(pid)
+
+      // Start polling status
+      if (pid) {
+        pollingRef.current = setInterval(async () => {
+          try {
+            const statusRes = await fetch('/api/tiktok/publish-status', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ publish_id: pid }),
+            })
+            const statusJson = await statusRes.json() as {
+              data?: { status: TikTokPublishStatus; fail_reason?: string }
+              error?: string
+            }
+
+            if (statusJson.data?.status) {
+              setPublishStatus(statusJson.data.status)
+
+              if (
+                statusJson.data.status === 'PUBLISH_COMPLETE' ||
+                statusJson.data.status === 'FAILED'
+              ) {
+                if (pollingRef.current) {
+                  clearInterval(pollingRef.current)
+                  pollingRef.current = null
+                }
+                if (statusJson.data.status === 'FAILED') {
+                  setPublishError(statusJson.data.fail_reason ?? 'Publishing failed')
+                }
+                setIsPublishing(false)
+              }
+            }
+          } catch {
+            // Silently retry on network errors
+          }
+        }, 5000)
+      } else {
+        setIsPublishing(false)
+      }
+    } catch (err) {
+      setPublishError(err instanceof Error ? err.message : 'Network error')
+      setIsPublishing(false)
+    }
+  }, [canPublish, creatorInfo, clipId, title, privacyLevel, allowComment, allowDuet, allowStitch, brandContent, brandOrganic])
+
+  // ── Close handler ────────────────────────────────────────────────────────
+
+  const handleClose = () => {
+    if (isPublishing) return
+    if (pollingRef.current) {
+      clearInterval(pollingRef.current)
+      pollingRef.current = null
+    }
+    onClose()
+  }
+
+  // ── Legal text ───────────────────────────────────────────────────────────
+
+  const getLegalText = () => {
+    if (commercialEnabled && brandContent) {
+      return (
+        <p className="text-xs text-muted-foreground">
+          By posting, you agree to TikTok&apos;s{' '}
+          <a
+            href="https://www.tiktok.com/legal/page/global/bc-policy"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-primary hover:underline"
+          >
+            Branded Content Policy
+          </a>{' '}
+          and{' '}
+          <a
+            href="https://www.tiktok.com/legal/page/global/music-usage-confirmation"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-primary hover:underline"
+          >
+            Music Usage Confirmation
+          </a>
+          .
+        </p>
+      )
+    }
+
+    return (
+      <p className="text-xs text-muted-foreground">
+        By posting, you agree to TikTok&apos;s{' '}
+        <a
+          href="https://www.tiktok.com/legal/page/global/music-usage-confirmation"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-primary hover:underline"
+        >
+          Music Usage Confirmation
+        </a>
+        .
+      </p>
+    )
+  }
+
+  // ── Publish status display ───────────────────────────────────────────────
+
+  const getStatusDisplay = () => {
+    if (!publishId) return null
+
+    const statusLabels: Record<TikTokPublishStatus, string> = {
+      PROCESSING_UPLOAD: 'Uploading to TikTok...',
+      PROCESSING_DOWNLOAD: 'Processing video...',
+      SEND_TO_USER_INBOX: 'Sending to your inbox...',
+      PUBLISH_COMPLETE: 'Published successfully!',
+      FAILED: 'Publishing failed',
+    }
+
+    const isComplete = publishStatus === 'PUBLISH_COMPLETE'
+    const isFailed = publishStatus === 'FAILED'
+    const isProcessing = !isComplete && !isFailed
+
+    return (
+      <div
+        className={`rounded-lg border p-4 ${
+          isComplete
+            ? 'border-green-500/30 bg-green-500/5'
+            : isFailed
+              ? 'border-red-500/30 bg-red-500/5'
+              : 'border-border bg-muted/20'
+        }`}
+      >
+        <div className="flex items-center gap-3">
+          {isProcessing && <Loader2 className="h-5 w-5 animate-spin text-primary" />}
+          {isComplete && <CheckCircle2 className="h-5 w-5 text-green-400" />}
+          {isFailed && <AlertCircle className="h-5 w-5 text-red-400" />}
+
+          <div className="flex-1">
+            <p className={`text-sm font-medium ${
+              isComplete ? 'text-green-400' : isFailed ? 'text-red-400' : 'text-foreground'
+            }`}>
+              {publishStatus ? statusLabels[publishStatus] : 'Initializing...'}
+            </p>
+            {isProcessing && (
+              <p className="text-xs text-muted-foreground mt-1">
+                It may take a few minutes for content to be visible on your TikTok profile.
+              </p>
+            )}
+            {isFailed && publishError && (
+              <p className="text-xs text-red-400 mt-1">{publishError}</p>
+            )}
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // ── Render ───────────────────────────────────────────────────────────────
+
+  return (
+    <Dialog
+      open={open}
+      onClose={handleClose}
+      title="Post to TikTok"
+      description="Publish your clip directly to your TikTok account"
+    >
+      <div className="space-y-5 max-h-[70vh] overflow-y-auto pr-1">
+        {/* Loading skeleton */}
+        {creatorInfoLoading && (
+          <div className="space-y-3">
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-full bg-muted animate-pulse" />
+              <div className="space-y-1.5 flex-1">
+                <div className="h-4 w-32 bg-muted rounded animate-pulse" />
+                <div className="h-3 w-24 bg-muted rounded animate-pulse" />
+              </div>
+            </div>
+            {[1, 2, 3, 4].map((i) => (
+              <div key={i} className="h-10 bg-muted rounded-lg animate-pulse" />
+            ))}
+          </div>
+        )}
+
+        {/* Error state */}
+        {creatorInfoError && (
+          <div className="flex items-center gap-3 p-4 rounded-lg border border-red-500/30 bg-red-500/5">
+            <AlertCircle className="h-5 w-5 text-red-400 shrink-0" />
+            <div>
+              <p className="text-sm font-medium text-red-400">Cannot load TikTok info</p>
+              <p className="text-xs text-red-400/70 mt-0.5">{creatorInfoError}</p>
+            </div>
+          </div>
+        )}
+
+        {/* Main form — only when creator info is loaded */}
+        {creatorInfo && !creatorInfoLoading && !publishId && (
+          <>
+            {/* 1. Creator nickname */}
+            <div className="flex items-center gap-3">
+              {creatorInfo.creator_avatar_url ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={creatorInfo.creator_avatar_url}
+                  alt={creatorInfo.creator_nickname}
+                  className="h-10 w-10 rounded-full object-cover border border-border"
+                />
+              ) : (
+                <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center text-sm font-bold text-muted-foreground">
+                  {creatorInfo.creator_nickname?.charAt(0)?.toUpperCase() ?? 'T'}
+                </div>
+              )}
+              <div>
+                <p className="text-sm font-medium text-foreground">
+                  {creatorInfo.creator_nickname}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  @{creatorInfo.creator_username}
+                </p>
+              </div>
+            </div>
+
+            {/* 2. Video preview */}
+            {videoPreviewUrl && (
+              <div className="rounded-lg overflow-hidden border border-border bg-black aspect-[9/16] max-h-[200px] flex items-center justify-center">
+                <video
+                  src={videoPreviewUrl}
+                  className="max-h-full max-w-full object-contain"
+                  muted
+                  playsInline
+                  controls={false}
+                  autoPlay={false}
+                  poster=""
+                />
+              </div>
+            )}
+
+            {/* 3. Title */}
+            <div>
+              <label htmlFor="tiktok-title" className="text-sm font-medium text-foreground mb-1.5 block">
+                Title
+              </label>
+              <Input
+                id="tiktok-title"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder="Describe your video..."
+                maxLength={150}
+                disabled={isPublishing}
+              />
+              <p className="text-xs text-muted-foreground mt-1 text-right">
+                {title.length} / 150
+              </p>
+            </div>
+
+            {/* 4. Privacy dropdown — NO DEFAULT */}
+            <div>
+              <label htmlFor="tiktok-privacy" className="text-sm font-medium text-foreground mb-1.5 block">
+                Who can view this video
+              </label>
+              <div className="relative">
+                <select
+                  id="tiktok-privacy"
+                  value={privacyLevel ?? ''}
+                  onChange={(e) => {
+                    const val = e.target.value as TikTokPrivacyLevel
+                    setPrivacyLevel(val || null)
+                  }}
+                  disabled={isPublishing}
+                  className="w-full appearance-none rounded-lg border border-border bg-background px-3 py-2.5 pr-8 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 disabled:opacity-50"
+                >
+                  <option value="" disabled>
+                    Select privacy
+                  </option>
+                  {creatorInfo.privacy_level_options.map((level) => (
+                    <option key={level} value={level}>
+                      {PRIVACY_LEVEL_LABELS[level] ?? level}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+              </div>
+              {!privacyLevel && (
+                <p className="text-xs text-amber-400 mt-1">
+                  You must select a privacy setting before publishing.
+                </p>
+              )}
+            </div>
+
+            {/* 5. Interaction toggles — OFF by default, greyed if disabled by creator */}
+            <div className="space-y-3">
+              <label className="text-sm font-medium text-foreground block">
+                Allow users to
+              </label>
+
+              <ToggleRow
+                label="Comment"
+                checked={allowComment}
+                onChange={setAllowComment}
+                disabled={isPublishing || creatorInfo.comment_disabled}
+                disabledReason={creatorInfo.comment_disabled ? 'Disabled in your TikTok settings' : undefined}
+              />
+              <ToggleRow
+                label="Duet"
+                checked={allowDuet}
+                onChange={setAllowDuet}
+                disabled={isPublishing || creatorInfo.duet_disabled}
+                disabledReason={creatorInfo.duet_disabled ? 'Disabled in your TikTok settings' : undefined}
+              />
+              <ToggleRow
+                label="Stitch"
+                checked={allowStitch}
+                onChange={setAllowStitch}
+                disabled={isPublishing || creatorInfo.stitch_disabled}
+                disabledReason={creatorInfo.stitch_disabled ? 'Disabled in your TikTok settings' : undefined}
+              />
+            </div>
+
+            {/* 6. Commercial Content Disclosure */}
+            <div className="space-y-3">
+              <ToggleRow
+                label="Commercial content"
+                checked={commercialEnabled}
+                onChange={(val) => {
+                  setCommercialEnabled(val)
+                  if (!val) {
+                    setBrandOrganic(false)
+                    setBrandContent(false)
+                  }
+                }}
+                disabled={isPublishing}
+                info="Indicate if your content promotes a brand or product"
+              />
+
+              {commercialEnabled && (
+                <div className="ml-6 space-y-2 border-l-2 border-border pl-4">
+                  <label className="flex items-center gap-2.5 cursor-pointer group">
+                    <input
+                      type="checkbox"
+                      checked={brandOrganic}
+                      onChange={(e) => setBrandOrganic(e.target.checked)}
+                      disabled={isPublishing}
+                      className="h-4 w-4 rounded border-border bg-background text-primary focus:ring-primary/50"
+                    />
+                    <div>
+                      <span className="text-sm text-foreground group-hover:text-foreground/90">
+                        Your brand
+                      </span>
+                      <p className="text-xs text-muted-foreground">
+                        You are promoting yourself or your own business
+                      </p>
+                    </div>
+                  </label>
+
+                  <label className="flex items-center gap-2.5 cursor-pointer group">
+                    <input
+                      type="checkbox"
+                      checked={brandContent}
+                      onChange={(e) => setBrandContent(e.target.checked)}
+                      disabled={isPublishing}
+                      className="h-4 w-4 rounded border-border bg-background text-primary focus:ring-primary/50"
+                    />
+                    <div>
+                      <span className="text-sm text-foreground group-hover:text-foreground/90">
+                        Branded content
+                      </span>
+                      <p className="text-xs text-muted-foreground">
+                        You are promoting another brand or a third party (paid partnership)
+                      </p>
+                    </div>
+                  </label>
+
+                  {/* Conflict: Branded Content + SELF_ONLY */}
+                  {brandedConflict && (
+                    <div className="flex items-start gap-2 p-2.5 rounded-md bg-amber-500/10 border border-amber-500/20">
+                      <AlertCircle className="h-4 w-4 text-amber-400 shrink-0 mt-0.5" />
+                      <p className="text-xs text-amber-400">
+                        Branded content cannot be set to &quot;Only me&quot;. Please change your privacy setting.
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Must select at least one */}
+                  {commercialMissingSelection && (
+                    <div className="flex items-start gap-2 p-2.5 rounded-md bg-amber-500/10 border border-amber-500/20">
+                      <Info className="h-4 w-4 text-amber-400 shrink-0 mt-0.5" />
+                      <p className="text-xs text-amber-400">
+                        You need to indicate if your content promotes yourself, a third party, or both.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Duration warning */}
+            {durationExceedsMax && (
+              <div className="flex items-start gap-2 p-3 rounded-lg border border-red-500/30 bg-red-500/5">
+                <AlertCircle className="h-4 w-4 text-red-400 shrink-0 mt-0.5" />
+                <p className="text-xs text-red-400">
+                  Your video ({Math.round(clipDurationSeconds!)}s) exceeds the maximum allowed
+                  duration for your TikTok account ({creatorInfo.max_video_post_duration_sec}s).
+                  Please trim your clip before publishing.
+                </p>
+              </div>
+            )}
+
+            {/* 7. Legal declaration — BEFORE publish button */}
+            <div className="pt-1">
+              {getLegalText()}
+            </div>
+          </>
+        )}
+
+        {/* Publish status polling display */}
+        {publishId && getStatusDisplay()}
+
+        {/* Actions */}
+        <div className="flex justify-end gap-3 pt-2 border-t border-border/50">
+          {publishId ? (
+            <Button onClick={handleClose} variant="outline" disabled={isPublishing}>
+              {publishStatus === 'PUBLISH_COMPLETE' ? 'Done' : 'Close'}
+            </Button>
+          ) : (
+            <>
+              <Button
+                variant="ghost"
+                onClick={handleClose}
+                disabled={isPublishing}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handlePublish}
+                disabled={!canPublish}
+                className="gap-2"
+              >
+                {isPublishing ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Publishing...
+                  </>
+                ) : (
+                  <>
+                    <Send className="h-4 w-4" />
+                    Publish to TikTok
+                  </>
+                )}
+              </Button>
+            </>
+          )}
+        </div>
+      </div>
+    </Dialog>
+  )
+}
+
+// ── Toggle Row Component ─────────────────────────────────────────────────────
+
+interface ToggleRowProps {
+  label: string
+  checked: boolean
+  onChange: (val: boolean) => void
+  disabled?: boolean
+  disabledReason?: string
+  info?: string
+}
+
+function ToggleRow({ label, checked, onChange, disabled, disabledReason, info }: ToggleRowProps) {
+  return (
+    <div className={`flex items-center justify-between gap-3 ${disabled ? 'opacity-50' : ''}`}>
+      <div className="flex items-center gap-2">
+        <span className="text-sm text-foreground">{label}</span>
+        {info && (
+          <span title={info}>
+            <Info className="h-3.5 w-3.5 text-muted-foreground" />
+          </span>
+        )}
+        {disabledReason && (
+          <span className="text-xs text-muted-foreground italic">
+            ({disabledReason})
+          </span>
+        )}
+      </div>
+      <button
+        type="button"
+        role="switch"
+        aria-checked={checked}
+        onClick={() => !disabled && onChange(!checked)}
+        disabled={disabled}
+        className={`
+          relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full
+          border-2 border-transparent transition-colors duration-200
+          focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50
+          disabled:cursor-not-allowed
+          ${checked ? 'bg-primary' : 'bg-muted'}
+        `}
+      >
+        <span
+          className={`
+            pointer-events-none block h-5 w-5 rounded-full bg-white shadow-sm ring-0
+            transition-transform duration-200
+            ${checked ? 'translate-x-5' : 'translate-x-0'}
+          `}
+        />
+      </button>
+    </div>
+  )
+}

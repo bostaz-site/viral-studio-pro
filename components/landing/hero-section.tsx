@@ -4,7 +4,7 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import {
-  MonitorPlay, ArrowRight, Play, Clock, Sparkles, Zap,
+  MonitorPlay, ArrowRight, Play, Clock, Sparkles, Zap, UploadCloud,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { track } from '@/lib/analytics'
@@ -155,6 +155,12 @@ export function HeroSection() {
                 <Button size="lg" className="bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white shadow-lg shadow-orange-500/25 h-12 px-8 text-base font-bold gap-2">
                   Try for Free
                   <ArrowRight className="h-4 w-4" />
+                </Button>
+              </Link>
+              <Link href="/upload" onClick={() => track('cta_hero_click', { location: 'hero_upload' })}>
+                <Button variant="outline" size="lg" className="h-12 px-6 text-base gap-2 border-orange-500/30 hover:bg-orange-500/5 hover:border-orange-500/50">
+                  <UploadCloud className="h-4 w-4" />
+                  Upload your own clip
                 </Button>
               </Link>
               <Link href="/demo">

@@ -84,8 +84,10 @@ Si un système n'a **pas** de reference → c'est un bug. Créer le fichier en m
 
 ### `SYSTEM-REFERENCE-DISTRIBUTION.md`
 **Scope** : Publication multi-plateforme (TikTok, IG, YT Shorts), scheduling, OAuth comptes sociaux.
-**Lire avant** : ajouter une plateforme, modifier OAuth flow, scheduling logic.
+**Lire avant** : ajouter une plateforme, modifier OAuth flow, scheduling logic, TikTok publish dialog.
 **Dépendances** : Apps API (Meta, TikTok, YouTube) — cf. `reference_social_api_apps.md` en mémoire.
+**v8.1** : TikTok Direct Post compliance — TikTokPublishDialog, creator_info, 7 requirements UX, polling status.
+**Docs liés** : `TIKTOK-DEMO-VIDEO-SCRIPT.md` (script vidéo démo pour audit TikTok).
 
 ### `SYSTEM-REFERENCE-ANALYTICS.md`
 **Scope** : Analytics côté **user** (vues, likes, retention, performance par plateforme).
@@ -295,6 +297,6 @@ Quand on build un nouveau module, le `SYSTEM-REFERENCE-XXX.md` doit contenir :
 ---
 
 **Maintenu par** : Samy Cloutier
-**Last updated** : 2026-05-13
+**Last updated** : 2026-05-27
 **Branch live** : `master`
 **Production URL** : [viralanimal.com](https://viralanimal.com)
