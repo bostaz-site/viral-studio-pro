@@ -280,8 +280,8 @@ router.post('/', async (req, res) => {
     let clipStartTime = 0;
     let clipEndTime = duration;
 
-    // ── TRENDING CLIP FLOW ──
-    if (source === 'trending' && videoUrl) {
+    // ── DIRECT URL FLOW (trending clips + user-uploaded videos with signed URL) ──
+    if (videoUrl && videoUrl.startsWith('http')) {
       console.log(`[Render ${renderSessionId}] Downloading trending clip from: ${videoUrl}`);
       await downloadFromUrl(videoUrl, inputPath);
       console.log(`[Render ${renderSessionId}] Downloaded trending clip successfully`);
