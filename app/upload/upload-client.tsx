@@ -74,7 +74,7 @@ export function UploadPageClient() {
             setIsUploading(false)
             setTimeout(() => {
               // Authenticated → editor; anonymous → signup with redirect
-              router.push(`/dashboard/enhance/${videoId}?source=user_upload`)
+              router.push(`/dashboard/enhance/${videoId}?source=upload`)
             }, 800)
           } else {
             setUploadError('Upload to storage failed — please try again')
