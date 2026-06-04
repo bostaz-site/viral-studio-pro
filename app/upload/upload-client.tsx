@@ -1,9 +1,9 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Scissors, ArrowRight, Film } from 'lucide-react'
+import { ArrowRight, Film } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { UploadZone } from '@/components/video/upload-zone'
 import { ViralAnimalLogo } from '@/components/brand/viral-animal-logo'
@@ -17,55 +17,81 @@ export function UploadPageClient() {
   const [uploadError, setUploadError] = useState<string | null>(null)
   const [uploadSuccess, setUploadSuccess] = useState(false)
   const [url, setUrl] = useState('')
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null)
+
+  // Check auth status on mount (non-blocking)
+  useEffect(() => {
+    fetch('/api/auth/me')
+      .then(r => r.json())
+      .then(d => setIsAuthenticated(d.isAdmin !== undefined))
+      .catch(() => setIsAuthenticated(false))
+  }, [])
 
   const handleFileSelect = useCallback(
-    (file: File) => {
+    async (file: File) => {
       setSelectedFile(file)
       setUploadError(null)
       setUploadSuccess(false)
-
-      // Auto-upload on file select
-      const formData = new FormData()
-      formData.append('file', file)
-      formData.append('title', file.name.replace(/\.[^.]+$/, ''))
-
       setIsUploading(true)
       setUploadProgress(0)
 
-      const xhr = new XMLHttpRequest()
-      xhr.open('POST', '/api/upload')
+      try {
+        // Step 1: Get signed upload URL from our API
+        const signRes = await fetch('/api/upload/sign', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            filename: file.name,
+            contentType: file.type || 'video/mp4',
+            fileSize: file.size,
+          }),
+        })
 
-      xhr.upload.addEventListener('progress', (e) => {
-        if (e.lengthComputable) {
-          setUploadProgress(Math.round((e.loaded / e.total) * 100))
+        const signJson = await signRes.json()
+        if (!signRes.ok || signJson.error) {
+          setUploadError(signJson.message ?? signJson.error ?? 'Failed to prepare upload')
+          setIsUploading(false)
+          return
         }
-      })
 
-      xhr.addEventListener('load', () => {
-        try {
-          const json = JSON.parse(xhr.responseText)
-          if (xhr.status >= 200 && xhr.status < 300 && json.data?.id) {
+        const { signedUrl, videoId } = signJson.data
+
+        // Step 2: Upload file directly to Supabase Storage via signed URL
+        // Use XHR for progress tracking
+        const xhr = new XMLHttpRequest()
+        xhr.open('PUT', signedUrl)
+        xhr.setRequestHeader('Content-Type', file.type || 'video/mp4')
+
+        xhr.upload.addEventListener('progress', (e) => {
+          if (e.lengthComputable) {
+            setUploadProgress(Math.round((e.loaded / e.total) * 100))
+          }
+        })
+
+        xhr.addEventListener('load', () => {
+          if (xhr.status >= 200 && xhr.status < 300) {
             setUploadSuccess(true)
             setIsUploading(false)
             setTimeout(() => {
-              router.push(`/dashboard/enhance/${json.data.id}?source=user_upload`)
+              // Authenticated → editor; anonymous → signup with redirect
+              router.push(`/dashboard/enhance/${videoId}?source=user_upload`)
             }, 800)
           } else {
-            setUploadError(json.message ?? json.error ?? 'Upload failed')
+            setUploadError('Upload to storage failed — please try again')
             setIsUploading(false)
           }
-        } catch {
-          setUploadError('Unexpected response from server')
+        })
+
+        xhr.addEventListener('error', () => {
+          setUploadError('Network error — please try again')
           setIsUploading(false)
-        }
-      })
+        })
 
-      xhr.addEventListener('error', () => {
-        setUploadError('Network error — please try again')
+        xhr.send(file)
+      } catch {
+        setUploadError('Unexpected error — please try again')
         setIsUploading(false)
-      })
-
-      xhr.send(formData)
+      }
     },
     [router]
   )
@@ -104,7 +130,7 @@ export function UploadPageClient() {
               Upload Your Clip
             </h1>
             <p className="text-muted-foreground mt-3 text-base max-w-md mx-auto">
-              Edit your stream highlights and share them on your TikTok in seconds
+              Upload your video and enhance it with AI captions, split-screen, and more
             </p>
           </div>
 

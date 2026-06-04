@@ -65,7 +65,9 @@ export async function middleware(request: NextRequest) {
   const isAuthRoute = AUTH_ROUTES.some((r) => pathname.startsWith(r))
 
   // Redirect unauthenticated users trying to access protected routes
-  if (isProtected && !user) {
+  // Exception: /dashboard/enhance/* is allowed for anonymous in audit mode (post-upload flow)
+  const isEnhanceRoute = pathname.startsWith('/dashboard/enhance')
+  if (isProtected && !user && !(isAuditMode && isEnhanceRoute)) {
     const loginUrl = new URL('/login', request.url)
     loginUrl.searchParams.set('redirectTo', pathname)
     return NextResponse.redirect(loginUrl)
