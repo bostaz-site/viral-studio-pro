@@ -4,6 +4,7 @@ import { redis } from '@/lib/upstash'
 import { headers } from 'next/headers'
 import { createHash } from 'crypto'
 import { RefCookieSetter } from './cookie-setter'
+import { isAuditMode } from '@/lib/feature-flags'
 
 interface AffiliateCodeRow {
   id: string
@@ -133,7 +134,7 @@ export default async function RefPage({
               <span className="text-primary text-lg mt-0.5">1.</span>
               <div>
                 <p className="font-semibold text-sm">Pick a clip</p>
-                <p className="text-xs text-muted-foreground">Browse trending streamer clips or upload your own</p>
+                <p className="text-xs text-muted-foreground">{isAuditMode ? 'Upload your own clips' : 'Browse trending streamer clips or upload your own'}</p>
               </div>
             </div>
             <div className="flex items-start gap-3">

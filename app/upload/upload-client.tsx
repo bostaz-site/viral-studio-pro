@@ -6,6 +6,8 @@ import Link from 'next/link'
 import { Scissors, ArrowRight, Film } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { UploadZone } from '@/components/video/upload-zone'
+import { ViralAnimalLogo } from '@/components/brand/viral-animal-logo'
+import { isAuditMode } from '@/lib/feature-flags'
 
 export function UploadPageClient() {
   const router = useRouter()
@@ -81,12 +83,7 @@ export function UploadPageClient() {
       <nav className="border-b border-border/50 bg-background/80 backdrop-blur-md">
         <div className="max-w-4xl mx-auto flex items-center justify-between h-16 px-6">
           <Link href="/" className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center">
-              <Scissors className="h-4 w-4 text-white" />
-            </div>
-            <span className="text-xl font-black tracking-tight bg-gradient-to-r from-blue-400 to-indigo-500 bg-clip-text text-transparent">
-              VIRAL ANIMAL
-            </span>
+            <ViralAnimalLogo size={32} />
           </Link>
           <Link href="/dashboard">
             <Button variant="ghost" size="sm">
@@ -131,18 +128,20 @@ export function UploadPageClient() {
             Accepted: MP4, MOV &middot; Max 500 MB
           </p>
 
-          {/* Secondary CTA */}
-          <div className="text-center mt-8 pt-6 border-t border-border/30">
-            <p className="text-sm text-muted-foreground mb-3">
-              Don&apos;t have a clip yet?
-            </p>
-            <Link href="/dashboard">
-              <Button variant="outline" size="sm" className="gap-2">
-                Browse trending clips
-                <ArrowRight className="h-3.5 w-3.5" />
-              </Button>
-            </Link>
-          </div>
+          {/* Secondary CTA — hidden in audit mode */}
+          {!isAuditMode && (
+            <div className="text-center mt-8 pt-6 border-t border-border/30">
+              <p className="text-sm text-muted-foreground mb-3">
+                Don&apos;t have a clip yet?
+              </p>
+              <Link href="/dashboard">
+                <Button variant="outline" size="sm" className="gap-2">
+                  Browse trending clips
+                  <ArrowRight className="h-3.5 w-3.5" />
+                </Button>
+              </Link>
+            </div>
+          )}
         </div>
       </main>
     </div>

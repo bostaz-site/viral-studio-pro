@@ -1,8 +1,9 @@
 "use client"
 
 import { ChevronDown } from 'lucide-react'
+import { isAuditMode } from '@/lib/feature-flags'
 
-export const FAQ_ITEMS = [
+const ALL_FAQ_ITEMS = [
   {
     q: 'How does the free plan work?',
     a: 'The Free plan gives you 3 free videos per month, reset on the 1st of the next month. No card required to sign up. Clips up to 60 seconds, Viral Animal watermark included. Upgrade to Pro for $19/month anytime to unlock 30 clips/month without watermark.',
@@ -10,14 +11,16 @@ export const FAQ_ITEMS = [
   {
     q: 'How is this different from OpusClip or Eklipse?',
     a: 'We&apos;re the only tool with auto split-screen (Subway Surfers, Minecraft on bottom). OpusClip and Eklipse don&apos;t offer it. We also have "Remake This" to learn from trending clips and AI viral scoring by Claude.',
+    auditHidden: true,
   },
   {
     q: 'What exactly is split-screen? Does it actually work?',
-    a: 'Your stream clip plays on top, with satisfying video (Subway Surfers, Minecraft parkour) on bottom. This format drives 3x TikTok retention because it creates dual visual stimulation. It&apos;s the formula top clip channels use.',
+    a: 'Your clip plays on top, with satisfying video (Subway Surfers, Minecraft parkour) on bottom. This format drives 3x TikTok retention because it creates dual visual stimulation. It&apos;s the formula top clip channels use.',
   },
   {
     q: 'Can I use my Twitch VODs or do I need to upload?',
     a: 'Both. Browse Twitch and YouTube Gaming clips directly in the app, or upload your own videos (MP4, MOV, WebM). Kick support coming soon.',
+    auditHidden: true,
   },
   {
     q: 'Do I need to install software or is it browser-based?',
@@ -41,9 +44,15 @@ export const FAQ_ITEMS = [
   },
   {
     q: 'Do I own the clips I create?',
-    a: '100%. Clips you create are fully yours. We don&apos;t reuse your videos, show them to anyone, or train AI on them. For clips from our streamer library, we auto-credit the original creator.',
+    a: isAuditMode
+      ? '100%. Clips you create are fully yours. We don&apos;t reuse your videos, show them to anyone, or train AI on them.'
+      : '100%. Clips you create are fully yours. We don&apos;t reuse your videos, show them to anyone, or train AI on them. For clips from our streamer library, we auto-credit the original creator.',
   },
 ]
+
+export const FAQ_ITEMS = isAuditMode
+  ? ALL_FAQ_ITEMS.filter((item) => !('auditHidden' in item && item.auditHidden))
+  : ALL_FAQ_ITEMS
 
 export function FaqSection() {
   return (

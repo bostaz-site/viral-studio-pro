@@ -2,7 +2,8 @@
 
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
-import { Film, Layers, Check, Flame } from 'lucide-react'
+import { Film, Layers, Check, Flame, Upload } from 'lucide-react'
+import { isAuditMode } from '@/lib/feature-flags'
 
 interface ClipBankItem {
   id: string
@@ -66,15 +67,15 @@ export function ClipPickerModal({
             <div className="dist-clip-picker-empty">
               <Film size={26} />
               <p className="empty-title">No clips queued yet</p>
-              <p className="empty-sub">Browse trending or upload your own to start filling the queue.</p>
+              <p className="empty-sub">{isAuditMode ? 'Upload your own clips to start filling the queue.' : 'Browse trending or upload your own to start filling the queue.'}</p>
               <button
                 className="dist-cyan-btn"
                 onClick={() => {
                   onClose()
-                  router.push('/dashboard')
+                  router.push(isAuditMode ? '/upload' : '/dashboard')
                 }}
               >
-                <Layers size={12} /> Browse
+                {isAuditMode ? <><Upload size={12} /> Upload</> : <><Layers size={12} /> Browse</>}
               </button>
             </div>
           ) : (

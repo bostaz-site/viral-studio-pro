@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { Wand2, Sparkles, Upload } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { PageHeader } from '@/components/dashboard/page-header'
+import { isAuditMode } from '@/lib/feature-flags'
 
 export default function EnhanceLandingPage() {
   return (
@@ -26,23 +27,35 @@ export default function EnhanceLandingPage() {
         <div>
           <h2 className="text-2xl font-bold tracking-tight text-white">Pick a clip to enhance</h2>
           <p className="text-muted-foreground mt-2 max-w-md">
-            Browse trending clips or upload your own, then boost virality with karaoke captions,
-            split-screen, hooks and more — all in one click.
+            {isAuditMode
+              ? 'Upload your own clip, then boost virality with karaoke captions, split-screen, hooks and more — all in one click.'
+              : 'Browse trending clips or upload your own, then boost virality with karaoke captions, split-screen, hooks and more — all in one click.'}
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <Link href="/dashboard">
-            <Button className="gap-2 bg-gradient-to-r from-cyan-500 to-sky-500 hover:from-cyan-600 hover:to-sky-600 text-white font-bold shadow-lg shadow-cyan-500/25 h-11 px-5">
-              <Sparkles className="h-4 w-4" />
-              Browse clips
-            </Button>
-          </Link>
-          <Link href="/dashboard?tab=upload">
-            <Button variant="outline" className="gap-2 text-zinc-400 hover:text-white h-11 px-5">
-              <Upload className="h-4 w-4" />
-              Upload
-            </Button>
-          </Link>
+          {isAuditMode ? (
+            <Link href="/upload">
+              <Button className="gap-2 bg-gradient-to-r from-cyan-500 to-sky-500 hover:from-cyan-600 hover:to-sky-600 text-white font-bold shadow-lg shadow-cyan-500/25 h-11 px-5">
+                <Upload className="h-4 w-4" />
+                Upload your clip
+              </Button>
+            </Link>
+          ) : (
+            <>
+              <Link href="/dashboard">
+                <Button className="gap-2 bg-gradient-to-r from-cyan-500 to-sky-500 hover:from-cyan-600 hover:to-sky-600 text-white font-bold shadow-lg shadow-cyan-500/25 h-11 px-5">
+                  <Sparkles className="h-4 w-4" />
+                  Browse clips
+                </Button>
+              </Link>
+              <Link href="/dashboard?tab=upload">
+                <Button variant="outline" className="gap-2 text-zinc-400 hover:text-white h-11 px-5">
+                  <Upload className="h-4 w-4" />
+                  Upload
+                </Button>
+              </Link>
+            </>
+          )}
         </div>
       </div>
     </>

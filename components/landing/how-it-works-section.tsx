@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { ArrowRight, Play } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
+import { isAuditMode } from '@/lib/feature-flags'
 
 export function HowItWorksSection() {
   return (
@@ -11,7 +12,7 @@ export function HowItWorksSection() {
       <div className="max-w-5xl mx-auto">
         <div className="text-center mb-14">
           <h2 className="text-3xl sm:text-4xl font-bold tracking-tight">Create Your First Viral Clip in 3 Steps</h2>
-          <p className="text-muted-foreground mt-3 text-lg">From your Twitch stream to TikTok in under 5 minutes</p>
+          <p className="text-muted-foreground mt-3 text-lg">{isAuditMode ? 'From your video to TikTok in under 5 minutes' : 'From your Twitch stream to TikTok in under 5 minutes'}</p>
         </div>
 
         <div className="space-y-16">
@@ -19,8 +20,8 @@ export function HowItWorksSection() {
           <div className="grid md:grid-cols-2 gap-8 items-center">
             <div>
               <span className="inline-block text-xs font-bold text-amber-400 uppercase tracking-wider mb-2">Step 1</span>
-              <h3 className="text-2xl font-bold text-foreground mb-3">Pick Your Stream Clip</h3>
-              <p className="text-muted-foreground leading-relaxed">Browse top Twitch and YouTube Gaming moments ranked by viral score. AI auto-identifies the moments that hit hardest.</p>
+              <h3 className="text-2xl font-bold text-foreground mb-3">{isAuditMode ? 'Upload Your Video' : 'Pick Your Stream Clip'}</h3>
+              <p className="text-muted-foreground leading-relaxed">{isAuditMode ? 'Upload your own video or clip. Drag and drop or paste a URL — we handle the rest.' : 'Browse top Twitch and YouTube Gaming moments ranked by viral score. AI auto-identifies the moments that hit hardest.'}</p>
             </div>
             {/* Mockup: trending dashboard */}
             <div className="rounded-xl border border-border/50 bg-card/60 overflow-hidden shadow-lg">
@@ -28,13 +29,13 @@ export function HowItWorksSection() {
                 <div className="w-2.5 h-2.5 rounded-full bg-red-500/60" />
                 <div className="w-2.5 h-2.5 rounded-full bg-yellow-500/60" />
                 <div className="w-2.5 h-2.5 rounded-full bg-green-500/60" />
-                <span className="text-[10px] text-muted-foreground/50 ml-2">Clips — Viral Animal</span>
+                <span className="text-[10px] text-muted-foreground/50 ml-2">{isAuditMode ? 'Upload — Viral Animal' : 'Clips — Viral Animal'}</span>
               </div>
               <div className="p-3 space-y-2">
                 {/* Search bar mockup */}
                 <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-muted/50 border border-border/30">
                   <div className="w-3 h-3 rounded-full border border-muted-foreground/30" />
-                  <span className="text-[10px] text-muted-foreground/50">Search streamer or game...</span>
+                  <span className="text-[10px] text-muted-foreground/50">{isAuditMode ? 'Drag & drop your video...' : 'Search streamer or game...'}</span>
                 </div>
                 {/* Clip cards */}
                 {[

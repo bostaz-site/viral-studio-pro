@@ -3,6 +3,9 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { rateLimit } from '@/lib/rate-limit'
 import { fetchAndScoreStreamerClips } from '@/lib/twitch/fetch-streamer-clips'
 import { withAuth } from '@/lib/api/withAuth'
+import { isAuditMode } from '@/lib/feature-flags'
+import { isAdminUser } from '@/lib/admin/is-admin'
+import { createClient } from '@/lib/supabase/server'
 
 /**
  * POST /api/streams/refresh
@@ -11,6 +14,16 @@ import { withAuth } from '@/lib/api/withAuth'
  * Rate limited to 1 request per minute per user.
  */
 export const POST = withAuth(async (req, user) => {
+  if (isAuditMode) {
+    const supabase = createClient()
+    const admin = await isAdminUser(supabase, user.id)
+    if (!admin) {
+      return NextResponse.json(
+        { data: null, error: 'Unavailable', message: 'This feature is temporarily unavailable' },
+        { status: 403 }
+      )
+    }
+  }
   // Rate limit: 1 per minute per user
   const rl = await rateLimit(`streams-refresh:${user.id}`, 1, 60_000)
   if (!rl.allowed) {

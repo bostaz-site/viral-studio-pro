@@ -3,6 +3,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { timingSafeCompare } from '@/lib/crypto'
 import { fetchAndScoreStreamerClips, cleanupOldSnapshots } from '@/lib/twitch/fetch-streamer-clips'
 import { fetchAndScoreKickClips } from '@/lib/kick/fetch-kick-clips'
+import { isAuditMode } from '@/lib/feature-flags'
 
 /**
  * POST /api/cron/fetch-twitch-clips
@@ -14,6 +15,12 @@ import { fetchAndScoreKickClips } from '@/lib/kick/fetch-kick-clips'
  * Auth: x-api-key header = CRON_SECRET env var
  */
 export async function POST(req: NextRequest) {
+  if (isAuditMode) {
+    return NextResponse.json(
+      { data: null, error: 'Unavailable', message: 'This feature is temporarily unavailable' },
+      { status: 403 }
+    )
+  }
   const apiKey = req.headers.get('x-api-key')
   const cronSecret = process.env.CRON_SECRET
 
@@ -80,6 +87,12 @@ export async function POST(req: NextRequest) {
 }
 
 export async function GET(req: NextRequest) {
+  if (isAuditMode) {
+    return NextResponse.json(
+      { data: null, error: 'Unavailable', message: 'This feature is temporarily unavailable' },
+      { status: 403 }
+    )
+  }
   const key = req.nextUrl.searchParams.get('key')
   if (!key) {
     return NextResponse.json(

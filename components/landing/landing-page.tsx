@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { Scissors, Send } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { ViralAnimalLogo } from '@/components/brand/viral-animal-logo'
 import { HeroSection } from '@/components/landing/hero-section'
 import { BeforeAfterSection } from '@/components/landing/before-after-section'
 import { HowItWorksSection } from '@/components/landing/how-it-works-section'
@@ -13,6 +14,7 @@ import { PricingSection } from '@/components/landing/pricing-section'
 import { TestimonialsSection } from '@/components/landing/testimonials-section'
 import { FinalCtaSection } from '@/components/landing/final-cta-section'
 import { ExitIntentPopup } from '@/components/landing/exit-intent-popup'
+import { isAuditMode } from '@/lib/feature-flags'
 
 export function LandingPage() {
   // Inject FAQ + HowTo structured data for SEO
@@ -29,13 +31,21 @@ export function LandingPage() {
     const howToJsonLd = {
       '@context': 'https://schema.org',
       '@type': 'HowTo',
-      name: 'How to create a viral split-screen clip from a stream',
-      description: 'Turn your best Twitch and YouTube Gaming moments into viral 9:16 clips with karaoke captions and auto split-screen.',
-      step: [
-        { '@type': 'HowToStep', name: 'Pick a stream clip', text: 'Browse the best Twitch and YouTube Gaming moments sorted by viral score. AI picks the most engaging ones automatically.', position: 1 },
-        { '@type': 'HowToStep', name: 'Customize your clip', text: 'Add karaoke captions (9 styles), pick a satisfying b-roll video for split-screen, and check the AI viral score.', position: 2 },
-        { '@type': 'HowToStep', name: 'Export and post', text: 'Download in 9:16 optimized for TikTok, Reels, and Shorts — or post straight away. Your clip is ready in under 5 minutes.', position: 3 },
-      ],
+      name: isAuditMode ? 'How to create a viral split-screen clip' : 'How to create a viral split-screen clip from a stream',
+      description: isAuditMode
+        ? 'Upload your videos and turn them into viral 9:16 clips with karaoke captions and auto split-screen.'
+        : 'Turn your best Twitch and YouTube Gaming moments into viral 9:16 clips with karaoke captions and auto split-screen.',
+      step: isAuditMode
+        ? [
+            { '@type': 'HowToStep', name: 'Upload your video', text: 'Upload your own video or clip. Drag and drop or paste a URL.', position: 1 },
+            { '@type': 'HowToStep', name: 'Customize your clip', text: 'Add karaoke captions (9 styles), pick a satisfying b-roll video for split-screen, and check the AI viral score.', position: 2 },
+            { '@type': 'HowToStep', name: 'Export and post', text: 'Download in 9:16 optimized for TikTok, Reels, and Shorts — or post straight away. Your clip is ready in under 5 minutes.', position: 3 },
+          ]
+        : [
+            { '@type': 'HowToStep', name: 'Pick a stream clip', text: 'Browse the best Twitch and YouTube Gaming moments sorted by viral score. AI picks the most engaging ones automatically.', position: 1 },
+            { '@type': 'HowToStep', name: 'Customize your clip', text: 'Add karaoke captions (9 styles), pick a satisfying b-roll video for split-screen, and check the AI viral score.', position: 2 },
+            { '@type': 'HowToStep', name: 'Export and post', text: 'Download in 9:16 optimized for TikTok, Reels, and Shorts — or post straight away. Your clip is ready in under 5 minutes.', position: 3 },
+          ],
     }
 
     const script = document.createElement('script')
@@ -83,10 +93,10 @@ export function LandingPage() {
       </nav>
 
       <HeroSection />
-      <BeforeAfterSection />
+      {!isAuditMode && <BeforeAfterSection />}
       <HowItWorksSection />
       <FeaturesGrid />
-      <TestimonialsSection />
+      {!isAuditMode && <TestimonialsSection />}
       <FaqSection />
       <PricingSection />
       <FinalCtaSection />
@@ -108,7 +118,9 @@ export function LandingPage() {
                 </span>
               </div>
               <p className="text-xs text-muted-foreground/70 leading-relaxed max-w-sm">
-                Turn Twitch and YouTube Gaming streams into viral clips. Karaoke captions, split-screen, and AI viral scoring.
+                {isAuditMode
+                  ? 'Upload your videos and make them go viral. Karaoke captions, split-screen, and AI viral scoring.'
+                  : 'Turn Twitch and YouTube Gaming streams into viral clips. Karaoke captions, split-screen, and AI viral scoring.'}
               </p>
               {/* Social links */}
               <div className="flex items-center gap-3 mt-4">

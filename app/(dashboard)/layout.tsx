@@ -12,6 +12,7 @@ import { useAccountStore } from '@/stores/account-store'
 import { CREATOR_RANK_CONFIG } from '@/lib/scoring/account-scorer'
 import { useEffect, useState } from 'react'
 import type { User } from '@supabase/supabase-js'
+import { isAuditMode } from '@/lib/feature-flags'
 
 interface UserProfile {
   plan: string | null
@@ -25,6 +26,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [user, setUser] = useState<User | null>(null)
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [isAdmin, setIsAdmin] = useState(false)
+  const [effectiveAuditMode, setEffectiveAuditMode] = useState(isAuditMode)
 
   useEffect(() => {
     const supabase = createClient()
@@ -37,16 +39,22 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           .eq('id', data.user.id)
           .single()
           .then(({ data: p }) => { if (p) setProfile(p) })
-        // Check admin status server-side (email list never sent to client)
+        // Check admin status + effective audit mode server-side
         fetch('/api/auth/me')
           .then(r => r.json())
-          .then(d => setIsAdmin(d.isAdmin === true))
+          .then(d => {
+            setIsAdmin(d.isAdmin === true)
+            setEffectiveAuditMode(d.effectiveAuditMode ?? isAuditMode)
+          })
           .catch(() => setIsAdmin(false))
       }
     })
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null)
-      if (!session?.user) setIsAdmin(false)
+      if (!session?.user) {
+        setIsAdmin(false)
+        setEffectiveAuditMode(isAuditMode)
+      }
     })
     return () => subscription.unsubscribe()
   }, [])
@@ -57,29 +65,37 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     router.push('/login')
   }
 
-  // User-facing nav (always visible)
-  const userNavigation = [
-    { name: 'Browse', href: '/dashboard', icon: Compass },
-    { name: 'Enhance', href: '/dashboard/enhance', icon: Wand2 },
-    { name: 'Distribution', href: '/dashboard/distribution', icon: Radio },
-    { name: 'Analytics', href: '/dashboard/analytics', icon: BarChart3 },
-    { name: 'Settings', href: '/settings', icon: Settings },
-  ]
+  // User-facing nav — filtered in effective audit mode (admins see everything)
+  const userNavigation = effectiveAuditMode
+    ? [
+        { name: 'My Clips', href: '/upload', icon: Compass },
+        { name: 'Enhance', href: '/dashboard/enhance', icon: Wand2 },
+        { name: 'Settings', href: '/settings', icon: Settings },
+      ]
+    : [
+        { name: 'Browse', href: '/dashboard', icon: Compass },
+        { name: 'Enhance', href: '/dashboard/enhance', icon: Wand2 },
+        { name: 'Distribution', href: '/dashboard/distribution', icon: Radio },
+        { name: 'Analytics', href: '/dashboard/analytics', icon: BarChart3 },
+        { name: 'Settings', href: '/settings', icon: Settings },
+      ]
 
-  // Admin-only nav — distinct icons (no more duplicate Crown), shown under a labelled section
-  const adminNavigation = [
-    { name: 'Growth', href: '/admin/growth', icon: TrendingUp },
-    { name: 'Inbox', href: '/admin/inbox', icon: Inbox },
-    { name: 'Affiliates', href: '/admin/affiliates', icon: Handshake },
-    { name: 'Campaigns', href: '/admin/campaigns', icon: Mail },
-    { name: 'Streamers', href: '/admin/streamers', icon: Users },
-    { name: 'Video Library', href: '/admin/video-library', icon: Film },
-    { name: 'Match Engine', href: '/admin/match-engine', icon: Cpu },
-    { name: 'Offer Generator', href: '/admin/offer-generator', icon: Sparkles },
-    { name: 'AI Scoring', href: '/admin/ai-scoring', icon: Brain },
-    { name: 'Scraper', href: '/admin/scraper', icon: Radar },
-    { name: 'Webhooks', href: '/admin/webhooks', icon: Webhook },
-  ]
+  // Admin-only nav — hidden in effective audit mode for non-admins
+  const adminNavigation = effectiveAuditMode
+    ? []
+    : [
+        { name: 'Growth', href: '/admin/growth', icon: TrendingUp },
+        { name: 'Inbox', href: '/admin/inbox', icon: Inbox },
+        { name: 'Affiliates', href: '/admin/affiliates', icon: Handshake },
+        { name: 'Campaigns', href: '/admin/campaigns', icon: Mail },
+        { name: 'Streamers', href: '/admin/streamers', icon: Users },
+        { name: 'Video Library', href: '/admin/video-library', icon: Film },
+        { name: 'Match Engine', href: '/admin/match-engine', icon: Cpu },
+        { name: 'Offer Generator', href: '/admin/offer-generator', icon: Sparkles },
+        { name: 'AI Scoring', href: '/admin/ai-scoring', icon: Brain },
+        { name: 'Scraper', href: '/admin/scraper', icon: Radar },
+        { name: 'Webhooks', href: '/admin/webhooks', icon: Webhook },
+      ]
 
   const planLimits: Record<string, number> = { free: 3, pro: 50, studio: 999 }
   const planLabel: Record<string, string> = { free: 'Free', pro: 'Pro', studio: 'Studio' }

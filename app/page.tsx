@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { LandingPage } from '@/components/landing/landing-page'
+import { isEffectiveAuditMode } from '@/lib/feature-flags.server'
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = {
@@ -25,7 +26,8 @@ export default async function Home() {
   const { data: { user } } = await supabase.auth.getUser()
 
   if (user) {
-    redirect('/dashboard')
+    const auditMode = await isEffectiveAuditMode()
+    redirect(auditMode ? '/upload' : '/dashboard')
   }
 
   return (

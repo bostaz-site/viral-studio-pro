@@ -1,8 +1,9 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { Check, Clock, Film, Flame, Loader2, Pause, Play, Plus, Power, Rocket, Sparkles, X } from 'lucide-react'
+import { Check, Clock, Film, Flame, Loader2, Pause, Play, Plus, Power, Rocket, Sparkles, Upload, X } from 'lucide-react'
 import type { QueuePreview } from '@/lib/distribution/smart-queue-engine'
+import { isAuditMode } from '@/lib/feature-flags'
 
 interface ClipBankItem {
   id: string
@@ -163,12 +164,20 @@ export function ClipBankRail({
             <p className="empty-sub">Enhance a trending clip or upload your own, then it will appear here.</p>
           </div>
           <div className="empty-actions">
-            <button className="dist-cyan-btn" onClick={onBrowse}>
-              <Sparkles size={12} /> Browse trending
-            </button>
-            <button className="dist-ghost-btn" onClick={onUpload}>
-              <Plus size={12} /> Upload
-            </button>
+            {isAuditMode ? (
+              <button className="dist-cyan-btn" onClick={onUpload}>
+                <Upload size={12} /> Upload your clip
+              </button>
+            ) : (
+              <>
+                <button className="dist-cyan-btn" onClick={onBrowse}>
+                  <Sparkles size={12} /> Browse trending
+                </button>
+                <button className="dist-ghost-btn" onClick={onUpload}>
+                  <Plus size={12} /> Upload
+                </button>
+              </>
+            )}
           </div>
         </div>
       ) : (

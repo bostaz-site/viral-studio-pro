@@ -3,6 +3,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { timingSafeCompare } from '@/lib/crypto'
 import { scoreClip } from '@/lib/scoring/clip-scorer'
 import { logger } from '@/lib/logger'
+import { isAuditMode } from '@/lib/feature-flags'
 
 /**
  * POST /api/cron/rescore-clips
@@ -16,6 +17,12 @@ import { logger } from '@/lib/logger'
  * Auth: x-api-key header = CRON_SECRET
  */
 export async function POST(req: NextRequest) {
+  if (isAuditMode) {
+    return NextResponse.json(
+      { data: null, error: 'Unavailable', message: 'This feature is temporarily unavailable' },
+      { status: 403 }
+    )
+  }
   const apiKey = req.headers.get('x-api-key')
   const cronSecret = process.env.CRON_SECRET
 

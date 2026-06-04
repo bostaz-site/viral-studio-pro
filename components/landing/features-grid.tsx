@@ -3,6 +3,7 @@
 import { Subtitles, MonitorPlay, TrendingUp, Sparkles } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { AnimatedSection } from '@/components/landing/animated-section'
+import { isAuditMode } from '@/lib/feature-flags'
 
 const FEATURES = [
   {
@@ -13,18 +14,24 @@ const FEATURES = [
   {
     icon: MonitorPlay,
     title: 'Auto Split-Screen',
-    description: 'Stack your stream clip on top with Subway Surfers, Minecraft parkour, or other satisfying video below. The signature format no other tool has.',
+    description: isAuditMode
+      ? 'Stack your video on top with Subway Surfers, Minecraft parkour, or other satisfying video below. The signature format no other tool has.'
+      : 'Stack your stream clip on top with Subway Surfers, Minecraft parkour, or other satisfying video below. The signature format no other tool has.',
   },
   {
     icon: TrendingUp,
     title: 'AI Viral Score',
     description: 'Claude AI scores every clip 0-100 with detailed breakdown: hook strength, retention curve, emotional arc. Know exactly which clips pop off.',
   },
-  {
-    icon: Sparkles,
-    title: 'Remake This',
-    description: 'See a trending clip? Hit "Remake" and AI adapts the format, captions, and style to your content. Learn from the best without copying.',
-  },
+  ...(!isAuditMode
+    ? [
+        {
+          icon: Sparkles,
+          title: 'Remake This',
+          description: 'See a trending clip? Hit "Remake" and AI adapts the format, captions, and style to your content. Learn from the best without copying.',
+        },
+      ]
+    : []),
 ]
 
 export function FeaturesGrid() {

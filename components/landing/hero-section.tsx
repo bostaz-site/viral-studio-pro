@@ -8,6 +8,7 @@ import {
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { track } from '@/lib/analytics'
+import { isAuditMode } from '@/lib/feature-flags'
 
 // ─── Platform SVG Icons ─────────────────────────────────────────────────────
 
@@ -132,48 +133,91 @@ export function HeroSection() {
 
         <div className="relative z-10 max-w-5xl mx-auto">
           <div className="text-center">
-            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-orange-500/20 bg-orange-500/5 text-sm text-orange-400 mb-8">
-              <MonitorPlay className="h-3.5 w-3.5" />
-              Twitch Clip to Viral TikTok in 1 Click
-            </div>
+            {isAuditMode ? (
+              <>
+                <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-orange-500/20 bg-orange-500/5 text-sm text-orange-400 mb-8">
+                  <UploadCloud className="h-3.5 w-3.5" />
+                  Upload &amp; Enhance Your Videos
+                </div>
 
-            <h1 className="text-4xl sm:text-5xl md:text-6xl font-black tracking-tight leading-[1.1]">
-              Turn Your Twitch Clips into{' '}
-              <span className="bg-gradient-to-r from-orange-400 via-amber-400 to-yellow-400 bg-clip-text text-transparent">
-                Viral Clips
-              </span>{' '}
-              in 90&nbsp;Seconds
-            </h1>
+                <h1 className="text-4xl sm:text-5xl md:text-6xl font-black tracking-tight leading-[1.1]">
+                  Upload Your Video,{' '}
+                  <span className="bg-gradient-to-r from-orange-400 via-amber-400 to-yellow-400 bg-clip-text text-transparent">
+                    Make It Viral
+                  </span>{' '}
+                  in 90&nbsp;Seconds
+                </h1>
 
-            <p className="text-lg sm:text-xl text-muted-foreground mt-6 max-w-2xl mx-auto leading-relaxed">
-              Karaoke captions, auto split-screen gameplay, AI hook reordering, streamer tags.
-              One &laquo;&nbsp;Make It Viral&nbsp;&raquo; button applies the formula that pops off on TikTok &mdash; no CapCut, no editing skills needed.
-            </p>
+                <p className="text-lg sm:text-xl text-muted-foreground mt-6 max-w-2xl mx-auto leading-relaxed">
+                  Karaoke captions, auto split-screen, AI hook reordering.
+                  One click applies the formula that pops off on TikTok &mdash; no CapCut, no editing skills needed.
+                </p>
 
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mt-10">
-              <Link href="/signup" onClick={() => track('cta_hero_click', { location: 'hero_primary' })}>
-                <Button size="lg" className="bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white shadow-lg shadow-orange-500/25 h-12 px-8 text-base font-bold gap-2">
-                  Try for Free
-                  <ArrowRight className="h-4 w-4" />
-                </Button>
-              </Link>
-              <Link href="/upload" onClick={() => track('cta_hero_click', { location: 'hero_upload' })}>
-                <Button variant="outline" size="lg" className="h-12 px-6 text-base gap-2 border-orange-500/30 hover:bg-orange-500/5 hover:border-orange-500/50">
-                  <UploadCloud className="h-4 w-4" />
-                  Upload your own clip
-                </Button>
-              </Link>
-              <Link href="/demo">
-                <Button variant="ghost" size="lg" className="h-12 px-6 text-base text-muted-foreground hover:text-foreground gap-2">
-                  <Play className="h-4 w-4" />
-                  Watch Demo
-                </Button>
-              </Link>
-            </div>
+                <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mt-10">
+                  <Link href="/upload" onClick={() => track('cta_hero_click', { location: 'hero_upload' })}>
+                    <Button size="lg" className="bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white shadow-lg shadow-orange-500/25 h-14 px-10 text-lg font-bold gap-2">
+                      <UploadCloud className="h-5 w-5" />
+                      Upload Your Video
+                    </Button>
+                  </Link>
+                  <Link href="/signup" onClick={() => track('cta_hero_click', { location: 'hero_signup' })}>
+                    <Button variant="outline" size="lg" className="h-12 px-6 text-base gap-2 border-orange-500/30 hover:bg-orange-500/5 hover:border-orange-500/50">
+                      Create Free Account
+                      <ArrowRight className="h-4 w-4" />
+                    </Button>
+                  </Link>
+                </div>
 
-            <p className="text-xs text-muted-foreground/60 mt-4">
-              No card required &middot; No setup &middot; Cancel anytime
-            </p>
+                <p className="text-xs text-muted-foreground/60 mt-4">
+                  No card required &middot; No setup &middot; Cancel anytime
+                </p>
+              </>
+            ) : (
+              <>
+                <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-orange-500/20 bg-orange-500/5 text-sm text-orange-400 mb-8">
+                  <MonitorPlay className="h-3.5 w-3.5" />
+                  Twitch Clip to Viral TikTok in 1 Click
+                </div>
+
+                <h1 className="text-4xl sm:text-5xl md:text-6xl font-black tracking-tight leading-[1.1]">
+                  Turn Your Twitch Clips into{' '}
+                  <span className="bg-gradient-to-r from-orange-400 via-amber-400 to-yellow-400 bg-clip-text text-transparent">
+                    Viral Clips
+                  </span>{' '}
+                  in 90&nbsp;Seconds
+                </h1>
+
+                <p className="text-lg sm:text-xl text-muted-foreground mt-6 max-w-2xl mx-auto leading-relaxed">
+                  Karaoke captions, auto split-screen gameplay, AI hook reordering, streamer tags.
+                  One &laquo;&nbsp;Make It Viral&nbsp;&raquo; button applies the formula that pops off on TikTok &mdash; no CapCut, no editing skills needed.
+                </p>
+
+                <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mt-10">
+                  <Link href="/signup" onClick={() => track('cta_hero_click', { location: 'hero_primary' })}>
+                    <Button size="lg" className="bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white shadow-lg shadow-orange-500/25 h-12 px-8 text-base font-bold gap-2">
+                      Try for Free
+                      <ArrowRight className="h-4 w-4" />
+                    </Button>
+                  </Link>
+                  <Link href="/upload" onClick={() => track('cta_hero_click', { location: 'hero_upload' })}>
+                    <Button variant="outline" size="lg" className="h-12 px-6 text-base gap-2 border-orange-500/30 hover:bg-orange-500/5 hover:border-orange-500/50">
+                      <UploadCloud className="h-4 w-4" />
+                      Upload your own clip
+                    </Button>
+                  </Link>
+                  <Link href="/demo">
+                    <Button variant="ghost" size="lg" className="h-12 px-6 text-base text-muted-foreground hover:text-foreground gap-2">
+                      <Play className="h-4 w-4" />
+                      Watch Demo
+                    </Button>
+                  </Link>
+                </div>
+
+                <p className="text-xs text-muted-foreground/60 mt-4">
+                  No card required &middot; No setup &middot; Cancel anytime
+                </p>
+              </>
+            )}
           </div>
 
           {/* Clip transformation demo */}
@@ -182,26 +226,32 @@ export function HeroSection() {
           </div>
 
           {/* Pain point */}
-          <p className="text-sm text-muted-foreground/70 mt-10 italic max-w-lg mx-auto text-center">
-            You stream for hours. Your best moments stay buried on Twitch with 12 viewers.
-            Not anymore.
-          </p>
+          {!isAuditMode && (
+            <p className="text-sm text-muted-foreground/70 mt-10 italic max-w-lg mx-auto text-center">
+              You stream for hours. Your best moments stay buried on Twitch with 12 viewers.
+              Not anymore.
+            </p>
+          )}
 
           {/* Value props (replaces fake counter stats) */}
           <ValueProps />
 
           {/* Platform logos */}
           <div className="mt-10 text-center">
-            <p className="text-xs text-muted-foreground/50 uppercase tracking-wider mb-4">Works with</p>
+            <p className="text-xs text-muted-foreground/50 uppercase tracking-wider mb-4">{isAuditMode ? 'Export to' : 'Works with'}</p>
             <div className="flex items-center justify-center gap-8">
-              <div className="flex items-center gap-2 text-muted-foreground/40 hover:text-purple-400 transition-colors">
-                <TwitchLogo className="h-6 w-6" />
-                <span className="text-sm font-medium">Twitch</span>
-              </div>
-              <div className="flex items-center gap-2 text-muted-foreground/40 hover:text-red-400 transition-colors">
-                <YouTubeLogo className="h-6 w-6" />
-                <span className="text-sm font-medium">YouTube</span>
-              </div>
+              {!isAuditMode && (
+                <div className="flex items-center gap-2 text-muted-foreground/40 hover:text-purple-400 transition-colors">
+                  <TwitchLogo className="h-6 w-6" />
+                  <span className="text-sm font-medium">Twitch</span>
+                </div>
+              )}
+              {!isAuditMode && (
+                <div className="flex items-center gap-2 text-muted-foreground/40 hover:text-red-400 transition-colors">
+                  <YouTubeLogo className="h-6 w-6" />
+                  <span className="text-sm font-medium">YouTube</span>
+                </div>
+              )}
               <div className="flex items-center gap-2 text-muted-foreground/40 hover:text-foreground transition-colors">
                 <TikTokLogo className="h-6 w-6" />
                 <span className="text-sm font-medium">TikTok</span>

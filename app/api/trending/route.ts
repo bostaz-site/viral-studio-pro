@@ -5,6 +5,8 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { timingSafeCompare } from '@/lib/crypto'
 import { rateLimit, RATE_LIMITS } from '@/lib/rate-limit'
 import { logger } from '@/lib/logger'
+import { isAuditMode } from '@/lib/feature-flags'
+import { isAdminUser } from '@/lib/admin/is-admin'
 
 const postSchema = z.object({
   external_url: z.string().url(),
@@ -102,6 +104,18 @@ function applyStreamGrouping(clips: Record<string, unknown>[]): void {
  * The response includes `next_cursor` (null on last page).
  */
 export async function GET(req: NextRequest) {
+  if (isAuditMode) {
+    // Admin bypass: check if authenticated user is admin
+    const supabase = createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    const admin = user ? await isAdminUser(supabase, user.id) : false
+    if (!admin) {
+      return NextResponse.json(
+        { data: null, error: 'Unavailable', message: 'This feature is temporarily unavailable' },
+        { status: 403 }
+      )
+    }
+  }
   const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown'
   const rl = await rateLimit(`browse:${ip}`, RATE_LIMITS.browse.limit, RATE_LIMITS.browse.windowMs)
   if (!rl.allowed) {
@@ -239,6 +253,17 @@ export async function GET(req: NextRequest) {
  * POST /api/trending — Add/update a trending clip. Restricted.
  */
 export async function POST(req: NextRequest) {
+  if (isAuditMode) {
+    const supabaseCheck = createClient()
+    const { data: { user: checkUser } } = await supabaseCheck.auth.getUser()
+    const admin = checkUser ? await isAdminUser(supabaseCheck, checkUser.id) : false
+    if (!admin) {
+      return NextResponse.json(
+        { data: null, error: 'Unavailable', message: 'This feature is temporarily unavailable' },
+        { status: 403 }
+      )
+    }
+  }
   const apiKey = req.headers.get('x-api-key')
   const expectedKey = process.env.N8N_API_KEY
 

@@ -4,7 +4,11 @@ import { NextResponse, type NextRequest } from 'next/server'
 const PROTECTED_ROUTES = ['/dashboard', '/settings']
 const AUTH_ROUTES = ['/login', '/signup']
 
+const isAuditMode = process.env.NEXT_PUBLIC_AUDIT_MODE === 'true'
+
 export async function middleware(request: NextRequest) {
+  const pathname = request.nextUrl.pathname
+
   const response = NextResponse.next({
     request: { headers: request.headers },
   })
@@ -30,7 +34,32 @@ export async function middleware(request: NextRequest) {
   )
 
   const { data: { user } } = await supabase.auth.getUser()
-  const pathname = request.nextUrl.pathname
+
+  // ── Audit Mode: block browse & admin routes (admins bypass) ──
+  if (isAuditMode) {
+    // Check if user is admin (bypass audit mode)
+    let isAdmin = false
+    if (user) {
+      const { data } = await supabase
+        .from('admin_users')
+        .select('role')
+        .eq('user_id', user.id)
+        .in('role', ['owner', 'admin'])
+        .maybeSingle()
+      isAdmin = !!data
+    }
+
+    if (!isAdmin) {
+      // /dashboard exact → redirect to /upload (Browse Clips page)
+      if (pathname === '/dashboard') {
+        return NextResponse.redirect(new URL('/upload', request.url))
+      }
+      // /admin/* → 404
+      if (pathname.startsWith('/admin')) {
+        return NextResponse.rewrite(new URL('/not-found', request.url))
+      }
+    }
+  }
 
   const isProtected = PROTECTED_ROUTES.some((r) => pathname.startsWith(r))
   const isAuthRoute = AUTH_ROUTES.some((r) => pathname.startsWith(r))
@@ -44,7 +73,8 @@ export async function middleware(request: NextRequest) {
 
   // Redirect authenticated users away from auth pages
   if (isAuthRoute && user) {
-    return NextResponse.redirect(new URL('/dashboard', request.url))
+    const dest = isAuditMode ? '/upload' : '/dashboard'
+    return NextResponse.redirect(new URL(dest, request.url))
   }
 
   return response
