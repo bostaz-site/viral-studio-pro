@@ -33,6 +33,7 @@ import { BlowupChanceBar } from '@/components/enhance/blowup-chance-bar'
 import { CaptionsSection } from '@/components/enhance/accordion-sections/captions-section'
 import { SplitScreenSection } from '@/components/enhance/accordion-sections/split-screen-section'
 import { PageHeader } from '@/components/dashboard/page-header'
+import { TikTokPublishDialog } from '@/components/distribution/tiktok-publish-dialog'
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -66,6 +67,7 @@ export default function EnhancePage() {
   const [error, setError] = useState<string | null>(null)
   const [rendering, setRendering] = useState(false)
   const [placedInBank, setPlacedInBank] = useState(false)
+  const [showTikTokDialog, setShowTikTokDialog] = useState(false)
   const [renderMessage, setRenderMessage] = useState<string | null>(null)
   const [renderOriginalUrl, setRenderOriginalUrl] = useState<string | null>(null)
   const [renderDownloadUrl, setRenderDownloadUrl] = useState<string | null>(null)
@@ -1173,14 +1175,14 @@ export default function EnhancePage() {
                     </button>
                   )}
 
-                  {/* SECONDARY: Publish now — bypass AI for immediate manual post */}
+                  {/* SECONDARY: Publish to TikTok — opens compliant Direct Post dialog */}
                   <button
-                    onClick={() => router.push(`/dashboard/distribution?clip=${clipId}&action=publish`)}
+                    onClick={() => setShowTikTokDialog(true)}
                     className="inline-flex items-center justify-center gap-2 w-full h-11 rounded-lg border border-cyan-500/35 bg-cyan-500/8 text-cyan-300 hover:bg-cyan-500/15 hover:border-cyan-500/55 hover:text-cyan-200 text-sm font-semibold transition-all"
-                    title="Skip Smart Queue and publish manually right now"
+                    title="Publish directly to TikTok"
                   >
-                    <Rocket className="h-4 w-4" />
-                    Publish now
+                    <Send className="h-4 w-4" />
+                    Publish to TikTok
                   </button>
 
                   {/* Tertiary: Download */}
@@ -1960,6 +1962,14 @@ export default function EnhancePage() {
         </div>
       </div>
 
+      {/* TikTok Direct Post dialog */}
+      <TikTokPublishDialog
+        open={showTikTokDialog}
+        onClose={() => setShowTikTokDialog(false)}
+        clipId={clipId}
+        clipTitle={clip?.title ?? undefined}
+        videoPreviewUrl={videoUrl ?? undefined}
+      />
     </div>
   )
 }
