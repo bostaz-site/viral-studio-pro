@@ -291,7 +291,7 @@ export function TikTokPublishDialog({
     const statusLabels: Record<TikTokPublishStatus, string> = {
       PROCESSING_UPLOAD: 'Uploading to TikTok...',
       PROCESSING_DOWNLOAD: 'Processing video...',
-      SEND_TO_USER_INBOX: 'Sending to your inbox...',
+      SEND_TO_USER_INBOX: 'Posting to your TikTok profile...',
       PUBLISH_COMPLETE: 'Published successfully!',
       FAILED: 'Publishing failed',
     }

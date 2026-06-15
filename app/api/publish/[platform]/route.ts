@@ -342,9 +342,10 @@ async function publishToTikTok(
   caption: string,
   tiktokOptions?: TikTokOptions
 ): Promise<PublishResult> {
-  const directPostEnabled = process.env.TIKTOK_DIRECT_POST_ENABLED === 'true'
-
-  if (directPostEnabled && tiktokOptions) {
+  // Always use Direct Post when tiktokOptions are provided (the dialog
+  // collects all required fields). Falls back to inbox mode only when
+  // the caller omits tiktokOptions (legacy/non-dialog flow).
+  if (tiktokOptions) {
     // Direct Post (requires audit approval)
     // Uses creator-selected privacy, interaction toggles, and commercial content
     // as required by TikTok Content Sharing Developer Guidelines.
