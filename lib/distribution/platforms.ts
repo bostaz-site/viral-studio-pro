@@ -118,6 +118,7 @@ export function buildAuthUrl(
       params.set('scope', config.scopes.join(','))
       params.set('redirect_uri', config.redirectUri)
       params.set('state', state)
+      params.set('lang_type', 'en')
       return `${config.authUrl}?${params.toString()}`
 
     case 'youtube':
