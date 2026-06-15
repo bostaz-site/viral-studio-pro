@@ -232,6 +232,7 @@ router.post('/', async (req, res) => {
     } = req.body;
 
     trc(`START source=${source} clipId=${reqClipId} jobId=${jobId || 'none'}`);
+    trc(`videoUrl=${videoUrl ? videoUrl.substring(0, 80) + '...' : 'null/undefined'}`);
     trc(`settings.tag=${JSON.stringify(settings.tag)}`);
     trc(`settings.captions=${JSON.stringify(settings.captions)}`);
     trc(`settings.splitScreen=${JSON.stringify(settings.splitScreen)}`);
@@ -359,36 +360,71 @@ router.post('/', async (req, res) => {
       }
 
       // Fetch clip details from clips table
-      const clip = await getClip(clipId);
-      if (!clip) {
-        return res.status(404).json({
-          success: false,
-          error: 'Clip not found',
-          message: `Clip ${clipId} does not exist`,
-        });
+      const clip = await getClip(clipId).catch(() => null);
+
+      if (clip) {
+        const video = clip.videos;
+        if (!video || !video.storage_path) {
+          return res.status(404).json({
+            success: false,
+            error: 'Video not found',
+            message: 'Source video not found',
+          });
+        }
+
+        userId = clip.user_id;
+        videoId = clip.video_id;
+        clipStartTime = clip.start_time;
+        clipEndTime = clip.end_time;
+        duration = clipEndTime - clipStartTime;
+
+        // Update clip status to rendering
+        await updateClipStatus(clipId, 'rendering');
+
+        // Download source video from Supabase storage
+        console.log(`[Render ${renderSessionId}] Downloading source video from storage...`);
+        await downloadVideo(video.storage_path, inputPath);
+      } else {
+        // Fallback: clipId might be a video UUID (user-uploaded videos without a clips row)
+        trc('getClip failed — trying videos table fallback');
+        const video = await getVideo(clipId);
+        if (!video || !video.storage_path) {
+          return res.status(404).json({
+            success: false,
+            error: 'Clip/Video not found',
+            message: `Neither clips nor videos table has id ${clipId}`,
+          });
+        }
+
+        userId = video.user_id || 'upload';
+        videoId = video.id;
+        // Full video — no sub-clip trimming
+        clipStartTime = 0;
+        clipEndTime = 0;
+
+        console.log(`[Render ${renderSessionId}] Downloading uploaded video from storage...`);
+        await downloadVideo(video.storage_path, inputPath);
+
+        // Probe actual duration
+        try {
+          const probeStream = await execFileAsync('ffprobe', [
+            '-v', 'quiet', '-select_streams', 'v:0',
+            '-show_entries', 'stream=duration', '-of', 'csv=p=0',
+            inputPath,
+          ]);
+          const streamDur = parseFloat(probeStream.stdout.trim());
+          if (Number.isFinite(streamDur) && streamDur > 0) {
+            duration = Math.max(0.1, streamDur - 0.05);
+            clipEndTime = duration;
+            trc(`videos fallback: probed duration=${duration}s`);
+          }
+        } catch { /* use clipDuration from payload */ }
+
+        if (!duration && clipDuration) {
+          duration = clipDuration;
+          clipEndTime = duration;
+        }
       }
-
-      const video = clip.videos;
-      if (!video || !video.storage_path) {
-        return res.status(404).json({
-          success: false,
-          error: 'Video not found',
-          message: 'Source video not found',
-        });
-      }
-
-      userId = clip.user_id;
-      videoId = clip.video_id;
-      clipStartTime = clip.start_time;
-      clipEndTime = clip.end_time;
-      duration = clipEndTime - clipStartTime;
-
-      // Update clip status to rendering
-      await updateClipStatus(clipId, 'rendering');
-
-      // Download source video from Supabase storage
-      console.log(`[Render ${renderSessionId}] Downloading source video from storage...`);
-      await downloadVideo(video.storage_path, inputPath);
     }
 
     // ── COMMON RENDER PIPELINE ──

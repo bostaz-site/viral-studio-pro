@@ -324,6 +324,8 @@ export const POST = withAuth(async (request, user) => {
     )
   }
 
+  logger.info(`[render] Sending to VPS: clip_id=${clip_id} source=${foundSource} videoUrl=${videoUrl ? videoUrl.substring(0, 80) : 'NULL'}`)
+
   const renderPayload = {
     jobId: job.id,
     videoUrl,
