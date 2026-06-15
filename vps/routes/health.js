@@ -33,9 +33,11 @@ router.get('/', async (req, res) => {
     }
 
     const allHealthy = ffmpegStatus.ffmpeg && supabaseStatus.connected;
-    const statusCode = allHealthy ? 200 : 503;
 
-    res.status(statusCode).json({
+    // Always return 200 so Railway/Docker healthchecks pass even when
+    // Supabase is temporarily unreachable during cold-start. The body
+    // still reports degraded status for observability.
+    res.status(200).json({
       status: allHealthy ? 'healthy' : 'degraded',
       timestamp: new Date().toISOString(),
       uptime: `${uptime}s`,
