@@ -225,6 +225,7 @@ router.post('/', async (req, res) => {
       clipId: reqClipId,
       videoUrl,
       source = 'clips',
+      userId: reqUserId,
       clipTitle,
       clipDuration,
       wordTimestamps: providedWordTimestamps,
@@ -276,7 +277,7 @@ router.post('/', async (req, res) => {
 
     let inputPath = path.join(tempDir, 'input.mp4');
     let duration = clipDuration || 0;
-    let userId = 'trending'; // default for trending clips
+    let userId = reqUserId || 'trending'; // payload userId or default for trending
     let videoId = null;
     let clipStartTime = 0;
     let clipEndTime = duration;
@@ -952,7 +953,7 @@ router.post('/', async (req, res) => {
     const outputPath = path.join(tempDir, 'output.mp4');
     console.log(`[Render ${renderSessionId}] Enqueueing FFmpeg render...`);
 
-    const userPlan = source === 'trending' ? 'pro' : (await getUserProfile(userId))?.plan || 'free';
+    const userPlan = (source === 'trending' || userId === 'trending') ? 'pro' : (await getUserProfile(userId))?.plan || 'free';
 
     await enqueueRender(jobId || renderSessionId, () => renderClip(inputPath, outputPath, {
       startTime: clipStartTime,

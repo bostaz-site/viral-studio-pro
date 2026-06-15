@@ -331,6 +331,7 @@ export const POST = withAuth(async (request, user) => {
     videoUrl,
     clipId: clip_id,
     source: foundSource,
+    userId: user.id,
     clipTitle,
     clipDuration,
     wordTimestamps,
