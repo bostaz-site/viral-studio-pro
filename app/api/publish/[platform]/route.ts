@@ -5,6 +5,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { isPlatform, PLATFORM_CONFIGS, type Platform } from '@/lib/distribution/platforms'
 import { getValidToken } from '@/lib/distribution/token-manager'
 import { buildSignedExternalUrl } from '@/lib/distribution/external-url'
+import { logger } from '@/lib/logger'
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://viralanimal.com'
 
@@ -75,7 +76,9 @@ export const POST = withAuth(
 
     // Verify clip exists and belongs to user
     // Check render_jobs first (rendered clips from trending_clips or uploaded videos)
-    const { data: renderJob, error: renderError } = await admin
+    // Use .limit(1) without .single() — multiple done jobs may exist
+    // for the same clip (user clicked "Generate" multiple times).
+    const { data: renderJobs } = await admin
       .from('render_jobs')
       .select('id, clip_id, storage_path, clip_url, user_id')
       .eq('clip_id', clip_id)
@@ -83,7 +86,8 @@ export const POST = withAuth(
       .eq('status', 'done')
       .order('created_at', { ascending: false })
       .limit(1)
-      .single()
+
+    const renderJob = renderJobs?.[0] ?? null
 
     // Fallback: check clips table
     let clipStoragePath: string | null = null
@@ -273,6 +277,7 @@ export const POST = withAuth(
       })
     } catch (err) {
       const errMsg = err instanceof Error ? err.message : 'Publishing failed'
+      logger.error(`[publish] ${platformParam} failed for user=${user.id} clip=${clip_id}: ${errMsg}`)
 
       // Update publication record with error
       await admin
