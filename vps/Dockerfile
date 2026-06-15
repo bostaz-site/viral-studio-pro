@@ -1,4 +1,4 @@
-FROM node:20-slim
+FROM node:22-slim
 
 # yt-dlp version — bump this to force a rebuild with a newer extractor when
 # Twitch/YouTube change their APIs. Using `latest` without a cache-buster
