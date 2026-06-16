@@ -146,6 +146,7 @@ export function UploadPageClient() {
               uploadSuccess={uploadSuccess}
               url={url}
               onUrlChange={setUrl}
+              hideUrlImport={isAuditMode}
             />
           </div>
 

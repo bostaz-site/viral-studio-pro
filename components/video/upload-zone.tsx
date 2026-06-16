@@ -24,6 +24,7 @@ interface UploadZoneProps {
   onUrlChange: (url: string) => void
   onUrlImport?: (url: string) => void
   disabled?: boolean
+  hideUrlImport?: boolean
 }
 
 function formatBytes(bytes: number): string {
@@ -43,6 +44,7 @@ export function UploadZone({
   onUrlChange,
   onUrlImport,
   disabled = false,
+  hideUrlImport = false,
 }: UploadZoneProps) {
   const [dropError, setDropError] = useState<string | null>(null)
 
@@ -192,36 +194,40 @@ export function UploadZone({
         </>
       )}
 
-      {/* URL divider + input */}
-      <div className="flex items-center gap-3">
-        <div className="h-px flex-1 bg-border" />
-        <span className="text-xs text-muted-foreground font-medium px-1">or import by URL</span>
-        <div className="h-px flex-1 bg-border" />
-      </div>
+      {/* URL divider + input — hidden in audit mode */}
+      {!hideUrlImport && (
+        <>
+          <div className="flex items-center gap-3">
+            <div className="h-px flex-1 bg-border" />
+            <span className="text-xs text-muted-foreground font-medium px-1">or import by URL</span>
+            <div className="h-px flex-1 bg-border" />
+          </div>
 
-      <div className="flex gap-2">
-        <div className="relative flex-1">
-          <LinkIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="https://www.youtube.com/watch?v=..."
-            value={url}
-            onChange={(e) => onUrlChange(e.target.value)}
-            onKeyDown={(e) => { if (e.key === 'Enter' && url && onUrlImport) onUrlImport(url) }}
-            className="pl-9 bg-background/50 h-10"
-            disabled={disabled || isUploading || !!selectedFile}
-          />
-        </div>
-        <Button
-          type="button"
-          variant="secondary"
-          size="sm"
-          className="h-10 px-4 shrink-0"
-          disabled={!url || disabled || isUploading || !!selectedFile}
-          onClick={() => url && onUrlImport?.(url)}
-        >
-          Import
-        </Button>
-      </div>
+          <div className="flex gap-2">
+            <div className="relative flex-1">
+              <LinkIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="https://www.youtube.com/watch?v=..."
+                value={url}
+                onChange={(e) => onUrlChange(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter' && url && onUrlImport) onUrlImport(url) }}
+                className="pl-9 bg-background/50 h-10"
+                disabled={disabled || isUploading || !!selectedFile}
+              />
+            </div>
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              className="h-10 px-4 shrink-0"
+              disabled={!url || disabled || isUploading || !!selectedFile}
+              onClick={() => url && onUrlImport?.(url)}
+            >
+              Import
+            </Button>
+          </div>
+        </>
+      )}
     </div>
   )
 }
