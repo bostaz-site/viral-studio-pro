@@ -67,7 +67,7 @@ export default function EnhancePage() {
   const [error, setError] = useState<string | null>(null)
   const [rendering, setRendering] = useState(false)
   const [placedInBank, setPlacedInBank] = useState(false)
-  const [showTikTokDialog, setShowTikTokDialog] = useState(false)
+  const [showTikTokDialog, setShowTikTokDialog] = useState(searchParams.get('publish') === '1')
   const [renderMessage, setRenderMessage] = useState<string | null>(null)
   const [renderOriginalUrl, setRenderOriginalUrl] = useState<string | null>(null)
   const [renderDownloadUrl, setRenderDownloadUrl] = useState<string | null>(null)

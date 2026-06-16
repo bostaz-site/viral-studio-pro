@@ -7,10 +7,11 @@ import { randomBytes } from 'crypto'
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://viralanimal.com'
 
 export async function GET(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: { platform: string } }
 ) {
   const platformParam = params.platform
+  const returnTo = req.nextUrl.searchParams.get('redirect') ?? null
 
   if (!platformParam || !isPlatform(platformParam)) {
     const redirectUrl = new URL('/settings', APP_URL)
@@ -33,6 +34,7 @@ export async function GET(
     nonce,
     platform: platformParam,
     ts: Date.now(),
+    returnTo,
   })
 
   const encryptedState = safeEncrypt(statePayload)

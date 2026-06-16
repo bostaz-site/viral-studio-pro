@@ -376,14 +376,31 @@ export function TikTokPublishDialog({
           </div>
         )}
 
-        {/* Error state */}
+        {/* Not connected or error → Connect TikTok CTA */}
         {creatorInfoError && (
-          <div className="flex items-center gap-3 p-4 rounded-lg border border-red-500/30 bg-red-500/5">
-            <AlertCircle className="h-5 w-5 text-red-400 shrink-0" />
-            <div>
-              <p className="text-sm font-medium text-red-400">Cannot load TikTok info</p>
-              <p className="text-xs text-red-400/70 mt-0.5">{creatorInfoError}</p>
+          <div className="flex flex-col items-center gap-4 py-6 text-center">
+            <div className="h-14 w-14 rounded-full bg-muted flex items-center justify-center">
+              <svg viewBox="0 0 24 24" className="h-7 w-7 fill-current text-foreground" aria-hidden="true">
+                <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-2.88 2.5 2.89 2.89 0 0 1-2.88-2.88 2.89 2.89 0 0 1 2.88-2.88c.28 0 .56.04.82.11v-3.5a6.37 6.37 0 0 0-.82-.05A6.34 6.34 0 0 0 3.15 15.2a6.34 6.34 0 0 0 6.34 6.34 6.34 6.34 0 0 0 6.34-6.34V8.75a8.18 8.18 0 0 0 4.76 1.52V6.83a4.84 4.84 0 0 1-1-.14z" />
+              </svg>
             </div>
+            <div>
+              <p className="text-base font-semibold text-foreground">Connect TikTok to publish</p>
+              <p className="text-sm text-muted-foreground mt-1">
+                Authorize Viral Animal to post to your TikTok account
+              </p>
+            </div>
+            <Button
+              onClick={() => {
+                // Save current page URL so OAuth callback can redirect back with ?publish=1
+                const returnUrl = window.location.pathname + window.location.search
+                window.location.href = `/api/oauth/tiktok/authorize?redirect=${encodeURIComponent(returnUrl + (returnUrl.includes('?') ? '&' : '?') + 'publish=1')}`
+              }}
+              className="gap-2"
+            >
+              <ExternalLink className="h-4 w-4" />
+              Connect TikTok
+            </Button>
           </div>
         )}
 

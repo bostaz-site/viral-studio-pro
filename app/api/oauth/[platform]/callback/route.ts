@@ -12,6 +12,7 @@ interface OAuthState {
   nonce: string
   platform: string
   ts: number
+  returnTo?: string | null
 }
 
 function redirectWithError(message: string): NextResponse {
@@ -139,7 +140,10 @@ export async function GET(
     }
   }
 
-  // Redirect to settings with success
+  // Redirect to returnTo (if provided in OAuth state) or settings
+  if (state.returnTo && state.returnTo.startsWith('/')) {
+    return NextResponse.redirect(new URL(state.returnTo, APP_URL).toString())
+  }
   const redirectUrl = new URL('/settings', APP_URL)
   redirectUrl.searchParams.set('connected', platformParam)
   return NextResponse.redirect(redirectUrl.toString())
