@@ -394,16 +394,27 @@ async function publishToTikTok(
       error?: { code?: string; message?: string; log_id?: string }
     }
 
-    if (!initRes.ok || (initData.error?.code && initData.error.code !== 'ok')) {
-      throw new Error(
-        `TikTok Direct Post failed: ${initData.error?.message ?? 'Unknown error'} ` +
-        `(code: ${initData.error?.code ?? 'none'})`
-      )
-    }
+    console.error('[TikTok Direct Post] Response:', JSON.stringify({ status: initRes.status, body: initData }))
 
-    return {
-      postId: initData.data?.publish_id ?? null,
-      trackingUrl: null,
+    if (!initRes.ok || (initData.error?.code && initData.error.code !== 'ok')) {
+      // If Direct Post is rejected (scope not approved yet), fall back to inbox mode
+      const code = initData.error?.code ?? ''
+      const isPermissionError = code === 'access_denied' || code === 'scope_not_authorized'
+        || code === 'spam_risk_too_many_posts' || code === 'unaudited_client_can_only_post_to_private_accounts'
+        || initRes.status === 403
+      if (!isPermissionError) {
+        throw new Error(
+          `TikTok Direct Post failed: ${initData.error?.message ?? 'Unknown error'} ` +
+          `(code: ${code || 'none'}, http: ${initRes.status})`
+        )
+      }
+      console.error('[TikTok] Direct Post rejected, falling back to inbox mode:', code)
+      // Fall through to inbox mode below
+    } else {
+      return {
+        postId: initData.data?.publish_id ?? null,
+        trackingUrl: null,
+      }
     }
   }
 
