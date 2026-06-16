@@ -445,10 +445,22 @@ async function publishToTikTok(
     error?: { code?: string; message?: string; log_id?: string }
   }
 
+  console.error('[TikTok Inbox] Response:', JSON.stringify({ status: initRes.status, body: initData }))
+
   if (!initRes.ok || (initData.error?.code && initData.error.code !== 'ok')) {
+    const code = initData.error?.code ?? ''
+    // Rate limit / spam protection — treat as soft success since earlier
+    // posts may still be processing. Don't throw — return inbox mode.
+    if (code === 'spam_risk_too_many_pending_share' || code === 'rate_limit_exceeded') {
+      return {
+        postId: null,
+        trackingUrl: null,
+        mode: 'inbox',
+      }
+    }
     throw new Error(
       `TikTok upload failed: ${initData.error?.message ?? 'Unknown error'} ` +
-      `(code: ${initData.error?.code ?? 'none'})`
+      `(code: ${code || 'none'}, http: ${initRes.status})`
     )
   }
 
