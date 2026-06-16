@@ -272,7 +272,9 @@ export const POST = withAuth(
         publicationId: publication.id,
         platform: platformParam,
         postId: result.postId,
+        publishId: result.postId,
         trackingUrl: result.trackingUrl,
+        mode: result.mode ?? 'direct',
         status: 'published',
       })
     } catch (err) {
@@ -297,6 +299,7 @@ export const POST = withAuth(
 interface PublishResult {
   postId: string | null
   trackingUrl: string | null
+  mode?: 'direct' | 'inbox'
 }
 
 interface TikTokOptions {
@@ -414,6 +417,7 @@ async function publishToTikTok(
       return {
         postId: initData.data?.publish_id ?? null,
         trackingUrl: null,
+        mode: 'direct',
       }
     }
   }
@@ -450,7 +454,8 @@ async function publishToTikTok(
 
   return {
     postId: initData.data?.publish_id ?? null,
-    trackingUrl: null, // User finalizes draft on TikTok app
+    trackingUrl: null,
+    mode: 'inbox',
   }
 }
 

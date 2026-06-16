@@ -170,7 +170,7 @@ export function TikTokPublishDialog({
       })
 
       const json = await res.json() as {
-        data?: { postId?: string; publishId?: string }
+        data?: { postId?: string; publishId?: string; mode?: 'direct' | 'inbox' }
         error?: string
       }
 
@@ -180,10 +180,18 @@ export function TikTokPublishDialog({
         return
       }
 
+      const mode = json.data?.mode ?? 'direct'
       const pid = json.data?.publishId ?? json.data?.postId ?? null
-      setPublishId(pid)
+      setPublishId(pid ?? 'inbox-success')
 
-      // Start polling status
+      // Inbox mode: no polling needed — video is in TikTok drafts
+      if (mode === 'inbox') {
+        setPublishStatus('PUBLISH_COMPLETE')
+        setIsPublishing(false)
+        return
+      }
+
+      // Direct Post mode: poll for status
       if (pid) {
         pollingRef.current = setInterval(async () => {
           try {
@@ -292,7 +300,9 @@ export function TikTokPublishDialog({
       PROCESSING_UPLOAD: 'Uploading to TikTok...',
       PROCESSING_DOWNLOAD: 'Processing video...',
       SEND_TO_USER_INBOX: 'Posting to your TikTok profile...',
-      PUBLISH_COMPLETE: 'Published successfully!',
+      PUBLISH_COMPLETE: publishId === 'inbox-success'
+        ? 'Successfully sent to TikTok!'
+        : 'Published successfully!',
       FAILED: 'Publishing failed',
     }
 
@@ -324,6 +334,11 @@ export function TikTokPublishDialog({
             {isProcessing && (
               <p className="text-xs text-muted-foreground mt-1">
                 It may take a few minutes for content to be visible on your TikTok profile.
+              </p>
+            )}
+            {isComplete && publishId === 'inbox-success' && (
+              <p className="text-xs text-muted-foreground mt-1">
+                Open the TikTok app to finalize and share your post.
               </p>
             )}
             {isFailed && publishError && (
