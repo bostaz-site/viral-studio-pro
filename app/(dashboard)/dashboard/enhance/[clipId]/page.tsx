@@ -1212,6 +1212,33 @@ export default function EnhancePage() {
                     Publish to Instagram
                   </button>
 
+                  {/* Publish to YouTube */}
+                  <button
+                    onClick={async () => {
+                      setRenderMessage('Publishing to YouTube...')
+                      try {
+                        const res = await fetch('/api/publish/youtube', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ clip_id: clip.id, caption: clip.title || 'Viral clip' }),
+                        })
+                        const json = await res.json() as { data?: { postId?: string }; error?: string }
+                        if (json.error) {
+                          setRenderMessage(`YouTube: ${json.error}`)
+                        } else {
+                          setRenderMessage('Published to YouTube!')
+                        }
+                      } catch {
+                        setRenderMessage('YouTube publish failed')
+                      }
+                    }}
+                    className="inline-flex items-center justify-center gap-2 w-full h-11 rounded-lg border border-red-500/35 bg-red-500/8 text-red-300 hover:bg-red-500/15 hover:border-red-500/55 hover:text-red-200 text-sm font-semibold transition-all"
+                    title="Publish directly to YouTube as Short"
+                  >
+                    <Send className="h-4 w-4" />
+                    Publish to YouTube
+                  </button>
+
                   {/* Tertiary: Download */}
                   <a
                     href={renderDownloadUrl}
