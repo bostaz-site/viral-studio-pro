@@ -25,6 +25,8 @@ export async function POST(req: NextRequest) {
   const body = await req.text()
   const sig = req.headers.get('stripe-signature') ?? ''
 
+  logger.info('[webhook] Inbound Stripe event', { source: 'stripe', timestamp: new Date().toISOString() })
+
   let event: Stripe.Event
 
   try {

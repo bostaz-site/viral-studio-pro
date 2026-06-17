@@ -8,9 +8,9 @@
  * Run: npx tsx scripts/audits/activation.ts
  */
 
-import { createAdminClient } from '@/lib/supabase/admin'
-import { runAgent } from '@/lib/audit/agent-runner'
-import { insertMetricSnapshot } from '@/lib/audit/insert-metric'
+import { createAdminClient } from '../../lib/supabase/admin'
+import { runAgent } from '../../lib/audit/agent-runner'
+import { insertMetricSnapshot } from '../../lib/audit/insert-metric'
 import { readFileSync, existsSync } from 'fs'
 import { join } from 'path'
 

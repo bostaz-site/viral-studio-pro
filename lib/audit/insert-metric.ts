@@ -1,5 +1,5 @@
-import type { Json } from '@/lib/supabase/types'
-import { createAdminClient } from '@/lib/supabase/admin'
+import type { Json } from '../supabase/types'
+import { createAdminClient } from '../supabase/admin'
 import { insertFinding } from './insert-finding'
 
 export async function insertMetricSnapshot(opts: {

@@ -8,9 +8,9 @@
  * Run: npx tsx scripts/audits/technical.ts
  */
 
-import { createAdminClient } from '@/lib/supabase/admin'
-import { runAgent } from '@/lib/audit/agent-runner'
-import { insertMetricSnapshot } from '@/lib/audit/insert-metric'
+import { createAdminClient } from '../../lib/supabase/admin'
+import { runAgent } from '../../lib/audit/agent-runner'
+import { insertMetricSnapshot } from '../../lib/audit/insert-metric'
 import { execSync } from 'child_process'
 
 export async function runTechnicalAudit() {
@@ -28,7 +28,8 @@ export async function runTechnicalAudit() {
       { encoding: 'utf8', cwd: process.cwd() }
     ).slice(0, 3000)
   } catch {
-    gitLog = '[git log unavailable]'
+    console.log('[technical] Skipping git log (not a git repo, likely Railway container)')
+    gitLog = '[git log unavailable — no .git in container]'
   }
 
   // 2. npm audit

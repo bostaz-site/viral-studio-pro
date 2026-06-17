@@ -16,7 +16,7 @@
     "audit:nightly": "npx tsx scripts/audits/run-nightly.ts"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.80.0",
+    "@anthropic-ai/sdk": "^0.104.2",
     "@base-ui/react": "^1.3.0",
     "@sentry/nextjs": "^10.51.0",
     "@supabase/ssr": "^0.9.0",

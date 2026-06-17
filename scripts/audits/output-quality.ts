@@ -10,10 +10,10 @@
  * Run: npx tsx scripts/audits/output-quality.ts
  */
 
-import { createAdminClient } from '@/lib/supabase/admin'
-import { claude } from '@/lib/audit/agent-runner'
-import { insertFinding } from '@/lib/audit/insert-finding'
-import { insertMetricSnapshot } from '@/lib/audit/insert-metric'
+import { createAdminClient } from '../../lib/supabase/admin'
+import { claude } from '../../lib/audit/agent-runner'
+import { insertFinding } from '../../lib/audit/insert-finding'
+import { insertMetricSnapshot } from '../../lib/audit/insert-metric'
 import { execSync } from 'child_process'
 import { mkdtempSync, readFileSync, rmSync } from 'fs'
 import { join } from 'path'

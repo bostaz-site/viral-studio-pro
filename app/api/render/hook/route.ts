@@ -88,6 +88,7 @@ export async function POST(req: NextRequest) {
 // ── VPS Webhook Handler ──────────────────────────────────────────
 
 async function handleWebhook(req: NextRequest) {
+  logger.info('[webhook] Inbound render hook', { source: 'vps', timestamp: new Date().toISOString() })
   const body = await req.text()
   const hmacValid = verifyWebhook(req, body)
   const hmacOnly = process.env.WEBHOOK_HMAC_ONLY === 'true'
