@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { Settings, Menu, X, LogOut, Zap, Compass, Wand2, Radio, BarChart3, TrendingUp, Handshake, Users, ChevronRight, Mail, Inbox, Webhook, Brain, Film, Cpu, Sparkles, Radar } from 'lucide-react'
+import { Settings, Menu, X, LogOut, Zap, Compass, Wand2, Radio, BarChart3, TrendingUp, Handshake, Users, ChevronRight, Mail, Inbox, Webhook, Brain, Film, Cpu, Sparkles, Radar, ShieldCheck } from 'lucide-react'
 import { ViralAnimalLogo } from '@/components/brand/viral-animal-logo'
 import { useUiStore } from '@/stores/ui-store'
 import { Button } from '@/components/ui/button'
@@ -95,6 +95,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         { name: 'AI Scoring', href: '/admin/ai-scoring', icon: Brain },
         { name: 'Scraper', href: '/admin/scraper', icon: Radar },
         { name: 'Webhooks', href: '/admin/webhooks', icon: Webhook },
+        { name: 'Audits', href: '/admin/audits', icon: ShieldCheck },
       ]
 
   const planLimits: Record<string, number> = { free: 3, pro: 50, studio: 999 }

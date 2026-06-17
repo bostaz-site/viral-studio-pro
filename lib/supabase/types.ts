@@ -927,6 +927,101 @@ export type Database = {
           },
         ]
       }
+      audit_findings: {
+        Row: {
+          agent_type: string
+          audit_date: string
+          created_at: string
+          cycle_count: number
+          description: string
+          id: string
+          last_verified_at: string | null
+          location: string | null
+          persona: string | null
+          related_finding_id: string | null
+          screenshot_url: string | null
+          severity: string
+          status: string
+          suggested_fix: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          agent_type: string
+          audit_date?: string
+          created_at?: string
+          cycle_count?: number
+          description: string
+          id?: string
+          last_verified_at?: string | null
+          location?: string | null
+          persona?: string | null
+          related_finding_id?: string | null
+          screenshot_url?: string | null
+          severity: string
+          status?: string
+          suggested_fix?: string | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          agent_type?: string
+          audit_date?: string
+          created_at?: string
+          cycle_count?: number
+          description?: string
+          id?: string
+          last_verified_at?: string | null
+          location?: string | null
+          persona?: string | null
+          related_finding_id?: string | null
+          screenshot_url?: string | null
+          severity?: string
+          status?: string
+          suggested_fix?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "audit_findings_related_finding_id_fkey"
+            columns: ["related_finding_id"]
+            isOneToOne: false
+            referencedRelation: "audit_findings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      audit_metrics_snapshots: {
+        Row: {
+          context: Json | null
+          created_at: string
+          id: string
+          metric_name: string
+          metric_unit: string | null
+          metric_value: number
+          snapshot_date: string
+        }
+        Insert: {
+          context?: Json | null
+          created_at?: string
+          id?: string
+          metric_name: string
+          metric_unit?: string | null
+          metric_value: number
+          snapshot_date?: string
+        }
+        Update: {
+          context?: Json | null
+          created_at?: string
+          id?: string
+          metric_name?: string
+          metric_unit?: string | null
+          metric_value?: number
+          snapshot_date?: string
+        }
+        Relationships: []
+      }
       brand_templates: {
         Row: {
           created_at: string | null
@@ -4124,6 +4219,7 @@ export type Database = {
           last_synced_at: string | null
           median_views_per_video: number | null
           platform: string
+          platform_metadata: Json | null
           platform_user_id: string | null
           primary_niche: string | null
           refresh_token: string | null
@@ -4147,6 +4243,7 @@ export type Database = {
           last_synced_at?: string | null
           median_views_per_video?: number | null
           platform: string
+          platform_metadata?: Json | null
           platform_user_id?: string | null
           primary_niche?: string | null
           refresh_token?: string | null
@@ -4170,6 +4267,7 @@ export type Database = {
           last_synced_at?: string | null
           median_views_per_video?: number | null
           platform?: string
+          platform_metadata?: Json | null
           platform_user_id?: string | null
           primary_niche?: string | null
           refresh_token?: string | null
@@ -5290,4 +5388,3 @@ export const Constants = {
     Enums: {},
   },
 } as const
-
