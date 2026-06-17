@@ -2,7 +2,7 @@ import { createAdminClient } from '../supabase/admin'
 import { sendDiscordAlert } from './discord'
 
 export interface NewFinding {
-  agent_type: 'output' | 'acquisition' | 'activation' | 'retention' | 'technical'
+  agent_type: 'output' | 'acquisition' | 'activation' | 'retention' | 'technical' | 'cold_email'
   persona?: 'sceptical' | 'free_limit' | 'power'
   severity: 'critical' | 'high' | 'normal' | 'low'
   title: string

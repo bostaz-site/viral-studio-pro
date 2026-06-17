@@ -6,7 +6,7 @@
  *   Mardi    (2) - Output + Activation  + 2 random personas
  *   Mercredi (3) - Output + Technical   + 2 random personas
  *   Jeudi    (4) - Output + Retention   + 2 random personas
- *   Vendredi (5) - Output + Strategic   + 2 random personas
+ *   Vendredi (5) - Output + Cold Email  + 2 random personas
  *   Samedi   (6) - Output + 1 persona
  *   Dimanche (0) - Output + 1 persona
  *
@@ -68,7 +68,7 @@ async function main() {
     2: [{ path: './activation', fn: 'runActivationAudit' }],
     3: [{ path: './technical', fn: 'runTechnicalAudit' }],
     4: [{ path: './retention', fn: 'runRetentionAudit' }],
-    5: [],
+    5: [{ path: './cold-email', fn: 'runColdEmailAudit' }],
     6: [],
     0: [],
   }
@@ -92,6 +92,10 @@ async function main() {
     const fn = await tryImport(p.path, p.fn)
     if (fn) await safeRun(fn, p.fn)
   }
+
+  // Auto-prompt generator: cluster findings → ready-to-launch Claude Code prompts
+  const autoPromptFn = await tryImport('./auto-prompt-generator', 'runAutoPromptGenerator')
+  if (autoPromptFn) await safeRun(autoPromptFn, 'auto-prompt-generator')
 
   // Generate morning brief
   console.log('\n--- Morning brief ---')

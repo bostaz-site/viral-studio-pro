@@ -33,7 +33,7 @@ Orchestrator (scripts/audits/run-nightly.ts)
 | Tuesday   | Activation    | 2 random |
 | Wednesday | Technical     | 2 random |
 | Thursday  | Retention     | 2 random |
-| Friday    | (Strategic)   | 2 random |
+| Friday    | Cold Email    | 2 random |
 | Saturday  | -             | 1 random |
 | Sunday    | -             | 1 random |
 
@@ -144,6 +144,26 @@ Or use the admin dashboard at `/admin/audits`.
 
 2. Add to the personas array in `scripts/audits/run-nightly.ts`.
 
+## Cold Email Agent
+
+Runs every **Friday**. Audits the cold email acquisition machine (Instantly Cloud).
+
+**4 dimensions audited:**
+
+1. **Domain Health** — SPF/DKIM/DMARC configured, warmup status, blacklist detection
+2. **Deliverability** — open/bounce/reply/complaint rates over 14 days (alerts: open < 30%, bounce > 3%, complaint > 0.1%)
+3. **Influencer Replies** — inbound replies unanswered > 48h, especially from high-follower accounts
+4. **Collab Workflow** — positive replies without a promo code sent, conversion gaps
+
+**Metrics tracked:** `cold_email_open_rate_14d`, `cold_email_reply_rate_14d`, `cold_email_bounce_rate_14d`, `cold_email_unanswered_48h`
+
+**Requires:** `INSTANTLY_API_KEY` env var (optional — runs with DB data only if missing). Add to Railway audit service.
+
+```bash
+# Run standalone
+npx tsx scripts/audits/cold-email.ts
+```
+
 ## Environment Variables
 
 | Variable | Required | Description |
@@ -152,6 +172,7 @@ Or use the admin dashboard at `/admin/audits`.
 | `DISCORD_AUDIT_WEBHOOK_URL` | No | Discord webhook for critical finding alerts |
 | `RESEND_API_KEY` | No | Resend API key for email digest |
 | `ANTHROPIC_API_KEY` | Yes | For Claude-powered agents |
+| `INSTANTLY_API_KEY` | No | Instantly API for cold email campaign data |
 
 ## Discord Setup
 
