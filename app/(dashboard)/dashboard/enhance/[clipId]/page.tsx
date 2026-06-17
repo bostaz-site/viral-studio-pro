@@ -33,7 +33,7 @@ import { BlowupChanceBar } from '@/components/enhance/blowup-chance-bar'
 import { CaptionsSection } from '@/components/enhance/accordion-sections/captions-section'
 import { SplitScreenSection } from '@/components/enhance/accordion-sections/split-screen-section'
 import { PageHeader } from '@/components/dashboard/page-header'
-import { TikTokPublishDialog } from '@/components/distribution/tiktok-publish-dialog'
+import { UnifiedPublishDialog } from '@/components/distribution/unified-publish-dialog'
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -67,7 +67,7 @@ export default function EnhancePage() {
   const [error, setError] = useState<string | null>(null)
   const [rendering, setRendering] = useState(false)
   const [placedInBank, setPlacedInBank] = useState(false)
-  const [showTikTokDialog, setShowTikTokDialog] = useState(searchParams.get('publish') === '1')
+  const [showPublishDialog, setShowPublishDialog] = useState(searchParams.get('publish') === '1')
   const [renderMessage, setRenderMessage] = useState<string | null>(null)
   const [renderOriginalUrl, setRenderOriginalUrl] = useState<string | null>(null)
   const [renderDownloadUrl, setRenderDownloadUrl] = useState<string | null>(null)
@@ -1175,68 +1175,13 @@ export default function EnhancePage() {
                     </button>
                   )}
 
-                  {/* SECONDARY: Publish to TikTok — opens compliant Direct Post dialog */}
+                  {/* Unified publish — all platforms in one dialog */}
                   <button
-                    onClick={() => setShowTikTokDialog(true)}
-                    className="inline-flex items-center justify-center gap-2 w-full h-11 rounded-lg border border-cyan-500/35 bg-cyan-500/8 text-cyan-300 hover:bg-cyan-500/15 hover:border-cyan-500/55 hover:text-cyan-200 text-sm font-semibold transition-all"
-                    title="Publish directly to TikTok"
+                    onClick={() => setShowPublishDialog(true)}
+                    className="inline-flex items-center justify-center gap-2 w-full h-11 rounded-lg bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-400 hover:to-amber-400 text-white text-sm font-bold shadow-lg shadow-orange-500/20 hover:shadow-orange-500/30 transition-all hover:scale-[1.01]"
                   >
                     <Send className="h-4 w-4" />
-                    Publish to TikTok
-                  </button>
-
-                  {/* Publish to Instagram */}
-                  <button
-                    onClick={async () => {
-                      setRenderMessage('Publishing to Instagram...')
-                      try {
-                        const res = await fetch('/api/publish/instagram', {
-                          method: 'POST',
-                          headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({ clip_id: clip.id, caption: clip.title || 'Viral clip' }),
-                        })
-                        const json = await res.json() as { data?: { postId?: string }; error?: string }
-                        if (json.error) {
-                          setRenderMessage(`Instagram: ${json.error}`)
-                        } else {
-                          setRenderMessage('Published to Instagram!')
-                        }
-                      } catch {
-                        setRenderMessage('Instagram publish failed')
-                      }
-                    }}
-                    className="inline-flex items-center justify-center gap-2 w-full h-11 rounded-lg border border-pink-500/35 bg-pink-500/8 text-pink-300 hover:bg-pink-500/15 hover:border-pink-500/55 hover:text-pink-200 text-sm font-semibold transition-all"
-                    title="Publish directly to Instagram Reels"
-                  >
-                    <Send className="h-4 w-4" />
-                    Publish to Instagram
-                  </button>
-
-                  {/* Publish to YouTube */}
-                  <button
-                    onClick={async () => {
-                      setRenderMessage('Publishing to YouTube...')
-                      try {
-                        const res = await fetch('/api/publish/youtube', {
-                          method: 'POST',
-                          headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({ clip_id: clip.id, caption: clip.title || 'Viral clip' }),
-                        })
-                        const json = await res.json() as { data?: { postId?: string }; error?: string }
-                        if (json.error) {
-                          setRenderMessage(`YouTube: ${json.error}`)
-                        } else {
-                          setRenderMessage('Published to YouTube!')
-                        }
-                      } catch {
-                        setRenderMessage('YouTube publish failed')
-                      }
-                    }}
-                    className="inline-flex items-center justify-center gap-2 w-full h-11 rounded-lg border border-red-500/35 bg-red-500/8 text-red-300 hover:bg-red-500/15 hover:border-red-500/55 hover:text-red-200 text-sm font-semibold transition-all"
-                    title="Publish directly to YouTube as Short"
-                  >
-                    <Send className="h-4 w-4" />
-                    Publish to YouTube
+                    Publish
                   </button>
 
                   {/* Tertiary: Download */}
@@ -2016,10 +1961,10 @@ export default function EnhancePage() {
         </div>
       </div>
 
-      {/* TikTok Direct Post dialog */}
-      <TikTokPublishDialog
-        open={showTikTokDialog}
-        onClose={() => setShowTikTokDialog(false)}
+      {/* Unified multi-platform publish dialog */}
+      <UnifiedPublishDialog
+        open={showPublishDialog}
+        onClose={() => setShowPublishDialog(false)}
         clipId={clipId}
         clipTitle={clip?.title ?? undefined}
         videoPreviewUrl={videoUrl ?? undefined}
