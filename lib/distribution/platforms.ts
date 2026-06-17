@@ -58,13 +58,19 @@ export const PLATFORM_CONFIGS: Record<Platform, PlatformConfig> = {
     displayName: 'Instagram',
     authUrl: 'https://www.facebook.com/v21.0/dialog/oauth',
     tokenUrl: 'https://graph.facebook.com/v21.0/oauth/access_token',
-    scopes: ['instagram_basic', 'instagram_content_publish', 'pages_read_engagement'],
+    scopes: [
+      'instagram_basic',
+      'instagram_content_publish',
+      'pages_show_list',
+      'pages_read_engagement',
+      'instagram_manage_insights',
+    ],
     redirectUri: `${APP_URL}/api/auth/callback/instagram`,
     clientIdEnv: 'INSTAGRAM_APP_ID',
     clientSecretEnv: 'INSTAGRAM_APP_SECRET',
     color: '#E4405F',
     icon: 'instagram',
-    supportsPublish: false, // Stub — coming soon
+    supportsPublish: true,
   },
 }
 

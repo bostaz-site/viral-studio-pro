@@ -32,6 +32,7 @@ interface SocialAccountRow {
   token_expires_at: string | null
   username: string | null
   connected_at: string
+  platform_metadata: Record<string, unknown> | null
 }
 
 /**
@@ -513,12 +514,12 @@ async function exchangeInstagramCode(code: string): Promise<{
     // Keep short-lived token
   }
 
-  // Step 3: Get user info
+  // Step 3: Get Facebook user info (IG business account resolved in OAuth callback)
   let platformUserId = ''
   let username = 'instagram_user'
   try {
     const meRes = await fetch(
-      `https://graph.facebook.com/v21.0/me?fields=id,name&access_token=${longLivedToken}`
+      `https://graph.facebook.com/v21.0/me?fields=id,name&access_token=${encodeURIComponent(longLivedToken)}`
     )
     const meData = await meRes.json() as { id?: string; name?: string }
     platformUserId = meData.id ?? ''

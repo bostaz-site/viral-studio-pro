@@ -1185,6 +1185,33 @@ export default function EnhancePage() {
                     Publish to TikTok
                   </button>
 
+                  {/* Publish to Instagram */}
+                  <button
+                    onClick={async () => {
+                      setRenderMessage('Publishing to Instagram...')
+                      try {
+                        const res = await fetch('/api/publish/instagram', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ clip_id: clip.id, caption: clip.title || 'Viral clip' }),
+                        })
+                        const json = await res.json() as { data?: { postId?: string }; error?: string }
+                        if (json.error) {
+                          setRenderMessage(`Instagram: ${json.error}`)
+                        } else {
+                          setRenderMessage('Published to Instagram!')
+                        }
+                      } catch {
+                        setRenderMessage('Instagram publish failed')
+                      }
+                    }}
+                    className="inline-flex items-center justify-center gap-2 w-full h-11 rounded-lg border border-pink-500/35 bg-pink-500/8 text-pink-300 hover:bg-pink-500/15 hover:border-pink-500/55 hover:text-pink-200 text-sm font-semibold transition-all"
+                    title="Publish directly to Instagram Reels"
+                  >
+                    <Send className="h-4 w-4" />
+                    Publish to Instagram
+                  </button>
+
                   {/* Tertiary: Download */}
                   <a
                     href={renderDownloadUrl}

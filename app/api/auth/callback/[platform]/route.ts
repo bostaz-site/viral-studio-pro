@@ -105,6 +105,54 @@ export async function GET(
   // Upsert social account
   const admin = createAdminClient()
 
+  // For Instagram: resolve IG Business Account ID + page access token
+  let platformMetadata: Record<string, unknown> | null = null
+  let igPlatformUserId = tokens.platformUserId
+
+  if (platformParam === 'instagram') {
+    try {
+      // Fetch Facebook Pages the user manages
+      const pagesRes = await fetch(
+        `https://graph.facebook.com/v21.0/me/accounts?access_token=${encodeURIComponent(tokens.accessToken)}`
+      )
+      const pagesData = await pagesRes.json() as {
+        data?: Array<{ id: string; name: string; access_token: string }>
+      }
+
+      if (pagesData.data?.length) {
+        // Find the page linked to an Instagram Business account
+        for (const page of pagesData.data) {
+          const igRes = await fetch(
+            `https://graph.facebook.com/v21.0/${page.id}?fields=instagram_business_account&access_token=${encodeURIComponent(page.access_token)}`
+          )
+          const igData = await igRes.json() as {
+            instagram_business_account?: { id: string }
+          }
+
+          if (igData.instagram_business_account?.id) {
+            platformMetadata = {
+              ig_business_account_id: igData.instagram_business_account.id,
+              page_id: page.id,
+              page_access_token: safeEncrypt(page.access_token),
+            }
+            igPlatformUserId = igData.instagram_business_account.id
+            break
+          }
+        }
+      }
+
+      if (!platformMetadata) {
+        return redirectWithError(
+          'No Instagram Business account found. Please convert your Instagram to a Business account and link it to a Facebook Page.'
+        )
+      }
+    } catch (err) {
+      return redirectWithError(
+        `Failed to resolve Instagram Business account: ${err instanceof Error ? err.message : 'unknown'}`
+      )
+    }
+  }
+
   const { data: existing } = await admin
     .from('social_accounts')
     .select('id')
@@ -112,17 +160,22 @@ export async function GET(
     .eq('platform', platformParam)
     .single()
 
+  const accountData: Record<string, unknown> = {
+    platform_user_id: igPlatformUserId || tokens.platformUserId,
+    access_token: encryptedAccess,
+    refresh_token: encryptedRefresh,
+    token_expires_at: tokens.expiresAt?.toISOString() ?? null,
+    username: tokens.username,
+    connected_at: new Date().toISOString(),
+  }
+  if (platformMetadata) {
+    accountData.platform_metadata = platformMetadata
+  }
+
   if (existing) {
     const { error: updateError } = await admin
       .from('social_accounts')
-      .update({
-        platform_user_id: tokens.platformUserId,
-        access_token: encryptedAccess,
-        refresh_token: encryptedRefresh,
-        token_expires_at: tokens.expiresAt?.toISOString() ?? null,
-        username: tokens.username,
-        connected_at: new Date().toISOString(),
-      })
+      .update(accountData)
       .eq('id', existing.id)
 
     if (updateError) {
@@ -134,12 +187,7 @@ export async function GET(
       .insert({
         user_id: user.id,
         platform: platformParam,
-        platform_user_id: tokens.platformUserId,
-        access_token: encryptedAccess,
-        refresh_token: encryptedRefresh,
-        token_expires_at: tokens.expiresAt?.toISOString() ?? null,
-        username: tokens.username,
-        connected_at: new Date().toISOString(),
+        ...accountData,
       })
 
     if (insertError) {
