@@ -1,3 +1,5 @@
+import { config } from 'dotenv'
+config({ path: '.env.local' })
 import { chromium, Page } from 'playwright'
 import Anthropic from '@anthropic-ai/sdk'
 import { insertFinding } from './insert-finding'

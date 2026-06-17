@@ -9,7 +9,11 @@
     "lint": "next lint",
     "test": "vitest run",
     "test:watch": "vitest",
-    "gen:types": "npx supabase gen types typescript --project-id swlbdlgwqeinwxuviwgn > lib/supabase/types.ts"
+    "gen:types": "npx supabase gen types typescript --project-id swlbdlgwqeinwxuviwgn > lib/supabase/types.ts",
+    "persona:sceptical": "npx tsx scripts/personas/sceptical-first-timer.ts",
+    "persona:free-limit": "npx tsx scripts/personas/free-user-limit.ts",
+    "persona:power": "npx tsx scripts/personas/power-user.ts",
+    "audit:nightly": "npx tsx scripts/audits/run-nightly.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.80.0",
@@ -46,6 +50,7 @@
     "@types/papaparse": "^5.5.2",
     "@types/react": "^18",
     "@types/react-dom": "^18",
+    "dotenv": "^17.4.2",
     "eslint": "^8",
     "eslint-config-next": "14.2.35",
     "ffmpeg-static": "^5.3.0",
