@@ -86,7 +86,8 @@ export async function transcribeWithWhisper(videoPath, options = {}) {
 
     const result = await response.json();
     const transcribedText = result.text || '';
-    console.log(`[Whisper] Transcription: "${transcribedText.substring(0, 100)}"`);
+    const detectedLanguage = result.language || language || 'en';
+    console.log(`[Whisper] Transcription (lang=${detectedLanguage}): "${transcribedText.substring(0, 100)}"`);
 
     // Step 3: Extract word-level timestamps
     const words = result.words || [];
@@ -101,7 +102,7 @@ export async function transcribeWithWhisper(videoPath, options = {}) {
     console.log(`[Whisper] Got ${wordTimestamps.length} word timestamps`);
 
     if (wordTimestamps.length === 0) {
-      return [];
+      return { words: [], language: detectedLanguage, fullText: transcribedText };
     }
 
     // Step 4: Anti-hallucination checks
@@ -116,25 +117,25 @@ export async function transcribeWithWhisper(videoPath, options = {}) {
     const minExpectedDuration = wordTimestamps.length * 0.15; // ~150ms per word minimum
     if (totalSpan < minExpectedDuration) {
       console.warn(`[Whisper] HALLUCINATION DETECTED: ${wordTimestamps.length} words in ${totalSpan.toFixed(2)}s (need ≥${minExpectedDuration.toFixed(1)}s). Rejecting.`);
-      return [];
+      return { words: [], language: detectedLanguage, fullText: transcribedText };
     }
 
     // CHECK 2: All words start after 80% of clip = likely hallucinated at end
     if (clipDuration > 0 && first.start > clipDuration * 0.8) {
       console.warn(`[Whisper] HALLUCINATION DETECTED: first word at ${first.start.toFixed(2)}s in ${clipDuration.toFixed(1)}s clip (>80%). Rejecting.`);
-      return [];
+      return { words: [], language: detectedLanguage, fullText: transcribedText };
     }
 
     // CHECK 3: Words extend way past clip duration = hallucination
     if (clipDuration > 0 && last.end > clipDuration * 1.5) {
       console.warn(`[Whisper] HALLUCINATION DETECTED: last word at ${last.end.toFixed(2)}s, clip is ${clipDuration.toFixed(1)}s. Rejecting.`);
-      return [];
+      return { words: [], language: detectedLanguage, fullText: transcribedText };
     }
 
-    return wordTimestamps;
+    return { words: wordTimestamps, language: detectedLanguage, fullText: transcribedText };
   } catch (err) {
     console.warn(`[Whisper] Transcription failed: ${err.message}`);
-    return [];
+    return { words: [], language: null, fullText: '' };
   } finally {
     try {
       await fs.unlink(audioPath);

@@ -56,6 +56,70 @@ function buildCommand(args) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Exposure Correction
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Probe average luma (brightness) of a video by sampling a few frames.
+ * Returns average Y value on 0-255 scale, or null on failure.
+ */
+async function probeAverageLuma(inputPath, startTime = 0) {
+  try {
+    const result = await execFileAsync('ffmpeg', [
+      '-ss', String(startTime),
+      '-i', inputPath,
+      '-vframes', '5',
+      '-vf', 'signalstats',
+      '-f', 'null', '-',
+    ], { timeout: 15000, maxBuffer: 1024 * 1024 });
+
+    const output = result.stderr || '';
+    const matches = [...output.matchAll(/YAVG=([\d.]+)/g)];
+    if (matches.length === 0) return null;
+
+    const avg = matches.reduce((s, m) => s + parseFloat(m[1]), 0) / matches.length;
+    return avg;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Calculate adaptive exposure correction parameters based on average luma.
+ * Returns FFmpeg eq filter parameters { brightness, contrast, saturation }.
+ */
+function getExposureParams(avgLuma) {
+  if (avgLuma === null || avgLuma === undefined) {
+    // Default: mild boost
+    return { brightness: 0.06, contrast: 1.15, saturation: 1.1 };
+  }
+
+  if (avgLuma < 60) {
+    // Very dark: strong boost
+    return { brightness: 0.12, contrast: 1.25, saturation: 1.15 };
+  } else if (avgLuma < 100) {
+    // Dark: moderate boost
+    return { brightness: 0.08, contrast: 1.2, saturation: 1.1 };
+  } else if (avgLuma < 140) {
+    // Normal: subtle boost
+    return { brightness: 0.04, contrast: 1.1, saturation: 1.05 };
+  } else {
+    // Well-lit: skip
+    return { brightness: 0, contrast: 1.0, saturation: 1.0 };
+  }
+}
+
+/**
+ * Build an eq filter string from exposure params. Returns null if no correction needed.
+ */
+function buildExposureFilter(params) {
+  if (params.brightness === 0 && params.contrast === 1.0 && params.saturation === 1.0) {
+    return null;
+  }
+  return `eq=brightness=${params.brightness}:contrast=${params.contrast}:saturation=${params.saturation}`;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Hook Text Overlay
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -472,6 +536,17 @@ export async function renderClip(inputPath, outputPath, options = {}) {
     }
   }
 
+  // ── Adaptive exposure correction ────────────────────────────────────────
+  let exposureParams = { brightness: 0.06, contrast: 1.15, saturation: 1.1 };
+  try {
+    const avgLuma = await probeAverageLuma(inputPath, startTime);
+    exposureParams = getExposureParams(avgLuma);
+    console.log(`[FFmpeg] Exposure probe: avgLuma=${avgLuma !== null ? avgLuma.toFixed(1) : 'N/A'}, correction: b=${exposureParams.brightness} c=${exposureParams.contrast} s=${exposureParams.saturation}`);
+  } catch (err) {
+    console.warn('[FFmpeg] Exposure probe failed, using defaults:', err.message);
+  }
+  const exposureFilter = buildExposureFilter(exposureParams);
+
   // ── Split-screen render path ────────────────────────────────────────────
   if (splitScreen && splitScreen.enabled && splitScreen.brollPath) {
     return renderSplitScreen(inputPath, outputPath, {
@@ -541,20 +616,26 @@ export async function renderClip(inputPath, outputPath, options = {}) {
       const bigH = Math.round(canvasH * zoomFactor);
       console.log(`[FFmpeg] Word-pop + zoom(${Math.round(zoomFactor*100)}%): contain ${bigW}x${bigH} then crop to ${canvasW}x${canvasH}`);
       filterComplex = [
-        `[0:v]fps=30,split=2[wpfg][wpbg]`,
+        `[0:v]fps=30,crop=in_w-60:in_h-60:30:30,split=2[wpfg][wpbg]`,
         `[wpbg]scale=${Math.round(canvasW/4)}:${Math.round(canvasH/4)}:force_original_aspect_ratio=increase,crop=${Math.round(canvasW/4)}:${Math.round(canvasH/4)}:(iw-${Math.round(canvasW/4)})/2:(ih-${Math.round(canvasH/4)})/2,gblur=sigma=12,eq=brightness=-0.35:saturation=1.25:contrast=1.1,scale=${canvasW}:${canvasH}:flags=bilinear,setsar=1[wpbgout]`,
         `[wpfg]scale=${bigW}:${bigH}:force_original_aspect_ratio=decrease,setsar=1[wpfgscaled]`,
         `[wpbgout][wpfgscaled]overlay=(W-w)/2:(H-h)/2,format=yuv420p[composed]`,
       ].join(';');
     } else {
-      console.log('[FFmpeg] Word-pop: pad compositing (no blur)');
-      filterComplex = `[0:v]fps=30,scale=${canvasW}:${canvasH}:force_original_aspect_ratio=decrease,pad=${canvasW}:${canvasH}:(ow-iw)/2:(oh-ih)/2:black,setsar=1,format=yuv420p[composed]`;
+      // Word-pop without zoom: blur-fill background (same as standard path, avoids black bars)
+      console.log('[FFmpeg] Word-pop: blur-fill compositing');
+      filterComplex = [
+        `[0:v]fps=30,crop=in_w-60:in_h-60:30:30,split=2[wpfg2][wpbg2]`,
+        `[wpbg2]scale=${Math.round(canvasW/4)}:${Math.round(canvasH/4)}:force_original_aspect_ratio=increase,crop=${Math.round(canvasW/4)}:${Math.round(canvasH/4)}:(iw-${Math.round(canvasW/4)})/2:(ih-${Math.round(canvasH/4)})/2,gblur=sigma=12,eq=brightness=-0.35:saturation=1.25:contrast=1.1,scale=${canvasW}:${canvasH}:flags=bilinear,setsar=1[wpbgout2]`,
+        `[wpfg2]scale=${canvasW}:${canvasH}:force_original_aspect_ratio=decrease,setsar=1[wpfgout2]`,
+        `[wpbgout2][wpfgout2]overlay=(W-w)/2:(H-h)/2,format=yuv420p[composed]`,
+      ].join(';');
     }
     mapVideo = '[composed]';
   } else if (smartZoomActive) {
     // SMART ZOOM PATH: scale to COVER + center crop (no pad, no blur, no split)
     console.log('[FFmpeg] Smart zoom: cover+crop compositing (no blur, no black bars)');
-    filterComplex = `[0:v]fps=30,scale=${canvasW}:${canvasH}:force_original_aspect_ratio=increase,crop=${canvasW}:${canvasH}:(iw-${canvasW})/2:(ih-${canvasH})/2,setsar=1,format=yuv420p[composed]`;
+    filterComplex = `[0:v]fps=30,crop=in_w-60:in_h-60:30:30,scale=${canvasW}:${canvasH}:force_original_aspect_ratio=increase,crop=${canvasW}:${canvasH}:(iw-${canvasW})/2:(ih-${canvasH})/2,setsar=1,format=yuv420p[composed]`;
     mapVideo = '[composed]';
   } else {
     // STANDARD PATH: blur-fill compositing (matches UI preview)
@@ -564,12 +645,19 @@ export async function renderClip(inputPath, outputPath, options = {}) {
     const fgH = Math.round(canvasH * zoomFactor);
     console.log(`[FFmpeg] Standard blur-fill + zoom(${Math.round(zoomFactor*100)}%): contain ${fgW}x${fgH}`);
     filterComplex = [
-      `[0:v]fps=30,split=2[srcfg][srcbg]`,
+      `[0:v]fps=30,crop=in_w-60:in_h-60:30:30,split=2[srcfg][srcbg]`,
       `[srcbg]scale=${Math.round(canvasW/4)}:${Math.round(canvasH/4)}:force_original_aspect_ratio=increase,crop=${Math.round(canvasW/4)}:${Math.round(canvasH/4)}:(iw-${Math.round(canvasW/4)})/2:(ih-${Math.round(canvasH/4)})/2,gblur=sigma=12,eq=brightness=-0.35:saturation=1.25:contrast=1.1,scale=${canvasW}:${canvasH}:flags=bilinear,setsar=1[bg]`,
       `[srcfg]scale=${fgW}:${fgH}:force_original_aspect_ratio=decrease,setsar=1[fg]`,
       `[bg][fg]overlay=(W-w)/2:(H-h)/2,format=yuv420p[composed]`,
     ].join(';');
     mapVideo = '[composed]';
+  }
+
+  // ── Exposure correction (applied after compositing, before captions/tags) ──
+  if (exposureFilter) {
+    filterComplex += `;${mapVideo}${exposureFilter}[exposed]`;
+    mapVideo = '[exposed]';
+    console.log(`[FFmpeg] Exposure correction applied: ${exposureFilter}`);
   }
 
   // Smart Zoom (applied on composed output, BEFORE captions/tags so they stay crisp)
@@ -854,7 +942,7 @@ async function renderSplitScreen(inputPath, outputPath, opts) {
 
     filterComplex = [
       // Scale + crop main video to top region, normalize fps
-      `[0:v]fps=30,scale=${canvasW}:${topH}:force_original_aspect_ratio=increase,crop=${canvasW}:${topH}:(iw-${canvasW})/2:(ih-${topH})/2,setsar=1[main]`,
+      `[0:v]fps=30,crop=in_w-60:in_h-60:30:30,scale=${canvasW}:${topH}:force_original_aspect_ratio=increase,crop=${canvasW}:${topH}:(iw-${canvasW})/2:(ih-${topH})/2,setsar=1[main]`,
       // Scale + crop B-roll to bottom region, loop if shorter, normalize fps
       `[1:v]loop=loop=-1:size=900:start=0,fps=30,scale=${canvasW}:${botH}:force_original_aspect_ratio=increase,crop=${canvasW}:${botH}:(iw-${canvasW})/2:(ih-${botH})/2,setsar=1[broll]`,
       // Stack vertically
@@ -868,7 +956,7 @@ async function renderSplitScreen(inputPath, outputPath, opts) {
     const rightW = canvasW - leftW;
 
     filterComplex = [
-      `[0:v]fps=30,scale=${leftW}:${canvasH}:force_original_aspect_ratio=increase,crop=${leftW}:${canvasH}:(iw-${leftW})/2:(ih-${canvasH})/2,setsar=1[main]`,
+      `[0:v]fps=30,crop=in_w-60:in_h-60:30:30,scale=${leftW}:${canvasH}:force_original_aspect_ratio=increase,crop=${leftW}:${canvasH}:(iw-${leftW})/2:(ih-${canvasH})/2,setsar=1[main]`,
       `[1:v]loop=loop=-1:size=900:start=0,fps=30,scale=${rightW}:${canvasH}:force_original_aspect_ratio=increase,crop=${rightW}:${canvasH}:(iw-${rightW})/2:(ih-${canvasH})/2,setsar=1[broll]`,
       `[main][broll]hstack=inputs=2[composed]`,
     ].join(';');
@@ -882,7 +970,7 @@ async function renderSplitScreen(inputPath, outputPath, opts) {
     const pipY = canvasH - pipH - 20; // 20px margin bottom
 
     filterComplex = [
-      `[0:v]fps=30,scale=${canvasW}:${canvasH}:force_original_aspect_ratio=increase,crop=${canvasW}:${canvasH}:(iw-${canvasW})/2:(ih-${canvasH})/2,setsar=1[main]`,
+      `[0:v]fps=30,crop=in_w-60:in_h-60:30:30,scale=${canvasW}:${canvasH}:force_original_aspect_ratio=increase,crop=${canvasW}:${canvasH}:(iw-${canvasW})/2:(ih-${canvasH})/2,setsar=1[main]`,
       `[1:v]loop=loop=-1:size=900:start=0,fps=30,scale=${pipW}:${pipH}:force_original_aspect_ratio=increase,crop=${pipW}:${pipH}:(iw-${pipW})/2:(ih-${pipH})/2,setsar=1[broll]`,
       `[main][broll]overlay=${pipX}:${pipY}[composed]`,
     ].join(';');

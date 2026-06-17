@@ -89,6 +89,91 @@ async function sendWebhookCallback(jobId, status, storagePath, errorMessage) {
 const execFileAsync = promisify(execFile);
 const router = express.Router();
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Language detection from streamer name
+// ─────────────────────────────────────────────────────────────────────────────
+
+const FRENCH_STREAMERS = [
+  'kameto', 'gotaga', 'squeezie', 'aminematue', 'locklear',
+  'sardoche', 'joueur_du_grenier', 'mistermv', 'lebouseuh',
+  'michou', 'inoxtag', 'amixem', 'thekairi78', 'domingo',
+  'jlxtv', 'ponce', 'kenny', 'zerator', 'joueurdugrenier',
+  'xari', 'etoiles', 'solary', 'tonton',
+];
+
+function detectLanguageFromStreamer(authorName) {
+  if (!authorName) return null;
+  const lower = authorName.toLowerCase().replace(/[^a-z0-9]/g, '');
+  for (const s of FRENCH_STREAMERS) {
+    if (lower.includes(s)) return 'fr';
+  }
+  return null;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Smart hook detection via Claude Haiku
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Call Claude Haiku to identify the peak viral moment in a transcript.
+ * Returns optimal start timestamp in seconds, or null on failure.
+ */
+async function detectSmartHookStart(transcript, duration, trc) {
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) {
+    trc('SMART HOOK: no ANTHROPIC_API_KEY, skipping');
+    return null;
+  }
+  if (!transcript || transcript.length < 10) {
+    trc('SMART HOOK: transcript too short, skipping');
+    return null;
+  }
+
+  try {
+    trc('SMART HOOK: calling Claude Haiku for peak moment detection...');
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+      },
+      body: JSON.stringify({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 50,
+        messages: [{
+          role: 'user',
+          content: `Here is the transcript of a ${duration.toFixed(1)}s Twitch/gaming clip:\n\n"${transcript.slice(0, 2000)}"\n\nIdentify the most viral/funny/interesting moment. Return ONLY the timestamp in seconds (e.g. 4.5) where the clip should START to maximize the hook (= peak moment - 1.5s). If the peak is in the first 2 seconds, return 0.`,
+        }],
+      }),
+    });
+
+    if (!response.ok) {
+      trc(`SMART HOOK: Claude API error ${response.status}`);
+      return null;
+    }
+
+    const result = await response.json();
+    const text = result.content?.[0]?.text || '';
+    const match = text.match(/([\d.]+)/);
+    if (!match) {
+      trc(`SMART HOOK: could not parse timestamp from response: "${text}"`);
+      return null;
+    }
+
+    const peakStart = parseFloat(match[1]);
+    trc(`SMART HOOK: Claude suggests start=${peakStart}s`);
+
+    // Sanity checks
+    if (!Number.isFinite(peakStart) || peakStart < 0) return 0;
+    if (peakStart >= duration - 2) return Math.max(0, duration - 5); // Don't start too close to the end
+    return peakStart;
+  } catch (err) {
+    trc(`SMART HOOK: error ${err.message}`);
+    return null;
+  }
+}
+
 // Create temp directory if needed
 const TEMP_DIR = process.env.TEMP_DIR || '/tmp/viral-studio-render';
 const OUTPUT_DIR = process.env.OUTPUT_DIR || '/tmp/viral-studio-output';
@@ -461,6 +546,8 @@ router.post('/', async (req, res) => {
     // IMPORTANT: also skip when style='none' — user explicitly chose no captions.
     let assFilePath = null;
     let captionWordTimestamps = []; // hoisted so reorder can remap them
+    let detectedLanguage = null; // Whisper-detected language
+    let whisperFullText = ''; // Full transcript text for smart hook
     const captionStyleRequested = settings.captions?.style || 'hormozi';
     const captionsRequested = settings.captions?.enabled && captionStyleRequested !== 'none';
     if (captionsRequested) {
@@ -475,6 +562,9 @@ router.post('/', async (req, res) => {
               w => w.start >= clipStartTime && w.start < clipEndTime
             );
           }
+          if (transcription?.language) {
+            detectedLanguage = transcription.language;
+          }
         }
 
         // For trending clips, try Whisper transcription to get real word timestamps
@@ -486,14 +576,22 @@ router.post('/', async (req, res) => {
             trc(`WHISPER SKIPPED - no key`);
           }
           try {
+            // Language: detect from streamer name, otherwise let Whisper auto-detect
+            const streamerLang = detectLanguageFromStreamer(clipTitle);
+            const whisperLang = streamerLang || undefined; // undefined = auto-detect
+            trc(`WHISPER language: streamer=${streamerLang || 'auto'}, using=${whisperLang || 'auto-detect'}`);
+
             trc(`WHISPER calling transcribeWithWhisper...`);
-            wordTimestamps = await transcribeWithWhisper(inputPath, {
+            const whisperResult = await transcribeWithWhisper(inputPath, {
               tempDir,
-              language: 'en', // Most Twitch clips are English
+              language: whisperLang,
               contextPrompt: clipTitle || '', // Use clip title as context for better vocab
               clipDuration: duration, // For timestamp sanity check
             });
-            trc(`WHISPER returned ${wordTimestamps.length} word timestamps`);
+            wordTimestamps = whisperResult.words || [];
+            detectedLanguage = whisperResult.language || whisperLang || 'en';
+            whisperFullText = whisperResult.fullText || '';
+            trc(`WHISPER returned ${wordTimestamps.length} word timestamps, lang=${detectedLanguage}`);
             // Log first & last word timestamps for debugging subtitle timing
             if (wordTimestamps.length > 0) {
               const first = wordTimestamps[0];
@@ -705,6 +803,61 @@ router.post('/', async (req, res) => {
         }
       } catch (faceErr) {
         trc(`FACE DETECTION error: ${faceErr.message}, falling back to micro zoom`);
+      }
+    }
+
+    // ─── Smart Hook Trim (pre-processing) ───
+    // For trending clips only: use Claude to detect the peak moment from transcript
+    // and trim the clip to start 1.5s before peak. Skip if hook reorder is enabled
+    // (reorder handles this differently by rearranging segments).
+    const hookReorderEnabled = settings.hook?.reorderEnabled && settings.hook?.reorder?.segments?.length >= 2;
+    if (source === 'trending' && whisperFullText && !hookReorderEnabled && duration > 10) {
+      try {
+        const smartStart = await detectSmartHookStart(whisperFullText, duration, trc);
+        if (smartStart !== null && smartStart > 2) {
+          const oldStart = clipStartTime;
+          clipStartTime += smartStart;
+          // Cap total duration at 30s
+          const maxDur = 30;
+          duration = Math.min(duration - smartStart, maxDur);
+          clipEndTime = clipStartTime + duration;
+          trc(`SMART HOOK: trimmed clip start ${oldStart}→${clipStartTime}s, new duration=${duration}s`);
+
+          // Remap word timestamps to new timeline
+          if (captionWordTimestamps.length > 0) {
+            captionWordTimestamps = captionWordTimestamps
+              .filter(w => w.start >= smartStart && w.start < smartStart + duration)
+              .map(w => ({ ...w, start: w.start - smartStart, end: w.end - smartStart }));
+            trc(`SMART HOOK: remapped ${captionWordTimestamps.length} word timestamps`);
+
+            // Regenerate ASS file with trimmed timestamps
+            if (assFilePath && captionWordTimestamps.length > 0) {
+              const captionStyle = settings.captions?.style || 'hormozi';
+              const captionPosition = settings.captions?.position || 'bottom';
+              const captionAnim = settings.captions?.animation || 'highlight';
+              const trimmedASS = generateASS(captionWordTimestamps, {
+                style: captionStyle,
+                position: captionPosition,
+                canvasWidth: canvasW,
+                canvasHeight: canvasH,
+                splitScreen: splitScreenForCaptions,
+                animation: captionAnim,
+                clipStartTime: 0,
+                wordsPerLine: settings.captions?.wordsPerLine || 4,
+                customColors: settings.captions?.customColors,
+                customImportantWords: settings.captions?.customImportantWords || [],
+                emphasisEffect: settings.captions?.emphasisEffect || 'none',
+                emphasisColor: settings.captions?.emphasisColor || 'red',
+              });
+              if (trimmedASS) {
+                await fs.writeFile(assFilePath, trimmedASS, 'utf-8');
+                trc(`SMART HOOK: regenerated ASS subtitles (${trimmedASS.length} bytes)`);
+              }
+            }
+          }
+        }
+      } catch (hookErr) {
+        trc(`SMART HOOK FAILED: ${hookErr.message}`);
       }
     }
 
