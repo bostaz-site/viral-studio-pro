@@ -3,7 +3,7 @@ import { sendDiscordAlert } from './discord'
 import { predictROI } from './roi-predictor'
 
 export interface NewFinding {
-  agent_type: 'output' | 'acquisition' | 'activation' | 'retention' | 'technical' | 'cold_email'
+  agent_type: 'output' | 'acquisition' | 'activation' | 'retention' | 'technical' | 'cold_email' | 'pr_review' | 'session_replay'
   persona?: 'sceptical' | 'free_limit' | 'power'
   severity: 'critical' | 'high' | 'normal' | 'low'
   title: string
