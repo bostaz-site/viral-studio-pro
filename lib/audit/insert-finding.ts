@@ -1,5 +1,6 @@
 import { createAdminClient } from '../supabase/admin'
 import { sendDiscordAlert } from './discord'
+import { predictROI } from './roi-predictor'
 
 export interface NewFinding {
   agent_type: 'output' | 'acquisition' | 'activation' | 'retention' | 'technical' | 'cold_email'
@@ -37,10 +38,24 @@ export async function insertFinding(finding: NewFinding) {
     return existing.id
   }
 
-  // New finding
-  const { data } = await admin
+  // Predict ROI for new findings (non-blocking)
+  const roi = await predictROI(finding).catch(() => null)
+
+  // New finding with ROI prediction
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const insertData: Record<string, any> = { ...finding }
+  if (roi) {
+    insertData.predicted_impact_revenue = roi.predicted_impact_revenue
+    insertData.predicted_impact_conversion = roi.predicted_impact_conversion
+    insertData.predicted_impact_ux = roi.predicted_impact_ux
+    insertData.predicted_effort_hours = roi.predicted_effort_hours
+    insertData.predicted_confidence = roi.predicted_confidence
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data } = await (admin as any)
     .from('audit_findings')
-    .insert(finding)
+    .insert(insertData)
     .select('id')
     .single()
 

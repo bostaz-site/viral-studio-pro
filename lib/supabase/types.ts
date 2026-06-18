@@ -773,6 +773,39 @@ export type Database = {
         }
         Relationships: []
       }
+      agent_prompt_proposals: {
+        Row: {
+          ab_test_results: Json | null
+          agent_name: string
+          created_at: string
+          id: string
+          previous_prompt: string
+          proposed_prompt: string
+          rationale: string
+          status: string
+        }
+        Insert: {
+          ab_test_results?: Json | null
+          agent_name: string
+          created_at?: string
+          id?: string
+          previous_prompt: string
+          proposed_prompt: string
+          rationale: string
+          status?: string
+        }
+        Update: {
+          ab_test_results?: Json | null
+          agent_name?: string
+          created_at?: string
+          id?: string
+          previous_prompt?: string
+          proposed_prompt?: string
+          rationale?: string
+          status?: string
+        }
+        Relationships: []
+      }
       ai_calls: {
         Row: {
           cached_tokens: number | null
@@ -834,6 +867,63 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      ai_multiplier_opportunities: {
+        Row: {
+          ai_capability: string
+          code_sketch: string | null
+          component_description: string
+          confidence_score: number | null
+          created_at: string
+          current_implementation: string
+          estimated_effort_hours: number | null
+          file_path: string
+          id: string
+          impact_score: number | null
+          measured_lift: number | null
+          predicted_lift_metric: string | null
+          predicted_lift_value: number | null
+          proposed_ai_solution: string
+          shipped_at: string | null
+          status: string
+        }
+        Insert: {
+          ai_capability: string
+          code_sketch?: string | null
+          component_description: string
+          confidence_score?: number | null
+          created_at?: string
+          current_implementation: string
+          estimated_effort_hours?: number | null
+          file_path: string
+          id?: string
+          impact_score?: number | null
+          measured_lift?: number | null
+          predicted_lift_metric?: string | null
+          predicted_lift_value?: number | null
+          proposed_ai_solution: string
+          shipped_at?: string | null
+          status?: string
+        }
+        Update: {
+          ai_capability?: string
+          code_sketch?: string | null
+          component_description?: string
+          confidence_score?: number | null
+          created_at?: string
+          current_implementation?: string
+          estimated_effort_hours?: number | null
+          file_path?: string
+          id?: string
+          impact_score?: number | null
+          measured_lift?: number | null
+          predicted_lift_metric?: string | null
+          predicted_lift_value?: number | null
+          proposed_ai_solution?: string
+          shipped_at?: string | null
+          status?: string
+        }
+        Relationships: []
       }
       ai_scoring_jobs: {
         Row: {
@@ -931,6 +1021,8 @@ export type Database = {
         Row: {
           agent_type: string
           audit_date: string
+          auto_fix_pr_url: string | null
+          auto_fix_status: string | null
           created_at: string
           cycle_count: number
           description: string
@@ -939,6 +1031,7 @@ export type Database = {
           location: string | null
           persona: string | null
           related_finding_id: string | null
+          root_cause_cluster_id: string | null
           screenshot_url: string | null
           severity: string
           status: string
@@ -949,6 +1042,8 @@ export type Database = {
         Insert: {
           agent_type: string
           audit_date?: string
+          auto_fix_pr_url?: string | null
+          auto_fix_status?: string | null
           created_at?: string
           cycle_count?: number
           description: string
@@ -957,6 +1052,7 @@ export type Database = {
           location?: string | null
           persona?: string | null
           related_finding_id?: string | null
+          root_cause_cluster_id?: string | null
           screenshot_url?: string | null
           severity: string
           status?: string
@@ -967,6 +1063,8 @@ export type Database = {
         Update: {
           agent_type?: string
           audit_date?: string
+          auto_fix_pr_url?: string | null
+          auto_fix_status?: string | null
           created_at?: string
           cycle_count?: number
           description?: string
@@ -975,6 +1073,7 @@ export type Database = {
           location?: string | null
           persona?: string | null
           related_finding_id?: string | null
+          root_cause_cluster_id?: string | null
           screenshot_url?: string | null
           severity?: string
           status?: string
@@ -988,6 +1087,13 @@ export type Database = {
             columns: ["related_finding_id"]
             isOneToOne: false
             referencedRelation: "audit_findings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "audit_findings_root_cause_cluster_id_fkey"
+            columns: ["root_cause_cluster_id"]
+            isOneToOne: false
+            referencedRelation: "root_cause_clusters"
             referencedColumns: ["id"]
           },
         ]
@@ -2798,6 +2904,63 @@ export type Database = {
         }
         Relationships: []
       }
+      meta_agent_reports: {
+        Row: {
+          adopted_at: string | null
+          agent_evaluated: string
+          blind_spots: Json | null
+          confidence_in_proposal: number | null
+          cost_per_actionable_finding: number | null
+          created_at: string
+          evaluation_period_end: string
+          evaluation_period_start: string
+          findings_actioned_rate: number | null
+          findings_ignored_rate: number | null
+          id: string
+          ignored_patterns: Json | null
+          performance_score: number
+          proposed_prompt_diff: string | null
+          proposed_prompt_full: string | null
+          status: string
+        }
+        Insert: {
+          adopted_at?: string | null
+          agent_evaluated: string
+          blind_spots?: Json | null
+          confidence_in_proposal?: number | null
+          cost_per_actionable_finding?: number | null
+          created_at?: string
+          evaluation_period_end: string
+          evaluation_period_start: string
+          findings_actioned_rate?: number | null
+          findings_ignored_rate?: number | null
+          id?: string
+          ignored_patterns?: Json | null
+          performance_score: number
+          proposed_prompt_diff?: string | null
+          proposed_prompt_full?: string | null
+          status?: string
+        }
+        Update: {
+          adopted_at?: string | null
+          agent_evaluated?: string
+          blind_spots?: Json | null
+          confidence_in_proposal?: number | null
+          cost_per_actionable_finding?: number | null
+          created_at?: string
+          evaluation_period_end?: string
+          evaluation_period_start?: string
+          findings_actioned_rate?: number | null
+          findings_ignored_rate?: number | null
+          id?: string
+          ignored_patterns?: Json | null
+          performance_score?: number
+          proposed_prompt_diff?: string | null
+          proposed_prompt_full?: string | null
+          status?: string
+        }
+        Relationships: []
+      }
       newsletter_leads: {
         Row: {
           confirmed: boolean | null
@@ -4020,6 +4183,60 @@ export type Database = {
           },
         ]
       }
+      root_cause_clusters: {
+        Row: {
+          cluster_name: string
+          confidence_score: number | null
+          created_at: string
+          estimated_effort_hours: number | null
+          estimated_impact: number | null
+          finding_ids: string[]
+          findings_count: number
+          fix_pr_url: string | null
+          fixed_at: string | null
+          id: string
+          impact_summary: string
+          measured_outcome: Json | null
+          root_cause_description: string
+          status: string
+          total_severity_score: number | null
+        }
+        Insert: {
+          cluster_name: string
+          confidence_score?: number | null
+          created_at?: string
+          estimated_effort_hours?: number | null
+          estimated_impact?: number | null
+          finding_ids: string[]
+          findings_count: number
+          fix_pr_url?: string | null
+          fixed_at?: string | null
+          id?: string
+          impact_summary: string
+          measured_outcome?: Json | null
+          root_cause_description: string
+          status?: string
+          total_severity_score?: number | null
+        }
+        Update: {
+          cluster_name?: string
+          confidence_score?: number | null
+          created_at?: string
+          estimated_effort_hours?: number | null
+          estimated_impact?: number | null
+          finding_ids?: string[]
+          findings_count?: number
+          fix_pr_url?: string | null
+          fixed_at?: string | null
+          id?: string
+          impact_summary?: string
+          measured_outcome?: Json | null
+          root_cause_description?: string
+          status?: string
+          total_severity_score?: number | null
+        }
+        Relationships: []
+      }
       saved_clips: {
         Row: {
           clip_id: string | null
@@ -4329,6 +4546,60 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      strategic_moves: {
+        Row: {
+          agent_type: string
+          category: string
+          confidence: number
+          created_at: string
+          description: string
+          effort: number
+          evidence: string
+          id: string
+          impact: number
+          outcome_metric: string | null
+          outcome_value: number | null
+          proposed_week_of: string
+          shipped_at: string | null
+          status: string
+          title: string
+        }
+        Insert: {
+          agent_type: string
+          category: string
+          confidence: number
+          created_at?: string
+          description: string
+          effort: number
+          evidence: string
+          id?: string
+          impact: number
+          outcome_metric?: string | null
+          outcome_value?: number | null
+          proposed_week_of: string
+          shipped_at?: string | null
+          status?: string
+          title: string
+        }
+        Update: {
+          agent_type?: string
+          category?: string
+          confidence?: number
+          created_at?: string
+          description?: string
+          effort?: number
+          evidence?: string
+          id?: string
+          impact?: number
+          outcome_metric?: string | null
+          outcome_value?: number | null
+          proposed_week_of?: string
+          shipped_at?: string | null
+          status?: string
+          title?: string
+        }
+        Relationships: []
       }
       streamers: {
         Row: {

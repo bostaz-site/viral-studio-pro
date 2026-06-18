@@ -6,21 +6,25 @@ export async function generateMorningBrief(): Promise<string> {
   const yesterday = new Date(today.getTime() - 24 * 60 * 60 * 1000)
   const isoYesterday = yesterday.toISOString()
 
-  // New findings since yesterday
-  const { data: newFindings } = await admin
+  // New findings since yesterday — sorted by ROI score (highest first)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: newFindings } = await (admin as any)
     .from('audit_findings')
     .select('*')
     .gte('created_at', isoYesterday)
     .eq('status', 'open')
-    .order('severity', { ascending: false })
+    .order('roi_score', { ascending: false, nullsFirst: false })
 
   // Split findings by severity into FIX vs IMPROVE
-  const fixFindings = (newFindings ?? []).filter(
-    (f) => f.severity === 'critical' || f.severity === 'high'
+  /* eslint-disable @typescript-eslint/no-explicit-any */
+  const allFindings: any[] = newFindings ?? []
+  const fixFindings = allFindings.filter(
+    (f: any) => f.severity === 'critical' || f.severity === 'high'
   )
-  const improveFindings = (newFindings ?? []).filter(
-    (f) => f.severity === 'normal' || f.severity === 'low'
+  const improveFindings = allFindings.filter(
+    (f: any) => f.severity === 'normal' || f.severity === 'low'
   )
+  /* eslint-enable @typescript-eslint/no-explicit-any */
 
   // Recurring (cycle_count >= 2)
   const { data: recurring } = await admin
@@ -44,6 +48,22 @@ export async function generateMorningBrief(): Promise<string> {
     .ilike('title', 'Regression:%')
     .eq('status', 'open')
     .gte('created_at', isoYesterday)
+
+  // Root cause clusters (identified = actionable)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: activeClusters } = await (admin as any)
+    .from('root_cause_clusters')
+    .select('cluster_name, findings_count, estimated_impact, estimated_effort_hours, confidence_score, status')
+    .in('status', ['identified', 'in_progress'])
+    .order('findings_count', { ascending: false })
+    .limit(5)
+
+  // Count orphan findings (open, no cluster)
+  const { count: orphanCount } = await admin
+    .from('audit_findings')
+    .select('id', { count: 'exact', head: true })
+    .eq('status', 'open')
+    .is('root_cause_cluster_id', null)
 
   // Improvement backlog stats
   const { count: backlogQueued } = await admin
@@ -95,18 +115,37 @@ export async function generateMorningBrief(): Promise<string> {
 
   const isWednesday = today.getDay() === 3
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const clusterList = (activeClusters ?? []) as any[]
+
   const brief = `# Morning Brief - ${todayStr} (${dayNames[today.getDay()]})
 
-## FIX (today — ${fixFindings.length} urgent)
+## ROOT CAUSES (${clusterList.length} — fix these first)
+${
+  clusterList.length === 0
+    ? '- No active root cause clusters'
+    : clusterList
+        .map(
+          (c: { cluster_name: string; findings_count: number; estimated_impact: number; estimated_effort_hours: number; confidence_score: number; status: string }, i: number) =>
+            `### #${i + 1} ${c.cluster_name}
+Impact: ${c.estimated_impact}/10 | Effort: ~${c.estimated_effort_hours}h | Confidence: ${c.confidence_score}/10 | **Fixes ${c.findings_count} findings**${c.status === 'in_progress' ? ' (in progress)' : ''}`
+        )
+        .join('\n\n')
+}
+${orphanCount ? `\n_${orphanCount} orphan findings not in any cluster_` : ''}
+
+## FIX (today — ${fixFindings.length} urgent, sorted by ROI)
 ${
   fixFindings.length === 0
     ? '- All clear, no urgent fixes'
     : fixFindings
         .slice(0, 5)
-        .map(
-          (f) =>
-            `- **${(f.severity as string).toUpperCase()}** | ${f.agent_type} | ${f.title}`
-        )
+        .map((f) => {
+          const roi = f.roi_score ? ` | ROI: ${Number(f.roi_score).toFixed(0)}` : ''
+          const effort = f.predicted_effort_hours ? ` | ${f.predicted_effort_hours}h` : ''
+          const conf = f.predicted_confidence ? ` | conf ${f.predicted_confidence}/10` : ''
+          return `- **${(f.severity as string).toUpperCase()}** | ${f.agent_type} | ${f.title}${roi}${effort}${conf}`
+        })
         .join('\n')
 }
 

@@ -98,6 +98,14 @@ async function main() {
   const autoPromptFn = await tryImport('./auto-prompt-generator', 'runAutoPromptGenerator')
   if (autoPromptFn) await safeRun(autoPromptFn, 'auto-prompt-generator')
 
+  // Root cause detector: compress N findings into M clusters (daily)
+  const rootCauseFn = await tryImport('./root-cause-detector', 'runRootCauseDetector')
+  if (rootCauseFn) await safeRun(rootCauseFn, 'root-cause-detector')
+
+  // Outcome measurer: check if fixes from 7 days ago actually worked (daily)
+  const outcomeFn = await tryImport('./outcome-measurer', 'runOutcomeMeasurer')
+  if (outcomeFn) await safeRun(outcomeFn, 'outcome-measurer')
+
   // Wednesday = day 3 — run the weekly improvement batch (top 5 from backlog)
   if (dayOfWeek === 3) {
     const batchFn = await tryImport('./weekly-improvement-batch', 'runWeeklyImprovementBatch')

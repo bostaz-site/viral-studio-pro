@@ -4,7 +4,7 @@ import { useState } from 'react'
 import {
   Flame, RotateCcw, AlertTriangle, CheckCircle2,
   ChevronDown, ChevronUp, Loader2, BarChart3, Search,
-  Brain, Sparkles,
+  Brain, Sparkles, GitMerge,
 } from 'lucide-react'
 import Link from 'next/link'
 import type { Finding, MetricSnapshot } from './page'
@@ -91,6 +91,13 @@ export function AuditsClient({
         </div>
         <div className="flex gap-2 shrink-0">
           <Link
+            href="/admin/audits/clusters"
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-violet-500/10 text-violet-400 border border-violet-500/20 hover:bg-violet-500/20 transition-colors"
+          >
+            <GitMerge className="h-3.5 w-3.5" />
+            Root Causes
+          </Link>
+          <Link
             href="/admin/audits/meta"
             className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-purple-500/10 text-purple-400 border border-purple-500/20 hover:bg-purple-500/20 transition-colors"
           >
@@ -103,6 +110,13 @@ export function AuditsClient({
           >
             <Sparkles className="h-3.5 w-3.5" />
             AI Multiplier
+          </Link>
+          <Link
+            href="/admin/audits/outcomes"
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/20 transition-colors"
+          >
+            <CheckCircle2 className="h-3.5 w-3.5" />
+            Outcomes
           </Link>
         </div>
       </div>
