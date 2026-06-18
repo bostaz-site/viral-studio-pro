@@ -15,9 +15,7 @@
 
 import { createAdminClient } from '../../lib/supabase/admin'
 import { claude } from '../../lib/audit/agent-runner'
-import { execSync } from 'child_process'
-import { writeFileSync, mkdirSync } from 'fs'
-import { join } from 'path'
+import { pushFileToGitHub } from '../../lib/audit/github-push'
 
 interface BacklogItem {
   id: string
@@ -90,15 +88,21 @@ Output ONLY the markdown prompt content, no wrapping JSON.`,
     return
   }
 
-  // Write the batch prompt
+  // Push the batch prompt to GitHub via Contents API
   const dateStr = new Date().toISOString().slice(0, 10)
-  const promptsDir = join(process.cwd(), 'claude-code-prompts', 'auto', dateStr)
-  mkdirSync(promptsDir, { recursive: true })
+  const filepath = `claude-code-prompts/auto/${dateStr}/IMPROVE-BATCH.md`
 
-  const filename = 'IMPROVE-BATCH.md'
-  const filepath = join(promptsDir, filename)
-  writeFileSync(filepath, promptContent)
-  console.log(`[improve-batch] Wrote ${filename}`)
+  let batchGithubUrl = ''
+  try {
+    batchGithubUrl = await pushFileToGitHub(
+      filepath,
+      promptContent,
+      `auto: weekly improvement batch ${dateStr} (${top5.length} items)`,
+    )
+    console.log(`[improve-batch] Pushed IMPROVE-BATCH.md to GitHub`)
+  } catch (err) {
+    console.error('[improve-batch] GitHub push failed:', err instanceof Error ? err.message : err)
+  }
 
   // Mark picked items as 'batched'
   const monday = getMondayOfWeek(new Date())
@@ -110,31 +114,8 @@ Output ONLY the markdown prompt content, no wrapping JSON.`,
   }
   console.log(`[improve-batch] Marked ${top5.length} items as batched (week of ${monday})`)
 
-  // Commit + push
-  try {
-    const relDir = `claude-code-prompts/auto/${dateStr}/`
-    execSync(`git add "${relDir}"`, { cwd: process.cwd(), stdio: 'pipe' })
-    execSync(
-      `git -c user.email="audit@viralanimal.com" -c user.name="Night Audit Agent" commit -m "auto: weekly improvement batch ${dateStr} (${top5.length} items)"`,
-      { cwd: process.cwd(), stdio: 'pipe' },
-    )
-
-    const token = process.env.GITHUB_TOKEN
-    if (token) {
-      execSync(
-        `git remote set-url origin https://x-access-token:${token}@github.com/bostaz-site/viral-studio-pro.git`,
-        { cwd: process.cwd(), stdio: 'pipe' },
-      )
-    }
-
-    execSync('git push origin master', { cwd: process.cwd(), stdio: 'pipe' })
-    console.log('[improve-batch] Committed and pushed batch prompt')
-  } catch (err) {
-    console.error('[improve-batch] Git push failed:', err instanceof Error ? err.message : err)
-  }
-
   // Discord notification
-  await sendDiscordBatchReady(top5, remaining, dateStr)
+  await sendDiscordBatchReady(top5, remaining, dateStr, batchGithubUrl)
 
   return { batched: top5.length, remaining }
 }
@@ -147,11 +128,11 @@ function getMondayOfWeek(date: Date): string {
   return d.toISOString().slice(0, 10)
 }
 
-async function sendDiscordBatchReady(items: BacklogItem[], remaining: number, date: string) {
+async function sendDiscordBatchReady(items: BacklogItem[], remaining: number, date: string, githubUrl: string) {
   const webhook = process.env.DISCORD_AUDIT_WEBHOOK_URL
   if (!webhook) return
 
-  const repoUrl = 'https://github.com/bostaz-site/viral-studio-pro'
+  const promptUrl = githubUrl || `https://github.com/bostaz-site/viral-studio-pro/blob/master/claude-code-prompts/auto/${date}/IMPROVE-BATCH.md`
 
   const table = items.map((item) =>
     `**${item.predicted_impact_score}** imp / **${item.predicted_effort_score}** eff — ${item.title}`
@@ -164,7 +145,7 @@ async function sendDiscordBatchReady(items: BacklogItem[], remaining: number, da
       body: JSON.stringify({
         embeds: [{
           title: `IMPROVE BATCH — top ${items.length} for this week`,
-          description: `${table}\n\n[View prompt](${repoUrl}/blob/master/claude-code-prompts/auto/${date}/IMPROVE-BATCH.md)\n\nShip all ${items.length} in one PR. Measure metrics next Monday.\n${remaining} more in backlog.`,
+          description: `${table}\n\n[View prompt](${promptUrl})\n\nShip all ${items.length} in one PR. Measure metrics next Monday.\n${remaining} more in backlog.`,
           color: 0x57F287,
           footer: { text: 'Viral Animal Audit System' },
           timestamp: new Date().toISOString(),

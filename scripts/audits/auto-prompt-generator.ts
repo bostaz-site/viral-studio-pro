@@ -14,9 +14,7 @@
 
 import { createAdminClient } from '../../lib/supabase/admin'
 import { claude } from '../../lib/audit/agent-runner'
-import { execSync } from 'child_process'
-import { writeFileSync, mkdirSync } from 'fs'
-import { join } from 'path'
+import { pushFileToGitHub } from '../../lib/audit/github-push'
 
 interface Classification {
   finding_index: number
@@ -33,6 +31,7 @@ interface Cluster {
   estimated_hours: number
   priority: number
   prompt_markdown: string
+  github_url?: string
 }
 
 interface Finding {
@@ -211,13 +210,10 @@ Output ONLY this JSON, no prose:
     }
   }
 
-  // ── Step 4: Write FIX prompts to disk ──
+  // ── Step 4: Push FIX prompts to GitHub via Contents API ──
   const dateStr = new Date().toISOString().slice(0, 10)
 
   if (clusters.length > 0) {
-    const promptsDir = join(process.cwd(), 'claude-code-prompts', 'auto', dateStr)
-    mkdirSync(promptsDir, { recursive: true })
-
     for (let i = 0; i < clusters.length; i++) {
       const cluster = clusters[i]
       const slug = cluster.name
@@ -226,32 +222,18 @@ Output ONLY this JSON, no prose:
         .replace(/^-|-$/g, '')
         .slice(0, 40)
       const filename = `PROMPT-${i + 1}-${slug}.md`
-      const filepath = join(promptsDir, filename)
-      writeFileSync(filepath, cluster.prompt_markdown)
-      console.log(`[auto-prompt] Wrote ${filename} (priority ${cluster.priority}, est. ${cluster.estimated_hours}h, ${cluster.findings_addressed.length} findings)`)
-    }
+      const filepath = `claude-code-prompts/auto/${dateStr}/${filename}`
 
-    // Commit + push
-    try {
-      const relDir = `claude-code-prompts/auto/${dateStr}/`
-      execSync(`git add "${relDir}"`, { cwd: process.cwd(), stdio: 'pipe' })
-      execSync(
-        `git -c user.email="audit@viralanimal.com" -c user.name="Night Audit Agent" commit -m "auto: ${clusters.length} fix prompts generated from ${dateStr} audit"`,
-        { cwd: process.cwd(), stdio: 'pipe' },
-      )
-
-      const token = process.env.GITHUB_TOKEN
-      if (token) {
-        execSync(
-          `git remote set-url origin https://x-access-token:${token}@github.com/bostaz-site/viral-studio-pro.git`,
-          { cwd: process.cwd(), stdio: 'pipe' },
+      try {
+        cluster.github_url = await pushFileToGitHub(
+          filepath,
+          cluster.prompt_markdown,
+          `auto: ${cluster.name} prompt for ${dateStr} audit`,
         )
+        console.log(`[auto-prompt] Pushed ${filename} (priority ${cluster.priority}, est. ${cluster.estimated_hours}h, ${cluster.findings_addressed.length} findings)`)
+      } catch (err) {
+        console.error(`[auto-prompt] Failed to push ${filename}:`, err instanceof Error ? err.message : err)
       }
-
-      execSync('git push origin master', { cwd: process.cwd(), stdio: 'pipe' })
-      console.log(`[auto-prompt] Committed and pushed ${clusters.length} fix prompts`)
-    } catch (err) {
-      console.error('[auto-prompt] Git push failed:', err instanceof Error ? err.message : err)
     }
   }
 
@@ -278,9 +260,10 @@ async function sendDiscordSummary(
   for (let i = 0; i < Math.min(clusters.length, 4); i++) {
     const c = clusters[i]
     const slug = c.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 40)
+    const promptUrl = c.github_url || `${repoUrl}/blob/master/claude-code-prompts/auto/${date}/PROMPT-${i + 1}-${slug}.md`
     fields.push({
       name: `FIX P${c.priority}: ${c.name}`,
-      value: `${c.root_cause}\n${c.findings_addressed.length} findings | ~${c.estimated_hours}h\n[View prompt](${repoUrl}/blob/master/claude-code-prompts/auto/${date}/PROMPT-${i + 1}-${slug}.md)`,
+      value: `${c.root_cause}\n${c.findings_addressed.length} findings | ~${c.estimated_hours}h\n[View prompt](${promptUrl})`,
       inline: false,
     })
   }
