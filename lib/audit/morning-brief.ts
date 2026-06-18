@@ -58,6 +58,19 @@ export async function generateMorningBrief(): Promise<string> {
     .order('findings_count', { ascending: false })
     .limit(5)
 
+  // Production errors (last 24h, status = 'new')
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: prodErrors } = await (admin as any)
+    .from('production_errors')
+    .select('error_type, error_message, occurrence_count, affected_users_count, affected_file, ai_root_cause, root_cause_cluster_id, status')
+    .eq('status', 'new')
+    .gte('last_seen_at', isoYesterday)
+    .order('occurrence_count', { ascending: false })
+    .limit(10)
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const prodErrorsList = (prodErrors ?? []) as any[]
+
   // Count orphan findings (open, no cluster)
   const { count: orphanCount } = await admin
     .from('audit_findings')
@@ -77,6 +90,19 @@ export async function generateMorningBrief(): Promise<string> {
     .eq('status', 'queued')
     .order('predicted_impact_score', { ascending: false })
     .limit(3)
+
+  // Recent PR reviews (last 7 days)
+  const sevenDaysAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: recentPRReviews } = await (admin as any)
+    .from('pr_reviews')
+    .select('pr_number, pr_title, overall_grade, issues_found, patterns_detected, security_concerns, perf_concerns, review_summary')
+    .gte('reviewed_at', sevenDaysAgo)
+    .order('merged_at', { ascending: false })
+    .limit(10)
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const prReviews = (recentPRReviews ?? []) as any[]
 
   // KPI evolution (today vs 5 days ago)
   const fiveDaysAgo = new Date(today.getTime() - 5 * 24 * 60 * 60 * 1000)
@@ -115,10 +141,64 @@ export async function generateMorningBrief(): Promise<string> {
 
   const isWednesday = today.getDay() === 3
 
+  // Session replays (weekly, only show on Wed/Thu)
+  let sessionReplaySection = ''
+  if (today.getDay() === 3 || today.getDay() === 4) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: recentReplays } = await (admin as any)
+      .from('user_session_replays')
+      .select('session_outcome, friction_points, abandoned_at_event, total_events')
+      .gte('replayed_at', new Date(today.getTime() - 2 * 24 * 60 * 60 * 1000).toISOString())
+      .limit(50)
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const replays = (recentReplays ?? []) as any[]
+    if (replays.length > 0) {
+      const abandonedCount = replays.filter((r: { session_outcome: string }) => r.session_outcome === 'abandoned_at_step').length
+      const convertedCount = replays.filter((r: { session_outcome: string }) => r.session_outcome === 'converted').length
+
+      // Count friction by event
+      const frictionMap = new Map<string, number>()
+      for (const r of replays) {
+        for (const fp of r.friction_points ?? []) {
+          frictionMap.set(fp.event, (frictionMap.get(fp.event) ?? 0) + 1)
+        }
+      }
+      const topFriction = [...frictionMap.entries()]
+        .sort(([, a], [, b]) => b - a)
+        .slice(0, 3)
+
+      sessionReplaySection = `\n## USER SESSIONS REPLAYED (weekly)
+
+${replays.length} real sessions replayed | ${abandonedCount} abandoned | ${convertedCount} converted
+${topFriction.length > 0
+  ? topFriction.map(([event, count]) => `- Friction: ${event} (${count} sessions)`).join('\n')
+  : '- No significant friction detected'}
+`
+    }
+  }
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const clusterList = (activeClusters ?? []) as any[]
 
   const brief = `# Morning Brief - ${todayStr} (${dayNames[today.getDay()]})
+
+## PRODUCTION ERRORS (last 24h — ${prodErrorsList.length} new)
+${
+  prodErrorsList.length === 0
+    ? '- All clear, no new production errors'
+    : prodErrorsList
+        .slice(0, 5)
+        .map((e: { occurrence_count: number; affected_users_count: number | null; error_type: string; error_message: string; ai_root_cause: string | null; affected_file: string | null; root_cause_cluster_id: string | null }) => {
+          const sevLabel = e.occurrence_count >= 100 ? 'CRITICAL' : e.occurrence_count >= 20 ? 'HIGH' : 'NORMAL'
+          const sevIcon = e.occurrence_count >= 100 ? '🔴' : e.occurrence_count >= 20 ? '🟧' : '🟡'
+          const users = e.affected_users_count ? ` (affects ${e.affected_users_count} users)` : ''
+          const cause = e.ai_root_cause ? `\n  → Likely cause: ${e.ai_root_cause}` : ''
+          const cluster = e.root_cause_cluster_id ? `\n  → Linked to cluster` : ''
+          return `${sevIcon} ${sevLabel} — ${e.error_type}: ${e.error_message.slice(0, 80)} — ${e.occurrence_count.toLocaleString()} occurrences${users}${cause}${cluster}`
+        })
+        .join('\n\n')
+}
 
 ## ROOT CAUSES (${clusterList.length} — fix these first)
 ${
@@ -208,6 +288,30 @@ ${
           return `- ${k.name}: ${k.today} (${arrow})`
         })
         .join('\n')
+}
+${sessionReplaySection}
+
+## RECENT PR REVIEWS (last 7d — ${prReviews.length} reviewed)
+${
+  prReviews.length === 0
+    ? '- No PR reviews yet'
+    : (() => {
+        const gradeMap: Record<string, number> = { A: 4, B: 3, C: 2, D: 1, F: 0 }
+        const avg = prReviews.reduce((s: number, r: { overall_grade: string }) => s + (gradeMap[r.overall_grade] ?? 2), 0) / prReviews.length
+        const avgLetter = avg >= 3.5 ? 'A' : avg >= 2.5 ? 'B' : avg >= 1.5 ? 'C' : avg >= 0.5 ? 'D' : 'F'
+        const lines = [`Average grade: ${avgLetter} (${avg.toFixed(1)}/4.0)\n`]
+        for (const r of prReviews.slice(0, 5)) {
+          const icon = r.overall_grade === 'A' ? '🟢' : r.overall_grade === 'B' ? '🔵' : r.overall_grade === 'C' ? '🟡' : r.overall_grade === 'D' ? '🟧' : '🔴'
+          const issueCount = (r.issues_found?.length ?? 0) + (r.security_concerns?.length ?? 0) + (r.perf_concerns?.length ?? 0)
+          const patternCount = r.patterns_detected?.length ?? 0
+          let detail = ''
+          if (issueCount > 0) detail += `${issueCount} issues`
+          if (patternCount > 0) detail += `${detail ? ', ' : ''}${patternCount} patterns`
+          if (!detail) detail = 'Clean'
+          lines.push(`${icon} PR #${r.pr_number} — ${r.pr_title} (grade: ${r.overall_grade})\n  ${detail}`)
+        }
+        return lines.join('\n')
+      })()
 }
 
 ---

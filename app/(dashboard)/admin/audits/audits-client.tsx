@@ -4,7 +4,7 @@ import { useState } from 'react'
 import {
   Flame, RotateCcw, AlertTriangle, CheckCircle2,
   ChevronDown, ChevronUp, Loader2, BarChart3, Search,
-  Brain, Sparkles, GitMerge,
+  Brain, Sparkles, GitMerge, Bug, Users, GitPullRequest,
 } from 'lucide-react'
 import Link from 'next/link'
 import type { Finding, MetricSnapshot } from './page'
@@ -29,6 +29,8 @@ const AGENT_LABELS: Record<string, string> = {
   activation: 'Activation',
   retention: 'Retention',
   technical: 'Technical',
+  production_errors: 'Prod Errors',
+  pr_review: 'PR Review',
 }
 
 const STATUS_ACTIONS = [
@@ -112,11 +114,32 @@ export function AuditsClient({
             AI Multiplier
           </Link>
           <Link
+            href="/admin/audits/production-errors"
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 transition-colors"
+          >
+            <Bug className="h-3.5 w-3.5" />
+            Prod Errors
+          </Link>
+          <Link
             href="/admin/audits/outcomes"
             className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/20 transition-colors"
           >
             <CheckCircle2 className="h-3.5 w-3.5" />
             Outcomes
+          </Link>
+          <Link
+            href="/admin/audits/sessions"
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 hover:bg-cyan-500/20 transition-colors"
+          >
+            <Users className="h-3.5 w-3.5" />
+            Sessions
+          </Link>
+          <Link
+            href="/admin/audits/pr-reviews"
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 hover:bg-indigo-500/20 transition-colors"
+          >
+            <GitPullRequest className="h-3.5 w-3.5" />
+            PR Reviews
           </Link>
         </div>
       </div>

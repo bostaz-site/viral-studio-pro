@@ -59,6 +59,10 @@ async function main() {
   console.log(`  Day: ${dayNames[dayOfWeek]} (${dayOfWeek})`)
   console.log('='.repeat(60))
 
+  // Production errors agent runs FIRST every day (reads Sentry logs)
+  const prodErrorsAgent = await tryImport('./production-errors-agent', 'runProductionErrorsAudit')
+  if (prodErrorsAgent) await safeRun(prodErrorsAgent, 'production-errors')
+
   // Output quality runs every day
   const outputAgent = await tryImport('./output-quality', 'runOutputQualityAudit')
   if (outputAgent) await safeRun(outputAgent, 'output-quality')
@@ -106,10 +110,20 @@ async function main() {
   const outcomeFn = await tryImport('./outcome-measurer', 'runOutcomeMeasurer')
   if (outcomeFn) await safeRun(outcomeFn, 'outcome-measurer')
 
+  // Recent PR review: staff-engineer-level review of merged PRs (daily)
+  const prReviewFn = await tryImport('./recent-pr-review', 'runRecentPRReview')
+  if (prReviewFn) await safeRun(prReviewFn, 'recent-pr-review')
+
   // Wednesday = day 3 — run the weekly improvement batch (top 5 from backlog)
   if (dayOfWeek === 3) {
     const batchFn = await tryImport('./weekly-improvement-batch', 'runWeeklyImprovementBatch')
     if (batchFn) await safeRun(batchFn, 'weekly-improvement-batch')
+  }
+
+  // Wednesday = day 3 — run user session replay (weekly, heavy)
+  if (dayOfWeek === 3) {
+    const sessionReplayFn = await tryImport('./user-session-replay', 'runSessionReplay')
+    if (sessionReplayFn) await safeRun(sessionReplayFn, 'user-session-replay')
   }
 
   // Sunday: generate strategic brief after strategic agents
