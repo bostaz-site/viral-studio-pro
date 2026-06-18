@@ -17,6 +17,7 @@
 import { createAdminClient } from '../../lib/supabase/admin'
 import { claude } from '../../lib/audit/agent-runner'
 import { pushFileToGitHub } from '../../lib/audit/github-push'
+import { safeParseClaudeJson, extractClaudeText } from '../../lib/audit/safe-json'
 
 const SEVERITY_WEIGHT: Record<string, number> = {
   critical: 4,
@@ -55,61 +56,34 @@ export async function runRootCauseDetector() {
 
   console.log(`[root-cause] Analyzing ${findings.length} open findings for root causes...`)
 
-  // 2. Ask Claude Opus to cluster by root cause
-  const response = await claude.messages.create({
-    model: 'claude-opus-4-6',
-    max_tokens: 16384,
-    messages: [{
-      role: 'user',
-      content: `You are a senior staff engineer who spent 10 years debugging production systems at Stripe and Linear. You know that 80% of findings come from 20% of root causes.
+  // 2. Cluster findings in batches to avoid truncated responses
+  const BATCH_SIZE = 50
+  let rawClusters: RawCluster[] = []
 
-Here are ${findings.length} open audit findings from viralanimal.com (a video editing SaaS):
-
-${findings.map((f, i) => `[${i}] [${f.severity.toUpperCase()}] ${f.agent_type} | ${f.title}
-  ${f.description}
-  Location: ${f.location || 'N/A'}
-  Fix: ${f.suggested_fix || 'N/A'}`).join('\n\n')}
-
-TASK: Cluster these findings by ROOT CAUSE. A root cause is a single underlying issue that, when fixed, resolves multiple findings at once.
-
-Rules:
-- Max 10 clusters
-- Every finding MUST be assigned to exactly one cluster (no orphans unless truly unique)
-- Prioritize clusters that compress the most findings (the whole point is compression)
-- For each cluster, generate a Claude Code prompt that fixes the root cause
-- The prompt must be self-contained, specific (file paths), and include Definition of Done + commit message
-
-Output ONLY JSON:
-{
-  "clusters": [
-    {
-      "cluster_name": "Short descriptive name",
-      "root_cause": "1-2 sentence root cause explanation",
-      "finding_indexes": [0, 3, 7, 12, ...],
-      "estimated_effort_hours": 3,
-      "estimated_impact": 9,
-      "confidence": 8,
-      "prompt_markdown": "# Fix: Cluster Name\\n\\n## Context\\n..."
+  if (findings.length <= BATCH_SIZE) {
+    // Small enough for a single call
+    rawClusters = await clusterBatch(findings, 0)
+  } else {
+    // Batch into groups of BATCH_SIZE, then merge
+    const batches: typeof findings[] = []
+    for (let i = 0; i < findings.length; i += BATCH_SIZE) {
+      batches.push(findings.slice(i, i + BATCH_SIZE))
     }
-  ]
-}`,
-    }],
-  })
 
-  const text = response.content[0].type === 'text' ? response.content[0].text : ''
-  const jsonMatch = text.match(/\{[\s\S]*\}/)
-  if (!jsonMatch) {
-    console.error('[root-cause] Failed to parse Claude response')
-    return
-  }
+    console.log(`[root-cause] Processing ${batches.length} batches of ~${BATCH_SIZE} findings`)
 
-  let rawClusters: RawCluster[]
-  try {
-    const parsed = JSON.parse(jsonMatch[0])
-    rawClusters = parsed.clusters ?? []
-  } catch (err) {
-    console.error('[root-cause] JSON parse error:', err)
-    return
+    let globalOffset = 0
+    for (let b = 0; b < batches.length; b++) {
+      const batchClusters = await clusterBatch(batches[b], globalOffset)
+      rawClusters.push(...batchClusters)
+      globalOffset += batches[b].length
+      console.log(`[root-cause] Batch ${b + 1}/${batches.length}: ${batchClusters.length} clusters`)
+    }
+
+    // Merge similar clusters across batches if we have too many
+    if (rawClusters.length > 10) {
+      rawClusters = await mergeClusters(rawClusters)
+    }
   }
 
   if (rawClusters.length === 0) {
@@ -214,6 +188,98 @@ Output ONLY JSON:
 
   console.log(`[root-cause] Done. ${insertedClusters.length} clusters inserted, ${orphanCount} orphans`)
   return { clusters: insertedClusters.length, orphans: orphanCount, total: findings.length }
+}
+
+async function clusterBatch(
+  batch: Array<{ id: string; severity: string; agent_type: string; title: string; description: string; location: string | null; suggested_fix: string | null }>,
+  indexOffset: number,
+): Promise<RawCluster[]> {
+  const response = await claude.messages.create({
+    model: 'claude-opus-4-6',
+    max_tokens: 8000,
+    messages: [{
+      role: 'user',
+      content: `You are a senior staff engineer who spent 10 years debugging production systems at Stripe and Linear. You know that 80% of findings come from 20% of root causes.
+
+Here are ${batch.length} open audit findings from viralanimal.com (a video editing SaaS):
+
+${batch.map((f, i) => `[${i + indexOffset}] [${f.severity.toUpperCase()}] ${f.agent_type} | ${f.title}
+  ${f.description}
+  Location: ${f.location || 'N/A'}
+  Fix: ${f.suggested_fix || 'N/A'}`).join('\n\n')}
+
+TASK: Cluster these findings by ROOT CAUSE (max 10 clusters).
+Every finding MUST be assigned to exactly one cluster.
+For each cluster, generate a Claude Code prompt that fixes the root cause.
+
+Output ONLY JSON:
+{
+  "clusters": [
+    {
+      "cluster_name": "Short descriptive name",
+      "root_cause": "1-2 sentence root cause explanation",
+      "finding_indexes": [${indexOffset}, ${indexOffset + 3}, ...],
+      "estimated_effort_hours": 3,
+      "estimated_impact": 9,
+      "confidence": 8,
+      "prompt_markdown": "# Fix: Cluster Name\\n\\n## Context\\n..."
+    }
+  ]
+}`,
+    }],
+  })
+
+  const text = extractClaudeText(response)
+  console.log(`[root-cause] Batch response: ${text.length} chars`)
+  const result = safeParseClaudeJson<{ clusters: RawCluster[] }>(text, { clusters: [] })
+  return result.clusters ?? []
+}
+
+async function mergeClusters(clusters: RawCluster[]): Promise<RawCluster[]> {
+  console.log(`[root-cause] Merging ${clusters.length} clusters from multiple batches...`)
+
+  const response = await claude.messages.create({
+    model: 'claude-sonnet-4-6',
+    max_tokens: 4096,
+    messages: [{
+      role: 'user',
+      content: `These ${clusters.length} root cause clusters were identified across multiple batches. Merge similar ones into max 10 final clusters.
+
+${clusters.map((c, i) => `[${i}] "${c.cluster_name}" (${c.finding_indexes.length} findings): ${c.root_cause}`).join('\n')}
+
+Output JSON: { "merged": [{ "keep_index": 0, "merge_indexes": [3, 7] }, ...] }
+keep_index = the cluster to keep. merge_indexes = clusters to fold into it (combine finding_indexes).
+Clusters with no merges: include as { "keep_index": N, "merge_indexes": [] }.`,
+    }],
+  })
+
+  const text = extractClaudeText(response)
+  const mergeResult = safeParseClaudeJson<{ merged: Array<{ keep_index: number; merge_indexes: number[] }> }>(text, { merged: [] })
+
+  if (!mergeResult.merged || mergeResult.merged.length === 0) {
+    return clusters.slice(0, 10)
+  }
+
+  const result: RawCluster[] = []
+  for (const m of mergeResult.merged) {
+    const base = clusters[m.keep_index]
+    if (!base) continue
+
+    const mergedIndexes = [...base.finding_indexes]
+    for (const mi of m.merge_indexes) {
+      if (clusters[mi]) {
+        mergedIndexes.push(...clusters[mi].finding_indexes)
+      }
+    }
+
+    result.push({
+      ...base,
+      finding_indexes: [...new Set(mergedIndexes)],
+    })
+  }
+
+  console.log(`[root-cause] Merged ${clusters.length} → ${result.length} clusters`)
+  return result.slice(0, 10)
 }
 
 async function sendDiscordRootCauses(

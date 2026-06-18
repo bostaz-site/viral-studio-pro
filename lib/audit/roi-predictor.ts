@@ -1,5 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { createAdminClient } from '../supabase/admin'
+import { safeParseClaudeJson, extractClaudeText } from './safe-json'
 
 const claude = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
@@ -100,11 +101,12 @@ ${calibrationNote}`,
       }],
     })
 
-    const text = response.content[0].type === 'text' ? response.content[0].text : ''
-    const jsonMatch = text.match(/\{[\s\S]*?\}/)
-    if (!jsonMatch) return null
+    const text = extractClaudeText(response)
+    console.log(`[roi-predictor] Response length: ${text.length}, preview: "${text.slice(0, 100)}"`)
 
-    const parsed = JSON.parse(jsonMatch[0])
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const parsed: any = safeParseClaudeJson(text, null)
+    if (!parsed?.predicted_impact_bucket) return null
     const validBuckets = ['critical', 'high', 'medium', 'low', 'unknown'] as const
     const bucket = validBuckets.includes(parsed.predicted_impact_bucket)
       ? parsed.predicted_impact_bucket
@@ -112,10 +114,10 @@ ${calibrationNote}`,
 
     return {
       predicted_impact_bucket: bucket,
-      predicted_impact_reasoning: (parsed.predicted_impact_reasoning ?? '').slice(0, 300),
-      predicted_impact_ux: Math.min(10, Math.max(1, parsed.predicted_impact_ux ?? 5)),
-      predicted_effort_hours: Math.max(0.5, parsed.predicted_effort_hours ?? 1),
-      predicted_confidence: Math.min(10, Math.max(1, parsed.predicted_confidence ?? 5)),
+      predicted_impact_reasoning: String(parsed.predicted_impact_reasoning ?? '').slice(0, 300),
+      predicted_impact_ux: Math.min(10, Math.max(1, Number(parsed.predicted_impact_ux) || 5)),
+      predicted_effort_hours: Math.max(0.5, Number(parsed.predicted_effort_hours) || 1),
+      predicted_confidence: Math.min(10, Math.max(1, Number(parsed.predicted_confidence) || 5)),
     }
   } catch (err) {
     console.error('[roi-predictor] Failed:', err)

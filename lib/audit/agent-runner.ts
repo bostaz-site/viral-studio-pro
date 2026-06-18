@@ -1,6 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { insertFinding, type NewFinding } from './insert-finding'
 import { insertMetricSnapshot } from './insert-metric'
+import { safeParseClaudeJson, extractClaudeText } from './safe-json'
 
 const claude = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
@@ -61,11 +62,9 @@ Rules:
     messages: [{ role: 'user', content: userPrompt }],
   })
 
-  const text = response.content[0].type === 'text' ? response.content[0].text : ''
-  const jsonMatch = text.match(/\{[\s\S]*\}/)
-  const json: AgentResult = jsonMatch
-    ? JSON.parse(jsonMatch[0])
-    : { findings: [], metrics: [] }
+  const text = extractClaudeText(response)
+  console.log(`[agent-runner] ${ctx.agent_type} response: ${text.length} chars`)
+  const json = safeParseClaudeJson<AgentResult>(text, { findings: [], metrics: [] })
 
   // Insert findings
   for (const finding of json.findings ?? []) {

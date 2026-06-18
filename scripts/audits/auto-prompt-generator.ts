@@ -16,6 +16,7 @@ import { createAdminClient } from '../../lib/supabase/admin'
 import { claude } from '../../lib/audit/agent-runner'
 import { pushFileToGitHub } from '../../lib/audit/github-push'
 import { isTikTokReviewMode } from '../../lib/audit/tiktok-review-mode'
+import { safeParseClaudeJson, extractClaudeText } from '../../lib/audit/safe-json'
 
 interface Classification {
   finding_index: number
@@ -98,14 +99,12 @@ ${findings.map((f: Finding, i: number) => `[${i}] [${f.severity.toUpperCase()}] 
     }],
   })
 
-  const classifyText = classifyResponse.content[0].type === 'text' ? classifyResponse.content[0].text : ''
-  const classifyMatch = classifyText.match(/\{[\s\S]*\}/)
-  let classifications: Classification[] = []
-  try {
-    const parsed = JSON.parse(classifyMatch?.[0] ?? '{}')
-    classifications = parsed.classifications ?? []
-  } catch {
-    console.error('[auto-prompt] Classification parse failed, treating all as FIX')
+  const classifyText = extractClaudeText(classifyResponse)
+  console.log(`[auto-prompt] Classification response: ${classifyText.length} chars`)
+  const classifyResult = safeParseClaudeJson<{ classifications: Classification[] }>(classifyText, { classifications: [] })
+  let classifications = classifyResult.classifications ?? []
+  if (classifications.length === 0) {
+    console.warn('[auto-prompt] Classification empty, treating all as FIX')
     classifications = findings.map((_: Finding, i: number) => ({ finding_index: i, category: 'FIX' as const }))
   }
 
@@ -159,7 +158,7 @@ ${findings.map((f: Finding, i: number) => `[${i}] [${f.severity.toUpperCase()}] 
   if (fixFindings.length > 0) {
     const clusterResponse = await claude.messages.create({
       model: 'claude-sonnet-4-6',
-      max_tokens: 16384,
+      max_tokens: 8000,
       messages: [{
         role: 'user',
         content: `You are a senior engineering manager at a fast-moving SaaS startup.
@@ -201,14 +200,10 @@ Output ONLY this JSON, no prose:
       }],
     })
 
-    const clusterText = clusterResponse.content[0].type === 'text' ? clusterResponse.content[0].text : ''
-    const clusterMatch = clusterText.match(/\{[\s\S]*\}/)
-    try {
-      const parsed = JSON.parse(clusterMatch?.[0] ?? '{}')
-      clusters = parsed.clusters ?? []
-    } catch (err) {
-      console.error('[auto-prompt] Cluster parse error:', err)
-    }
+    const clusterText = extractClaudeText(clusterResponse)
+    console.log(`[auto-prompt] Cluster response: ${clusterText.length} chars`)
+    const clusterResult = safeParseClaudeJson<{ clusters: Cluster[] }>(clusterText, { clusters: [] })
+    clusters = clusterResult.clusters ?? []
   }
 
   // ── Step 4: Push FIX prompts to GitHub via Contents API ──
