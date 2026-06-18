@@ -41,12 +41,12 @@ export async function insertFinding(finding: NewFinding) {
   // Predict ROI for new findings (non-blocking)
   const roi = await predictROI(finding).catch(() => null)
 
-  // New finding with ROI prediction
+  // New finding with ROI prediction (bucket-based)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const insertData: Record<string, any> = { ...finding }
   if (roi) {
-    insertData.predicted_impact_revenue = roi.predicted_impact_revenue
-    insertData.predicted_impact_conversion = roi.predicted_impact_conversion
+    insertData.predicted_impact_bucket = roi.predicted_impact_bucket
+    insertData.predicted_impact_reasoning = roi.predicted_impact_reasoning
     insertData.predicted_impact_ux = roi.predicted_impact_ux
     insertData.predicted_effort_hours = roi.predicted_effort_hours
     insertData.predicted_confidence = roi.predicted_confidence

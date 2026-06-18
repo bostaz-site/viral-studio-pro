@@ -3,17 +3,26 @@ import { createAdminClient } from '../supabase/admin'
 
 const claude = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
-interface ROIPrediction {
-  predicted_impact_revenue: number
-  predicted_impact_conversion: number
+export interface ROIPrediction {
+  predicted_impact_bucket: 'critical' | 'high' | 'medium' | 'low' | 'unknown'
+  predicted_impact_reasoning: string
   predicted_impact_ux: number
   predicted_effort_hours: number
   predicted_confidence: number
 }
 
 /**
- * Predict ROI for a finding using Claude Haiku.
- * Reads past outcome_measurements to calibrate predictions (learning loop).
+ * Confidence scale:
+ * 9-10: backed by past measured outcomes (calibrated)
+ * 6-8: backed by industry benchmarks or similar pattern
+ * 3-5: educated guess
+ * 1-2: high uncertainty
+ * 0: don't predict, mark as 'unknown'
+ */
+
+/**
+ * Predict impact bucket for a finding using Claude Haiku.
+ * Uses categorical buckets instead of precise $ predictions (honest > precise).
  */
 export async function predictROI(finding: {
   agent_type: string
@@ -30,66 +39,55 @@ export async function predictROI(finding: {
     // Get past outcomes for calibration
     const { data: pastOutcomes } = await admin
       .from('outcome_measurements')
-      .select(
-        'predicted_impact_revenue, predicted_impact_conversion, actual_lift_percent, did_it_work'
-      )
+      .select('predicted_impact_bucket, actual_lift_percent, did_it_work')
       .not('did_it_work', 'is', null)
       .order('measured_at', { ascending: false })
       .limit(10)
 
-    // Get similar past findings with ROI for context
-    const { data: similarFindings } = await admin
-      .from('audit_findings')
-      .select(
-        'title, severity, predicted_impact_revenue, predicted_impact_conversion, predicted_effort_hours, roi_score'
-      )
-      .eq('agent_type', finding.agent_type)
-      .not('predicted_confidence', 'is', null)
-      .order('created_at', { ascending: false })
-      .limit(5)
-
     const calibrationNote =
       (pastOutcomes ?? []).length > 0
-        ? `Past calibration data (${(pastOutcomes ?? []).length} measured outcomes):
+        ? `Past calibration (${(pastOutcomes ?? []).length} outcomes):
 ${(pastOutcomes ?? [])
   .map(
-    (o: {
-      predicted_impact_revenue: number | null
-      actual_lift_percent: number | null
-      did_it_work: boolean | null
-    }) =>
-      `- predicted $${o.predicted_impact_revenue ?? 0}/mo → actual ${o.actual_lift_percent ?? 0}% lift → ${o.did_it_work ? 'worked' : 'did not work'}`
+    (o: { predicted_impact_bucket: string; actual_lift_percent: number | null; did_it_work: boolean | null }) =>
+      `- predicted ${o.predicted_impact_bucket} → actual ${o.actual_lift_percent?.toFixed(1) ?? '?'}% lift → ${o.did_it_work ? 'worked' : 'did not work'}`
   )
   .join('\n')}
-Use this to calibrate your predictions (don't over-predict).`
-        : 'No past outcome data yet. Be conservative in predictions.'
+Use this to calibrate. If past HIGH predictions only yielded 1% lift, be more conservative.`
+        : 'No past outcomes yet. Be conservative.'
 
     const response = await claude.messages.create({
       model: 'claude-haiku-4-5-20251001',
-      max_tokens: 1024,
-      system: `You predict the business impact of fixing software issues.
+      max_tokens: 512,
+      system: `You predict the impact of fixing software issues for a video editing SaaS (Viral Animal).
+
 Output JSON only:
 {
-  "predicted_impact_revenue": 0,
-  "predicted_impact_conversion": 0,
+  "predicted_impact_bucket": "critical|high|medium|low|unknown",
+  "predicted_impact_reasoning": "1 sentence explaining WHY this bucket",
   "predicted_impact_ux": 5,
   "predicted_effort_hours": 2,
   "predicted_confidence": 7
 }
 
-Fields:
-- predicted_impact_revenue: estimated monthly revenue lift in USD (0 if not revenue-related)
-- predicted_impact_conversion: estimated conversion rate lift as percentage points (0 if N/A)
-- predicted_impact_ux: UX improvement score 1-10 (1=trivial, 10=game-changing)
-- predicted_effort_hours: hours to fix (include testing)
-- predicted_confidence: 1-10 how confident you are in these predictions
+Bucket definitions:
+- critical: blocks growth or revenue (checkout broken, auth broken, data loss)
+- high: lifts a key metric meaningfully (>5% conversion improvement)
+- medium: nice-to-have improvement (1-5% effect on some metric)
+- low: cosmetic, marginal, or affects <1% of users
+- unknown: impossible to predict without more data
 
-Product context: Viral Animal is a video editing SaaS for creators. ~$0 MRR currently (pre-revenue). Focus on activation and retention.
-Be conservative. Don't inflate numbers.`,
-      messages: [
-        {
-          role: 'user',
-          content: `Predict ROI for this finding:
+Confidence scale:
+- 9-10: backed by measured past outcomes
+- 6-8: backed by industry benchmarks or clear similar pattern
+- 3-5: educated guess
+- 1-2: high uncertainty, wild guess
+
+Be HONEST. "unknown" is better than a wrong prediction.
+Product context: ~$0 MRR (pre-revenue), focus on activation + retention.`,
+      messages: [{
+        role: 'user',
+        content: `Predict impact for:
 
 Agent: ${finding.agent_type}
 Severity: ${finding.severity}
@@ -98,50 +96,26 @@ Description: ${finding.description}
 Location: ${finding.location ?? 'N/A'}
 Suggested fix: ${finding.suggested_fix ?? 'N/A'}
 
-${calibrationNote}
-
-${
-  (similarFindings ?? []).length > 0
-    ? `Similar past findings from this agent:\n${(similarFindings ?? [])
-        .map(
-          (f: {
-            title: string
-            predicted_impact_revenue: number | null
-            predicted_effort_hours: number | null
-          }) =>
-            `- "${f.title}" → $${f.predicted_impact_revenue ?? '?'}/mo, ${f.predicted_effort_hours ?? '?'}h`
-        )
-        .join('\n')}`
-    : ''
-}`,
-        },
-      ],
+${calibrationNote}`,
+      }],
     })
 
-    const text =
-      response.content[0].type === 'text' ? response.content[0].text : ''
+    const text = response.content[0].type === 'text' ? response.content[0].text : ''
     const jsonMatch = text.match(/\{[\s\S]*?\}/)
     if (!jsonMatch) return null
 
     const parsed = JSON.parse(jsonMatch[0])
+    const validBuckets = ['critical', 'high', 'medium', 'low', 'unknown'] as const
+    const bucket = validBuckets.includes(parsed.predicted_impact_bucket)
+      ? parsed.predicted_impact_bucket
+      : 'unknown'
+
     return {
-      predicted_impact_revenue: Math.max(0, parsed.predicted_impact_revenue ?? 0),
-      predicted_impact_conversion: Math.max(
-        0,
-        parsed.predicted_impact_conversion ?? 0
-      ),
-      predicted_impact_ux: Math.min(
-        10,
-        Math.max(1, parsed.predicted_impact_ux ?? 5)
-      ),
-      predicted_effort_hours: Math.max(
-        0.5,
-        parsed.predicted_effort_hours ?? 1
-      ),
-      predicted_confidence: Math.min(
-        10,
-        Math.max(1, parsed.predicted_confidence ?? 5)
-      ),
+      predicted_impact_bucket: bucket,
+      predicted_impact_reasoning: (parsed.predicted_impact_reasoning ?? '').slice(0, 300),
+      predicted_impact_ux: Math.min(10, Math.max(1, parsed.predicted_impact_ux ?? 5)),
+      predicted_effort_hours: Math.max(0.5, parsed.predicted_effort_hours ?? 1),
+      predicted_confidence: Math.min(10, Math.max(1, parsed.predicted_confidence ?? 5)),
     }
   } catch (err) {
     console.error('[roi-predictor] Failed:', err)

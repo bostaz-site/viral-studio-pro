@@ -220,11 +220,11 @@ ${
     ? '- All clear, no urgent fixes'
     : fixFindings
         .slice(0, 5)
-        .map((f) => {
-          const roi = f.roi_score ? ` | ROI: ${Number(f.roi_score).toFixed(0)}` : ''
+        .map((f: any) => {
+          const bucket = f.predicted_impact_bucket ? ` | ${f.predicted_impact_bucket.toUpperCase()}` : ''
           const effort = f.predicted_effort_hours ? ` | ${f.predicted_effort_hours}h` : ''
           const conf = f.predicted_confidence ? ` | conf ${f.predicted_confidence}/10` : ''
-          return `- **${(f.severity as string).toUpperCase()}** | ${f.agent_type} | ${f.title}${roi}${effort}${conf}`
+          return `- **${(f.severity as string).toUpperCase()}** | ${f.agent_type} | ${f.title}${bucket}${effort}${conf}`
         })
         .join('\n')
 }
@@ -314,22 +314,68 @@ ${
       })()
 }
 
----
-Open in dashboard: https://viralanimal.com/admin/audits
 `
+
+  // Mandatory anti-suggestion section
+  const antiSuggestion = generateAntiSuggestion(fixFindings, clusterList)
+  const briefWithAnti = brief + `\n## Anti-suggestion\n${antiSuggestion}\n\n---\nOpen in dashboard: https://viralanimal.com/admin/audits\n`
+
+  // Enforce 3-min reading cap (600 words max)
+  const finalBrief = enforceWordCap(briefWithAnti)
 
   // Save to Supabase Storage
   const filename = `morning-briefs/${todayStr}.md`
-  await admin.storage.from('audit-screenshots').upload(filename, brief, {
+  await admin.storage.from('audit-screenshots').upload(filename, finalBrief, {
     contentType: 'text/markdown',
     upsert: true,
   })
 
   // Optional email digest via Resend
-  await sendEmailDigest(brief, todayStr)
+  await sendEmailDigest(finalBrief, todayStr)
 
-  console.log(`[morning-brief] Generated for ${todayStr}`)
-  return brief
+  console.log(`[morning-brief] Generated for ${todayStr} (${finalBrief.split(/\s+/).length} words)`)
+  return finalBrief
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function generateAntiSuggestion(fixFindings: any[], clusters: any[]): string {
+  // If there are many low-severity findings but few high ones, warn against fixing cosmetic stuff
+  const lowCount = fixFindings.filter((f: any) => f.severity === 'low' || f.severity === 'normal').length
+  const criticalCount = fixFindings.filter((f: any) => f.severity === 'critical').length
+
+  if (criticalCount > 0 && clusters.length > 0) {
+    return `Don't fix isolated findings today. Focus on the ${clusters.length} root cause clusters above — they fix ${clusters.reduce((s: number, c: any) => s + (c.findings_count ?? 0), 0)} findings at once.`
+  }
+  if (lowCount > 3 && criticalCount === 0) {
+    return `Don't chase the ${lowCount} low-priority items. No critical issues today — use this time to ship a strategic move instead.`
+  }
+  return 'No anti-suggestion this week. Focus on shipping the top 3 clusters.'
+}
+
+const MAX_BRIEF_WORDS = 600
+
+function enforceWordCap(brief: string): string {
+  const wordCount = brief.split(/\s+/).length
+  if (wordCount <= MAX_BRIEF_WORDS) return brief
+
+  const sections = brief.split('\n## ')
+  let result = sections[0]
+  let currentWordCount = result.split(/\s+/).length
+
+  for (let i = 1; i < sections.length; i++) {
+    const section = '\n## ' + sections[i]
+    const sectionWordCount = section.split(/\s+/).length
+
+    if (currentWordCount + sectionWordCount > MAX_BRIEF_WORDS) {
+      result += `\n## More details\nTruncated at ${MAX_BRIEF_WORDS} words (3-min cap). Full report: https://viralanimal.com/admin/audits\n`
+      break
+    }
+
+    result += section
+    currentWordCount += sectionWordCount
+  }
+
+  return result
 }
 
 async function sendEmailDigest(content: string, dateStr: string) {

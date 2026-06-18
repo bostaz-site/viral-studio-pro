@@ -39,7 +39,7 @@ export async function runOutcomeMeasurer() {
   const { data: fixedFindings } = await admin
     .from('audit_findings')
     .select(
-      'id, agent_type, title, predicted_impact_revenue, predicted_impact_conversion, predicted_impact_ux, predicted_confidence, auto_fix_pr_url, updated_at'
+      'id, agent_type, title, predicted_impact_bucket, predicted_impact_ux, predicted_confidence, predicted_effort_hours, auto_fix_pr_url, updated_at'
     )
     .eq('status', 'fixed')
     .gte('updated_at', windowStart.toISOString())
@@ -110,9 +110,11 @@ export async function runOutcomeMeasurer() {
       const lowerIsBetter = metricName.includes('failure') || metricName.includes('bounce')
       const effectiveLift = lowerIsBetter ? -liftPercent : liftPercent
 
-      const predictedImpact =
-        (finding.predicted_impact_conversion ?? 0) +
-        (finding.predicted_impact_ux ?? 0) * 5
+      // Bucket-based expected lift thresholds
+      const bucketThresholds: Record<string, number> = {
+        critical: 10, high: 5, medium: 2, low: 0.5, unknown: 1,
+      }
+      const predictedImpact = bucketThresholds[finding.predicted_impact_bucket ?? 'unknown'] ?? 1
 
       // Confidence in attribution: lower if lift is small or too many variables
       let attributionConfidence = 5
@@ -130,8 +132,7 @@ export async function runOutcomeMeasurer() {
         fix_pr_url: finding.auto_fix_pr_url ?? '',
         fix_merged_at: fixDate.toISOString(),
         measurement_window_days: MEASUREMENT_WINDOW_DAYS,
-        predicted_impact_revenue: finding.predicted_impact_revenue,
-        predicted_impact_conversion: finding.predicted_impact_conversion,
+        predicted_impact_bucket: finding.predicted_impact_bucket ?? 'unknown',
         predicted_impact_ux: finding.predicted_impact_ux,
         actual_metric_before: before,
         actual_metric_after: after,

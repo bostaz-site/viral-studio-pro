@@ -91,8 +91,13 @@ ${revenueMoves.length === 0
     ? '- No revenue moves this cycle'
     : revenueMoves.map((m: any) => `- ${m.title} (impact: ${m.impact}, confidence: ${m.confidence})`).join('\n')}
 
+## Anti-suggestion
+${allMoves.length > 0
+    ? `Don't start anything not in the top 3 moves above. Backlog exists for a reason.`
+    : `No strategic moves proposed yet — don't start random feature work without agent input.`}
+
 ## Backlog
-- ${backlogCount ?? 0} ideas parked in backlog
+- ${backlogCount ?? 0} ideas parked
 - View: https://viralanimal.com/admin/strategic-moves
 
 ---
