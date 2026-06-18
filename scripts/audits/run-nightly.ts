@@ -3,12 +3,12 @@
  *
  * Schedule:
  *   Lundi    (1) - Output + Acquisition + 2 random personas
- *   Mardi    (2) - Output + Activation + AI Scout + 2 random personas
+ *   Mardi    (2) - Output + Activation + AI Scout + AI Multiplier + 2 random personas
  *   Mercredi (3) - Output + Technical   + 2 random personas
  *   Jeudi    (4) - Output + Retention   + 2 random personas
  *   Vendredi (5) - Output + Cold Email  + 2 random personas
- *   Samedi   (6) - Output + AI Scout + 1 persona
- *   Dimanche (0) - Output + Strategist + Revenue + Strategic Brief + 1 persona
+ *   Samedi   (6) - Output + AI Scout + AI Multiplier + 1 persona
+ *   Dimanche (0) - Output + Strategist + Revenue + Meta-Agent + Strategic Brief + 1 persona
  *
  * Run: npx tsx scripts/audits/run-nightly.ts
  */
@@ -66,12 +66,12 @@ async function main() {
   // System agents rotate per weekday
   const systemSchedule: Record<number, { path: string; fn: string }[]> = {
     1: [{ path: './acquisition', fn: 'runAcquisitionAudit' }],
-    2: [{ path: './activation', fn: 'runActivationAudit' }, { path: './ai-scout', fn: 'runAIScout' }],
+    2: [{ path: './activation', fn: 'runActivationAudit' }, { path: './ai-scout', fn: 'runAIScout' }, { path: './ai-multiplier', fn: 'runAIMultiplier' }],
     3: [{ path: './technical', fn: 'runTechnicalAudit' }],
     4: [{ path: './retention', fn: 'runRetentionAudit' }],
     5: [{ path: './cold-email', fn: 'runColdEmailAudit' }],
-    6: [{ path: './ai-scout', fn: 'runAIScout' }],
-    0: [{ path: './strategist', fn: 'runStrategist' }, { path: './revenue-agent', fn: 'runRevenueAgent' }],
+    6: [{ path: './ai-scout', fn: 'runAIScout' }, { path: './ai-multiplier', fn: 'runAIMultiplier' }],
+    0: [{ path: './strategist', fn: 'runStrategist' }, { path: './revenue-agent', fn: 'runRevenueAgent' }, { path: './meta-agent', fn: 'runMetaAgent' }],
   }
 
   for (const agent of systemSchedule[dayOfWeek] ?? []) {

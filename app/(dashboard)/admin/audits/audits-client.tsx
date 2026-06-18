@@ -4,7 +4,9 @@ import { useState } from 'react'
 import {
   Flame, RotateCcw, AlertTriangle, CheckCircle2,
   ChevronDown, ChevronUp, Loader2, BarChart3, Search,
+  Brain, Sparkles,
 } from 'lucide-react'
+import Link from 'next/link'
 import type { Finding, MetricSnapshot } from './page'
 
 const SEVERITY_COLORS: Record<string, string> = {
@@ -75,16 +77,34 @@ export function AuditsClient({
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="space-y-1">
-        <h1 className="text-2xl font-bold tracking-tight">
-          Morning Brief &mdash; {dateStr} ({dayName})
-        </h1>
-        {tab === 'today' && agents.length > 0 && (
-          <p className="text-sm text-muted-foreground">
-            Agents: {agents.map(a => AGENT_LABELS[a] || a).join(', ')}
-            {personas.length > 0 && ` | Personas: ${personas.join(', ')}`}
-          </p>
-        )}
+      <div className="flex items-start justify-between">
+        <div className="space-y-1">
+          <h1 className="text-2xl font-bold tracking-tight">
+            Morning Brief &mdash; {dateStr} ({dayName})
+          </h1>
+          {tab === 'today' && agents.length > 0 && (
+            <p className="text-sm text-muted-foreground">
+              Agents: {agents.map(a => AGENT_LABELS[a] || a).join(', ')}
+              {personas.length > 0 && ` | Personas: ${personas.join(', ')}`}
+            </p>
+          )}
+        </div>
+        <div className="flex gap-2 shrink-0">
+          <Link
+            href="/admin/audits/meta"
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-purple-500/10 text-purple-400 border border-purple-500/20 hover:bg-purple-500/20 transition-colors"
+          >
+            <Brain className="h-3.5 w-3.5" />
+            Meta-Agent
+          </Link>
+          <Link
+            href="/admin/audits/ai-multiplier"
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-amber-500/10 text-amber-400 border border-amber-500/20 hover:bg-amber-500/20 transition-colors"
+          >
+            <Sparkles className="h-3.5 w-3.5" />
+            AI Multiplier
+          </Link>
+        </div>
       </div>
 
       {/* Tabs */}

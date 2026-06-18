@@ -302,6 +302,32 @@ async function sendDiscordSummary(
     })
   }
 
+  // Build Discord Action Row components with Accept/Later/Discard buttons
+  // Discord limits: max 5 Action Rows per message, 5 components per row
+  const components: Array<{
+    type: number
+    components: Array<{
+      type: number
+      style: number
+      label: string
+      custom_id: string
+    }>
+  }> = []
+
+  for (let i = 0; i < Math.min(clusters.length, 5); i++) {
+    const c = clusters[i]
+    const slug = c.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 30)
+    const promptId = `${date}-${i + 1}-${slug}`
+    components.push({
+      type: 1, // Action Row
+      components: [
+        { type: 2, style: 3, label: `Accept #${i + 1}`, custom_id: `accept_prompt:${promptId}` },
+        { type: 2, style: 2, label: 'Later', custom_id: `later_prompt:${promptId}` },
+        { type: 2, style: 4, label: 'Discard', custom_id: `discard_prompt:${promptId}` },
+      ],
+    })
+  }
+
   try {
     await fetch(webhook, {
       method: 'POST',
@@ -312,13 +338,18 @@ async function sendDiscordSummary(
             ? `${clusters.length} fix prompts ready + ${improvesAdded} improvements queued`
             : `${improvesAdded} improvements queued (no urgent fixes)`,
           description: clusters.length > 0
-            ? 'Fix prompts ready to launch. Improvements batched for Wednesday.'
+            ? 'Click Accept to launch auto-fix. PR will be ready in ~5-10 min.'
             : 'No urgent fixes tonight. Improvements accumulating for Wednesday batch.',
           color: clusters.length > 0 ? 0x5865F2 : 0x57F287,
           fields,
           footer: { text: 'Viral Animal Audit System' },
           timestamp: new Date().toISOString(),
         }],
+        // Buttons require a Discord Bot (not webhook). If using a webhook,
+        // components are silently ignored. For button support, the Discord bot
+        // must send the message via the API instead.
+        // Keeping this here for when the bot is configured.
+        components: components.length > 0 ? components : undefined,
       }),
     })
   } catch (err) {

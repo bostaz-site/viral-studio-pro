@@ -1,0 +1,11 @@
+[
+  { "path": "vps/lib/ffmpeg-render.js", "priority": 1, "description": "Core rendering pipeline" },
+  { "path": "vps/lib/subtitle-generator.js", "priority": 1, "description": "Subtitle ASS generation" },
+  { "path": "lib/scoring/clip-scorer.ts", "priority": 2, "description": "Trending clip scoring engine" },
+  { "path": "lib/scoring/account-scorer.ts", "priority": 2, "description": "Creator ranking system" },
+  { "path": "lib/twitch/fetch-streamer-clips.ts", "priority": 3, "description": "Twitch clip fetching" },
+  { "path": "lib/ai/mood-detector.ts", "priority": 3, "description": "AI mood detection" },
+  { "path": "lib/ai/hook-reorder.ts", "priority": 3, "description": "AI hook reordering" },
+  { "path": "scripts/audits/output-quality.ts", "priority": 4, "description": "Output quality audit agent" },
+  { "path": "scripts/audits/technical.ts", "priority": 4, "description": "Technical audit agent" }
+]
