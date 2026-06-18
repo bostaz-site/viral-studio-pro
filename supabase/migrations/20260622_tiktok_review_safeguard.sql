@@ -1,0 +1,7 @@
+ALTER TABLE public.audit_findings
+  ADD COLUMN IF NOT EXISTS tiktok_review_blocked BOOLEAN NOT NULL DEFAULT FALSE,
+  ADD COLUMN IF NOT EXISTS accepted_at TIMESTAMPTZ;
+
+ALTER TABLE public.root_cause_clusters
+  ADD COLUMN IF NOT EXISTS tiktok_review_blocked BOOLEAN NOT NULL DEFAULT FALSE,
+  ADD COLUMN IF NOT EXISTS accepted_at TIMESTAMPTZ;

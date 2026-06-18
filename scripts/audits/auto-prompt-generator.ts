@@ -15,6 +15,7 @@
 import { createAdminClient } from '../../lib/supabase/admin'
 import { claude } from '../../lib/audit/agent-runner'
 import { pushFileToGitHub } from '../../lib/audit/github-push'
+import { isTikTokReviewMode } from '../../lib/audit/tiktok-review-mode'
 
 interface Classification {
   finding_index: number
@@ -311,6 +312,11 @@ async function sendDiscordSummary(
     })
   }
 
+  const tikTokActive = isTikTokReviewMode()
+  const tikTokWarning = tikTokActive
+    ? '\n\n**TIKTOK REVIEW MODE ACTIVE** — Accepts are QUEUED, not executed. Resume after API approval.'
+    : ''
+
   try {
     await fetch(webhook, {
       method: 'POST',
@@ -318,11 +324,13 @@ async function sendDiscordSummary(
       body: JSON.stringify({
         embeds: [{
           title: clusters.length > 0
-            ? `${clusters.length} fix prompts ready + ${improvesAdded} improvements queued`
+            ? `${clusters.length} fix prompts ready${tikTokActive ? ' (queued)' : ''} + ${improvesAdded} improvements queued`
             : `${improvesAdded} improvements queued (no urgent fixes)`,
-          description: clusters.length > 0
-            ? 'Click Accept to launch auto-fix. PR will be ready in ~5-10 min.'
-            : 'No urgent fixes tonight. Improvements accumulating for Wednesday batch.',
+          description: (clusters.length > 0
+            ? tikTokActive
+              ? 'Prompts generated but execution paused during TikTok review.'
+              : 'Click Accept to launch auto-fix. PR will be ready in ~5-10 min.'
+            : 'No urgent fixes tonight. Improvements accumulating for Wednesday batch.') + tikTokWarning,
           color: clusters.length > 0 ? 0x5865F2 : 0x57F287,
           fields,
           footer: { text: 'Viral Animal Audit System' },

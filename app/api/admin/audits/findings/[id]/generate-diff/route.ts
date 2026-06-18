@@ -3,6 +3,7 @@ import Anthropic from '@anthropic-ai/sdk'
 import { withAdmin } from '@/lib/api/withAdmin'
 import { jsonResponse, errorResponse } from '@/lib/api/withAuth'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { isTikTokReviewMode } from '@/lib/audit/tiktok-review-mode'
 
 const OWNER = 'bostaz-site'
 const REPO = 'viral-studio-pro'
@@ -17,6 +18,11 @@ export const POST = withAdmin(async (req: NextRequest) => {
   const id = extractId(req)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const admin = createAdminClient() as any
+
+  // Block diff generation during TikTok review (saves tokens)
+  if (isTikTokReviewMode()) {
+    return errorResponse('Diff generation paused — TikTok review in progress. Will resume after TIKTOK_REVIEW_MODE=false.', 503)
+  }
 
   // 1. Fetch finding
   const { data: finding, error } = await admin

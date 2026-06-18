@@ -4,7 +4,7 @@ import { useState } from 'react'
 import {
   Flame, RotateCcw, AlertTriangle, CheckCircle2,
   ChevronDown, ChevronUp, Loader2, BarChart3, Search,
-  Brain, Sparkles, GitMerge, Bug, Users, GitPullRequest,
+  Brain, Sparkles, GitMerge, Bug, Users, GitPullRequest, ShieldAlert,
 } from 'lucide-react'
 import Link from 'next/link'
 import type { Finding, MetricSnapshot } from './page'
@@ -61,6 +61,27 @@ export function AuditsClient({
   const today = new Date()
   const dayName = today.toLocaleDateString('en-US', { weekday: 'long' })
   const dateStr = today.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
+
+  // TikTok review mode banner
+  const [tikTokStatus, setTikTokStatus] = useState<{ mode: string; queued_accepts: number } | null>(null)
+  const [resuming, setResuming] = useState(false)
+
+  useState(() => {
+    fetch('/api/admin/audits/tiktok-mode-status', { cache: 'no-store' })
+      .then(r => r.json())
+      .then(d => { if (d.data) setTikTokStatus(d.data) })
+      .catch(() => {})
+  })
+
+  const handleResume = async () => {
+    setResuming(true)
+    try {
+      await fetch('/api/admin/audits/resume-after-tiktok', { method: 'POST' })
+      setTikTokStatus(prev => prev ? { ...prev, mode: 'inactive', queued_accepts: 0 } : null)
+    } catch { /* ignore */ } finally {
+      setResuming(false)
+    }
+  }
 
   const newFindings = findings.filter(f => f.cycle_count === 1 && f.status === 'open')
   const recurringFindings = findings.filter(f => f.cycle_count > 1 && f.status === 'open')
@@ -143,6 +164,43 @@ export function AuditsClient({
           </Link>
         </div>
       </div>
+
+      {/* TikTok Review Mode Banner */}
+      {tikTokStatus?.mode === 'active' && (
+        <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 flex items-start gap-3">
+          <ShieldAlert className="h-5 w-5 text-amber-400 shrink-0 mt-0.5" />
+          <div className="flex-1">
+            <p className="text-sm font-semibold text-amber-300">TikTok Review Mode Active</p>
+            <p className="text-xs text-amber-400/80 mt-1">
+              Auto-fixes are queued, not executed. Accepted prompts will execute once TIKTOK_REVIEW_MODE=false.
+            </p>
+            {tikTokStatus.queued_accepts > 0 && (
+              <p className="text-xs text-amber-300 mt-1 font-medium">
+                Queued so far: {tikTokStatus.queued_accepts} accepts
+              </p>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Resume banner (shown when mode is off but there are queued accepts) */}
+      {tikTokStatus?.mode === 'inactive' && tikTokStatus.queued_accepts > 0 && (
+        <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4 flex items-center justify-between">
+          <div>
+            <p className="text-sm font-semibold text-emerald-300">TikTok review complete</p>
+            <p className="text-xs text-emerald-400/80 mt-0.5">
+              {tikTokStatus.queued_accepts} queued accepts ready to resume
+            </p>
+          </div>
+          <button
+            onClick={handleResume}
+            disabled={resuming}
+            className="text-xs font-medium px-4 py-2 rounded-lg bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500/30 transition-colors disabled:opacity-50"
+          >
+            {resuming ? 'Resuming...' : 'Resume queued auto-fixes'}
+          </button>
+        </div>
+      )}
 
       {/* Tabs */}
       <div className="flex items-center gap-1 border-b border-border pb-px">

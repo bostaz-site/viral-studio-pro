@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { isTikTokReviewMode, canOverrideTikTokReview } from '@/lib/audit/tiktok-review-mode'
 
 const DISCORD_PUBLIC_KEY = process.env.DISCORD_PUBLIC_KEY ?? ''
 
@@ -32,10 +33,34 @@ export async function POST(req: NextRequest) {
 
     if (customId.startsWith('accept_prompt:')) {
       const promptId = customId.split(':')[1]
+
+      if (isTikTokReviewMode()) {
+        // Queue the accept instead of executing it
+        await handleTikTokQueuedAccept(promptId)
+        return NextResponse.json({
+          type: 4,
+          data: {
+            content: `\u23F8\uFE0F **Auto-fix paused — TikTok review in progress.**\n\nPrompt \`${promptId}\` saved as queued.\nIt will auto-launch once TIKTOK_REVIEW_MODE is set to false.`,
+            flags: 64,
+          },
+        })
+      }
+
       await handleAccept(promptId, userId)
       return NextResponse.json({
         type: 4,
         data: { content: `Launched auto-fix for prompt \`${promptId}\`. PR will be ready in ~5-10 min.`, flags: 64 },
+      })
+    }
+
+    // Emergency override during TikTok review (security/data-loss only)
+    if (customId.startsWith('override_accept:')) {
+      const promptId = customId.split(':')[1]
+      console.log(`[discord-interactions] TIKTOK OVERRIDE: ${promptId} by ${userId}`)
+      await handleAccept(promptId, userId)
+      return NextResponse.json({
+        type: 4,
+        data: { content: `\uD83D\uDEA8 **Override executed** — auto-fix launched for \`${promptId}\` despite TikTok review mode.`, flags: 64 },
       })
     }
 
@@ -93,6 +118,31 @@ async function handleAccept(promptId: string, userId: string) {
   } else {
     console.log(`[discord-interactions] Dispatched auto-fix for prompt ${promptId}`)
   }
+}
+
+async function handleTikTokQueuedAccept(promptId: string) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const admin = createAdminClient() as any
+
+  // Mark related findings as blocked by TikTok review
+  await admin
+    .from('audit_findings')
+    .update({
+      tiktok_review_blocked: true,
+      accepted_at: new Date().toISOString(),
+    })
+    .eq('status', 'open')
+
+  // Also mark clusters
+  await admin
+    .from('root_cause_clusters')
+    .update({
+      tiktok_review_blocked: true,
+      accepted_at: new Date().toISOString(),
+    })
+    .eq('status', 'identified')
+
+  console.log(`[discord-interactions] TikTok review mode: queued accept for ${promptId}`)
 }
 
 async function handleDiscard(promptId: string) {
