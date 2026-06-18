@@ -114,6 +114,16 @@ async function main() {
   const prReviewFn = await tryImport('./recent-pr-review', 'runRecentPRReview')
   if (prReviewFn) await safeRun(prReviewFn, 'recent-pr-review')
 
+  // Knowledge graph enricher: add new nodes/edges from today's findings (daily)
+  const kgFn = await tryImport('./knowledge-graph-enricher', 'runKnowledgeGraphEnricher')
+  if (kgFn) await safeRun(kgFn, 'knowledge-graph-enricher')
+
+  // Sunday: founder profile builder (weekly)
+  if (dayOfWeek === 0) {
+    const founderFn = await tryImport('./founder-profile-builder', 'runFounderProfileBuilder')
+    if (founderFn) await safeRun(founderFn, 'founder-profile-builder')
+  }
+
   // Wednesday = day 3 — run the weekly improvement batch (top 5 from backlog)
   if (dayOfWeek === 3) {
     const batchFn = await tryImport('./weekly-improvement-batch', 'runWeeklyImprovementBatch')
