@@ -2231,6 +2231,48 @@ export type Database = {
         }
         Relationships: []
       }
+      improvement_backlog: {
+        Row: {
+          batched_in_week_of: string | null
+          category: string
+          created_at: string
+          description: string
+          finding_ids: string[]
+          id: string
+          predicted_effort_score: number
+          predicted_impact_score: number
+          shipped_at: string | null
+          status: string
+          title: string
+        }
+        Insert: {
+          batched_in_week_of?: string | null
+          category: string
+          created_at?: string
+          description: string
+          finding_ids: string[]
+          id?: string
+          predicted_effort_score: number
+          predicted_impact_score: number
+          shipped_at?: string | null
+          status?: string
+          title: string
+        }
+        Update: {
+          batched_in_week_of?: string | null
+          category?: string
+          created_at?: string
+          description?: string
+          finding_ids?: string[]
+          id?: string
+          predicted_effort_score?: number
+          predicted_impact_score?: number
+          shipped_at?: string | null
+          status?: string
+          title?: string
+        }
+        Relationships: []
+      }
       influencers: {
         Row: {
           affiliate_code: string | null

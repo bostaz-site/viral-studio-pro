@@ -3,12 +3,12 @@
  *
  * Schedule:
  *   Lundi    (1) - Output + Acquisition + 2 random personas
- *   Mardi    (2) - Output + Activation  + 2 random personas
+ *   Mardi    (2) - Output + Activation + AI Scout + 2 random personas
  *   Mercredi (3) - Output + Technical   + 2 random personas
  *   Jeudi    (4) - Output + Retention   + 2 random personas
  *   Vendredi (5) - Output + Cold Email  + 2 random personas
- *   Samedi   (6) - Output + 1 persona
- *   Dimanche (0) - Output + 1 persona
+ *   Samedi   (6) - Output + AI Scout + 1 persona
+ *   Dimanche (0) - Output + Strategist + Revenue + Strategic Brief + 1 persona
  *
  * Run: npx tsx scripts/audits/run-nightly.ts
  */
@@ -17,6 +17,7 @@ import { config } from 'dotenv'
 config({ path: '.env.local' })
 
 import { generateMorningBrief } from '../../lib/audit/morning-brief'
+import { generateStrategicBrief } from '../../lib/audit/strategic-brief'
 
 type AuditFn = () => Promise<unknown>
 
@@ -65,12 +66,12 @@ async function main() {
   // System agents rotate per weekday
   const systemSchedule: Record<number, { path: string; fn: string }[]> = {
     1: [{ path: './acquisition', fn: 'runAcquisitionAudit' }],
-    2: [{ path: './activation', fn: 'runActivationAudit' }],
+    2: [{ path: './activation', fn: 'runActivationAudit' }, { path: './ai-scout', fn: 'runAIScout' }],
     3: [{ path: './technical', fn: 'runTechnicalAudit' }],
     4: [{ path: './retention', fn: 'runRetentionAudit' }],
     5: [{ path: './cold-email', fn: 'runColdEmailAudit' }],
-    6: [],
-    0: [],
+    6: [{ path: './ai-scout', fn: 'runAIScout' }],
+    0: [{ path: './strategist', fn: 'runStrategist' }, { path: './revenue-agent', fn: 'runRevenueAgent' }],
   }
 
   for (const agent of systemSchedule[dayOfWeek] ?? []) {
@@ -93,9 +94,27 @@ async function main() {
     if (fn) await safeRun(fn, p.fn)
   }
 
-  // Auto-prompt generator: cluster findings → ready-to-launch Claude Code prompts
+  // Auto-prompt generator: classify Fix/Improve/Add, cluster fixes into prompts
   const autoPromptFn = await tryImport('./auto-prompt-generator', 'runAutoPromptGenerator')
   if (autoPromptFn) await safeRun(autoPromptFn, 'auto-prompt-generator')
+
+  // Wednesday = day 3 — run the weekly improvement batch (top 5 from backlog)
+  if (dayOfWeek === 3) {
+    const batchFn = await tryImport('./weekly-improvement-batch', 'runWeeklyImprovementBatch')
+    if (batchFn) await safeRun(batchFn, 'weekly-improvement-batch')
+  }
+
+  // Sunday: generate strategic brief after strategic agents
+  if (dayOfWeek === 0) {
+    console.log('\n--- Strategic brief ---')
+    try {
+      const sBrief = await generateStrategicBrief()
+      console.log('[nightly] Strategic brief generated')
+      console.log(sBrief.slice(0, 300) + '...')
+    } catch (err) {
+      console.error('[nightly] Strategic brief failed:', err)
+    }
+  }
 
   // Generate morning brief
   console.log('\n--- Morning brief ---')

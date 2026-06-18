@@ -14,6 +14,14 @@ export async function generateMorningBrief(): Promise<string> {
     .eq('status', 'open')
     .order('severity', { ascending: false })
 
+  // Split findings by severity into FIX vs IMPROVE
+  const fixFindings = (newFindings ?? []).filter(
+    (f) => f.severity === 'critical' || f.severity === 'high'
+  )
+  const improveFindings = (newFindings ?? []).filter(
+    (f) => f.severity === 'normal' || f.severity === 'low'
+  )
+
   // Recurring (cycle_count >= 2)
   const { data: recurring } = await admin
     .from('audit_findings')
@@ -36,6 +44,19 @@ export async function generateMorningBrief(): Promise<string> {
     .ilike('title', 'Regression:%')
     .eq('status', 'open')
     .gte('created_at', isoYesterday)
+
+  // Improvement backlog stats
+  const { count: backlogQueued } = await admin
+    .from('improvement_backlog')
+    .select('id', { count: 'exact', head: true })
+    .eq('status', 'queued')
+
+  const { data: topBacklog } = await admin
+    .from('improvement_backlog')
+    .select('title, predicted_impact_score, predicted_effort_score')
+    .eq('status', 'queued')
+    .order('predicted_impact_score', { ascending: false })
+    .limit(3)
 
   // KPI evolution (today vs 5 days ago)
   const fiveDaysAgo = new Date(today.getTime() - 5 * 24 * 60 * 60 * 1000)
@@ -72,13 +93,15 @@ export async function generateMorningBrief(): Promise<string> {
     'Samedi',
   ]
 
+  const isWednesday = today.getDay() === 3
+
   const brief = `# Morning Brief - ${todayStr} (${dayNames[today.getDay()]})
 
-## New findings (${newFindings?.length ?? 0})
+## FIX (today — ${fixFindings.length} urgent)
 ${
-  (newFindings ?? []).length === 0
-    ? '- None'
-    : (newFindings ?? [])
+  fixFindings.length === 0
+    ? '- All clear, no urgent fixes'
+    : fixFindings
         .slice(0, 5)
         .map(
           (f) =>
@@ -86,6 +109,23 @@ ${
         )
         .join('\n')
 }
+
+## IMPROVE
+- ${improveFindings.length} new improvements added to backlog today
+${
+  (topBacklog ?? []).length > 0
+    ? `- Top 3 in backlog:\n${(topBacklog ?? [])
+        .map(
+          (b) =>
+            `  - [${b.predicted_impact_score}imp/${b.predicted_effort_score}eff] ${b.title}`
+        )
+        .join('\n')}`
+    : '- Backlog empty'
+}
+- ${backlogQueued ?? 0} total queued${isWednesday ? ' — **batch shipping tonight**' : ' — next batch ships Wednesday'}
+
+## ADD
+- Feature suggestions skipped (see Monday Strategic Brief)
 
 ## Recurring findings (${recurring?.length ?? 0})
 ${
