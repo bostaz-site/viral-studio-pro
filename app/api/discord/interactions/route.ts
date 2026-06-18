@@ -79,6 +79,51 @@ export async function POST(req: NextRequest) {
         data: { content: `Prompt \`${promptId}\` discarded.`, flags: 64 },
       })
     }
+
+    // ── Root cause cluster buttons ──
+    if (customId.startsWith('accept_cluster:')) {
+      const clusterId = customId.split(':')[1]
+
+      if (isTikTokReviewMode()) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const admin = createAdminClient() as any
+        await admin
+          .from('root_cause_clusters')
+          .update({ tiktok_review_blocked: true, accepted_at: new Date().toISOString() })
+          .eq('id', clusterId)
+        return NextResponse.json({
+          type: 4,
+          data: { content: `\u23F8\uFE0F Cluster queued — TikTok review in progress. Will resume after TIKTOK_REVIEW_MODE=false.`, flags: 64 },
+        })
+      }
+
+      await handleClusterAccept(clusterId, userId)
+      return NextResponse.json({
+        type: 4,
+        data: { content: `\u2705 Cluster accepted! GitHub workflow triggered. PR will be ready in ~5-10 min.`, flags: 64 },
+      })
+    }
+
+    if (customId.startsWith('later_cluster:')) {
+      return NextResponse.json({
+        type: 4,
+        data: { content: 'Cluster parked for later.', flags: 64 },
+      })
+    }
+
+    if (customId.startsWith('discard_cluster:')) {
+      const clusterId = customId.split(':')[1]
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const admin = createAdminClient() as any
+      await admin
+        .from('root_cause_clusters')
+        .update({ status: 'discarded' })
+        .eq('id', clusterId)
+      return NextResponse.json({
+        type: 4,
+        data: { content: 'Cluster discarded.', flags: 64 },
+      })
+    }
   }
 
   return NextResponse.json({ type: 4, data: { content: 'Unknown interaction', flags: 64 } })
@@ -117,6 +162,40 @@ async function handleAccept(promptId: string, userId: string) {
     console.error(`[discord-interactions] GitHub dispatch failed: ${res.status} ${await res.text()}`)
   } else {
     console.log(`[discord-interactions] Dispatched auto-fix for prompt ${promptId}`)
+  }
+}
+
+async function handleClusterAccept(clusterId: string, userId: string) {
+  const githubToken = process.env.GITHUB_TOKEN
+  if (!githubToken) {
+    console.error('[discord-interactions] GITHUB_TOKEN not set')
+    return
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const admin = createAdminClient() as any
+  await admin
+    .from('root_cause_clusters')
+    .update({ status: 'in_progress', accepted_at: new Date().toISOString() })
+    .eq('id', clusterId)
+
+  const res = await fetch('https://api.github.com/repos/bostaz-site/viral-studio-pro/dispatches', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${githubToken}`,
+      Accept: 'application/vnd.github+json',
+      'X-GitHub-Api-Version': '2022-11-28',
+    },
+    body: JSON.stringify({
+      event_type: 'auto-fix-launch',
+      client_payload: { cluster_id: clusterId, accepted_by: userId },
+    }),
+  })
+
+  if (!res.ok) {
+    console.error(`[discord-interactions] GitHub dispatch failed for cluster: ${res.status}`)
+  } else {
+    console.log(`[discord-interactions] Dispatched auto-fix for cluster ${clusterId}`)
   }
 }
 

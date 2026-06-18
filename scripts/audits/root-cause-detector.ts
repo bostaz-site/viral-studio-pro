@@ -18,6 +18,7 @@ import { createAdminClient } from '../../lib/supabase/admin'
 import { claude } from '../../lib/audit/agent-runner'
 import { pushFileToGitHub } from '../../lib/audit/github-push'
 import { safeParseClaudeJson, extractClaudeText } from '../../lib/audit/safe-json'
+import { sendBotMessage, type DiscordActionRow } from '../../lib/audit/discord'
 
 const SEVERITY_WEIGHT: Record<string, number> = {
   critical: 4,
@@ -286,10 +287,10 @@ async function sendDiscordRootCauses(
   clusters: Array<{ id: string; name: string; count: number; githubUrl: string }>,
   totalFindings: number,
   orphanCount: number,
-  date: string,
+  _date: string,
 ) {
-  const webhook = process.env.DISCORD_AUDIT_WEBHOOK_URL
-  if (!webhook) return
+  const channelId = process.env.DISCORD_CRITICAL_ALERTS_CHANNEL_ID
+  if (!channelId && !process.env.DISCORD_AUDIT_WEBHOOK_URL) return
 
   const fields = clusters.slice(0, 5).map((c, i) => ({
     name: `#${i + 1} ${c.name}`,
@@ -305,20 +306,27 @@ async function sendDiscordRootCauses(
     })
   }
 
+  // Interactive buttons per cluster (max 5 action rows)
+  const components: DiscordActionRow[] = clusters.slice(0, 5).map((c, i) => ({
+    type: 1 as const,
+    components: [
+      { type: 2 as const, style: 3 as const, label: `Accept #${i + 1}`, custom_id: `accept_cluster:${c.id}` },
+      { type: 2 as const, style: 2 as const, label: 'Later', custom_id: `later_cluster:${c.id}` },
+      { type: 2 as const, style: 4 as const, label: 'Discard', custom_id: `discard_cluster:${c.id}` },
+    ],
+  }))
+
   try {
-    await fetch(webhook, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        embeds: [{
-          title: `${totalFindings} findings compressed into ${clusters.length} root causes`,
-          description: `Fix these ${clusters.length} root causes to resolve ${totalFindings - orphanCount} findings at once.`,
-          color: 0x9B59B6,
-          fields,
-          footer: { text: 'Viral Animal Audit System' },
-          timestamp: new Date().toISOString(),
-        }],
-      }),
+    await sendBotMessage(channelId || '', {
+      embeds: [{
+        title: `${totalFindings} findings compressed into ${clusters.length} root causes`,
+        description: `Fix these ${clusters.length} root causes to resolve ${totalFindings - orphanCount} findings at once.`,
+        color: 0x9B59B6,
+        fields,
+        footer: { text: 'Viral Animal Audit System' },
+        timestamp: new Date().toISOString(),
+      }],
+      components: components.length > 0 ? components : undefined,
     })
   } catch (err) {
     console.warn('[root-cause] Discord notification failed:', err)

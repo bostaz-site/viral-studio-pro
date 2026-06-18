@@ -17,6 +17,7 @@ import { claude } from '../../lib/audit/agent-runner'
 import { pushFileToGitHub } from '../../lib/audit/github-push'
 import { isTikTokReviewMode } from '../../lib/audit/tiktok-review-mode'
 import { safeParseClaudeJson, extractClaudeText } from '../../lib/audit/safe-json'
+import { sendBotMessage, type DiscordActionRow } from '../../lib/audit/discord'
 
 interface Classification {
   finding_index: number
@@ -245,8 +246,8 @@ async function sendDiscordSummary(
   addsSkipped: number,
   date: string,
 ) {
-  const webhook = process.env.DISCORD_AUDIT_WEBHOOK_URL
-  if (!webhook) return
+  const channelId = process.env.DISCORD_CRITICAL_ALERTS_CHANNEL_ID
+  if (!channelId && !process.env.DISCORD_AUDIT_WEBHOOK_URL) return
 
   const repoUrl = 'https://github.com/bostaz-site/viral-studio-pro'
 
@@ -264,7 +265,6 @@ async function sendDiscordSummary(
     })
   }
 
-  // IMPROVE summary
   if (improvesAdded > 0) {
     fields.push({
       name: 'IMPROVE',
@@ -281,24 +281,14 @@ async function sendDiscordSummary(
     })
   }
 
-  // Build Discord Action Row components with Accept/Later/Discard buttons
-  // Discord limits: max 5 Action Rows per message, 5 components per row
-  const components: Array<{
-    type: number
-    components: Array<{
-      type: number
-      style: number
-      label: string
-      custom_id: string
-    }>
-  }> = []
-
+  // Build interactive button rows (max 5 action rows per Discord message)
+  const components: DiscordActionRow[] = []
   for (let i = 0; i < Math.min(clusters.length, 5); i++) {
     const c = clusters[i]
     const slug = c.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 30)
     const promptId = `${date}-${i + 1}-${slug}`
     components.push({
-      type: 1, // Action Row
+      type: 1,
       components: [
         { type: 2, style: 3, label: `Accept #${i + 1}`, custom_id: `accept_prompt:${promptId}` },
         { type: 2, style: 2, label: 'Later', custom_id: `later_prompt:${promptId}` },
@@ -309,34 +299,26 @@ async function sendDiscordSummary(
 
   const tikTokActive = isTikTokReviewMode()
   const tikTokWarning = tikTokActive
-    ? '\n\n**TIKTOK REVIEW MODE ACTIVE** — Accepts are QUEUED, not executed. Resume after API approval.'
+    ? '\n\n**TIKTOK REVIEW MODE ACTIVE** — Accepts are QUEUED, not executed.'
     : ''
 
   try {
-    await fetch(webhook, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        embeds: [{
-          title: clusters.length > 0
-            ? `${clusters.length} fix prompts ready${tikTokActive ? ' (queued)' : ''} + ${improvesAdded} improvements queued`
-            : `${improvesAdded} improvements queued (no urgent fixes)`,
-          description: (clusters.length > 0
-            ? tikTokActive
-              ? 'Prompts generated but execution paused during TikTok review.'
-              : 'Click Accept to launch auto-fix. PR will be ready in ~5-10 min.'
-            : 'No urgent fixes tonight. Improvements accumulating for Wednesday batch.') + tikTokWarning,
-          color: clusters.length > 0 ? 0x5865F2 : 0x57F287,
-          fields,
-          footer: { text: 'Viral Animal Audit System' },
-          timestamp: new Date().toISOString(),
-        }],
-        // Buttons require a Discord Bot (not webhook). If using a webhook,
-        // components are silently ignored. For button support, the Discord bot
-        // must send the message via the API instead.
-        // Keeping this here for when the bot is configured.
-        components: components.length > 0 ? components : undefined,
-      }),
+    await sendBotMessage(channelId || '', {
+      embeds: [{
+        title: clusters.length > 0
+          ? `${clusters.length} fix prompts ready${tikTokActive ? ' (queued)' : ''} + ${improvesAdded} improvements queued`
+          : `${improvesAdded} improvements queued (no urgent fixes)`,
+        description: (clusters.length > 0
+          ? tikTokActive
+            ? 'Prompts generated but execution paused during TikTok review.'
+            : 'Click Accept to launch auto-fix. PR will be ready in ~5-10 min.'
+          : 'No urgent fixes tonight. Improvements accumulating for Wednesday batch.') + tikTokWarning,
+        color: clusters.length > 0 ? 0x5865F2 : 0x57F287,
+        fields,
+        footer: { text: 'Viral Animal Audit System' },
+        timestamp: new Date().toISOString(),
+      }],
+      components: components.length > 0 ? components : undefined,
     })
   } catch (err) {
     console.warn('[auto-prompt] Discord notification failed:', err)
