@@ -3,6 +3,8 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
 import { rateLimit } from '@/lib/rate-limit'
 
+const MAX_FILE_SIZE = 2 * 1024 * 1024 * 1024 // 2 GB
+
 /**
  * POST /api/upload/sign
  *
@@ -11,9 +13,11 @@ import { rateLimit } from '@/lib/rate-limit'
  *
  * Works for both authenticated and anonymous users.
  * Also pre-creates the `videos` row so the client can redirect to the editor.
+ *
+ * Supports retry: if `existingVideoId` is passed, reuses that record
+ * instead of creating a new one (prevents orphans on retry).
  */
 export async function POST(req: NextRequest) {
-  // Rate limit by IP (anonymous-safe)
   const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown'
   const rl = await rateLimit(`upload-sign:${ip}`, 10, 60_000)
   if (!rl.allowed) {
@@ -23,7 +27,6 @@ export async function POST(req: NextRequest) {
     )
   }
 
-  // Try to get authenticated user (optional — anonymous uploads allowed)
   let userId: string | null = null
   try {
     const supabase = createClient()
@@ -31,7 +34,7 @@ export async function POST(req: NextRequest) {
     userId = user?.id ?? null
   } catch { /* anonymous */ }
 
-  let body: { filename?: string; contentType?: string; fileSize?: number }
+  let body: { filename?: string; contentType?: string; fileSize?: number; existingVideoId?: string }
   try {
     body = await req.json()
   } catch {
@@ -41,7 +44,7 @@ export async function POST(req: NextRequest) {
     )
   }
 
-  const { filename, contentType, fileSize } = body
+  const { filename, contentType, fileSize, existingVideoId } = body
 
   if (!filename || typeof filename !== 'string') {
     return NextResponse.json(
@@ -50,15 +53,13 @@ export async function POST(req: NextRequest) {
     )
   }
 
-  // Validate file size (500 MB max)
-  if (fileSize && fileSize > 500 * 1024 * 1024) {
+  if (fileSize && fileSize > MAX_FILE_SIZE) {
     return NextResponse.json(
-      { data: null, error: 'File too large', message: 'Maximum file size is 500 MB' },
+      { data: null, error: 'File too large', message: 'Maximum file size is 2 GB' },
       { status: 400 },
     )
   }
 
-  // Validate content type
   const allowedTypes = ['video/mp4', 'video/quicktime', 'video/x-matroska', 'video/avi', 'video/webm']
   const mime = contentType || 'video/mp4'
   if (!allowedTypes.includes(mime) && !filename.match(/\.(mp4|mov|mkv|avi|webm)$/i)) {
@@ -70,7 +71,6 @@ export async function POST(req: NextRequest) {
 
   const admin = createAdminClient()
 
-  // Generate unique storage path
   const ext = filename.split('.').pop()?.toLowerCase() || 'mp4'
   const prefix = userId ?? 'anonymous'
   const storagePath = `${prefix}/${Date.now()}_${crypto.randomUUID().slice(0, 8)}.${ext}`
@@ -87,7 +87,36 @@ export async function POST(req: NextRequest) {
     )
   }
 
-  // Pre-create video record so client can redirect to editor immediately
+  // Retry path: reuse existing video record if provided
+  if (existingVideoId) {
+    const { data: existing } = await admin
+      .from('videos')
+      .select('id')
+      .eq('id', existingVideoId)
+      .maybeSingle()
+
+    if (existing) {
+      // Update the storage path for the retry
+      await admin
+        .from('videos')
+        .update({ storage_path: storagePath, status: 'uploaded', error_message: null })
+        .eq('id', existingVideoId)
+
+      return NextResponse.json({
+        data: {
+          signedUrl: signed.signedUrl,
+          token: signed.token,
+          path: signed.path,
+          storagePath,
+          videoId: existingVideoId,
+        },
+        error: null,
+        message: 'Signed URL created (retry — reusing video record)',
+      })
+    }
+  }
+
+  // New upload: pre-create video record
   const title = filename.replace(/\.[^.]+$/, '').replace(/[-_]/g, ' ')
   const { data: video, error: dbError } = await admin
     .from('videos')
@@ -120,4 +149,36 @@ export async function POST(req: NextRequest) {
     error: null,
     message: 'Signed URL created',
   })
+}
+
+/**
+ * DELETE /api/upload/sign?videoId=xxx
+ *
+ * Cleans up an orphaned video record when the user abandons an upload.
+ */
+export async function DELETE(req: NextRequest) {
+  const videoId = req.nextUrl.searchParams.get('videoId')
+  if (!videoId) {
+    return NextResponse.json({ error: 'videoId required' }, { status: 400 })
+  }
+
+  const admin = createAdminClient()
+
+  // Only delete if status is still 'uploaded' (not yet processed)
+  const { data } = await admin
+    .from('videos')
+    .select('id, storage_path, status')
+    .eq('id', videoId)
+    .eq('status', 'uploaded')
+    .maybeSingle()
+
+  if (data) {
+    // Clean up storage file if it exists
+    if (data.storage_path) {
+      await admin.storage.from('videos').remove([data.storage_path])
+    }
+    await admin.from('videos').delete().eq('id', data.id)
+  }
+
+  return NextResponse.json({ ok: true })
 }

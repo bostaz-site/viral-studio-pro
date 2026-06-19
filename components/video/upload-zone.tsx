@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
 
-const MAX_FILE_SIZE = 500 * 1024 * 1024 // 500 MB
+const MAX_FILE_SIZE = 2 * 1024 * 1024 * 1024 // 2 GB
 const ACCEPTED_TYPES = { 'video/*': ['.mp4', '.mov', '.mkv', '.avi', '.webm'] }
 
 type UploadState = 'idle' | 'selected' | 'uploading' | 'success' | 'error'
@@ -16,7 +16,9 @@ interface UploadZoneProps {
   selectedFile: File | null
   onFileSelect: (file: File) => void
   onFileClear: () => void
+  onRetry?: () => void
   uploadProgress: number
+  uploadedBytes?: number
   isUploading: boolean
   uploadError?: string | null
   uploadSuccess?: boolean
@@ -29,14 +31,17 @@ interface UploadZoneProps {
 
 function formatBytes(bytes: number): string {
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+  if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+  return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`
 }
 
 export function UploadZone({
   selectedFile,
   onFileSelect,
   onFileClear,
+  onRetry,
   uploadProgress,
+  uploadedBytes,
   isUploading,
   uploadError,
   uploadSuccess,
@@ -55,7 +60,7 @@ export function UploadZone({
         const r = rejections[0]
         const code = r.errors[0]?.code
         if (code === 'file-too-large') {
-          setDropError('File too large — maximum size is 500 MB')
+          setDropError('File too large — maximum size is 2 GB')
         } else if (code === 'file-invalid-type') {
           setDropError('Invalid file type — use MP4, MOV, MKV, AVI, or WebM')
         } else {
@@ -76,7 +81,6 @@ export function UploadZone({
     disabled: disabled || isUploading,
   })
 
-  // Determine visual state
   const state: UploadState = uploadSuccess ? 'success'
     : (uploadError || dropError) ? 'error'
     : isUploading ? 'uploading'
@@ -85,9 +89,16 @@ export function UploadZone({
 
   const errorMsg = uploadError || dropError
 
+  // Progress display: "X.X MB / Y.Y MB" when we have byte data, else bare %
+  const progressLabel = (() => {
+    if (uploadedBytes && selectedFile) {
+      return `${formatBytes(uploadedBytes)} / ${formatBytes(selectedFile.size)}`
+    }
+    return `${uploadProgress}%`
+  })()
+
   return (
     <div className="space-y-4">
-      {/* Drop zone / file preview */}
       {selectedFile || state === 'success' ? (
         <div className={cn(
           'rounded-xl border p-4 transition-all duration-300',
@@ -120,12 +131,19 @@ export function UploadZone({
                 </>
               )}
 
-              {/* Error message */}
+              {/* Error message + Retry */}
               {state === 'error' && errorMsg && (
                 <div className="mt-2 flex items-center gap-2">
                   <p className="text-xs text-destructive flex-1">{errorMsg}</p>
                   <button
-                    onClick={() => { setDropError(null); onFileClear() }}
+                    onClick={() => {
+                      setDropError(null)
+                      if (onRetry) {
+                        onRetry()
+                      } else {
+                        onFileClear()
+                      }
+                    }}
                     className="text-xs text-destructive/80 hover:text-destructive flex items-center gap-1 shrink-0"
                   >
                     <RotateCcw className="h-3 w-3" /> Retry
@@ -138,7 +156,7 @@ export function UploadZone({
                 <div className="mt-3">
                   <div className="flex justify-between text-xs text-muted-foreground mb-1">
                     <span>Uploading...</span>
-                    <span>{uploadProgress}%</span>
+                    <span>{progressLabel}</span>
                   </div>
                   <div className="h-1.5 bg-muted rounded-full overflow-hidden">
                     <div
@@ -179,12 +197,11 @@ export function UploadZone({
             <p className="font-semibold text-sm mb-1">
               {isDragActive ? 'Drop your clip here' : 'Drop your clip here or click to browse'}
             </p>
-            <p className="text-xs text-muted-foreground mb-3">MP4, MOV, MKV, AVI, WebM — max 500 MB</p>
+            <p className="text-xs text-muted-foreground mb-3">MP4, MOV, MKV, AVI, WebM — max 2 GB</p>
             <Button variant="secondary" size="sm" type="button" disabled={disabled}>
               Select file
             </Button>
           </div>
-          {/* Client-side drop rejection error */}
           {dropError && !selectedFile && (
             <div className="flex items-center gap-2 text-xs text-destructive">
               <AlertCircle className="h-3.5 w-3.5 shrink-0" />
@@ -194,7 +211,6 @@ export function UploadZone({
         </>
       )}
 
-      {/* URL divider + input — hidden in audit mode */}
       {!hideUrlImport && (
         <>
           <div className="flex items-center gap-3">

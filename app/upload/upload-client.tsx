@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowRight, Film } from 'lucide-react'
@@ -13,13 +13,15 @@ export function UploadPageClient() {
   const router = useRouter()
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [uploadProgress, setUploadProgress] = useState(0)
+  const [uploadedBytes, setUploadedBytes] = useState(0)
   const [isUploading, setIsUploading] = useState(false)
   const [uploadError, setUploadError] = useState<string | null>(null)
   const [uploadSuccess, setUploadSuccess] = useState(false)
   const [url, setUrl] = useState('')
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null)
+  // Track pre-created videoId so we can reuse on retry or clean up on abandon
+  const lastVideoIdRef = useRef<string | null>(null)
 
-  // Check auth status on mount (non-blocking)
   useEffect(() => {
     fetch('/api/auth/me')
       .then(r => r.json())
@@ -34,17 +36,24 @@ export function UploadPageClient() {
       setUploadSuccess(false)
       setIsUploading(true)
       setUploadProgress(0)
+      setUploadedBytes(0)
 
       try {
-        // Step 1: Get signed upload URL from our API
+        // Step 1: Get signed upload URL
+        // If we have a leftover videoId from a failed attempt, pass it so the API can reuse it
+        const signBody: Record<string, unknown> = {
+          filename: file.name,
+          contentType: file.type || 'video/mp4',
+          fileSize: file.size,
+        }
+        if (lastVideoIdRef.current) {
+          signBody.existingVideoId = lastVideoIdRef.current
+        }
+
         const signRes = await fetch('/api/upload/sign', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            filename: file.name,
-            contentType: file.type || 'video/mp4',
-            fileSize: file.size,
-          }),
+          body: JSON.stringify(signBody),
         })
 
         const signJson = await signRes.json()
@@ -55,9 +64,9 @@ export function UploadPageClient() {
         }
 
         const { signedUrl, videoId } = signJson.data
+        lastVideoIdRef.current = videoId
 
         // Step 2: Upload file directly to Supabase Storage via signed URL
-        // Use XHR for progress tracking
         const xhr = new XMLHttpRequest()
         xhr.open('PUT', signedUrl)
         xhr.setRequestHeader('Content-Type', file.type || 'video/mp4')
@@ -65,6 +74,7 @@ export function UploadPageClient() {
         xhr.upload.addEventListener('progress', (e) => {
           if (e.lengthComputable) {
             setUploadProgress(Math.round((e.loaded / e.total) * 100))
+            setUploadedBytes(e.loaded)
           }
         })
 
@@ -72,8 +82,8 @@ export function UploadPageClient() {
           if (xhr.status >= 200 && xhr.status < 300) {
             setUploadSuccess(true)
             setIsUploading(false)
+            lastVideoIdRef.current = null
             setTimeout(() => {
-              // Authenticated → editor; anonymous → signup with redirect
               router.push(`/dashboard/enhance/${videoId}?source=upload`)
             }, 800)
           } else {
@@ -97,15 +107,29 @@ export function UploadPageClient() {
   )
 
   const handleFileClear = () => {
+    // If there's an orphaned video record, clean it up
+    if (lastVideoIdRef.current) {
+      fetch(`/api/upload/sign?videoId=${lastVideoIdRef.current}`, { method: 'DELETE' }).catch(() => {})
+      lastVideoIdRef.current = null
+    }
     setSelectedFile(null)
     setUploadError(null)
     setUploadSuccess(false)
     setUploadProgress(0)
+    setUploadedBytes(0)
   }
+
+  // Retry: re-upload the same file without clearing it
+  const handleRetry = useCallback(() => {
+    if (selectedFile) {
+      handleFileSelect(selectedFile)
+    }
+  }, [selectedFile, handleFileSelect])
+
+  const isLargeFile = selectedFile && selectedFile.size > 200 * 1024 * 1024
 
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col">
-      {/* Simple nav */}
       <nav className="border-b border-border/50 bg-background/80 backdrop-blur-md">
         <div className="max-w-4xl mx-auto flex items-center justify-between h-16 px-6">
           <Link href="/" className="flex items-center gap-2.5">
@@ -119,7 +143,6 @@ export function UploadPageClient() {
         </div>
       </nav>
 
-      {/* Main content */}
       <main className="flex-1 flex items-center justify-center px-6 py-16">
         <div className="w-full max-w-lg">
           <div className="text-center mb-8">
@@ -134,13 +157,14 @@ export function UploadPageClient() {
             </p>
           </div>
 
-          {/* Upload zone */}
           <div className="bg-card/50 border border-border rounded-2xl p-6">
             <UploadZone
               selectedFile={selectedFile}
               onFileSelect={handleFileSelect}
               onFileClear={handleFileClear}
+              onRetry={handleRetry}
               uploadProgress={uploadProgress}
+              uploadedBytes={uploadedBytes}
               isUploading={isUploading}
               uploadError={uploadError}
               uploadSuccess={uploadSuccess}
@@ -150,12 +174,16 @@ export function UploadPageClient() {
             />
           </div>
 
-          {/* Accepted formats */}
+          {isLargeFile && isUploading && (
+            <p className="text-xs text-amber-400/80 text-center mt-3">
+              Large file — this may take a few minutes. Safe to leave this tab open.
+            </p>
+          )}
+
           <p className="text-xs text-muted-foreground/60 text-center mt-4">
-            Accepted: MP4, MOV &middot; Max 500 MB
+            Accepted: MP4, MOV, MKV, AVI, WebM &middot; Max 2 GB
           </p>
 
-          {/* Secondary CTA — hidden in audit mode */}
           {!isAuditMode && (
             <div className="text-center mt-8 pt-6 border-t border-border/30">
               <p className="text-sm text-muted-foreground mb-3">
