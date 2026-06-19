@@ -196,21 +196,22 @@ export const TrendingCard = memo(function TrendingCard({ clip, onRemix, onQuickE
     return null
   }, [clip.external_url])
 
+  // Track whether we've already fetched for this hover session
+  const fetchedForHoverRef = useRef(false)
+
   const handleMouseEnter = useCallback(() => {
     setHovered(true)
     hoveredRef.current = true
+    fetchedForHoverRef.current = false
 
     const platform = clip.platform?.toLowerCase()
     if (platform !== 'twitch' && platform !== 'kick') return
-
-    // If we already have a resolved URL for this clip, just show it
-    // (no need to re-fetch on every hover)
-    if (resolvedVideoUrl) return
 
     // Abort any previous in-flight fetch for this card
     abortRef.current?.abort()
     const controller = new AbortController()
     abortRef.current = controller
+    fetchedForHoverRef.current = true
 
     const slug = getClipSlug()
     if (!slug) return
@@ -225,7 +226,7 @@ export const TrendingCard = memo(function TrendingCard({ clip, onRemix, onQuickE
         }
       })
       .catch(() => {/* aborted or network error — ignore */})
-  }, [clip.platform, getClipSlug, resolvedVideoUrl])
+  }, [clip.platform, getClipSlug])
 
   const handleMouseLeave = useCallback(() => {
     setHovered(false)
