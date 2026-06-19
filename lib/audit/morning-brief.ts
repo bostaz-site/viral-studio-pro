@@ -1,4 +1,5 @@
 import { createAdminClient } from '../supabase/admin'
+import { isPreLaunchMode } from './pre-launch-mode'
 
 export async function generateMorningBrief(): Promise<string> {
   const admin = createAdminClient()
@@ -181,9 +182,13 @@ ${topFriction.length > 0
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const clusterList = (activeClusters ?? []) as any[]
 
+  const preLaunchBanner = isPreLaunchMode()
+    ? `**PRE-LAUNCH MODE** — Traffic-dependent findings skipped. Set PRE_LAUNCH_MODE=false after first 100 signups.\n\n`
+    : ''
+
   const brief = `# Morning Brief - ${todayStr} (${dayNames[today.getDay()]})
 
-## PRODUCTION ERRORS (last 24h — ${prodErrorsList.length} new)
+${preLaunchBanner}## PRODUCTION ERRORS (last 24h — ${prodErrorsList.length} new)
 ${
   prodErrorsList.length === 0
     ? '- All clear, no new production errors'

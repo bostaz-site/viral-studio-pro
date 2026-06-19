@@ -1,6 +1,7 @@
 import { createAdminClient } from '../supabase/admin'
 import { sendDiscordAlert } from './discord'
 import { predictROI } from './roi-predictor'
+import { shouldSkipFinding } from './pre-launch-mode'
 
 export interface NewFinding {
   agent_type: 'output' | 'acquisition' | 'activation' | 'retention' | 'technical' | 'cold_email' | 'pr_review' | 'session_replay'
@@ -14,6 +15,12 @@ export interface NewFinding {
 }
 
 export async function insertFinding(finding: NewFinding) {
+  // Skip traffic-dependent findings in pre-launch mode
+  if (shouldSkipFinding(finding)) {
+    console.log(`[insert-finding] Skipping (PRE_LAUNCH_MODE): ${finding.title}`)
+    return null
+  }
+
   const admin = createAdminClient()
 
   // Deduplicate: check if a similar open finding already exists

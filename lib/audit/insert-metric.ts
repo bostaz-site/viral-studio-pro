@@ -1,6 +1,7 @@
 import type { Json } from '../supabase/types'
 import { createAdminClient } from '../supabase/admin'
 import { insertFinding } from './insert-finding'
+import { isPreLaunchMode, isTrafficDependentMetric } from './pre-launch-mode'
 
 export async function insertMetricSnapshot(opts: {
   metric_name: string
@@ -9,6 +10,11 @@ export async function insertMetricSnapshot(opts: {
   context?: Record<string, Json | undefined>
   regression_threshold_percent?: number
 }) {
+  if (isPreLaunchMode() && isTrafficDependentMetric(opts.metric_name)) {
+    console.log(`[metric] Skipping (PRE_LAUNCH_MODE): ${opts.metric_name}`)
+    return
+  }
+
   const admin = createAdminClient()
   const today = new Date().toISOString().slice(0, 10)
 

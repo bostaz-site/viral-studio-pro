@@ -3,6 +3,7 @@ import Stripe from 'stripe'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { rateLimit, RATE_LIMITS } from '@/lib/rate-limit'
 import { logger } from '@/lib/logger'
+import { postToDiscord } from '@/lib/discord/post'
 
 function getStripe() {
   return new Stripe(process.env.STRIPE_SECRET_KEY ?? 'sk_test_placeholder_build')
@@ -56,6 +57,7 @@ export async function POST(req: NextRequest) {
         const session = event.data.object as Stripe.Checkout.Session
         const userId = session.metadata?.user_id
         const plan = session.metadata?.plan
+        const priceAmount = (session.amount_total ?? 0) / 100
 
         if (userId && plan && (plan === 'pro' || plan === 'studio')) {
           await admin
@@ -65,6 +67,27 @@ export async function POST(req: NextRequest) {
               stripe_customer_id: session.customer as string,
             })
             .eq('id', userId)
+
+          // Get user email for Discord
+          const { data: profile } = await admin
+            .from('profiles')
+            .select('email')
+            .eq('id', userId)
+            .single()
+
+          // Discord: new paid user
+          postToDiscord({
+            channel: 'new-paid',
+            embed: {
+              title: 'New paid user',
+              description: profile?.email ?? userId,
+              color: 0x00ff00,
+              fields: [
+                { name: 'Plan', value: plan.toUpperCase(), inline: true },
+                { name: 'Amount', value: `$${priceAmount}/mo`, inline: true },
+              ],
+            },
+          }).catch(() => {})
 
           // Track affiliate conversion: check if user has a referral
           const { data: referral } = await admin
@@ -78,7 +101,6 @@ export async function POST(req: NextRequest) {
 
           if (referral && referral.affiliate_id) {
             const affiliateId = referral.affiliate_id
-            const priceAmount = (session.amount_total ?? 0) / 100
 
             // Get affiliate commission rate
             const { data: affiliate } = await admin
@@ -113,6 +135,20 @@ export async function POST(req: NextRequest) {
                 })
                 .eq('id', affiliateId)
             }
+
+            // Discord: conversion via affiliate
+            postToDiscord({
+              channel: 'conversions',
+              embed: {
+                title: 'Conversion via affiliate',
+                color: 0xff6b00,
+                fields: [
+                  { name: 'User', value: profile?.email ?? userId, inline: true },
+                  { name: 'Plan', value: `${plan} ($${priceAmount}/mo)`, inline: true },
+                  { name: 'Commission', value: `$${commission.toFixed(2)}`, inline: true },
+                ],
+              },
+            }).catch(() => {})
           }
         }
         break
@@ -138,17 +174,51 @@ export async function POST(req: NextRequest) {
         const subscription = event.data.object as Stripe.Subscription
         const userId = subscription.metadata?.user_id
         if (userId) {
+          // Get user info before downgrade
+          const { data: churnProfile } = await admin
+            .from('profiles')
+            .select('email, plan')
+            .eq('id', userId)
+            .single()
+          const previousPlan = churnProfile?.plan ?? 'unknown'
+
           await admin.from('profiles').update({ plan: 'free' }).eq('id', userId)
+
+          // Discord: churn alert
+          postToDiscord({
+            channel: 'churn-alerts',
+            embed: {
+              title: 'User cancelled',
+              description: churnProfile?.email ?? userId,
+              color: 0xff0000,
+              fields: [
+                { name: 'Was on', value: previousPlan.toUpperCase(), inline: true },
+                { name: 'Cancel reason', value: (subscription as unknown as { cancellation_details?: { reason?: string } }).cancellation_details?.reason ?? 'none given', inline: true },
+              ],
+            },
+          }).catch(() => {})
         }
         break
       }
 
       case 'invoice.payment_failed': {
-        // TODO: Send email notification to user about failed payment
         const failedInvoice = event.data.object as { customer?: string; attempt_count?: number }
         const failedCustomerId = typeof failedInvoice.customer === 'string' ? failedInvoice.customer : null
         if (failedCustomerId) {
           logger.error(`[Stripe] Payment failed for customer ${failedCustomerId}, attempt ${failedInvoice.attempt_count ?? '?'}`)
+
+          // Discord: payment failed
+          postToDiscord({
+            channel: 'stripe-events',
+            embed: {
+              title: 'Payment failed',
+              color: 0xff9900,
+              fields: [
+                { name: 'Customer', value: failedCustomerId, inline: true },
+                { name: 'Attempt', value: `#${failedInvoice.attempt_count ?? '?'}`, inline: true },
+              ],
+            },
+          }).catch(() => {})
         }
         break
       }

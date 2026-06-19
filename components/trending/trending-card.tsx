@@ -147,7 +147,8 @@ export const TrendingCard = memo(function TrendingCard({ clip, onRemix, onQuickE
   const [videoPlaying, setVideoPlaying] = useState(false)
   const [resolvedVideoUrl, setResolvedVideoUrl] = useState<string | null>(null)
   const videoRef = useRef<HTMLVideoElement | null>(null)
-  const fetchedRef = useRef(false)
+  const abortRef = useRef<AbortController | null>(null)
+  const hoveredRef = useRef(false)
 
   const ps = PLATFORM_STYLES[clip.platform.toLowerCase()]
   const platformStyle = {
@@ -161,8 +162,14 @@ export const TrendingCard = memo(function TrendingCard({ clip, onRemix, onQuickE
 
   useEffect(() => {
     setResolvedVideoUrl(null)
-    fetchedRef.current = false
+    abortRef.current?.abort()
+    abortRef.current = null
   }, [clip.id, clip.external_url])
+
+  // Cleanup abort on unmount
+  useEffect(() => {
+    return () => { abortRef.current?.abort() }
+  }, [])
 
   const getClipSlug = useCallback((): string | null => {
     try {
@@ -191,32 +198,46 @@ export const TrendingCard = memo(function TrendingCard({ clip, onRemix, onQuickE
 
   const handleMouseEnter = useCallback(() => {
     setHovered(true)
+    hoveredRef.current = true
+
     const platform = clip.platform?.toLowerCase()
-    if (!fetchedRef.current && (platform === 'twitch' || platform === 'kick')) {
-      fetchedRef.current = true
-      const slug = getClipSlug()
-      if (slug) {
-        const currentClipId = clip.id
-        const url = `/api/clips/video-url?slug=${encodeURIComponent(slug)}&platform=${platform}`
-        fetch(url)
-          .then((r) => r.ok ? r.json() : null)
-          .then((data) => {
-            // Only set URL if this component still represents the same clip
-            if (data?.video_url && currentClipId === clip.id) {
-              setResolvedVideoUrl(data.video_url)
-            }
-          })
-          .catch(() => {/* ignore */})
-      }
-    }
-  }, [clip.id, clip.platform, getClipSlug])
+    if (platform !== 'twitch' && platform !== 'kick') return
+
+    // If we already have a resolved URL for this clip, just show it
+    // (no need to re-fetch on every hover)
+    if (resolvedVideoUrl) return
+
+    // Abort any previous in-flight fetch for this card
+    abortRef.current?.abort()
+    const controller = new AbortController()
+    abortRef.current = controller
+
+    const slug = getClipSlug()
+    if (!slug) return
+
+    const url = `/api/clips/video-url?slug=${encodeURIComponent(slug)}&platform=${platform}`
+    fetch(url, { signal: controller.signal })
+      .then((r) => r.ok ? r.json() : null)
+      .then((data) => {
+        // Only set URL if we're STILL hovered (prevents stale late-arriving responses)
+        if (data?.video_url && hoveredRef.current) {
+          setResolvedVideoUrl(data.video_url)
+        }
+      })
+      .catch(() => {/* aborted or network error — ignore */})
+  }, [clip.platform, getClipSlug, resolvedVideoUrl])
 
   const handleMouseLeave = useCallback(() => {
     setHovered(false)
+    hoveredRef.current = false
     setShowVideo(false)
     setVideoPlaying(false)
     setResolvedVideoUrl(null)
-    fetchedRef.current = false
+
+    // Abort any in-flight fetch so late responses can't set state
+    abortRef.current?.abort()
+    abortRef.current = null
+
     if (videoRef.current) {
       videoRef.current.pause()
       videoRef.current.currentTime = 0

@@ -124,6 +124,38 @@ export async function POST(req: NextRequest) {
         data: { content: 'Cluster discarded.', flags: 64 },
       })
     }
+
+    // ── Cold email reply buttons ──
+    if (customId.startsWith('generate_promo:')) {
+      const email = customId.split(':')[1]
+      const code = generatePromoCode(email)
+      return NextResponse.json({
+        type: 4,
+        data: {
+          content: `Promo code generated: \`${code}\`\nLink: https://viralanimal.com/upgrade?promo=${code}\n\nSend this to ${email} in your reply.`,
+          flags: 64,
+        },
+      })
+    }
+
+    if (customId.startsWith('suggest_reply:')) {
+      const email = customId.split(':')[1]
+      return NextResponse.json({
+        type: 4,
+        data: {
+          content: `Draft reply for ${email}:\n\n> Hey! Thanks for your interest in Viral Animal. I'd love to set you up with a free trial — here's a personal link: https://viralanimal.com/signup\n>\n> If you want to try the full editor, use code **COLLAB20** for 20% off.\n>\n> Let me know if you have any questions!`,
+          flags: 64,
+        },
+      })
+    }
+
+    if (customId.startsWith('mark_spam:')) {
+      const email = customId.split(':')[1]
+      return NextResponse.json({
+        type: 4,
+        data: { content: `Marked ${email} as spam. Will be excluded from future campaigns.`, flags: 64 },
+      })
+    }
   }
 
   return NextResponse.json({ type: 4, data: { content: 'Unknown interaction', flags: 64 } })
@@ -268,4 +300,9 @@ function hexToUint8Array(hex: string): Uint8Array {
     bytes[i / 2] = parseInt(hex.substring(i, i + 2), 16)
   }
   return bytes
+}
+
+function generatePromoCode(email: string): string {
+  const name = email.split('@')[0].replace(/[^a-zA-Z0-9]/g, '').toUpperCase().slice(0, 10)
+  return `${name}20`
 }

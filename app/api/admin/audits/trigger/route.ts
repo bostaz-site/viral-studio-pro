@@ -36,5 +36,20 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  if (mode === 'weekly-stats') {
+    try {
+      const { runWeeklyStatsDigest } = await import(
+        '@/scripts/business/weekly-stats-digest'
+      )
+      await runWeeklyStatsDigest()
+      return NextResponse.json({ status: 'done', mode: 'weekly-stats' })
+    } catch (err) {
+      return NextResponse.json(
+        { error: err instanceof Error ? err.message : 'weekly_stats_failed' },
+        { status: 500 }
+      )
+    }
+  }
+
   return NextResponse.json({ error: 'Invalid mode' }, { status: 400 })
 }

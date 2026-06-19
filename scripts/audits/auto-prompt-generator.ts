@@ -237,7 +237,95 @@ Output ONLY this JSON, no prose:
   // ── Step 5: Discord notification ──
   await sendDiscordSummary(clusters, improveFindings.length, addsSkipped, dateStr)
 
+  // ── Step 6: Daily standup with buttons for ALL open clusters ──
+  // Always post, even if no new clusters were generated today
+  await postDailyStandup()
+
   return { fixClusters: clusters, improvesAdded: improveFindings.length, addsSkipped }
+}
+
+async function postDailyStandup() {
+  const channelId = process.env.DISCORD_CRITICAL_ALERTS_CHANNEL_ID
+  if (!channelId) return
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const admin = createAdminClient() as any
+
+  // Open clusters ready to accept
+  const { data: openClusters } = await admin
+    .from('root_cause_clusters')
+    .select('id, cluster_name, findings_count, estimated_impact, estimated_effort_hours, status')
+    .eq('status', 'identified')
+    .order('findings_count', { ascending: false })
+    .limit(5)
+
+  // Queued clusters (TikTok review)
+  const { data: queuedClusters } = await admin
+    .from('root_cause_clusters')
+    .select('id')
+    .eq('tiktok_review_blocked', true)
+
+  // New critical findings not yet in a cluster
+  const { data: orphanCritical } = await admin
+    .from('audit_findings')
+    .select('id')
+    .eq('severity', 'critical')
+    .eq('status', 'open')
+    .is('root_cause_cluster_id', null)
+    .gte('created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
+
+  const clusters = (openClusters ?? []) as Array<{ id: string; cluster_name: string; findings_count: number; estimated_impact: number; estimated_effort_hours: number }>
+
+  const fields: Array<{ name: string; value: string; inline: boolean }> = []
+
+  for (let i = 0; i < Math.min(clusters.length, 3); i++) {
+    const c = clusters[i]
+    fields.push({
+      name: `#${i + 1} ${c.cluster_name}`,
+      value: `Fixes **${c.findings_count}** findings | Impact: ${c.estimated_impact}/10 | ~${c.estimated_effort_hours}h`,
+      inline: false,
+    })
+  }
+
+  fields.push({
+    name: 'Queued (TikTok review)',
+    value: `${(queuedClusters ?? []).length} clusters`,
+    inline: true,
+  })
+  fields.push({
+    name: 'New critical (24h)',
+    value: `${(orphanCritical ?? []).length} findings`,
+    inline: true,
+  })
+
+  // Build Accept/Later/Discard buttons for open clusters
+  const components: DiscordActionRow[] = clusters.slice(0, 3).map((c, i) => ({
+    type: 1 as const,
+    components: [
+      { type: 2 as const, style: 3 as const, label: `Accept #${i + 1}`, custom_id: `accept_cluster:${c.id}` },
+      { type: 2 as const, style: 2 as const, label: 'Later', custom_id: `later_cluster:${c.id}` },
+      { type: 2 as const, style: 4 as const, label: 'Discard', custom_id: `discard_cluster:${c.id}` },
+    ],
+  }))
+
+  try {
+    await sendBotMessage(channelId, {
+      embeds: [{
+        title: `Daily Audit — ${new Date().toLocaleDateString('en-CA')}`,
+        description: clusters.length === 0 && (orphanCritical ?? []).length === 0
+          ? 'All clear. No actionable clusters or critical findings.'
+          : `${clusters.length} clusters ready to accept:`,
+        color: 0x00E1FF,
+        fields,
+        footer: { text: 'Viral Animal Audit System' },
+        timestamp: new Date().toISOString(),
+      }],
+      components: components.length > 0 ? components : undefined,
+    })
+    console.log(`[auto-prompt] Daily standup posted (${clusters.length} clusters with buttons)`)
+  } catch (err) {
+    console.warn('[auto-prompt] Daily standup Discord post failed:', err)
+  }
 }
 
 async function sendDiscordSummary(
