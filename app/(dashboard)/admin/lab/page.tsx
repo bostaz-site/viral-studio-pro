@@ -166,8 +166,11 @@ export default function LabPage() {
         setCycleMessage(json.error || 'Cycle already in progress')
       } else if (json.data?.via === 'manual') {
         setCycleMessage(json.data.message)
+      } else if (json.data?.started) {
+        setCycleMessage(`Cycle started (${json.data.via}). Check Discord in ~75 min.`)
+        setTimeout(() => load(), 10000)
       } else {
-        setCycleMessage('Cycle started in background via Railway')
+        setCycleMessage('Cycle triggered')
       }
     } catch {
       setCycleMessage('Failed to trigger cycle')
@@ -254,7 +257,6 @@ export default function LabPage() {
             <div key={q.id} className="flex items-center gap-2 px-3 py-2 rounded-lg border border-zinc-800 bg-zinc-900/30 text-xs">
               <span className="font-semibold text-zinc-300">{q.feature_area}</span>
               <span className="text-zinc-500">#{q.current_cycle}</span>
-              <span className="text-zinc-500">{timeUntil(q.next_scheduled_at)}</span>
               {q.forced_next && <span className="text-amber-400 font-bold">NEXT</span>}
               <button
                 onClick={() => forceQueue(q.feature_area)}
@@ -295,7 +297,7 @@ export default function LabPage() {
       {/* Empty state */}
       {!loading && dives.length === 0 && (
         <div className="text-center py-16 text-muted-foreground text-sm">
-          No deep dives found. The Lab runs automatically every 48h.
+          No deep dives yet. Click <span className="text-cyan-400 font-medium">Run Cycle</span> above to start.
         </div>
       )}
 

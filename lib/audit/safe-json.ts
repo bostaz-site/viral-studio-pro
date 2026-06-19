@@ -13,16 +13,28 @@ export function safeParseClaudeJson<T>(text: string, fallback: T): T {
     return fallback
   }
 
-  // Strip markdown code blocks
+  // Strategy 1: Extract from ```json ... ``` code block (anywhere in text)
+  const jsonBlockMatch = text.match(/```json\s*([\s\S]*?)```/)
+  if (jsonBlockMatch) {
+    try { return JSON.parse(jsonBlockMatch[1].trim()) } catch { /* continue */ }
+  }
+
+  // Strategy 2: Extract from ``` ... ``` code block
+  const codeBlockMatch = text.match(/```\s*([\s\S]*?)```/)
+  if (codeBlockMatch) {
+    try { return JSON.parse(codeBlockMatch[1].trim()) } catch { /* continue */ }
+  }
+
+  // Strategy 3: Strip markdown fences and find JSON
   let cleaned = text
-    .replace(/^```(?:json)?\s*/m, '')
-    .replace(/\s*```\s*$/m, '')
+    .replace(/```json\s*/g, '')
+    .replace(/```\s*/g, '')
     .trim()
 
-  // Extract first balanced { ... } or [ ... ]
-  const objectMatch = cleaned.match(/\{[\s\S]*\}/)
+  // Extract first balanced [ ... ] (arrays) or { ... } (objects)
   const arrayMatch = cleaned.match(/\[[\s\S]*\]/)
-  cleaned = objectMatch?.[0] ?? arrayMatch?.[0] ?? cleaned
+  const objectMatch = cleaned.match(/\{[\s\S]*\}/)
+  cleaned = arrayMatch?.[0] ?? objectMatch?.[0] ?? cleaned
 
   // Attempt 1: direct parse
   try {

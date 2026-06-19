@@ -175,7 +175,8 @@ export async function askGemini(prompt: string): Promise<LlmResponse> {
   }
 
   const genAI = new GoogleGenerativeAI(apiKey)
-  const model = genAI.getGenerativeModel({ model: 'gemini-2.5-pro-preview-06-05' })
+  // Use stable model name. Preview models get deprecated regularly.
+  const model = genAI.getGenerativeModel({ model: 'gemini-2.5-pro' })
   const start = Date.now()
 
   const result = await model.generateContent(prompt)

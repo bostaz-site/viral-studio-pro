@@ -66,7 +66,13 @@ YOUR TASK:
    - Be specific and paranoid
    - Rate severity (1-10): 10 = certain failure, 1 = unlikely edge case
 7. Final confidence (1-10)
-8. Estimated effort (hours)
+8. Estimated effort in hours — IMPORTANT: Samy implements via Claude Code CLI (not manual coding).
+   Claude Code is 5-10x faster than human devs. Use this scale:
+   - Trivial fix (1-line change): 0.25h
+   - Small refactor (1-2 files, <50 lines): 0.5-1h
+   - Medium feature (3-5 files, <200 lines): 1-3h
+   - Large feature (multiple files, schema changes): 3-8h
+   - Massive refactor: 8-16h
 
 Output strict JSON:
 {

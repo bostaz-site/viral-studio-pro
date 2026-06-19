@@ -43,7 +43,8 @@ For each competitor, provide:
 
 Context: Viral Animal is a clip editing SaaS for streamers (Twitch, Kick, YouTube).
 
-Output JSON array:
+CRITICAL: Respond with ONLY a valid JSON array. NO markdown. NO \`\`\`json fences. NO prose before or after. Start with [ and end with ].
+
 [{"name": "...", "approach": "...", "strengths": "...", "weaknesses": "..."}]`
 
     const compResponse = await askClaude(competitorPrompt, 3000)
