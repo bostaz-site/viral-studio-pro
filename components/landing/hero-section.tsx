@@ -1,10 +1,10 @@
 /* eslint-disable @next/next/no-img-element */
 "use client"
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState, useCallback } from 'react'
 import Link from 'next/link'
 import {
-  MonitorPlay, ArrowRight, Play, Clock, Sparkles, Zap, UploadCloud,
+  MonitorPlay, ArrowRight, Zap, Clock, Sparkles, UploadCloud, Volume2, VolumeX, Play,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { track } from '@/lib/analytics'
@@ -44,11 +44,192 @@ function InstagramLogo({ className }: { className?: string }) {
   )
 }
 
-// ─── Hero Demo (shared animation) ───────────────────────────────────────────
+// ─── Before/After Video Demo ────────────────────────────────────────────────
 
-import { ClipTransformAnimation } from '@/components/shared/clip-transform-animation'
+/**
+ * Side-by-side video demo: raw clip (40%) vs Viral Animal output (60%).
+ * Uses IntersectionObserver for lazy-load (protects LCP).
+ * Falls back to poster image if autoplay blocked.
+ *
+ * TODO: Replace placeholder poster images with real before/after videos.
+ * See docs/lab/landing-videos-needed.md for specs.
+ */
+function BeforeAfterVideoDemo() {
+  const containerRef = useRef<HTMLDivElement>(null)
+  const beforeVideoRef = useRef<HTMLVideoElement>(null)
+  const afterVideoRef = useRef<HTMLVideoElement>(null)
+  const [isVisible, setIsVisible] = useState(false)
+  const [isMuted, setIsMuted] = useState(true)
+  const [autoplayFailed, setAutoplayFailed] = useState(false)
 
-// ─── ValueProps (replaces fake StatsCounter) ───────────────────────────────
+  // Lazy-load: only start loading when hero enters viewport
+  useEffect(() => {
+    const el = containerRef.current
+    if (!el) return
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setIsVisible(true)
+          observer.disconnect()
+        }
+      },
+      { threshold: 0.1 }
+    )
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [])
+
+  // Attempt autoplay when visible
+  useEffect(() => {
+    if (!isVisible) return
+
+    const playVideo = async (video: HTMLVideoElement | null) => {
+      if (!video) return
+      try {
+        await video.play()
+      } catch {
+        setAutoplayFailed(true)
+      }
+    }
+
+    // Small delay to let the video source load
+    const timer = setTimeout(() => {
+      playVideo(beforeVideoRef.current)
+      playVideo(afterVideoRef.current)
+    }, 200)
+
+    return () => clearTimeout(timer)
+  }, [isVisible])
+
+  const toggleMute = useCallback(() => {
+    setIsMuted((prev) => {
+      const next = !prev
+      if (beforeVideoRef.current) beforeVideoRef.current.muted = next
+      if (afterVideoRef.current) afterVideoRef.current.muted = next
+      return next
+    })
+  }, [])
+
+  const handleManualPlay = useCallback(() => {
+    setAutoplayFailed(false)
+    beforeVideoRef.current?.play().catch(() => {})
+    afterVideoRef.current?.play().catch(() => {})
+  }, [])
+
+  // TODO: Replace these with real video URLs from Supabase Storage
+  // See docs/lab/landing-videos-needed.md
+  const beforeVideoSrc = '/videos/hero-before.mp4'
+  const afterVideoSrc = '/videos/hero-after.mp4'
+  const beforePoster = '/images/hero-before-poster.jpg'
+  const afterPoster = '/images/hero-after-poster.jpg'
+
+  return (
+    <div ref={containerRef} className="relative w-full">
+      {/* Split-screen container: 40/60 on desktop, stacked on mobile */}
+      <div className="flex flex-col md:flex-row gap-3 md:gap-4">
+        {/* BEFORE panel (40%) */}
+        <div className="w-full md:w-[40%] relative rounded-xl overflow-hidden border border-zinc-800/50 bg-zinc-900/50">
+          <div className="absolute top-3 left-3 z-10 px-2.5 py-1 rounded-full bg-black/60 backdrop-blur-sm text-xs font-medium text-zinc-300">
+            Before
+          </div>
+          {isVisible && !autoplayFailed ? (
+            <video
+              ref={beforeVideoRef}
+              className="w-full aspect-video object-cover"
+              src={beforeVideoSrc}
+              poster={beforePoster}
+              muted={isMuted}
+              loop
+              playsInline
+              preload="none"
+              onError={() => setAutoplayFailed(true)}
+            />
+          ) : (
+            <div className="relative w-full aspect-video bg-zinc-900 flex items-center justify-center">
+              <img
+                src={beforePoster}
+                alt="Raw Twitch clip - before enhancement"
+                className="absolute inset-0 w-full h-full object-cover opacity-60"
+                onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
+              />
+              <div className="relative z-10 text-center">
+                <p className="text-sm text-zinc-400 font-medium">Raw 16:9 clip</p>
+                {autoplayFailed && (
+                  <button
+                    onClick={handleManualPlay}
+                    className="mt-2 flex items-center gap-1.5 mx-auto px-4 py-2 rounded-full bg-white/10 hover:bg-white/20 text-sm text-white transition-colors"
+                  >
+                    <Play className="h-4 w-4" />
+                    Play demo
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* AFTER panel (60%) */}
+        <div className="w-full md:w-[60%] relative rounded-xl overflow-hidden border-2 border-orange-500/30 bg-zinc-900/50 shadow-lg shadow-orange-500/5">
+          <div className="absolute top-3 left-3 z-10 px-2.5 py-1 rounded-full bg-orange-500/80 backdrop-blur-sm text-xs font-bold text-white">
+            After — Viral Animal
+          </div>
+          {isVisible && !autoplayFailed ? (
+            <video
+              ref={afterVideoRef}
+              className="w-full aspect-video object-cover"
+              src={afterVideoSrc}
+              poster={afterPoster}
+              muted={isMuted}
+              loop
+              playsInline
+              preload="none"
+              onError={() => setAutoplayFailed(true)}
+            />
+          ) : (
+            <div className="relative w-full aspect-video bg-zinc-900 flex items-center justify-center">
+              <img
+                src={afterPoster}
+                alt="Viral Animal output - 9:16 with karaoke captions"
+                className="absolute inset-0 w-full h-full object-cover opacity-60"
+                onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
+              />
+              <div className="relative z-10 text-center">
+                <p className="text-sm text-orange-400 font-medium">9:16 viral clip</p>
+                {autoplayFailed && (
+                  <button
+                    onClick={handleManualPlay}
+                    className="mt-2 flex items-center gap-1.5 mx-auto px-4 py-2 rounded-full bg-orange-500/20 hover:bg-orange-500/30 text-sm text-orange-300 transition-colors"
+                  >
+                    <Play className="h-4 w-4" />
+                    Play demo
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Unmute button */}
+          {isVisible && !autoplayFailed && (
+            <button
+              onClick={toggleMute}
+              className="absolute bottom-3 right-3 z-10 p-2 rounded-full bg-black/50 backdrop-blur-sm hover:bg-black/70 transition-colors"
+              aria-label={isMuted ? 'Unmute' : 'Mute'}
+            >
+              {isMuted ? (
+                <VolumeX className="h-4 w-4 text-white/70" />
+              ) : (
+                <Volume2 className="h-4 w-4 text-white" />
+              )}
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ─── ValueProps ──────────────────────────────────────────────────────────────
 
 function ValueProps() {
   return (
@@ -124,116 +305,82 @@ export function HeroSection() {
     <>
       <StickyBar />
 
-      <section className="relative pt-32 pb-20 px-6 overflow-hidden">
+      <section className="relative pt-28 pb-16 px-6 overflow-hidden">
         {/* Background effects */}
         <div className="absolute inset-0 bg-gradient-to-b from-blue-950/30 via-transparent to-transparent" />
         <div className="absolute top-20 left-1/4 w-96 h-96 bg-blue-500/5 rounded-full blur-3xl" />
         <div className="absolute top-40 right-1/4 w-72 h-72 bg-indigo-500/5 rounded-full blur-3xl" />
         <div className="absolute inset-0 bg-[linear-gradient(rgba(99,102,241,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(99,102,241,0.02)_1px,transparent_1px)] bg-[size:60px_60px]" />
 
-        <div className="relative z-10 max-w-5xl mx-auto">
-          <div className="text-center">
-            {isAuditMode ? (
-              <>
-                <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-orange-500/20 bg-orange-500/5 text-sm text-orange-400 mb-8">
+        <div className="relative z-10 max-w-6xl mx-auto">
+          {/* Badge */}
+          <div className="text-center mb-6">
+            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-orange-500/20 bg-orange-500/5 text-sm text-orange-400">
+              {isAuditMode ? (
+                <>
                   <UploadCloud className="h-3.5 w-3.5" />
                   Upload &amp; Enhance Your Videos
-                </div>
+                </>
+              ) : (
+                <>
+                  <MonitorPlay className="h-3.5 w-3.5" />
+                  Built by streamers, for streamers
+                </>
+              )}
+            </div>
+          </div>
 
-                <h1 className="text-4xl sm:text-5xl md:text-6xl font-black tracking-tight leading-[1.1]">
+          {/* Headline overlaid above video */}
+          <div className="text-center mb-8">
+            <h1 className="text-4xl sm:text-5xl md:text-6xl font-black tracking-tight leading-[1.1]">
+              {isAuditMode ? (
+                <>
                   Upload Your Video,{' '}
                   <span className="bg-gradient-to-r from-orange-400 via-amber-400 to-yellow-400 bg-clip-text text-transparent">
                     Make It Viral
                   </span>{' '}
                   in 90&nbsp;Seconds
-                </h1>
-
-                <p className="text-lg sm:text-xl text-muted-foreground mt-6 max-w-2xl mx-auto leading-relaxed">
-                  Karaoke captions, auto split-screen, AI hook reordering.
-                  One click applies the formula that pops off on TikTok &mdash; no CapCut, no editing skills needed.
-                </p>
-
-                <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mt-10">
-                  <Link href="/upload" onClick={() => track('cta_hero_click', { location: 'hero_upload' })}>
-                    <Button size="lg" className="bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white shadow-lg shadow-orange-500/25 h-14 px-10 text-lg font-bold gap-2">
-                      <UploadCloud className="h-5 w-5" />
-                      Upload Your Video
-                    </Button>
-                  </Link>
-                  <Link href="/signup" onClick={() => track('cta_hero_click', { location: 'hero_signup' })}>
-                    <Button variant="outline" size="lg" className="h-12 px-6 text-base gap-2 border-orange-500/30 hover:bg-orange-500/5 hover:border-orange-500/50">
-                      Create Free Account
-                      <ArrowRight className="h-4 w-4" />
-                    </Button>
-                  </Link>
-                </div>
-
-                <p className="text-xs text-muted-foreground/60 mt-4">
-                  No card required &middot; No setup &middot; Cancel anytime
-                </p>
-              </>
-            ) : (
-              <>
-                <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-orange-500/20 bg-orange-500/5 text-sm text-orange-400 mb-8">
-                  <MonitorPlay className="h-3.5 w-3.5" />
-                  Twitch Clip to Viral TikTok in 1 Click
-                </div>
-
-                <h1 className="text-4xl sm:text-5xl md:text-6xl font-black tracking-tight leading-[1.1]">
-                  Turn Your Twitch Clips into{' '}
+                </>
+              ) : (
+                <>
+                  Your Twitch Clip,{' '}
                   <span className="bg-gradient-to-r from-orange-400 via-amber-400 to-yellow-400 bg-clip-text text-transparent">
-                    Viral Clips
-                  </span>{' '}
-                  in 90&nbsp;Seconds
-                </h1>
-
-                <p className="text-lg sm:text-xl text-muted-foreground mt-6 max-w-2xl mx-auto leading-relaxed">
-                  Karaoke captions, auto split-screen gameplay, AI hook reordering, streamer tags.
-                  One &laquo;&nbsp;Make It Viral&nbsp;&raquo; button applies the formula that pops off on TikTok &mdash; no CapCut, no editing skills needed.
-                </p>
-
-                <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mt-10">
-                  <Link href="/signup" onClick={() => track('cta_hero_click', { location: 'hero_primary' })}>
-                    <Button size="lg" className="bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white shadow-lg shadow-orange-500/25 h-12 px-8 text-base font-bold gap-2">
-                      Try for Free
-                      <ArrowRight className="h-4 w-4" />
-                    </Button>
-                  </Link>
-                  <Link href="/upload" onClick={() => track('cta_hero_click', { location: 'hero_upload' })}>
-                    <Button variant="outline" size="lg" className="h-12 px-6 text-base gap-2 border-orange-500/30 hover:bg-orange-500/5 hover:border-orange-500/50">
-                      <UploadCloud className="h-4 w-4" />
-                      Upload your own clip
-                    </Button>
-                  </Link>
-                  <Link href="/demo">
-                    <Button variant="ghost" size="lg" className="h-12 px-6 text-base text-muted-foreground hover:text-foreground gap-2">
-                      <Play className="h-4 w-4" />
-                      Watch Demo
-                    </Button>
-                  </Link>
-                </div>
-
-                <p className="text-xs text-muted-foreground/60 mt-4">
-                  No card required &middot; No setup &middot; Cancel anytime
-                </p>
-              </>
-            )}
-          </div>
-
-          {/* Clip transformation demo */}
-          <div className="mt-14">
-            <ClipTransformAnimation />
-          </div>
-
-          {/* Pain point */}
-          {!isAuditMode && (
-            <p className="text-sm text-muted-foreground/70 mt-10 italic max-w-lg mx-auto text-center">
-              You stream for hours. Your best moments stay buried on Twitch with 12 viewers.
-              Not anymore.
+                    Made Viral
+                  </span>
+                </>
+              )}
+            </h1>
+            <p className="text-lg sm:text-xl text-muted-foreground mt-4 max-w-2xl mx-auto leading-relaxed">
+              {isAuditMode
+                ? 'Karaoke captions, auto split-screen, AI hook reordering. One click applies the formula that pops off on TikTok.'
+                : 'Karaoke captions, split-screen gameplay, AI hook reordering. One button turns your clip into a TikTok-ready vertical video.'}
             </p>
-          )}
+          </div>
 
-          {/* Value props (replaces fake counter stats) */}
+          {/* Primary CTA #1 — above video */}
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-3 mb-10">
+            <Link href="/signup" onClick={() => track('cta_hero_click', { location: 'hero_primary' })}>
+              <Button size="lg" className="bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white shadow-lg shadow-orange-500/25 h-14 px-10 text-lg font-bold gap-2">
+                Start Free &mdash; No Card Required
+                <ArrowRight className="h-5 w-5" />
+              </Button>
+            </Link>
+          </div>
+
+          {/* Before/After video demo (lazy-loaded) */}
+          <BeforeAfterVideoDemo />
+
+          {/* Primary CTA #2 — below video */}
+          <div className="flex justify-center mt-8">
+            <Link href="/signup" onClick={() => track('cta_hero_click', { location: 'hero_below_video' })}>
+              <Button size="lg" className="bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white shadow-lg shadow-orange-500/25 h-12 px-8 text-base font-bold gap-2">
+                Start Free &mdash; No Card Required
+                <ArrowRight className="h-4 w-4" />
+              </Button>
+            </Link>
+          </div>
+
+          {/* Value props */}
           <ValueProps />
 
           {/* Platform logos */}
