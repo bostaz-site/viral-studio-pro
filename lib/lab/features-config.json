@@ -1,0 +1,65 @@
+{
+  "frequency_hours": 48,
+  "min_metric_clarity": 6,
+  "kill_switch_required": true,
+  "monthly_cost_cap_usd": 100,
+  "council_llms": ["claude", "openai", "gemini"],
+  "features": [
+    {
+      "area": "browse",
+      "name": "Browse Streamers Clips",
+      "url": "/dashboard",
+      "code_paths": ["app/(dashboard)/dashboard/page.tsx", "components/trending/", "lib/twitch/", "lib/kick/"],
+      "competitors": ["opus.pro", "submagic.co", "munch.ai"],
+      "priority": 1
+    },
+    {
+      "area": "enhance",
+      "name": "Clip Enhancement Editor",
+      "url": "/dashboard/enhance",
+      "code_paths": ["app/(dashboard)/dashboard/enhance/", "components/video/", "components/captions/"],
+      "competitors": ["opus.pro", "submagic.co", "captions.ai"],
+      "priority": 1
+    },
+    {
+      "area": "upload",
+      "name": "User Clip Upload",
+      "url": "/upload",
+      "code_paths": ["app/upload/", "components/video/UploadZone.tsx"],
+      "competitors": ["loom.com", "veed.io", "descript.com"],
+      "priority": 2
+    },
+    {
+      "area": "distribution",
+      "name": "Multi-Platform Publishing",
+      "url": "/dashboard/distribution",
+      "code_paths": ["app/(dashboard)/dashboard/distribution/", "lib/distribution/"],
+      "competitors": ["buffer.com", "hootsuite.com", "later.com"],
+      "priority": 2
+    },
+    {
+      "area": "analytics",
+      "name": "User Analytics",
+      "url": "/dashboard/analytics",
+      "code_paths": ["app/(dashboard)/dashboard/analytics/"],
+      "competitors": ["youtube studio", "tiktok analytics"],
+      "priority": 3
+    },
+    {
+      "area": "settings",
+      "name": "User Settings + Creator Rank",
+      "url": "/settings",
+      "code_paths": ["app/(dashboard)/settings/"],
+      "competitors": [],
+      "priority": 4
+    },
+    {
+      "area": "landing",
+      "name": "Public Landing Page",
+      "url": "/",
+      "code_paths": ["app/page.tsx", "components/landing/"],
+      "competitors": ["opus.pro", "submagic.co", "vizard.ai"],
+      "priority": 1
+    }
+  ]
+}

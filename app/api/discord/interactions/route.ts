@@ -156,6 +156,51 @@ export async function POST(req: NextRequest) {
         data: { content: `Marked ${email} as spam. Will be excluded from future campaigns.`, flags: 64 },
       })
     }
+
+    // ── Lab deep dive buttons ──
+    if (customId.startsWith('lab_accept:')) {
+      const diveId = customId.split(':')[1]
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const labAdmin = createAdminClient() as any
+      await labAdmin.from('lab_deep_dives').update({ user_action: 'accepted', user_action_at: new Date().toISOString() }).eq('id', diveId)
+      return NextResponse.json({
+        type: 4,
+        data: { content: `Lab dive \`${diveId.slice(0, 8)}\` accepted. Check /admin/lab for the Claude Code prompt.`, flags: 64 },
+      })
+    }
+
+    if (customId.startsWith('lab_later:')) {
+      const diveId = customId.split(':')[1]
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const labAdmin = createAdminClient() as any
+      await labAdmin.from('lab_deep_dives').update({ user_action: 'later', user_action_at: new Date().toISOString() }).eq('id', diveId)
+      return NextResponse.json({
+        type: 4,
+        data: { content: 'Lab dive parked for later.', flags: 64 },
+      })
+    }
+
+    if (customId.startsWith('lab_discard:')) {
+      const diveId = customId.split(':')[1]
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const labAdmin = createAdminClient() as any
+      await labAdmin.from('lab_deep_dives').update({ status: 'discarded', user_action: 'discarded', user_action_at: new Date().toISOString() }).eq('id', diveId)
+      return NextResponse.json({
+        type: 4,
+        data: { content: 'Lab dive discarded.', flags: 64 },
+      })
+    }
+
+    if (customId.startsWith('lab_force:')) {
+      const area = customId.split(':')[1]
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const labAdmin = createAdminClient() as any
+      await labAdmin.from('lab_queue').update({ forced_next: true, next_scheduled_at: new Date().toISOString() }).eq('feature_area', area)
+      return NextResponse.json({
+        type: 4,
+        data: { content: `Forced ${area} to front of lab queue.`, flags: 64 },
+      })
+    }
   }
 
   return NextResponse.json({ type: 4, data: { content: 'Unknown interaction', flags: 64 } })

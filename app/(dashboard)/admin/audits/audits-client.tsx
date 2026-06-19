@@ -4,7 +4,7 @@ import { useState } from 'react'
 import {
   Flame, RotateCcw, AlertTriangle, CheckCircle2,
   ChevronDown, ChevronUp, Loader2, BarChart3, Search,
-  Brain, Sparkles, GitMerge, Bug, Users, GitPullRequest, ShieldAlert,
+  Brain, Sparkles, GitMerge, Bug, Users, GitPullRequest, ShieldAlert, Beaker,
 } from 'lucide-react'
 import Link from 'next/link'
 import type { Finding, MetricSnapshot } from './page'
@@ -140,6 +140,13 @@ export function AuditsClient({
           >
             <Bug className="h-3.5 w-3.5" />
             Prod Errors
+          </Link>
+          <Link
+            href="/admin/lab"
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 hover:bg-cyan-500/20 transition-colors"
+          >
+            <Beaker className="h-3.5 w-3.5" />
+            The Lab
           </Link>
           <Link
             href="/admin/audits/outcomes"
