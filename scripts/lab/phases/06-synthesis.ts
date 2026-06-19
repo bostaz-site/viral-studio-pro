@@ -1,9 +1,8 @@
 /**
  * Phase 4 — Synthesis + Kill Switch (~5 min)
  *
- * Compares 3 council responses + initial intuition.
- * Forces ONE final recommendation.
- * Forces a mandatory Kill Switch.
+ * V3: Compares Sonnet + Opus + Gemini (+ optional GPT) + initial intuition.
+ * Forces ONE final recommendation + mandatory Kill Switch.
  */
 
 import { askClaude } from '../../../lib/lab/llm-clients'
@@ -30,33 +29,35 @@ export async function runSynthesisAndKillSwitch(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const admin = createAdminClient() as any
 
-  // Fetch council responses
   const { data: councilRows } = await admin
     .from('lab_council_responses')
     .select('llm_provider, response_solution, response_concerns, response_raw')
     .eq('deep_dive_id', diveId)
 
   const council = councilRows ?? []
-  const claudeSol = council.find((c: { llm_provider: string }) => c.llm_provider === 'claude')?.response_solution ?? 'N/A'
-  const gptSol = council.find((c: { llm_provider: string }) => c.llm_provider === 'openai')?.response_solution ?? 'N/A'
+  const sonnetSol = council.find((c: { llm_provider: string }) => c.llm_provider === 'claude_sonnet' || c.llm_provider === 'claude')?.response_solution ?? 'N/A'
+  const opusSol = council.find((c: { llm_provider: string }) => c.llm_provider === 'claude_opus')?.response_solution ?? 'N/A'
   const geminiSol = council.find((c: { llm_provider: string }) => c.llm_provider === 'gemini')?.response_solution ?? 'N/A'
+  const gptSol = council.find((c: { llm_provider: string }) => c.llm_provider === 'openai')?.response_solution
+
+  const gptSection = gptSol ? `\n\nGPT COUNCIL: ${gptSol}` : ''
 
   const prompt = `Phase 4 — Final Synthesis + Kill Switch
 
-You are synthesizing 3 independent LLM council responses + an initial intuition.
+You are synthesizing multiple independent LLM council responses + an initial intuition.
 
 INTUITION (pre-research baseline): ${intuitionSolution ?? 'N/A'}
 
-CLAUDE COUNCIL: ${claudeSol}
+CLAUDE SONNET COUNCIL: ${sonnetSol}
 
-GPT COUNCIL: ${gptSol}
+CLAUDE OPUS COUNCIL: ${opusSol}
 
-GEMINI COUNCIL: ${geminiSol}
+GEMINI COUNCIL: ${geminiSol}${gptSection}
 
 TARGET METRIC: ${targetMetric}
 
 YOUR TASK:
-1. Where do the 3 LLMs CONVERGE? (high confidence signal)
+1. Where do the LLMs CONVERGE? (high confidence signal)
 2. Where do they DIVERGE? (interesting tension)
 3. What did research-backed answers add vs raw intuition?
 4. Propose ONE final recommendation — the BEST possible solution.

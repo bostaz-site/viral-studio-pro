@@ -1,65 +1,94 @@
 {
-  "frequency_hours": 48,
+  "manual_trigger_only": true,
+  "cron_disabled": true,
+  "bootstrap_chain_mode": true,
   "min_metric_clarity": 6,
   "kill_switch_required": true,
   "monthly_cost_cap_usd": 100,
-  "council_llms": ["claude", "openai", "gemini"],
+  "council_setup": "free",
   "features": [
     {
-      "area": "browse",
+      "area": "browse-clips",
       "name": "Browse Streamers Clips",
-      "url": "/dashboard",
-      "code_paths": ["app/(dashboard)/dashboard/page.tsx", "components/trending/", "lib/twitch/", "lib/kick/"],
-      "competitors": ["opus.pro", "submagic.co", "munch.ai"],
+      "doc_path": "docs/browse-clips.md",
+      "url": "/admin/browse",
+      "code_paths": ["app/(dashboard)/admin/browse/", "components/clips/", "lib/twitch/"],
+      "competitors": ["opus.pro/discover", "submagic.co/library", "munch.ai/trending"],
       "priority": 1
     },
     {
-      "area": "enhance",
+      "area": "enhance-render",
       "name": "Clip Enhancement Editor",
-      "url": "/dashboard/enhance",
-      "code_paths": ["app/(dashboard)/dashboard/enhance/", "components/video/", "components/captions/"],
-      "competitors": ["opus.pro", "submagic.co", "captions.ai"],
+      "doc_path": "docs/enhance-render.md",
+      "additional_docs": ["docs/moods/MOODS-OVERVIEW.md", "docs/moods/00-base.md", "docs/moods/01-rage.md", "docs/moods/02-funny.md", "docs/moods/03-drama.md", "docs/moods/04-wholesome.md", "docs/moods/05-hype.md", "docs/moods/06-story.md"],
+      "url": "/dashboard/enhance/[clipId]",
+      "code_paths": ["app/(dashboard)/dashboard/enhance/", "components/video/", "components/captions/", "lib/ai/", "vps/lib/"],
+      "competitors": ["opus.pro/editor", "submagic.co", "captions.ai"],
       "priority": 1
     },
     {
       "area": "upload",
       "name": "User Clip Upload",
+      "doc_path": "docs/upload.md",
       "url": "/upload",
       "code_paths": ["app/upload/", "components/video/UploadZone.tsx"],
       "competitors": ["loom.com", "veed.io", "descript.com"],
       "priority": 2
     },
     {
-      "area": "distribution",
-      "name": "Multi-Platform Publishing",
+      "area": "distribution-hub",
+      "name": "Multi-Platform Distribution + Smart Publishing",
+      "doc_path": "docs/distribution-hub.md",
+      "additional_docs": ["docs/smart-publishing.md"],
       "url": "/dashboard/distribution",
-      "code_paths": ["app/(dashboard)/dashboard/distribution/", "lib/distribution/"],
+      "code_paths": ["app/(dashboard)/dashboard/distribution/", "lib/distribution/", "app/api/publish/"],
       "competitors": ["buffer.com", "hootsuite.com", "later.com"],
       "priority": 2
     },
     {
       "area": "analytics",
       "name": "User Analytics",
+      "doc_path": "docs/analytics.md",
       "url": "/dashboard/analytics",
       "code_paths": ["app/(dashboard)/dashboard/analytics/"],
       "competitors": ["youtube studio", "tiktok analytics"],
       "priority": 3
     },
     {
-      "area": "settings",
-      "name": "User Settings + Creator Rank",
-      "url": "/settings",
-      "code_paths": ["app/(dashboard)/settings/"],
-      "competitors": [],
-      "priority": 4
-    },
-    {
-      "area": "landing",
+      "area": "landing-pages",
       "name": "Public Landing Page",
-      "url": "/",
+      "doc_path": "docs/landing-pages.md",
+      "url": "https://viralanimal.com",
       "code_paths": ["app/page.tsx", "components/landing/"],
       "competitors": ["opus.pro", "submagic.co", "vizard.ai"],
       "priority": 1
+    },
+    {
+      "area": "onboarding",
+      "name": "First-Time User Onboarding",
+      "doc_path": "docs/onboarding.md",
+      "url": "/onboarding",
+      "code_paths": ["app/(dashboard)/onboarding/", "components/onboarding/"],
+      "competitors": ["notion onboarding", "linear onboarding", "loom onboarding"],
+      "priority": 1
+    },
+    {
+      "area": "billing-stripe",
+      "name": "Billing & Plans",
+      "doc_path": "docs/billing-stripe.md",
+      "url": "/upgrade",
+      "code_paths": ["app/(dashboard)/upgrade/", "app/api/stripe/", "lib/stripe/"],
+      "competitors": ["opus.pro/pricing", "submagic.co/pricing", "vizard.ai/pricing"],
+      "priority": 2
+    },
+    {
+      "area": "affiliate-system",
+      "name": "Affiliate / Referral Program",
+      "doc_path": "docs/affiliate-system.md",
+      "url": "/affiliate",
+      "code_paths": ["app/(dashboard)/affiliate/", "app/api/affiliate/", "lib/affiliate/"],
+      "competitors": ["circle.so referrals", "buy.fan", "metacrew"],
+      "priority": 3
     }
   ]
 }

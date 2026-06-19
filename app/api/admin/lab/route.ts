@@ -84,3 +84,43 @@ export const PATCH = withAdmin(async (req: NextRequest) => {
 
   return errorResponse('Invalid request', 400)
 })
+
+export const POST = withAdmin(async () => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const admin = createAdminClient() as any
+
+  // Check no cycle already in progress
+  const { data: running } = await admin
+    .from('lab_deep_dives')
+    .select('id, feature_area')
+    .eq('status', 'running')
+    .limit(1)
+
+  if (running && running.length > 0) {
+    return errorResponse(`Cycle already in progress (${running[0].feature_area})`, 409)
+  }
+
+  // Check if Railway trigger URL is configured
+  const triggerUrl = process.env.RAILWAY_LAB_TRIGGER_URL
+  if (triggerUrl) {
+    // Trigger Railway job
+    await fetch(`${triggerUrl}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-API-Key': process.env.RAILWAY_LAB_API_KEY ?? '',
+      },
+      body: JSON.stringify({ command: 'lab:chain' }),
+    }).catch(err => {
+      console.error('[lab:api] Railway trigger failed:', err)
+    })
+    return jsonResponse({ started: true, via: 'railway' })
+  }
+
+  // No Railway — return instructions for manual trigger
+  return jsonResponse({
+    started: false,
+    message: 'Run manually: npx tsx scripts/lab/run-deep-dive.ts --chain',
+    via: 'manual',
+  })
+})

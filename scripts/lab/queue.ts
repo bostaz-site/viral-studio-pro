@@ -43,6 +43,23 @@ export async function pickNextFeature(): Promise<{ area: string; cycle: number; 
   }
 }
 
+export async function getAllActiveFeatures(): Promise<Array<{ area: string; cycle: number; config: FeatureConfig }>> {
+  const { data } = await admin()
+    .from('lab_queue')
+    .select('*')
+    .eq('active', true)
+    .order('priority', { ascending: false })
+    .order('last_dived_at', { ascending: true, nullsFirst: true })
+
+  return (data ?? [])
+    .map((entry: QueueEntry) => {
+      const featureConfig = config.features.find(f => f.area === entry.feature_area)
+      if (!featureConfig) return null
+      return { area: entry.feature_area, cycle: entry.current_cycle, config: featureConfig }
+    })
+    .filter(Boolean) as Array<{ area: string; cycle: number; config: FeatureConfig }>
+}
+
 export async function getFeatureByArea(area: string): Promise<{ area: string; cycle: number; config: FeatureConfig } | null> {
   const { data } = await admin()
     .from('lab_queue')
@@ -96,7 +113,8 @@ export async function markComplete(diveId: string) {
 }
 
 export async function updateQueue(area: string) {
-  const nextScheduled = new Date(Date.now() + config.frequency_hours * 3600 * 1000)
+  // V3: manual trigger, so next_scheduled_at is just set to "now" (always ready)
+  const nextScheduled = new Date()
 
   // Get current cycle info
   const { data: current } = await admin()

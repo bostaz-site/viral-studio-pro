@@ -1,10 +1,8 @@
 /**
  * Phase 5 — Deliverable (~2 min)
  *
- * Generates:
- * - Full structured markdown in deliverable_markdown
- * - Ready-to-execute Claude Code prompt in claude_code_prompt
- * - Enriches Knowledge Graph with new nodes/edges
+ * V3: writes markdown files to docs/lab/cycles/ + feature-notes/
+ * + generates Claude Code prompt + enriches KG
  */
 
 import { askClaude } from '../../../lib/lab/llm-clients'
@@ -12,13 +10,14 @@ import { upsertNode, upsertEdge } from '../../../lib/audit/graph-aware'
 import { safeParseClaudeJson } from '../../../lib/audit/safe-json'
 import { createAdminClient } from '../../../lib/supabase/admin'
 import { updateDive } from '../queue'
+import { mkdirSync, writeFileSync, appendFileSync, existsSync, readFileSync } from 'fs'
+import { join, dirname } from 'path'
 
 export async function generateDeliverable(diveId: string): Promise<{ cost: number }> {
   console.log('[lab:deliverable] Generating deliverable...')
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const admin = createAdminClient() as any
 
-  // Fetch the full dive
   const { data: dive } = await admin
     .from('lab_deep_dives')
     .select('*')
@@ -79,9 +78,34 @@ ${(dive.alternatives_rejected ?? []).map((a: { alt: string; why_rejected: string
 - **Estimated effort:** ${dive.estimated_effort_hours ?? '?'}h
 `
 
+  // Write to docs/lab/cycles/DATE/<feature>.md
+  const cycleDate = new Date().toISOString().split('T')[0]
+  const cycleId = `${cycleDate}-cycle${dive.cycle_number}`
+  const cycleDir = join(process.cwd(), 'docs', 'lab', 'cycles', cycleId)
+  mkdirSync(cycleDir, { recursive: true })
+
+  const diveFilePath = join(cycleDir, `${dive.feature_area}.md`)
+  writeFileSync(diveFilePath, markdown, 'utf-8')
+
+  const relativeFilePath = `docs/lab/cycles/${cycleId}/${dive.feature_area}.md`
+  console.log(`[lab:deliverable] Wrote: ${relativeFilePath}`)
+
+  // Append to feature-notes log (running history)
+  const notesDir = join(process.cwd(), 'docs', 'lab', 'feature-notes')
+  mkdirSync(notesDir, { recursive: true })
+  const notesPath = join(notesDir, `${dive.feature_area}.md`)
+  const noteEntry = `\n\n---\n\n## Cycle #${dive.cycle_number} — ${cycleDate}\n\n${(dive.final_recommendation ?? '').slice(0, 500)}\n\n**Confidence**: ${dive.confidence}/10 | **Effort**: ${dive.estimated_effort_hours}h\n**Kill switch**: ${dive.kill_switch_scenario ?? 'N/A'}\n[Full deep dive](../cycles/${cycleId}/${dive.feature_area}.md)\n`
+
+  if (existsSync(notesPath)) {
+    appendFileSync(notesPath, noteEntry, 'utf-8')
+  } else {
+    writeFileSync(notesPath, `# Lab Notes — ${dive.feature_area}\n${noteEntry}`, 'utf-8')
+  }
+
   await updateDive(diveId, {
     deliverable_markdown: markdown,
     claude_code_prompt: promptGenResponse.text,
+    deliverable_file_path: relativeFilePath,
     deliverable_completed_at: new Date().toISOString(),
     status: 'completed',
   })
@@ -98,7 +122,6 @@ async function enrichKgFromDive(dive: Record<string, unknown>) {
     const featureArea = dive.feature_area as string
     const recommendation = (dive.final_recommendation as string) ?? ''
 
-    // Extract KG insights from the recommendation
     const response = await askClaude(`Extract knowledge graph nodes from this product recommendation.
 
 Feature: ${featureArea}
@@ -117,7 +140,6 @@ Output JSON:
       opportunities: string[]
     }>(response.text, { industry_patterns: [], user_pains: [], opportunities: [] })
 
-    // Upsert nodes and edges
     for (const pattern of parsed.industry_patterns.slice(0, 3)) {
       await upsertNode('feature', pattern, `Industry pattern for ${featureArea}`, 5)
       await upsertEdge('feature', featureArea, 'feature', pattern, 'similar_to', 0.6, 'lab-deep-dive')

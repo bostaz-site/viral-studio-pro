@@ -1,6 +1,8 @@
 export interface FeatureConfig {
   area: string
   name: string
+  doc_path: string
+  additional_docs?: string[]
   url: string
   code_paths: string[]
   competitors: string[]
@@ -8,11 +10,13 @@ export interface FeatureConfig {
 }
 
 export interface LabConfig {
-  frequency_hours: number
+  manual_trigger_only: boolean
+  cron_disabled: boolean
+  bootstrap_chain_mode: boolean
   min_metric_clarity: number
   kill_switch_required: boolean
   monthly_cost_cap_usd: number
-  council_llms: string[]
+  council_setup: string
   features: FeatureConfig[]
 }
 
@@ -26,6 +30,11 @@ export interface DeepDive {
   intuition_risk: string | null
   intuition_metric: string | null
 
+  context_main_doc: string | null
+  context_additional_docs: unknown[] | null
+  context_vision: string | null
+  context_concept: string | null
+  context_lab_history: string | null
   context_founder_goals: string | null
   context_code_paths: unknown[] | null
   context_kg_nodes: unknown[] | null
@@ -48,6 +57,7 @@ export interface DeepDive {
   estimated_effort_hours: number | null
 
   deliverable_markdown: string | null
+  deliverable_file_path: string | null
   claude_code_prompt: string | null
 
   total_cost_usd: number | null

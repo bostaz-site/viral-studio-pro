@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import {
   Loader2, ChevronDown, ChevronUp, ArrowLeft, Beaker,
   AlertTriangle, Check, X, Clock, Zap, DollarSign,
-  Brain, Target, Shield,
+  Brain, Target, Shield, Play,
 } from 'lucide-react'
 import Link from 'next/link'
 
@@ -97,6 +97,8 @@ export default function LabPage() {
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [council, setCouncil] = useState<CouncilResponse[]>([])
   const [councilLoading, setCouncilLoading] = useState(false)
+  const [runningCycle, setRunningCycle] = useState(false)
+  const [cycleMessage, setCycleMessage] = useState<string | null>(null)
 
   useEffect(() => {
     fetch('/api/auth/me')
@@ -154,6 +156,28 @@ export default function LabPage() {
     load()
   }
 
+  const triggerRunCycle = async () => {
+    setRunningCycle(true)
+    setCycleMessage(null)
+    try {
+      const res = await fetch('/api/admin/lab', { method: 'POST' })
+      const json = await res.json()
+      if (res.status === 409) {
+        setCycleMessage(json.error || 'Cycle already in progress')
+      } else if (json.data?.via === 'manual') {
+        setCycleMessage(json.data.message)
+      } else {
+        setCycleMessage('Cycle started in background via Railway')
+      }
+    } catch {
+      setCycleMessage('Failed to trigger cycle')
+    } finally {
+      setRunningCycle(false)
+    }
+  }
+
+  const hasRunningDive = dives.some(d => d.status === 'running')
+
   if (!authorized) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -165,18 +189,38 @@ export default function LabPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center gap-3">
-        <Link href="/admin/audits" className="text-zinc-500 hover:text-zinc-300">
-          <ArrowLeft className="h-5 w-5" />
-        </Link>
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
-            <Beaker className="h-6 w-6 text-cyan-400" />
-            The Lab
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            Product Decision Intelligence — continuous deep dives on every feature
-          </p>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <Link href="/admin/audits" className="text-zinc-500 hover:text-zinc-300">
+            <ArrowLeft className="h-5 w-5" />
+          </Link>
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
+              <Beaker className="h-6 w-6 text-cyan-400" />
+              The Lab <span className="text-xs text-zinc-500 font-normal ml-1">V3</span>
+            </h1>
+            <p className="text-sm text-muted-foreground">
+              Product Decision Intelligence — 9 features, manual trigger
+            </p>
+          </div>
+        </div>
+        <div className="flex flex-col items-end gap-1">
+          <button
+            onClick={triggerRunCycle}
+            disabled={runningCycle || hasRunningDive}
+            className="flex items-center gap-2 px-4 py-2 text-sm font-bold rounded-lg bg-cyan-500 hover:bg-cyan-600 text-black transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {runningCycle ? (
+              <><Loader2 className="h-4 w-4 animate-spin" /> Starting...</>
+            ) : hasRunningDive ? (
+              <><Loader2 className="h-4 w-4 animate-spin" /> Cycle in progress</>
+            ) : (
+              <><Play className="h-4 w-4" /> Run Cycle</>
+            )}
+          </button>
+          {cycleMessage && (
+            <p className="text-xs text-zinc-400 max-w-[300px] text-right">{cycleMessage}</p>
+          )}
         </div>
       </div>
 
