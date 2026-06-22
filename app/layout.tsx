@@ -50,9 +50,12 @@ export const metadata: Metadata = {
     canonical: siteUrl,
   },
   icons: {
-    icon: '/favicon.svg',
-    shortcut: '/favicon.svg',
-    apple: '/icons/icon-192.svg',
+    icon: [
+      { url: '/favicon.svg?v=2', type: 'image/svg+xml' },
+      { url: '/icons/icon-192.png?v=2', type: 'image/png', sizes: '192x192' },
+    ],
+    shortcut: '/favicon.svg?v=2',
+    apple: '/icons/icon-192.png?v=2',
   },
 }
 
@@ -127,7 +130,7 @@ export default function RootLayout({
         <meta name="theme-color" content="#f97316" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-        <link rel="apple-touch-icon" href="/icons/icon-192.svg" />
+        <link rel="apple-touch-icon" href="/icons/icon-192.png?v=2" />
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
