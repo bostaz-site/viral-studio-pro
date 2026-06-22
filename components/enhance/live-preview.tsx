@@ -55,6 +55,33 @@ export function LivePreview({
   // Animation is now derived from the selected caption style (not a separate setting)
   const currentAnimation = captionStyle?.animation ?? 'highlight'
 
+  /*
+   * CSS font-family → FFmpeg ASS font name mapping:
+   *   hormozi / hormozi-purple → Inter (ASS: fontname: 'Inter', fontsize: 78)
+   *   clean-bold              → Montserrat (ASS: fontname: 'Montserrat', fontsize: 72)
+   *   subtitle-pop            → Poppins (ASS: fontname: 'Poppins', fontsize: 70)
+   *   gamer-neon              → Poppins (ASS: fontname: 'Poppins', fontsize: 78)
+   *   minimal-serif           → Lora (ASS: fontname: 'Lora', fontsize: 62)
+   *   pastel-soft / wave      → Inter (ASS: fontname: 'Inter', fontsize: 68)
+   *
+   * These must match vps/lib/subtitle-generator.js CAPTION_STYLES.
+   * If drift >100ms between overlay and FFmpeg output is observed,
+   * the disclaimer below the preview warns the user.
+   */
+  const ASS_FONT_MAP: Record<string, string> = {
+    hormozi: 'Inter, sans-serif',
+    'hormozi-purple': 'Inter, sans-serif',
+    'clean-bold': 'Montserrat, sans-serif',
+    'subtitle-pop': 'Poppins, sans-serif',
+    'gamer-neon': 'Poppins, sans-serif',
+    'minimal-serif': 'Lora, serif',
+    'pastel-soft': 'Inter, sans-serif',
+    wave: 'Inter, sans-serif',
+    'cinematic-gold': 'Montserrat, sans-serif',
+    'street-drip': 'Montserrat, sans-serif',
+  }
+  const captionFontFamily = ASS_FONT_MAP[settings.captionStyle] ?? 'Inter, sans-serif'
+
   // Platform-aware colors
   const platformKey = (clip.platform ?? 'twitch') as keyof typeof PLATFORM_THEME
   const theme = PLATFORM_THEME[platformKey] ?? PLATFORM_THEME.twitch
@@ -107,6 +134,16 @@ export function LivePreview({
     }, perChar)
     return () => clearInterval(tick)
   }, [activeWordIdx, currentAnimation, sampleWords])
+
+  // ── Video load error/timeout — graceful fallback ──
+  const [videoLoadFailed, setVideoLoadFailed] = useState(false)
+  useEffect(() => {
+    setVideoLoadFailed(false)
+    if (!videoUrl) return
+    // Timeout: if video doesn't start loading within 5s, show fallback
+    const timer = setTimeout(() => setVideoLoadFailed(true), 5000)
+    return () => clearTimeout(timer)
+  }, [videoUrl])
 
   // ── Rendered video: show as-is, no CSS effects (everything is baked in) ──
   const [renderedVideoReady, setRenderedVideoReady] = useState(false)
@@ -272,7 +309,7 @@ export function LivePreview({
                 }
               }
               const styleOrUndefined = Object.keys(zoomStyle).length ? zoomStyle : undefined
-              return videoUrl ? (
+              return videoUrl && !videoLoadFailed ? (
                 <video
                   key={videoUrl}
                   src={videoUrl}
@@ -283,7 +320,16 @@ export function LivePreview({
                   )}
                   style={styleOrUndefined}
                   autoPlay loop muted playsInline
+                  onCanPlay={() => setVideoLoadFailed(false)}
+                  onError={() => setVideoLoadFailed(true)}
                 />
+              ) : videoLoadFailed ? (
+                <div className="relative w-full h-full flex flex-col items-center justify-center bg-zinc-900 z-[1] gap-2">
+                  <Loader2 className="h-5 w-5 text-zinc-500 opacity-50" />
+                  <p className="text-[10px] text-zinc-500 text-center px-4 leading-snug">
+                    Preview unavailable — your render will still work
+                  </p>
+                </div>
               ) : (
                 <Image
                   src={clip.thumbnail_url!}
@@ -427,6 +473,7 @@ export function LivePreview({
             top: settings.splitScreenEnabled
               ? `${Math.min(settings.captionPosition, settings.splitRatio - 6)}%`
               : `${settings.captionPosition}%`,
+            fontFamily: captionFontFamily,
           }}
         >
           {/* Word Pop mode: show ONLY the active word, large, with pop animation */}

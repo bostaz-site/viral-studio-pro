@@ -77,7 +77,7 @@ export default function EnhancePage() {
   const [originalVideoUrl, setOriginalVideoUrl] = useState<string | null>(null)
   const pollRef = useRef<NodeJS.Timeout | null>(null)
   const hasUserChangedSettings = useRef(false)
-  const [showEnhancements, setShowEnhancements] = useState(false)
+  const [showEnhancements, setShowEnhancements] = useState(true)
   const [hookAnalysis, setHookAnalysis] = useState<HookAnalysis | null>(null)
   const [hookGenerating, setHookGenerating] = useState(false)
   const [hookError, setHookError] = useState<string | null>(null)
@@ -88,10 +88,12 @@ export default function EnhancePage() {
     tags: useRef<HTMLDivElement>(null),
   }
 
+  // "Viral Boost" preset — page opens render-ready with zero configuration.
+  // Captions ON (hormozi style, font 78, highlight animation), 9:16, streamer tag ON.
   const DEFAULT_SETTINGS: EnhanceSettings = {
-    captionsEnabled: false,
-    captionStyle: 'none',
-    emphasisEffect: 'none',
+    captionsEnabled: true,
+    captionStyle: 'hormozi',
+    emphasisEffect: 'highlight',
     emphasisColor: 'red',
     customImportantWords: [],
     captionPosition: 72,
@@ -100,7 +102,7 @@ export default function EnhancePage() {
     brollVideo: 'none',
     splitRatio: 60,
     videoZoom: 'contain',
-    tagStyle: 'none',
+    tagStyle: 'viral-glow',
     tagSize: 100,
     aspectRatio: '9:16',
     smartZoomEnabled: false,
@@ -1239,8 +1241,18 @@ export default function EnhancePage() {
           )}
         </div>
 
-        {/* Right: Actions + Settings — scrollable (hidden once render is done) */}
+        {/* Right: Actions + Settings — scrollable */}
         <div className="space-y-6">
+          {/* ── Export Now CTA — always above the fold ── */}
+          {!renderDownloadUrl && !rendering && !analysisSequenceActive && (
+            <Button
+              className="w-full h-14 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white font-bold text-lg gap-2.5 shadow-lg shadow-orange-500/25 rounded-xl"
+              onClick={handleRender}
+            >
+              <Rocket className="h-5 w-5" /> Export Now
+            </Button>
+          )}
+
           {/* ── AI Optimize button ── */}
           {(() => {
             const viralBusy = makeViralLoading || analysisSequenceActive || pendingAutoRenderRef.current || rendering
