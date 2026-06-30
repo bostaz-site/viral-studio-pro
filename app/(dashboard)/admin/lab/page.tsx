@@ -46,6 +46,15 @@ interface MonthStats {
   avgConfidence: number
 }
 
+interface AgentStatus {
+  status: string
+  last_heartbeat_at: string | null
+  hostname: string | null
+  total_executions: number
+  last_error: string | null
+  last_error_at: string | null
+}
+
 interface CouncilResponse {
   llm_provider: string
   llm_model: string
@@ -65,11 +74,13 @@ const STATUS_COLORS: Record<string, string> = {
   queued: 'bg-amber-500/15 text-amber-400 border-amber-500/30',
   executing: 'bg-violet-500/15 text-violet-400 border-violet-500/30',
   pr_ready: 'bg-orange-500/15 text-orange-400 border-orange-500/30',
+  pr_ready_failed: 'bg-red-500/15 text-red-400 border-red-500/30',
 }
 
 const STATUS_LABELS: Record<string, string> = {
   executing: 'Auto-executing',
   pr_ready: 'PR ready',
+  pr_ready_failed: 'Execute failed',
 }
 
 const LLM_COLORS: Record<string, string> = {
@@ -107,6 +118,7 @@ export default function LabPage() {
   const [councilLoading, setCouncilLoading] = useState(false)
   const [runningCycle, setRunningCycle] = useState(false)
   const [cycleMessage, setCycleMessage] = useState<string | null>(null)
+  const [agent, setAgent] = useState<AgentStatus | null>(null)
 
   useEffect(() => {
     fetch('/api/auth/me')
@@ -127,6 +139,7 @@ export default function LabPage() {
         setDives(json.data.dives ?? [])
         setQueue(json.data.queue ?? [])
         setStats(json.data.monthStats ?? { totalDives: 0, completedDives: 0, totalCost: 0, avgConfidence: 0 })
+        setAgent(json.data.agentStatus ?? null)
       }
     } catch { /* ignore */ } finally {
       setLoading(false)
@@ -231,6 +244,9 @@ export default function LabPage() {
           </button>
           {cycleMessage && (
             <p className="text-xs text-zinc-400 max-w-[300px] text-right">{cycleMessage}</p>
+          )}
+          {agent && (
+            <AgentBadge agent={agent} />
           )}
         </div>
       </div>
@@ -458,7 +474,7 @@ export default function LabPage() {
                         Review PR on GitHub <span className="text-[10px]">&rarr;</span>
                       </a>
                     )}
-                    {dive.user_action && dive.status !== 'executing' && dive.status !== 'pr_ready' && (
+                    {dive.user_action && dive.status !== 'executing' && dive.status !== 'pr_ready' && dive.status !== 'pr_ready_failed' && (
                       <p className="text-xs text-zinc-500 mt-2">
                         Action: <span className="font-medium text-zinc-400">{dive.user_action}</span>
                       </p>
@@ -478,6 +494,31 @@ export default function LabPage() {
           })}
         </div>
       )}
+    </div>
+  )
+}
+
+function AgentBadge({ agent }: { agent: AgentStatus }) {
+  const isOnline = (agent.status === 'online' || agent.status === 'busy') &&
+    agent.last_heartbeat_at &&
+    (Date.now() - new Date(agent.last_heartbeat_at).getTime()) < 5 * 60 * 1000
+
+  if (!isOnline) {
+    return (
+      <div className="flex items-center gap-1.5 text-xs text-red-400">
+        <span className="inline-block w-2 h-2 rounded-full bg-red-500" />
+        Agent offline
+        {agent.last_heartbeat_at && <span className="text-zinc-500">· last seen {timeAgo(agent.last_heartbeat_at)}</span>}
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex items-center gap-1.5 text-xs text-green-400">
+      <span className={`inline-block w-2 h-2 rounded-full ${agent.status === 'busy' ? 'bg-amber-400 animate-pulse' : 'bg-green-500'}`} />
+      {agent.status === 'busy' ? 'Agent busy' : 'Agent online'}
+      {agent.hostname && <span className="text-zinc-500">· {agent.hostname}</span>}
+      {agent.total_executions > 0 && <span className="text-zinc-500">· {agent.total_executions} runs</span>}
     </div>
   )
 }

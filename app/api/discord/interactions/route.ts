@@ -176,8 +176,6 @@ export async function POST(req: NextRequest) {
         user_action_at: new Date().toISOString(),
       }).eq('id', diveId)
 
-      let workflowTriggered = false
-
       if (dive) {
         // Generate prompt file and push to GitHub
         const prompt = generateLabPrompt(dive)
@@ -190,48 +188,16 @@ export async function POST(req: NextRequest) {
         }
 
         await labAdmin.from('lab_deep_dives').update({ accepted_prompt_path: filepath }).eq('id', diveId)
-
-        // Trigger auto-execute workflow
-        const githubToken = process.env.GITHUB_TOKEN
-        if (githubToken) {
-          try {
-            const wfRes = await fetch(
-              'https://api.github.com/repos/bostaz-site/viral-studio-pro/actions/workflows/lab-auto-execute.yml/dispatches',
-              {
-                method: 'POST',
-                headers: {
-                  'Authorization': `Bearer ${githubToken}`,
-                  'Accept': 'application/vnd.github+json',
-                  'X-GitHub-Api-Version': '2022-11-28',
-                },
-                body: JSON.stringify({
-                  ref: 'master',
-                  inputs: {
-                    prompt_path: filepath,
-                    dive_id: diveId,
-                    feature_area: dive.feature_area,
-                  },
-                }),
-              }
-            )
-            workflowTriggered = wfRes.status === 204
-          } catch {
-            // Best-effort
-          }
-        }
-
-        await labAdmin.from('lab_deep_dives').update({
-          status: workflowTriggered ? 'executing' : 'completed',
-        }).eq('id', diveId)
       }
 
+      // Local Lab Agent picks up accepted dives via DB polling
       const featureName = dive?.feature_area ?? diveId.slice(0, 8)
-      const msg = workflowTriggered
-        ? `Lab dive **${featureName}** accepted.\n\nClaude Code is auto-executing now. Check Discord in 5-15 min for the PR.`
-        : `Lab dive **${featureName}** accepted. Check /admin/lab for the prompt.`
       return NextResponse.json({
         type: 4,
-        data: { content: msg, flags: 64 },
+        data: {
+          content: `Lab dive **${featureName}** accepted.\n\nLab Agent will auto-execute when online. Check Discord for the PR.`,
+          flags: 64,
+        },
       })
     }
 

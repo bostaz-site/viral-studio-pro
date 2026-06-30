@@ -53,7 +53,14 @@ export const GET = withAdmin(async (req: NextRequest) => {
       : 0,
   }
 
-  return jsonResponse({ dives, queue, monthStats })
+  // Agent status
+  const { data: agentStatus } = await admin
+    .from('lab_agent_status')
+    .select('*')
+    .eq('id', 'singleton')
+    .single()
+
+  return jsonResponse({ dives, queue, monthStats, agentStatus })
 })
 
 export const PATCH = withAdmin(async (req: NextRequest) => {
@@ -93,55 +100,19 @@ export const PATCH = withAdmin(async (req: NextRequest) => {
             console.warn('[lab] GitHub push failed:', err)
           }
 
-          // Trigger auto-execute workflow
-          let workflowTriggered = false
-          const githubToken = process.env.GITHUB_TOKEN
-          if (githubToken) {
-            try {
-              const wfRes = await fetch(
-                'https://api.github.com/repos/bostaz-site/viral-studio-pro/actions/workflows/lab-auto-execute.yml/dispatches',
-                {
-                  method: 'POST',
-                  headers: {
-                    'Authorization': `Bearer ${githubToken}`,
-                    'Accept': 'application/vnd.github+json',
-                    'X-GitHub-Api-Version': '2022-11-28',
-                  },
-                  body: JSON.stringify({
-                    ref: 'master',
-                    inputs: {
-                      prompt_path: filepath,
-                      dive_id: body.diveId,
-                      feature_area: dive.feature_area,
-                    },
-                  }),
-                }
-              )
-              workflowTriggered = wfRes.status === 204
-              if (!workflowTriggered) {
-                console.error('[lab] Workflow dispatch returned:', wfRes.status, await wfRes.text().catch(() => ''))
-              }
-            } catch (err) {
-              console.error('[lab] Failed to trigger auto-execute workflow:', err)
-            }
-          }
-
+          // Save prompt path — local Lab Agent picks up accepted dives via DB polling
           await admin.from('lab_deep_dives').update({
             accepted_prompt_path: filepath,
-            status: workflowTriggered ? 'executing' : 'completed',
           }).eq('id', body.diveId)
 
           // Discord notification
           const channelId = process.env.DISCORD_LAB_CHANNEL_ID || process.env.DISCORD_MORNING_BRIEF_CHANNEL_ID
           if (channelId) {
-            const description = workflowTriggered
-              ? `Claude Code is auto-executing the prompt now...\nPrompt: \`${filepath}\`\nExpected: PR ready in 5-15 min\n\nYou'll get pinged in #ready-for-review when the PR is up.`
-              : `Prompt: \`${filepath}\`\n\nAuto-execute not available. Run manually:\n\`\`\`\nclaude "Lis ${filepath} et implemente"\n\`\`\``
             await sendBotMessage(channelId, {
               embeds: [{
                 title: `Lab: ${dive.feature_area} accepted`,
-                description,
-                color: workflowTriggered ? 0x9B59B6 : 0x57F287,
+                description: `Prompt: \`${filepath}\`\n\nLab Agent will auto-execute when online.`,
+                color: 0x57F287,
               }],
             }).catch(() => {})
           }

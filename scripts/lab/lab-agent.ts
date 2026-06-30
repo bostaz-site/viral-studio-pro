@@ -1,0 +1,428 @@
+/**
+ * Lab Agent — Local daemon that auto-executes accepted Lab dives.
+ *
+ * - Polls Supabase every 30s for accepted dives with no PR yet
+ * - Spawns Claude Code CLI (uses Max subscription — $0)
+ * - Creates branch, commits, pushes, creates PR via gh CLI
+ * - Pings Discord with PR URL
+ * - Heartbeats Supabase every 60s so dashboard shows "online"
+ *
+ * Usage:
+ *   npm run lab:agent          — Run in foreground
+ *   npm run lab:agent:install  — Install as Windows Service (auto-start on boot)
+ *
+ * Prerequisites (one-time):
+ *   claude /login              — Authenticate CLI with Max subscription
+ *   gh auth login              — Authenticate GitHub CLI
+ */
+
+import { spawn } from 'child_process'
+import { createClient } from '@supabase/supabase-js'
+import { config } from 'dotenv'
+import * as path from 'path'
+import * as fs from 'fs/promises'
+import * as os from 'os'
+
+config({ path: path.resolve(__dirname, '..', '..', '.env.local') })
+
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL
+const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY
+if (!SUPABASE_URL || !SUPABASE_KEY) {
+  console.error('[agent] Missing SUPABASE env vars in .env.local')
+  process.exit(1)
+}
+
+const supabase = createClient(SUPABASE_URL, SUPABASE_KEY)
+
+const POLL_INTERVAL_MS = 30_000
+const HEARTBEAT_INTERVAL_MS = 60_000
+const REPO_PATH = path.resolve(__dirname, '..', '..')
+const AGENT_VERSION = '1.0.0'
+const HOSTNAME = os.hostname()
+
+let isProcessing = false
+
+// ── Supabase helpers ──────────────────────────────────────────────────────────
+
+async function heartbeat(status: 'online' | 'busy' | 'paused' = 'online') {
+  await supabase
+    .from('lab_agent_status')
+    .upsert({
+      id: 'singleton',
+      status,
+      last_heartbeat_at: new Date().toISOString(),
+      hostname: HOSTNAME,
+      version: AGENT_VERSION,
+      updated_at: new Date().toISOString(),
+    })
+}
+
+async function findNextAcceptedDive() {
+  // Find dives that are accepted but haven't been auto-executed yet
+  const { data } = await supabase
+    .from('lab_deep_dives')
+    .select('*')
+    .eq('user_action', 'accepted')
+    .in('status', ['completed', 'pr_ready_failed'])
+    .is('auto_pr_url', null)
+    .order('created_at', { ascending: true })
+    .limit(1)
+    .single()
+
+  return data
+}
+
+async function checkPaused(): Promise<boolean> {
+  const { data } = await supabase
+    .from('lab_agent_status')
+    .select('status')
+    .eq('id', 'singleton')
+    .single()
+  return data?.status === 'paused'
+}
+
+// ── Prompt file helpers ───────────────────────────────────────────────────────
+
+async function ensurePromptFileExists(dive: Record<string, unknown>): Promise<string | null> {
+  // Check accepted_prompt_path first
+  if (dive.accepted_prompt_path) {
+    const fullPath = path.join(REPO_PATH, dive.accepted_prompt_path as string)
+    try {
+      await fs.access(fullPath)
+      return dive.accepted_prompt_path as string
+    } catch {
+      // File doesn't exist locally — will generate below
+    }
+  }
+
+  // Generate prompt from dive data using the shared utility
+  const { generateLabPrompt, buildPromptFilePath } = await import('../../lib/lab/generate-prompt')
+  const prompt = generateLabPrompt(dive)
+  const { filepath } = buildPromptFilePath(dive as { feature_area: string; cycle_number: number; final_recommendation?: string | null })
+  const fullPath = path.join(REPO_PATH, filepath)
+
+  await fs.mkdir(path.dirname(fullPath), { recursive: true })
+  await fs.writeFile(fullPath, prompt, 'utf-8')
+  console.log(`[agent] Generated prompt file: ${filepath}`)
+
+  // Update DB with the path
+  await supabase
+    .from('lab_deep_dives')
+    .update({ accepted_prompt_path: filepath })
+    .eq('id', dive.id)
+
+  return filepath
+}
+
+// ── Shell execution ───────────────────────────────────────────────────────────
+
+function execCapture(cmd: string, args: string[]): Promise<{ stdout: string; stderr: string }> {
+  return new Promise((resolve, reject) => {
+    const child = spawn(cmd, args, { cwd: REPO_PATH, shell: true })
+    let stdout = ''
+    let stderr = ''
+    child.stdout.on('data', (c) => (stdout += c.toString()))
+    child.stderr.on('data', (c) => (stderr += c.toString()))
+    child.on('close', (code) => {
+      if (code === 0) resolve({ stdout, stderr })
+      else reject(new Error(`${cmd} ${args.join(' ')} exited ${code}: ${stderr.slice(0, 500)}`))
+    })
+    child.on('error', reject)
+  })
+}
+
+function runClaudeCode(promptPath: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    console.log(`[agent] Spawning claude CLI on ${promptPath}...`)
+
+    // Strip ANTHROPIC_API_KEY so CLI uses Max subscription, not paid API
+    const env = { ...process.env }
+    delete env.ANTHROPIC_API_KEY
+
+    const child = spawn('claude', [
+      '-p',
+      `Read the file "${promptPath}" and implement everything described in the "Final Recommendation" section. Address the Kill Switch concerns. Do NOT commit or push — the agent handles that. Just modify the source files and exit.`,
+      '--model', 'claude-sonnet-4-6',
+      '--max-turns', '50',
+    ], {
+      cwd: REPO_PATH,
+      env,
+      shell: true,
+      timeout: 30 * 60 * 1000, // 30 min max
+    })
+
+    child.stdout.on('data', (chunk) => process.stdout.write(`[claude] ${chunk}`))
+    child.stderr.on('data', (chunk) => process.stderr.write(`[claude] ${chunk}`))
+
+    child.on('close', (code) => {
+      if (code === 0) resolve()
+      else reject(new Error(`Claude CLI exited with code ${code}`))
+    })
+    child.on('error', reject)
+  })
+}
+
+// ── Discord notifications ─────────────────────────────────────────────────────
+
+async function notifyDiscord(embed: {
+  title: string
+  description: string
+  fields?: Array<{ name: string; value: string; inline?: boolean }>
+  color: number
+  footer?: string
+}) {
+  const webhook = process.env.DISCORD_PR_READY_WEBHOOK ?? process.env.DISCORD_LAB_WEBHOOK_URL
+  if (!webhook) return
+
+  try {
+    await fetch(webhook, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        embeds: [{
+          ...embed,
+          footer: embed.footer ? { text: embed.footer } : undefined,
+          timestamp: new Date().toISOString(),
+        }],
+      }),
+    })
+  } catch (err) {
+    console.error('[agent] Discord notify failed:', err)
+  }
+}
+
+// ── Core: process one dive ────────────────────────────────────────────────────
+
+async function processOneDive(dive: Record<string, unknown>) {
+  const featureArea = dive.feature_area as string
+  const diveId = dive.id as string
+  const cycleNumber = dive.cycle_number as number
+
+  console.log(`\n[agent] Processing: ${featureArea} cycle #${cycleNumber} (${diveId})`)
+  isProcessing = true
+
+  try {
+    await supabase
+      .from('lab_agent_status')
+      .update({ status: 'busy', current_dive_id: diveId })
+      .eq('id', 'singleton')
+
+    await supabase
+      .from('lab_deep_dives')
+      .update({ status: 'executing' })
+      .eq('id', diveId)
+
+    // 1. Ensure prompt file
+    const promptPath = await ensurePromptFileExists(dive)
+    if (!promptPath) throw new Error('Could not find or generate prompt file')
+
+    // 2. Git: checkout fresh branch from latest master
+    await execCapture('git', ['checkout', 'master'])
+    await execCapture('git', ['pull', 'origin', 'master'])
+    const branch = `lab/${featureArea}-${Date.now()}`
+    await execCapture('git', ['checkout', '-b', branch])
+
+    // 3. Run Claude Code
+    await runClaudeCode(promptPath)
+
+    // 4. Check for changes
+    const { stdout: status } = await execCapture('git', ['status', '--porcelain'])
+    if (!status.trim()) {
+      console.warn(`[agent] No changes for ${featureArea}`)
+      await supabase
+        .from('lab_deep_dives')
+        .update({ status: 'pr_ready_failed' })
+        .eq('id', diveId)
+      await notifyDiscord({
+        title: 'Lab agent: no changes',
+        description: `**${featureArea}** — Claude Code made no modifications`,
+        color: 0xFFFF00,
+        footer: `Lab Agent · ${HOSTNAME}`,
+      })
+      return
+    }
+
+    // 5. Build check
+    let buildOk = true
+    try {
+      await execCapture('npm', ['run', 'build'])
+    } catch {
+      buildOk = false
+      console.warn('[agent] Build failed — continuing anyway')
+    }
+
+    // 6. Commit + push
+    await execCapture('git', ['add', '-A'])
+    await execCapture('git', [
+      'commit', '-m',
+      `feat(${featureArea}): lab cycle ${cycleNumber} auto-execute\n\nFrom: ${promptPath}\nDive: ${diveId}\n\nCo-Authored-By: Claude Code <noreply@anthropic.com>`,
+    ])
+    await execCapture('git', ['push', 'origin', branch])
+
+    // 7. Create PR via gh CLI
+    const prBody = [
+      `## Auto-executed Lab recommendation`,
+      ``,
+      `**Feature**: ${featureArea}`,
+      `**Cycle**: #${cycleNumber}`,
+      `**Prompt**: \`${promptPath}\``,
+      `**Build**: ${buildOk ? 'passes' : 'check logs'}`,
+      `**Agent**: ${HOSTNAME}`,
+      ``,
+      `## Review checklist`,
+      `- [ ] Kill Switch addressed`,
+      `- [ ] Build passes`,
+      `- [ ] No regressions`,
+      `- [ ] Ship-it`,
+      ``,
+      `---`,
+      `Auto-executed by Lab Agent v${AGENT_VERSION}`,
+    ].join('\n')
+
+    const { stdout: prUrl } = await execCapture('gh', [
+      'pr', 'create',
+      '--title', `Lab: ${featureArea} cycle ${cycleNumber}`,
+      '--body', prBody,
+      '--base', 'master',
+      '--head', branch,
+    ])
+
+    const cleanPrUrl = prUrl.trim()
+    console.log(`[agent] PR created: ${cleanPrUrl}`)
+
+    // 8. Update DB
+    await supabase
+      .from('lab_deep_dives')
+      .update({ status: 'pr_ready', auto_pr_url: cleanPrUrl })
+      .eq('id', diveId)
+
+    // Increment execution count
+    const { data: agentData } = await supabase
+      .from('lab_agent_status')
+      .select('total_executions')
+      .eq('id', 'singleton')
+      .single()
+    await supabase
+      .from('lab_agent_status')
+      .update({
+        total_executions: (agentData?.total_executions ?? 0) + 1,
+        current_dive_id: null,
+      })
+      .eq('id', 'singleton')
+
+    // 9. Discord notification
+    await notifyDiscord({
+      title: 'Lab PR ready for review',
+      description: `**${featureArea}** auto-executed by Lab Agent`,
+      fields: [
+        { name: 'PR', value: cleanPrUrl, inline: false },
+        { name: 'Build', value: buildOk ? 'passes' : 'check logs', inline: true },
+        { name: 'Branch', value: branch, inline: true },
+      ],
+      color: 0x00DDFF,
+      footer: `Lab Agent v${AGENT_VERSION} · ${HOSTNAME}`,
+    })
+  } catch (err: unknown) {
+    const errMsg = err instanceof Error ? err.message : String(err)
+    console.error(`[agent] Error processing ${featureArea}:`, errMsg)
+
+    await supabase
+      .from('lab_deep_dives')
+      .update({ status: 'pr_ready_failed' })
+      .eq('id', diveId)
+
+    await supabase
+      .from('lab_agent_status')
+      .update({
+        last_error: errMsg.slice(0, 1000),
+        last_error_at: new Date().toISOString(),
+        current_dive_id: null,
+      })
+      .eq('id', 'singleton')
+
+    await notifyDiscord({
+      title: 'Lab agent: execution failed',
+      description: `**${featureArea}** failed`,
+      fields: [{ name: 'Error', value: errMsg.slice(0, 500), inline: false }],
+      color: 0xFF0000,
+      footer: `Lab Agent · ${HOSTNAME}`,
+    })
+
+    // Return to master so next poll starts clean
+    try { await execCapture('git', ['checkout', 'master']) } catch { /* ignore */ }
+  } finally {
+    isProcessing = false
+  }
+}
+
+// ── Main loop ─────────────────────────────────────────────────────────────────
+
+async function mainLoop() {
+  console.log(`[agent] Lab Agent v${AGENT_VERSION} starting on ${HOSTNAME}`)
+  console.log(`[agent] Repo: ${REPO_PATH}`)
+  console.log(`[agent] Polling every ${POLL_INTERVAL_MS / 1000}s`)
+
+  await heartbeat('online')
+  await notifyDiscord({
+    title: 'Lab Agent online',
+    description: `Daemon started on ${HOSTNAME}`,
+    color: 0x00FF00,
+    footer: `Lab Agent v${AGENT_VERSION}`,
+  })
+
+  // Heartbeat timer
+  setInterval(() => {
+    heartbeat(isProcessing ? 'busy' : 'online').catch(() => {})
+  }, HEARTBEAT_INTERVAL_MS)
+
+  // Poll loop
+  while (true) {
+    try {
+      if (await checkPaused()) {
+        await sleep(POLL_INTERVAL_MS)
+        continue
+      }
+
+      if (!isProcessing) {
+        const dive = await findNextAcceptedDive()
+        if (dive) {
+          await processOneDive(dive)
+          // Return to master after processing
+          try { await execCapture('git', ['checkout', 'master']) } catch { /* ignore */ }
+        }
+      }
+    } catch (err) {
+      console.error('[agent] Poll error:', err)
+    }
+
+    await sleep(POLL_INTERVAL_MS)
+  }
+}
+
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+// Graceful shutdown
+async function shutdown() {
+  console.log('[agent] Shutting down...')
+  await supabase
+    .from('lab_agent_status')
+    .update({ status: 'offline', current_dive_id: null })
+    .eq('id', 'singleton')
+  await notifyDiscord({
+    title: 'Lab Agent offline',
+    description: `Daemon stopped on ${HOSTNAME}`,
+    color: 0xFF0000,
+    footer: `Lab Agent v${AGENT_VERSION}`,
+  })
+  process.exit(0)
+}
+
+process.on('SIGINT', shutdown)
+process.on('SIGTERM', shutdown)
+
+mainLoop().catch((err) => {
+  console.error('[agent] Fatal:', err)
+  process.exit(1)
+})

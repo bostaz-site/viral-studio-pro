@@ -13,7 +13,8 @@
     "persona:sceptical": "npx tsx scripts/personas/sceptical-first-timer.ts",
     "persona:free-limit": "npx tsx scripts/personas/free-user-limit.ts",
     "persona:power": "npx tsx scripts/personas/power-user.ts",
-    "audit:nightly": "npx tsx scripts/audits/run-nightly.ts"
+    "audit:nightly": "npx tsx scripts/audits/run-nightly.ts",
+    "lab:agent": "npx tsx scripts/lab/lab-agent.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.104.2",
