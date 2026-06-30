@@ -116,6 +116,19 @@ async function ensurePromptFileExists(dive: Record<string, unknown>): Promise<st
 
 // ── Shell execution ───────────────────────────────────────────────────────────
 
+// Resolve claude.exe full path once (shell:false needs it on Windows)
+let CLAUDE_EXE: string | null = null
+function getClaudeExe(): string {
+  if (CLAUDE_EXE) return CLAUDE_EXE
+  try {
+    const { execSync } = require('child_process')
+    CLAUDE_EXE = String(execSync('where claude', { encoding: 'utf-8' })).trim().split('\n')[0].trim()
+  } catch {
+    CLAUDE_EXE = 'claude'
+  }
+  return CLAUDE_EXE
+}
+
 function execCapture(cmd: string, args: string[]): Promise<{ stdout: string; stderr: string }> {
   return new Promise((resolve, reject) => {
     const child = spawn(cmd, args, { cwd: REPO_PATH, shell: true })
@@ -133,32 +146,57 @@ function execCapture(cmd: string, args: string[]): Promise<{ stdout: string; std
 
 function runClaudeCode(promptPath: string): Promise<void> {
   return new Promise((resolve, reject) => {
-    console.log(`[agent] Spawning claude CLI on ${promptPath}...`)
-
-    // Strip ANTHROPIC_API_KEY so CLI uses Max subscription, not paid API
     const env = { ...process.env }
     delete env.ANTHROPIC_API_KEY
 
-    const child = spawn('claude', [
-      '-p',
-      `Read the file "${promptPath}" and implement everything described in the "Final Recommendation" section. Address the Kill Switch concerns. Do NOT commit or push — the agent handles that. Just modify the source files and exit.`,
+    const promptText = `Read the file "${promptPath}" and implement everything described in the "Final Recommendation" section. Address the Kill Switch concerns. Do NOT commit or push — the agent handles that. Just modify the source files and exit when done.`
+
+    // CRITICAL: shell:false + full exe path prevents cmd.exe from mangling args
+    const claudeExe = getClaudeExe()
+    console.log(`[agent] Spawning: ${claudeExe} on ${promptPath}`)
+
+    const child = spawn(claudeExe, [
+      '-p', promptText,
       '--model', 'claude-sonnet-4-6',
       '--max-turns', '50',
+      '--output-format', 'text',
+      '--dangerously-skip-permissions',
     ], {
       cwd: REPO_PATH,
       env,
-      shell: true,
-      timeout: 30 * 60 * 1000, // 30 min max
+      shell: false,
+      stdio: ['ignore', 'pipe', 'pipe'],
     })
 
-    child.stdout.on('data', (chunk) => process.stdout.write(`[claude] ${chunk}`))
-    child.stderr.on('data', (chunk) => process.stderr.write(`[claude] ${chunk}`))
+    let lastOutputAt = Date.now()
+
+    child.stdout.on('data', (chunk) => {
+      lastOutputAt = Date.now()
+      process.stdout.write(`[claude] ${chunk}`)
+    })
+    child.stderr.on('data', (chunk) => {
+      lastOutputAt = Date.now()
+      process.stderr.write(`[claude] ${chunk}`)
+    })
+
+    // Watchdog: kill if silent for 10 minutes
+    const watchdog = setInterval(() => {
+      if ((Date.now() - lastOutputAt) > 600_000) {
+        console.error('[agent] Claude CLI silent for 10 min — killing')
+        child.kill('SIGTERM')
+        clearInterval(watchdog)
+      }
+    }, 60_000)
 
     child.on('close', (code) => {
+      clearInterval(watchdog)
       if (code === 0) resolve()
       else reject(new Error(`Claude CLI exited with code ${code}`))
     })
-    child.on('error', reject)
+    child.on('error', (err) => {
+      clearInterval(watchdog)
+      reject(err)
+    })
   })
 }
 
@@ -189,6 +227,30 @@ async function notifyDiscord(embed: {
   } catch (err) {
     console.error('[agent] Discord notify failed:', err)
   }
+}
+
+// ── GitHub PR creation ────────────────────────────────────────────────────────
+
+async function createPullRequest(title: string, body: string, head: string): Promise<string> {
+  const token = process.env.GITHUB_TOKEN
+  if (!token) throw new Error('GITHUB_TOKEN env var required for PR creation')
+
+  const res = await fetch('https://api.github.com/repos/bostaz-site/viral-studio-pro/pulls', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Accept': 'application/vnd.github+json',
+      'X-GitHub-Api-Version': '2022-11-28',
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ title, body, head, base: 'master' }),
+  })
+
+  const data = await res.json() as { html_url?: string; message?: string }
+  if (!res.ok || !data.html_url) {
+    throw new Error(`GitHub PR creation failed: ${data.message ?? res.status}`)
+  }
+  return data.html_url
 }
 
 // ── Core: process one dive ────────────────────────────────────────────────────
@@ -259,7 +321,7 @@ async function processOneDive(dive: Record<string, unknown>) {
     ])
     await execCapture('git', ['push', 'origin', branch])
 
-    // 7. Create PR via gh CLI
+    // 7. Create PR via GitHub API
     const prBody = [
       `## Auto-executed Lab recommendation`,
       ``,
@@ -279,15 +341,11 @@ async function processOneDive(dive: Record<string, unknown>) {
       `Auto-executed by Lab Agent v${AGENT_VERSION}`,
     ].join('\n')
 
-    const { stdout: prUrl } = await execCapture('gh', [
-      'pr', 'create',
-      '--title', `Lab: ${featureArea} cycle ${cycleNumber}`,
-      '--body', prBody,
-      '--base', 'master',
-      '--head', branch,
-    ])
-
-    const cleanPrUrl = prUrl.trim()
+    const cleanPrUrl = await createPullRequest(
+      `Lab: ${featureArea} cycle ${cycleNumber}`,
+      prBody,
+      branch,
+    )
     console.log(`[agent] PR created: ${cleanPrUrl}`)
 
     // 8. Update DB
