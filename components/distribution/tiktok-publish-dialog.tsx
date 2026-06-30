@@ -63,6 +63,7 @@ export function TikTokPublishDialog({
   const [publishId, setPublishId] = useState<string | null>(null)
   const [publishStatus, setPublishStatus] = useState<TikTokPublishStatus | null>(null)
   const [publishError, setPublishError] = useState<string | null>(null)
+  const [publishedPostId, setPublishedPostId] = useState<string | null>(null)
 
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
@@ -83,6 +84,7 @@ export function TikTokPublishDialog({
     setPublishId(null)
     setPublishStatus(null)
     setPublishError(null)
+    setPublishedPostId(null)
     setIsPublishing(false)
     setCreatorInfoError(null)
 
@@ -201,7 +203,7 @@ export function TikTokPublishDialog({
               body: JSON.stringify({ publish_id: pid }),
             })
             const statusJson = await statusRes.json() as {
-              data?: { status: TikTokPublishStatus; fail_reason?: string }
+              data?: { status: TikTokPublishStatus; fail_reason?: string; post_id?: string }
               error?: string
             }
 
@@ -215,6 +217,9 @@ export function TikTokPublishDialog({
                 if (pollingRef.current) {
                   clearInterval(pollingRef.current)
                   pollingRef.current = null
+                }
+                if (statusJson.data.status === 'PUBLISH_COMPLETE' && statusJson.data.post_id) {
+                  setPublishedPostId(statusJson.data.post_id)
                 }
                 if (statusJson.data.status === 'FAILED') {
                   setPublishError(statusJson.data.fail_reason ?? 'Publishing failed')
@@ -296,19 +301,25 @@ export function TikTokPublishDialog({
   const getStatusDisplay = () => {
     if (!publishId) return null
 
+    const isInbox = publishId === 'inbox-success'
+
     const statusLabels: Record<TikTokPublishStatus, string> = {
       PROCESSING_UPLOAD: 'Uploading to TikTok...',
       PROCESSING_DOWNLOAD: 'Processing video...',
       SEND_TO_USER_INBOX: 'Posting to your TikTok profile...',
-      PUBLISH_COMPLETE: publishId === 'inbox-success'
-        ? 'Successfully sent to TikTok!'
-        : 'Published successfully!',
+      PUBLISH_COMPLETE: isInbox
+        ? 'Video sent to your TikTok drafts'
+        : 'Published on your TikTok profile!',
       FAILED: 'Publishing failed',
     }
 
     const isComplete = publishStatus === 'PUBLISH_COMPLETE'
     const isFailed = publishStatus === 'FAILED'
     const isProcessing = !isComplete && !isFailed
+
+    const tiktokVideoUrl = publishedPostId && creatorInfo?.creator_username
+      ? `https://www.tiktok.com/@${creatorInfo.creator_username}/video/${publishedPostId}`
+      : null
 
     return (
       <div
@@ -336,9 +347,25 @@ export function TikTokPublishDialog({
                 It may take a few minutes for content to be visible on your TikTok profile.
               </p>
             )}
-            {isComplete && publishId === 'inbox-success' && (
+            {isComplete && !isInbox && tiktokVideoUrl && (
+              <a
+                href={tiktokVideoUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 text-xs text-primary hover:underline mt-1.5"
+              >
+                View on TikTok
+                <ExternalLink className="h-3 w-3" />
+              </a>
+            )}
+            {isComplete && !isInbox && !tiktokVideoUrl && (
               <p className="text-xs text-muted-foreground mt-1">
-                Open the TikTok app to finalize and share your post.
+                Your video is now live on your TikTok profile.
+              </p>
+            )}
+            {isComplete && isInbox && (
+              <p className="text-xs text-muted-foreground mt-1">
+                Direct Post unavailable. Open the TikTok app to finalize and share your post.
               </p>
             )}
             {isFailed && publishError && (
