@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { isTikTokReviewMode, canOverrideTikTokReview } from '@/lib/audit/tiktok-review-mode'
+import { generateLabPrompt, buildPromptFilePath } from '@/lib/lab/generate-prompt'
+import { pushFileToGitHub } from '@/lib/audit/github-push'
 
 const DISCORD_PUBLIC_KEY = process.env.DISCORD_PUBLIC_KEY ?? ''
 
@@ -162,10 +164,74 @@ export async function POST(req: NextRequest) {
       const diveId = customId.split(':')[1]
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const labAdmin = createAdminClient() as any
-      await labAdmin.from('lab_deep_dives').update({ user_action: 'accepted', user_action_at: new Date().toISOString() }).eq('id', diveId)
+
+      const { data: dive } = await labAdmin
+        .from('lab_deep_dives')
+        .select('feature_area, cycle_number, target_metric, target_delta_minimum, measurement_method, final_recommendation, recommendation_rationale, kill_switch_scenario, kill_switch_severity, alternatives_rejected, estimated_effort_hours, confidence')
+        .eq('id', diveId)
+        .single()
+
+      await labAdmin.from('lab_deep_dives').update({
+        user_action: 'accepted',
+        user_action_at: new Date().toISOString(),
+      }).eq('id', diveId)
+
+      let workflowTriggered = false
+
+      if (dive) {
+        // Generate prompt file and push to GitHub
+        const prompt = generateLabPrompt(dive)
+        const { filepath } = buildPromptFilePath(dive)
+
+        try {
+          await pushFileToGitHub(filepath, prompt, `lab: accept ${dive.feature_area} cycle ${dive.cycle_number}`)
+        } catch {
+          // Best-effort
+        }
+
+        await labAdmin.from('lab_deep_dives').update({ accepted_prompt_path: filepath }).eq('id', diveId)
+
+        // Trigger auto-execute workflow
+        const githubToken = process.env.GITHUB_TOKEN
+        if (githubToken) {
+          try {
+            const wfRes = await fetch(
+              'https://api.github.com/repos/bostaz-site/viral-studio-pro/actions/workflows/lab-auto-execute.yml/dispatches',
+              {
+                method: 'POST',
+                headers: {
+                  'Authorization': `Bearer ${githubToken}`,
+                  'Accept': 'application/vnd.github+json',
+                  'X-GitHub-Api-Version': '2022-11-28',
+                },
+                body: JSON.stringify({
+                  ref: 'master',
+                  inputs: {
+                    prompt_path: filepath,
+                    dive_id: diveId,
+                    feature_area: dive.feature_area,
+                  },
+                }),
+              }
+            )
+            workflowTriggered = wfRes.status === 204
+          } catch {
+            // Best-effort
+          }
+        }
+
+        await labAdmin.from('lab_deep_dives').update({
+          status: workflowTriggered ? 'executing' : 'completed',
+        }).eq('id', diveId)
+      }
+
+      const featureName = dive?.feature_area ?? diveId.slice(0, 8)
+      const msg = workflowTriggered
+        ? `Lab dive **${featureName}** accepted.\n\nClaude Code is auto-executing now. Check Discord in 5-15 min for the PR.`
+        : `Lab dive **${featureName}** accepted. Check /admin/lab for the prompt.`
       return NextResponse.json({
         type: 4,
-        data: { content: `Lab dive \`${diveId.slice(0, 8)}\` accepted. Check /admin/lab for the Claude Code prompt.`, flags: 64 },
+        data: { content: msg, flags: 64 },
       })
     }
 

@@ -4,6 +4,7 @@ import { jsonResponse, errorResponse } from '@/lib/api/withAuth'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { pushFileToGitHub } from '@/lib/audit/github-push'
 import { sendBotMessage } from '@/lib/audit/discord'
+import { generateLabPrompt, buildPromptFilePath } from '@/lib/lab/generate-prompt'
 
 export const GET = withAdmin(async (req: NextRequest) => {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -14,7 +15,7 @@ export const GET = withAdmin(async (req: NextRequest) => {
   // Fetch dives
   let query = admin
     .from('lab_deep_dives')
-    .select('id, feature_area, cycle_number, status, confidence, estimated_effort_hours, kill_switch_severity, kill_switch_scenario, target_metric, metric_clarity_score, final_recommendation, total_cost_usd, total_duration_seconds, user_action, created_at, deliverable_completed_at')
+    .select('id, feature_area, cycle_number, status, confidence, estimated_effort_hours, kill_switch_severity, kill_switch_scenario, target_metric, metric_clarity_score, final_recommendation, total_cost_usd, total_duration_seconds, user_action, auto_pr_url, created_at, deliverable_completed_at')
     .order('created_at', { ascending: false })
     .limit(limit)
 
@@ -73,7 +74,7 @@ export const PATCH = withAdmin(async (req: NextRequest) => {
 
     await admin.from('lab_deep_dives').update(updates).eq('id', body.diveId)
 
-    // On accept: generate prompt file, push to GitHub, ping Discord
+    // On accept: generate prompt file, push to GitHub, trigger auto-execute, ping Discord
     if (body.action === 'accepted') {
       try {
         const { data: dive } = await admin
@@ -84,28 +85,63 @@ export const PATCH = withAdmin(async (req: NextRequest) => {
 
         if (dive) {
           const prompt = generateLabPrompt(dive)
-          const slug = (dive.final_recommendation ?? 'fix')
-            .slice(0, 40).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
-          const filename = `${dive.feature_area}-cycle${dive.cycle_number}-${slug}.md`
-          const filepath = `docs/lab/prompts/${filename}`
+          const { filepath } = buildPromptFilePath(dive)
 
-          let githubUrl = ''
           try {
-            githubUrl = await pushFileToGitHub(filepath, prompt, `lab: accept ${dive.feature_area} cycle ${dive.cycle_number}`)
+            await pushFileToGitHub(filepath, prompt, `lab: accept ${dive.feature_area} cycle ${dive.cycle_number}`)
           } catch (err) {
             console.warn('[lab] GitHub push failed:', err)
           }
 
-          await admin.from('lab_deep_dives').update({ accepted_prompt_path: filepath }).eq('id', body.diveId)
+          // Trigger auto-execute workflow
+          let workflowTriggered = false
+          const githubToken = process.env.GITHUB_TOKEN
+          if (githubToken) {
+            try {
+              const wfRes = await fetch(
+                'https://api.github.com/repos/bostaz-site/viral-studio-pro/actions/workflows/lab-auto-execute.yml/dispatches',
+                {
+                  method: 'POST',
+                  headers: {
+                    'Authorization': `Bearer ${githubToken}`,
+                    'Accept': 'application/vnd.github+json',
+                    'X-GitHub-Api-Version': '2022-11-28',
+                  },
+                  body: JSON.stringify({
+                    ref: 'master',
+                    inputs: {
+                      prompt_path: filepath,
+                      dive_id: body.diveId,
+                      feature_area: dive.feature_area,
+                    },
+                  }),
+                }
+              )
+              workflowTriggered = wfRes.status === 204
+              if (!workflowTriggered) {
+                console.error('[lab] Workflow dispatch returned:', wfRes.status, await wfRes.text().catch(() => ''))
+              }
+            } catch (err) {
+              console.error('[lab] Failed to trigger auto-execute workflow:', err)
+            }
+          }
+
+          await admin.from('lab_deep_dives').update({
+            accepted_prompt_path: filepath,
+            status: workflowTriggered ? 'executing' : 'completed',
+          }).eq('id', body.diveId)
 
           // Discord notification
           const channelId = process.env.DISCORD_LAB_CHANNEL_ID || process.env.DISCORD_MORNING_BRIEF_CHANNEL_ID
           if (channelId) {
+            const description = workflowTriggered
+              ? `Claude Code is auto-executing the prompt now...\nPrompt: \`${filepath}\`\nExpected: PR ready in 5-15 min\n\nYou'll get pinged in #ready-for-review when the PR is up.`
+              : `Prompt: \`${filepath}\`\n\nAuto-execute not available. Run manually:\n\`\`\`\nclaude "Lis ${filepath} et implemente"\n\`\`\``
             await sendBotMessage(channelId, {
               embeds: [{
                 title: `Lab: ${dive.feature_area} accepted`,
-                description: `Prompt: \`${filepath}\`\n${githubUrl ? `[View on GitHub](${githubUrl})` : ''}\n\nRun:\n\`\`\`\nclaude "Lis ${filepath} et implemente"\n\`\`\``,
-                color: 0x57F287,
+                description,
+                color: workflowTriggered ? 0x9B59B6 : 0x57F287,
               }],
             }).catch(() => {})
           }
@@ -181,47 +217,3 @@ export const POST = withAdmin(async () => {
   }
 })
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function generateLabPrompt(dive: any): string {
-  const alts = Array.isArray(dive.alternatives_rejected)
-    ? dive.alternatives_rejected.map((a: { alt: string; why_rejected: string }) => `- ${a.alt}: ${a.why_rejected}`).join('\n')
-    : '- None recorded'
-
-  const ccEffort = Math.max(0.25, Math.round((dive.estimated_effort_hours ?? 2) / 5 * 10) / 10)
-
-  return `# Lab Prompt — ${dive.feature_area} (cycle #${dive.cycle_number})
-
-> Auto-generated from Lab deep dive on ${new Date().toISOString().slice(0, 10)}
-
-## Target Metric
-**${dive.target_metric ?? 'N/A'}** — minimum delta: ${dive.target_delta_minimum ?? 'N/A'}
-
-Measurement: ${dive.measurement_method ?? 'N/A'}
-
-## Final Recommendation
-${dive.final_recommendation ?? 'N/A'}
-
-## Rationale
-${dive.recommendation_rationale ?? 'N/A'}
-
-## Kill Switch — MUST ADDRESS (severity ${dive.kill_switch_severity ?? '?'}/10)
-${dive.kill_switch_scenario ?? 'None identified'}
-
-**Before implementing, verify this won't happen. Add safeguards.**
-
-## Alternatives Rejected (do NOT implement these)
-${alts}
-
-## Effort
-~${ccEffort}h with Claude Code (${dive.estimated_effort_hours ?? '?'}h human estimate)
-
-## Confidence: ${dive.confidence ?? '?'}/10
-
-## Definition of Done
-- [ ] All changes from "Final Recommendation" implemented
-- [ ] Kill Switch concern addressed with safeguards
-- [ ] Build passes (\`npm run build\`)
-- [ ] Commit: \`feat(${dive.feature_area}): lab cycle ${dive.cycle_number}\`
-- [ ] Push to origin
-`
-}

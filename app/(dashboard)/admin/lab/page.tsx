@@ -24,6 +24,7 @@ interface DeepDive {
   total_cost_usd: number | null
   total_duration_seconds: number | null
   user_action: string | null
+  auto_pr_url: string | null
   created_at: string
   deliverable_completed_at: string | null
 }
@@ -62,6 +63,13 @@ const STATUS_COLORS: Record<string, string> = {
   shipped: 'bg-purple-500/15 text-purple-400 border-purple-500/30',
   discarded: 'bg-zinc-500/15 text-zinc-400 border-zinc-500/30',
   queued: 'bg-amber-500/15 text-amber-400 border-amber-500/30',
+  executing: 'bg-violet-500/15 text-violet-400 border-violet-500/30',
+  pr_ready: 'bg-orange-500/15 text-orange-400 border-orange-500/30',
+}
+
+const STATUS_LABELS: Record<string, string> = {
+  executing: 'Auto-executing',
+  pr_ready: 'PR ready',
 }
 
 const LLM_COLORS: Record<string, string> = {
@@ -271,8 +279,8 @@ export default function LabPage() {
       </div>
 
       {/* Status filter */}
-      <div className="flex gap-2">
-        {['completed', 'running', 'failed', 'shipped', 'discarded', 'all'].map(s => (
+      <div className="flex gap-2 flex-wrap">
+        {['completed', 'executing', 'pr_ready', 'running', 'failed', 'shipped', 'discarded', 'all'].map(s => (
           <button
             key={s}
             onClick={() => setStatusFilter(s)}
@@ -315,7 +323,7 @@ export default function LabPage() {
                     {/* Top line */}
                     <div className="flex items-center gap-2 flex-wrap mb-1">
                       <span className="text-xs font-bold uppercase tracking-wide opacity-70">
-                        {dive.status}
+                        {STATUS_LABELS[dive.status] ?? dive.status}
                       </span>
                       <span className="text-xs text-zinc-500">&middot;</span>
                       <span className="text-xs text-zinc-400">Cycle #{dive.cycle_number}</span>
@@ -434,7 +442,23 @@ export default function LabPage() {
                         </button>
                       </div>
                     )}
-                    {dive.user_action && (
+                    {dive.status === 'executing' && (
+                      <div className="flex items-center gap-2 mt-2 text-xs text-violet-400">
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                        Claude Code is auto-executing... PR incoming in 5-15 min
+                      </div>
+                    )}
+                    {dive.status === 'pr_ready' && dive.auto_pr_url && (
+                      <a
+                        href={dive.auto_pr_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1.5 text-xs font-medium text-orange-400 hover:text-orange-300 mt-2"
+                      >
+                        Review PR on GitHub <span className="text-[10px]">&rarr;</span>
+                      </a>
+                    )}
+                    {dive.user_action && dive.status !== 'executing' && dive.status !== 'pr_ready' && (
                       <p className="text-xs text-zinc-500 mt-2">
                         Action: <span className="font-medium text-zinc-400">{dive.user_action}</span>
                       </p>
