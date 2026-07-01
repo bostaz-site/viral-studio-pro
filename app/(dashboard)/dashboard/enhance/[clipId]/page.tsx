@@ -8,7 +8,7 @@ import {
   ChevronLeft, Loader2, AlertCircle, Sparkles, Download, CheckCircle, Check,
   Type, Wand2, Eye, ExternalLink, Play,
   Monitor, Zap, Send,
-  Flame, Focus, X, Plus, Volume2, Scissors, RotateCcw, Rocket, Bell,
+  Flame, Focus, X, Plus, Volume2, Scissors, RotateCcw, Rocket, Bell, SlidersHorizontal,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from '@/components/ui/accordion'
@@ -1476,6 +1476,7 @@ export default function EnhancePage() {
               getOptionPts={getOptionPts}
               scores={scores}
               sectionRef={sectionRefs.captions}
+              hideGranular
             />
 
             {/* ─── Split-Screen Section ─── */}
@@ -2057,6 +2058,147 @@ export default function EnhancePage() {
                 </div>
               </AccordionContent>
             </AccordionItem>
+            {/* ─── Advanced ─── */}
+            {/* Granular controls: caption position, words/line, custom words, watermark.
+                Kept out of the Captions section so the default view stays lean ("glance and approve"). */}
+            <AccordionItem value="advanced" className="scroll-mt-32 rounded-xl border border-white/10 bg-card/60 px-4 overflow-hidden">
+              <AccordionTrigger className="text-zinc-400 hover:text-white">
+                <span className="flex items-center gap-2 text-sm font-medium text-foreground">
+                  <SlidersHorizontal className="h-4 w-4 text-muted-foreground" />
+                  Advanced
+                  <span className="text-xs text-zinc-500 font-normal">· Position, words per line, watermark</span>
+                </span>
+              </AccordionTrigger>
+              <AccordionContent>
+                <div className="space-y-5">
+
+                  {/* Caption vertical position */}
+                  {settings.captionsEnabled && settings.captionStyle !== 'none' && (
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <Label className="text-xs uppercase tracking-wider text-muted-foreground">Caption Position</Label>
+                        <span className="text-xs font-semibold text-foreground">{settings.captionPosition}%</span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span className="text-[10px] text-muted-foreground whitespace-nowrap">Top</span>
+                        <input
+                          type="range"
+                          min={0}
+                          max={100}
+                          step={1}
+                          value={settings.captionPosition}
+                          onChange={(e) => updateSetting('captionPosition', Number(e.target.value))}
+                          className="w-full h-1.5 bg-border rounded-full appearance-none cursor-pointer accent-primary [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3.5 [&::-webkit-slider-thumb]:h-3.5 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-primary [&::-webkit-slider-thumb]:shadow-md"
+                        />
+                        <span className="text-[10px] text-muted-foreground whitespace-nowrap">Bottom</span>
+                      </div>
+                      <div className="flex justify-center gap-2">
+                        {([
+                          { label: 'Top', value: 8 },
+                          { label: 'Middle', value: 42 },
+                          { label: 'Bottom', value: 72 },
+                        ]).map((p) => (
+                          <button
+                            key={p.label}
+                            onClick={() => updateSetting('captionPosition', p.value)}
+                            className={cn(
+                              'rounded-lg border px-2.5 py-1 text-[10px] font-medium transition-all',
+                              Math.abs(settings.captionPosition - p.value) <= 3
+                                ? 'border-primary bg-primary/10 text-foreground'
+                                : 'border-border hover:border-primary/40 text-muted-foreground'
+                            )}
+                          >
+                            {p.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Words per line */}
+                  {settings.captionsEnabled && settings.captionStyle !== 'none' && (
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <Label className="text-xs uppercase tracking-wider text-muted-foreground">Words per Line</Label>
+                        <span className="text-xs font-mono text-muted-foreground">{settings.wordsPerLine}</span>
+                      </div>
+                      <input
+                        type="range"
+                        min={1}
+                        max={8}
+                        step={1}
+                        value={settings.wordsPerLine}
+                        onChange={(e) => updateSetting('wordsPerLine', Number(e.target.value))}
+                        className="w-full accent-primary"
+                      />
+                      <div className="flex justify-between text-[10px] text-muted-foreground/60">
+                        <span>1 (single)</span>
+                        <span>8 (compact)</span>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Custom important words */}
+                  {settings.captionsEnabled && settings.captionStyle !== 'none' && (
+                    <div className="space-y-2">
+                      <Label className="text-xs uppercase tracking-wider text-muted-foreground">Custom Important Words</Label>
+                      <p className="text-[10px] text-muted-foreground">
+                        Words highlighted in <span className="text-red-400 font-bold">red</span> in captions.
+                        Auto-detected (CAPS, viral words) + custom.
+                      </p>
+                      {settings.customImportantWords.length > 0 && (
+                        <div className="flex flex-wrap gap-1.5">
+                          {settings.customImportantWords.map((w) => (
+                            <span key={w} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-red-500/15 border border-red-500/30 text-[10px] font-bold text-red-400">
+                              {w}
+                              <button
+                                onClick={() => updateSetting('customImportantWords', settings.customImportantWords.filter((cw) => cw !== w))}
+                                className="hover:text-red-300 transition-colors"
+                              >
+                                <X className="h-2.5 w-2.5" />
+                              </button>
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                      <form
+                        className="flex gap-2"
+                        onSubmit={(e) => {
+                          e.preventDefault()
+                          const input = (e.currentTarget.elements.namedItem('advWord') as HTMLInputElement)
+                          const word = input.value.trim()
+                          if (word && !settings.customImportantWords.includes(word.toLowerCase())) {
+                            updateSetting('customImportantWords', [...settings.customImportantWords, word.toLowerCase()])
+                            input.value = ''
+                          }
+                        }}
+                      >
+                        <input
+                          name="advWord"
+                          type="text"
+                          placeholder="Add a word..."
+                          className="flex-1 rounded-lg border border-border bg-background px-3 py-1.5 text-xs text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-1 focus:ring-primary/50"
+                        />
+                        <Button type="submit" size="sm" variant="outline" className="h-7 px-2">
+                          <Plus className="h-3.5 w-3.5" />
+                        </Button>
+                      </form>
+                    </div>
+                  )}
+
+                  {/* Watermark — coming soon */}
+                  <div className="flex items-center justify-between opacity-50 cursor-not-allowed select-none">
+                    <div>
+                      <span className="text-sm font-semibold text-foreground block">Watermark</span>
+                      <span className="text-[10px] text-muted-foreground block mt-0.5">Add your logo or @handle to every clip</span>
+                    </div>
+                    <span className="text-[10px] font-bold text-zinc-500 bg-zinc-800/60 px-2 py-0.5 rounded-full border border-zinc-700 shrink-0">Coming soon</span>
+                  </div>
+
+                </div>
+              </AccordionContent>
+            </AccordionItem>
+
           </Accordion>
           </div>
         </div>

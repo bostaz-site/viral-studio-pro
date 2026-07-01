@@ -12,11 +12,13 @@ import React from 'react'
 
 interface CaptionsSectionProps extends AccordionSectionProps {
   sectionRef?: React.Ref<HTMLDivElement>
+  /** When true, hides granular controls (position, words/line, custom words) — they live in the Advanced accordion */
+  hideGranular?: boolean
 }
 
 export function CaptionsSection({
   settings, updateSetting, scoreBreakdown, hasAiAnalyzed, analysisComplete, moodAiDetected,
-  selectedMood, scores, getRealImpact, sectionRef,
+  selectedMood, scores, getRealImpact, sectionRef, hideGranular = false,
 }: CaptionsSectionProps) {
   return (
     <AccordionItem value="captions" ref={sectionRef as React.Ref<HTMLDivElement>} className="scroll-mt-32 rounded-xl border border-white/10 bg-card/60 px-4 overflow-hidden">
@@ -154,6 +156,8 @@ export function CaptionsSection({
               </div>
             </div>
 
+            {/* Granular controls — shown here only when not delegated to the Advanced accordion */}
+            {!hideGranular && <>
             {/* Important words */}
             <div className="space-y-2">
               <Label className="text-xs uppercase tracking-wider text-muted-foreground">Important words</Label>
@@ -270,6 +274,7 @@ export function CaptionsSection({
                 <span>8 (compact)</span>
               </div>
             </div>
+            </>}
             </>}
           </div>
         )}
