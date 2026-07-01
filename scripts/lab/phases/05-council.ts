@@ -87,7 +87,7 @@ export async function runMultiLlmCouncil(
     }),
     askClaudeOpus(brief, 4096).catch(err => {
       console.error('[lab:council] Opus failed:', err)
-      return { text: JSON.stringify(FALLBACK_RESPONSE), cost_usd: 0, duration_ms: 0, model: 'claude-opus-4-6' }
+      return { text: JSON.stringify(FALLBACK_RESPONSE), cost_usd: 0, duration_ms: 0, model: 'claude-fable-5' }
     }),
     askGemini(brief).catch(err => {
       console.error('[lab:council] Gemini failed:', err)

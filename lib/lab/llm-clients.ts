@@ -39,7 +39,7 @@ function isAnthropicCreditError(err: unknown): boolean {
  */
 async function askClaudeViaCli(
   prompt: string,
-  model: 'claude-sonnet-4-6' | 'claude-opus-4-6',
+  model: 'claude-sonnet-4-6' | 'claude-opus-4-6' | 'claude-fable-5',
 ): Promise<LlmResponse> {
   const start = Date.now()
 
@@ -150,7 +150,7 @@ export async function askClaudeOpus(prompt: string, maxTokens = 4096): Promise<L
 
   if (process.env.LAB_USE_CLAUDE_CLI !== 'false') {
     try {
-      return await askClaudeViaCli(prompt, 'claude-opus-4-6')
+      return await askClaudeViaCli(prompt, 'claude-fable-5')
     } catch (err) {
       console.warn('[lab] Claude Opus CLI failed, falling back to API:', (err as Error).message)
     }
