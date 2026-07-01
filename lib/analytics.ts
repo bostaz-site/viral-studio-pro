@@ -28,6 +28,7 @@ type EventName =
   | 'changelog_view'
   | 'newsletter_submitted'
   | 'pricing_view'
+  | 'clip_enhance_started'
 
 type Primitive = string | number | boolean
 

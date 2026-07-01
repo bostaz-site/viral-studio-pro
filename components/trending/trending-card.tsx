@@ -12,6 +12,7 @@ import { timeAgo, formatCount } from '@/lib/trending/utils'
 import { PLATFORM_STYLES, NICHE_LABELS } from '@/lib/trending/constants'
 import { clipRank, getClipInsight } from '@/types/trending'
 import type { TrendingClip } from '@/types/trending'
+import { isHoverPreviewV2 } from '@/lib/feature-flags'
 
 export type { TrendingClip }
 
@@ -34,6 +35,12 @@ interface TrendingCardProps {
   onToggleGroup?: (groupId: string) => void
   isGroupExpanded?: boolean
 }
+
+// ── Module-level video URL cache ──
+// Pre-resolved URLs survive re-renders and card unmounts within a session.
+// Keyed by clip.id — prevents duplicate /api/clips/video-url fetches.
+// Kill switch: entries are deleted on video error so a bad URL isn't reused.
+const preResolvedCache = new Map<string, string>()
 
 const STREAMER_GRADIENTS: Record<string, string> = {
   kaicenat: 'from-purple-600 via-pink-500 to-red-500',
@@ -146,9 +153,17 @@ export const TrendingCard = memo(function TrendingCard({ clip, onRemix, onQuickE
   const [showVideo, setShowVideo] = useState(false)
   const [videoPlaying, setVideoPlaying] = useState(false)
   const [resolvedVideoUrl, setResolvedVideoUrl] = useState<string | null>(null)
+  // V2: overlay CTA state
+  const [showOverlay, setShowOverlay] = useState(false)
+  // V2: mobile first-tap state (first tap shows preview+CTA, second tap navigates)
+  const [mobileTapActive, setMobileTapActive] = useState(false)
+
   const videoRef = useRef<HTMLVideoElement | null>(null)
   const abortRef = useRef<AbortController | null>(null)
   const hoveredRef = useRef(false)
+  const overlayTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // Stable ref: true if the device has touch input (populated once on mount)
+  const isMobileRef = useRef(false)
 
   const ps = PLATFORM_STYLES[clip.platform.toLowerCase()]
   const platformStyle = {
@@ -169,6 +184,11 @@ export const TrendingCard = memo(function TrendingCard({ clip, onRemix, onQuickE
   // Cleanup abort on unmount
   useEffect(() => {
     return () => { abortRef.current?.abort() }
+  }, [])
+
+  // Detect touch device (once, client-side only)
+  useEffect(() => {
+    isMobileRef.current = typeof window !== 'undefined' && navigator.maxTouchPoints > 0
   }, [])
 
   const getClipSlug = useCallback((): string | null => {
@@ -196,6 +216,67 @@ export const TrendingCard = memo(function TrendingCard({ clip, onRemix, onQuickE
     return null
   }, [clip.external_url])
 
+  // ── V2: IntersectionObserver pre-resolution ──
+  // When the card scrolls into view, pre-fetch the video URL so it's ready
+  // at hover time (~0ms latency vs 300-800ms per-hover fetch).
+  // Kill switch: only runs when isHoverPreviewV2 is enabled. Each clip is
+  // fetched at most once per session (module-level cache + disconnect-on-fire).
+  useEffect(() => {
+    if (!isHoverPreviewV2) return
+    const platform = clip.platform?.toLowerCase()
+    if (platform !== 'twitch' && platform !== 'kick') return
+    const slug = getClipSlug()
+    if (!slug) return
+    if (preResolvedCache.has(clip.id)) return // already resolved
+
+    // tilt.ref is populated after mount, safe to access in useEffect
+    const el = (tilt.ref as React.RefObject<HTMLElement>).current
+    if (!el) return
+
+    const observer = new IntersectionObserver(([entry]) => {
+      if (!entry.isIntersecting) return
+      // Fire once only — disconnect before fetching to prevent re-entry
+      observer.disconnect()
+      if (preResolvedCache.has(clip.id)) return
+
+      const url = `/api/clips/video-url?slug=${encodeURIComponent(slug)}&platform=${platform}`
+      fetch(url)
+        .then(r => r.ok ? r.json() : null)
+        .then(data => {
+          if (data?.video_url) preResolvedCache.set(clip.id, data.video_url)
+        })
+        .catch(() => { /* silent — hover will fall back to per-fetch */ })
+    }, { threshold: 0.1 })
+
+    observer.observe(el)
+    return () => observer.disconnect()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clip.id, clip.external_url, getClipSlug])
+
+  // ── V2: Overlay CTA timer ──
+  // Desktop: shows 1.5s after video starts playing (establishes intent).
+  // Mobile: shows immediately when mobileTapActive (tap IS the intent signal).
+  useEffect(() => {
+    if (overlayTimerRef.current) clearTimeout(overlayTimerRef.current)
+
+    if (!isHoverPreviewV2) return
+
+    if (mobileTapActive) {
+      setShowOverlay(true)
+      return
+    }
+
+    if (videoPlaying) {
+      overlayTimerRef.current = setTimeout(() => setShowOverlay(true), 1500)
+    } else {
+      setShowOverlay(false)
+    }
+
+    return () => {
+      if (overlayTimerRef.current) clearTimeout(overlayTimerRef.current)
+    }
+  }, [videoPlaying, mobileTapActive])
+
   // Track whether we've already fetched for this hover session
   const fetchedForHoverRef = useRef(false)
 
@@ -207,7 +288,16 @@ export const TrendingCard = memo(function TrendingCard({ clip, onRemix, onQuickE
     const platform = clip.platform?.toLowerCase()
     if (platform !== 'twitch' && platform !== 'kick') return
 
-    // Abort any previous in-flight fetch for this card
+    // V2: check pre-resolution cache first — 0ms latency if pre-fetched by IO
+    if (isHoverPreviewV2) {
+      const cached = preResolvedCache.get(clip.id)
+      if (cached) {
+        setResolvedVideoUrl(cached)
+        return
+      }
+    }
+
+    // Fallback: fetch on hover (original behavior, also used when flag is off)
     abortRef.current?.abort()
     const controller = new AbortController()
     abortRef.current = controller
@@ -220,13 +310,14 @@ export const TrendingCard = memo(function TrendingCard({ clip, onRemix, onQuickE
     fetch(url, { signal: controller.signal })
       .then((r) => r.ok ? r.json() : null)
       .then((data) => {
-        // Only set URL if we're STILL hovered (prevents stale late-arriving responses)
         if (data?.video_url && hoveredRef.current) {
+          // Populate cache so subsequent hovers are instant
+          if (isHoverPreviewV2) preResolvedCache.set(clip.id, data.video_url)
           setResolvedVideoUrl(data.video_url)
         }
       })
       .catch(() => {/* aborted or network error — ignore */})
-  }, [clip.platform, getClipSlug])
+  }, [clip.platform, clip.id, getClipSlug])
 
   const handleMouseLeave = useCallback(() => {
     setHovered(false)
@@ -234,6 +325,9 @@ export const TrendingCard = memo(function TrendingCard({ clip, onRemix, onQuickE
     setShowVideo(false)
     setVideoPlaying(false)
     setResolvedVideoUrl(null)
+    setShowOverlay(false)
+    setMobileTapActive(false)
+    if (overlayTimerRef.current) clearTimeout(overlayTimerRef.current)
 
     // Abort any in-flight fetch so late responses can't set state
     abortRef.current?.abort()
@@ -249,6 +343,52 @@ export const TrendingCard = memo(function TrendingCard({ clip, onRemix, onQuickE
     if (!hovered || !videoUrl) return
     setShowVideo(true)
   }, [hovered, videoUrl])
+
+  // ── V2: Mobile first-tap handler ──
+  // On touch devices: first tap shows preview + overlay (no navigation).
+  // The parent div's onClick navigates on second tap (or on CTA button click).
+  const handleCardClick = useCallback((e: React.MouseEvent) => {
+    if (!isHoverPreviewV2 || !isMobileRef.current) return
+    if (mobileTapActive) return // second tap — let event bubble to parent nav handler
+
+    // First tap: block navigation, trigger preview state
+    e.stopPropagation()
+    setMobileTapActive(true)
+
+    const platform = clip.platform?.toLowerCase()
+    if (platform !== 'twitch' && platform !== 'kick') return
+    const slug = getClipSlug()
+    if (!slug) return
+
+    const cached = preResolvedCache.get(clip.id)
+    if (cached) {
+      setResolvedVideoUrl(cached)
+      setShowVideo(true)
+      return
+    }
+
+    const url = `/api/clips/video-url?slug=${encodeURIComponent(slug)}&platform=${platform}`
+    fetch(url)
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (data?.video_url) {
+          preResolvedCache.set(clip.id, data.video_url)
+          setResolvedVideoUrl(data.video_url)
+          setShowVideo(true)
+        }
+      })
+      .catch(() => { /* silent — overlay shows without video */ })
+  }, [mobileTapActive, clip.id, clip.platform, getClipSlug])
+
+  // ── V2: Video error kill switch ──
+  // Handles: Twitch CDN auth failures, CORS errors, network issues.
+  // Falls back silently to thumbnail and evicts the bad URL from cache.
+  const handleVideoError = useCallback(() => {
+    setShowVideo(false)
+    setVideoPlaying(false)
+    setShowOverlay(false)
+    if (isHoverPreviewV2) preResolvedCache.delete(clip.id)
+  }, [clip.id])
 
   const rank = clipRank(clip)
   const insight = getClipInsight(clip)
@@ -273,6 +413,42 @@ export const TrendingCard = memo(function TrendingCard({ clip, onRemix, onQuickE
   const dynamicCTA = getDynamicCTA(clip)
   const verdictColor = getVerdictColor(score ?? 0)
 
+  // V2: overlay verdict — short punchy line matched to feed_category signal
+  const overlayVerdict = clip.feed_category === 'early_gem' ? 'Early Gem — jump on it'
+    : clip.feed_category === 'hot_now' ? 'Exploding — catch it now'
+    : clip.feed_category === 'proven' ? 'Proven performer'
+    : verdict.text
+
+  // ── Shared overlay CTA element (rendered inside thumb containers) ──
+  // Appears after 1.5s of playback on desktop, or immediately on mobile first-tap.
+  // Z-index 15 sits above video (5) and badges (6).
+  const overlayCTA = isHoverPreviewV2 && showOverlay ? (
+    <div
+      className="absolute inset-x-0 bottom-0 z-[15] flex flex-col items-center gap-2 px-3 pb-3 pt-8 animate-in fade-in duration-300"
+      style={{ background: 'linear-gradient(to top, rgba(0,0,0,.92) 0%, rgba(0,0,0,.65) 60%, transparent 100%)' }}
+    >
+      {score !== null && (
+        <div className="flex items-center gap-1.5">
+          <span className="text-[10px] text-white/60 uppercase tracking-wider font-semibold">Viral</span>
+          <span className="text-xs font-black text-white bg-white/10 rounded-full px-2 py-0.5">{score}</span>
+        </div>
+      )}
+      <p className="text-[11px] font-bold text-center line-clamp-1" style={{ color: verdictColor }}>
+        {overlayVerdict}
+      </p>
+      <button
+        className="w-full max-w-[200px] h-10 rounded-xl text-sm font-black text-white transition-all hover:scale-105 active:scale-95"
+        style={{
+          background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
+          boxShadow: '0 4px 20px rgba(99,102,241,.45)',
+        }}
+        onClick={(e) => { e.stopPropagation(); onRemix?.(clip) }}
+      >
+        Enhance This Clip →
+      </button>
+    </div>
+  ) : null
+
   // ── Legendary rendering path — ornate gold frame design ──
   if (isLegendary) {
 
@@ -289,6 +465,7 @@ export const TrendingCard = memo(function TrendingCard({ clip, onRemix, onQuickE
         onMouseMove={tilt.handlers.onMouseMove}
         onMouseEnter={() => { tilt.handlers.onMouseEnter(); handleMouseEnter() }}
         onMouseLeave={() => { tilt.handlers.onMouseLeave(); handleMouseLeave() }}
+        onClick={handleCardClick}
       >
         {/* Shared SVG gradient defs */}
         <LegGemDefs />
@@ -326,7 +503,10 @@ export const TrendingCard = memo(function TrendingCard({ clip, onRemix, onQuickE
                 {showVideo && videoUrl && (
                   <video key={`${clip.id}-${videoUrl}`} ref={videoRef} src={videoUrl}
                     className="absolute inset-0 w-full h-full object-cover z-[5]"
-                    autoPlay muted playsInline loop disablePictureInPicture controlsList="nodownload nofullscreen noremoteplayback" onPlaying={() => setVideoPlaying(true)} />
+                    autoPlay muted playsInline loop disablePictureInPicture controlsList="nodownload nofullscreen noremoteplayback"
+                    onPlaying={() => setVideoPlaying(true)}
+                    onError={handleVideoError}
+                  />
                 )}
 
                 {/* Thumbnail image */}
@@ -364,6 +544,9 @@ export const TrendingCard = memo(function TrendingCard({ clip, onRemix, onQuickE
                     {formatDuration(clip.duration_seconds)}
                   </span>
                 )}
+
+                {/* V2: Hover overlay CTA */}
+                {overlayCTA}
 
               </div>
             </div>
@@ -432,6 +615,7 @@ export const TrendingCard = memo(function TrendingCard({ clip, onRemix, onQuickE
       onMouseMove={tilt.handlers.onMouseMove}
       onMouseEnter={() => { tilt.handlers.onMouseEnter(); handleMouseEnter() }}
       onMouseLeave={() => { tilt.handlers.onMouseLeave(); handleMouseLeave() }}
+      onClick={handleCardClick}
     >
       {/* Thumbnail */}
       <div className="thumb aspect-video relative overflow-hidden rounded-t-xl bg-gradient-to-br from-slate-900 to-slate-800">
@@ -445,6 +629,7 @@ export const TrendingCard = memo(function TrendingCard({ clip, onRemix, onQuickE
             className="absolute inset-0 w-full h-full object-cover z-[5]"
             autoPlay muted playsInline loop disablePictureInPicture controlsList="nodownload nofullscreen noremoteplayback"
             onPlaying={() => setVideoPlaying(true)}
+            onError={handleVideoError}
           />
         )}
 
@@ -521,6 +706,9 @@ export const TrendingCard = memo(function TrendingCard({ clip, onRemix, onQuickE
             {formatDuration(clip.duration_seconds)}
           </span>
         )}
+
+        {/* V2: Hover overlay CTA */}
+        {overlayCTA}
 
       </div>
 

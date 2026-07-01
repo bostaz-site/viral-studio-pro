@@ -21,6 +21,7 @@ import { useTrendingStore, type TrendingClip } from '@/stores/trending-store'
 import type { FeedFilter } from '@/types/trending'
 import { cn } from '@/lib/utils'
 import { InstallBanner } from '@/components/pwa/install-banner'
+import { track } from '@/lib/analytics'
 
 export default function DashboardPage() {
   const router = useRouter()
@@ -115,6 +116,7 @@ export default function DashboardPage() {
   }, [fetchClips])
 
   const handleEnhance = useCallback((clip: TrendingClip) => {
+    track('clip_enhance_started', { source: 'browse', clip_id: clip.id })
     router.push(`/dashboard/enhance/${clip.id}`)
   }, [router])
 
