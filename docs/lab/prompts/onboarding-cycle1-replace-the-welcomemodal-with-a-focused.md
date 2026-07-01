@@ -1,6 +1,6 @@
 # Lab Prompt — onboarding (cycle #1)
 
-> Auto-generated from Lab deep dive on 2026-06-30
+> Auto-generated from Lab deep dive on 2026-07-01
 
 ## Target Metric
 **first_render_completion_rate** — minimum delta: 15

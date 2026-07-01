@@ -111,17 +111,43 @@ export function LivePreview({
   const allSampleWords = useMemo(() => ['This', 'is', 'CRAZY', 'bro', 'let\'s', 'go'], [])
   // Show only wordsPerLine words in the preview to reflect the setting
   const sampleWords = useMemo(() => allSampleWords.slice(0, Math.max(1, settings.wordsPerLine)), [allSampleWords, settings.wordsPerLine])
-  const [activeWordIdx, setActiveWordIdx] = useState(0)
+  // videoTime tracks the live currentTime from the preview video element.
+  // Caption activeWordIdx is derived from it so overlays pause/seek in sync
+  // with the video (spec: "in sync with video currentTime via timeupdate events").
+  // When no video is available (thumbnail-only or load failed) we fall back to
+  // a fixed 400ms interval — same visual result, no video dependency.
+  const [videoTime, setVideoTime] = useState(0)
+  const [timerWordIdx, setTimerWordIdx] = useState(0)
   const [typewriterLen, setTypewriterLen] = useState(0)
 
+  // Reset accumulated time whenever the video URL changes (element remounts via key)
+  useEffect(() => { setVideoTime(0) }, [videoUrl])
+
+  // ── Video load error/timeout — graceful fallback ──
+  // Declared before the timer-fallback effect so videoLoadFailed is in scope.
+  const [videoLoadFailed, setVideoLoadFailed] = useState(false)
   useEffect(() => {
-    // Main word-cycling clock (~400ms per word)
+    setVideoLoadFailed(false)
+    if (!videoUrl) return
+    // Timeout: if video doesn't start loading within 5s, show fallback
+    const timer = setTimeout(() => setVideoLoadFailed(true), 5000)
+    return () => clearTimeout(timer)
+  }, [videoUrl])
+
+  // Timer fallback: runs only when there is no live video to drive the time
+  useEffect(() => {
+    if (videoUrl && !videoLoadFailed) return // video's onTimeUpdate handles it
     const wordTimer = setInterval(() => {
-      setActiveWordIdx((i) => (i + 1) % sampleWords.length)
+      setTimerWordIdx((i) => (i + 1) % sampleWords.length)
       setTypewriterLen(0)
     }, 400)
     return () => clearInterval(wordTimer)
-  }, [sampleWords.length])
+  }, [videoUrl, videoLoadFailed, sampleWords.length])
+
+  // Derive active word: synced to video currentTime when playing, else timer
+  const activeWordIdx = (videoUrl && !videoLoadFailed)
+    ? Math.floor(videoTime / 0.4) % sampleWords.length
+    : timerWordIdx
 
   useEffect(() => {
     // Typewriter progression inside each active-word window
@@ -134,16 +160,6 @@ export function LivePreview({
     }, perChar)
     return () => clearInterval(tick)
   }, [activeWordIdx, currentAnimation, sampleWords])
-
-  // ── Video load error/timeout — graceful fallback ──
-  const [videoLoadFailed, setVideoLoadFailed] = useState(false)
-  useEffect(() => {
-    setVideoLoadFailed(false)
-    if (!videoUrl) return
-    // Timeout: if video doesn't start loading within 5s, show fallback
-    const timer = setTimeout(() => setVideoLoadFailed(true), 5000)
-    return () => clearTimeout(timer)
-  }, [videoUrl])
 
   // ── Rendered video: show as-is, no CSS effects (everything is baked in) ──
   const [renderedVideoReady, setRenderedVideoReady] = useState(false)
@@ -322,6 +338,7 @@ export function LivePreview({
                   autoPlay loop muted playsInline
                   onCanPlay={() => setVideoLoadFailed(false)}
                   onError={() => setVideoLoadFailed(true)}
+                  onTimeUpdate={(e) => setVideoTime(e.currentTarget.currentTime)}
                 />
               ) : videoLoadFailed ? (
                 <div className="relative w-full h-full flex flex-col items-center justify-center bg-zinc-900 z-[1] gap-2">

@@ -131,7 +131,10 @@ function getClaudeExe(): string {
 
 function execCapture(cmd: string, args: string[]): Promise<{ stdout: string; stderr: string }> {
   return new Promise((resolve, reject) => {
-    const child = spawn(cmd, args, { cwd: REPO_PATH, shell: true })
+    // shell:true ONLY for .cmd wrappers (npm/npx). git is a real .exe — shell:false
+    // prevents cmd.exe from splitting multi-word args (bug: "pathspec 'lab' did not match")
+    const needsShell = cmd === 'npm' || cmd === 'npx'
+    const child = spawn(cmd, args, { cwd: REPO_PATH, shell: needsShell })
     let stdout = ''
     let stderr = ''
     child.stdout.on('data', (c) => (stdout += c.toString()))
@@ -336,12 +339,16 @@ async function processOneDive(dive: Record<string, unknown>) {
       console.warn('[agent] Build failed — continuing anyway')
     }
 
-    // 6. Commit + push
+    // 6. Commit + push — message via temp file (-F): Windows cmd.exe mangles multi-word -m
     await execCapture('git', ['add', '-A'])
-    await execCapture('git', [
-      'commit', '-m',
-      `feat(${featureArea}): lab cycle ${cycleNumber} auto-execute\n\nFrom: ${promptPath}\nDive: ${diveId}\n\nCo-Authored-By: Claude Code <noreply@anthropic.com>`,
-    ])
+    const commitMsg = `feat(${featureArea}): lab cycle ${cycleNumber} auto-execute\n\nFrom: ${promptPath}\nDive: ${diveId}\n\nCo-Authored-By: Claude Code <noreply@anthropic.com>`
+    const msgFile = path.join(os.tmpdir(), `lab-commit-${Date.now()}.txt`)
+    await fs.writeFile(msgFile, commitMsg, 'utf-8')
+    try {
+      await execCapture('git', ['commit', '-F', msgFile])
+    } finally {
+      await fs.unlink(msgFile).catch(() => {})
+    }
     await execCapture('git', ['push', 'origin', branch])
 
     // 7. Create PR via GitHub API

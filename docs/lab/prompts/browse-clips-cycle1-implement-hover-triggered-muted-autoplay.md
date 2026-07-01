@@ -1,6 +1,6 @@
 # Lab Prompt — browse-clips (cycle #1)
 
-> Auto-generated from Lab deep dive on 2026-06-30
+> Auto-generated from Lab deep dive on 2026-07-01
 
 ## Target Metric
 **browse_to_enhance_rate** — minimum delta: 10

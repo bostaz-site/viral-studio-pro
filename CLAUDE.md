@@ -1,89 +1,229 @@
 # VIRAL ANIMAL — Instructions pour Claude Code
 
-## Projet
-Viral Animal — Une webapp simple pour booster la viralite de clips de streamers. Tu choisis un clip (depuis la bibliotheque ou tu uploades le tien), tu l'ameliores (sous-titres, split-screen, tag streamer, gros moment au debut), et tu exportes.
+## Vision Produit
 
-## Le Flow Utilisateur
+Viral Animal = machine a farmer des clips viraux, en 4 etages :
 
-1. **Choisir un clip** — Bibliotheque de clips de streamers deja decoupes + upload de ton propre clip
-2. **Booster la viralite** — Editeur avec : sous-titres karaoke, split-screen (gameplay en bas), tag du streamer, reordering (gros moment en premier → contexte apres)
-3. **Exporter** — Telecharger la video finale optimisee en format vertical (9:16)
+### Etage 1 — Flow Manuel (LIVE)
+Browse clips de streamers (Twitch/Kick) → enhance (captions karaoke, split-screen, hook IA, "Make it Viral") → export/publish vers TikTok.
+C'est le produit visible, le premier contact utilisateur.
 
-C'est tout. Pas plus complique.
+### Etage 2 — Clip Bank + Autofarm (EN CONSTRUCTION)
+L'user met des clips en banque, un agent les publie automatiquement aux moments optimaux.
+Feature Pro/Studio, coeur de la monetisation future.
+Code existant : `lib/distribution/smart-queue-engine.ts`, `smart-publisher.ts`, `strategy-engine.ts`, `reward-engine.ts`.
+UI : `components/distribution/clip-bank-rail.tsx`, `schedule-queue.tsx`, `smart-insights-widget.tsx`.
+
+### Etage 3 — Live Moment Detection (VISION)
+Poll agressif des clips Twitch des streamers suivis, spike de velocity dans les premieres minutes = gros moment → notification ou auto-enhance + auto-post AVANT tout le monde.
+S'appuie sur la spike detection existante (`lib/scoring/`, cron stratifie `rescore-clips`).
+
+### Etage 4 — Agent TikTok Personnalise (VISION, bloque par permissions API)
+Agent qui analyse le compte TikTok de l'user pour personnaliser l'autofarm (timing, hashtags, style).
+Route existante : `app/api/tiktok/creator-info/route.ts`.
+
+## Realite du Launch
+
+- **TikTok Direct Post** : APPROVED (seule plateforme active au launch)
+- **YouTube / Instagram / Facebook** : affiches "coming soon", desactives (permissions en attente)
+- L'autofarm auto-post devra gerer le risque contenu tiers (musique detectee par TikTok) : filtre audio ou replace-audio dans le pipeline — note au backlog
+- **Plans** : Free ($0, 3 videos/mois, watermark), Pro ($19, 30 videos/mois), Studio ($24 launch / $29 regular, 120 videos/mois, multi-platform publish)
+- **Stripe** : checkout + portal + webhooks integres
+- **Feature flag** : `NEXT_PUBLIC_AUDIT_MODE` cache les features browse-clips pendant les reviews TikTok
+
+## Architecture Reelle (3 couches)
+
+### Couche 1 — Produit User (~35% du code)
+Ce que l'utilisateur voit et utilise.
+
+| Zone | Pages | Fichiers cles |
+|------|-------|---------------|
+| **Browse clips** | `dashboard/page.tsx` | `lib/twitch/`, `lib/kick/`, `lib/scoring/clip-scorer.ts`, `stores/trending-store.ts` |
+| **Enhance editor** | `dashboard/enhance/[clipId]/page.tsx` | `components/enhance/`, `lib/ai/mood-detector.ts`, `lib/schemas/render.ts` |
+| **Distribution hub** | `dashboard/distribution/page.tsx` | `components/distribution/`, `lib/distribution/`, `stores/distribution-store.ts`, `stores/schedule-store.ts` |
+| **Publish** | via `UnifiedPublishDialog` | `components/distribution/unified-publish-dialog.tsx`, `app/api/publish/[platform]/route.ts` |
+| **Analytics** | `dashboard/analytics/page.tsx` | `components/analytics/`, `lib/analytics.ts` |
+| **Settings** | `settings/page.tsx` | `components/settings/`, Creator Rank UI, OAuth connections |
+| **Auth** | `app/(auth)/` | `lib/supabase/`, Supabase Auth, OAuth `app/api/oauth/[platform]/` |
+| **Landing** | `app/page.tsx` | `components/landing/` (hero, features, pricing, FAQ, testimonials) |
+
+### Couche 2 — Growth Machine Admin (~50% du code)
+Moteur d'acquisition influenceurs. Accessible uniquement aux admins (`lib/admin/is-admin.ts`).
+
+| Systeme | Routes API | Fichiers cles |
+|---------|-----------|---------------|
+| **Influencer CRM** | `admin/influencers/`, `admin/inbox/` | `lib/admin/scraper/`, `lib/admin/ai/lead-scorer.ts` |
+| **YouTube Scraper** | `admin/scraper/` | `lib/admin/scraper/youtube.ts`, `keyword-scorer.ts`, `distributor-graph.ts` |
+| **Match Engine** | `admin/match-engine/` | `lib/admin/match-engine/scorer.ts`, `niche-matcher.ts`, `audience-matcher.ts` |
+| **Offer Generator** | `admin/offer-generator/` | `lib/admin/offer-generator/template-renderer.ts`, `instantly-pusher.ts` |
+| **Email Campaigns** | `admin/campaigns/`, `admin/mailboxes/` | `lib/admin/email/`, `lib/integrations/instantly/` |
+| **Affiliate System** | `admin/affiliates/`, `app/api/affiliate/` | `lib/admin/affiliate-attribution.ts`, 30% commission, Stripe Connect payouts |
+| **Partner Portal** | `app/partner/` (7 pages) | `lib/partner/auth.ts` (magic link), `repost-kit/`, `app/api/partner/` |
+| **Video Library** | `admin/video-library/` | `lib/admin/video-library/`, promo videos pour influenceurs |
+| **Compliance** | `admin/compliance/` | `lib/admin/compliance/` (GDPR export/delete, provenance enforcer, suppression list) |
+| **Analytics Admin** | `admin/analytics/` (funnel, cohorts, revenue, affiliates, campaigns) | `lib/admin/analytics/` |
+| **Watchdog** | `admin/watchdog/` | `lib/admin/watchdog/anomaly-detector.ts`, `checks.ts`, `notifier.ts` |
+| **Cost Tracking** | `admin/costs/` | `lib/admin/costs/` |
+| **Streamers** | `admin/streamers/` | CRUD + fetch clips manuels |
+
+### Couche 3 — Automation (~15% du code)
+Agents autonomes qui ameliorent le produit et la strategie.
+
+#### The Lab (Multi-LLM Decision System)
+Pipeline de deep dives en 8 phases, chacune dans `scripts/lab/phases/` :
+1. **Intuition** — hypothese initiale
+2. **Context** — lecture docs + code + historique
+3. **Research** — articles + concurrents (web search)
+4. **Metric** — KPI cible + seuil minimum
+5. **Council** — Multi-LLM vote (Sonnet 4.6 + Opus 4.6 + Gemini 2.5 Pro, optionnel GPT-4o)
+6. **Synthesis** — recommendation finale + kill switch
+7. **Deliverable** — prompt d'implementation genere
+8. **Tracking** — suivi post-ship
+
+Config : `lib/lab/features-config.json`, `lib/lab/types.ts`, `lib/lab/llm-clients.ts`
+UI admin : `app/(dashboard)/admin/lab/page.tsx`
+LLM fallback chain : Claude CLI (Max subscription, $0) → Anthropic API → Gemini free tier
+
+#### Lab Agent (Daemon local)
+`scripts/lab/lab-agent.ts` — daemon Windows qui poll Supabase toutes les 30s pour les dives acceptees.
+Spawne Claude Code CLI, cree branch, commit, push, PR via `gh`, ping Discord.
+Heartbeat dans `lab_agent_status`. Status visible dans le dashboard admin.
+
+#### Audit Agents (21 scripts dans `scripts/audits/`)
+Nightly batch orchestre par `scripts/audits/run-nightly.ts` :
+- **Quotidien** : Output Quality, Acquisition, Activation, Technical, Retention, Cold Email, AI Scout, AI Multiplier
+- **Dimanche** : Strategist + Revenue + Meta-Agent + Strategic Brief
+- Chaque nuit inclut 1-2 personas aleatoires (`scripts/personas/`)
+- Morning brief genere via `lib/audit/morning-brief.ts` → Discord
+- Framework : `lib/audit/agent-runner.ts` (Claude Haiku), findings dans `audit_findings`, metriques dans `audit_metric_snapshots`
+
+#### AI Scoring (Leads)
+`lib/admin/ai-scoring/claude-scorer.ts` — batch scoring de leads influenceurs via Claude Haiku.
+Niche fit, audience, engagement, sponsorship likelihood, sentiment → score 0-100.
 
 ## Stack Technique
 
 ### Frontend
 - **Next.js 14** (App Router) avec TypeScript
 - **Tailwind CSS** + **shadcn/ui** pour l'UI
-- **Zustand** pour le state management
+- **Zustand** pour le state management (8 stores)
 - **Supabase Auth** pour l'authentification
 - Deploiement sur **Netlify** (pas Vercel)
 
 ### Backend / Services
-- **Supabase** — PostgreSQL + Storage (clips) + Auth
-- **FFmpeg** — Montage video (sous-titres karaoke, split-screen, reframe)
-- **VPS Railway** — Serveur FFmpeg (bostaz-site-production.up.railway.app)
-- **Twitch API** — Recuperer les clips de streamers populaires
+- **Supabase** — PostgreSQL (92 migrations, ~80 tables) + Storage + Auth + Realtime (render_jobs)
+- **Railway VPS** — Serveur FFmpeg (`bostaz-site-production.up.railway.app`)
+- **Upstash Redis** — Rate limiting, render queue (FIFO, `lib/render-queue.ts`), distributed locks
+- **Stripe** — Checkout, portal, webhooks, Connect (affiliate payouts)
+- **Instantly** — Email outreach automation (`lib/integrations/instantly/`)
+- **Discord** — Notifications audits + lab (`lib/discord/post.ts`)
 
-## Structure du Projet
+### APIs Externes
+- **Twitch API** — Clips de streamers (`lib/twitch/`)
+- **Kick API** — Clips Kick (`lib/kick/`)
+- **YouTube Data API** — Creator Rank sync + scraper influenceurs
+- **TikTok API** — Direct Post (approved), creator info
+- **OpenAI Whisper API** — Transcription word-level sur le VPS (`vps/lib/whisper-client.js`)
+- **Anthropic API** — Mood detection, hook generation, lead scoring, audit agents, Lab council
+- **Google Gemini API** — Lab council (free tier)
+- **ElevenLabs API** — Voice-over (Studio plan)
+
+### VPS Railway (Render Server)
+```
+vps/
+├── server.js                    # Express server
+├── routes/
+│   ├── render.js                # POST /render — main render endpoint
+│   ├── download.js              # GET /download
+│   └── health.js                # GET /health
+├── lib/
+│   ├── render-pipeline.js       # Orchestrateur principal (captions + face track + hook + render)
+│   ├── ffmpeg-render.js         # FFmpeg command builder
+│   ├── subtitle-generator.js   # ASS subtitle generation (karaoke styles)
+│   ├── whisper-client.js        # OpenAI Whisper API transcription
+│   ├── hook-generator.js        # Peak moment detection + hook text via Claude
+│   ├── hook-overlay.js          # Hook text overlay FFmpeg filter
+│   ├── auto-cut.js              # Silence removal using word timestamps
+│   ├── face-tracker.js          # Face detection wrapper (Python)
+│   ├── face-detect.py           # OpenCV face detection
+│   ├── audio-peaks.js           # Audio peak analysis
+│   ├── render-queue.js          # VPS-side job queue
+│   ├── supabase-client.js       # DB access from VPS
+│   ├── yt-dlp-wrapper.js        # Download clips via yt-dlp
+│   └── logger.js                # Structured logging
+```
+
+## Structure du Projet (Simplifiee)
 
 ```
-viral-studio-pro/
-├── app/
-│   ├── (auth)/                   # Pages auth (login, signup)
-│   ├── (dashboard)/
-│   │   ├── dashboard/            # Page principale — bibliotheque de clips
-│   │   ├── dashboard/enhance/    # Editeur de viralite (sous-titres, split-screen, etc.)
-│   │   └── settings/             # Parametres utilisateur
-│   ├── api/
-│   │   ├── upload/               # Upload de clip
-│   │   ├── clips/                # CRUD clips
-│   │   ├── render/               # Trigger FFmpeg (Railway VPS)
-│   │   ├── account/sync/         # Creator Rank — sync YouTube stats + score
-│   │   ├── social-accounts/      # GET connected accounts
-│   │   ├── cron/fetch-twitch-clips/ # Fetch clips Twitch
-│   │   ├── cron/rescore-clips/   # Cron stratifie — re-scoring dynamique V2
-│   │   ├── cron/cleanup-render-jobs/ # Cleanup zombie render jobs
-│   │   ├── cron/reconcile-render/ # Reconcile Redis active jobs Set with DB
-│   │   └── streams/refresh/      # Refresh clips streamers
-│   ├── layout.tsx
-│   └── page.tsx                  # Landing page
-├── components/
-│   ├── ui/                       # shadcn/ui components
-│   ├── video/                    # Player, Timeline, UploadZone
-│   ├── clips/                    # ClipCard
-│   ├── captions/                 # CaptionEditor, Templates
-│   └── landing/                  # Landing page sections
-├── lib/
-│   ├── supabase/                 # Client + server Supabase
-│   ├── scoring/                  # Scoring V2 engine (clip-scorer.ts, account-scorer.ts)
-│   ├── ai/                       # Mood detector + presets (Claude Haiku)
-│   ├── twitch/                   # Client Twitch API + fetch clips
-│   ├── kick/                     # Client Kick API + fetch clips
-│   ├── schemas/                  # Shared Zod schemas (render.ts)
-│   └── utils.ts                  # Helpers generaux
-├── stores/                       # Zustand stores
-├── types/                        # Types TypeScript globaux
-├── vps/                          # Serveur FFmpeg (deploye sur Railway)
-│   ├── server.js
-│   ├── routes/render.js
-│   ├── lib/ffmpeg-render.js
-│   └── lib/subtitle-generator.js
-├── public/
-├── .env.local
-├── CLAUDE.md
-├── package.json
-├── tailwind.config.ts
-├── tsconfig.json
-└── next.config.mjs
+app/
+├── (auth)/                      # Login, signup
+├── (dashboard)/
+│   ├── admin/                   # ~47 pages admin (CRM, campaigns, audits, lab, etc.)
+│   ├── dashboard/               # Browse clips, enhance, distribution, analytics
+│   └── settings/                # User settings, Creator Rank, OAuth
+├── partner/                     # Partner portal (7 pages — login, payouts, promo-kit, repost)
+├── api/                         # 170 routes (voir section Architecture)
+└── page.tsx                     # Landing page
+
+components/
+├── admin/                       # Affiliate dashboard, growth, payout dialogs
+├── analytics/                   # User analytics components
+├── captions/                    # Caption editor, templates
+├── clips/                       # ClipCard
+├── distribution/                # Publish dialog, clip bank, schedule, smart queue (17 fichiers)
+├── enhance/                     # Live preview, AI analysis, accordion sections
+├── landing/                     # Hero, features, pricing, FAQ, testimonials (13 fichiers)
+├── onboarding/                  # First clip overlay
+├── publish/                     # Publish components
+├── settings/                    # Creator Rank section
+├── ui/                          # shadcn/ui primitives
+└── video/                       # Player, timeline, upload
+
+lib/
+├── admin/                       # CRM, scraper, match engine, offer generator, campaigns,
+│                                  compliance, watchdog, costs, analytics, AI scoring, stripe
+├── ai/                          # Mood detector, caption engine, call logger
+├── analytics.ts
+├── audit/                       # Agent runner, personas, strategic runner, discord notifier
+├── browse/                      # Clip verdict
+├── distribution/                # Smart publisher, queue engine, strategy, rewards, platform rules
+├── enhance/                     # AI analysis, scoring
+├── hooks/                       # React hooks
+├── integrations/instantly/      # Email outreach sync
+├── kick/                        # Kick API client
+├── lab/                         # LLM clients, types, features config
+├── partner/                     # Auth, magic link, repost kit
+├── render-queue.ts              # Redis-based FIFO render queue
+├── schemas/                     # Zod schemas
+├── scoring/                     # Clip scorer V2, account scorer, momentum scorer
+├── supabase/                    # Client + server + admin Supabase
+├── twitch/                      # Twitch API client
+└── utils.ts
+
+stores/                          # 8 Zustand stores
+├── account-store.ts             # Creator Rank state
+├── affiliate-store.ts           # Affiliate dashboard
+├── distribution-store.ts        # Distribution hub state
+├── queue-store.ts               # Smart queue
+├── schedule-store.ts            # Schedule + distribution settings
+├── smart-publishing-store.ts    # Auto-publish state
+├── trending-store.ts            # Browse clips state
+└── ui-store.ts                  # UI preferences
+
+scripts/
+├── audits/                      # 21 audit agent scripts + nightly orchestrator
+├── lab/                         # Lab agent daemon + 8 pipeline phases
+├── personas/                    # 3 test personas (free user, power user, sceptical first-timer)
+├── business/                    # Weekly stats digest
+└── knowledge-graph/             # Knowledge graph bootstrap
 ```
 
 ## Base de Donnees Supabase
 
-**RLS (Row Level Security)** est active sur toutes les tables utilisateur. Chaque user ne peut lire/ecrire que ses propres donnees. `trending_clips` et `streamers` sont en lecture publique. Les operations admin/cron utilisent le service role qui bypass le RLS. Migration : `20260425_rls_policies.sql`.
+92 migrations, ~80 tables. **RLS** active sur toutes les tables utilisateur. Admin/cron utilisent le service role.
 
-### Tables principales
+### Tables Principales (Produit User)
 
 ```sql
 -- Utilisateurs
@@ -95,7 +235,6 @@ CREATE TABLE public.profiles (
     plan TEXT DEFAULT 'free' CHECK (plan IN ('free', 'pro', 'studio')),
     stripe_customer_id TEXT,
     monthly_videos_used INTEGER DEFAULT 0,
-    monthly_processing_minutes_used INTEGER DEFAULT 0,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -106,45 +245,31 @@ CREATE TABLE public.clips (
     video_id UUID REFERENCES public.videos(id) ON DELETE CASCADE,
     user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE,
     title TEXT,
-    start_time FLOAT NOT NULL,
-    end_time FLOAT NOT NULL,
+    start_time FLOAT NOT NULL, end_time FLOAT NOT NULL,
     duration_seconds FLOAT,
-    storage_path TEXT,
-    thumbnail_path TEXT,
-    transcript_segment TEXT,
-    caption_template TEXT DEFAULT 'default',
-    aspect_ratio TEXT DEFAULT '9:16',
+    storage_path TEXT, thumbnail_path TEXT,
     status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'rendering', 'done', 'error')),
-    error_message TEXT,
     is_remake BOOLEAN DEFAULT FALSE,
     parent_clip_id UUID REFERENCES public.clips(id),
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    updated_at TIMESTAMPTZ DEFAULT NOW()
+    created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Clips de streamers (bibliotheque)
+-- Clips de streamers (bibliotheque trending)
 CREATE TABLE public.trending_clips (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     external_url TEXT NOT NULL UNIQUE,
-    platform TEXT NOT NULL,             -- 'twitch', 'youtube_gaming'
-    author_name TEXT,
-    author_handle TEXT,
-    title TEXT,
-    description TEXT,
+    platform TEXT NOT NULL,             -- 'twitch', 'kick'
+    author_name TEXT, author_handle TEXT, title TEXT,
     niche TEXT,                         -- 'irl', 'fps', 'moba', etc.
-    view_count BIGINT,
-    like_count BIGINT,
-    duration_seconds FLOAT,
-    velocity FLOAT,                     -- delta views / elapsed hours
-    velocity_score FLOAT,               -- normalized 0-100
-    viral_ratio FLOAT,                  -- velocity / (view_count + 1)
-    viral_score FLOAT,                  -- composite score
-    tier TEXT,                          -- 'trending', 'mega_viral'
-    thumbnail_url TEXT,
-    twitch_clip_id TEXT,
-    clip_created_at TIMESTAMPTZ,
+    view_count BIGINT, like_count BIGINT, duration_seconds FLOAT,
+    velocity_score FLOAT,               -- score final V2 (0-100)
+    tier TEXT,                          -- 'mega_viral', 'viral', 'hot', 'rising', 'normal', 'dead'
+    feed_category TEXT,                 -- 'early_gem', 'hot_now', 'proven', 'normal'
+    momentum_score FLOAT, engagement_score FLOAT, recency_score FLOAT,
+    early_signal_score FLOAT, format_score FLOAT, saturation_score FLOAT,
+    next_check_at TIMESTAMPTZ,          -- cron stratifie
     streamer_id UUID REFERENCES public.streamers(id),
-    scraped_at TIMESTAMPTZ DEFAULT NOW(),
+    clip_created_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -153,28 +278,9 @@ CREATE TABLE public.videos (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE,
     title TEXT NOT NULL,
-    description TEXT,
-    source_url TEXT,
-    source_platform TEXT,
     storage_path TEXT NOT NULL,
-    mime_type TEXT,
     duration_seconds INTEGER,
-    file_size_bytes BIGINT,
-    error_message TEXT,
-    status TEXT DEFAULT 'uploaded' CHECK (status IN ('uploaded', 'processing', 'transcribing', 'analyzing', 'clipping', 'done', 'error')),
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    updated_at TIMESTAMPTZ DEFAULT NOW()
-);
-
--- Streamers suivis (Twitch/Kick)
-CREATE TABLE public.streamers (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    display_name TEXT NOT NULL,
-    twitch_login TEXT,
-    twitch_id TEXT,
-    niche TEXT,
-    priority INTEGER DEFAULT 0,
-    active BOOLEAN DEFAULT TRUE,
+    status TEXT DEFAULT 'uploaded',
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -185,12 +291,9 @@ CREATE TABLE public.render_jobs (
     source TEXT NOT NULL,
     user_id UUID REFERENCES public.profiles(id),
     status TEXT DEFAULT 'pending',
-    storage_path TEXT,
-    clip_url TEXT,
-    error_message TEXT,
-    debug_log TEXT,
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    updated_at TIMESTAMPTZ DEFAULT NOW()
+    storage_path TEXT, clip_url TEXT,
+    error_message TEXT, debug_log TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 -- Transcriptions (Whisper word-level)
@@ -198,46 +301,70 @@ CREATE TABLE public.transcriptions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     video_id UUID REFERENCES public.videos(id),
     full_text TEXT NOT NULL,
-    language TEXT,
-    segments JSONB,
-    speakers JSONB,
     word_timestamps JSONB,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Snapshots de vues (calcul velocity)
-CREATE TABLE public.clip_snapshots (
-    id SERIAL PRIMARY KEY,
-    clip_id UUID REFERENCES public.trending_clips(id),
-    view_count BIGINT NOT NULL,
-    captured_at TIMESTAMPTZ DEFAULT NOW()
+-- Streamers suivis
+CREATE TABLE public.streamers (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    display_name TEXT NOT NULL,
+    twitch_login TEXT, twitch_id TEXT,
+    niche TEXT, priority INTEGER DEFAULT 0,
+    active BOOLEAN DEFAULT TRUE
 );
 
--- Codes affilies (programme referral self-service)
-CREATE TABLE public.affiliate_codes (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE UNIQUE,
-    code TEXT NOT NULL UNIQUE,
-    custom_handle TEXT UNIQUE,
-    clicks INTEGER DEFAULT 0,
-    signups INTEGER DEFAULT 0,
-    conversions INTEGER DEFAULT 0,
-    total_earned NUMERIC(10,2) DEFAULT 0,
-    commission_rate NUMERIC(3,2) DEFAULT 0.20,
-    active BOOLEAN DEFAULT TRUE,
-    created_at TIMESTAMPTZ DEFAULT NOW()
-);
+-- Distribution (scheduled posts)
+CREATE TABLE public.scheduled_publications ( ... );
+CREATE TABLE public.distribution_settings ( ... );
+CREATE TABLE public.published_posts ( ... );
+CREATE TABLE public.publication_performance ( ... );
+```
 
--- Evenements de referral
-CREATE TABLE public.referral_events (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    affiliate_code_id UUID REFERENCES public.affiliate_codes(id),
-    event_type TEXT NOT NULL CHECK (event_type IN ('click', 'signup', 'conversion', 'payout')),
-    referred_user_id UUID REFERENCES public.profiles(id),
-    amount NUMERIC(10,2),
-    metadata JSONB,
-    created_at TIMESTAMPTZ DEFAULT NOW()
-);
+### Tables Admin (Growth Machine)
+```sql
+-- Influencer CRM (core)
+CREATE TABLE public.influencers ( ... );         -- ~60 colonnes, lead scoring, Stripe Connect
+CREATE TABLE public.email_campaigns ( ... );
+CREATE TABLE public.email_messages ( ... );
+CREATE TABLE public.email_templates ( ... );
+CREATE TABLE public.campaign_recipients ( ... );
+CREATE TABLE public.mailboxes ( ... );
+CREATE TABLE public.suppression_list ( ... );
+CREATE TABLE public.domains ( ... );
+
+-- Affiliate system
+CREATE TABLE public.affiliate_codes ( ... );
+CREATE TABLE public.affiliate_referrals ( ... );
+CREATE TABLE public.affiliate_commission_ledger ( ... );
+CREATE TABLE public.affiliate_payouts ( ... );
+CREATE TABLE public.affiliate_clicks ( ... );
+
+-- Match engine + video library
+CREATE TABLE public.promo_videos ( ... );
+CREATE TABLE public.video_influencer_matches ( ... );
+
+-- Compliance + audit trail
+CREATE TABLE public.compliance_audit_log ( ... );
+CREATE TABLE public.admin_audit_log ( ... );
+CREATE TABLE public.fraud_flags ( ... );
+
+-- Scraper
+CREATE TABLE public.scraper_saved_searches ( ... );
+CREATE TABLE public.scraper_quota_usage ( ... );
+```
+
+### Tables Automation
+```sql
+CREATE TABLE public.audit_findings ( ... );
+CREATE TABLE public.audit_metric_snapshots ( ... );
+CREATE TABLE public.improvement_backlog ( ... );
+CREATE TABLE public.strategic_moves ( ... );
+CREATE TABLE public.lab_deep_dives ( ... );
+CREATE TABLE public.lab_agent_status ( ... );
+CREATE TABLE public.ai_calls ( ... );             -- cost tracking toutes les calls LLM
+CREATE TABLE public.meta_agent_reports ( ... );
+CREATE TABLE public.ai_multiplier_opportunities ( ... );
 ```
 
 ### Supabase Storage Buckets
@@ -257,39 +384,63 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=
 SUPABASE_SERVICE_ROLE_KEY=
 
 # VPS Render (Railway)
-VPS_RENDER_URL=https://bostaz-site-production.up.railway.app
+VPS_RENDER_URL=
 VPS_RENDER_API_KEY=
 
 # Twitch
 TWITCH_CLIENT_ID=
 TWITCH_CLIENT_SECRET=
 
-# Upstash Redis (rate limiting + distributed locks)
+# Upstash Redis
 UPSTASH_REDIS_REST_URL=
 UPSTASH_REDIS_REST_TOKEN=
 
-# Render queue (optional, default 3)
-# To scale: increase this value. Railway supports horizontal scaling —
-# 2 instances with MAX_CONCURRENT=3 each gives 6 total slots.
-RENDER_MAX_CONCURRENT=3
+# Stripe
+STRIPE_SECRET_KEY=
+STRIPE_WEBHOOK_SECRET=
+STRIPE_PRICE_PRO=
+NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=
 
-# Webhook HMAC (server-only, shared with VPS)
-# Signs VPS→Next.js webhook callbacks. Set WEBHOOK_HMAC_ONLY=true once VPS is deployed with HMAC.
+# TikTok
+TIKTOK_CLIENT_KEY=
+TIKTOK_CLIENT_SECRET=
+
+# YouTube (OAuth pour Creator Rank + scraper)
+YOUTUBE_CLIENT_ID=
+YOUTUBE_CLIENT_SECRET=
+
+# Instagram (coming soon)
+INSTAGRAM_APP_ID=
+INSTAGRAM_APP_SECRET=
+
+# AI / LLMs
+ANTHROPIC_API_KEY=
+OPENAI_API_KEY=
+GOOGLE_GEMINI_API_KEY=
+ELEVENLABS_API_KEY=
+
+# Lab Agent
+LAB_USE_CLAUDE_CLI=true
+LAB_FORCE_GEMINI=
+
+# Discord (notifications)
+DISCORD_AUDIT_WEBHOOK_URL=
+DISCORD_LAB_WEBHOOK_URL=
+
+# Email outreach (Instantly.ai)
+N8N_API_KEY=
+N8N_BASE_URL=
+
+# Security
+ENCRYPTION_SECRET=
+CRON_SECRET=
 WEBHOOK_SECRET=
-WEBHOOK_HMAC_ONLY=false
 
-# Admin (server-only, never NEXT_PUBLIC_)
-ADMIN_EMAILS=samycloutier30@gmail.com
+# Admin
+ADMIN_EMAILS=
 
 # App
-NEXT_PUBLIC_APP_URL=https://viralanimal.com
-
-# Sentry (error tracking + performance)
-NEXT_PUBLIC_SENTRY_DSN=
-SENTRY_DSN=
-SENTRY_AUTH_TOKEN=
-SENTRY_ORG=viral-animal
-SENTRY_PROJECT=viral-animal-web
+NEXT_PUBLIC_APP_URL=
 ```
 
 ## Conventions de Code
@@ -302,13 +453,15 @@ SENTRY_PROJECT=viral-animal-web
 - Server Components par defaut, Client Components seulement si interactivite
 - Toujours gerer les erreurs avec try/catch
 - Pas de console.log en production
-- Toujours utiliser `next/image` pour les `<img>` (lazy loading auto, srcset, AVIF/WebP)
+- Toujours utiliser `next/image` pour les `<img>`
 - Domaines externes d'images : ajouter a `next.config.mjs` > `images.remotePatterns`
 
 ### API Routes
-- Valider les inputs (zod)
-- Verifier l'authentification
+- Valider les inputs (zod, schemas dans `lib/schemas/`)
+- Verifier l'authentification (user routes) ou admin check (`lib/admin/is-admin.ts`)
 - Reponses JSON : `{ data, error, message }`
+- Cron routes protegees par `CRON_SECRET`
+- Admin routes verifient `ADMIN_EMAILS` via service role
 
 ### UI/UX
 - Interface sombre (dark mode)
@@ -329,14 +482,14 @@ Utilise par : `lib/twitch/fetch-streamer-clips.ts`, `lib/kick/fetch-kick-clips.t
 | 2 | **Platform Authority** | 20% | Performance du clip vs moyenne du streamer, ponderee par le volume de vues |
 | 3 | **Engagement Proxy** | 15% | Ratio likes/vues + signaux titre (caps, ponctuation) |
 | 4 | **Recency Decay** | 10% | Decroissance exponentielle e^(-age/24) — jamais 0 |
-| 5 | **Early Signal** | 10% | Detection precoce (<6h) : vues/min × log(vues) × decay rapide |
+| 5 | **Early Signal** | 10% | Detection precoce (<6h) : vues/min x log(vues) x decay rapide |
 | 6 | **Format Score** | 10% | Duree optimale TikTok/Reels : 15-45s = 100, >60s = 50 |
 | 7 | **Saturation Penalty** | -10% | Penalise les vieux clips viraux (>7j + >1M vues) et les clips morts |
 
 ### Formule finale
 ```
-final_score = momentum×0.25 + authority×0.20 + engagement×0.15 + recency×0.10
-            + earlySignal×0.10 + format×0.10 - saturation×0.10
+final_score = momentum*0.25 + authority*0.20 + engagement*0.15 + recency*0.10
+            + earlySignal*0.10 + format*0.10 - saturation*0.10
 ```
 
 ### Tiers
@@ -353,23 +506,12 @@ final_score = momentum×0.25 + authority×0.20 + engagement×0.15 + recency×0.1
 - **proven** : score >= 55 ET clip > 12h
 - **normal** : tout le reste
 
-### Colonnes DB (trending_clips)
-- `velocity_score` : score final V2 (0-100)
-- `anomaly_score` : authority_score (reutilise la colonne existante)
-- `tier` : classification tier
-- `feed_category` : categorie feed
-- `momentum_score`, `engagement_score`, `recency_score`, `early_signal_score`, `format_score`, `saturation_score` : scores par facteur
-
 ### Spike Detection
-Si la velocity du clip depasse 2× la moyenne du streamer → boost momentum ×1.5
+Si la velocity du clip depasse 2x la moyenne du streamer → boost momentum x1.5
 
 ## Cron Stratifie (Re-scoring dynamique)
 
 Route : `app/api/cron/rescore-clips/route.ts`
-Declencheur : Netlify Scheduled Function (toutes les 5 min)
-
-### Principe
-Les clips ne sont pas tous re-scores a la meme frequence. Plus un clip est recent, plus il est re-score souvent :
 
 | Age du clip | Frequence re-score |
 |-------------|-------------------|
@@ -377,104 +519,65 @@ Les clips ne sont pas tous re-scores a la meme frequence. Plus un clip est recen
 | 6-24h | Toutes les heures |
 | > 24h | 1 fois par jour |
 
-### Colonne next_check_at
-Chaque clip a une colonne `next_check_at` (TIMESTAMPTZ) dans `trending_clips`. Le cron selectionne les clips ou `next_check_at <= NOW()`, les re-score, et met a jour `next_check_at` selon leur age.
+Colonne `next_check_at` dans `trending_clips`. Spike (+20% vues vs snapshot precedent) → re-score immediat.
 
-### Spike Trigger
-Si un snapshot montre +20% de vues vs le snapshot precedent → le clip est re-score immediatement (next_check_at = NOW).
+## Crons Actifs
 
-### Pipeline
-1. Cron tourne toutes les 5 min
-2. Selectionne clips ou next_check_at <= NOW (batch de 50)
-3. Pour chaque clip : recalcule scoreClip() avec les donnees actuelles
-4. Met a jour velocity_score, tier, feed_category, tous les sous-scores
-5. Calcule le prochain next_check_at selon l'age du clip
+| Cron | Route | Fonction |
+|------|-------|----------|
+| Rescore clips | `cron/rescore-clips` | Re-scoring stratifie des trending clips |
+| Fetch Twitch clips | `cron/fetch-twitch-clips` | Import nouveaux clips des streamers suivis |
+| Cleanup render jobs | `cron/cleanup-render-jobs` | Nettoie les render jobs zombies |
+| Reconcile render | `cron/reconcile-render` | Reconcilie Redis vs DB |
+| Reset usage | `cron/reset-usage` | Reset mensuel des quotas |
+| Cleanup storage | `cron/cleanup-storage` | Supprime les fichiers orphelins |
+| AI triage | `cron/ai-triage` | Triage automatique des findings |
+| AI scoring | `cron/ai-scoring` | Batch scoring leads influenceurs |
+| Refresh post stats | `cron/refresh-post-stats` | Met a jour les stats des posts publies |
+| Monthly payouts | `cron/monthly-payouts` | Calcul payouts affilies |
+| Sync Instantly | `cron/sync-instantly` | Sync CRM Instantly |
+| Watchdog | `cron/watchdog` | Anomaly detection sur metriques cles |
 
 ## Systeme de Ranking Createur
 
 Fichier principal : `lib/scoring/account-scorer.ts`
-Route API : `app/api/account/sync/route.ts`
-Store : `stores/account-store.ts`
-UI : `components/settings/creator-rank-section.tsx`
-Migration : `supabase/migrations/20260422_creator_ranking.sql`
+Route : `app/api/account/sync/route.ts`
 
 ### 5 Facteurs
 
-| # | Facteur | Poids | Ce qu'il mesure |
-|---|---------|-------|-----------------|
-| 1 | **Performance** | 30% | Median views / followers (ajuste par shorts_ratio). Ratio cap a 3.0. shorts_ratio > 0.8 → seuils plus exigeants (×33 vs ×67). 0 followers → score neutre 20. |
-| 2 | **Engagement** | 20% | Median (likes+comments)/views des 20 dernieres videos. Seuils ajustes par format : shorts > 0.8 → excellent = 8%, sinon excellent = 5%. |
-| 3 | **Growth** | 20% | Croissance followers 30 jours (log scale) : log(1 + growth_percent) × 20. null → 0, negatif → score bas. |
-| 4 | **Audience** | 15% | Taille absolue en log10 : log10(followers) × 20. 100→20, 1K→40, 10K→60, 100K→80, 1M→100. |
-| 5 | **Consistency** | 15% | Jours depuis le dernier post : <7j=100, 7-14j=75, 14-30j decline, >30j=quasi zero. |
-
-### Formule finale
-```
-creator_score = performance×0.30 + engagement×0.20 + growth×0.20 + audience×0.15 + consistency×0.15
-```
+| # | Facteur | Poids |
+|---|---------|-------|
+| 1 | **Performance** | 30% — Median views / followers |
+| 2 | **Engagement** | 20% — (likes+comments)/views |
+| 3 | **Growth** | 20% — Croissance followers 30j (log scale) |
+| 4 | **Audience** | 15% — Taille absolue (log10) |
+| 5 | **Consistency** | 15% — Jours depuis dernier post |
 
 ### Ranks
+| Score | Rank |
+|-------|------|
+| < 20 | Newcomer |
+| 20-39 | Creator |
+| 40-59 | Trending Creator |
+| 60-79 | Viral Creator |
+| 80-89 | Elite Creator |
+| 90+ | Legendary |
+| Perf > 80 + Audience < 55 | Hidden Gem (prioritaire) |
 
-| Score | Rank | Emoji |
-|-------|------|-------|
-| < 20 | Newcomer | 🌱 |
-| 20-39 | Creator | 🥉 |
-| 40-59 | Trending Creator | 🥈 |
-| 60-79 | Viral Creator | 🥇 |
-| 80-89 | Elite Creator | 💎 |
-| 90+ | Legendary | 👑 |
-| Performance > 80 + Audience < 55 | Hidden Gem | 🔥 |
+## Render System
 
-Note : Hidden Gem est evalue AVANT les seuils de score (priorite sur legendary/elite). Audience < 55 correspond a environ < 1K followers.
+- Frontend poll `/api/render/status` toutes les 3s pendant le rendu
+- `sessionStorage render-job:{clipId}` persiste le jobId across refreshes
+- `localStorage render-done:{clipId}` persiste le download URL 24h (kill switch pour re-ouvrir le publish dialog)
+- Server-side kill switch : `GET /api/render/status?clip_id=` retourne le dernier job done
+- Quand un render finit : auto-ouverture du `UnifiedPublishDialog` (publish = CTA principal)
+- Queue Redis FIFO : `lib/render-queue.ts`, concurrence max configurable via `RENDER_MAX_CONCURRENT`
+- VPS webhook callback : `/api/render/hook` (HMAC signe)
 
-### API Route — POST /api/account/sync
+## Deploiement
 
-1. Verifie auth (user connecte)
-2. Rate limit : 1 sync par 24h (check `sync_count_today` et `last_sync_date`)
-3. Recupere le connected account YouTube du user dans `social_accounts`
-4. Refresh token OAuth YouTube si expire (via `getValidToken`)
-5. Appels YouTube Data API :
-   - `channels.list?part=snippet,statistics&mine=true` → subscribers, viewCount, videoCount
-   - `search.list?forMine=true&type=video&order=date&maxResults=20` → IDs des 20 dernieres videos (90 jours)
-   - `videos.list?part=statistics,contentDetails,snippet&id={ids}` → stats par video
-6. Calcule : median_views, engagement_rate, shorts_ratio, days_since_last_post, growth_percent_30d
-7. Appelle `scoreAccount()` → creator_score + creator_rank + sous-scores
-8. Update `social_accounts` avec stats + score + rank
-9. Insert snapshot dans `account_snapshots` (weekly si >7j depuis le dernier weekly, sinon daily)
-10. Retourne le score complet
-
-### Tables DB
-
-**social_accounts** — colonnes ajoutees :
-- `followers`, `total_views`, `video_count`, `avg_views_per_video`, `median_views_per_video`
-- `engagement_rate`, `creator_score`, `creator_rank`, `primary_niche`
-- `last_synced_at`, `sync_count_today`, `last_sync_date`
-
-**account_snapshots** — historique quotidien/hebdomadaire :
-- `account_id`, `platform`, `followers`, `total_views`, `video_count`
-- `avg_views_per_video`, `median_views_per_video`, `engagement_rate`
-- `creator_score`, `creator_rank`, `snapshot_type` (daily|weekly), `captured_at`
-
-### UI (Settings)
-
-- Grand badge du rank avec effets visuels (glow pour Elite, gradient pour Legendary)
-- Score /100 affiche en grand
-- 5 barres de progression colorees (Performance, Engagement, Growth, Audience, Consistency)
-- Message motivant selon le rank
-- Stats rapides (Subscribers, Median views, Videos)
-- Breakdown par plateforme : YouTube (connecte), TikTok (coming soon), Instagram (coming soon)
-- Bouton "Sync Now" (desactive si deja synced + "Next sync in Xh")
-- Sidebar : petit badge rank cliquable → mene a Settings
-
-### Phases
-
-- **Phase 1 (actuelle)** : YouTube uniquement, sync manuel (1x/24h), scoring via YouTube Data API
-- **Phase 2** : Cron automatique + tracking croissance 30 jours
-- **Phase 3** : TikTok (scope `user.info.stats`) + Instagram (scope `instagram_manage_insights`)
-
-## Notes Importantes
-- Frontend sur **Netlify** (pas Vercel)
-- FFmpeg tourne sur **Railway** (pas sur Netlify)
-- Videos stockees dans **Supabase Storage**, pas en local
-- Pas de n8n, pas de Claude API skills, pas de Whisper, pas de distribution multi-plateforme
-- Le projet est SIMPLE : clips streamers → boost viralite → export
+- **Frontend** : Netlify (pas Vercel)
+- **VPS FFmpeg** : Railway (`bostaz-site-production.up.railway.app`)
+- **Videos** : Supabase Storage (pas local)
+- **Lab Agent** : daemon local Windows, tourne en permanence sur la machine de dev
+- **Audit Agents** : cron nightly via `npx tsx scripts/audits/run-nightly.ts`

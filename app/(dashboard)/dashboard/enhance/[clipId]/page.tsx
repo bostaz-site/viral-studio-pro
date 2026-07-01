@@ -8,7 +8,7 @@ import {
   ChevronLeft, Loader2, AlertCircle, Sparkles, Download, CheckCircle, Check,
   Type, Wand2, Eye, ExternalLink, Play,
   Monitor, Zap, Send,
-  Flame, Focus, X, Plus, Volume2, Scissors, RotateCcw, Rocket,
+  Flame, Focus, X, Plus, Volume2, Scissors, RotateCcw, Rocket, Bell,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from '@/components/ui/accordion'
@@ -53,6 +53,12 @@ interface HookAnalysis {
 // - @/lib/enhance/scoring
 // - @/components/enhance/live-preview
 
+// ─── Render stages (labeled FFmpeg pipeline steps) ──────────────────────────
+
+const RENDER_STAGES = ['Downloading', 'Applying captions', 'Compositing', 'Uploading'] as const
+// Approximate durations in ms before advancing to next stage (simulated — VPS doesn't report stages)
+const RENDER_STAGE_DURATIONS_MS = [8000, 15000, 20000] // indices 0→1, 1→2, 2→3
+
 // ─── Main Page ──────────────────────────────────────────────────────────────
 
 export default function EnhancePage() {
@@ -77,6 +83,10 @@ export default function EnhancePage() {
   const [originalVideoUrl, setOriginalVideoUrl] = useState<string | null>(null)
   const pollRef = useRef<NodeJS.Timeout | null>(null)
   const hasUserChangedSettings = useRef(false)
+  const [renderStageIdx, setRenderStageIdx] = useState<number>(-1)
+  const [notifyOnDone, setNotifyOnDone] = useState(false)
+  const notifyOnDoneRef = useRef(false)
+  const renderStageTimerRef = useRef<NodeJS.Timeout | null>(null)
   const [showEnhancements, setShowEnhancements] = useState(true)
   const [hookAnalysis, setHookAnalysis] = useState<HookAnalysis | null>(null)
   const [hookGenerating, setHookGenerating] = useState(false)
@@ -326,6 +336,10 @@ export default function EnhancePage() {
           setShowEnhancements(true)
           setRenderMessage('✅ Clip rendered with captions! Check the preview above.')
           setRendering(false)
+          // Browser notification (user opted in via Notification API)
+          if (notifyOnDoneRef.current && typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
+            try { new Notification('Your clip is ready! 🎬', { body: 'Click to download or publish your viral clip.', icon: '/favicon.ico' }) } catch { /* silent */ }
+          }
         } else if (json.data.status === 'error') {
           if (pollRef.current) clearInterval(pollRef.current)
           try { sessionStorage.removeItem(`render-job:${clipId}`) } catch { /* ignore */ }
@@ -351,6 +365,9 @@ export default function EnhancePage() {
       if (pollRef.current) clearInterval(pollRef.current)
     }
   }, [])
+
+  // Keep notifyOnDoneRef in sync so startPolling closure can read latest value
+  useEffect(() => { notifyOnDoneRef.current = notifyOnDone }, [notifyOnDone])
 
   // Resume polling on mount if a render is already in flight for this clip
   // (user refreshed the page mid-render, or came back after the previous
@@ -526,6 +543,30 @@ export default function EnhancePage() {
   const [makeViralLoading, setMakeViralLoading] = useState(false)
   const [analysisSequenceActive, setAnalysisSequenceActive] = useState(false)
   const [analysisComplete, setAnalysisComplete] = useState(false)
+
+  // Advance render stages while rendering (simulated — VPS doesn't report stages)
+  useEffect(() => {
+    if (!rendering || analysisSequenceActive) {
+      setRenderStageIdx(-1)
+      if (renderStageTimerRef.current) clearTimeout(renderStageTimerRef.current)
+      return
+    }
+    setRenderStageIdx(0)
+    let idx = 0
+    function advance() {
+      idx++
+      if (idx < RENDER_STAGES.length) {
+        setRenderStageIdx(idx)
+        if (idx < RENDER_STAGE_DURATIONS_MS.length) {
+          renderStageTimerRef.current = setTimeout(advance, RENDER_STAGE_DURATIONS_MS[idx])
+        }
+      }
+    }
+    renderStageTimerRef.current = setTimeout(advance, RENDER_STAGE_DURATIONS_MS[0])
+    return () => {
+      if (renderStageTimerRef.current) clearTimeout(renderStageTimerRef.current)
+    }
+  }, [rendering, analysisSequenceActive])
   const pendingAutoRenderRef = useRef(false)
   const appliedCaptionStyleRef = useRef<string | null>(null)
 
@@ -1036,10 +1077,9 @@ export default function EnhancePage() {
           className="lg:sticky lg:top-4 lg:self-start space-y-3 lg:max-h-[calc(100vh-2rem)] lg:overflow-y-auto lg:pr-1 lg:[scrollbar-width:thin]"
         >
           {/* ── Preview Toggle ──
-              Initial (no settings touched, no render): [Original] only — clean entry state
-              After user enables any enhancement: [Original | Enhanced] — CSS preview kicks in
-              After render: [Original | Rendered] — Enhanced becomes redundant
-              The Enhanced tab is gated by `showEnhancements` which flips true on first user change. */}
+              Initial (Viral Boost preset auto-applied): [Original | Enhanced] — Enhanced active by default
+              After render: [Original | Rendered] — Enhanced replaced by actual baked MP4
+              showEnhancements starts true so the preset is visible immediately on page load. */}
           <div className="flex gap-2">
             <Button
               variant={!showEnhancements ? 'default' : 'outline'}
@@ -1081,6 +1121,13 @@ export default function EnhancePage() {
             isRenderedVideo={isRenderedVideo}
             renderedThumbnailUrl={renderedThumbnailUrl}
           />
+          {/* Kill switch safeguard: caption overlay is a CSS approximation.
+              Timing and exact font metrics differ from FFmpeg ASS rendering. */}
+          {showEnhancements && settings.captionsEnabled && !isRenderedVideo && (
+            <p className="text-[10px] text-zinc-600 text-center leading-snug px-1">
+              Preview approximates the final render — caption timing may vary slightly
+            </p>
+          )}
 
           {/* Generate button — hidden when AI flow active or render done */}
           {!renderDownloadUrl && !makeViralLoading && !analysisSequenceActive && !rendering && (
@@ -1140,9 +1187,51 @@ export default function EnhancePage() {
 
               {/* Rendering progress indicator — shows after analysis completes */}
               {rendering && !analysisSequenceActive && !renderDownloadUrl && (
-                <div className="flex items-center justify-center gap-2 py-2 text-sm text-zinc-400">
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  <span>Rendering your clip...</span>
+                <div className="space-y-3 py-1">
+                  {/* FFmpeg stage pipeline */}
+                  <div className="flex items-start gap-1">
+                    {RENDER_STAGES.map((stage, i) => (
+                      <div key={stage} className="flex flex-col items-center gap-1 flex-1">
+                        <div className={cn(
+                          'w-full h-1 rounded-full transition-all duration-700',
+                          i < renderStageIdx ? 'bg-emerald-500' :
+                          i === renderStageIdx ? 'bg-orange-400 animate-pulse' :
+                          'bg-zinc-800'
+                        )} />
+                        <span className={cn(
+                          'text-[8px] font-medium text-center leading-tight',
+                          i < renderStageIdx ? 'text-emerald-400' :
+                          i === renderStageIdx ? 'text-orange-400' :
+                          'text-zinc-600'
+                        )}>
+                          {stage}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="flex items-center justify-center gap-1.5 text-xs text-zinc-500">
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                    <span>{renderStageIdx >= 0 ? RENDER_STAGES[renderStageIdx] : 'Starting'}...</span>
+                  </div>
+                  {/* Notification opt-in (only show if supported and not yet granted/denied) */}
+                  {!notifyOnDone && typeof window !== 'undefined' && 'Notification' in window && Notification.permission !== 'denied' && (
+                    <button
+                      onClick={async () => {
+                        const perm = await Notification.requestPermission()
+                        if (perm === 'granted') setNotifyOnDone(true)
+                      }}
+                      className="w-full text-[10px] text-zinc-500 hover:text-zinc-300 transition-colors flex items-center justify-center gap-1.5 py-1"
+                    >
+                      <Bell className="h-3 w-3" />
+                      Notify me when done
+                    </button>
+                  )}
+                  {notifyOnDone && (
+                    <p className="text-[10px] text-emerald-400 text-center flex items-center justify-center gap-1">
+                      <Bell className="h-3 w-3" />
+                      You&apos;ll be notified when done
+                    </p>
+                  )}
                 </div>
               )}
 
