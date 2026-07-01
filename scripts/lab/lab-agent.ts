@@ -168,7 +168,9 @@ function runClaudeCode(promptPath: string): Promise<void> {
       stdio: ['ignore', 'pipe', 'pipe'],
     })
 
+    const startedAt = Date.now()
     let lastOutputAt = Date.now()
+    let progressInterval: NodeJS.Timeout | null = null
 
     child.stdout.on('data', (chunk) => {
       lastOutputAt = Date.now()
@@ -179,22 +181,43 @@ function runClaudeCode(promptPath: string): Promise<void> {
       process.stderr.write(`[claude] ${chunk}`)
     })
 
-    // Watchdog: kill if silent for 10 minutes
+    // Progress logger every 5 min so we know it's still alive
+    progressInterval = setInterval(() => {
+      const totalMin = Math.round((Date.now() - startedAt) / 60_000)
+      const silenceMin = Math.round((Date.now() - lastOutputAt) / 60_000)
+      console.log(`[agent] ⏱️  claude running ${totalMin}min · last output ${silenceMin}min ago`)
+    }, 5 * 60_000)
+
+    // Watchdog: kill if silent for 30 min (claude can think silently on big recos)
+    // OR total runtime > 60 min hard kill
     const watchdog = setInterval(() => {
-      if ((Date.now() - lastOutputAt) > 600_000) {
-        console.error('[agent] Claude CLI silent for 10 min — killing')
+      const silenceMs = Date.now() - lastOutputAt
+      const totalMs = Date.now() - startedAt
+
+      if (silenceMs > 30 * 60_000) {
+        console.error(`[agent] Claude CLI silent for 30 min — killing`)
         child.kill('SIGTERM')
         clearInterval(watchdog)
+        if (progressInterval) clearInterval(progressInterval)
+      } else if (totalMs > 60 * 60_000) {
+        console.error(`[agent] Claude CLI runtime > 60 min — hard killing`)
+        child.kill('SIGKILL')
+        clearInterval(watchdog)
+        if (progressInterval) clearInterval(progressInterval)
       }
     }, 60_000)
 
     child.on('close', (code) => {
       clearInterval(watchdog)
+      if (progressInterval) clearInterval(progressInterval)
+      const totalMin = Math.round((Date.now() - startedAt) / 60_000)
+      console.log(`[agent] claude exited after ${totalMin}min with code ${code}`)
       if (code === 0) resolve()
-      else reject(new Error(`Claude CLI exited with code ${code}`))
+      else reject(new Error(`Claude CLI exited with code ${code} after ${totalMin}min`))
     })
     child.on('error', (err) => {
       clearInterval(watchdog)
+      if (progressInterval) clearInterval(progressInterval)
       reject(err)
     })
   })
