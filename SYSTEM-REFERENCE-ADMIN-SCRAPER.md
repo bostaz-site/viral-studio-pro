@@ -1,7 +1,7 @@
-# SYSTEM REFERENCE — Admin Scraper & Discovery Layer (v1.1)
+# SYSTEM REFERENCE — Admin Scraper & Discovery Layer (v1.2)
 
 > Source de verite pour le systeme de decouverte automatisee de distributeurs d'apps (affilies potentiels).
-> Derniere mise a jour : 2026-05-24.
+> Derniere mise a jour : 2026-07-01.
 
 ---
 
@@ -18,7 +18,8 @@
 | `app/api/admin/scraper/saved-searches/route.ts` | GET/POST saved searches |
 | `app/api/admin/scraper/quota/route.ts` | GET quota usage |
 | `app/api/admin/scraper/runs/route.ts` | GET discovery run history |
-| `lib/admin/scraper/youtube.ts` | YouTube Data API v3 client (search + channel details + email extraction from description) |
+| `lib/admin/scraper/youtube.ts` | YouTube Data API v3 client (search + channel details + email extraction + video descriptions + URL extraction) |
+| `lib/admin/scraper/link-crawler.ts` | Crawl external links (linktree, beacons, personal sites) to extract emails from HTML |
 | `lib/admin/scraper/keyword-scorer.ts` | Keyword pre-score — regex affiliate signals + email boost (+20) |
 | `lib/admin/scraper/distributor-graph.ts` | Detect promoted products (OpusClip, Submagic, etc.) |
 | `lib/admin/scraper/quota-tracker.ts` | Track + check remaining YouTube API quota |
@@ -36,15 +37,29 @@
    b. Create lead_discovery_runs row (status=running)
    c. Call YouTube Data API v3 search (100 units) -> channel IDs
    d. Call YouTube Data API v3 channels (1 unit) -> full details
-   e. Process channels in parallel batches of 5:
-      - Extract emails from snippet.description via regex
-      - Filter false positives (no-reply, file extensions, placeholder domains)
-      - Detect is_business_contact (proximity to "business/contact/sponsor" keywords)
-      - Keyword pre-score (+20 boost if email found)
-      - Distributor graph detection (OpusClip, Submagic, etc.)
-      - INSERT lead_discovery_results with email_source_url = profile URL
+   e. Process channels in parallel batches of 5, with email enrichment waterfall:
+      Step 1 — Channel description:
+        - Extract emails from snippet.description via regex
+        - Filter false positives (no-reply, file extensions, placeholder domains)
+        - Detect is_business_contact (proximity to "business/contact/sponsor" keywords)
+      Step 2 — Video descriptions (if no email yet, max 15 channels/run):
+        - Fetch uploads playlist + 10 latest video snippets (+3 API units)
+        - Extract emails from each video description
+        - Email in 3+ videos OR near business keywords → is_business_contact=true
+      Step 3 — External link crawling (if still no email):
+        - Extract URLs from all descriptions (channel + videos)
+        - Classify: linktree (aggregators) / external_site / skip (social)
+        - Fetch up to 3 links per channel (5s timeout, normal User-Agent)
+        - Extract emails from HTML (first 50KB)
+      Then:
+        - Set email_source (priority: external_site > linktree > video_description > channel_description)
+        - Compute contactability_score (90/80/70/60/0)
+        - Keyword pre-score (+20 boost if email found)
+        - Distributor graph detection (OpusClip, Submagic, etc.)
+        - INSERT lead_discovery_results with email_source + contactability_score
    f. Update run (status=completed, counts)
    g. Track quota usage
+   h. Return enrichment_depth in response (number of channels deeply enriched)
 
 3. Results displayed in table with:
    - Channel name + handle + avatar
@@ -68,11 +83,15 @@
 
 ---
 
-## Email Extraction
+## Email Extraction (3-Source Waterfall)
 
-Source: `lib/admin/scraper/youtube.ts` > `extractEmailsFromText()`
+Source: `lib/admin/scraper/youtube.ts` > `extractEmailsFromText()`, `getRecentVideoDescriptions()`, `extractUrlsFromText()`, `classifyUrl()`
+Crawler: `lib/admin/scraper/link-crawler.ts` > `crawlExternalLinksForEmails()`
 
-Extracts emails from YouTube channel `snippet.description` (free API field, no CAPTCHA).
+Emails are searched in order until one is found:
+1. **Channel description** — `snippet.description` (free API field, always checked)
+2. **Video descriptions** — 10 latest videos via uploads playlist (+3 quota units, max 15 channels/run)
+3. **External links** — crawl linktree/beacons/personal sites found in descriptions (max 3 links, 5s timeout)
 
 ### Regex
 `/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g`
@@ -86,11 +105,31 @@ Extracts emails from YouTube channel `snippet.description` (free API field, no C
 
 ### Business Contact Detection
 If the 60-char context around the email contains: business, contact, inquir, collab, sponsor, booking, partnership, press, media, pr -> `isBusinessContact=true` (stored in `raw_data`).
+Additionally, email found in 3+ video descriptions → auto-flagged `isBusinessContact`.
+
+### Email Source Priority
+When multiple sources find emails, the highest-priority source wins:
+
+| Priority | `email_source` value | `contactability_score` | Meaning |
+|---|---|---|---|
+| 1 (best) | `external_site` | 90 | Found on personal/business website |
+| 2 | `linktree` | 80 | Found on link aggregator (linktr.ee, beacons.ai, etc.) |
+| 3 | `video_description` | 70 | Found in recent video descriptions |
+| 4 | `channel_description` | 60 | Found in channel About/bio |
+| — | `null` | 0 | No email found |
+
+### Supported Link Aggregators (for `linktree` source)
+linktr.ee, beacons.ai, carrd.co, stan.store, linkin.bio, bio.link, lnk.bio, allmylinks.com, campsite.bio, hoo.be, tap.bio
+
+### Skipped Domains (not crawled)
+youtube.com, twitter.com, x.com, instagram.com, facebook.com, tiktok.com, twitch.tv, discord.gg, discord.com, reddit.com, spotify.com, apple.com, amazon.com, google.com, bit.ly, t.co
 
 ### Storage
 - `has_email`: boolean
 - `email`: first valid email, lowercased (CITEXT on import)
-- `email_source_url`: channel profile URL (REQUIRED — no source = no contact)
+- `email_source`: provenance of the email (`channel_description`, `video_description`, `linktree`, `external_site`)
+- `email_source_url`: URL where email was found (profile URL for channel/video, actual link for external)
+- `contactability_score`: 0-100, based on email source (separate from keyword_score)
 
 ---
 
@@ -148,8 +187,11 @@ Detects mentions of competitor/related products in profile text:
 - Quota: 10,000 units/day (free tier)
 - Search: 100 units per call (max 25 results, default 15)
 - Channel details: 1 unit per call (up to 50 IDs batched)
+- **Video enrichment: +3 units per channel** (channels contentDetails=1 + playlistItems=1 + videos snippet=1)
 - Enrichment: parallel batches of 5 channels to avoid Netlify timeout (~26s limit)
-- Strategy: ~100 searches/day = ~2,500 leads/day at cost of ~10,100 units
+- **Deep enrichment limit**: max 15 channels per run get video desc + link crawling (timeout budget)
+- Worst-case cost per run: 101 (search+channels) + 15×3 (video enrichment) = **146 units**
+- Strategy: ~68 searches/day with full enrichment = ~1,700 leads/day at cost of ~9,928 units
 
 ---
 
@@ -173,7 +215,7 @@ If matched -> `import_status='suppressed'`, skip import.
 
 ## Anti-Patterns (DO NOT)
 
-- Save email without email_source_url (NO source = NO contact)
+- Save email without email_source and email_source_url (NO provenance = NO contact)
 - Blacklist real email providers (gmail.com, outlook.com, etc.) — only blacklist placeholder domains
 - Call Claude AI for scoring (that's V3 Week 2)
 - Search vague queries (wastes quota)
@@ -181,3 +223,6 @@ If matched -> `import_status='suppressed'`, skip import.
 - Import without suppression check
 - Forget is_business_contact detection for emails near business keywords
 - Set maxResults > 25 (Netlify timeout risk)
+- Use headless browser for link crawling (simple fetch only, 5s timeout)
+- Crawl more than 3 external links per channel (diminishing returns + timeout)
+- Mix up contactability_score with keyword_score (they are independent axes)

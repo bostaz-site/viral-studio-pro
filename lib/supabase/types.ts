@@ -2538,6 +2538,7 @@ export type Database = {
           discovered_at: string
           display_name: string | null
           email: string | null
+          email_source: string | null
           email_source_url: string | null
           engagement_rate: number | null
           has_email: boolean | null
@@ -2545,6 +2546,7 @@ export type Database = {
           import_status: string | null
           influencer_id: string | null
           keyword_score: number | null
+          contactability_score: number | null
           language: string | null
           links: string[] | null
           niche: string | null
@@ -2566,6 +2568,7 @@ export type Database = {
           discovered_at?: string
           display_name?: string | null
           email?: string | null
+          email_source?: string | null
           email_source_url?: string | null
           engagement_rate?: number | null
           has_email?: boolean | null
@@ -2573,6 +2576,7 @@ export type Database = {
           import_status?: string | null
           influencer_id?: string | null
           keyword_score?: number | null
+          contactability_score?: number | null
           language?: string | null
           links?: string[] | null
           niche?: string | null
@@ -2594,6 +2598,7 @@ export type Database = {
           discovered_at?: string
           display_name?: string | null
           email?: string | null
+          email_source?: string | null
           email_source_url?: string | null
           engagement_rate?: number | null
           has_email?: boolean | null
@@ -2601,6 +2606,7 @@ export type Database = {
           import_status?: string | null
           influencer_id?: string | null
           keyword_score?: number | null
+          contactability_score?: number | null
           language?: string | null
           links?: string[] | null
           niche?: string | null

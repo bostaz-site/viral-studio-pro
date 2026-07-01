@@ -2,7 +2,8 @@ import { z } from 'zod'
 import { withAdmin } from '@/lib/api/withAdmin'
 import { jsonResponse, errorResponse } from '@/lib/api/withAuth'
 import { getScraperDb } from '@/lib/admin/scraper/db'
-import { searchYouTubeChannels, extractEmailsFromText } from '@/lib/admin/scraper/youtube'
+import { searchYouTubeChannels, extractEmailsFromText, getRecentVideoDescriptions, extractUrlsFromText, type EmailSource } from '@/lib/admin/scraper/youtube'
+import { crawlExternalLinksForEmails } from '@/lib/admin/scraper/link-crawler'
 import { keywordAffiliateScore } from '@/lib/admin/scraper/keyword-scorer'
 import { detectPromotedProducts, distributorGraphBonus } from '@/lib/admin/scraper/distributor-graph'
 import { trackQuotaUsage, getRemainingQuota } from '@/lib/admin/scraper/quota-tracker'
@@ -57,14 +58,94 @@ export const POST = withAdmin(async (req, user) => {
     // Process channels in parallel batches of 5
     let newLeads = 0
     let duplicates = 0
+    let totalQuotaUsed = quotaUsed
+    let enrichedCount = 0
+    const MAX_ENRICHED = 15 // Netlify ~26s timeout — limit deep enrichment
     const results: Array<Record<string, unknown>> = []
 
-    const processChannel = async (ch: typeof channels[number]) => {
-      // Extract emails from description (bio)
-      const emails = extractEmailsFromText(ch.description)
-      const primaryEmail = emails[0]?.email ?? null
-      const isBusinessContact = emails[0]?.isBusinessContact ?? false
+    const processChannel = async (ch: typeof channels[number], index: number) => {
       const profileUrl = `https://youtube.com/${ch.handle ? '@' + ch.handle : 'channel/' + ch.id}`
+
+      // --- Step 1: Channel description emails ---
+      const channelEmails = extractEmailsFromText(ch.description)
+      let primaryEmail = channelEmails[0]?.email ?? null
+      let emailSource: EmailSource | null = primaryEmail ? 'channel_description' : null
+      let emailSourceUrl: string | null = primaryEmail ? profileUrl : null
+      let isBusinessContact = channelEmails[0]?.isBusinessContact ?? false
+
+      // Collect all description texts for link extraction later
+      const allDescriptions = [ch.description]
+
+      // --- Step 2: Video descriptions (only if no email yet and within enrichment budget) ---
+      if (!primaryEmail && index < MAX_ENRICHED) {
+        try {
+          const { descriptions, quotaUsed: videoQuota } = await getRecentVideoDescriptions(ch.id, 10)
+          totalQuotaUsed += videoQuota
+          await trackQuotaUsage('youtube_api', videoQuota)
+
+          // Count how many video descriptions contain the same email (for business detection)
+          const emailOccurrences = new Map<string, number>()
+          const businessKeywords = /business|sponsor|collab|partnership|inquir|booking|press|media|pr\b/i
+
+          for (const vd of descriptions) {
+            allDescriptions.push(vd.description)
+            const vEmails = extractEmailsFromText(vd.description)
+            for (const ve of vEmails) {
+              emailOccurrences.set(ve.email, (emailOccurrences.get(ve.email) ?? 0) + 1)
+              // Check business context proximity in video description
+              if (businessKeywords.test(ve.context)) {
+                isBusinessContact = true
+              }
+            }
+          }
+
+          // Pick best email from video descriptions
+          if (emailOccurrences.size > 0) {
+            // Prefer email found in 3+ videos (clearly the business email)
+            let bestEmail: string | null = null
+            let bestCount = 0
+            for (const [email, count] of emailOccurrences) {
+              if (count > bestCount) { bestEmail = email; bestCount = count }
+            }
+
+            if (bestEmail) {
+              primaryEmail = bestEmail
+              emailSource = 'video_description'
+              emailSourceUrl = profileUrl
+              // 3+ occurrences = strong business signal
+              if (bestCount >= 3) isBusinessContact = true
+            }
+          }
+
+          enrichedCount++
+        } catch {
+          // Video enrichment failure should not block the channel
+        }
+      }
+
+      // --- Step 3: External link crawling (only if still no email and within budget) ---
+      if (!primaryEmail && index < MAX_ENRICHED) {
+        try {
+          const crawlResults = await crawlExternalLinksForEmails(allDescriptions)
+          if (crawlResults.length > 0) {
+            // Priority: external_site > linktree
+            const sorted = crawlResults.sort((a, b) => {
+              const priority: Record<string, number> = { external_site: 0, linktree: 1 }
+              return (priority[a.source] ?? 2) - (priority[b.source] ?? 2)
+            })
+            const best = sorted[0]
+            primaryEmail = best.email
+            emailSource = best.source
+            emailSourceUrl = best.sourceUrl
+            isBusinessContact = best.isBusinessContact || isBusinessContact
+          }
+        } catch {
+          // Link crawling failure should not block the channel
+        }
+      }
+
+      // Contactability score (independent of keyword score)
+      const contactabilityScore = getContactabilityScore(emailSource)
 
       // Keyword pre-score (with email boost)
       const { score, strongSignals, mediumSignals } = keywordAffiliateScore({
@@ -90,6 +171,15 @@ export const POST = withAdmin(async (req, user) => {
 
       if (existing) { duplicates++; return }
 
+      // Collect all external URLs found across descriptions
+      const allLinks = [...ch.links]
+      for (const desc of allDescriptions) {
+        const urls = extractUrlsFromText(desc)
+        for (const u of urls) {
+          if (!allLinks.includes(u)) allLinks.push(u)
+        }
+      }
+
       const { data: result } = await supabase
         .from('lead_discovery_results')
         .insert({
@@ -106,11 +196,13 @@ export const POST = withAdmin(async (req, user) => {
           language: ch.country,
           country: ch.country,
           recent_post_titles: [],
-          links: ch.links,
+          links: allLinks,
           keyword_score: totalScore,
+          contactability_score: contactabilityScore,
           has_email: !!primaryEmail,
           email: primaryEmail,
-          email_source_url: primaryEmail ? profileUrl : null,
+          email_source: emailSource,
+          email_source_url: emailSourceUrl,
           promoted_products: products.map(p => p.productName),
           raw_data: { subscriberCount: ch.subscriberCount, videoCount: ch.videoCount, viewCount: ch.viewCount, strongSignals, mediumSignals, isBusinessContact } as Record<string, unknown>,
         })
@@ -127,7 +219,7 @@ export const POST = withAdmin(async (req, user) => {
     const BATCH_SIZE = 5
     for (let i = 0; i < channels.length; i += BATCH_SIZE) {
       const batch = channels.slice(i, i + BATCH_SIZE)
-      await Promise.all(batch.map(processChannel))
+      await Promise.all(batch.map((ch, batchIdx) => processChannel(ch, i + batchIdx)))
     }
 
     // Update run status
@@ -155,7 +247,8 @@ export const POST = withAdmin(async (req, user) => {
       total: channels.length,
       new_leads: newLeads,
       duplicates,
-      quota_used: quotaUsed,
+      quota_used: totalQuotaUsed,
+      enrichment_depth: enrichedCount,
       results,
     })
   } catch (err) {
@@ -167,6 +260,16 @@ export const POST = withAdmin(async (req, user) => {
     return errorResponse(err instanceof Error ? err.message : 'Search failed', 500)
   }
 })
+
+function getContactabilityScore(source: EmailSource | null): number {
+  switch (source) {
+    case 'external_site': return 90
+    case 'linktree': return 80
+    case 'video_description': return 70
+    case 'channel_description': return 60
+    default: return 0
+  }
+}
 
 // GET — list results for a run
 export const GET = withAdmin(async (req) => {

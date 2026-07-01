@@ -100,6 +100,115 @@ export async function getChannelDetails(channelIds: string[]): Promise<YouTubeCh
   }))
 }
 
+export type EmailSource = 'channel_description' | 'video_description' | 'linktree' | 'external_site'
+
+interface VideoDescription {
+  videoId: string
+  title: string
+  description: string
+}
+
+/**
+ * Get descriptions of recent videos for a channel.
+ * Uses uploads playlist via playlistItems.list (1 unit) + videos.list batched (1 unit).
+ * Total cost: 2 units.
+ */
+export async function getRecentVideoDescriptions(
+  channelId: string,
+  max: number = 10
+): Promise<{ descriptions: VideoDescription[]; quotaUsed: number }> {
+  const key = getApiKey()
+
+  // Step 1: Get the uploads playlist ID (channels.list contentDetails, 1 unit)
+  const channelParams = new URLSearchParams({
+    part: 'contentDetails',
+    id: channelId,
+    key,
+  })
+  const channelRes = await fetch(`${YOUTUBE_API_BASE}/channels?${channelParams}`)
+  if (!channelRes.ok) return { descriptions: [], quotaUsed: 1 }
+
+  const channelData = await channelRes.json()
+  const uploadsPlaylistId = channelData.items?.[0]?.contentDetails?.relatedPlaylists?.uploads
+  if (!uploadsPlaylistId) return { descriptions: [], quotaUsed: 1 }
+
+  // Step 2: Get recent video IDs from uploads playlist (playlistItems.list, 1 unit)
+  const playlistParams = new URLSearchParams({
+    part: 'contentDetails',
+    playlistId: uploadsPlaylistId,
+    maxResults: String(Math.min(max, 50)),
+    key,
+  })
+  const playlistRes = await fetch(`${YOUTUBE_API_BASE}/playlistItems?${playlistParams}`)
+  if (!playlistRes.ok) return { descriptions: [], quotaUsed: 2 }
+
+  const playlistData = await playlistRes.json()
+  const videoIds = (playlistData.items ?? [])
+    .map((item: { contentDetails?: { videoId?: string } }) => item.contentDetails?.videoId)
+    .filter(Boolean) as string[]
+
+  if (videoIds.length === 0) return { descriptions: [], quotaUsed: 2 }
+
+  // Step 3: Batch fetch video snippets (videos.list, 1 unit for up to 50 IDs)
+  const videoParams = new URLSearchParams({
+    part: 'snippet',
+    id: videoIds.join(','),
+    key,
+  })
+  const videoRes = await fetch(`${YOUTUBE_API_BASE}/videos?${videoParams}`)
+  if (!videoRes.ok) return { descriptions: [], quotaUsed: 3 }
+
+  const videoData = await videoRes.json()
+  const descriptions: VideoDescription[] = (videoData.items ?? []).map(
+    (v: { id: string; snippet?: { title?: string; description?: string } }) => ({
+      videoId: v.id,
+      title: v.snippet?.title ?? '',
+      description: v.snippet?.description ?? '',
+    })
+  )
+
+  return { descriptions, quotaUsed: 3 }
+}
+
+/**
+ * Extract all URLs from text (channel + video descriptions).
+ * Targets link aggregators and personal sites.
+ */
+export function extractUrlsFromText(text: string): string[] {
+  const urlRegex = /https?:\/\/[^\s<>"')\]]+/gi
+  const matches = text.match(urlRegex) ?? []
+
+  // Deduplicate and clean trailing punctuation
+  const seen = new Set<string>()
+  return matches
+    .map(url => url.replace(/[.,;:!?)]+$/, ''))
+    .filter(url => {
+      const lower = url.toLowerCase()
+      if (seen.has(lower)) return false
+      seen.add(lower)
+      return true
+    })
+}
+
+/**
+ * Classify a URL as a link aggregator or personal site.
+ * Returns null for social media / YouTube / uninteresting links.
+ */
+export function classifyUrl(url: string): 'linktree' | 'external_site' | null {
+  const lower = url.toLowerCase()
+
+  // Link aggregators
+  const aggregators = ['linktr.ee', 'beacons.ai', 'carrd.co', 'stan.store', 'linkin.bio', 'bio.link', 'lnk.bio', 'allmylinks.com', 'campsite.bio', 'hoo.be', 'tap.bio']
+  if (aggregators.some(a => lower.includes(a))) return 'linktree'
+
+  // Skip social platforms and YouTube itself
+  const skipDomains = ['youtube.com', 'youtu.be', 'twitter.com', 'x.com', 'instagram.com', 'facebook.com', 'tiktok.com', 'twitch.tv', 'discord.gg', 'discord.com', 'reddit.com', 'spotify.com', 'apple.com', 'amazon.com', 'google.com', 'bit.ly', 't.co']
+  if (skipDomains.some(d => lower.includes(d))) return null
+
+  // Everything else is a potential external site
+  return 'external_site'
+}
+
 function extractLinks(branding: any): string[] {
   const links: string[] = []
   const channels = branding?.channel?.featuredChannelsUrls ?? []
