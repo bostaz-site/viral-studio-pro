@@ -120,7 +120,7 @@ export function LandingPage() {
               <p className="text-xs text-muted-foreground/70 leading-relaxed max-w-sm">
                 {isAuditMode
                   ? 'Upload your videos and make them go viral. Karaoke captions, split-screen, and AI viral scoring.'
-                  : 'Turn Twitch and YouTube Gaming streams into viral clips. Karaoke captions, split-screen, and AI viral scoring.'}
+                  : 'Turn Twitch & Kick clips into viral TikToks. Karaoke captions, split-screen, and AI viral scoring.'}
               </p>
               {/* Social links */}
               <div className="flex items-center gap-3 mt-4">

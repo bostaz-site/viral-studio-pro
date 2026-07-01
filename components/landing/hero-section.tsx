@@ -36,6 +36,14 @@ function TikTokLogo({ className }: { className?: string }) {
   )
 }
 
+function KickLogo({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="currentColor">
+      <path d="M1.333 0v24h6.223v-7.6L14.123 24h7.544l-8.258-9.6L21.667 0H14.51L7.556 8.4V0z" />
+    </svg>
+  )
+}
+
 function InstagramLogo({ className }: { className?: string }) {
   return (
     <svg className={className} viewBox="0 0 24 24" fill="currentColor">
@@ -324,7 +332,7 @@ export function HeroSection() {
               ) : (
                 <>
                   <MonitorPlay className="h-3.5 w-3.5" />
-                  Built by streamers, for streamers
+                  The clip-to-TikTok engine for creators
                 </>
               )}
             </div>
@@ -343,9 +351,9 @@ export function HeroSection() {
                 </>
               ) : (
                 <>
-                  Your Twitch Clip,{' '}
+                  Grab Any Clip,{' '}
                   <span className="bg-gradient-to-r from-orange-400 via-amber-400 to-yellow-400 bg-clip-text text-transparent">
-                    Made Viral
+                    Make It Viral
                   </span>
                 </>
               )}
@@ -353,9 +361,14 @@ export function HeroSection() {
             <p className="text-lg sm:text-xl text-muted-foreground mt-4 max-w-2xl mx-auto leading-relaxed">
               {isAuditMode
                 ? 'Karaoke captions, auto split-screen, AI hook reordering. One click applies the formula that pops off on TikTok.'
-                : 'Karaoke captions, split-screen gameplay, AI hook reordering. One button turns your clip into a TikTok-ready vertical video.'}
+                : 'Browse Twitch & Kick clips, add karaoke captions + split-screen gameplay, and post straight to TikTok. One button turns any clip into a vertical banger.'}
             </p>
           </div>
+
+          {/* Social proof */}
+          <p className="text-center text-sm text-muted-foreground/60 mb-6">
+            Trusted by clippers and creators turning stream moments into TikTok hits
+          </p>
 
           {/* Primary CTA #1 — above video */}
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3 mb-10">
@@ -383,29 +396,36 @@ export function HeroSection() {
           {/* Value props */}
           <ValueProps />
 
-          {/* Platform logos */}
+          {/* Platform logos — sources vs destinations */}
           <div className="mt-10 text-center">
-            <p className="text-xs text-muted-foreground/50 uppercase tracking-wider mb-4">{isAuditMode ? 'Export to' : 'Works with'}</p>
+            {!isAuditMode && (
+              <div className="mb-6">
+                <p className="text-xs text-muted-foreground/50 uppercase tracking-wider mb-3">Browse clips from</p>
+                <div className="flex items-center justify-center gap-8">
+                  <div className="flex items-center gap-2 text-muted-foreground/40 hover:text-purple-400 transition-colors">
+                    <TwitchLogo className="h-6 w-6" />
+                    <span className="text-sm font-medium">Twitch</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-muted-foreground/40 hover:text-green-400 transition-colors">
+                    <KickLogo className="h-6 w-6" />
+                    <span className="text-sm font-medium">Kick</span>
+                  </div>
+                </div>
+              </div>
+            )}
+            <p className="text-xs text-muted-foreground/50 uppercase tracking-wider mb-3">{isAuditMode ? 'Export to' : 'Post to'}</p>
             <div className="flex items-center justify-center gap-8">
-              {!isAuditMode && (
-                <div className="flex items-center gap-2 text-muted-foreground/40 hover:text-purple-400 transition-colors">
-                  <TwitchLogo className="h-6 w-6" />
-                  <span className="text-sm font-medium">Twitch</span>
-                </div>
-              )}
-              {!isAuditMode && (
-                <div className="flex items-center gap-2 text-muted-foreground/40 hover:text-red-400 transition-colors">
-                  <YouTubeLogo className="h-6 w-6" />
-                  <span className="text-sm font-medium">YouTube</span>
-                </div>
-              )}
               <div className="flex items-center gap-2 text-muted-foreground/40 hover:text-foreground transition-colors">
                 <TikTokLogo className="h-6 w-6" />
                 <span className="text-sm font-medium">TikTok</span>
               </div>
-              <div className="flex items-center gap-2 text-muted-foreground/40 hover:text-pink-400 transition-colors">
+              <div className="flex items-center gap-2 text-muted-foreground/30">
+                <YouTubeLogo className="h-6 w-6" />
+                <span className="text-sm font-medium">YouTube <span className="text-[10px] opacity-60">soon</span></span>
+              </div>
+              <div className="flex items-center gap-2 text-muted-foreground/30">
                 <InstagramLogo className="h-6 w-6" />
-                <span className="text-sm font-medium">Instagram</span>
+                <span className="text-sm font-medium">Instagram <span className="text-[10px] opacity-60">soon</span></span>
               </div>
             </div>
           </div>

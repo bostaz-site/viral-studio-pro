@@ -14,6 +14,7 @@ interface PlanConfig {
   priceOriginal?: string
   priceNote: string
   trialNote?: string
+  summary?: string
   features: string[]
   highlighted?: boolean
   cta: string
@@ -25,12 +26,14 @@ const PLANS: PlanConfig[] = [
     name: 'Free',
     price: '$0',
     priceNote: '/mo',
+    summary: '3 videos/mo · max 60s · watermark · TikTok',
     features: [
       '3 videos/month',
       'Clips up to 60s',
       'Auto split-screen',
       'AI viral score',
       'Viral Animal watermark',
+      'TikTok export only',
     ],
     cta: 'Start Free',
   },
@@ -114,6 +117,9 @@ export function PricingSection() {
                     <p className="text-[11px] text-amber-400 font-semibold">Launch Price</p>
                     <LaunchCountdown />
                   </div>
+                )}
+                {plan.summary && (
+                  <p className="text-[11px] text-muted-foreground font-medium mt-2 px-2 py-1 rounded bg-muted/50">{plan.summary}</p>
                 )}
                 {plan.trialNote && (
                   <p className="text-[11px] text-emerald-400 font-medium mt-1.5">{plan.trialNote}</p>
