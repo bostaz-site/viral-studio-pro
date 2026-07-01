@@ -14,7 +14,7 @@ import { type RemixJob } from '@/components/trending/remix-card'
 import { ExportTicker } from '@/components/trending/export-ticker'
 import { TrendingCard, type QuickExportState } from '@/components/trending/trending-card'
 import { TrendingFilters } from '@/components/trending/trending-filters'
-import { WelcomeModal } from '@/components/onboarding/welcome-modal'
+import { FirstClipOverlay } from '@/components/onboarding/first-clip-overlay'
 import { ReferralBonusBanner } from '@/components/onboarding/referral-bonus-banner'
 import { useRenderSubscription } from '@/hooks/use-render-subscription'
 import { useTrendingStore, type TrendingClip } from '@/stores/trending-store'
@@ -288,7 +288,7 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
-      <WelcomeModal />
+      <FirstClipOverlay />
       <ReferralBonusBanner />
 
       {/* Header — unified PageHeader pattern (Compass icon + cyan accent) */}
