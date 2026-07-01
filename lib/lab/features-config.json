@@ -89,6 +89,24 @@
       "code_paths": ["app/(dashboard)/affiliate/", "app/api/affiliate/", "lib/affiliate/"],
       "competitors": ["circle.so referrals", "buy.fan", "metacrew"],
       "priority": 3
+    },
+    {
+      "area": "acquisition-scraper",
+      "name": "Lead Scraper + AI Scoring + CRM Import",
+      "doc_path": "docs/acquisition-scraper.md",
+      "url": "/admin/scraper",
+      "code_paths": ["lib/admin/scraper/", "app/(dashboard)/admin/scraper/", "lib/admin/ai-scoring/", "app/(dashboard)/admin/influencers/"],
+      "competitors": ["apollo.io", "clay.com", "phantombuster.com"],
+      "priority": 1
+    },
+    {
+      "area": "acquisition-outreach",
+      "name": "Offer Generator + Cold Email Campaigns + Reply Inbox",
+      "doc_path": "docs/acquisition-outreach.md",
+      "url": "/admin/inbox",
+      "code_paths": ["lib/admin/offer-generator/", "lib/admin/email/", "lib/integrations/instantly/", "app/(dashboard)/admin/inbox/", "app/(dashboard)/admin/campaigns/"],
+      "competitors": ["instantly.ai", "lemlist.com", "smartlead.ai"],
+      "priority": 1
     }
   ]
 }
