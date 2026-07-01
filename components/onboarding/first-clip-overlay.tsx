@@ -37,8 +37,14 @@ export function FirstClipOverlay() {
 
   useEffect(() => {
     // Fast path: localStorage says already done
+    // Also check old WelcomeModal key so existing users are not re-shown onboarding
     try {
-      if (typeof window !== 'undefined' && window.localStorage.getItem(LS_KEY)) return
+      if (typeof window !== 'undefined') {
+        if (
+          window.localStorage.getItem(LS_KEY) ||
+          window.localStorage.getItem('vsp.onboarding.welcome.v1')
+        ) return
+      }
     } catch {
       return // localStorage unavailable — skip onboarding
     }
