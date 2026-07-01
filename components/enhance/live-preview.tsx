@@ -41,6 +41,7 @@ export function LivePreview({
   showEnhancements,
   isRenderedVideo,
   renderedThumbnailUrl,
+  onVideoError,
 }: {
   clip: TrendingClipData
   videoUrl: string | null
@@ -48,6 +49,9 @@ export function LivePreview({
   showEnhancements: boolean
   isRenderedVideo: boolean
   renderedThumbnailUrl: string | null
+  /** Kill Switch safeguard: called when the preview video fails to load/play.
+   *  Parent can use this to re-fetch an expired CDN URL (e.g. Twitch clips). */
+  onVideoError?: () => void
 }) {
   const captionStyle = CAPTION_STYLES.find((s) => s.id === settings.captionStyle)
   const tagStyle = TAG_STYLES.find((t) => t.id === settings.tagStyle)
@@ -321,7 +325,7 @@ export function LivePreview({
                   style={styleOrUndefined}
                   autoPlay loop muted playsInline
                   onCanPlay={() => setVideoLoadFailed(false)}
-                  onError={() => setVideoLoadFailed(true)}
+                  onError={() => { setVideoLoadFailed(true); onVideoError?.() }}
                 />
               ) : videoLoadFailed ? (
                 <div className="relative w-full h-full flex flex-col items-center justify-center bg-zinc-900 z-[1] gap-2">

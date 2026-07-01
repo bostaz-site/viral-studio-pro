@@ -34,6 +34,7 @@ import { CaptionsSection } from '@/components/enhance/accordion-sections/caption
 import { SplitScreenSection } from '@/components/enhance/accordion-sections/split-screen-section'
 import { PageHeader } from '@/components/dashboard/page-header'
 import { UnifiedPublishDialog } from '@/components/distribution/unified-publish-dialog'
+import { RenderProgressModal } from '@/components/enhance/render-progress-modal'
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -73,6 +74,8 @@ export default function EnhancePage() {
   const [renderDownloadUrl, setRenderDownloadUrl] = useState<string | null>(null)
   const [renderJobId, setRenderJobId] = useState<string | null>(null)
   const [isRenderedVideo, setIsRenderedVideo] = useState(false)
+  const [showRenderModal, setShowRenderModal] = useState(false)
+  const [renderQueuePosition, setRenderQueuePosition] = useState<number | null>(null)
   const [renderedThumbnailUrl, setRenderedThumbnailUrl] = useState<string | null>(null)
   const [originalVideoUrl, setOriginalVideoUrl] = useState<string | null>(null)
   const pollRef = useRef<NodeJS.Timeout | null>(null)
@@ -222,6 +225,20 @@ export default function EnhancePage() {
     loadClip()
   }, [clipId, storeClips, sourceParam])
 
+  // Kill Switch safeguard: store the Twitch slug so we can re-fetch the CDN URL on expiry.
+  // Twitch CDN URLs are typically valid for hours, but can expire mid-session.
+  // onVideoError (passed to LivePreview) triggers a fresh fetch so the preview self-heals
+  // instead of staying stuck on the "Preview unavailable" fallback.
+  const twitchSlugRef = useRef<string | null>(null)
+  const handleVideoPreviewError = useCallback(() => {
+    const slug = twitchSlugRef.current
+    if (!slug) return
+    fetch(`/api/clips/video-url?slug=${encodeURIComponent(slug)}`)
+      .then((r) => r.ok ? r.json() : null)
+      .then((j) => { if (j?.video_url) setVideoUrl(j.video_url) })
+      .catch(() => { /* silent — fallback stays visible */ })
+  }, [])
+
   // Resolve direct MP4 URL for live preview (Twitch only)
   useEffect(() => {
     if (!clip || clip.platform !== 'twitch' || !clip.external_url) return
@@ -229,6 +246,7 @@ export default function EnhancePage() {
     const m = clip.external_url.match(/clips\.twitch\.tv\/([A-Za-z0-9_-]+)|\/clip\/([A-Za-z0-9_-]+)/)
     const slug = m ? (m[1] || m[2]) : null
     if (!slug) return
+    twitchSlugRef.current = slug // store for retry on expiry
     let cancelled = false
     fetch(`/api/clips/video-url?slug=${encodeURIComponent(slug)}`)
       .then((r) => r.ok ? r.json() : null)
@@ -312,6 +330,7 @@ export default function EnhancePage() {
           if (pollRef.current) clearInterval(pollRef.current)
           try { sessionStorage.removeItem(`render-job:${clipId}`) } catch { /* ignore */ }
           setRenderDownloadUrl(json.data.downloadUrl)
+          setRenderQueuePosition(null)
           // Save rendered video URL and AUTO-SWITCH to the Rendered tab
           // (Enhanced CSS preview becomes redundant once we have the actual MP4)
           if (json.data.publicUrl) {
@@ -330,9 +349,11 @@ export default function EnhancePage() {
           if (pollRef.current) clearInterval(pollRef.current)
           try { sessionStorage.removeItem(`render-job:${clipId}`) } catch { /* ignore */ }
           setRenderMessage(`❌ Error: ${json.data.errorMessage || 'Unknown error'}`)
+          setRenderQueuePosition(null)
           setRendering(false)
         } else if (json.data.status === 'rendering') {
           const pos = json.data.queuePosition
+          setRenderQueuePosition(typeof pos === 'number' && pos > 0 ? pos : null)
           if (typeof pos === 'number' && pos > 0) {
             setRenderMessage(`⏳ In queue — position ${pos}. Your clip will be processed soon.`)
           } else {
@@ -372,10 +393,12 @@ export default function EnhancePage() {
         if (json.data.status === 'done' || json.data.status === 'error') {
           // Let startPolling handle the terminal state + cleanup in one tick
           setRendering(true)
+          setShowRenderModal(true)
           setRenderMessage('⏳ Resuming tracking...')
           startPolling(storedJobId!)
         } else {
           setRendering(true)
+          setShowRenderModal(true)
           setRenderMessage('⏳ Resuming render tracking...')
           startPolling(storedJobId!)
         }
@@ -386,6 +409,8 @@ export default function EnhancePage() {
   const handleRender = useCallback(async () => {
     if (!clip) return
     setRendering(true)
+    setShowRenderModal(true)
+    setRenderQueuePosition(null)
     setRenderMessage('⏳ Starting render...')
     setRenderDownloadUrl(null)
     setRenderOriginalUrl(null)
@@ -1080,6 +1105,7 @@ export default function EnhancePage() {
             showEnhancements={!isRenderedVideo && showEnhancements}
             isRenderedVideo={isRenderedVideo}
             renderedThumbnailUrl={renderedThumbnailUrl}
+            onVideoError={handleVideoPreviewError}
           />
 
           {/* Generate button — hidden when AI flow active or render done */}
@@ -1972,6 +1998,16 @@ export default function EnhancePage() {
           </div>
         </div>
       </div>
+
+      {/* Render progress modal — opens on Export, shows FFmpeg stages + notification opt-in */}
+      <RenderProgressModal
+        open={showRenderModal}
+        queuePosition={renderQueuePosition}
+        isDone={!!renderDownloadUrl}
+        isError={!!(renderMessage && (renderMessage.includes('❌') || renderMessage.startsWith('Network')))}
+        errorMessage={renderMessage?.replace(/^❌\s*/, '')}
+        onClose={() => setShowRenderModal(false)}
+      />
 
       {/* Unified multi-platform publish dialog */}
       <UnifiedPublishDialog

@@ -131,7 +131,12 @@ function getClaudeExe(): string {
 
 function execCapture(cmd: string, args: string[]): Promise<{ stdout: string; stderr: string }> {
   return new Promise((resolve, reject) => {
-    const child = spawn(cmd, args, { cwd: REPO_PATH, shell: true })
+    const isWindows = process.platform === 'win32'
+    // Only use shell for .cmd batch wrappers (npm, npx). Real .exe binaries
+    // (git, gh) must NOT use shell — otherwise Windows shell re-parses args with spaces,
+    // breaking commit messages, PR bodies, etc.
+    const needsShell = isWindows && ['npm', 'npx', 'yarn'].includes(cmd)
+    const child = spawn(cmd, args, { cwd: REPO_PATH, shell: needsShell })
     let stdout = ''
     let stderr = ''
     child.stdout.on('data', (c) => (stdout += c.toString()))
@@ -338,10 +343,15 @@ async function processOneDive(dive: Record<string, unknown>) {
 
     // 6. Commit + push
     await execCapture('git', ['add', '-A'])
-    await execCapture('git', [
-      'commit', '-m',
-      `feat(${featureArea}): lab cycle ${cycleNumber} auto-execute\n\nFrom: ${promptPath}\nDive: ${diveId}\n\nCo-Authored-By: Claude Code <noreply@anthropic.com>`,
-    ])
+    // Use temp file for commit message to avoid ALL shell quoting issues on Windows
+    const commitMsg = `feat(${featureArea}): lab cycle ${cycleNumber} auto-execute\n\nFrom: ${promptPath}\nDive: ${diveId}\n\nCo-Authored-By: Claude Code <noreply@anthropic.com>`
+    const commitMsgFile = path.join(os.tmpdir(), `lab-commit-${Date.now()}.txt`)
+    await fs.writeFile(commitMsgFile, commitMsg, 'utf-8')
+    try {
+      await execCapture('git', ['commit', '-F', commitMsgFile])
+    } finally {
+      await fs.unlink(commitMsgFile).catch(() => { /* ignore */ })
+    }
     await execCapture('git', ['push', 'origin', branch])
 
     // 7. Create PR via GitHub API
