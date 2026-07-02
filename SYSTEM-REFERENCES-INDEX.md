@@ -4,7 +4,7 @@
 > Chaque module = 1 fichier `SYSTEM-REFERENCE-XXX.md` à jour.
 > Cet index dit **quoi lire** avant de toucher à quel système.
 
-**Dernière maj** : 2026-07-01 (Groupe A review — cross-references, states, sequences)
+**Dernière maj** : 2026-07-02 (full review — 24 systems synced, research docs indexed)
 **Mainteneur** : Samy Cloutier ([samy@viralanimal.com](mailto:samy@viralanimal.com))
 
 ---
@@ -68,30 +68,29 @@ Si un système n'a **pas** de reference → c'est un bug. Créer le fichier en m
 ## 🎬 PRODUIT (CÔTÉ UTILISATEUR)
 
 ### `SYSTEM-REFERENCE-BROWSE.md`
-**Scope** : Page `/browse` — découverte de clips, filtres, infinite scroll, preview.
-**Lire avant** : changements sur browse, filtres, ranking algo, infinite scroll behavior.
-**Tables clés** : `clips`, `clip_metadata`, `user_likes`.
+**Scope** : Page `/dashboard` — découverte de clips, feed tabs (Exploding Now/Proven Winners/Fresh Drops), filters, infinite scroll, hover preview, Quick Export, detail modal.
+**Lire avant** : changements sur browse, filtres, ranking algo, feed tabs, card CTAs.
+**Tables clés** : `trending_clips`, `streamers`, `saved_clips`, `render_jobs`.
 
 ### `SYSTEM-REFERENCE-AI.md`
 **Scope** : Pipeline AI principal (Claude transcription → hook detection → score viral → captions).
 **Lire avant** : modifier prompts Claude, ajuster scoring, ajouter un nouveau LLM call.
 **Coûts** : ~$0.02 / clip processé.
 
-### `SYSTEM-REFERENCE-ENHANCE.md`
-**Scope** : Page `/enhance/[clipId]` — options de remontage (split-screen, voix-off, subtitles karaoké).
-**Lire avant** : toucher à l'éditeur, FFmpeg pipeline, ou aux options UI.
+### `SYSTEM-REFERENCE-ENHANCE.md` (v2.5)
+**Scope** : Page `/enhance/[clipId]` — AI mood, hook gen, live preview, 4-tier render quality ladder (1080p60→720p), peak detection v2 (spike + Twitch prior), adaptive exposure, paywall, watermark + end-card free plan.
+**Lire avant** : toucher à l'éditeur, FFmpeg pipeline, render quality, scoring weights, ou aux options UI.
 **Règle critique** : **le render DOIT matcher les OPTIONS choisies dans l'UI** (cf. `feedback_render_parity`).
 
-### `SYSTEM-REFERENCE-DISTRIBUTION.md`
-**Scope** : Publication multi-plateforme (TikTok, IG, YT Shorts), scheduling, OAuth comptes sociaux.
-**Lire avant** : ajouter une plateforme, modifier OAuth flow, scheduling logic, TikTok publish dialog.
+### `SYSTEM-REFERENCE-DISTRIBUTION.md` (v9)
+**Scope** : Publication multi-plateforme, autofarm executor (queue → scheduled_publications → cron publish-scheduled → published_posts), auto-post defaults TikTok, scheduling, OAuth.
+**Lire avant** : ajouter une plateforme, modifier autofarm, OAuth flow, scheduling logic.
+**Launch** : TikTok only (YouTube/Instagram "coming soon").
 **Dépendances** : Apps API (Meta, TikTok, YouTube) — cf. `reference_social_api_apps.md` en mémoire.
-**v8.1** : TikTok Direct Post compliance — TikTokPublishDialog, creator_info, 7 requirements UX, polling status.
-**Docs liés** : `TIKTOK-DEMO-VIDEO-SCRIPT.md` (script vidéo démo pour audit TikTok).
 
-### `SYSTEM-REFERENCE-ANALYTICS.md`
-**Scope** : Analytics côté **user** (vues, likes, retention, performance par plateforme).
-**Lire avant** : ajouter métriques user, modifier dashboards `/dashboard`.
+### `SYSTEM-REFERENCE-ANALYTICS.md` (v5.2)
+**Scope** : Analytics côté **user** — creator rank, learning engine, pattern detection, heatmap, acquisition_source tracking.
+**Lire avant** : ajouter métriques user, modifier dashboards analytics, pattern detection, smart queue integration.
 **Note** : à ne pas confondre avec `SYSTEM-REFERENCE-ADMIN-ANALYTICS.md`.
 
 ---
@@ -219,6 +218,15 @@ Si un système n'a **pas** de reference → c'est un bug. Créer le fichier en m
 
 ---
 
+## 📖 RECHERCHES (`docs/research/`)
+
+| Fichier | Scope |
+|---|---|
+| `docs/research/viralite-calibration.md` | Calibration des poids Blowup Chance — ~70 sources verifiees (TikTok officiel, MrBeast, Buffer 1.1M videos, etc.). Justifie chaque feature weight dans `scoring.ts`. |
+| `docs/research/freemium-paywall-strategy.md` | Strategie paywall contextuel — 5 options conversion (one-time save, upgrade, invite, top-up, wait). Justifie le flow du PaywallModal. |
+
+---
+
 ## 🛣️ FUTURS SYSTEM REFERENCES
 
 | Fichier | Scope | Statut |
@@ -292,6 +300,6 @@ Quand on build un nouveau module, le `SYSTEM-REFERENCE-XXX.md` doit contenir :
 ---
 
 **Maintenu par** : Samy Cloutier
-**Last updated** : 2026-07-01
+**Last updated** : 2026-07-02
 **Branch live** : `master`
 **Production URL** : [viralanimal.com](https://viralanimal.com)

@@ -470,6 +470,17 @@ Les couleurs et ornements de rang (violet, gold shimmer, fire, skull, crown) ne 
 
 Le theme cyan du command center Distribution (`distribution-hub.css`) est une exception documentee. Le cyan y remplace amber comme couleur dominante pour marquer la zone "systeme/intelligence" distincte du reste de l'app.
 
+### Exceptions gamification (intentionnelles)
+
+Les cas suivants sont des derogations controlees a la regle "pas de couleur de rang dans l'UI normale" :
+
+| Exception | Couleurs | Raison |
+|---|---|---|
+| **Cartes de rang Browse** : epic=violet, legendary=or, master=feu | violet-500, amber-400, red-500 | Identite de tiers — ces couleurs SONT le rang. Exemptees de la regle violet→amber. |
+| **Theme cyan command-center Distribution** | cyan-400 dominant | Zone "systeme/intelligence" visuellement distincte du produit principal. |
+| **Couleurs de moods Enhance** | couleurs variees par mood (rage=red, funny=yellow, etc.) | Les moods ont leur propre palette semantique (6 moods = 6 couleurs). Exemptees de amber/cyan only. |
+| **Instagram gradient** (Analytics) | pink-600 → purple-600 | Couleur de marque plateforme, pas un choix design Viral Animal. |
+
 ---
 
 ## 19. Copy Rules

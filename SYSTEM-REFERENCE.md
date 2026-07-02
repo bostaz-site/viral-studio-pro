@@ -10,13 +10,22 @@
 | Score | Code | Ou | Ce que c'est | Range |
 |---|---|---|---|---|
 | **Algo Score** | `velocity_score` | Browse, DB `trending_clips` | Score composite V2 du clip (7 facteurs : momentum, authority, engagement, recency, early signal, format, saturation) | 0-100 |
-| **Blowup Chance** | `computeCurrentScore()` | Enhance | Score estime apres edition (baseline clip + poids des enhancements actives). C'est un score UI de potentiel, PAS une prediction reelle. | 0-99 |
+| **Blowup Chance** | `computeCurrentScore()` | Enhance | Score estime apres edition (baseline clip + poids des enhancements actives, calibres par recherche — voir `docs/research/viralite-calibration.md`). Directionnel, pas predictif. | 0-99 |
 | **Breakout Probability** | `breakoutProbability` | Distribution Smart Queue | Probabilite simulee de performance si le clip est poste maintenant. Basee sur viralScore x timing x momentum. SIMULE, pas connecte a des vraies metriques post. | 0-100% |
 | **Creator Score** | `creator_score` | Settings, DB `social_accounts` | Score du compte YouTube (5 facteurs : performance, engagement, growth, audience, consistency). Requiert YouTube connecte. | 0-100 |
 | **Clip Momentum** | `momentum_score` | Browse, DB `trending_clips` | Sous-score V2 : vitesse de croissance des vues + acceleration. C'est UN des 7 facteurs du Algo Score. | 0-100 |
 | **Creator Momentum** | `calculateMomentumScore()` | Analytics | Score de dynamique de publication du createur (activite x qualite x consistance - decay). Base sur localStorage, PAS sur des vraies metriques. | 0-100 |
 | **Queue Confidence** | `confidence` | Distribution Smart Queue | Confiance dans la suggestion de la queue (nb de posts dans le learning data). SIMULE. | low/medium/high |
 | **Mood Confidence** | `moodConfidence` | Enhance | Confiance de la detection de mood par Claude Haiku (vrai appel AI). | 0-100 |
+
+### Scores admin (leads influenceurs)
+| Score | Code | Ou | Ce que c'est | Range |
+|---|---|---|---|---|
+| **Keyword Score** | `keyword_score` | Admin Scraper | Pre-score rapide par mots-cles (heuristique, pas AI) | 0-100 |
+| **Lead Score** | `lead_score` | Admin CRM | Score composite du lead (engagement, audience, activite) | 0-100 |
+| **AI Affiliate Score** | `ai_affiliate_score` | Admin AI Scoring | Score Claude Haiku (niche fit, audience, sponsorship likelihood) | 0-100 |
+
+Details : `SYSTEM-REFERENCE-ADMIN-SCRAPER.md`, `SYSTEM-REFERENCE-ADMIN-CRM.md`, `SYSTEM-REFERENCE-ADMIN-AI-SCORING.md`.
 
 ### Regle absolue
 - `velocity_score` = seul score reel base sur des donnees Twitch/Kick
@@ -63,8 +72,8 @@ Dashboard page displaying ranked streamer clips with feed tabs, filters, infinit
 2. Pick a feed tab -> client-side filter first (instant), then background server fetch if <10 results
 3. Apply filters (search, platform, niche, duration) -> server-side re-fetch with filter params (search debounced 300ms)
 4. Hover on card -> resolves video URL -> inline preview plays
-5. **Quick Export** (primary CTA): click lightning bolt -> `POST /api/render/quick` -> renders in background -> notification toast with Download/View on completion
-6. **Customize** (secondary): click sliders icon -> `router.push('/dashboard/enhance/{clipId}')` for full enhance editor
+5. **Make It Viral** (primary CTA): click -> `router.push('/dashboard/enhance/{clipId}')` for full enhance editor
+6. **Quick Export** (secondary CTA): Zap icon button, calls `POST /api/render/quick` -> renders in background -> notification toast with Download/View on completion. Note: API is WIRED_REAL but CTA is not yet exposed on cards in current UI (accessible via detail modal)
 7. "Load more" -> `GET /api/trending?cursor={score}_{id}&limit=50` with same filter params
 
 ### Files
@@ -101,7 +110,7 @@ Dashboard page displaying ranked streamer clips with feed tabs, filters, infinit
 - `GET /api/clips/sparkline?ids=uuid1,uuid2` — batch snapshots for mini velocity graphs (max 50 clips)
 
 ### Feed Tabs
-`all` (Film), `hot_now` (Flame), `early_gem` (Diamond), `proven` (Trophy), `recent` (Zap), `saved` (Lock), `remixes` (Scissors). Remixes tab triggers separate `GET /api/clips/my-remixes` fetch.
+3 visible tabs + 1 subtle: **Exploding Now** (default, Flame), **Proven Winners** (Trophy), **Fresh Drops** (Zap), **All Clips** (subtle/text link). Plus **Saved** (Lock) and **Remixes** (Scissors) when applicable. Remixes tab triggers separate `GET /api/clips/my-remixes` fetch.
 
 ### Quick Export (Browse -> Render in Background)
 Primary CTA on each card. Sends `POST /api/render/quick` with `x-idempotency-key` header (UUID, prevents double-clicks). API runs mood detection (best-effort), builds auto settings from preset, goes through render queue, returns `jobId`. Dashboard subscribes via `useRenderSubscription` and shows a completion toast with Download/View buttons. Auto-dismisses after 15s. Only one quick export at a time per user session (button disabled on other cards while rendering). The "Customize" button (sliders icon) still links to the full enhance page.
@@ -114,7 +123,7 @@ Each card shows concrete value beyond the raw score:
 - **Score number**: big Archivo Black overlay on thumbnail (unchanged)
 
 ### Detail Modal Score Breakdown
-Collapsible "Why this score" section (`trending-detail-modal.tsx`). Shows top 3 dominant scoring factors (sorted by value desc from momentum, authority, engagement, freshness, early signal, format). Each factor renders as a colored progress bar (green >= 70, amber 40-70, red < 40). Saturation penalty shown separately if > 30. Stats grid includes velocity ("/h") and export count. No extra API call — all data from `TrendingClip`.
+Opened via "Why this clip?" link on cards. Collapsible "Why this score" section (`trending-detail-modal.tsx`). Shows top 3 dominant scoring factors (sorted by value desc from momentum, authority, engagement, freshness, early signal, format). Each factor renders as a colored progress bar (green >= 70, amber 40-70, red < 40). Saturation penalty shown separately if > 30. Stats grid includes velocity ("/h") and export count. No extra API call — all data from `TrendingClip`.
 
 ### Stream Grouping
 Clips from the same stream are grouped to prevent one streamer dominating the feed. Applied API-side in `GET /api/trending` after the DB query (post-processing, no extra queries).
@@ -156,7 +165,7 @@ Clips from the same stream are grouped to prevent one streamer dominating the fe
 | 3 | Engagement | 15% | like/view ratio (5%=100, 3%=75, 1%=50). Neutral=65 if no likes. Title signal boost capped at +10% |
 | 4 | Recency | 10% | `exp(-age/72)*100`. 6h=92, 24h=72. Never 0 |
 | 5 | Early Signal | 10% | views/min * log(views) * exp(-age/6). Short clip bonus 1.1x. Floor at 50 after 24h |
-| 6 | Format | 10% | 15-45s=100, 45-60s=80, <10s or >60s=50 |
+| 6 | Format | 10% | 15-45s=100, 45-90s=80, 8-15s=70, >90s=60, <8s=40 (calibrated 2026-07, Buffer 2025 1.1M videos) |
 | 7 | Saturation | -10% | Penalty for old viral (>7d + >1M views) and dead clips (velocity < 50% streamer avg) |
 
 ### Display Curve & Anti-Gaming
@@ -222,7 +231,24 @@ When auto-cut is enabled and no explicit `silenceThreshold` is provided, the VPS
 Frontend passes `mood` in `settings.autoCut.mood`. If user sets an explicit slider value, it overrides the adaptive calculation. UI shows "AI suggests Xs (energy level — mood)" when mood is detected.
 
 ### Viral Score Formula
-`currentScore = baseline + (headroom * totalWeight)`. Baseline = `max(30, clip.velocity_score)`. Weight accumulates per enabled feature (captions 0.14, split-screen 0.12, hooks 0.11, etc.) with mood-match bonuses. Cap at 99.
+`currentScore = baseline + (headroom * totalWeight)`. Baseline = `max(30, clip.velocity_score)`. Weight accumulates per enabled feature (captions 0.14, hook 0.13, split-screen 0.07, etc.) with mood-match bonuses (~0.19 max). Cap at 99. Poids calibres par recherche — voir `docs/research/viralite-calibration.md`.
+
+### Render Quality (4-tier ladder)
+Env var `RENDER_QUALITY` (default `high`). Auto-fallback on OOM (exit code null/137):
+- **HIGH_60**: 1080p60, faster, crf 19, maxrate 12M
+- **HIGH_30**: 1080p30, faster, crf 20, maxrate 8M
+- **SAFE**: 720p30, veryfast, crf 23, maxrate 5M
+- **LAST_RESORT**: 720p30, ultrafast, crf 26, maxrate 4M
+Filtergraph: scale/crop → eq (4 buckets) → unsharp (HIGH only) → ASS subtitles → overlays → watermark → format. Details : `SYSTEM-REFERENCE-ENHANCE.md` section "Qualite de rendu v2".
+
+### Peak Detection (spike + positional prior)
+`vps/lib/hook-generator.js` > `detectPeakMoment()`. Combines audio spikes (×8), viral keywords (+3/+2/+1), ALL CAPS (+2), positional prior (Twitch/Kick clips: last ⅓ boosted ×1.3), anti-edge. Word-boundary snapping for hook reorder. Details : `SYSTEM-REFERENCE-ENHANCE.md` section "Peak Detection v2".
+
+### Paywall (contextual conversion)
+Free plan: 3 videos/month. On quota hit → PaywallModal with 5 options: one-time save (first wall only), upgrade, invite (+3 clips), top-up packs ($5/5, $9/10), wait. Strategy : `docs/research/freemium-paywall-strategy.md`.
+
+### Watermark + End-Card (free plan)
+Watermark: `@viralanimal` text, position-alternating top/bottom center (anti-crop). End-card: 1.2s appended via concat, "clipped with VIRAL ANIMAL". Pro/Studio: no watermark unless custom logo.
 
 ### API Endpoints
 - `POST /api/enhance/ai-optimize` — mood detection. Returns `{ mood, confidence, explanation, important_words }`
@@ -300,6 +326,9 @@ When the VPS webhook (`hook/route.ts`) reports `status: 'error'`:
 - VPS: `VPS_RENDER_URL` (Railway) — authenticates with `VPS_RENDER_API_KEY`
 - Supabase Storage: `clips/` for output, `thumbnails/` for thumbnails
 - Supabase Realtime: postgres_changes on `render_jobs` table
+
+### Adaptive Exposure (4 buckets)
+VPS probes average luma of source video and applies eq filter: <65 luma (dark: b=0.035 c=1.08), 65-95 (dim: b=0.015 c=1.05), 95-140 (normal: c=1.02), >140 (no eq). Gentler than before to survive TikTok re-encode.
 
 ### Gotchas
 - VPS POST has 15s timeout but VPS continues processing (fire-and-forget)
@@ -406,6 +435,9 @@ Multi-platform publishing to TikTok, YouTube, Instagram with OAuth token managem
 ### Posting Time Advice
 `lib/distribution/posting-schedule.ts` provides per-platform optimal posting hours (UTC). Integrated into the publish dialog: shows a green/amber/red badge per enabled platform with a suggestion like "Best time to post right now!" or "Low engagement now. Best in 3h". Data is static (based on public research), not personalized.
 
+### Autofarm Executor (v9)
+Queue-based auto-posting pipeline: user enables Auto-Distribute toggle → client POST `/api/distribution/autofarm-sync` → insert rows in `scheduled_publications` (source='autofarm', tiktok_options copied from auto-post defaults) → cron `publish-scheduled` (every 5-10min) picks up rows WHERE `status='scheduled' AND scheduled_at <= now()` → optimistic lock → publish via platform API → insert `published_posts` → cleanup. Toggle OFF cancels all pending autofarm rows. Requires `auto_post_defaults` configured (TikTok privacy, disclosure, etc.) — without it, autofarm won't schedule. Launch: TikTok only (other platforms "coming soon"). Details : `SYSTEM-REFERENCE-DISTRIBUTION.md`.
+
 ### Gotchas
 - TikTok `publish_id` returns immediately but posting is async
 - Google doesn't rotate refresh tokens; TikTok does
@@ -416,7 +448,7 @@ Multi-platform publishing to TikTok, YouTube, Instagram with OAuth token managem
 
 ## 9. Cron Jobs
 
-Netlify Scheduled Functions triggering Next.js API routes. All authenticate via `x-api-key: CRON_SECRET`.
+Next.js API routes authenticated via `x-api-key: CRON_SECRET`. **SCHEDULING EXTERNE A VERIFIER** — `netlify.toml` contient uniquement des commentaires (pas de `[functions."cron-*"]`), plusieurs crons n'ont potentiellement jamais tourne (0 rows en DB). Scheduler externe recommande (cron-job.org, GitHub Actions, etc.).
 
 ### Schedule
 | Function | Cron | Route | Purpose |
@@ -427,6 +459,13 @@ Netlify Scheduled Functions triggering Next.js API routes. All authenticate via 
 | `cron-cleanup-storage` | `0 4 * * *` | `POST /api/cron/cleanup-storage` | Delete expired clips (free=7d, pro=30d, studio=90d) |
 | `cron-reset-usage` | `0 0 1 * *` | `POST /api/cron/reset-usage` | Reset `monthly_videos_used` to 0 |
 | `cron-reconcile-render` | `*/30 * * * *` | `POST /api/cron/reconcile-render` | Reconcile Redis active jobs Set with DB — remove stale entries, dispatch queued |
+| `cron-publish-scheduled` | `*/5-10 * * * *` | `POST /api/cron/publish-scheduled` | Autofarm executor — publish due scheduled_publications |
+| `cron-refresh-post-stats` | `0 */6 * * *` | `POST /api/cron/refresh-post-stats` | Batch refresh metrics from platform APIs |
+| `cron-ai-triage` | `*/15 * * * *` | `POST /api/cron/ai-triage` | Claude Haiku classification of inbox emails |
+| `cron-ai-scoring` | `0 * * * *` | `POST /api/cron/ai-scoring` | Claude Haiku scoring of top leads |
+| `cron-watchdog` | `*/30 * * * *` | `POST /api/cron/watchdog` | Anomaly detection on key metrics |
+| `cron-sync-instantly` | `*/15 * * * *` | `POST /api/cron/sync-instantly` | Sync Instantly mailboxes + campaigns |
+| `cron-monthly-payouts` | `0 0 1 * *` | `POST /api/cron/monthly-payouts` | Calculate affiliate payouts |
 
 ### Rescore Details
 - Stratification: `<6h` every 15min, `6-24h` every 1h, `>24h` every 24h
