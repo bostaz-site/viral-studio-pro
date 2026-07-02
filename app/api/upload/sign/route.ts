@@ -99,7 +99,7 @@ export async function POST(req: NextRequest) {
       // Update the storage path for the retry
       await admin
         .from('videos')
-        .update({ storage_path: storagePath, status: 'uploaded', error_message: null })
+        .update({ storage_path: storagePath, status: 'uploading', error_message: null })
         .eq('id', existingVideoId)
 
       return NextResponse.json({
@@ -126,7 +126,7 @@ export async function POST(req: NextRequest) {
       storage_path: storagePath,
       mime_type: mime,
       file_size_bytes: fileSize ?? 0,
-      status: 'uploaded',
+      status: 'uploading',
     })
     .select('id')
     .single()

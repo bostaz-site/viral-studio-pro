@@ -223,14 +223,17 @@ export default function DashboardPage() {
     return () => { if (notifTimerRef.current) clearTimeout(notifTimerRef.current) }
   }, [renderNotification])
 
-  const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+  // Track pre-created videoId so we can reuse on retry or clean up on abandon
+  const lastUploadVideoIdRef = useRef<string | null>(null)
+
+  const handleFileSelect = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
 
-    // Client-side validation
-    const maxSize = 500 * 1024 * 1024
+    // Client-side validation (2 GB max — same as UploadZone)
+    const maxSize = 2 * 1024 * 1024 * 1024
     if (file.size > maxSize) {
-      setUploadError('File too large — maximum size is 500 MB')
+      setUploadError('File too large — maximum size is 2 GB')
       if (fileInputRef.current) fileInputRef.current.value = ''
       return
     }
@@ -241,46 +244,90 @@ export default function DashboardPage() {
     setUploadProgress(0)
     setUploading(true)
 
-    const formData = new FormData()
-    formData.append('file', file)
-    formData.append('title', file.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' '))
-
-    // Use XMLHttpRequest for real upload progress tracking
-    const xhr = new XMLHttpRequest()
-
-    xhr.upload.addEventListener('progress', (event) => {
-      if (event.lengthComputable) {
-        setUploadProgress(Math.round((event.loaded / event.total) * 100))
+    try {
+      // Step 1: Get signed upload URL (bypasses Netlify 6 MB payload limit)
+      const signBody: Record<string, unknown> = {
+        filename: file.name,
+        contentType: file.type || 'video/mp4',
+        fileSize: file.size,
       }
-    })
+      if (lastUploadVideoIdRef.current) {
+        signBody.existingVideoId = lastUploadVideoIdRef.current
+      }
 
-    xhr.addEventListener('load', () => {
-      try {
-        const data = JSON.parse(xhr.responseText)
-        if (xhr.status >= 200 && xhr.status < 300 && !data.error) {
+      const signRes = await fetch('/api/upload/sign', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(signBody),
+      })
+
+      const signJson = await signRes.json()
+      if (!signRes.ok || signJson.error) {
+        setUploadError(signJson.message ?? signJson.error ?? 'Failed to prepare upload')
+        setUploading(false)
+        if (fileInputRef.current) fileInputRef.current.value = ''
+        return
+      }
+
+      const { signedUrl, videoId } = signJson.data
+      lastUploadVideoIdRef.current = videoId
+
+      // Step 2: Upload file directly to Supabase Storage via signed URL
+      const xhr = new XMLHttpRequest()
+      xhr.open('PUT', signedUrl)
+      xhr.setRequestHeader('Content-Type', file.type || 'video/mp4')
+
+      xhr.upload.addEventListener('progress', (event) => {
+        if (event.lengthComputable) {
+          setUploadProgress(Math.round((event.loaded / event.total) * 100))
+        }
+      })
+
+      xhr.addEventListener('load', async () => {
+        if (fileInputRef.current) fileInputRef.current.value = ''
+        if (xhr.status >= 200 && xhr.status < 300) {
+          // Step 3: Confirm upload completed
+          try {
+            const completeRes = await fetch('/api/upload/complete', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ videoId }),
+            })
+            if (!completeRes.ok) {
+              const cj = await completeRes.json().catch(() => null)
+              setUploadError(cj?.message ?? 'Failed to confirm upload — please retry')
+              setUploading(false)
+              return
+            }
+          } catch {
+            setUploadError('Failed to confirm upload — please retry')
+            setUploading(false)
+            return
+          }
+
           setUploadSuccess(true)
+          lastUploadVideoIdRef.current = null
           setTimeout(() => {
-            router.push(`/dashboard/enhance/${data.data.id}?source=upload`)
+            router.push(`/dashboard/enhance/${videoId}?source=upload`)
           }, 600)
         } else {
-          setUploadError(data.message || 'Upload failed')
+          setUploadError('Upload to storage failed — please try again')
           setUploading(false)
         }
-      } catch {
-        setUploadError('Invalid server response')
-        setUploading(false)
-      }
-      if (fileInputRef.current) fileInputRef.current.value = ''
-    })
+      })
 
-    xhr.addEventListener('error', () => {
-      setUploadError('Network error')
+      xhr.addEventListener('error', () => {
+        setUploadError('Network error — please try again')
+        setUploading(false)
+        if (fileInputRef.current) fileInputRef.current.value = ''
+      })
+
+      xhr.send(file)
+    } catch {
+      setUploadError('Unexpected error — please try again')
       setUploading(false)
       if (fileInputRef.current) fileInputRef.current.value = ''
-    })
-
-    xhr.open('POST', '/api/upload')
-    xhr.send(formData)
+    }
   }, [router])
 
   // Feed tabs — 3 primary tabs + "All clips" link + Saved

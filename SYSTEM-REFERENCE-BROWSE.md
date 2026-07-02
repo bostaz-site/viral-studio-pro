@@ -1,4 +1,4 @@
-# SYSTEM REFERENCE — Browse / Trending Page (v2.1)
+# SYSTEM REFERENCE — Browse / Trending Page (v2.2)
 
 > Ce fichier est la source de verite pour la page Browse (Dashboard principal).
 > Derniere mise a jour : 2026-07-02.
@@ -948,23 +948,31 @@ Auto-dismiss apres 15s (`notifTimerRef`).
 
 ---
 
-## Upload Flow
+## Upload Flow (Direct-to-Storage, 3 etapes)
+
+> **Netlify limit**: les fonctions serverless plafonnent a ~6 MB de payload.
+> L'upload passe donc directement du client vers Supabase Storage via signed URL.
+
+### Architecture 3 etapes
+
+1. **Init** — `POST /api/upload/sign` : auth + validation (2 GB max, types video) + cree row `videos` (`status='uploading'`) + retourne `{ signedUrl, videoId }`
+2. **Upload** — Le client PUT le fichier directement sur `signedUrl` (Supabase Storage). XHR avec `upload.progress` pour le suivi. Netlify n'est plus dans le chemin.
+3. **Complete** — `POST /api/upload/complete { videoId }` : verifie que le fichier existe dans Storage, update `status='uploaded'`, retourne la row.
+
+### Retry
+
+- Si le PUT echoue, le client peut re-init avec `existingVideoId` pour reutiliser la meme row (evite les orphelins).
+- Si abandon, `DELETE /api/upload/sign?videoId=xxx` nettoie la row.
+- Cron `cleanup-storage` purge les rows `status='uploading'` de plus de 24h.
 
 ### Validation client
 
-- Max file size: 500 MB
+- Max file size: 2 GB
 - Accepted types: `video/mp4, video/quicktime, video/x-matroska, video/avi, video/webm, .mp4, .mov, .mkv, .avi, .webm`
-
-### Progression
-
-Utilise `XMLHttpRequest` (pas fetch) pour tracker le progress reel:
-- `xhr.upload.addEventListener('progress')` → `setUploadProgress(Math.round(...))`
-- POST /api/upload avec FormData
-- Title auto-genere: nom du fichier sans extension, tirets/underscores → espaces
 
 ### Post-upload
 
-Sur succes: `setUploadSuccess(true)` → redirect vers `/dashboard/enhance/{id}?source=upload` apres 600ms.
+Sur succes de l'etape 3: `setUploadSuccess(true)` → redirect vers `/dashboard/enhance/{videoId}?source=upload` apres 600ms.
 
 ### UI upload button
 

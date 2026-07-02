@@ -78,8 +78,27 @@ export function UploadPageClient() {
           }
         })
 
-        xhr.addEventListener('load', () => {
+        xhr.addEventListener('load', async () => {
           if (xhr.status >= 200 && xhr.status < 300) {
+            // Step 3: Confirm upload completed
+            try {
+              const completeRes = await fetch('/api/upload/complete', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ videoId }),
+              })
+              if (!completeRes.ok) {
+                const cj = await completeRes.json().catch(() => null)
+                setUploadError(cj?.message ?? 'Failed to confirm upload — please retry')
+                setIsUploading(false)
+                return
+              }
+            } catch {
+              setUploadError('Failed to confirm upload — please retry')
+              setIsUploading(false)
+              return
+            }
+
             setUploadSuccess(true)
             setIsUploading(false)
             lastVideoIdRef.current = null

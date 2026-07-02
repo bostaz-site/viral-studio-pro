@@ -129,14 +129,36 @@ export async function POST(req: NextRequest) {
       remaining -= expired.length
     }
 
-    const message = totalDeleted > 0
-      ? `${totalDeleted} expired clips cleaned up`
-      : 'No expired clips found'
+    // --- Orphaned uploads: videos stuck in 'uploading' for >24h ---
+    let orphansCleaned = 0
+    const orphanCutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
+
+    const { data: orphans } = await admin
+      .from('videos')
+      .select('id, storage_path')
+      .eq('status', 'uploading')
+      .lt('created_at', orphanCutoff)
+      .limit(50)
+
+    if (orphans && orphans.length > 0) {
+      for (const v of orphans) {
+        if (v.storage_path) {
+          await admin.storage.from('videos').remove([v.storage_path]).catch(() => {})
+        }
+        await admin.from('videos').delete().eq('id', v.id)
+        orphansCleaned++
+      }
+      logger.info(`[cleanup-storage] Cleaned ${orphansCleaned} orphaned upload(s)`)
+    }
+
+    const message = totalDeleted > 0 || orphansCleaned > 0
+      ? `${totalDeleted} expired clips + ${orphansCleaned} orphaned uploads cleaned`
+      : 'No expired clips or orphans found'
 
     logger.info(`[cleanup-storage] ${message} (errors: ${totalErrors})`)
 
     return NextResponse.json({
-      data: { deleted: totalDeleted, errors: totalErrors, byPlan },
+      data: { deleted: totalDeleted, errors: totalErrors, byPlan, orphansCleaned },
       error: null,
       message,
     })
