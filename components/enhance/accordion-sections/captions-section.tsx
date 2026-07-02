@@ -21,10 +21,10 @@ export function CaptionsSection({
   selectedMood, scores, getRealImpact, sectionRef, hideGranular = false,
 }: CaptionsSectionProps) {
   return (
-    <AccordionItem value="captions" ref={sectionRef as React.Ref<HTMLDivElement>} className="scroll-mt-32 rounded-xl border border-white/10 bg-card/60 px-4 overflow-hidden">
+    <AccordionItem value="captions" ref={sectionRef as React.Ref<HTMLDivElement>} className={cn("scroll-mt-32 va-panel px-4 overflow-hidden", settings.captionStyle !== 'none' ? 'va-panel-active' : 'va-panel-muted')}>
       <AccordionTrigger className="text-zinc-400 hover:text-white">
         <span className="flex items-center gap-2 text-sm font-medium text-foreground">
-          <Type className="h-4 w-4 text-primary" />
+          <Type className={cn("h-4 w-4", settings.captionStyle !== 'none' ? 'text-amber-400' : 'text-zinc-500')} />
           Karaoke captions
           <span className="text-xs text-zinc-500 font-normal">
             {settings.captionStyle !== 'none'

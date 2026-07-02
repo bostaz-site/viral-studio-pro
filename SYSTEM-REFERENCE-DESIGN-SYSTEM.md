@@ -110,6 +110,7 @@ All score tokens use `font-family: var(--font-score)`, `font-variant-numeric: ta
 - Max 2 font families + 1 monospace per page
 - Max 3 font weights per component
 - Archivo Black for scores/ranks ONLY — never for body text or buttons
+- **Uppercase + letter-spacing**: reserved for **system labels only** (11px/700/0.14em). Examples: BLOWUP CHANCE, CLIP FARM RUNNING, MANUAL OVERRIDE, LIVE OUTPUT. All section titles and card headers use normal case (15-20px/700).
 
 ---
 
@@ -166,14 +167,19 @@ Base unit : **4px**.
 
 ## 6. Effets
 
-### Glass & Card classes
+### Glass, Card & Panel classes
 
 | Class | Background | Border | Blur | Shadow | Usage |
 |---|---|---|---|---|---|
 | `.va-glass` | `rgba(24,24,27,.72)` | `rgba(255,255,255,.08)` | `16px` | `0 4px 24px rgba(0,0,0,.3)` | Floating panels, modals, overlays |
 | `.va-card` | `rgb(24,24,27)` / `zinc-900` | `rgba(255,255,255,.07)` | none | `0 1px 3px rgba(0,0,0,.2)` | Static cards, list items |
+| `.va-panel` | `rgba(9,9,11,.62)` | `rgba(255,255,255,.08)` | none | `0 16px 48px rgba(0,0,0,.28)` | Accordions, AI cards, empty states, settings panels. Radius 16px, padding 20px. Hover: border `white/14`. |
+| `.va-panel-active` | — | `rgba(245,158,11,.20)` | — | — | Feature ON state — amber border accent. Applied with `.va-panel`. |
+| `.va-panel-muted` | — | — | — | — | Feature OFF — `opacity: 0.72`. Applied with `.va-panel`. |
 
 ### Glow levels (6)
+
+Glow opacity capped at `.22` at rest, `.30` on hover. Reduced ~30% from previous values.
 
 | Class | Spread | Opacity | Color | Usage |
 |---|---|---|---|---|
@@ -266,17 +272,19 @@ Base unit : **4px**.
 ### Primary spec
 
 ```
-background: linear-gradient(135deg, #fbbf24, #f59e0b, #d97706)
+background: linear-gradient(135deg, #fbbf24, #f59e0b 45%, #d97706)
 color: #451a03 (amber-950)
-box-shadow: 0 0 20px rgba(245, 158, 11, .22) (hover: .35)
+box-shadow: 0 0 20px rgba(245, 158, 11, .22) (hover: .30)
 border-radius: 12px
 font-weight: 700
 ```
 
+This is the ONE gradient for ALL primary action buttons: AI Optimize (Enhance), Publish, "Steal this clip" (Browse), Upgrade (paywall), "Place in bank" (post-render).
+
 ### INTERDITS boutons
 
 - Texte blanc sur primary (amber-950 obligatoire)
-- Deux boutons primary dans le meme bloc visuel
+- Deux boutons primary dans le meme bloc visuel ("1 primary per zone")
 - Primary cyan sauf feature purement data-only (ex: chart zoom)
 
 ---
@@ -390,16 +398,21 @@ Hint: "~60 seconds" / "Setup takes ~2 minutes" (12px zinc-500)
 - Texte normal : >= 4.5:1 (WCAG AA)
 - Texte large (>=18px bold ou >=24px) : >= 3:1
 
-### Focus ring standard
+### Focus ring standard (applied globally)
 
 ```css
-.va-focus-ring:focus-visible {
+/* Applied globally to all interactive elements via globals.css */
+button:focus-visible, a:focus-visible, input:focus-visible,
+select:focus-visible, textarea:focus-visible,
+[role="button"]:focus-visible, [tabindex]:focus-visible {
   outline: none;
   box-shadow: 0 0 0 2px rgb(24 24 27), 0 0 0 4px rgb(245 158 11);
 }
 ```
 
 Equivalent Tailwind : `focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950`
+
+Amber focus ring replaces any white/blue default. No additional focus styling needed on components.
 
 ### Regles
 
@@ -468,7 +481,11 @@ Les couleurs et ornements de rang (violet, gold shimmer, fire, skull, crown) ne 
 
 ### Exception : Distribution cyan theme
 
-Le theme cyan du command center Distribution (`distribution-hub.css`) est une exception documentee. Le cyan y remplace amber comme couleur dominante pour marquer la zone "systeme/intelligence" distincte du reste de l'app.
+Le theme cyan du command center Distribution (`distribution-hub.css`) est une exception documentee. Le cyan y remplace amber comme couleur dominante pour marquer la zone "systeme/intelligence" distincte du reste de l'app. Exception: amber is used ONLY for actions (Publish buttons) on this page. All data/info stays cyan.
+
+### Renaming: AI FIT → Match
+
+"AI FIT 66%" is renamed to "Match 66%" with tooltip "Based on clip strength + timing + account history" to avoid fake-AI perception.
 
 ### Exceptions gamification (intentionnelles)
 
@@ -572,10 +589,10 @@ Les ecarts suivants ont ete releves dans le code actuel. NE PAS corriger mainten
 | `distribution-hub.css` | Multiple animations `dist-blink` permanentes (6+ elements qui pulsent) | Reduire a 1-2 indicateurs max par viewport |
 | `distribution-hub.css` | Violet legacy tokens (`--va-violet`) encore presents malgre migration amber/cyan | Migrer vers amber/cyan ou supprimer |
 | `rank-cards.css` | z-index 3-10 utilises sans systeme, risque de collision | Documenter comme "scoped internal" (deja isole) |
-| `globals.css` | Aucun token utilitaire global (.va-glass, .va-card, focus ring) — tout est inline | Tokens globaux ajoutes dans cette version (additifs) |
+| `globals.css` | ~~Aucun token utilitaire global~~ — **FIXED v2.1**: .va-panel, global focus ring, .va-panel-active/muted added | — |
 | Composants generaux | Certains boutons a radius 8px au lieu du standard 12px | Aligner au prochain polish pass |
 | Composants generaux | `zinc-500` utilise pour du texte important dans certains endroits | Migrer vers `zinc-400` minimum |
 
 ---
 
-*Document version 2.0 — Juillet 2026*
+*Document version 2.1 — 2026-07-02 — Added .va-panel, uppercase system-labels-only rule, 1 primary per zone, glow -30%, global amber focus ring, AI FIT→Match rename.*

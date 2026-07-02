@@ -1413,7 +1413,7 @@ export function DistributionHub() {
             <div className="dist-next-empty">
               <Rocket size={28} style={{ color: 'rgba(56,189,248,0.4)' }} />
               <p className="empty-title">No clip staged</p>
-              <p className="empty-sub">Pick a clip from your bank to publish now, or wait for AI Schedule.</p>
+              <p className="empty-sub">Pick a clip from your bank. AI preps the next drop.</p>
               <button
                 className="dist-cyan-btn"
                 style={{ marginTop: 10 }}
@@ -1672,6 +1672,18 @@ export function DistributionHub() {
               <path d="M 204 170 Q 196 168, 190 167" />
             </g>
           </svg>
+          {/* Mini-KPIs in orbit around the brain */}
+          <div className="dist-brain-kpis">
+            {PLATFORMS.find(p => p.id === 'tiktok')?.supported && (
+              <span className="dist-brain-kpi kpi-tl">TikTok ON</span>
+            )}
+            <span className="dist-brain-kpi kpi-tr">Bank {clipBank.filter(c => !removedClipIds.has(c.id)).length} clips</span>
+            {(() => {
+              const nextPost = queue?.posts.find(p => !removedClipIds.has(p.clip.id))
+              const nextTime = nextPost?.scheduledAt ? new Date(nextPost.scheduledAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : null
+              return nextTime ? <span className="dist-brain-kpi kpi-br">Next drop {nextTime}</span> : null
+            })()}
+          </div>
           {/* Connector line from brain to panel */}
           <div className="dist-core-connector-line" />
           <div className={`dist-core-panel ${aiAutoDistribute ? 'on' : 'off'}`}>
@@ -1943,7 +1955,7 @@ export function DistributionHub() {
 
                   <div className={`dist-pc-fit ${fitClass}`}>
                     <div className="fit-num">{fitScore}%</div>
-                    <div className="fit-lbl">AI Fit</div>
+                    <div className="fit-lbl" title="Based on clip strength + timing + account history">Match</div>
                     <div className="fit-bar"><span style={{ width: `${fitScore}%` }} /></div>
                   </div>
 
@@ -2022,7 +2034,7 @@ export function DistributionHub() {
             <div style={{ fontSize: 11, color: 'var(--va-text-dim)' }}>last 24h</div>
           </div>
           {publishHistory.length === 0 ? (
-            <p style={{ fontSize: 12, color: 'var(--va-text-dim)', padding: '8px 0' }}>No recent activity</p>
+            <p style={{ fontSize: 12, color: 'var(--va-text-dim)', padding: '8px 0' }}>Your first post fires soon — results will show up here.</p>
           ) : (
             publishHistory.map((entry, i) => (
               <div key={i} className="dist-act-row">

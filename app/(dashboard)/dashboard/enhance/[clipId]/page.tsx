@@ -1127,7 +1127,7 @@ export default function EnhancePage() {
       />
 
       {/* Two-column layout: Sticky Preview | Scrollable Settings */}
-      <div className="grid lg:grid-cols-[300px_1fr] gap-6">
+      <div className="grid lg:grid-cols-[330px_1fr] gap-6">
         {/* Left: Preview only — truly sticky with its own overflow so it
             never clips behind the viewport even when the preview block
             (toggle + 9:16 video + generate button + status) is taller
@@ -1139,34 +1139,44 @@ export default function EnhancePage() {
               Initial (Viral Boost preset auto-applied): [Original | Enhanced] — Enhanced active by default
               After render: [Original | Rendered] — Enhanced replaced by actual baked MP4
               showEnhancements starts true so the preset is visible immediately on page load. */}
-          <div className="flex gap-2">
-            <Button
-              variant={!showEnhancements ? 'default' : 'outline'}
-              size="sm"
+          {/* Compact preview pills */}
+          <div className="flex gap-1.5 justify-center">
+            <button
               onClick={() => { setShowEnhancements(false); setIsRenderedVideo(false) }}
-              className="flex-1 text-xs h-8"
+              className={cn(
+                'px-3 py-1 rounded-full text-[11px] font-semibold transition-all',
+                !showEnhancements
+                  ? 'bg-zinc-700 text-zinc-100'
+                  : 'text-zinc-500 hover:text-zinc-300'
+              )}
             >
               Original
-            </Button>
+            </button>
             {showEnhancements && !renderDownloadUrl && (
-              <Button
-                variant={showEnhancements && !isRenderedVideo ? 'default' : 'outline'}
-                size="sm"
+              <button
                 onClick={() => { setShowEnhancements(true); setIsRenderedVideo(false) }}
-                className="flex-1 text-xs h-8"
+                className={cn(
+                  'px-3 py-1 rounded-full text-[11px] font-semibold transition-all',
+                  showEnhancements && !isRenderedVideo
+                    ? 'bg-amber-500/15 text-amber-400 border border-amber-500/30'
+                    : 'text-zinc-500 hover:text-zinc-300'
+                )}
               >
                 Enhanced
-              </Button>
+              </button>
             )}
             {renderDownloadUrl && (
-              <Button
-                variant={isRenderedVideo ? 'default' : 'outline'}
-                size="sm"
+              <button
                 onClick={() => { setIsRenderedVideo(true); setShowEnhancements(true) }}
-                className="flex-1 text-xs h-8"
+                className={cn(
+                  'px-3 py-1 rounded-full text-[11px] font-semibold transition-all',
+                  isRenderedVideo
+                    ? 'bg-amber-500/15 text-amber-400 border border-amber-500/30'
+                    : 'text-zinc-500 hover:text-zinc-300'
+                )}
               >
                 Rendered
-              </Button>
+              </button>
             )}
           </div>
 
@@ -1199,7 +1209,8 @@ export default function EnhancePage() {
           {/* Generate button — hidden when AI flow active or render done */}
           {!renderDownloadUrl && !makeViralLoading && !analysisSequenceActive && !rendering && (
             <Button
-              className="w-full h-12 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white font-bold text-base gap-2 shadow-lg shadow-orange-500/25 rounded-xl"
+              className="w-full h-12 font-bold text-base gap-2 rounded-xl text-amber-950"
+              style={{ background: 'linear-gradient(135deg, #fbbf24, #f59e0b 45%, #d97706)', boxShadow: '0 0 20px rgba(245, 158, 11, 0.22)' }}
               onClick={handleRender}
             >
               <Zap className="h-5 w-5" /> Generate clip
@@ -1252,73 +1263,26 @@ export default function EnhancePage() {
                 </p>
               )}
 
-              {/* Rendering progress indicator — shows after analysis completes */}
-              {rendering && !analysisSequenceActive && !renderDownloadUrl && (
-                <div className="space-y-3 py-1">
-                  {/* FFmpeg stage pipeline */}
-                  <div className="flex items-start gap-1">
-                    {RENDER_STAGES.map((stage, i) => (
-                      <div key={stage} className="flex flex-col items-center gap-1 flex-1">
-                        <div className={cn(
-                          'w-full h-1 rounded-full transition-all duration-700',
-                          i < renderStageIdx ? 'bg-emerald-500' :
-                          i === renderStageIdx ? 'bg-orange-400 animate-pulse' :
-                          'bg-zinc-800'
-                        )} />
-                        <span className={cn(
-                          'text-[8px] font-medium text-center leading-tight',
-                          i < renderStageIdx ? 'text-emerald-400' :
-                          i === renderStageIdx ? 'text-orange-400' :
-                          'text-zinc-600'
-                        )}>
-                          {stage}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                  <div className="flex items-center justify-center gap-1.5 text-xs text-zinc-500">
-                    <Loader2 className="h-3 w-3 animate-spin" />
-                    <span>{renderStageIdx >= 0 ? RENDER_STAGES[renderStageIdx] : 'Starting'}...</span>
-                  </div>
-                  {/* Notification opt-in (only show if supported and not yet granted/denied) */}
-                  {!notifyOnDone && typeof window !== 'undefined' && 'Notification' in window && Notification.permission !== 'denied' && (
-                    <button
-                      onClick={async () => {
-                        const perm = await Notification.requestPermission()
-                        if (perm === 'granted') setNotifyOnDone(true)
-                      }}
-                      className="w-full text-[10px] text-zinc-500 hover:text-zinc-300 transition-colors flex items-center justify-center gap-1.5 py-1"
-                    >
-                      <Bell className="h-3 w-3" />
-                      Notify me when done
-                    </button>
-                  )}
-                  {notifyOnDone && (
-                    <p className="text-[10px] text-emerald-400 text-center flex items-center justify-center gap-1">
-                      <Bell className="h-3 w-3" />
-                      You&apos;ll be notified when done
-                    </p>
-                  )}
-                </div>
-              )}
+              {/* Rendering progress is now shown inside the va-panel card in the sticky preview column */}
 
-              {/* Post-render CTAs — Bank is primary (AI orchestration), Publish is escape hatch */}
+              {/* Post-render CTAs — Bank is primary (autofarm), Publish is secondary, Download is tertiary */}
               {renderDownloadUrl && (
                 <div className="flex flex-col gap-2.5" style={{ animation: 'stepFade 0.4s ease-out' }}>
-                  {/* PRIMARY: Place in bank — main path that lets AI orchestrate distribution */}
+                  {/* PRIMARY: Place in bank — amber constitution gradient, main autofarm flow */}
                   {!placedInBank ? (
                     <button
                       onClick={() => {
                         setPlacedInBank(true)
                         setRenderMessage('✓ Clip placed in your bank — Smart Queue will schedule it.')
                       }}
-                      className="group inline-flex flex-col items-center justify-center gap-1 w-full h-16 rounded-xl font-bold bg-gradient-to-r from-cyan-500 via-sky-500 to-cyan-500 hover:from-cyan-400 hover:via-sky-400 hover:to-cyan-400 text-white shadow-lg shadow-cyan-500/25 hover:shadow-cyan-500/40 transition-all hover:scale-[1.01]"
+                      className="group inline-flex flex-col items-center justify-center gap-1 w-full h-16 rounded-xl font-bold text-amber-950 transition-all hover:scale-[1.01]"
+                      style={{ background: 'linear-gradient(135deg, #fbbf24, #f59e0b 45%, #d97706)', boxShadow: '0 0 20px rgba(245, 158, 11, 0.22)' }}
                     >
                       <span className="inline-flex items-center gap-2.5 text-lg">
                         <Plus className="h-5 w-5" />
                         Place in bank
                       </span>
-                      <span className="text-[10px] font-medium opacity-90">Smart Queue picks the optimal time + platform</span>
+                      <span className="text-[10px] font-medium text-amber-950/70">Smart Queue picks the optimal time + platform</span>
                     </button>
                   ) : (
                     <button
@@ -1329,26 +1293,26 @@ export default function EnhancePage() {
                         <Check className="h-5 w-5" />
                         In bank
                       </span>
-                      <span className="text-[10px] font-medium opacity-90">View in Distribution →</span>
+                      <span className="text-[10px] font-medium opacity-90">View in Distribution</span>
                     </button>
                   )}
 
-                  {/* Unified publish — all platforms in one dialog */}
+                  {/* SECONDARY: Publish now — soft/outline amber */}
                   <button
                     onClick={() => setShowPublishDialog(true)}
-                    className="inline-flex items-center justify-center gap-2 w-full h-11 rounded-lg bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-400 hover:to-amber-400 text-white text-sm font-bold shadow-lg shadow-orange-500/20 hover:shadow-orange-500/30 transition-all hover:scale-[1.01]"
+                    className="inline-flex items-center justify-center gap-2 w-full h-11 rounded-lg border border-amber-500/40 bg-amber-500/8 text-amber-400 hover:bg-amber-500/15 hover:border-amber-500/60 text-sm font-bold transition-all"
                   >
                     <Send className="h-4 w-4" />
-                    Publish
+                    Publish now
                   </button>
 
-                  {/* Tertiary: Download */}
+                  {/* TERTIARY: Download — outline discret, smaller */}
                   <a
                     href={renderDownloadUrl}
                     download="viral-clip.mp4"
-                    className="inline-flex items-center justify-center gap-2 w-full h-10 rounded-lg border border-zinc-700 hover:border-zinc-500 text-zinc-400 hover:text-white text-sm font-medium transition-all"
+                    className="inline-flex items-center justify-center gap-2 w-full h-9 rounded-lg border border-zinc-700/60 hover:border-zinc-500 text-zinc-500 hover:text-zinc-300 text-xs font-medium transition-all"
                   >
-                    <Download className="h-4 w-4" />
+                    <Download className="h-3.5 w-3.5" />
                     Download MP4
                   </a>
 
@@ -1399,18 +1363,55 @@ export default function EnhancePage() {
                 </div>
               )}
 
-              {/* Pre-render: disabled publish + download placeholders */}
-              {!renderDownloadUrl && (
-                <>
-                  <div className="inline-flex items-center justify-center gap-2 w-full h-14 rounded-xl bg-zinc-800 text-zinc-500 cursor-not-allowed font-bold text-lg">
-                    <Rocket className="h-5 w-5" />
-                    Distribute Now
+              {/* During render: single "Rendering your clip" card replaces all actions */}
+              {!renderDownloadUrl && rendering && !analysisSequenceActive && (
+                <div className="va-panel flex flex-col items-center gap-3 text-center">
+                  <Loader2 className="h-6 w-6 text-amber-400 animate-spin" />
+                  <div>
+                    <p className="text-sm font-bold text-zinc-100">Rendering your clip</p>
+                    <p className="text-[10px] text-zinc-500 mt-0.5">{renderStageIdx >= 0 ? RENDER_STAGES[renderStageIdx] : 'Starting'}...</p>
                   </div>
-                  <div className="inline-flex items-center justify-center gap-2 w-full h-10 rounded-lg border border-zinc-800 text-zinc-600 text-sm font-medium cursor-not-allowed">
-                    <Download className="h-4 w-4" />
-                    Download MP4
+                  {/* FFmpeg stage pipeline */}
+                  <div className="flex items-start gap-1 w-full">
+                    {RENDER_STAGES.map((stage, i) => (
+                      <div key={stage} className="flex flex-col items-center gap-1 flex-1">
+                        <div className={cn(
+                          'w-full h-1 rounded-full transition-all duration-700',
+                          i < renderStageIdx ? 'bg-emerald-500' :
+                          i === renderStageIdx ? 'bg-amber-400 animate-pulse' :
+                          'bg-zinc-800'
+                        )} />
+                        <span className={cn(
+                          'text-[8px] font-medium text-center leading-tight',
+                          i < renderStageIdx ? 'text-emerald-400' :
+                          i === renderStageIdx ? 'text-amber-400' :
+                          'text-zinc-600'
+                        )}>
+                          {stage}
+                        </span>
+                      </div>
+                    ))}
                   </div>
-                </>
+                  {/* Notification opt-in */}
+                  {!notifyOnDone && typeof window !== 'undefined' && 'Notification' in window && Notification.permission !== 'denied' && (
+                    <button
+                      onClick={async () => {
+                        const perm = await Notification.requestPermission()
+                        if (perm === 'granted') setNotifyOnDone(true)
+                      }}
+                      className="text-[10px] text-zinc-500 hover:text-zinc-300 transition-colors flex items-center gap-1.5"
+                    >
+                      <Bell className="h-3 w-3" />
+                      Notify me when done
+                    </button>
+                  )}
+                  {notifyOnDone && (
+                    <p className="text-[10px] text-emerald-400 flex items-center gap-1">
+                      <Bell className="h-3 w-3" />
+                      You&apos;ll be notified when done
+                    </p>
+                  )}
+                </div>
               )}
             </div>
           )}
@@ -1429,38 +1430,47 @@ export default function EnhancePage() {
                 onClick={applyBestCombo}
                 disabled={viralBusy}
                 className={cn(
-                  'group relative w-full rounded-xl p-[1px] transition-all duration-500 overflow-hidden',
+                  'group relative w-full rounded-2xl transition-all duration-500 overflow-hidden',
                   isComplete
-                    ? 'bg-gradient-to-b from-emerald-400/70 to-emerald-600/70 shadow-md shadow-emerald-500/15'
+                    ? 'shadow-md'
                     : viralBusy
-                      ? 'bg-gradient-to-b from-orange-400/80 to-orange-600/80 shadow-lg shadow-orange-500/20'
-                      : 'bg-gradient-to-b from-orange-400 to-orange-600 shadow-lg shadow-orange-500/25 hover:shadow-orange-500/40 hover:scale-[1.01]'
+                      ? 'shadow-lg'
+                      : 'shadow-lg hover:scale-[1.01]'
                 )}
+                style={{
+                  height: '58px',
+                  background: isComplete
+                    ? 'linear-gradient(135deg, #34d399, #10b981 45%, #059669)'
+                    : 'linear-gradient(135deg, #fbbf24, #f59e0b 45%, #d97706)',
+                  boxShadow: isComplete
+                    ? '0 0 20px rgba(16, 185, 129, 0.22)'
+                    : viralBusy
+                      ? '0 0 20px rgba(245, 158, 11, 0.18)'
+                      : '0 0 20px rgba(245, 158, 11, 0.22)',
+                }}
               >
                 {/* Shimmer effect during loading */}
                 {isAnalyzing && (
                   <div className="absolute inset-0 -translate-x-full animate-[shimmer_2s_infinite] bg-gradient-to-r from-transparent via-white/10 to-transparent" />
                 )}
-                <div className={cn(
-                  'relative flex items-center gap-3 rounded-[11px] px-4 py-3 transition-all duration-500 border-t',
-                  isComplete
-                    ? 'bg-emerald-950/80 border-emerald-400/20'
-                    : 'bg-gradient-to-b from-orange-500/95 to-orange-700/95 border-white/15'
-                )}>
+                <div className="relative flex items-center gap-3 px-5 h-full">
                   {isAnalyzing ? (
-                    <Loader2 className="h-[18px] w-[18px] text-white animate-spin shrink-0" />
+                    <Loader2 className="h-[18px] w-[18px] text-amber-950 animate-spin shrink-0" />
                   ) : isComplete ? (
-                    <Check className="h-[18px] w-[18px] text-white shrink-0" />
+                    <Check className="h-[18px] w-[18px] text-emerald-950 shrink-0" />
                   ) : (
-                    <Sparkles className="h-[18px] w-[18px] text-white shrink-0 group-hover:rotate-12 transition-transform" />
+                    <Sparkles className="h-[18px] w-[18px] text-amber-950 shrink-0 group-hover:rotate-12 transition-transform" />
                   )}
                   <div className="flex-1 text-left min-w-0">
-                    <span className="text-sm font-bold tracking-tight block leading-tight text-white">
+                    <span className={cn(
+                      'text-sm font-bold tracking-tight block leading-tight',
+                      isComplete ? 'text-emerald-950' : 'text-amber-950'
+                    )}>
                       {isAnalyzing ? 'Analyzing clip...' : rendering ? 'Rendering...' : isComplete ? 'AI-optimized' : 'AI Optimize'}
                     </span>
                     <span className={cn(
                       'text-[10px] block',
-                      isComplete ? 'text-emerald-300/60' : 'text-white/50'
+                      isComplete ? 'text-emerald-950/60' : 'text-amber-950/60'
                     )}>
                       {isAnalyzing ? 'Tuning every parameter' : rendering ? 'Applying settings' : isComplete ? 'All settings tuned for this clip' : 'Best settings in one click'}
                     </span>
@@ -1499,7 +1509,8 @@ export default function EnhancePage() {
           {!renderDownloadUrl && !rendering && !analysisSequenceActive && (
             analysisComplete ? (
               <Button
-                className="w-full h-12 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-amber-950 font-bold text-base gap-2 shadow-lg shadow-amber-500/20 rounded-xl"
+                className="w-full h-12 font-bold text-base gap-2 rounded-xl text-amber-950"
+                style={{ background: 'linear-gradient(135deg, #fbbf24, #f59e0b 45%, #d97706)', boxShadow: '0 0 20px rgba(245, 158, 11, 0.22)' }}
                 onClick={handleRender}
               >
                 <Rocket className="h-5 w-5" /> Export Now
@@ -1552,7 +1563,7 @@ export default function EnhancePage() {
             scoreBreakdown={scoreBreakdown}
           />
 
-            <Accordion multiple defaultValue={['captions']} className="space-y-3">
+            <Accordion multiple defaultValue={['captions']} className="space-y-3 [&_[data-state]]:outline-none">
 
             {/* ─── Captions Section ─── */}
             <CaptionsSection
@@ -1581,10 +1592,10 @@ export default function EnhancePage() {
             />
 
             {/* ─── Tags Section ─── */}
-            <AccordionItem value="tags" ref={sectionRefs.tags} className="scroll-mt-32 rounded-xl border border-white/10 bg-card/60 px-4 overflow-hidden">
+            <AccordionItem value="tags" ref={sectionRefs.tags} className={cn("scroll-mt-32 va-panel px-4 overflow-hidden", settings.tagStyle !== 'none' ? 'va-panel-active' : 'va-panel-muted')}>
               <AccordionTrigger className="text-zinc-400 hover:text-white">
                 <span className="flex items-center gap-2 text-sm font-medium text-foreground">
-                  <span className="text-primary">@</span>
+                  <span className={settings.tagStyle !== 'none' ? 'text-amber-400' : 'text-zinc-500'}>@</span>
                   Streamer tag
                   <span className="text-xs text-zinc-500 font-normal">
                     {settings.tagStyle !== 'none'
@@ -1615,10 +1626,10 @@ export default function EnhancePage() {
             {/* Format is locked to 9:16 — no UI selector */}
 
             {/* ─── Smart Zoom Section ─── */}
-            <AccordionItem value="smartzoom" className="scroll-mt-32 rounded-xl border border-white/10 bg-card/60 px-4 overflow-hidden">
+            <AccordionItem value="smartzoom" className={cn("scroll-mt-32 va-panel px-4 overflow-hidden", settings.smartZoomEnabled ? 'va-panel-active' : 'va-panel-muted')}>
               <AccordionTrigger className="text-zinc-400 hover:text-white">
                 <span className="flex items-center gap-2 text-sm font-medium text-foreground">
-                  <Focus className="h-4 w-4 text-primary" />
+                  <Focus className={cn("h-4 w-4", settings.smartZoomEnabled ? 'text-amber-400' : 'text-zinc-500')} />
                   Smart Zoom
                   <span className="text-xs text-zinc-500 font-normal">
                     {settings.smartZoomEnabled
@@ -1626,11 +1637,8 @@ export default function EnhancePage() {
                       : '· Off'}
                   </span>
                   {scoreBreakdown.smartZoom > 0 && (
-                    <span className="text-[11px] font-bold text-emerald-400">+{Math.round(scoreBreakdown.smartZoom)} pts</span>
+                    <span className="ml-auto text-[11px] font-bold text-emerald-400">+{Math.round(scoreBreakdown.smartZoom)} pts</span>
                   )}
-                  <span className="ml-auto text-[10px] font-normal text-muted-foreground bg-primary/10 text-primary px-2 py-0.5 rounded-full border border-primary/20">
-                    New
-                  </span>
                 </span>
               </AccordionTrigger>
               <AccordionContent>
@@ -1724,20 +1732,17 @@ export default function EnhancePage() {
             </AccordionItem>
 
             {/* ─── Audio Enhancement Section ─── */}
-            <AccordionItem value="audio" className="scroll-mt-32 rounded-xl border border-white/10 bg-card/60 px-4 overflow-hidden">
+            <AccordionItem value="audio" className={cn("scroll-mt-32 va-panel px-4 overflow-hidden", settings.audioEnhanceEnabled ? 'va-panel-active' : 'va-panel-muted')}>
               <AccordionTrigger className="text-zinc-400 hover:text-white">
                 <span className="flex items-center gap-2 text-sm font-medium text-foreground">
-                  <Volume2 className="h-4 w-4 text-primary" />
+                  <Volume2 className={cn("h-4 w-4", settings.audioEnhanceEnabled ? 'text-amber-400' : 'text-zinc-500')} />
                   Audio Enhancement
                   <span className="text-xs text-zinc-500 font-normal">
                     {settings.audioEnhanceEnabled ? '· On' : '· Off'}
                   </span>
                   {scoreBreakdown.audio > 0 && (
-                    <span className="text-[11px] font-bold text-emerald-400">+{Math.round(scoreBreakdown.audio)} pts</span>
+                    <span className="ml-auto text-[11px] font-bold text-emerald-400">+{Math.round(scoreBreakdown.audio)} pts</span>
                   )}
-                  <span className="ml-auto text-[10px] font-normal text-muted-foreground bg-primary/10 text-primary px-2 py-0.5 rounded-full border border-primary/20">
-                    New
-                  </span>
                 </span>
               </AccordionTrigger>
               <AccordionContent>
@@ -1783,20 +1788,17 @@ export default function EnhancePage() {
             </AccordionItem>
 
             {/* ─── Auto-Cut Silences Section ─── */}
-            <AccordionItem value="autocut" className="scroll-mt-32 rounded-xl border border-white/10 bg-card/60 px-4 overflow-hidden">
+            <AccordionItem value="autocut" className={cn("scroll-mt-32 va-panel px-4 overflow-hidden", settings.autoCutEnabled ? 'va-panel-active' : 'va-panel-muted')}>
               <AccordionTrigger className="text-zinc-400 hover:text-white">
                 <span className="flex items-center gap-2 text-sm font-medium text-foreground">
-                  <Scissors className="h-4 w-4 text-primary" />
+                  <Scissors className={cn("h-4 w-4", settings.autoCutEnabled ? 'text-amber-400' : 'text-zinc-500')} />
                   Auto-Cut Silences
                   <span className="text-xs text-zinc-500 font-normal">
                     {settings.autoCutEnabled ? `· On · ${settings.autoCutThreshold.toFixed(1)}s threshold` : '· Off'}
                   </span>
                   {scoreBreakdown.autoCut > 0 && (
-                    <span className="text-[11px] font-bold text-emerald-400">+{Math.round(scoreBreakdown.autoCut)} pts</span>
+                    <span className="ml-auto text-[11px] font-bold text-emerald-400">+{Math.round(scoreBreakdown.autoCut)} pts</span>
                   )}
-                  <span className="ml-auto text-[10px] font-normal text-muted-foreground bg-primary/10 text-primary px-2 py-0.5 rounded-full border border-primary/20">
-                    New
-                  </span>
                 </span>
               </AccordionTrigger>
               <AccordionContent>
@@ -1872,10 +1874,10 @@ export default function EnhancePage() {
             </AccordionItem>
 
             {/* ─── Hook Viral Section ─── */}
-            <AccordionItem value="hook" className="scroll-mt-32 rounded-xl border border-white/10 bg-card/60 px-4 overflow-hidden">
+            <AccordionItem value="hook" className={cn("scroll-mt-32 va-panel px-4 overflow-hidden", settings.hookEnabled ? 'va-panel-active' : 'va-panel-muted')}>
               <AccordionTrigger className="text-zinc-400 hover:text-white">
                 <span className="flex items-center gap-2 text-sm font-medium text-foreground">
-                  <Flame className="h-4 w-4 text-orange-500" />
+                  <Flame className={cn("h-4 w-4", settings.hookEnabled ? 'text-amber-400' : 'text-zinc-500')} />
                   Hook Viral
                   <span className="text-xs text-zinc-500 font-normal">
                     {settings.hookEnabled
@@ -1883,11 +1885,8 @@ export default function EnhancePage() {
                       : '· Off'}
                   </span>
                   {scoreBreakdown.hook > 0 && (
-                    <span className="text-[11px] font-bold text-emerald-400">+{Math.round(scoreBreakdown.hook)} pts</span>
+                    <span className="ml-auto text-[11px] font-bold text-emerald-400">+{Math.round(scoreBreakdown.hook)} pts</span>
                   )}
-                  <span className="ml-auto text-[10px] font-normal text-muted-foreground bg-orange-500/10 text-orange-400 px-2 py-0.5 rounded-full border border-orange-500/20">
-                    New
-                  </span>
                 </span>
               </AccordionTrigger>
               <AccordionContent>
@@ -1996,7 +1995,8 @@ export default function EnhancePage() {
                       <Button
                         onClick={generateHook}
                         disabled={hookGenerating}
-                        className="w-full h-10 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white font-bold text-sm gap-2 rounded-xl"
+                        className="w-full h-10 font-bold text-sm gap-2 rounded-xl text-amber-950"
+                        style={{ background: 'linear-gradient(135deg, #fbbf24, #f59e0b 45%, #d97706)', boxShadow: '0 0 20px rgba(245, 158, 11, 0.18)' }}
                       >
                         {hookGenerating ? (
                           <><Loader2 className="h-4 w-4 animate-spin" /> Analyzing…</>
@@ -2153,10 +2153,10 @@ export default function EnhancePage() {
             {/* ─── Advanced ─── */}
             {/* Granular controls: caption position, words/line, custom words, watermark.
                 Kept out of the Captions section so the default view stays lean ("glance and approve"). */}
-            <AccordionItem value="advanced" className="scroll-mt-32 rounded-xl border border-white/10 bg-card/60 px-4 overflow-hidden">
+            <AccordionItem value="advanced" className="scroll-mt-32 va-panel px-4 overflow-hidden va-panel-muted">
               <AccordionTrigger className="text-zinc-400 hover:text-white">
                 <span className="flex items-center gap-2 text-sm font-medium text-foreground">
-                  <SlidersHorizontal className="h-4 w-4 text-muted-foreground" />
+                  <SlidersHorizontal className="h-4 w-4 text-zinc-500" />
                   Advanced
                   <span className="text-xs text-zinc-500 font-normal">· Position, words per line, watermark</span>
                 </span>

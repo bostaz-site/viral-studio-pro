@@ -1,7 +1,7 @@
-# SYSTEM REFERENCE — Distribution Page (v9.1 — Platform Filtering + Honest Reach)
+# SYSTEM REFERENCE — Distribution Page (v9.2 — Polish Pass + Design Constitution)
 
 > Source de verite pour la page Distribution.
-> Derniere mise a jour : 2026-07-02 — autofarm executor (queue → DB → cron → published_posts), auto-post defaults TikTok, retry logic.
+> Derniere mise a jour : 2026-07-02 — wolf brain -15%, clip bank 180px, AI FIT→Match, empty state voice, mini-KPIs orbit, amber=actions only.
 
 ---
 
@@ -110,10 +110,29 @@ Centre visuel de la page. Symbolise le "AI control center" qui orchestre la dist
     <g className="dist-brain-bridges">...</g>
   </svg>
 
+  {/* Mini-KPIs in orbit around brain */}
+  <div className="dist-brain-kpis">
+    <span className="dist-brain-kpi kpi-tl">TikTok ON</span>
+    <span className="dist-brain-kpi kpi-tr">Bank 20 clips</span>
+    <span className="dist-brain-kpi kpi-br">Next drop 19:00</span>
+  </div>
+
   <div className="dist-core-connector-line" />
   <div className="dist-core-panel">...CLIP FARM panel...</div>
 </div>
 ```
+
+### Brain dimensions (v9.2 — reduced 15%)
+- `.dist-core-wrap` : **340×340px** (was 400×400)
+- `.dist-brain-svg` : **272×272px** (was 320×320)
+- CLIP FARM panel remounts closer
+
+### Mini-KPIs
+3-4 discret pills orbiting the brain showing live system state:
+- "TikTok ON" (top-left)
+- "Bank {N} clips" (top-right)
+- "Next drop {time}" (bottom-right, only when scheduled)
+Font 9px, 600 weight, cyan/60 color, background rgba(9,9,11,.7), border cyan/15, radius 6px.
 
 ### Filters (defs)
 - `wolf-glow` : 3-layer drop shadow (1.2px / 4px / 12px) avec couleurs #FED7AA / #FB923C / #F97316

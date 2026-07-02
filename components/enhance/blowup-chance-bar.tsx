@@ -23,14 +23,14 @@ export function BlowupChanceBar({ currentScore, displayScore, baselineScore, sco
   const totalWidth = Math.min(total, 99)
 
   return (
-    <div className="sticky top-0 z-10 bg-background/80 backdrop-blur-md border-b border-white/5 -mx-1 px-1 pb-3 pt-1 mb-4">
-      <div className="flex items-center justify-between mb-2">
+    <div className="sticky top-0 z-10 bg-background/80 backdrop-blur-md border-b border-white/5 -mx-1 px-1 pb-2.5 pt-1 mb-4">
+      <div className="flex items-center justify-between mb-1.5">
         <div className="flex items-center gap-2">
-          <Flame className={cn('h-4 w-4 transition-colors duration-500', total >= 80 ? 'text-emerald-400' : 'text-orange-400')} />
-          <span className="text-xs text-muted-foreground uppercase tracking-widest font-medium">Blowup Chance</span>
+          <Flame className={cn('h-3.5 w-3.5 transition-colors duration-500', total >= 80 ? 'text-emerald-400' : 'text-orange-400')} />
+          <span className="text-[11px] font-bold tracking-[0.14em] uppercase text-muted-foreground">Blowup Chance</span>
         </div>
         <span className={cn(
-          'text-xs font-bold uppercase tracking-wide transition-colors duration-300',
+          'text-[11px] font-bold uppercase tracking-wide transition-colors duration-300',
           getScoreLabel(currentScore).color
         )}>
           {getScoreLabel(currentScore).text}
@@ -39,9 +39,8 @@ export function BlowupChanceBar({ currentScore, displayScore, baselineScore, sco
 
       {/* Progress bar */}
       <div className={cn(
-        'relative w-full h-8 rounded-full bg-card/60 border border-white/10 overflow-hidden transition-shadow duration-700',
-        total >= 60 && `shadow-lg ${barColor.glow}`,
-        total >= 80 && 'shadow-xl',
+        'relative w-full h-6 rounded-full bg-card/60 border border-white/10 overflow-hidden transition-shadow duration-700',
+        total >= 60 && `shadow-md ${barColor.glow}`,
       )}>
         {/* Base segment */}
         <div
@@ -64,10 +63,10 @@ export function BlowupChanceBar({ currentScore, displayScore, baselineScore, sco
         )}
         {/* Score text */}
         <div className="absolute inset-0 flex items-center justify-center">
-          <span className="text-sm font-black text-white drop-shadow-md">
+          <span className="text-[14px] font-black text-white drop-shadow-md">
             {displayScore} / 100
             {scoreBreakdown.total > 0 && (
-              <span className="text-emerald-300 text-xs font-bold ml-1.5 animate-[scorePop_0.4s_ease-out]">(+{scoreBreakdown.total})</span>
+              <span className="text-emerald-300 text-[11px] font-bold ml-1.5 animate-[scorePop_0.4s_ease-out]">(+{scoreBreakdown.total})</span>
             )}
           </span>
         </div>

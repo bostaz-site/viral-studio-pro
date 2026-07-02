@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback, useMemo } from 'react'
+import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 import Image from 'next/image'
 import { Loader2, Play, Eye } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
@@ -125,12 +125,17 @@ export function LivePreview({
 
   // ── Video load error/timeout — graceful fallback ──
   // Declared before the timer-fallback effect so videoLoadFailed is in scope.
+  // Once failed, stays failed for this URL (no infinite retries).
   const [videoLoadFailed, setVideoLoadFailed] = useState(false)
+  const videoLoadStartedRef = useRef(false)
   useEffect(() => {
     setVideoLoadFailed(false)
+    videoLoadStartedRef.current = false
     if (!videoUrl) return
     // Timeout: if video doesn't start loading within 5s, show fallback
-    const timer = setTimeout(() => setVideoLoadFailed(true), 5000)
+    const timer = setTimeout(() => {
+      if (!videoLoadStartedRef.current) setVideoLoadFailed(true)
+    }, 5000)
     return () => clearTimeout(timer)
   }, [videoUrl])
 
@@ -175,9 +180,11 @@ export function LivePreview({
 
   if (isRenderedVideo && videoUrl && !renderedVideoError) {
     return (
+      <>
+      <span className="block text-[11px] font-bold tracking-[0.14em] uppercase text-zinc-500 text-center mb-1.5">Live Output · TikTok 9:16</span>
       <div
-        className="relative w-full rounded-2xl overflow-hidden bg-black border border-white/10 shadow-2xl mx-auto transition-all duration-500"
-        style={{ aspectRatio: '9/16', maxWidth: 280 }}
+        className="relative w-full rounded-[20px] overflow-hidden bg-black border border-amber-500/20 mx-auto transition-all duration-500"
+        style={{ aspectRatio: '9/16', maxWidth: 310, boxShadow: '0 24px 80px rgba(0,0,0,.45)' }}
       >
         {/* Show thumbnail as poster while video loads */}
         {renderedThumbnailUrl && !renderedVideoReady && (
@@ -185,7 +192,7 @@ export function LivePreview({
             src={renderedThumbnailUrl}
             alt="Rendered clip preview"
             fill
-            sizes="280px"
+            sizes="310px"
             className="object-contain z-[1]"
           />
         )}
@@ -207,11 +214,13 @@ export function LivePreview({
           onError={() => setRenderedVideoError(true)}
         />
       </div>
+      </>
     )
   }
 
   return (
     <>
+    <span className="block text-[11px] font-bold tracking-[0.14em] uppercase text-zinc-500 text-center mb-1.5">Live Output · TikTok 9:16</span>
     <style>{`
       @keyframes kenburns {
         0% { transform: scale(1) translate(0, 0); }
@@ -244,8 +253,11 @@ export function LivePreview({
       }
     `}</style>
     <div
-      className="relative w-full rounded-2xl overflow-hidden bg-black border border-white/10 shadow-2xl mx-auto transition-all duration-500"
-      style={{ aspectRatio: '9/16', maxWidth: 280 }}
+      className={cn(
+        "relative w-full rounded-[20px] overflow-hidden bg-black mx-auto transition-all duration-500",
+        showEnhancements ? 'border border-amber-500/20' : 'border border-white/10'
+      )}
+      style={{ aspectRatio: '9/16', maxWidth: 310, boxShadow: '0 24px 80px rgba(0,0,0,.45)' }}
     >
       {/* Top: Clip video or thumbnail */}
       <div
@@ -270,7 +282,7 @@ export function LivePreview({
                   src={clip.thumbnail_url!}
                   alt=""
                   fill
-                  sizes="280px"
+                  sizes="310px"
                   className="object-cover scale-110"
                   style={{ filter: 'blur(12px) brightness(0.65) saturate(1.25) contrast(1.1)' }}
                   aria-hidden="true"
@@ -336,13 +348,13 @@ export function LivePreview({
                   )}
                   style={styleOrUndefined}
                   autoPlay loop muted playsInline
-                  onCanPlay={() => setVideoLoadFailed(false)}
+                  onCanPlay={() => { videoLoadStartedRef.current = true; setVideoLoadFailed(false) }}
                   onError={() => setVideoLoadFailed(true)}
                   onTimeUpdate={(e) => setVideoTime(e.currentTarget.currentTime)}
                 />
               ) : videoLoadFailed ? (
                 <div className="relative w-full h-full flex flex-col items-center justify-center bg-zinc-900 z-[1] gap-2">
-                  <Loader2 className="h-5 w-5 text-zinc-500 opacity-50" />
+                  <Play className="h-5 w-5 text-zinc-600" />
                   <p className="text-[10px] text-zinc-500 text-center px-4 leading-snug">
                     Preview unavailable — your render will still work
                   </p>
@@ -353,7 +365,7 @@ export function LivePreview({
                   alt={clip.title ?? 'Clip'}
                   width={360}
                   height={640}
-                  sizes="280px"
+                  sizes="310px"
                   className={cn(
                     'z-[1] transition-all duration-500',
                     objectFit,

@@ -95,8 +95,40 @@
 .glow-rank-legendary { box-shadow: 0 0 48px rgba(251, 191, 36, 0.28); }
 .glow-rank-master { box-shadow: 0 0 60px rgba(239, 68, 68, 0.32); }
 
+/* Unified panel: accordions, AI cards, empty states, settings panels */
+.va-panel {
+  background: rgba(9, 9, 11, 0.62);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  padding: 20px;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.28);
+  transition: border-color 0.15s ease-out;
+}
+.va-panel:hover {
+  border-color: rgba(255, 255, 255, 0.14);
+}
+/* Active panel: feature ON — amber accent */
+.va-panel-active {
+  border-color: rgba(245, 158, 11, 0.20);
+}
+/* Muted panel: feature OFF */
+.va-panel-muted {
+  opacity: 0.72;
+}
+
 /* Standard focus ring (WCAG AA) — amber on dark offset */
 .va-focus-ring:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px rgb(24 24 27), 0 0 0 4px rgb(245 158 11);
+}
+/* Global amber focus ring — replaces default white/blue */
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+[role="button"]:focus-visible,
+[tabindex]:focus-visible {
   outline: none;
   box-shadow: 0 0 0 2px rgb(24 24 27), 0 0 0 4px rgb(245 158 11);
 }

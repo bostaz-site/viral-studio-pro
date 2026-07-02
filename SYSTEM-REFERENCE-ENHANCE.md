@@ -62,40 +62,46 @@ Alternative : user change les settings manuellement (sans AI Optimize)
 
 ```
 1. Header — Back button (ChevronLeft → /dashboard) + "Enhance Clip" titre + clip info (title, @author)
-2. Grid 2 colonnes : [300px sticky preview | 1fr scrollable settings]
+2. Grid 2 colonnes : [330px sticky preview | 1fr scrollable settings]
 
 === Colonne gauche (sticky, max-h viewport, scroll interne) ===
-3. Preview Toggle — 3 tabs: "Original" | "Enhanced" | "Rendered" (apparait apres render done)
-4. LivePreview — 9:16 preview CSS temps reel (280px max-width)
-5. Generate Button — "Generate clip" (orange gradient, Zap icon) — cache pendant AI flow / render / done
+3. Preview Toggle — compact pills: "Original" | "Enhanced" | "Rendered" (apparait apres render done)
+4. LivePreview — 9:16 phone frame (310px max-width, radius 20px, shadow 0 24px 80px)
+   - Label above: "LIVE OUTPUT · TikTok 9:16" (system label style)
+   - Enhanced: border amber/20. Empty/Original: border white/10
+   - Rendered: no CSS overlays (captions/tags/hooks disabled — everything baked in MP4)
+5. Generate Button — "Generate clip" (constitution gradient, text amber-950) — cache pendant AI flow / render / done
 6. Error Card — affiche erreur render avec retry + action secondaire (quota → upgrade)
-7. Action Buttons (apparaissent apres AI flow start OU render done):
-   ├── Progress message (bleu/vert/amber selon etat)
-   ├── Rendering spinner (apres sequence, avant done)
-   ├── "Publish now" — primary CTA (cyan gradient, navigates to Distribution with action=publish)
-   ├── "Place in bank" — secondary CTA (cyan outline):
-   │     - First click: confirms placement, shows checkmark
-   │     - Second click: navigates to `/dashboard/distribution?scrollTo=bank&highlight={clipId}`
-   │     - Distribution page auto-scrolls to Clip Bank + highlights the clip with cyan ring pulse
-   ├── "Download MP4" — tertiary (outline, <a download>)
-   └── "Reset & start over" — remet tout a zero
+7. Post-render stack (appears ONLY after render done):
+   ├── PRIMARY: "Place in bank" — constitution amber gradient, text amber-950, h-16
+   │     + sub-text "Smart Queue picks the optimal time + platform"
+   │     - First click: confirms placement, shows checkmark (green)
+   │     - Second click: navigates to Distribution
+   ├── SECONDARY: "Publish now" — outline amber (border amber-500/40, bg amber-500/8)
+   ├── TERTIARY: "Download MP4" — outline discret (border zinc-700/60, text zinc-500, smaller h-9)
+   ├── Referral pill (green, unchanged)
+   └── "Reset & start over" — text link
+   DURING RENDERING: all actions hidden. Single va-panel card "Rendering your clip" with spinner + pipeline stages + notify-me.
 
 === Colonne droite (scrollable) ===
-8. AI Optimize button — CTA HERO en haut (gradient amber primary). Recommended action.
+8. AI Optimize button — CTA HERO 58px, radius 16px, constitution gradient, text amber-950.
 9. Export CTA — outline/secondary ("Export with current settings") SOUS AI Optimize.
-   Remonte en primary (gradient amber, "Export Now") SEULEMENT apres AI Optimize complete.
+   Remonte en primary (constitution gradient, "Export Now") SEULEMENT apres AI Optimize complete.
    Constitution : jamais 2 primary dans le meme bloc.
 10. AI Analysis Sequence — 6 steps animes (apparait apres API calls termines)
-11. Blowup Chance bar — sticky top-0, barre bicolore (orange base + green boost), score /100
-12. Accordion settings (Captions ouvert par defaut au premier chargement) :
+11. Blowup Chance bar — sticky top-0, h-6 (was h-8), text 14px, glow -40%. System label "BLOWUP CHANCE" (11px/700/0.14em).
+12. Accordion settings (va-panel class, gap 12px):
+    - Active: va-panel-active (border amber/20 + icon amber)
+    - Off: va-panel-muted (opacity 0.72 + icon muted zinc-500)
+    - NO "New" badges (removed)
     ├── Karaoke Captions (Type icon) — **ouvert par defaut**
     ├── Split-Screen (Monitor icon)
     ├── Streamer Tag (@ icon)
-    ├── Smart Zoom (Focus icon) [New]
-    ├── Audio Enhancement (Volume2 icon) [New]
-    ├── Auto-Cut Silences (Scissors icon) [New]
-    └── Hook Viral (Flame icon) [New]
-12. PublishDialog — modal reutilise de Distribution
+    ├── Smart Zoom (Focus icon)
+    ├── Audio Enhancement (Volume2 icon)
+    ├── Auto-Cut Silences (Scissors icon)
+    └── Hook Viral (Flame icon)
+13. PublishDialog — modal reutilise de Distribution
 ```
 
 ---

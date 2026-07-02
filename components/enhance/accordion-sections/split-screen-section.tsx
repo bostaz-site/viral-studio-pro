@@ -14,10 +14,10 @@ interface SplitScreenSectionProps extends Pick<AccordionSectionProps, 'settings'
 
 export function SplitScreenSection({ settings, updateSetting, scoreBreakdown, scores, sectionRef }: SplitScreenSectionProps) {
   return (
-    <AccordionItem value="splitscreen" ref={sectionRef as React.Ref<HTMLDivElement>} className="scroll-mt-32 rounded-xl border border-white/10 bg-card/60 px-4 overflow-hidden">
+    <AccordionItem value="splitscreen" ref={sectionRef as React.Ref<HTMLDivElement>} className={cn("scroll-mt-32 va-panel px-4 overflow-hidden", settings.splitScreenEnabled ? 'va-panel-active' : 'va-panel-muted')}>
       <AccordionTrigger className="text-zinc-400 hover:text-white">
         <span className="flex items-center gap-2 text-sm font-medium text-foreground">
-          <Monitor className="h-4 w-4 text-primary" />
+          <Monitor className={cn("h-4 w-4", settings.splitScreenEnabled ? 'text-amber-400' : 'text-zinc-500')} />
           Split-Screen
           <span className="text-xs text-zinc-500 font-normal">
             {settings.splitScreenEnabled

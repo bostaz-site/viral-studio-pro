@@ -1974,7 +1974,7 @@
 /* Clip card — cyan theme */
 .dist-clip {
   flex-shrink: 0;
-  width: 140px;
+  width: 180px;
   border-radius: 14px;
   border: 1px solid rgba(56, 189, 248, 0.12);
   overflow: hidden;
@@ -3074,8 +3074,8 @@
 /* AI Core */
 .dist-core-wrap {
   position: relative;
-  width: 400px;
-  height: 400px;
+  width: 340px;
+  height: 340px;
   display: grid;
   place-items: center;
   z-index: 2;
@@ -3099,8 +3099,8 @@
 }
 .dist-brain-svg {
   position: absolute;
-  width: 320px;
-  height: 320px;
+  width: 272px;
+  height: 272px;
   opacity: 1;
   filter: drop-shadow(0 0 14px rgba(56,189,248,.35)) drop-shadow(0 0 40px rgba(56,189,248,.18));
   z-index: 2;
@@ -3110,6 +3110,29 @@
   filter: drop-shadow(0 0 4px rgba(100,116,139,.25)) grayscale(1);
   opacity: .45;
 }
+
+/* Mini-KPIs orbiting brain */
+.dist-brain-kpis {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 3;
+}
+.dist-brain-kpi {
+  position: absolute;
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: rgba(56,189,248,0.6);
+  white-space: nowrap;
+  background: rgba(9,9,11,0.7);
+  border: 1px solid rgba(56,189,248,0.15);
+  border-radius: 6px;
+  padding: 2px 8px;
+}
+.dist-brain-kpi.kpi-tl { top: 8px; left: 8px; }
+.dist-brain-kpi.kpi-tr { top: 8px; right: 8px; }
+.dist-brain-kpi.kpi-br { bottom: 40px; right: 8px; }
 
 /* Premium brain shapes */
 .dist-brain-lobe {
