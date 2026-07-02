@@ -58,6 +58,55 @@
   }
 }
 
+/* ═══ Viral Animal Design System Tokens (v2) ═══
+ * Additive utility classes — see SYSTEM-REFERENCE-DESIGN-SYSTEM.md
+ * These do NOT modify existing components; they provide opt-in tokens.
+ */
+
+/* Glass panel: floating overlays, modals, popovers */
+.va-glass {
+  background: rgba(24, 24, 27, 0.72);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.3);
+}
+
+/* Solid card: list items, static panels */
+.va-card {
+  background: rgb(24, 24, 27);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+/* Score font: Archivo Black for scores/ranks */
+.score-font {
+  font-family: var(--font-score), 'Archivo Black', 'Arial Black', sans-serif;
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.04em;
+}
+
+/* Glow levels — 1 per component max */
+.glow-soft-amber { box-shadow: 0 0 24px rgba(245, 158, 11, 0.18); }
+.glow-medium-amber { box-shadow: 0 0 36px rgba(245, 158, 11, 0.24); }
+.glow-soft-cyan { box-shadow: 0 0 24px rgba(34, 211, 238, 0.18); }
+.glow-medium-cyan { box-shadow: 0 0 36px rgba(34, 211, 238, 0.24); }
+.glow-rank-legendary { box-shadow: 0 0 48px rgba(251, 191, 36, 0.28); }
+.glow-rank-master { box-shadow: 0 0 60px rgba(239, 68, 68, 0.32); }
+
+/* Standard focus ring (WCAG AA) — amber on dark offset */
+.va-focus-ring:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px rgb(24 24 27), 0 0 0 4px rgb(245 158 11);
+}
+
+/* Reduced motion: disable non-essential animations */
+@media (prefers-reduced-motion: reduce) {
+  .va-glass, .va-card { transition: none !important; }
+  .glow-rank-legendary, .glow-rank-master { animation: none !important; }
+}
+
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(4px); }
   to { opacity: 1; transform: translateY(0); }
