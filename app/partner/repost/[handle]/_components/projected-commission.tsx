@@ -32,6 +32,10 @@ export function ProjectedCommission({ views, signups, monthlyLow, monthlyHigh }:
           {signups} signups x $24 avg x 30% commission = recurring income
         </p>
       </div>
+
+      <p className="text-[10px] text-zinc-600 text-center leading-relaxed">
+        Estimate based on audience size — not a guarantee. Actual earnings depend on your audience&apos;s response.
+      </p>
     </div>
   )
 }

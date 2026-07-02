@@ -80,13 +80,23 @@ export default async function RepostKitPage({ params, searchParams }: {
   const promoCode = `VIRAL-${(influencer.affiliate_code || handle).toUpperCase()}`
   const commission = projectCommission(influencer.audience_size)
 
-  // Social proof: count recent sessions with post_url submitted
-  const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
+  // Social proof: real counts from DB
   const { count: repostCount } = await admin
     .from('repost_kit_sessions' as never)
     .select('id', { count: 'exact', head: true })
     .not('post_url' as never, 'is' as never, null as never)
-    .gte('started_at' as never, weekAgo as never)
+
+  // Top earner: max total_commission_earned_cents from influencers with affiliate_code
+  const { data: topEarnerRow } = await admin
+    .from('influencers')
+    .select('total_commission_earned_cents')
+    .not('affiliate_code', 'is', null)
+    .gt('total_commission_earned_cents', 0)
+    .order('total_commission_earned_cents', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  const topEarnerCents = (topEarnerRow as { total_commission_earned_cents: number } | null)?.total_commission_earned_cents ?? 0
 
   return (
     <RepostKitClient
@@ -107,7 +117,7 @@ export default async function RepostKitPage({ params, searchParams }: {
         commission,
         socialProof: {
           repostCount: repostCount ?? 0,
-          topEarner: 124000, // placeholder $1,240
+          topEarner: topEarnerCents,
         },
       }}
     />
