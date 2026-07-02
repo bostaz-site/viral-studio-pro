@@ -1,4 +1,4 @@
-# SYSTEM REFERENCE — Distribution Page (v9 — Autofarm Executor)
+# SYSTEM REFERENCE — Distribution Page (v9.1 — Platform Filtering + Honest Reach)
 
 > Source de verite pour la page Distribution.
 > Derniere mise a jour : 2026-07-02 — autofarm executor (queue → DB → cron → published_posts), auto-post defaults TikTok, retry logic.
@@ -1079,6 +1079,29 @@ Si `auto_post_defaults` est null → l'autofarm ne schedule PAS (afficher banner
 **TikTok uniquement** (seule plateforme approved). Le sync endpoint refuse les plateformes != 'tiktok'.
 Les signed URLs sont regenerees a chaque execution (jamais celles stockees au scheduling).
 
+### Queue platform filtering (v9.1)
+
+La Smart Queue ne schedule que vers les plateformes reellement connectees ET activees.
+- Source de verite : `social_accounts` (connected) + `publishTargets` (enabled)
+- `distribution-hub.tsx` passe `activePlatforms` filtre au queue store a chaque sync
+- Fallback si aucune plateforme connectee : `['tiktok']`
+- Les posts localStorage vers des plateformes non connectees sont re-routes au prochain regenerate
+
+### Estimated reach (honest display)
+
+- < 5 posts reels trackes : "Reach estimates unlock after 5 tracked posts" (pas de chiffre simule)
+- >= 5 posts : affiche "Est. X — Y" base sur les vraies moyennes du compte
+- Le "do nothing" preview ne montre plus de reach simule
+
+### Platform flags
+
+| Plateforme | Flag | Defaut | Status |
+|---|---|---|---|
+| TikTok | (toujours actif) | — | APPROVED |
+| YouTube | (OAuth fonctionnel) | — | APPROVED |
+| Instagram | `NEXT_PUBLIC_INSTAGRAM_ENABLED` | `false` | En review Meta |
+| Facebook | — | `false` | Coming soon |
+
 ### Cron scheduling
 
 Le cron `publish-scheduled` doit etre schedule dans Railway/cron-job.org (toutes les 5-10 min).
@@ -1127,6 +1150,7 @@ POST /api/cron/publish-scheduled — every 5-10min
 | v8 | Cyan command center direction : nouveau brain (cyan + orange wolf neon emblem), pill toggle premium, connection map dynamique avec corner-targeting et particules, modals platform/clip picker, Clip Bank state hierarchy + X remove, time format unifie, master toggle propage l'etat OFF a tout le systeme |
 | v8.1 | TikTok Direct Post compliance : TikTokPublishDialog, creator_info fetch, 7 requirements UX, polling status |
 | v9 | Autofarm executor : queue→DB bridge, cron publish-scheduled, execute-publish.ts, auto-post defaults TikTok, retry logic, Discord notifications |
+| v9.1 | Queue platform filtering (connected+enabled only), honest reach display, Instagram behind NEXT_PUBLIC_INSTAGRAM_ENABLED flag |
 
 ---
 

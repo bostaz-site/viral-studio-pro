@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback, useRef } from 'react'
+import { useEffect, useState, useCallback, useRef, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   Sparkles, Loader2, Check, Plus, Clock, AlertCircle, Pause,
@@ -81,10 +81,12 @@ interface PlatformConfig {
   optimalHours: string[]
 }
 
+const IG_ENABLED = process.env.NEXT_PUBLIC_INSTAGRAM_ENABLED === 'true'
+
 const PLATFORMS: PlatformConfig[] = [
   { id: 'tiktok', label: 'TikTok', icon: '♪', gradient: 'from-zinc-900 to-zinc-700', supported: true, optimalHours: ['7 PM', '9 PM', '11 AM'] },
   { id: 'youtube', label: 'YouTube Shorts', icon: '▶', gradient: 'from-red-600 to-red-500', supported: true, optimalHours: ['12 PM', '3 PM', '6 PM'] },
-  { id: 'instagram', label: 'Instagram Reels', icon: '◎', gradient: 'from-pink-600 to-purple-600', supported: true, optimalHours: ['11 AM', '1 PM', '7 PM'] },
+  { id: 'instagram', label: 'Instagram Reels', icon: '◎', gradient: 'from-pink-600 to-purple-600', supported: IG_ENABLED, optimalHours: ['11 AM', '1 PM', '7 PM'] },
   { id: 'facebook', label: 'Facebook Reels', icon: 'f', gradient: 'from-blue-600 to-blue-500', supported: false, optimalHours: ['1 PM', '4 PM', '8 PM'] },
   { id: 'x', label: 'X / Twitter', icon: '𝕏', gradient: 'from-zinc-800 to-zinc-600', supported: false, optimalHours: ['9 AM', '12 PM', '5 PM'] },
 ]
@@ -406,7 +408,7 @@ function SmartQueueSection({ clipBank }: { clipBank: ClipBankItem[] }) {
             <div className="flex items-center gap-2 bg-purple-500/5 rounded-lg px-3 py-2 border border-purple-500/10">
               <Sparkles className="h-3.5 w-3.5 text-purple-400 flex-shrink-0" />
               <p className="text-[11px] text-muted-foreground">
-                <span className="text-foreground font-medium">If you do nothing</span> → {doNothing.postCount} posts go out, est. reach: {doNothing.estReach} · Confidence: {doNothing.confidence}%
+                <span className="text-foreground font-medium">If you do nothing</span> → {doNothing.postCount} posts go out · Confidence: {doNothing.confidence}%
               </p>
             </div>
           )}
@@ -440,7 +442,7 @@ function SmartQueueSection({ clipBank }: { clipBank: ClipBankItem[] }) {
 export function DistributionHub() {
   const router = useRouter()
   const { accounts, fetchAccounts, publishTargets, togglePublishTarget, publishClip, publishProgress, isPublishing, resetPublishProgress } = useDistributionStore()
-  const { queue, init: initQueue, setClipBank: setQueueClipBank } = useQueueStore()
+  const { queue, init: initQueue, setClipBank: setQueueClipBank, updateSettings: updateQueueSettings } = useQueueStore()
 
   const [clipBank, setClipBank] = useState<ClipBankItem[]>([])
   const [bankLoading, setBankLoading] = useState(true)
@@ -584,7 +586,15 @@ export function DistributionHub() {
   // Init queue store
   useEffect(() => { initQueue() }, [initQueue])
 
-  // Sync clip bank to queue store
+  // Filter activePlatforms to only connected + enabled platforms (launch: TikTok only)
+  const connectedPlatformIds = useMemo(() => accounts.map(a => a.platform), [accounts])
+  const activeConnectedPlatforms = useMemo(() => {
+    return publishTargets
+      .filter(t => t.enabled && connectedPlatformIds.includes(t.platform))
+      .map(t => t.platform)
+  }, [publishTargets, connectedPlatformIds])
+
+  // Sync clip bank to queue store — pass only connected platforms
   useEffect(() => {
     if (clipBank.length === 0) { setQueueClipBank([]); return }
     const queueClips: QueueClip[] = clipBank
@@ -601,7 +611,9 @@ export function DistributionHub() {
         thumbnailUrl: c.thumbnailUrl,
       }))
     setQueueClipBank(queueClips)
-  }, [clipBank, setQueueClipBank])
+    // Sync active platforms to queue settings (only connected+enabled)
+    updateQueueSettings({ activePlatforms: activeConnectedPlatforms.length > 0 ? activeConnectedPlatforms : ['tiktok'] })
+  }, [clipBank, setQueueClipBank, activeConnectedPlatforms, updateQueueSettings])
 
   // Cleanup typewriter on unmount
   useEffect(() => {
@@ -1813,13 +1825,14 @@ export function DistributionHub() {
           ? 'Add a different mood for stronger contrast'
           : null  // diverse → no suggestion
 
-        // Smart reach display — never "0 — 0"
+        // Honest reach display — no simulated numbers until 5+ real tracked posts
+        const trackedPostCount = publishHistory.length
+        const hasEnoughData = trackedPostCount >= 5
         const totalReachLow = queue?.totalEstReach?.low ?? 0
         const totalReachHigh = queue?.totalEstReach?.high ?? 0
-        const hasRealReach = totalReachLow > 0 || totalReachHigh > 0
-        const reachText = hasRealReach
-          ? `${formatReach(totalReachLow)} — ${formatReach(totalReachHigh)}`
-          : 'learning'
+        const reachText = hasEnoughData && totalReachLow > 0
+          ? `Est. ${formatReach(totalReachLow)} — ${formatReach(totalReachHigh)}`
+          : null // show honest message instead
 
         return (
         <div className="dist-glass dist-schedule" style={!aiAutoDistribute ? { opacity: 0.7 } : undefined}>
@@ -1971,9 +1984,11 @@ export function DistributionHub() {
                 {mixSuggestion && <span className="dist-mix-suggestion"> · {mixSuggestion}</span>}
               </span>
               <span className="dist-sched-reach">
-                {!aiAutoDistribute
-                  ? <>Est. reach: <strong>{reachText}</strong> <span style={{ color: '#A1A1AA', fontStyle: 'italic' }}>if resumed</span></>
-                  : <>Est. reach: <strong>{reachText}</strong></>}
+                {reachText
+                  ? (!aiAutoDistribute
+                    ? <><strong>{reachText}</strong> <span style={{ color: '#A1A1AA', fontStyle: 'italic' }}>if resumed</span></>
+                    : <strong>{reachText}</strong>)
+                  : <span style={{ color: '#71717A', fontStyle: 'italic' }}>Reach estimates unlock after 5 tracked posts</span>}
               </span>
             </div>
           </div>
