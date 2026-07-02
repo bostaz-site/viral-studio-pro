@@ -1,7 +1,7 @@
-# SYSTEM REFERENCE — Distribution Page (v8 — AI Core Command Center)
+# SYSTEM REFERENCE — Distribution Page (v9 — Autofarm Executor)
 
 > Source de verite pour la page Distribution.
-> Derniere mise a jour : redesign complet "clip farm online" — AI brain core, premium pill toggle, platform corner-targeting, clip/platform picker modals, polished Clip Bank avec state hierarchy.
+> Derniere mise a jour : 2026-07-02 — autofarm executor (queue → DB → cron → published_posts), auto-post defaults TikTok, retry logic.
 
 ---
 
@@ -1001,19 +1001,121 @@ published_posts (Supabase)
 
 ---
 
-## Improvements left (post v8)
+## Autofarm Executor (v9)
+
+### Flow complet
+
+```
+1. User configure les "Auto-post defaults" (TikTok privacy, toggles, disclosure)
+   → PUT /api/distribution/settings { auto_post_defaults: {...} }
+
+2. User tourne le toggle Auto-Distribute ON
+   → Client POST /api/distribution/autofarm-sync avec les top N posts de la queue
+   → Cancel toutes les rows 'scheduled' autofarm precedentes (clean slate)
+   → Insert nouvelles rows dans scheduled_publications (source='autofarm', tiktok_options copiees)
+
+3. Queue se regenere (regenerateQueue)
+   → Si ON : re-sync vers DB (meme endpoint)
+
+4. User tourne OFF
+   → Client DELETE /api/distribution/autofarm-sync
+   → Toutes les rows autofarm 'scheduled' passent a 'cancelled'
+
+5. Cron publish-scheduled (toutes les 5-10 min)
+   → SELECT scheduled_publications WHERE status='scheduled' AND scheduled_at <= now() LIMIT 5
+   → Lock optimiste : UPDATE status='publishing' WHERE status='scheduled' (0 rows = skip)
+   → executePublish() : token refresh, signed URL fraiche, TikTok Direct Post
+   → Succes → status='published', INSERT published_posts
+   → Echec → retry_count++ (max 2, +10min delay) ou status='failed'
+   → Notification Discord
+
+6. Learning loop : refresh-post-stats cron → pattern-detector → queue regenere
+```
+
+### Auto-post defaults (TikTok compliance)
+
+Stockes dans `distribution_settings.auto_post_defaults` (JSONB) :
+
+```json
+{
+  "privacy_level": "PUBLIC_TO_EVERYONE",
+  "disable_comment": false,
+  "disable_duet": false,
+  "disable_stitch": false,
+  "brand_content_toggle": false,
+  "brand_organic_toggle": false
+}
+```
+
+Si `auto_post_defaults` est null → l'autofarm ne schedule PAS (afficher banner "Configure auto-post settings first").
+
+### Fichiers
+
+| Fichier | Role |
+|---|---|
+| `lib/distribution/execute-publish.ts` | Logique partagee : clip lookup, token refresh, signed URL fraiche, TikTok API, published_posts |
+| `app/api/cron/publish-scheduled/route.ts` | Cron executor — lock optimiste, execute, retry, Discord |
+| `app/api/distribution/autofarm-sync/route.ts` | Queue → DB bridge — POST (sync), DELETE (pause) |
+| `app/api/distribution/settings/route.ts` | Settings avec auto_post_defaults (PUT) |
+
+### Migration
+
+`20260702_autofarm_executor.sql` :
+- `scheduled_publications` : +`tiktok_options JSONB`, +`retry_count INT DEFAULT 0`, +`source TEXT DEFAULT 'manual'`
+- `distribution_settings` : +`auto_post_defaults JSONB`
+- Index `idx_scheduled_publications_due` sur `(scheduled_at) WHERE status='scheduled'`
+
+### Retry
+
+| Tentative | Action |
+|---|---|
+| 1ere | Execute normalement |
+| Echec #1 | status='scheduled', scheduled_at +10min, retry_count=1 |
+| Echec #2 | status='scheduled', scheduled_at +10min, retry_count=2 |
+| Echec #3 | status='failed', notification Discord |
+
+### Launch scope
+
+**TikTok uniquement** (seule plateforme approved). Le sync endpoint refuse les plateformes != 'tiktok'.
+Les signed URLs sont regenerees a chaque execution (jamais celles stockees au scheduling).
+
+### Cron scheduling
+
+Le cron `publish-scheduled` doit etre schedule dans Railway/cron-job.org (toutes les 5-10 min).
+Auth : `x-api-key: CRON_SECRET` (meme pattern que les autres crons).
+
+```
+POST /api/cron/publish-scheduled — every 5-10min
+```
+
+---
+
+## Systemes connexes
+
+| Systeme | Relation |
+|---|---|
+| **ENHANCE / Clip Bank** | Les clips rendus alimentent la queue via la bank |
+| **Settings OAuth** | Les tokens TikTok sont geres par `token-manager.ts` (refresh auto) |
+| **refresh-post-stats** | Met a jour les metriques des posts publies |
+| **pattern-detector** | Analyse les stats → nourrit le learning loop → queue se regenere |
+| **Discord** | Notifications auto-post succes/echec |
+| **AI (mood/hook)** | Le mood et hook type des clips influencent le sequencing de la queue |
+
+---
+
+## Improvements left (post v9)
 
 1. **Persistent clip removal** — connecter `removedClipIds` a Supabase (soft delete or status='archived')
-2. **Real publish scheduling** — connecter Smart Queue au scheduling reel via APIs TikTok/YouTube/Instagram
-3. **Mood tagging** — utiliser le mood detector existant pour tagger chaque clip
-4. **Hook type detection** — parser titres/transcriptions pour detecter type
-5. **Tracking reel** — APIs platforms pour vraies metriques → nourrir learning
-6. **Bio generation reelle** — Claude API pour remplacer templates
-7. **Persistance Supabase** — migrer learning data localStorage → Supabase cross-device
-8. **Drag & drop reorder** — queue posts manual reorder
-9. **Queue settings UI** — panel pour maxPerDay, blackoutHours
-10. **Brain core analytics overlay** — afficher stats temps reel dans le brain (clips processed, success rate)
-11. **Distinct Bank vs Remixes filter** — actuellement Bank = all clips, Remixes = subset trending. Si tous les clips sont des remixes, les deux tabs sont identiques. A clarifier au niveau data model (peut-etre filter Bank = scheduled/ready uniquement).
+2. **Mood tagging** — utiliser le mood detector existant pour tagger chaque clip
+3. **Hook type detection** — parser titres/transcriptions pour detecter type
+4. **Tracking reel** — APIs platforms pour vraies metriques → nourrir learning
+5. **Bio generation reelle** — Claude API pour remplacer templates
+6. **Persistance Supabase** — migrer learning data localStorage → Supabase cross-device
+7. **Drag & drop reorder** — queue posts manual reorder
+8. **Queue settings UI** — panel pour maxPerDay, blackoutHours
+9. **Brain core analytics overlay** — afficher stats temps reel dans le brain (clips processed, success rate)
+10. **Distinct Bank vs Remixes filter** — a clarifier au niveau data model
+11. **Multi-platform autofarm** — YouTube/Instagram quand les permissions sont approved
 
 ---
 
@@ -1024,6 +1126,7 @@ published_posts (Supabase)
 | v7 | Smart Queue Engine + Reward Engine + Persistence + initial brain SVG (purple) |
 | v8 | Cyan command center direction : nouveau brain (cyan + orange wolf neon emblem), pill toggle premium, connection map dynamique avec corner-targeting et particules, modals platform/clip picker, Clip Bank state hierarchy + X remove, time format unifie, master toggle propage l'etat OFF a tout le systeme |
 | v8.1 | TikTok Direct Post compliance : TikTokPublishDialog, creator_info fetch, 7 requirements UX, polling status |
+| v9 | Autofarm executor : queue→DB bridge, cron publish-scheduled, execute-publish.ts, auto-post defaults TikTok, retry logic, Discord notifications |
 
 ---
 

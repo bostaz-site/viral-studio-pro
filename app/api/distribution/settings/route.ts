@@ -2,6 +2,20 @@ import { z } from 'zod'
 import { withAuth, jsonResponse, errorResponse } from '@/lib/api/withAuth'
 import { createAdminClient } from '@/lib/supabase/admin'
 
+const autoPostDefaultsSchema = z.object({
+  privacy_level: z.enum([
+    'PUBLIC_TO_EVERYONE',
+    'MUTUAL_FOLLOW_FRIENDS',
+    'FOLLOWER_OF_CREATOR',
+    'SELF_ONLY',
+  ]),
+  disable_comment: z.boolean(),
+  disable_duet: z.boolean(),
+  disable_stitch: z.boolean(),
+  brand_content_toggle: z.boolean().optional(),
+  brand_organic_toggle: z.boolean().optional(),
+}).nullable()
+
 const updateSchema = z.object({
   max_posts_per_day: z.number().int().min(1).max(20).optional(),
   min_hours_between_posts: z.number().min(0.5).max(24).optional(),
@@ -10,6 +24,7 @@ const updateSchema = z.object({
   niche: z.string().max(50).nullable().optional(),
   optimal_hours: z.record(z.string(), z.array(z.number())).optional(),
   ai_optimized: z.boolean().optional(),
+  auto_post_defaults: autoPostDefaultsSchema.optional(),
 })
 
 export const GET = withAuth(async (_req, user) => {
