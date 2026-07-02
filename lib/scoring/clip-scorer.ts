@@ -163,7 +163,7 @@ function computeEarlySignalScore(input: ClipScoreInput): number {
 function computeFormatScore(durationSeconds?: number): number {
   const d = durationSeconds ?? 30
   if (d >= 15 && d <= 45) return 100  // sweet spot: highlight gaming clips
-  if (d > 45 && d <= 90) return 85    // longer form: higher reach if retention holds
+  if (d > 45 && d <= 90) return 80    // longer form: platform-wide trend but NOT confirmed for gaming (OpusClip 159k clips)
   if (d >= 8 && d < 15) return 70     // short but viable
   if (d > 90) return 60               // long-form: still viable post-2024
   return 40                            // <8s: too short for algorithm
