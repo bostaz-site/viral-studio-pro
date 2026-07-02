@@ -20,7 +20,10 @@ function getStripe() {
 // POST — Stripe webhook endpoint (public, no auth — signature verified)
 export async function POST(req: NextRequest) {
   const stripe = getStripe()
-  const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET ?? ''
+  const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET
+  if (!webhookSecret) {
+    return NextResponse.json({ error: 'STRIPE_WEBHOOK_SECRET not configured' }, { status: 500 })
+  }
   const body = await req.text()
   const sig = req.headers.get('stripe-signature') ?? ''
 

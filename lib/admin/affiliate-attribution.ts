@@ -76,7 +76,7 @@ export async function attributeSignup(params: {
     influencer_id: influencerId,
     user_id: params.userId,
     attribution_type: attributionType,
-    status: 'signed_up',
+    status: 'attributed',
     attribution_metadata: {
       affiliate_code: params.affiliateCode ?? null,
       fingerprint_hash: params.fingerprintHash ?? null,

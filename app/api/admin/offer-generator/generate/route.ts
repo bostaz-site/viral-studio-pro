@@ -6,6 +6,7 @@ import { extractVariables } from '@/lib/admin/offer-generator/variable-extractor
 import { renderTemplate, renderSubject } from '@/lib/admin/offer-generator/template-renderer'
 import { pickSubjectVariant } from '@/lib/admin/offer-generator/subject-picker'
 import { compliancePreflight } from '@/lib/admin/offer-generator/compliance-preflight'
+import { generateAffiliateCode } from '@/lib/admin/affiliate-code'
 
 export const POST = withAdmin(async (req: NextRequest) => {
   const { influencerIds, templateId } = await req.json()
@@ -30,6 +31,9 @@ export const POST = withAdmin(async (req: NextRequest) => {
         })
         continue
       }
+
+      // Ensure influencer has an affiliate_code before rendering template
+      await ensureAffiliateCode(influencerId)
 
       const vars = await extractVariables(influencerId)
       const { index, subject: rawSubject } = pickSubjectVariant(variants, (template.total_sent || 0) + generated)
@@ -62,3 +66,20 @@ export const POST = withAdmin(async (req: NextRequest) => {
 
   return jsonResponse({ generated, blocked, failed, needs_review: needsReviewCount, total: influencerIds.length })
 })
+
+async function ensureAffiliateCode(influencerId: string): Promise<void> {
+  const admin = createAdminClient()
+  const { data } = await admin
+    .from('influencers')
+    .select('affiliate_code, platform_handle')
+    .eq('id', influencerId)
+    .single()
+
+  if (!data || data.affiliate_code) return
+
+  const code = await generateAffiliateCode(influencerId, data.platform_handle)
+  await admin
+    .from('influencers')
+    .update({ affiliate_code: code })
+    .eq('id', influencerId)
+}

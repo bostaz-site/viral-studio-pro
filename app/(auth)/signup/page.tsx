@@ -42,10 +42,10 @@ function SignupForm() {
   const [success, setSuccess] = useState(false)
   const [referralCode, setReferralCode] = useState<string | null>(null)
 
-  // Capture ref from URL param, cookie (set by /ref/[handle]), or localStorage
+  // Capture ref from URL param, cookie va_ref (set by /r/[code]), or localStorage
   useEffect(() => {
-    const fromUrl = searchParams?.get('ref')?.trim().toUpperCase()
-    if (fromUrl && /^[A-Z0-9_-]{2,30}$/i.test(fromUrl)) {
+    const fromUrl = searchParams?.get('ref')?.trim()
+    if (fromUrl && /^[a-z0-9_-]{2,30}$/i.test(fromUrl)) {
       setReferralCode(fromUrl)
       try {
         localStorage.setItem(REFERRAL_STORAGE_KEY, fromUrl)
@@ -54,17 +54,17 @@ function SignupForm() {
       }
       return
     }
-    // Check cookie set by /ref/[handle]
+    // Check cookie set by /r/[code] (va_ref)
     try {
       const cookies = document.cookie.split(';').reduce<Record<string, string>>((acc, c) => {
         const [k, v] = c.trim().split('=')
         if (k && v) acc[k] = decodeURIComponent(v)
         return acc
       }, {})
-      if (cookies.ref && /^[a-z0-9_-]{2,30}$/i.test(cookies.ref)) {
-        const handle = cookies.ref.toUpperCase()
-        setReferralCode(handle)
-        try { localStorage.setItem(REFERRAL_STORAGE_KEY, handle) } catch {}
+      const cookieCode = cookies.va_ref || cookies.ref
+      if (cookieCode && /^[a-z0-9_-]{2,30}$/i.test(cookieCode)) {
+        setReferralCode(cookieCode)
+        try { localStorage.setItem(REFERRAL_STORAGE_KEY, cookieCode) } catch {}
         return
       }
     } catch {
@@ -72,7 +72,7 @@ function SignupForm() {
     }
     try {
       const stored = localStorage.getItem(REFERRAL_STORAGE_KEY)
-      if (stored && /^[A-Z0-9_-]{2,30}$/i.test(stored)) setReferralCode(stored)
+      if (stored && /^[a-z0-9_-]{2,30}$/i.test(stored)) setReferralCode(stored)
     } catch {
       // ignore
     }
@@ -107,6 +107,16 @@ function SignupForm() {
 
     setSuccess(true)
     setLoading(false)
+
+    // Attribute signup to affiliate (best-effort, non-blocking)
+    if (referralCode) {
+      fetch('/api/affiliate/attribute', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ affiliateCode: referralCode }),
+      }).catch(() => {})
+    }
+
     try {
       localStorage.removeItem(REFERRAL_STORAGE_KEY)
     } catch {

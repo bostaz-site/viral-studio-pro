@@ -18,7 +18,10 @@ export async function POST(req: NextRequest) {
   }
 
   const stripe = getStripe()
-  const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET ?? ''
+  const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET
+  if (!webhookSecret) {
+    return NextResponse.json({ error: 'STRIPE_WEBHOOK_SECRET not configured' }, { status: 500 })
+  }
   const PLAN_BY_PRICE: Record<string, string> = {
     [process.env.STRIPE_PRICE_PRO    ?? 'price_pro_placeholder']:    'pro',
     [process.env.STRIPE_PRICE_STUDIO ?? 'price_studio_placeholder']: 'studio',
