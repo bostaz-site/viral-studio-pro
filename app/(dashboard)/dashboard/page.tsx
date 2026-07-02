@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useCallback, useState, useRef } from 'react'
+import { useEffect, useCallback, useState, useRef, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   TrendingUp, RefreshCw, AlertCircle, Loader2, Sparkles, Compass,
@@ -75,6 +75,7 @@ export default function DashboardPage() {
   } = useTrendingStore()
 
   const fetchBootstrap = useTrendingStore(s => s.fetchBootstrap)
+  const tabFallbackNote = useTrendingStore(s => s._tabFallbackNote)
 
   // Initial fetch: bootstrap (saved + profile + remixes) in parallel with clips
   useEffect(() => {
@@ -283,12 +284,27 @@ export default function DashboardPage() {
   }, [router])
 
   // Feed tabs — 3 primary tabs + "All clips" link + Saved
-  const feedTabs: { key: FeedFilter; label: string; icon: typeof Flame; count?: number; subtle?: boolean }[] = [
-    { key: 'hot_now', label: 'Exploding Now', icon: Flame },
-    { key: 'proven', label: 'Proven Winners', icon: Trophy },
-    { key: 'recent', label: 'Fresh Drops', icon: Clock },
-    { key: 'all', label: 'All Clips', icon: Compass, subtle: true },
-    { key: 'saved', label: 'Saved', icon: Bookmark, count: savedClipIds.size || undefined },
+  // Compute counts per tab from loaded clips for informative display
+  const tabCounts = useMemo(() => {
+    const sixHoursAgo = Date.now() - 6 * 60 * 60 * 1000
+    return {
+      hot_now: clips.filter(c => c.feed_category === 'hot_now').length,
+      proven: clips.filter(c => c.feed_category === 'proven').length,
+      recent: clips.filter(c => {
+        const createdAt = c.clip_created_at ?? c.scraped_at
+        return createdAt ? new Date(createdAt).getTime() > sixHoursAgo : false
+      }).length,
+      all: clips.length,
+      saved: savedClipIds.size,
+    }
+  }, [clips, savedClipIds.size])
+
+  const feedTabs: { key: FeedFilter; label: string; icon: typeof Flame; count?: number; subtle?: boolean; empty?: boolean }[] = [
+    { key: 'hot_now', label: 'Exploding Now', icon: Flame, count: tabCounts.hot_now, empty: tabCounts.hot_now === 0 && clips.length > 0 },
+    { key: 'proven', label: 'Proven Winners', icon: Trophy, count: tabCounts.proven, empty: tabCounts.proven === 0 && clips.length > 0 },
+    { key: 'recent', label: 'Fresh Drops', icon: Clock, count: tabCounts.recent, empty: tabCounts.recent === 0 && clips.length > 0 },
+    { key: 'all', label: 'All Clips', icon: Compass, count: tabCounts.all, subtle: true },
+    { key: 'saved', label: 'Saved', icon: Bookmark, count: tabCounts.saved },
   ]
 
   const remaining = totalCount - clips.length
@@ -382,7 +398,7 @@ export default function DashboardPage() {
       <div className="space-y-2">
         {/* Feed tabs — segmented control style, compact */}
         <div className="inline-flex items-center gap-0.5 p-0.5 rounded-lg border border-border bg-card/50 w-fit">
-          {feedTabs.map(({ key, label, icon: Icon, count, subtle }) => {
+          {feedTabs.map(({ key, label, icon: Icon, count, subtle, empty }) => {
             const active = filters.feed === key
             return (
               <button
@@ -395,12 +411,14 @@ export default function DashboardPage() {
                     ? 'bg-primary text-primary-foreground shadow-sm'
                     : subtle
                       ? 'text-muted-foreground/50 hover:text-muted-foreground hover:bg-muted/20'
-                      : 'text-muted-foreground hover:text-foreground hover:bg-muted/40'
+                      : empty
+                        ? 'text-muted-foreground/40 hover:text-muted-foreground hover:bg-muted/20'
+                        : 'text-muted-foreground hover:text-foreground hover:bg-muted/40'
                 )}
               >
                 <Icon className="h-3 w-3" />
                 {label}
-                {count !== undefined && count > 0 && (
+                {count !== undefined && !loading && (
                   <span className={cn(
                     'tabular-nums text-[10px]',
                     active ? 'opacity-80' : 'opacity-60'
@@ -412,6 +430,11 @@ export default function DashboardPage() {
             )
           })}
         </div>
+
+        {/* Tab fallback note */}
+        {tabFallbackNote && (
+          <p className="text-xs text-muted-foreground/70 italic pl-1">{tabFallbackNote}</p>
+        )}
 
         {/* Filters */}
         <TrendingFilters
@@ -466,9 +489,24 @@ export default function DashboardPage() {
             filters.search !== '' ||
             filters.games.length > 0 ||
             filters.platforms.length > 0 ||
-            filters.duration !== 'all' ||
-            filters.feed !== 'all'
+            filters.duration !== 'all'
           const noClipsAtAll = clips.length === 0
+
+          // Tab-specific empty state messages
+          const emptyMessage = noClipsAtAll
+            ? 'Clips from Twitch & Kick will appear here once imported.'
+            : filters.feed === 'hot_now'
+              ? 'No clips exploding right now. Check Proven Winners or All Clips.'
+              : filters.feed === 'recent'
+                ? 'No fresh drops in the last 6 hours. Check Proven Winners.'
+                : filters.feed === 'proven'
+                  ? 'No proven winners yet. Try All Clips.'
+                  : filters.feed === 'saved'
+                    ? 'You haven\'t saved any clips yet. Browse clips and tap the bookmark icon.'
+                    : hasFilters
+                      ? 'Loosen your filters or try another category.'
+                      : 'Try refreshing \u2014 new clips drop every few minutes.'
+
           return (
             <Card className="border-border bg-card/50">
               <CardContent className="p-10 md:p-14 text-center">
@@ -485,19 +523,28 @@ export default function DashboardPage() {
                     : 'No clips match'}
                 </h3>
                 <p className="text-sm text-muted-foreground max-w-md mx-auto mb-5">
-                  {noClipsAtAll
-                    ? "Clips from Twitch & Kick will appear here once imported."
-                    : hasFilters
-                      ? 'Loosen your filters or try another category.'
-                      : 'Try refreshing \u2014 new clips drop every few minutes.'}
+                  {emptyMessage}
                 </p>
                 <div className="flex flex-wrap items-center justify-center gap-2">
+                  {/* Tab-specific switch buttons */}
+                  {!noClipsAtAll && (filters.feed === 'hot_now' || filters.feed === 'recent') && (
+                    <>
+                      <Button variant="outline" size="sm" onClick={() => setFeed('proven')}>
+                        <Trophy className="h-3.5 w-3.5 mr-1.5" />
+                        Proven Winners
+                      </Button>
+                      <Button variant="outline" size="sm" onClick={() => setFeed('all')}>
+                        <Compass className="h-3.5 w-3.5 mr-1.5" />
+                        All Clips
+                      </Button>
+                    </>
+                  )}
                   {hasFilters && (
                     <Button
                       variant="outline"
                       size="sm"
                       onClick={() => {
-                        setFilters({ search: '', games: [], platforms: [], sort: 'velocity', duration: 'all', feed: 'all' })
+                        setFilters({ search: '', games: [], platforms: [], sort: 'velocity', duration: 'all', feed: filters.feed })
                       }}
                     >
                       <X className="h-3.5 w-3.5 mr-1.5" />

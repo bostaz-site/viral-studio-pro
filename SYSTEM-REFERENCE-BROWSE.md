@@ -1,4 +1,4 @@
-# SYSTEM REFERENCE — Browse / Trending Page (v2)
+# SYSTEM REFERENCE — Browse / Trending Page (v2.1)
 
 > Ce fichier est la source de verite pour la page Browse (Dashboard principal).
 > Derniere mise a jour : 2026-07-02.
@@ -40,22 +40,35 @@
 ```
 1. FirstClipOverlay (onboarding, premiere visite)
 2. ReferralBonusBanner (si referral actif)
-3. Header — "Browse Clips" + Sparkles icon + description
-4. Action buttons — Upload clip (dashed outline) + Refresh
-5. ExportTicker — social proof live "A creator just exported..." (Realtime)
-6. Upload error card (si erreur upload)
-7. Twitch refresh toast (si message apres import)
-8. Feed tabs — Exploding Now (default), Proven Winners, Fresh Drops, All Clips (subtle), Saved
-9. TrendingFilters — search + sort + platform/duration/niche pills
+3. Header — PageHeader (Compass icon, cyan accent)
+   Title: "Browse Clips"
+   Subtitle: "Pick a trending clip. We'll make it TikTok-ready."
+   Right slot: [Upload clip (dashed outline)] [Refresh]
+4. ExportTicker — social proof live "A creator just exported..." (Realtime)
+5. Upload error card (si erreur upload)
+6. Twitch refresh toast (si message apres import)
+7. Feed tabs (segmented control) — 5 tabs:
+   Exploding Now (Flame, count) | Proven Winners (Trophy, count) |
+   Fresh Drops (Clock, count) | All Clips (Compass, count, subtle) | Saved (Bookmark, count)
+   - Counts shown per tab when data loaded (e.g. "Exploding Now 3")
+   - Empty tabs dimmed (opacity 40%)
+   - Smart fallback: if default tab (hot_now) has 0 clips → auto-switch to first
+     non-empty tab in [hot_now, proven, all] + fallback note
+8. Tab fallback note (italic, muted) — "Nothing exploding right now — showing proven winners..."
+9. TrendingFilters — compact bar:
+   [Search input (max-w-sm)] [Sort toggle: Score|Date] [Streamer dropdown "All streamers"]
+   [More filters button → collapsible panel: PLATFORM pills | DURATION pills | NICHE pills]
 10. Error card (si erreur fetch)
 11. Content area:
-    ├── Remixes tab → skeleton | empty state | RemixCard grid
-    └── All Clips tab → skeleton | empty state | TrendingCard grid
+    ├── Loading → shimmer skeleton grid (10 cards with gradient thumbnails)
+    ├── Empty → tab-specific empty state (see below)
+    └── Clips → TrendingCard grid (sm:2, lg:3, xl:4, 2xl:5 cols, gap-6)
 12. Load more button (si hasMore, avec remaining count)
 13. Quick Export rendering indicator (fixed bottom-right)
-14. Render completion notification (fixed bottom-right)
+14. Render completion notification (fixed bottom-right, amber theme)
 15. Refresh indicator (fixed bottom-right)
 16. InstallBanner (PWA)
+17. TrendingDetailModal — "Why this clip?" score breakdown
 ```
 
 ---
@@ -267,27 +280,55 @@ type FeedFilter = 'all' | 'hot_now' | 'early_gem' | 'proven' | 'recent' | 'saved
 
 ## Feed Category Tabs (Current State)
 
-3 tabs primaires + 2 secondaires. Default au premier chargement: `hot_now`.
+5 tabs visibles. Default: `hot_now` avec smart fallback.
 
-| Tab | Label UI | Icon | Style | Filtre |
-|---|---|---|---|---|
-| `hot_now` | Exploding Now | Flame | Primary (DEFAULT) | `feed_category === 'hot_now'` |
-| `proven` | Proven Winners | Trophy | Primary | `feed_category === 'proven'` |
-| `recent` | Fresh Drops | Clock | Primary | Clips < 6h d'age |
-| `all` | All Clips | Compass | Subtle (dimmed) | Pas de filtre |
-| `saved` | Saved | Bookmark | Normal (count badge) | Clips dans saved_clips du user |
+| Tab | Label UI | Icon | Style | Filtre | Count |
+|---|---|---|---|---|---|
+| `hot_now` | Exploding Now | Flame | Primary (DEFAULT) | `feed_category === 'hot_now'` | Live count |
+| `proven` | Proven Winners | Trophy | Primary | `feed_category === 'proven'` | Live count |
+| `recent` | Fresh Drops | Clock | Primary | Clips < 6h d'age | Live count |
+| `all` | All Clips | Compass | Subtle (dimmed) | Pas de filtre | Total clips |
+| `saved` | Saved | Bookmark | Normal | Full saved clips (API join) | savedClipIds.size |
 
-Notes:
-- `early_gem` existe dans le store mais n'est PAS affiche (concept avance, post-launch)
-- `remixes` tab reste accessible via setFeed mais pas rendu dans les tabs
-- Saved tab accessible mais stylise comme les primaires
+### Smart tab fallback (on initial load)
 
-### Remixes tab flow
+Si le tab par defaut (`hot_now`) retourne 0 clips mais que `clips.length > 0`:
+1. Teste dans l'ordre: `hot_now` → `proven` → `all`
+2. Bascule automatiquement sur le premier tab non-vide
+3. Affiche note: "Nothing exploding right now — showing proven winners. The radar re-checks every 15 min."
+4. La note disparait au prochain fetch.
 
-1. `setFeed('remixes')` → pas de re-fetch clips, juste applyFilters
-2. `useEffect` declenche `GET /api/clips/my-remixes?limit=20`
-3. Resultats stockes dans `remixes` state local (pas dans le store)
-4. Affiche skeleton (6 cartes) → empty state → grid de RemixCard
+### Tab count display
+
+- Chaque tab affiche son count a cote du label quand les donnees sont chargees
+- Tabs avec 0 clips sont visuellement dims (opacity 40%)
+- Le count se met a jour quand les clips sont re-fetches
+
+### Empty states par tab
+
+| Tab | Message (clips.length > 0) | Boutons |
+|---|---|---|
+| `hot_now` | "No clips exploding right now. Check Proven Winners or All Clips." | [Proven Winners] [All Clips] |
+| `recent` | "No fresh drops in the last 6 hours. Check Proven Winners." | [Proven Winners] [All Clips] |
+| `proven` | "No proven winners yet. Try All Clips." | — |
+| `saved` | "You haven't saved any clips yet. Browse clips and tap the bookmark icon." | — |
+| `all` | "Try refreshing — new clips drop every few minutes." | — |
+| (clips.length === 0) | "Clips from Twitch & Kick will appear here once imported." | [Import Clips] |
+
+### Saved tab flow (fixed)
+
+1. `setFeed('saved')` → calls `fetchSavedClips()`
+2. `GET /api/clips/saved` returns saved rows with `trending_clips(*)` join
+3. `savedTrendingClips[]` populated from the join data (full TrendingClip objects)
+4. `applyFilters()` uses `savedTrendingClips` instead of filtering `clips` by ID
+5. This ensures saved clips show even if they weren't in the current feed fetch
+
+### Data fetch strategy
+
+- Feed tabs are **client-side only** — not sent as server params
+- `fetchClips()` always requests `limit=200` when no search/niche/platform/duration filters are active
+- Only search/niche/platform/duration filters reduce to `limit=50` (server does the work)
+- This gives 200 clips for instant tab switching without re-fetching
 
 ---
 
@@ -296,8 +337,12 @@ Notes:
 ### Structure de la barre
 
 ```
-Row 1: [Search input (max-w-sm)] [Sort toggle: Algo Score | Date] [Clear button si actif]
-Row 2: [Twitch pill] [Kick pill] | [Timer icon] [Short <30s] [Medium 30-60s] [Long 60s+] | [Niche1 (count)] [Niche2 (count)] ...
+Main row: [Search input (max-w-sm)] [Sort toggle: Score|Date] [Streamer dropdown "All streamers"] [More filters button] [Clear]
+
+Collapsible panel (on "More filters" click):
+  PLATFORM: [Twitch pill] [Kick pill]
+  DURATION: [Short <30s] [Medium 30-60s] [Long 60s+]
+  NICHE:    [IRL (50)] [FPS (23)] [MOBA (12)] ... (max 6 pills, sorted by count desc)
 ```
 
 ### Pills de filtre
@@ -364,12 +409,33 @@ interface TrendingCardProps {
 }
 ```
 
-### Card Features (v2)
+### Card Features (v2.1 — all card paths)
 
-- **Export count badge**: Shown on Epic+ cards (score >= 65) when export_count > 2: "🔥 exported 23x" near verdict
-- **Quick Export CTA**: Zap icon button next to primary CTA, calls onQuickExport (API /api/render/quick)
+These features are present on ALL 4 card paths (neutral, epic, legendary, master):
+
+- **Export count badge**: `🔥 exported Nx` near verdict when `export_count > 2 && score >= 65`
+- **Quick Export CTA**: Zap icon button next to primary CTA (ghost/outline style)
 - **"Why this clip?" link**: Opens TrendingDetailModal with score breakdown, stats, sparkline
-- **Animations hover-only**: Master/Legendary continuous animations (masterRotate, masterPulse, haloBreathe, legGlowBreathe, legGodray, legFloatParticle, spark) only run on :hover. Static frames/ornaments remain visible.
+- **Verdict + reason**: Colored by verdictColor, `verdict.text` + `↑ verdict.reason`
+- **Bookmark**: Save/unsave toggle per card
+
+### CTA Style (amber primary, all ranks)
+
+All primary CTAs use amber gradient: `linear-gradient(135deg, #D97706, #B45309)` → hover `#F59E0B, #D97706`.
+Rank identity expressed via frames/scores/glows, NOT CTA color. Quick Export is ghost/outline.
+
+### Thumbnail Shimmer Skeleton
+
+While the thumbnail image loads, a shimmer gradient (`from-zinc-800 via-zinc-700 to-zinc-800`, 1.4s animation) is shown.
+Image starts at `opacity-0` and fades in on load. On error, falls back to streamer gradient.
+
+### Animations — hover-only (perf fix)
+
+ALL continuous animations are gated behind `:hover` to avoid main thread jank at rest:
+- **Legendary**: legGemGlow, legShimmerPass, legScoreGlow, legBtnShine → only on `.r-legendary:hover`
+- **Master**: masterShimmer, skullBob, ctaShimmer → only on `.r-master:hover`
+- Already hover-only: legGlowBreathe, legGodray, legFloatParticle, masterRotate, masterPulse, haloBreathe, spark
+- Static frames/ornaments remain visible at rest
 
 ### Valeurs derivees dans la carte
 
@@ -430,26 +496,29 @@ Fallback generique: `from-slate-700 via-slate-600 to-slate-500`
 
 ### Meta section par rank
 
+All paths share: verdict.text + export count badge + verdict.reason + "Why this clip?" + CTA (amber) + Quick Export (ghost) + Bookmark.
+
 **Neutral (common/rare/super_rare):**
 - Title (line-clamp-2)
 - Streamer avatar circle + @handle + niche
 - Signal tags (Hot/Gem badges, visible au hover via CSS `.signal-tag`)
-- verdict.text + verdict.reason (colored by verdictColor)
-- CTA dynamicCTA.label (CTAIconComponent)
+- Score number (text-xl, right-aligned)
+- CTA amber gradient + Quick Export (ghost) + Bookmark
 
 **Epic:**
-- Flex row: [Title + @handle + verdict.text (colored) + verdict.reason] [Score block (38px Archivo)]
+- Flex row: [Title + @handle + verdict + export badge + reason + "Why this clip?"] [Score block (38px Archivo)]
 - Epic divider (gradient violet)
-- CTA dynamicCTA.label (CTAIconComponent)
+- CTA amber gradient + Quick Export (ghost) + Bookmark
 
 **Master:**
-- Meme que neutral mais CTA avec SkullIcon au lieu de CTAIconComponent
-- verdict.text + verdict.reason affiches entre signal tags et CTA
+- Same as neutral but CTA avec SkullIcon au lieu de CTAIconComponent
+- Score on thumbnail (big, with wolf icon)
 
 **Legendary:**
-- Flex row: [Title + @handle + verdict.text (colored) + verdict.reason] [Score block (54px gold gradient) + gem SVG]
+- Ornate gold frame with gems, sparkles, godray
+- Flex row: [Title + @handle + verdict + export badge + reason + "Why this clip?"] [Score block (54px gold gradient) + wolf SVG]
 - Gold divider (leg-divider)
-- CTA dynamicCTA.label avec emoji prefix (gold themed, leg-cta)
+- CTA gold themed (leg-cta) + Quick Export (amber outline) + Bookmark
 
 ### Signal Tags
 

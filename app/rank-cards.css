@@ -84,10 +84,12 @@
 .r-neutral:hover img, .r-neutral:hover video { filter: brightness(1.05); }
 .r-neutral .rank-score { color: #9CA3AF; font-size: 42px; font-weight: 700; }
 .r-neutral .cta-viral {
-  background: #161B27; border: 1px solid #22283A; color: #9CA3AF;
-  opacity: .75; transition: all .2s;
+  background: linear-gradient(135deg, #D97706 0%, #B45309 100%);
+  border: 1px solid rgba(245,158,11,.4); color: #FFF;
+  opacity: .85; transition: all .2s;
+  box-shadow: 0 2px 8px -2px rgba(217,119,6,.3);
 }
-.r-neutral:hover .cta-viral { opacity: 1; background: #1B2132; color: #E4E4E7; border-color: #2E3650; }
+.r-neutral:hover .cta-viral { opacity: 1; background: linear-gradient(135deg, #F59E0B 0%, #D97706 100%); box-shadow: 0 4px 16px -2px rgba(245,158,11,.45); }
 
 /* ══════════════════════════════════════════════════════════════════
    EPIC — score 65-79, cyan theme (aligned with Distribution)
@@ -127,12 +129,12 @@
 }
 
 .r-epic .cta-viral {
-  background: linear-gradient(180deg, #0EA5E9 0%, #0284C7 100%);
-  border: 1px solid rgba(125,211,252,.55); color: #F0F9FF;
-  box-shadow: 0 2px 0 rgba(7,89,133,.4), inset 0 1px 0 rgba(186,230,253,.4);
-  opacity: .75; transition: all .2s;
+  background: linear-gradient(135deg, #D97706 0%, #B45309 100%);
+  border: 1px solid rgba(245,158,11,.5); color: #FFF;
+  box-shadow: 0 2px 8px -2px rgba(217,119,6,.4);
+  opacity: .85; transition: all .2s;
 }
-.r-epic:hover .cta-viral { opacity: 1; background: linear-gradient(180deg, #38BDF8 0%, #0EA5E9 100%); }
+.r-epic:hover .cta-viral { opacity: 1; background: linear-gradient(135deg, #F59E0B 0%, #D97706 100%); box-shadow: 0 4px 16px -2px rgba(245,158,11,.5); }
 
 /* ══════════════════════════════════════════════════════════════════
    LEGENDARY — score 80-94, ornate gold frame
@@ -218,8 +220,9 @@
 /* Corner/side gem ornaments */
 .leg-gem {
   position: absolute; z-index: 10; pointer-events: none;
-  animation: legGemGlow 2.8s ease-in-out infinite;
+  animation: none;
 }
+.r-legendary:hover .leg-gem { animation: legGemGlow 2.8s ease-in-out infinite; }
 @keyframes legGemGlow {
   0%, 100% { filter: drop-shadow(0 0 8px rgba(255,215,0,.8)) drop-shadow(0 0 3px rgba(255,255,255,.4)); }
   50% { filter: drop-shadow(0 0 18px rgba(255,230,80,1)) drop-shadow(0 0 6px rgba(255,255,255,.7)); }
@@ -270,8 +273,9 @@
     transparent 0%, rgba(255,248,225,0) 30%,
     rgba(255,248,225,.7) 50%, rgba(255,248,225,0) 70%,
     transparent 100%);
-  animation: legShimmerPass 3s ease-in-out infinite;
+  animation: none;
 }
+.r-legendary:hover .leg-shimmer-bar { animation: legShimmerPass 3s ease-in-out infinite; }
 @keyframes legShimmerPass {
   0% { transform: translateX(-150%) skewX(-20deg); }
   100% { transform: translateX(350%) skewX(-20deg); }
@@ -289,7 +293,7 @@
   -webkit-background-clip: text; background-clip: text;
   -webkit-text-fill-color: transparent;
   filter: drop-shadow(0 0 14px rgba(212,168,64,.6)) drop-shadow(0 3px 6px rgba(0,0,0,.85));
-  animation: legScoreGlow 2s ease-in-out infinite;
+  animation: none;
 }
 @keyframes legScoreGlow {
   0%, 100% { filter: drop-shadow(0 0 12px rgba(255,233,168,.5)) drop-shadow(0 2px 8px rgba(0,0,0,.5)); }
@@ -361,8 +365,9 @@
 .leg-cta::before {
   content: ''; position: absolute; top: 0; left: -100%; width: 60%; height: 100%;
   background: linear-gradient(90deg, transparent, rgba(255,233,168,.15), transparent);
-  animation: legBtnShine 3s ease-in-out infinite; pointer-events: none;
+  animation: none; pointer-events: none;
 }
+.r-legendary:hover .leg-cta::before { animation: legBtnShine 3s ease-in-out infinite; }
 @keyframes legBtnShine {
   0% { left: -100%; }
   100% { left: 200%; }
@@ -423,9 +428,10 @@
   content: ''; position: absolute; inset: 0; z-index: 3; pointer-events: none;
   background: linear-gradient(110deg, transparent 25%, rgba(255,215,0,.22) 42%, rgba(255,255,255,.38) 50%, rgba(255,140,0,.22) 58%, transparent 75%);
   background-size: 230% 100%;
-  animation: masterShimmer 4.5s ease-in-out infinite;
+  animation: none;
   mix-blend-mode: screen;
 }
+.r-master:hover .thumb::before { animation: masterShimmer 4.5s ease-in-out infinite; }
 
 /* Master meta warm tint */
 .r-master .meta-section {
@@ -464,8 +470,9 @@
   background: radial-gradient(circle at 40% 35%, #FFF4B8, #FCD34D 50%, #92400E);
   display: flex; align-items: center; justify-content: center;
   box-shadow: 0 0 12px rgba(252,211,77,.5);
-  animation: skullBob 3s ease-in-out infinite;
+  animation: none;
 }
+.r-master:hover .master-skull { animation: skullBob 3s ease-in-out infinite; }
 
 /* Master sparks */
 .master-sparks { position: absolute; top: 4px; right: 8px; z-index: 6; pointer-events: none; }
@@ -500,8 +507,9 @@
   content: ''; position: absolute; inset: 0;
   background: linear-gradient(110deg, transparent 30%, rgba(255,215,0,.15) 45%, rgba(255,255,255,.25) 50%, rgba(255,140,0,.15) 55%, transparent 70%);
   background-size: 230% 100%;
-  animation: ctaShimmer 4s ease-in-out infinite;
+  animation: none;
 }
+.r-master:hover .cta-viral::before { animation: ctaShimmer 4s ease-in-out infinite; }
 .r-master:hover .cta-viral {
   box-shadow:
     0 0 0 1.5px #D97706, 0 0 0 2.5px #FCD34D, 0 0 0 3px #A16207,
@@ -564,7 +572,14 @@
   50% { opacity: 1; transform: translateY(-4px) scale(1.1); }
 }
 
+/* ── Thumbnail shimmer skeleton ─────────────────────────────────────── */
+@keyframes thumbShimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+.animate-shimmer { animation: thumbShimmer 1.4s ease-in-out infinite; }
+
 @media (prefers-reduced-motion: reduce) {
   .r-master, .r-master .thumb::before, .r-master::after, .master-skull,
-  .master-sparks span, .legendary-title { animation: none !important; }
+  .master-sparks span, .legendary-title, .animate-shimmer { animation: none !important; }
 }

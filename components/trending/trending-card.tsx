@@ -150,6 +150,7 @@ const LegGemDefs = () => (
 
 export const TrendingCard = memo(function TrendingCard({ clip, onRemix, onQuickExport, onShowDetail, quickExportState, remixing = false, isSaved = false, onToggleSave }: TrendingCardProps) {
   const [imgError, setImgError] = useState(false)
+  const [imgLoaded, setImgLoaded] = useState(false)
   const [hovered, setHovered] = useState(false)
   const [showVideo, setShowVideo] = useState(false)
   const [videoPlaying, setVideoPlaying] = useState(false)
@@ -440,8 +441,8 @@ export const TrendingCard = memo(function TrendingCard({ clip, onRemix, onQuickE
       <button
         className="w-full max-w-[200px] h-10 rounded-xl text-sm font-black text-white transition-all hover:scale-105 active:scale-95"
         style={{
-          background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
-          boxShadow: '0 4px 20px rgba(99,102,241,.45)',
+          background: 'linear-gradient(135deg, #F59E0B 0%, #D97706 100%)',
+          boxShadow: '0 4px 20px rgba(245,158,11,.45)',
         }}
         onClick={(e) => { e.stopPropagation(); onRemix?.(clip) }}
       >
@@ -567,10 +568,25 @@ export const TrendingCard = memo(function TrendingCard({ clip, onRemix, onQuickE
                   {clip.author_handle && gameLabel ? ' · ' : ''}
                   {gameLabel || ''}
                 </p>
-                <p className="leg-hook" style={{ color: verdictColor }}>
-                  {verdict.text}
-                </p>
-                <p className="text-[10px] text-zinc-500 mt-0.5">{'\u2191'} {verdict.reason}</p>
+                <div className="flex items-center gap-2 mt-1">
+                  <p className="leg-hook" style={{ color: verdictColor }}>
+                    {verdict.text}
+                  </p>
+                  {(clip.export_count ?? 0) > 2 && score !== null && score >= 65 && (
+                    <span className="text-[10px] text-amber-400/70 whitespace-nowrap">{'\uD83D\uDD25'} exported {clip.export_count}x</span>
+                  )}
+                </div>
+                <div className="flex items-center gap-2">
+                  <p className="text-[10px] text-zinc-500 mt-0.5">{'\u2191'} {verdict.reason}</p>
+                  {onShowDetail && (
+                    <button
+                      onClick={(e) => { e.stopPropagation(); onShowDetail(clip) }}
+                      className="text-[10px] text-zinc-500 hover:text-zinc-300 transition-colors whitespace-nowrap relative z-10"
+                    >
+                      Why this clip?
+                    </button>
+                  )}
+                </div>
               </div>
               {score !== null && (
                 <div className="leg-score-block">
@@ -588,6 +604,16 @@ export const TrendingCard = memo(function TrendingCard({ clip, onRemix, onQuickE
                 disabled={remixing}>
                 {remixing ? 'Creating...' : `${dynamicCTA.icon === 'Flame' ? '\uD83D\uDD25' : '\u2726'} ${dynamicCTA.label}`}
               </button>
+              {onQuickExport && (
+                <button
+                  onClick={(e) => { e.stopPropagation(); onQuickExport(clip) }}
+                  disabled={isExporting}
+                  className="h-9 px-2.5 flex-shrink-0 rounded-lg flex items-center justify-center gap-1 border border-amber-500/20 bg-zinc-900/60 text-amber-400/70 hover:text-amber-400 hover:border-amber-500/40 transition-colors text-[10px] font-medium"
+                  title="Quick Export"
+                >
+                  {isExporting ? <Loader2 className="h-3 w-3 animate-spin" /> : <Zap className="h-3 w-3" />}
+                </button>
+              )}
               {onToggleSave && (
                 <button
                   onClick={(e) => { e.stopPropagation(); onToggleSave(clip.id) }}
@@ -634,6 +660,11 @@ export const TrendingCard = memo(function TrendingCard({ clip, onRemix, onQuickE
           />
         )}
 
+        {/* Shimmer skeleton while image loads */}
+        {clip.thumbnail_url && !imgError && !imgLoaded && (
+          <div className="absolute inset-0 bg-gradient-to-r from-zinc-800 via-zinc-700 to-zinc-800 animate-shimmer" style={{ backgroundSize: '200% 100%' }} />
+        )}
+
         {/* Thumbnail image or avatar fallback */}
         {clip.thumbnail_url && !imgError ? (
           <Image
@@ -643,8 +674,10 @@ export const TrendingCard = memo(function TrendingCard({ clip, onRemix, onQuickE
             sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
             className={cn(
               'object-cover transition-all duration-500',
-              hovered ? 'scale-110 brightness-75' : ''
+              hovered ? 'scale-110 brightness-75' : '',
+              !imgLoaded && 'opacity-0'
             )}
+            onLoad={() => setImgLoaded(true)}
             onError={() => setImgError(true)}
           />
         ) : (
@@ -728,10 +761,25 @@ export const TrendingCard = memo(function TrendingCard({ clip, onRemix, onQuickE
                     {gameLabel ? ` · ${gameLabel}` : ''}
                   </p>
                 )}
-                <p className="text-xs font-semibold mt-1.5" style={{ color: verdictColor }}>
-                  {verdict.text}
-                </p>
-                <p className="text-[10px] text-zinc-500 mt-0.5">{'\u2191'} {verdict.reason}</p>
+                <div className="flex items-center gap-2 mt-1.5">
+                  <p className="text-xs font-semibold" style={{ color: verdictColor }}>
+                    {verdict.text}
+                  </p>
+                  {(clip.export_count ?? 0) > 2 && score !== null && score >= 65 && (
+                    <span className="text-[10px] text-orange-400/70 whitespace-nowrap">{'\uD83D\uDD25'} exported {clip.export_count}x</span>
+                  )}
+                </div>
+                <div className="flex items-center gap-2">
+                  <p className="text-[10px] text-zinc-500 mt-0.5">{'\u2191'} {verdict.reason}</p>
+                  {onShowDetail && (
+                    <button
+                      onClick={(e) => { e.stopPropagation(); onShowDetail(clip) }}
+                      className="text-[10px] text-zinc-500 hover:text-zinc-300 transition-colors whitespace-nowrap relative z-10"
+                    >
+                      Why this clip?
+                    </button>
+                  )}
+                </div>
               </div>
               {score !== null && (
                 <div className="epic-score-block">
@@ -749,6 +797,16 @@ export const TrendingCard = memo(function TrendingCard({ clip, onRemix, onQuickE
                 <CTAIconComponent icon={dynamicCTA.icon} />
                 <span className="relative z-10">{remixing ? 'Creating...' : dynamicCTA.label}</span>
               </button>
+              {onQuickExport && (
+                <button
+                  onClick={(e) => { e.stopPropagation(); onQuickExport(clip) }}
+                  disabled={isExporting}
+                  className="h-9 px-2.5 flex-shrink-0 rounded-lg flex items-center justify-center gap-1 border border-border bg-card/60 text-muted-foreground hover:text-foreground hover:border-primary/30 transition-colors relative z-10 text-[10px] font-medium"
+                  title="Quick Export"
+                >
+                  {isExporting ? <Loader2 className="h-3 w-3 animate-spin" /> : <Zap className="h-3 w-3" />}
+                </button>
+              )}
               {onToggleSave && (
                 <button
                   onClick={(e) => { e.stopPropagation(); onToggleSave(clip.id) }}

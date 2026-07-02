@@ -177,18 +177,19 @@ interface BootstrapResponse {
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
-/** Check if any server-filterable filters are active */
+/** Check if any server-filterable filters are active (excluding feed tabs) */
 function hasServerFilters(f: TrendingFiltersState): boolean {
   return (
     f.search !== '' ||
     f.games.length > 0 ||
     f.platforms.length > 0 ||
-    f.duration !== 'all' ||
-    (f.feed !== 'all' && f.feed !== 'saved' && f.feed !== 'remixes')
+    f.duration !== 'all'
   )
 }
 
-/** Build URLSearchParams from filters for the /api/trending call */
+/** Build URLSearchParams from filters for the /api/trending call.
+ *  Feed tabs are NOT sent to the server — we always fetch the full dataset
+ *  (limit=200) and filter client-side for instant tab switching. */
 function buildFilterParams(f: TrendingFiltersState): URLSearchParams {
   const params = new URLSearchParams({ sort: f.sort })
 
@@ -197,9 +198,7 @@ function buildFilterParams(f: TrendingFiltersState): URLSearchParams {
   if (f.games.length > 0) params.set('niche', f.games.join(','))
   if (f.platforms.length > 0) params.set('platform', f.platforms.join(','))
   if (f.duration !== 'all') params.set('duration', f.duration)
-  if (f.feed === 'hot_now' || f.feed === 'early_gem' || f.feed === 'proven' || f.feed === 'recent') {
-    params.set('feed', f.feed)
-  }
+  // Feed tabs handled client-side — don't pass to server
 
   return params
 }
@@ -223,6 +222,7 @@ interface TrendingState {
   // Saved/Favorites
   savedClipIds: Set<string>
   savedClips: SavedClip[]
+  savedTrendingClips: TrendingClip[]
 
   // Stream grouping
   expandedGroups: Set<string>
@@ -248,8 +248,9 @@ interface TrendingState {
   notifications: ViralNotification[]
   notificationsRead: boolean
 
-  // Internal — debounce timer for search
+  // Internal
   _searchDebounce: ReturnType<typeof setTimeout> | null
+  _tabFallbackNote: string | null
 
   // Actions
   setFilters: (filters: TrendingFiltersState) => void
@@ -278,6 +279,7 @@ export const useTrendingStore = create<TrendingState>((set, get) => ({
   totalCount: 0,
   savedClipIds: new Set(),
   savedClips: [],
+  savedTrendingClips: [],
   expandedGroups: new Set(),
   userPlan: null,
   monthlyVideosUsed: 0,
@@ -293,6 +295,7 @@ export const useTrendingStore = create<TrendingState>((set, get) => ({
   notifications: [],
   notificationsRead: true,
   _searchDebounce: null,
+  _tabFallbackNote: null,
 
   setFilters: (newFilters) => {
     const prev = get().filters
@@ -328,31 +331,22 @@ export const useTrendingStore = create<TrendingState>((set, get) => ({
 
   setFeed: (feed) => {
     const { filters } = get()
-    const prev = filters.feed
     set({ filters: { ...filters, feed } })
 
-    // saved/remixes have their own fetch logic — just filter client-side
-    if (feed === 'saved' || feed === 'remixes') {
+    // Saved tab: fetch full saved clips with their trending_clips data
+    if (feed === 'saved') {
+      get().fetchSavedClips()
       get().applyFilters()
       return
     }
 
-    // Switching from a client-only tab (saved/remixes) back to a server tab
-    // always needs a re-fetch since clips array may be stale
-    if (prev === 'saved' || prev === 'remixes') {
-      get().fetchClips(true)
+    if (feed === 'remixes') {
+      get().applyFilters()
       return
     }
 
-    // For feed tab changes (hot_now, early_gem, proven, recent, all):
-    // Apply client filter immediately, then re-fetch from server in background
-    // to ensure we have the full dataset for this category
+    // For all other feed tabs: apply client-side filter (data already loaded as 200)
     get().applyFilters()
-    const { filteredClips } = get()
-    if (filteredClips.length < 10) {
-      // Not enough results client-side — fetch from server
-      get().fetchClips(true)
-    }
   },
 
   setAutoRefresh: (enabled) => set({ autoRefreshEnabled: enabled }),
@@ -422,6 +416,30 @@ export const useTrendingStore = create<TrendingState>((set, get) => ({
 
       get().computeStats()
       get().applyFilters()
+
+      // Smart tab fallback: if the current tab has 0 results, auto-switch
+      // to the first non-empty tab in priority order
+      if (!silent && get().filteredClips.length === 0 && clips.length > 0) {
+        const fallbackOrder: FeedFilter[] = ['hot_now', 'proven', 'all']
+        const currentFeed = get().filters.feed
+        for (const tab of fallbackOrder) {
+          if (tab === currentFeed) continue
+          // Test how many clips this tab would show
+          const testFiltered = filterAndSortClips(clips, { ...get().filters, feed: tab }, get().savedClipIds)
+          if (testFiltered.length > 0) {
+            set({
+              filters: { ...get().filters, feed: tab },
+              _tabFallbackNote: currentFeed === 'hot_now'
+                ? 'Nothing exploding right now \u2014 showing proven winners. The radar re-checks every 15 min.'
+                : null,
+            })
+            get().applyFilters()
+            break
+          }
+        }
+      } else if (!silent) {
+        set({ _tabFallbackNote: null })
+      }
     } catch (err) {
       set({
         error: err instanceof Error ? err.message : 'Unknown error',
@@ -480,8 +498,12 @@ export const useTrendingStore = create<TrendingState>((set, get) => ({
   },
 
   applyFilters: () => {
-    const { clips, filters, savedClipIds, expandedGroups } = get()
-    let filtered = filterAndSortClips(clips, filters, savedClipIds)
+    const { clips, filters, savedClipIds, expandedGroups, savedTrendingClips } = get()
+    // For saved tab, use the full saved trending clips (not just IDs matched against loaded clips)
+    const sourceClips = filters.feed === 'saved' && savedTrendingClips.length > 0
+      ? savedTrendingClips
+      : clips
+    let filtered = filterAndSortClips(sourceClips, filters, savedClipIds)
 
     // Hide collapsed stream group clips unless their group is expanded
     filtered = filtered.filter(c => {
@@ -522,8 +544,16 @@ export const useTrendingStore = create<TrendingState>((set, get) => ({
       if (json.error) return
 
       const saved = (json.data ?? []) as SavedClip[]
-      const ids = new Set(saved.map((s) => s.clip_id))
-      set({ savedClips: saved, savedClipIds: ids })
+      const ids = new Set(saved.map((s: SavedClip) => s.clip_id))
+
+      // Extract full trending_clips objects from the join
+      const savedTrendingClips: TrendingClip[] = []
+      for (const s of saved) {
+        const tc = (s as unknown as Record<string, unknown>).trending_clips as TrendingClip | null
+        if (tc && tc.id) savedTrendingClips.push(tc)
+      }
+
+      set({ savedClips: saved, savedClipIds: ids, savedTrendingClips })
       get().applyFilters()
     } catch {
       // silent
