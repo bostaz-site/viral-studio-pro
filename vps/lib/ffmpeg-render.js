@@ -637,10 +637,21 @@ export async function renderClip(inputPath, outputPath, options = {}) {
 
   let audioPeaks = [];
   if (smartZoom && smartZoom.enabled && smartZoom.mode === 'dynamic') {
-    try {
-      audioPeaks = await analyzeAudioPeaks(inputPath, startTime, clipDuration);
-    } catch (err) {
-      console.warn('[FFmpeg] Audio peak analysis failed:', err.message);
+    // Prefer hook analysis combined peaks if available (better signal than raw audio)
+    if (hook?.analysisResult?.scores?.length > 0) {
+      try {
+        const { getTopPeakWindows } = await import('./hook-generator.js');
+        audioPeaks = getTopPeakWindows(hook.analysisResult, 3, 2.5);
+        console.log(`[FFmpeg] Smart Zoom: using ${audioPeaks.length} peaks from hook analysis`);
+      } catch { /* fallback below */ }
+    }
+    // Fallback: raw audio peak detection
+    if (audioPeaks.length === 0) {
+      try {
+        audioPeaks = await analyzeAudioPeaks(inputPath, startTime, clipDuration);
+      } catch (err) {
+        console.warn('[FFmpeg] Audio peak analysis failed:', err.message);
+      }
     }
   }
 

@@ -1,4 +1,4 @@
-# SYSTEM REFERENCE — Enhance / Editor Page (v2.2)
+# SYSTEM REFERENCE — Enhance / Editor Page (v2.3)
 
 > Ce fichier est la source de verite pour la page Enhance (editeur de viralite).
 > Couvre : architecture, layout, state, chaque section UI, scoring, AI, render, animations.
@@ -1117,4 +1117,54 @@ Les overlays (hook + tag) sont captures en Canvas 2D a `videoWidth=1080` (resolu
 
 Deploy VPS : Railway auto-deploy depuis le Dockerfile dans `vps/`. Config dans `vps/railway.toml`. Env var `RENDER_QUALITY=high` a ajouter dans Railway (pas Netlify).
 
-Version : v2.2 — 2026-07-02
+---
+
+## Peak Detection (v2 — Spike + Prior + Snapping)
+
+Source : `vps/lib/hook-generator.js` > `detectPeakMoment()`
+
+### Signaux combines (par fenetre de 0.5s)
+
+| Signal | Poids | Description |
+|---|---|---|
+| Audio spike | ×8 | `(amp - baseline) / baseline` — un cri soudain dans le calme bat une musique constamment forte |
+| Viral keywords | +3/+2/+1 | HIGH (omg, insane, clutch) / MEDIUM (wow, damn, lol) / MILD (okay, right) |
+| ALL CAPS words | +2 | Mots en majuscules >2 chars = cri |
+| Positional prior | ×0.8/1.0/1.3 | Twitch/Kick viewer clips seulement — peak biaise vers le dernier tiers |
+| Anti-edge | ×0.3/×0.5 | Premiere/derniere seconde penalisees |
+
+### Positional prior (Twitch/Kick)
+
+Les viewers creent un clip APRES le moment fort. Le peak est donc statistiquement dans le dernier tiers.
+- Premier tiers : ×0.8
+- Deuxieme tiers : ×1.0 (neutre)
+- Dernier tiers : ×1.3
+
+Applique SEULEMENT si `isViewerClip = true` (source = twitch ou kick). Les uploads ne sont pas biaises.
+
+### Word-boundary snapping (reorder)
+
+`calculateReorderTimestamps()` snappe les frontières de segments aux :
+1. Fins de phrases (ponctuation `.!?` ou gap >0.5s entre mots)
+2. Fins de mots (fallback — jamais de coupe en plein mot)
+3. 2-4s de contexte AVANT le peak dans le segment HOOK
+
+### Hook text contextuel
+
+Le prompt Claude recoit une section "PEAK MOMENT" avec le transcript exact des 5s autour du peakTime.
+Instruction : "The hook MUST reference this specific moment. Quote or tease what actually happens at the peak."
+
+### Dynamic zoom integration
+
+`ffmpeg-render.js` utilise les top-3 fenetres du score COMBINE (via `getTopPeakWindows()`) quand l'analyse hook est disponible dans le payload. Fallback : audio peaks bruts via `analyzeAudioPeaks()`. Cooldown 2.5s entre les zooms.
+
+### Script de validation
+
+```
+npx tsx scripts/test-peak-detection.ts <clip_id_1> [clip_id_2] ...
+npx tsx scripts/test-peak-detection.ts --recent 10
+```
+
+Affiche : clip_id | titre | peakTime | score | transcript 5s autour du peak.
+
+Version : v2.3 — 2026-07-02

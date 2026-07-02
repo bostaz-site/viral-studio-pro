@@ -258,10 +258,13 @@ export async function prepareHookReorder(settings, inputPath, tempDir, options) 
   // If reorder is requested but no segments provided, calculate them on the fly
   if (settings.hook?.reorderEnabled && (!settings.hook?.reorder || !settings.hook?.reorder?.segments?.length)) {
     trc(`HOOK REORDER: no segments provided, calculating from duration=${duration}s`);
-    const fallbackPeak = detectPeakMoment({ transcript: '', duration, wordTimestamps: [], audioPeaks: [] });
+    const isViewerClip = settings.sourcePlatform === 'twitch' || settings.sourcePlatform === 'kick';
+    const fallbackPeak = detectPeakMoment({ transcript: '', duration, wordTimestamps: captionWordTimestamps, audioPeaks: [], isViewerClip });
     const peakT = fallbackPeak.peakTime > 0 ? fallbackPeak.peakTime : Math.min(duration * 0.6, duration - 2);
     const hookLen = settings.hook?.length || 1.5;
-    settings.hook.reorder = calculateReorderTimestamps(peakT, duration, hookLen, 8);
+    settings.hook.reorder = calculateReorderTimestamps(peakT, duration, hookLen, 8, captionWordTimestamps);
+    // Store analysis result for dynamic zoom to consume
+    if (!settings.hook.analysisResult) settings.hook.analysisResult = fallbackPeak;
     trc(`HOOK REORDER fallback: peak=${peakT}s, ${settings.hook.reorder.segments.length} segments`);
   }
 
