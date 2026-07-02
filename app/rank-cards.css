@@ -158,6 +158,9 @@
     0 0 80px rgba(200,140,20,.08),
     0 24px 60px -16px rgba(0,0,0,.8);
 }
+.r-legendary:hover .leg-glow { animation: legGlowBreathe 3s ease-in-out infinite; }
+.r-legendary:hover .leg-godray { animation: legGodray 5s ease-in-out infinite; }
+.r-legendary:hover .leg-sparkle { animation: legFloatParticle 2.4s ease-out infinite; }
 .r-legendary .rank-score { display: none; }
 .r-legendary .rank-frame { display: none; }
 
@@ -168,7 +171,7 @@
   background: radial-gradient(ellipse at center,
     rgba(255,200,60,.25) 0%, rgba(245,180,40,.1) 40%, transparent 70%);
   filter: blur(24px);
-  animation: legGlowBreathe 3s ease-in-out infinite;
+  animation: none;
 }
 @keyframes legGlowBreathe {
   0%, 100% { opacity: .4; transform: scale(1); }
@@ -178,7 +181,7 @@
 /* Sparkle particles */
 .leg-sparkle {
   position: absolute; pointer-events: none; z-index: 8;
-  animation: legFloatParticle 2.4s ease-out infinite;
+  animation: none;
 }
 @keyframes legFloatParticle {
   0% { transform: translate(0,0) scale(0); opacity: 0; }
@@ -244,7 +247,7 @@
     rgba(255,248,225,.15) 45%, rgba(255,255,255,.25) 50%,
     rgba(255,248,225,.15) 55%, rgba(255,255,255,0) 80%,
     transparent 100%);
-  animation: legGodray 5s ease-in-out infinite;
+  animation: none;
   filter: blur(3px);
   pointer-events: none; z-index: 3;
 }
@@ -381,7 +384,7 @@
       #FFD700 0deg, #FFAF38 60deg, #FF5722 130deg,
       #FFD700 200deg, #FFE066 280deg, #FFD700 360deg
     ) border-box !important;
-  animation: masterRotate 10s linear infinite, masterPulse 5.5s ease-in-out infinite;
+  animation: none;
   box-shadow:
     0 0 0 1px rgba(255,170,40,.4),
     0 0 60px -4px rgba(255,140,0,.7),
@@ -389,7 +392,11 @@
     0 20px 70px -20px rgba(255,120,0,.7);
   transition: transform .3s ease;
 }
-.r-master:hover { transform: translateY(-5px) scale(1.03); }
+.r-master:hover {
+  transform: translateY(-5px) scale(1.03);
+  animation: masterRotate 10s linear infinite, masterPulse 5.5s ease-in-out infinite;
+}
+.r-master:hover::after { animation: haloBreathe 5s ease-in-out infinite; }
 
 /* Master external halo */
 .r-master::after {
@@ -398,7 +405,7 @@
   background:
     radial-gradient(ellipse at center, rgba(255,150,0,.28), transparent 60%),
     radial-gradient(ellipse at center, rgba(255,60,0,.12), transparent 75%);
-  animation: haloBreathe 5s ease-in-out infinite;
+  animation: none;
 }
 
 .r-master .rank-score {
@@ -465,8 +472,9 @@
 .master-sparks span {
   position: absolute; width: 4px; height: 4px; border-radius: 50%;
   background: #FFE066; box-shadow: 0 0 6px #FFD700;
-  animation: spark 3.2s ease-in-out infinite;
+  animation: none;
 }
+.r-master:hover .master-sparks span { animation: spark 3.2s ease-in-out infinite; }
 .master-sparks span:nth-child(1) { top: 0; right: 0; animation-delay: 0s; }
 .master-sparks span:nth-child(2) { top: 20px; right: -6px; animation-delay: .6s; }
 .master-sparks span:nth-child(3) { top: 40px; right: 4px; animation-delay: 1.2s; }

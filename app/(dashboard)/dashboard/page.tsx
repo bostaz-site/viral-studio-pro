@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import {
   TrendingUp, RefreshCw, AlertCircle, Loader2, Sparkles, Compass,
   Download, Flame, X, Bookmark, Lock, Film,
-  UploadCloud, CheckCircle2,
+  UploadCloud, CheckCircle2, Trophy, Clock,
 } from 'lucide-react'
 import { PageHeader } from '@/components/dashboard/page-header'
 import { Button } from '@/components/ui/button'
@@ -14,6 +14,7 @@ import { type RemixJob } from '@/components/trending/remix-card'
 import { ExportTicker } from '@/components/trending/export-ticker'
 import { TrendingCard, type QuickExportState } from '@/components/trending/trending-card'
 import { TrendingFilters } from '@/components/trending/trending-filters'
+import { TrendingDetailModal } from '@/components/trending/trending-detail-modal'
 import { FirstClipOverlay } from '@/components/onboarding/first-clip-overlay'
 import { ReferralBonusBanner } from '@/components/onboarding/referral-bonus-banner'
 import { useRenderSubscription } from '@/hooks/use-render-subscription'
@@ -38,6 +39,7 @@ export default function DashboardPage() {
   const [remixes, setRemixes] = useState<RemixJob[]>([])
   const [remixCount, setRemixCount] = useState(0)
   const [loadingRemixes, setLoadingRemixes] = useState(false)
+  const [detailClip, setDetailClip] = useState<TrendingClip | null>(null)
 
   // Quick Export state
   const [quickExport, setQuickExport] = useState<QuickExportState | null>(null)
@@ -280,9 +282,12 @@ export default function DashboardPage() {
     xhr.send(formData)
   }, [router])
 
-  // Simplified main tabs — radar style: just All / Saved
-  const feedTabs: { key: FeedFilter; label: string; icon: typeof Flame; count?: number }[] = [
-    { key: 'all', label: 'All Clips', icon: Flame },
+  // Feed tabs — 3 primary tabs + "All clips" link + Saved
+  const feedTabs: { key: FeedFilter; label: string; icon: typeof Flame; count?: number; subtle?: boolean }[] = [
+    { key: 'hot_now', label: 'Exploding Now', icon: Flame },
+    { key: 'proven', label: 'Proven Winners', icon: Trophy },
+    { key: 'recent', label: 'Fresh Drops', icon: Clock },
+    { key: 'all', label: 'All Clips', icon: Compass, subtle: true },
     { key: 'saved', label: 'Saved', icon: Bookmark, count: savedClipIds.size || undefined },
   ]
 
@@ -297,7 +302,7 @@ export default function DashboardPage() {
       <PageHeader
         icon={Compass}
         title="Browse Clips"
-        subtitle="Discover what's blowing up — pick your next viral hit."
+        subtitle="Pick a trending clip. We'll make it TikTok-ready."
         accent="cyan"
         rightSlot={
           <>
@@ -377,7 +382,7 @@ export default function DashboardPage() {
       <div className="space-y-2">
         {/* Feed tabs — segmented control style, compact */}
         <div className="inline-flex items-center gap-0.5 p-0.5 rounded-lg border border-border bg-card/50 w-fit">
-          {feedTabs.map(({ key, label, icon: Icon, count }) => {
+          {feedTabs.map(({ key, label, icon: Icon, count, subtle }) => {
             const active = filters.feed === key
             return (
               <button
@@ -388,7 +393,9 @@ export default function DashboardPage() {
                   'inline-flex items-center gap-1.5 h-7 px-3 rounded-md text-xs font-medium transition-all',
                   active
                     ? 'bg-primary text-primary-foreground shadow-sm'
-                    : 'text-muted-foreground hover:text-foreground hover:bg-muted/40'
+                    : subtle
+                      ? 'text-muted-foreground/50 hover:text-muted-foreground hover:bg-muted/20'
+                      : 'text-muted-foreground hover:text-foreground hover:bg-muted/40'
                 )}
               >
                 <Icon className="h-3 w-3" />
@@ -526,6 +533,7 @@ export default function DashboardPage() {
                   clip={clip}
                   onRemix={handleEnhance}
                   onQuickExport={handleQuickExport}
+                  onShowDetail={setDetailClip}
                   quickExportState={quickExport}
                   remixing={false}
                   isSaved={savedClipIds.has(clip.id)}
@@ -637,6 +645,15 @@ export default function DashboardPage() {
       )}
 
       <InstallBanner />
+
+      {/* Detail modal — "Why this clip?" */}
+      <TrendingDetailModal
+        clip={detailClip}
+        open={detailClip !== null}
+        onClose={() => setDetailClip(null)}
+        onRemix={handleEnhance}
+        remixing={false}
+      />
     </div>
   )
 }

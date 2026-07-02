@@ -1,7 +1,7 @@
-# SYSTEM REFERENCE — Browse / Trending Page (v1)
+# SYSTEM REFERENCE — Browse / Trending Page (v2)
 
 > Ce fichier est la source de verite pour la page Browse (Dashboard principal).
-> Derniere mise a jour : 2026-04-29.
+> Derniere mise a jour : 2026-07-02.
 
 ---
 
@@ -38,14 +38,14 @@
 ## Layout (top to bottom)
 
 ```
-1. WelcomeModal (onboarding, premiere visite)
+1. FirstClipOverlay (onboarding, premiere visite)
 2. ReferralBonusBanner (si referral actif)
 3. Header — "Browse Clips" + Sparkles icon + description
 4. Action buttons — Upload clip (dashed outline) + Refresh
 5. ExportTicker — social proof live "A creator just exported..." (Realtime)
 6. Upload error card (si erreur upload)
 7. Twitch refresh toast (si message apres import)
-8. Feed tabs — All Clips, My Remixes (avec count)
+8. Feed tabs — Exploding Now (default), Proven Winners, Fresh Drops, All Clips (subtle), Saved
 9. TrendingFilters — search + sort + platform/duration/niche pills
 10. Error card (si erreur fetch)
 11. Content area:
@@ -267,19 +267,20 @@ type FeedFilter = 'all' | 'hot_now' | 'early_gem' | 'proven' | 'recent' | 'saved
 
 ## Feed Category Tabs (Current State)
 
-Les feed tabs sont ACTIFS dans l'UI. 7 onglets :
+3 tabs primaires + 2 secondaires. Default au premier chargement: `hot_now`.
 
-| Tab | Label UI | Icon | Filtre |
-|---|---|---|---|
-| `all` | All Clips | Flame | Pas de filtre feed_category |
-| `hot_now` | Exploding Now | Zap | `feed_category === 'hot_now'` |
-| `early_gem` | Undervalued Gems | Diamond | `feed_category === 'early_gem'` |
-| `proven` | Proven Winners | Trophy | `feed_category === 'proven'` |
-| `recent` | Fresh Drops | Clock | Clips < 6h d'age |
-| `saved` | Saved | Bookmark | Clips dans saved_clips du user |
-| `remixes` | My Remixes | Scissors | Clips remix du user |
+| Tab | Label UI | Icon | Style | Filtre |
+|---|---|---|---|---|
+| `hot_now` | Exploding Now | Flame | Primary (DEFAULT) | `feed_category === 'hot_now'` |
+| `proven` | Proven Winners | Trophy | Primary | `feed_category === 'proven'` |
+| `recent` | Fresh Drops | Clock | Primary | Clips < 6h d'age |
+| `all` | All Clips | Compass | Subtle (dimmed) | Pas de filtre |
+| `saved` | Saved | Bookmark | Normal (count badge) | Clips dans saved_clips du user |
 
-Les tabs sont rendus en horizontal scrollable (`overflow-x-auto`). Chaque tab affiche un compteur `(N)` si le count > 0.
+Notes:
+- `early_gem` existe dans le store mais n'est PAS affiche (concept avance, post-launch)
+- `remixes` tab reste accessible via setFeed mais pas rendu dans les tabs
+- Saved tab accessible mais stylise comme les primaires
 
 ### Remixes tab flow
 
@@ -353,6 +354,7 @@ interface TrendingCardProps {
   clip: TrendingClip
   onRemix?: (clip: TrendingClip) => void
   onQuickExport?: (clip: TrendingClip) => void
+  onShowDetail?: (clip: TrendingClip) => void  // Opens TrendingDetailModal
   quickExportState?: QuickExportState | null
   remixing?: boolean
   isSaved?: boolean
@@ -361,6 +363,13 @@ interface TrendingCardProps {
   isGroupExpanded?: boolean
 }
 ```
+
+### Card Features (v2)
+
+- **Export count badge**: Shown on Epic+ cards (score >= 65) when export_count > 2: "🔥 exported 23x" near verdict
+- **Quick Export CTA**: Zap icon button next to primary CTA, calls onQuickExport (API /api/render/quick)
+- **"Why this clip?" link**: Opens TrendingDetailModal with score breakdown, stats, sparkline
+- **Animations hover-only**: Master/Legendary continuous animations (masterRotate, masterPulse, haloBreathe, legGlowBreathe, legGodray, legFloatParticle, spark) only run on :hover. Static frames/ornaments remain visible.
 
 ### Valeurs derivees dans la carte
 
@@ -1009,7 +1018,7 @@ Plus: platform breakdown bar (Twitch purple / Kick green / YouTube red).
 |---|---|
 | Clip feed (Supabase, cursor pagination) | WIRED_REAL |
 | Scoring V2 (7 facteurs, tiers, feed categories) | WIRED_REAL |
-| Feed tabs (all / remixes) | WIRED_REAL |
+| Feed tabs (hot_now default / proven / recent / all / saved) | WIRED_REAL |
 | Feed categories client-side filtering | WIRED_REAL |
 | Server-side filtering (search, niche, platform, duration, feed) | WIRED_REAL |
 | Search debounce (300ms) | WIRED_REAL |
@@ -1019,7 +1028,7 @@ Plus: platform breakdown bar (Twitch purple / Kick green / YouTube red).
 | Hover video preview (Twitch GQL -> CloudFront MP4) | WIRED_REAL |
 | Bookmark save/unsave (optimistic + rollback) | WIRED_REAL |
 | Bootstrap fetch (saved + profile + remixes) | WIRED_REAL |
-| Quick Export (mood detection + render pipeline) | WIRED_REAL (API fonctionne mais CTA pas expose dans UI Browse) |
+| Quick Export (mood detection + render pipeline) | WIRED_REAL — CTA expose sur les cartes (Zap icon) |
 | Render subscription (Realtime + polling fallback) | WIRED_REAL |
 | Upload clip (XHR progress, redirect to enhance) | WIRED_REAL |
 | Rank card CSS (4 tiers visuels) | WIRED_REAL |
@@ -1029,12 +1038,12 @@ Plus: platform breakdown bar (Twitch purple / Kick green / YouTube red).
 | Sparkline (detail modal, batch snapshots) | WIRED_REAL |
 | Score breakdown (top 3 factors + saturation) | WIRED_REAL (donnees du clip, pas d'appel extra) |
 | Clip verdict system (contextual verdicts + dynamic CTA) | WIRED_REAL (sub-scores reels depuis clip-scorer.ts) |
-| Detail modal | WIRED_REAL (mais pas appele depuis la page — pas de clic pour ouvrir) |
+| Detail modal | WIRED_REAL — ouvert via "Why this clip?" sur les cartes |
 | Twitch refresh (POST /api/streams/refresh) | WIRED_REAL |
 | RemixProgress overlay | SIMULATED (steps avec timers fixes, pas de poll reel) |
-| VelocityBadge component | DEAD_CODE (dans la page actuelle) |
-| TrendingStatsPanel component | DEAD_CODE (dans la page actuelle) |
-| Feed tabs hot_now/early_gem/proven/recent/saved | WIRED_UI_ONLY — 7 tabs horizontaux avec counts |
+| VelocityBadge component | DEAD_CODE volontaire (redondant avec verdict system) |
+| TrendingStatsPanel component | DEAD_CODE volontaire (redondant avec feed tabs + in-card signals) |
+| Export count badge on Epic+ cards | WIRED_REAL — shows "exported Nx" when export_count > 2 |
 | Kick video preview (HLS proxy) | WIRED_REAL (via kick-proxy route) |
 
 ---
@@ -1144,15 +1153,33 @@ Tous les scores sont calcules par `lib/scoring/clip-scorer.ts` et mis a jour par
 
 ---
 
-## Axes d'amelioration
+## Systemes Connexes
 
-1. **Reactiver les feed tabs** — hot_now, early_gem, proven, recent, saved etaient fonctionnels mais retires de l'UI; les re-afficher permettrait un browsing plus cible
-2. **Wirer le detail modal** — `TrendingDetailModal` existe et est complet mais n'est pas appele depuis la page (pas de clic pour ouvrir)
-3. **Utiliser VelocityBadge** — Le composant existe mais n'est pas affiche sur les cartes
-4. **Utiliser TrendingStatsPanel** — Le composant existe mais n'est pas monte dans la page
-5. **Wirer RemixProgress** — Actuellement simule avec des timers fixes, devrait poller le status reel du render job
-6. **Kick video preview** — Utilise le HLS proxy mais l'experience est moins fluide que Twitch (pas de MP4 direct)
-7. **Quick Export CTA separation** — Le CTA "Make It Viral" navigue vers enhance page; le quick export n'est pas accessible directement depuis la carte
-8. **Infinite scroll** — Actuellement "Load more" bouton, pourrait etre remplace par IntersectionObserver
-9. **Auto-refresh** — `autoRefreshEnabled` et `autoRefreshInterval` existent dans le store mais ne sont pas utilises
-10. **Export count social proof** — `export_count` existe dans le type mais n'est pas affiche sur les cartes (seulement dans le detail modal)
+### Scores ← Scoring Engine
+- `lib/scoring/clip-scorer.ts` calcule les 7 sub-scores + velocity_score pour chaque clip
+- `app/api/cron/rescore-clips/route.ts` re-score selon un cron stratifie (<6h: 15min, 6-24h: 1h, >24h: 1j)
+- Le Browse consomme velocity_score, feed_category, et les sub-scores pour le verdict system et les feed tabs
+
+### Quick Export → Render Pipeline (ENHANCE)
+- `POST /api/render/quick` declenche mood detection (Claude Haiku) + enqueue render sur Railway VPS
+- Resultat visible dans le toast notification (fixed bottom-right) sans quitter le Browse
+- Full enhance flow: clic sur la carte navigue vers `/dashboard/enhance/[clipId]`
+
+### Notifications In-App
+- Clips avec velocity_score >= 80 apparaissant dans un fetch generent des `ViralNotification`
+- Affichees dans le NotificationBell (layout header, pas dans la page Browse)
+
+### Vision Etage 3 — Live Moment Detection (voir CLAUDE.md)
+- Poll agressif des clips Twitch des streamers suivis
+- Spike de velocity dans les premieres minutes = gros moment
+- Notification ou auto-enhance + auto-post AVANT tout le monde
+- S'appuie sur la spike detection existante (clip-scorer + cron rescore-clips)
+
+---
+
+## Axes d'amelioration restants
+
+1. **Wirer RemixProgress** — Actuellement simule avec des timers fixes, devrait poller le status reel du render job
+2. **Kick video preview** — HLS proxy fonctionnel mais moins fluide que Twitch (pas de MP4 direct)
+3. **Infinite scroll** — Actuellement "Load more" bouton, pourrait etre remplace par IntersectionObserver
+4. **Auto-refresh** — `autoRefreshEnabled` et `autoRefreshInterval` existent dans le store mais ne sont pas utilises
