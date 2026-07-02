@@ -1,7 +1,24 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 
 /**
- * Process the 4 critical Instantly webhook events for Week 1.
+ * Statuses that must NEVER be overwritten by automated webhook events.
+ * Once an influencer reaches these stages, only manual admin action can change status.
+ */
+const PROTECTED_STATUSES = new Set([
+  'interested', 'demo_sent', 'evaluating', 'onboarded', 'active', 'paying', 'declined', 'blocked',
+])
+
+/** Statuses that are safe to auto-advance to 'replied' */
+const REPLY_SAFE_STATUSES = new Set(['unqualified', 'cold', 'queued', 'contacted', 'opened'])
+
+/** Statuses that are safe to auto-advance to 'contacted' */
+const SENT_SAFE_STATUSES = new Set(['cold', 'queued'])
+
+/** Statuses that are safe to auto-set on bounce/unsub (early pipeline statuses) */
+const EARLY_STATUSES = new Set(['unqualified', 'cold', 'queued', 'contacted', 'opened', 'replied'])
+
+/**
+ * Process the 4 critical Instantly webhook events.
  * Other event types are stored in webhook_events but not processed yet.
  */
 export async function processInstantlyEvent(
@@ -12,7 +29,6 @@ export async function processInstantlyEvent(
 ) {
   const email = extractEmail(payload)
 
-  // Find influencer by email (may not exist if lead was added outside our system)
   const influencer = email
     ? await findInfluencer(admin, email)
     : null
@@ -31,7 +47,6 @@ export async function processInstantlyEvent(
       await handleEmailUnsubscribed(admin, webhookEventId, payload, email, influencer)
       break
     default:
-      // Stored in webhook_events but not processed — TODO Week 2+
       break
   }
 }
@@ -103,8 +118,8 @@ async function handleEmailSent(
       total_emails_sent: (influencer.total_emails_sent || 0) + 1,
       updated_at: new Date().toISOString(),
     }
-    // Auto-advance cold → contacted
-    if (influencer.status === 'cold' || influencer.status === 'queued') {
+    // Auto-advance cold/queued → contacted (only from safe statuses)
+    if (SENT_SAFE_STATUSES.has(influencer.status)) {
       updates.status = 'contacted'
       updates.status_changed_at = new Date().toISOString()
     }
@@ -119,7 +134,7 @@ async function handleEmailReplied(
   email: string,
   influencer: Influencer | null
 ) {
-  // 1. INSERT email_messages (the reply)
+  // 1. Always INSERT email_messages (timeline must keep everything)
   const { data: message } = await admin
     .from('email_messages')
     .insert({
@@ -138,7 +153,7 @@ async function handleEmailReplied(
     .select('id')
     .single()
 
-  // 2. INSERT email_events
+  // 2. Always INSERT email_events
   await admin.from('email_events').insert({
     message_id: message?.id ?? null,
     influencer_id: influencer?.id ?? null,
@@ -152,18 +167,21 @@ async function handleEmailReplied(
     webhook_event_id: webhookEventId,
   })
 
-  // 3. Update influencer status → replied
+  // 3. Update influencer — always increment counters, but only change status from safe statuses
   if (influencer) {
-    await admin
-      .from('influencers')
-      .update({
-        status: 'replied',
-        status_changed_at: new Date().toISOString(),
-        total_emails_replied: (influencer.total_emails_replied || 0) + 1,
-        last_active_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', influencer.id)
+    const updates: Record<string, unknown> = {
+      total_emails_replied: (influencer.total_emails_replied || 0) + 1,
+      last_active_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    }
+
+    if (REPLY_SAFE_STATUSES.has(influencer.status)) {
+      updates.status = 'replied'
+      updates.status_changed_at = new Date().toISOString()
+    }
+    // If status is protected, counters still update but status stays untouched
+
+    await admin.from('influencers').update(updates).eq('id', influencer.id)
   }
 }
 
@@ -174,7 +192,7 @@ async function handleEmailBounced(
   email: string,
   influencer: Influencer | null
 ) {
-  // 1. INSERT email_events
+  // 1. Always INSERT email_events
   await admin.from('email_events').insert({
     influencer_id: influencer?.id ?? null,
     event_type: 'bounced_hard',
@@ -187,7 +205,7 @@ async function handleEmailBounced(
     webhook_event_id: webhookEventId,
   })
 
-  // 2. Auto-add to suppression_list (4-way: email + domain + handle + profile)
+  // 2. Suppression is UNCONDITIONAL (compliance — always block the email)
   if (email) {
     const domain = email.split('@')[1] || null
     await admin
@@ -206,8 +224,8 @@ async function handleEmailBounced(
       )
   }
 
-  // 3. Mark influencer if exists
-  if (influencer) {
+  // 3. Status → blocked only from early statuses (active partner with bounced email stays active)
+  if (influencer && EARLY_STATUSES.has(influencer.status)) {
     await admin
       .from('influencers')
       .update({
@@ -226,7 +244,7 @@ async function handleEmailUnsubscribed(
   email: string,
   influencer: Influencer | null
 ) {
-  // 1. INSERT email_events
+  // 1. Always INSERT email_events
   await admin.from('email_events').insert({
     influencer_id: influencer?.id ?? null,
     event_type: 'unsubscribed',
@@ -235,7 +253,7 @@ async function handleEmailUnsubscribed(
     webhook_event_id: webhookEventId,
   })
 
-  // 2. Auto-add to suppression_list (4-way: email + domain + handle + profile)
+  // 2. Suppression is UNCONDITIONAL (compliance)
   if (email) {
     const domain = email.split('@')[1] || null
     await admin
@@ -254,17 +272,19 @@ async function handleEmailUnsubscribed(
       )
   }
 
-  // 3. Mark influencer
+  // 3. Always mark unsubscribed flag, but status → declined only from early statuses
   if (influencer) {
-    await admin
-      .from('influencers')
-      .update({
-        unsubscribed: true,
-        unsubscribed_at: new Date().toISOString(),
-        status: 'declined',
-        status_changed_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', influencer.id)
+    const updates: Record<string, unknown> = {
+      unsubscribed: true,
+      unsubscribed_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    }
+
+    if (EARLY_STATUSES.has(influencer.status)) {
+      updates.status = 'declined'
+      updates.status_changed_at = new Date().toISOString()
+    }
+
+    await admin.from('influencers').update(updates).eq('id', influencer.id)
   }
 }
