@@ -1,6 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { createAdminClient } from '../supabase/admin'
 import { safeParseClaudeJson, extractClaudeText } from './safe-json'
+import { logAiCall } from '../ai/call-logger'
 
 const claude = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
@@ -57,6 +58,7 @@ ${(pastOutcomes ?? [])
 Use this to calibrate. If past HIGH predictions only yielded 1% lift, be more conservative.`
         : 'No past outcomes yet. Be conservative.'
 
+    const roiStartMs = Date.now()
     const response = await claude.messages.create({
       model: 'claude-haiku-4-5-20251001',
       max_tokens: 512,
@@ -99,6 +101,16 @@ Suggested fix: ${finding.suggested_fix ?? 'N/A'}
 
 ${calibrationNote}`,
       }],
+    })
+
+    logAiCall({
+      model: 'claude-haiku-4-5-20251001',
+      feature: 'audit_agent',
+      tokensInput: response.usage?.input_tokens,
+      tokensOutput: response.usage?.output_tokens,
+      latencyMs: Date.now() - roiStartMs,
+      success: true,
+      metadata: { agent_name: 'roi_predictor' },
     })
 
     const text = extractClaudeText(response)

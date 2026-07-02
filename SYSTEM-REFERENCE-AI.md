@@ -1,6 +1,7 @@
-# SYSTEM REFERENCE — AI Infrastructure
+# SYSTEM REFERENCE — AI Infrastructure (v2)
 
 > Source of truth for all AI API calls, cost tracking, and model usage.
+> Derniere mise a jour : 2026-07-02.
 
 ---
 
@@ -9,9 +10,15 @@
 | File | Role |
 |---|---|
 | `lib/ai/call-logger.ts` | Fire-and-forget logger — computes cost, inserts into `ai_calls` |
-| `lib/ai/mood-detector.ts` | Claude Haiku mood detection — WRAPPED with call-logger |
+| `lib/ai/mood-detector.ts` | Claude Haiku mood detection — wrapped with call-logger |
 | `lib/ai/mood-presets.ts` | Mood preset configurations |
-| `vps/lib/hook-generator.js` | Claude Haiku hook text generation — runs on Railway VPS, NOT wrapped (separate deployment) |
+| `lib/admin/ai/log-call.ts` | Admin AI logger variant (adds context_id/context_type) |
+| `lib/audit/agent-runner.ts` | Audit agent framework — wrapped with logAiCall |
+| `lib/audit/persona-runner.ts` | Persona test runner — wrapped with logAiCall |
+| `lib/audit/roi-predictor.ts` | ROI prediction — wrapped with logAiCall |
+| `lib/audit/strategic-runner.ts` | Strategic agent — wrapped with logAiCall |
+| `vps/lib/hook-generator.js` | Claude Haiku hook text generation — logs directly via supabase-client |
+| `vps/lib/whisper-client.js` | OpenAI Whisper transcription — logs directly via supabase-client |
 | `supabase/migrations/20260503_ai_calls.sql` | Table definition + RLS + indexes |
 
 ---
@@ -44,6 +51,9 @@ logAiCall({
 - **Cost computation**: Automatically calculated from the model's pricing table.
 - **Insert via service_role**: Uses `createAdminClient()` to bypass RLS.
 
+### VPS logging
+The VPS (Railway) cannot import from the Next.js app. Instead, `hook-generator.js` and `whisper-client.js` insert directly into `ai_calls` via `supabase-client.js` (service role). Same fire-and-forget pattern — errors are caught silently.
+
 ### How to wrap a new AI call
 1. Record `Date.now()` before the API call
 2. After the call, compute `latencyMs = Date.now() - start`
@@ -59,15 +69,15 @@ logAiCall({
 
 | Model ID | Input ($/1M tokens) | Output ($/1M tokens) | Used for |
 |---|---|---|---|
-| `claude-haiku-4-5-20251001` | $1.00 | $5.00 | Mood detection |
-| `claude-sonnet-4-5` | $3.00 | $15.00 | Reserved (complex analysis) |
+| `claude-haiku-4-5-20251001` | $1.00 | $5.00 | Mood detection, hook generation, ROI prediction, lead scoring, reply classification, anomaly detection |
+| `claude-sonnet-4-6` | $3.00 | $15.00 | Audit agents (21 nightly), persona tests, strategic agents |
 | `gemini-flash-1.5` | $0.075 | $0.30 | Reserved (vision tasks) |
 
 ### Audio-based models
 
-| Model ID | Cost ($/second) | Used for |
+| Model ID | Cost | Used for |
 |---|---|---|
-| `assemblyai-best` | $0.000103 | Transcription (VPS-side, not logged yet) |
+| `whisper-1` | $0.006/minute ($0.0001/second) | Transcription (VPS-side) |
 
 ### Cost formula
 - Token models: `(tokensInput / 1M) * inputPer1M + (tokensOutput / 1M) * outputPer1M`
@@ -77,12 +87,18 @@ logAiCall({
 
 ## Feature Names (canonical)
 
-| Feature | Model | Where called | Wrapped? |
+| Feature | Model | Where called | Tracked? |
 |---|---|---|---|
-| `mood_detection` | claude-haiku-4-5-20251001 | `lib/ai/mood-detector.ts` | Yes |
-| `hook_generation` | claude-haiku-4-5-20251001 | `vps/lib/hook-generator.js` | No (VPS) |
-| `caption_engine` | — | `lib/distribution/caption-engine.ts` | N/A (no AI call, template-based) |
-| `vision` | — | Reserved for future use | — |
+| `mood_detection` | claude-haiku-4-5-20251001 | `lib/ai/mood-detector.ts` | Yes (logAiCall) |
+| `hook_generation` | claude-haiku-4-5-20251001 | `vps/lib/hook-generator.js` | Yes (direct Supabase insert) |
+| `transcription_whisper` | whisper-1 | `vps/lib/whisper-client.js` | Yes (direct Supabase insert) |
+| `audit_agent` | claude-sonnet-4-6 | `lib/audit/agent-runner.ts`, `persona-runner.ts`, `roi-predictor.ts`, `strategic-runner.ts` | Yes (logAiCall) |
+| `lead_scoring` | claude-haiku-4-5-20251001 | `lib/admin/ai/lead-scorer.ts` | Yes (logAdminAiCall) |
+| `lead_scoring_batch` | claude-haiku-4-5-20251001 | `lib/admin/ai-scoring/claude-scorer.ts` | Yes (cost-tracker.ts) |
+| `reply_classification` | claude-haiku-4-5-20251001 | `lib/admin/ai/reply-classifier.ts` | Yes (logAdminAiCall) |
+| `reply_drafts` | claude-haiku-4-5-20251001 | `lib/admin/ai/reply-drafter.ts` | Yes (logAdminAiCall) |
+| `thread_summary` | claude-haiku-4-5-20251001 | `lib/admin/ai/thread-summarizer.ts` | Yes (logAdminAiCall) |
+| `watchdog_anomaly_detection` | claude-haiku-4-5-20251001 | `lib/admin/watchdog/anomaly-detector.ts` | Yes (logAiCall) |
 
 ---
 
@@ -137,20 +153,25 @@ GROUP BY user_id ORDER BY 2 DESC;
 
 ---
 
-## VPS Hook Generator (NOT wrapped)
+## Systemes connexes
 
-`vps/lib/hook-generator.js` makes Claude Haiku calls for hook text generation. It runs on Railway VPS as a separate Node.js process. To track its costs:
-- Option A: Add logging inside the VPS code (requires Railway deployment)
-- Option B: Log from the Next.js proxy (`app/api/render/hook/route.ts`) after receiving the VPS response — but this only captures requests that go through the proxy, not direct VPS calls.
-
-Currently **not tracked**. Flagged for future work.
+| Systeme | Relation |
+|---|---|
+| **ENHANCE** | Consomme mood_detection (mood-detector.ts) et hook_generation (VPS) |
+| **AI-SCORING** | Batch scoring de leads via claude-scorer.ts (son propre cost-tracker) |
+| **AUDITS** | 21 agents nightly + persona tests + ROI predictor + strategic agents |
+| **Admin Costs** | Dashboard `/admin/costs` agrege les donnees de `ai_calls` pour le suivi budgetaire |
+| **CRM (Inbox)** | reply_classification, reply_drafts, thread_summary pour le triage des reponses |
+| **WATCHDOG** | anomaly_detection integree dans runAllChecks() |
 
 ---
 
 ## Axes d'amelioration
 
-1. **Wrap VPS hook generation** — Either add call-logger to VPS or proxy through Next.js
-2. **Admin dashboard** — Create `/admin/ai-costs` page showing cost trends, top users, feature breakdown
-3. **Budget alerts** — Warn when monthly AI spend exceeds threshold
-4. **AssemblyAI tracking** — VPS transcription calls not yet logged
-5. **Rate limiting per user** — Use ai_calls data to enforce per-user AI call limits
+1. **Admin dashboard** — Create `/admin/ai-costs` page showing cost trends, top users, feature breakdown
+2. **Budget alerts** — Warn when monthly AI spend exceeds threshold
+3. **Rate limiting per user** — Use ai_calls data to enforce per-user AI call limits
+
+---
+
+*Version 2.0 — Juillet 2026*

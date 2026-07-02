@@ -2,6 +2,7 @@ import { promises as fs } from 'fs';
 import { execFile } from 'child_process';
 import { promisify } from 'util';
 import path from 'path';
+import { supabase } from './supabase-client.js';
 
 const execFileAsync = promisify(execFile);
 
@@ -71,6 +72,7 @@ export async function transcribeWithWhisper(videoPath, options = {}) {
     }
 
     console.log('[Whisper] Sending to OpenAI API...');
+    const whisperStartMs = Date.now();
     const response = await fetch('https://api.openai.com/v1/audio/transcriptions', {
       method: 'POST',
       headers: {
@@ -84,10 +86,24 @@ export async function transcribeWithWhisper(videoPath, options = {}) {
       throw new Error(`Whisper API error ${response.status}: ${errText}`);
     }
 
+    const whisperLatencyMs = Date.now() - whisperStartMs;
     const result = await response.json();
     const transcribedText = result.text || '';
     const detectedLanguage = result.language || language || 'en';
     console.log(`[Whisper] Transcription (lang=${detectedLanguage}): "${transcribedText.substring(0, 100)}"`);
+
+    // Fire-and-forget cost tracking (Whisper: $0.006/minute = $0.0001/second)
+    try {
+      const durationForCost = audioDuration || clipDuration || 30;
+      await supabase.from('ai_calls').insert({
+        model: 'whisper-1',
+        feature: 'transcription_whisper',
+        cost_usd: durationForCost * 0.0001,
+        latency_ms: whisperLatencyMs,
+        success: true,
+        metadata: { audio_duration_seconds: durationForCost, language: detectedLanguage },
+      });
+    } catch { /* never block render */ }
 
     // Step 3: Extract word-level timestamps
     const words = result.words || [];

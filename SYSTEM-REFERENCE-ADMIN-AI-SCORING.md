@@ -126,9 +126,9 @@ Both modes keep: $1/day cost cap, 7-day cache, batch 10.
 
 ## Cost Optimization
 
-- Haiku: $0.25/1M input, $1.25/1M output
+- Haiku 4.5: $1.00/1M input, $5.00/1M output
 - Batch 10 leads per call (reduce overhead)
-- ~$0.003 per lead → $30/month for 10k leads
+- ~$0.012 per lead → $120/month for 10k leads
 - Daily cap: $1.00 (auto-stop)
 - 7-day cache: skip recently scored leads
 - Max tokens increased to 3000 (V2 response is larger)

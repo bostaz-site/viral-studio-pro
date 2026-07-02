@@ -24,7 +24,7 @@ const TOKEN_PRICING: Record<string, TokenPricing> = {
 }
 
 const AUDIO_PRICING: Record<string, AudioPricing> = {
-  'assemblyai-best': { perSecondAudio: 0.000103 },
+  'whisper-1': { perSecondAudio: 0.0001 }, // $0.006/minute
 }
 
 function computeCost(params: {

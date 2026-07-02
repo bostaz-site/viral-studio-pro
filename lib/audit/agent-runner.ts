@@ -2,6 +2,7 @@ import Anthropic from '@anthropic-ai/sdk'
 import { insertFinding, type NewFinding } from './insert-finding'
 import { insertMetricSnapshot } from './insert-metric'
 import { safeParseClaudeJson, extractClaudeText } from './safe-json'
+import { logAiCall } from '../ai/call-logger'
 
 const claude = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
@@ -55,11 +56,23 @@ Rules:
 
   const userPrompt = `Inputs:\n${JSON.stringify(ctx.inputs, null, 2)}`
 
+  const startMs = Date.now()
   const response = await claude.messages.create({
     model: 'claude-sonnet-4-6',
     max_tokens: 4096,
     system: systemPrompt,
     messages: [{ role: 'user', content: userPrompt }],
+  })
+  const latencyMs = Date.now() - startMs
+
+  logAiCall({
+    model: 'claude-sonnet-4-6',
+    feature: 'audit_agent',
+    tokensInput: response.usage?.input_tokens,
+    tokensOutput: response.usage?.output_tokens,
+    latencyMs,
+    success: true,
+    metadata: { agent_name: ctx.agent_type },
   })
 
   const text = extractClaudeText(response)

@@ -9,6 +9,8 @@
  *   4. Output reorder timestamps for FFmpeg concat
  */
 
+import { supabase } from './supabase-client.js';
+
 // ─── Viral Keywords (weighted) ──────────────────────────────────────────────
 const VIRAL_KEYWORDS = {
   // High-impact reactions (weight 3)
@@ -197,6 +199,7 @@ export async function generateHookTexts(opts = {}) {
 
   try {
     console.log(`[Hook] Calling Claude API for contextual hooks (transcript: ${transcript.length} chars, title: "${title}")`);
+    const hookStartMs = Date.now();
 
     const contentParts = [
       title ? `TITRE DU CLIP: "${title}"` : '',
@@ -253,8 +256,26 @@ JSON only, no text around it:
       return generateFallbackHooks(streamerName);
     }
 
+    const hookLatencyMs = Date.now() - hookStartMs;
     const data = await response.json();
     const text = data.content?.[0]?.text || '';
+
+    // Fire-and-forget cost tracking
+    try {
+      const inputTokens = data.usage?.input_tokens ?? 0;
+      const outputTokens = data.usage?.output_tokens ?? 0;
+      const costUsd = (inputTokens / 1_000_000) * 1.00 + (outputTokens / 1_000_000) * 5.00;
+      await supabase.from('ai_calls').insert({
+        model: 'claude-haiku-4-5-20251001',
+        feature: 'hook_generation',
+        tokens_input: inputTokens,
+        tokens_output: outputTokens,
+        cost_usd: costUsd,
+        latency_ms: hookLatencyMs,
+        success: true,
+        metadata: { streamer: streamerName || null, niche: niche || null },
+      });
+    } catch { /* never block render */ }
 
     // Parse JSON from response — handle potential markdown wrapping
     const jsonMatch = text.match(/\[[\s\S]*\]/);
