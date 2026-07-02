@@ -1,5 +1,7 @@
 # Acquisition — Lead Scraper + AI Scoring + CRM Import
 
+Version: 1.1 — 2026-07-02
+
 ## What It Does
 
 YouTube Data API scraper that discovers influencer leads, scores them with Claude Haiku, and imports them into the CRM (`influencers` table).
@@ -65,3 +67,9 @@ Cron route exists, batch processor is ready, cost cap ($1/day) is in place — b
 - **YouTube Data API** — YOUTUBE_API_KEY in .env (free tier, 10k units/day)
 - **Claude Haiku** — ANTHROPIC_API_KEY, ~$0.003/lead, $1/day cap
 - **Supabase** — 10 tables, service role for admin operations
+
+## Systemes connexes
+
+- **CRM** (`docs/admin-crm.md`) — Scraper imports into the `influencers` table via `POST /api/admin/scraper/import`. Leads without a public email go to `high_intent_no_email` instead (visible in CRM's "High intent sans email" predefined view).
+- **AI Scoring** (`docs/admin-ai-scoring.md`) — Consumes `keyword_score` from `lead_discovery_results`. Only leads in the top 3% of keyword scores (dynamic threshold, min 40) are sent to Claude Haiku for scoring. Writes `ai_affiliate_score` + `ai_recommendation` back to `influencers`.
+- **Compliance** — 4-way suppression check (`email`, `email_domain`, `platform_handle`, `profile_url`) runs against `suppression_list` at import time via `lib/admin/compliance/suppression-check.ts`. Suppressed leads are rejected before reaching the CRM.

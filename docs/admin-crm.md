@@ -1,6 +1,6 @@
 # Admin CRM — Influencer Lead Management
 
-Version: 1.0 — 2026-07-02
+Version: 1.1 — 2026-07-02
 
 ## What It Does
 
@@ -121,3 +121,13 @@ interested → demo_sent → evaluating → onboarded → active → paying
 ## Important: Manual Changes Only
 
 This page does MANUAL status/tag/notes changes only. It does NOT auto-update influencer statuses from email events — that logic belongs to the Instantly webhook sync pipeline (see `docs/acquisition-outreach.md`).
+
+## Systemes connexes
+
+- **Inbox** (`/admin/inbox`) — Reply threads from influencers are managed in the Gmail-like inbox UI. The CRM detail drawer shows email events, but composing replies happens in the Inbox (see `docs/acquisition-outreach.md`).
+- **Campaigns** (`/admin/campaigns`) — Email campaigns target influencers from the CRM. Granular delivery/open/click/reply/bounce events are stored in `email_events` (linked by `influencer_id`). Campaign status is tracked per-recipient in `campaign_recipients`.
+- **Instantly.ai** — External email sending/warmup service. Synced via `POST /api/cron/sync-instantly` (cron) and `lib/integrations/instantly/`. Webhook events from Instantly update `email_messages` which trigger `email_events` inserts.
+- **AI Scoring** (`docs/admin-ai-scoring.md`) — Writes `ai_affiliate_score` (0-100) and `ai_recommendation` (high/medium/low_priority/skip) to the `influencers` table. Displayed in the CRM detail drawer under "AI Score".
+- **Scraper** (`docs/acquisition-scraper.md`) — Sources new leads into the `influencers` table via YouTube channel discovery. CSV import (`/admin/influencers/import`) is an alternative source. Both paths check suppression before insert.
+- **Match Engine** (`/admin/match-engine`) — Matches influencers to promo videos using `lead_score` (rule-based, not AI score) + niche/audience/language/hook fit. Operates downstream from the CRM.
+- **Offer Generator** (`/admin/offer-generator`) — Generates personalized outreach emails for influencers using template variables. Pushes drafts to Instantly for sending.
