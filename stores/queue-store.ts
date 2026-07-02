@@ -84,6 +84,10 @@ export interface QueueState {
   confirmOverrideLearning: () => void
   dismissOverrideToast: () => void
 
+  // Adjustments
+  applyAdjustment: (description: string) => void
+  isAdjustmentApplied: (description: string) => boolean
+
   // Helpers
   getPostByIndex: (index: number) => ScheduledPost | null
   getDoNothingPreview: () => { postCount: number; estReach: string; confidence: number } | null
@@ -161,6 +165,19 @@ export const useQueueStore = create<QueueState>((set, get) => ({
 
   dismissOverrideToast: () => {
     set({ showOverrideToast: false, overrideClipId: null })
+  },
+
+  applyAdjustment: (description) => {
+    const { settings } = get()
+    if (settings.appliedAdjustments.includes(description)) return
+    const next = { ...settings, appliedAdjustments: [...settings.appliedAdjustments, description] }
+    set({ settings: next })
+    saveSettings(next)
+    get().regenerateQueue()
+  },
+
+  isAdjustmentApplied: (description) => {
+    return get().settings.appliedAdjustments.includes(description)
   },
 
   getPostByIndex: (index) => {

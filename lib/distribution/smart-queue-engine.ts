@@ -60,6 +60,7 @@ export interface QueueSettings {
   activePlatforms: string[]     // ['tiktok', 'youtube', 'instagram']
   autoMode: boolean             // true = auto-post, false = manual approve
   timezone: string              // IANA timezone
+  appliedAdjustments: string[]  // adjustment descriptions applied by user from analytics
 }
 
 export interface PostResult {
@@ -98,6 +99,7 @@ const DEFAULT_SETTINGS: QueueSettings = {
   activePlatforms: ['tiktok', 'youtube', 'instagram'],
   autoMode: false,
   timezone: 'America/New_York',
+  appliedAdjustments: [],
 }
 
 /** Default platform optimal hours (UTC). Overridden by learning data. */
@@ -666,6 +668,15 @@ export function generateQueue(
           const { adjustment, reasons } = applyLearnedProfile(c, slot.platform, slot.hour, learnedProfile)
           adjustedPriority = clamp(priority + adjustment)
           learnedReasons = reasons
+        }
+        // Applied adjustments boost: +10 for posts matching user-accepted insights
+        if (config.appliedAdjustments.length > 0) {
+          const lowerAdj = config.appliedAdjustments.map(a => a.toLowerCase())
+          const matchesMood = lowerAdj.some(a => a.includes(c.mood))
+          const matchesPlatform = lowerAdj.some(a => a.includes(slot.platform))
+          if (matchesMood || matchesPlatform) {
+            adjustedPriority = clamp(adjustedPriority + 10)
+          }
         }
         return { clip: c, priority: adjustedPriority, emotionalPenalty, killPenalty, momentumBoost, learnedReasons }
       })

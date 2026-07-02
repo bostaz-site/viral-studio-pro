@@ -14,6 +14,7 @@ import { useAccountStore } from '@/stores/account-store'
 import { CREATOR_RANK_CONFIG, type CreatorRank } from '@/lib/scoring/account-scorer'
 import { loadPersistentStats, type PersistentStats } from '@/lib/distribution/session-persistence'
 import { createClient } from '@/lib/supabase/client'
+import { useQueueStore } from '@/stores/queue-store'
 import { CreatorRankHero } from './creator-rank-hero'
 import { InsightBarChart } from './charts/insight-bar-chart'
 import { PostingHeatmap } from './charts/posting-heatmap'
@@ -137,6 +138,7 @@ export function AnalyticsDashboard() {
   const [profile, setProfile] = useState<LearnedDistributionProfile | null>(null)
   const [profileLoading, setProfileLoading] = useState(true)
   const { score: accountScore, fetchAccountScore, syncAccount, syncing, canSyncToday, lastSyncedAt } = useAccountStore()
+  const { applyAdjustment, isAdjustmentApplied } = useQueueStore()
 
   useEffect(() => { fetchAccountScore() }, [fetchAccountScore])
   useEffect(() => { setStats(loadPersistentStats()) }, [])
@@ -421,12 +423,18 @@ export function AnalyticsDashboard() {
                       {getConfidenceLabel(adj.confidence)}
                     </span>
                   </div>
-                  <button
-                    onClick={() => { /* TODO: persist to queue-store settings */ }}
-                    className="flex-shrink-0 text-[11px] font-semibold px-3 py-1.5 rounded-lg bg-cyan-500/12 border border-cyan-500/25 text-cyan-300 hover:bg-cyan-500/20 hover:border-cyan-500/40 transition-all"
-                  >
-                    Apply
-                  </button>
+                  {isAdjustmentApplied(adj.change) ? (
+                    <span className="flex-shrink-0 text-[11px] font-semibold px-3 py-1.5 rounded-lg bg-emerald-500/12 border border-emerald-500/25 text-emerald-400">
+                      Applied
+                    </span>
+                  ) : (
+                    <button
+                      onClick={() => applyAdjustment(adj.change)}
+                      className="flex-shrink-0 text-[11px] font-semibold px-3 py-1.5 rounded-lg bg-cyan-500/12 border border-cyan-500/25 text-cyan-300 hover:bg-cyan-500/20 hover:border-cyan-500/40 transition-all"
+                    >
+                      Apply
+                    </button>
+                  )}
                 </div>
               </Card>
             ))}

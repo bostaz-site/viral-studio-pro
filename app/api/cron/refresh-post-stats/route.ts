@@ -78,7 +78,7 @@ export async function POST(req: NextRequest) {
       }
 
       // Call the platform tracker
-      let stats: { views: number; likes: number; comments: number; shares: number }
+      let stats: { views: number; likes: number; comments: number; shares: number } | null = null
 
       switch (platform) {
         case 'youtube':
@@ -94,6 +94,8 @@ export async function POST(req: NextRequest) {
           skipped++
           continue
       }
+
+      if (!stats) { skipped++; continue }
 
       // Update the post with fresh metrics
       await (admin as ReturnType<typeof createAdminClient>)
@@ -133,13 +135,14 @@ export async function POST(req: NextRequest) {
         const tokenSet = await getValidToken(post.user_id, platform)
         if (!tokenSet) { skipped++; continue }
 
-        let stats: { views: number; likes: number; comments: number; shares: number }
+        let stats: { views: number; likes: number; comments: number; shares: number } | null = null
         switch (platform) {
           case 'youtube': stats = await fetchYouTubeStats(tokenSet.accessToken, post.platform_post_id!); break
           case 'tiktok': stats = await fetchTikTokStats(tokenSet.accessToken, post.platform_post_id!); break
           case 'instagram': stats = await fetchMetaStats(tokenSet.accessToken, post.platform_post_id!); break
           default: skipped++; continue
         }
+        if (!stats) { skipped++; continue }
 
         await (admin as ReturnType<typeof createAdminClient>)
           .from('published_posts' as 'profiles')

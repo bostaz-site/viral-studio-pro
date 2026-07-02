@@ -28,7 +28,13 @@ export interface PostStats {
 export async function fetchPostStats(
   accessToken: string,
   platformPostId: string,
-): Promise<PostStats> {
+): Promise<PostStats | null> {
+  // Gate behind env flag — flip to true once video.list scope approved in TikTok portal
+  if (process.env.TIKTOK_VIDEO_LIST_APPROVED !== 'true') {
+    console.log('[TikTok tracker] TIKTOK_VIDEO_LIST_APPROVED not set — skipping stats fetch')
+    return null
+  }
+
   // TikTok Video Query API
   const url = 'https://open.tiktokapis.com/v2/video/query/'
 
@@ -48,7 +54,9 @@ export async function fetchPostStats(
   })
 
   if (res.status === 403 || res.status === 401) {
-    throw new Error('TikTok API not yet approved — video.list scope required')
+    // video.list scope not yet approved — return null so cron skips silently
+    console.log('[TikTok tracker] video.list scope not approved yet — skipping')
+    return null
   }
 
   if (!res.ok) {

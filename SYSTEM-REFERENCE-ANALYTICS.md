@@ -1,7 +1,8 @@
-# SYSTEM REFERENCE — Analytics Page (v5)
+# SYSTEM REFERENCE — Analytics Page (v5.1)
 
-> Source of truth for the Analytics page. Complete rewrite 2026-05-05.
-> v5: Guided Learning Engine + Creator Rank Hero + Recharts charts + Smart Queue transparency.
+> Source of truth for the Analytics page.
+> v5.1: TikTok tracker env flag + persistent Apply adjustments.
+> Derniere mise a jour : 2026-07-02.
 
 ---
 
@@ -219,7 +220,7 @@ Profile is fetched by `queue-store.ts` via `GET /api/analytics/profile` and pass
 | Platform | File | API | Status |
 |---|---|---|---|
 | YouTube | `lib/analytics/trackers/youtube.ts` | `videos.list?part=statistics` | WIRED_REAL |
-| TikTok | `lib/analytics/trackers/tiktok.ts` | Video Query API v2 | PENDING |
+| TikTok | `lib/analytics/trackers/tiktok.ts` | Video Query API v2 | GATED (`TIKTOK_VIDEO_LIST_APPROVED=true`) |
 | Instagram | `lib/analytics/trackers/meta.ts` | Graph API + Insights | PENDING |
 
 Cron: `POST /api/cron/refresh-post-stats` every 6h, batch 100 posts, auth via `CRON_SECRET`.
@@ -241,7 +242,7 @@ Cron: `POST /api/cron/refresh-post-stats` every 6h, batch 100 posts, auth via `C
 | Creator Rank Hero (ring, progression, sync) | WIRED_REAL |
 | Next Unlock card | WIRED_LOCAL (based on trackedPosts) |
 | Learning Status bar | WIRED_REAL |
-| Smart Queue Adjustments (with Apply) | WIRED_REAL (UI), TODO (persist on Apply click) |
+| Smart Queue Adjustments (with Apply) | WIRED_REAL (persisted in queue-store settings.appliedAdjustments, +10 priority boost) |
 | Smart Queue Influence Indicator | WIRED_LOCAL |
 | InsightBarChart (What's Working) | WIRED_REAL (pattern-detector) |
 | PostingHeatmap (Best Times) | WIRED_REAL (bestPostingWindows) |
@@ -260,11 +261,23 @@ Cron: `POST /api/cron/refresh-post-stats` every 6h, batch 100 posts, auth via `C
 
 ---
 
-## 15. Axes d'amelioration
+## 15. Systemes connexes
 
-1. **Adjustments -> Smart Queue**: On "Apply" click, persist preference in queue-store settings (currently log only)
-2. **ProgressionLineChart**: Wire once 4+ weekly snapshots exist per user
-3. **TikTok/Instagram API**: Pending scope approval, code ready
-4. **Heatmap multi-platform**: Split by platform when enough data per platform
-5. **A/B testing insights**: Compare caption variants with real results
-6. **Refresh Stats button**: Enable when at least 1 API tracker is approved
+| Systeme | Relation |
+|---|---|
+| **published_posts** | Source de verite des stats — alimente par publish manuel + autofarm executor |
+| **refresh-post-stats** | Cron 6h qui refresh les metriques depuis les APIs plateforme |
+| **pattern-detector** | Analyse les stats → genere le LearnedDistributionProfile |
+| **Smart Queue** | Consomme le profile + appliedAdjustments pour reordonner la queue |
+| **Creator Rank** | Score YouTube (account-scorer) affiche dans le hero |
+| **TikTok tracker** | Gate derriere `TIKTOK_VIDEO_LIST_APPROVED` (env flag) |
+
+---
+
+## 16. Axes d'amelioration
+
+1. **ProgressionLineChart**: Wire once 4+ weekly snapshots exist per user
+2. **TikTok/Instagram API**: Pending scope approval, code ready (tracker gated by env flag)
+3. **Heatmap multi-platform**: Split by platform when enough data per platform
+4. **A/B testing insights**: Compare caption variants with real results
+5. **Refresh Stats button**: Enable when at least 1 API tracker is approved
