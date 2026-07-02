@@ -4,7 +4,7 @@
 > Chaque module = 1 fichier `SYSTEM-REFERENCE-XXX.md` à jour.
 > Cet index dit **quoi lire** avant de toucher à quel système.
 
-**Dernière maj** : 2026-05-13 (V3 W1 + W2 merged)
+**Dernière maj** : 2026-07-01 (Groupe A review — cross-references, states, sequences)
 **Mainteneur** : Samy Cloutier ([samy@viralanimal.com](mailto:samy@viralanimal.com))
 
 ---
@@ -170,7 +170,7 @@ Si un système n'a **pas** de reference → c'est un bug. Créer le fichier en m
 
 ---
 
-## 🚀 V3 ACQUISITION SYSTEM (À VENIR — WEEK 1)
+## 🚀 V3 ACQUISITION SYSTEM (MERGED)
 
 > Voir `ACQUISITION-CLAUDE-CODE-PROMPTS-WEEK1.md` pour les prompts détaillés.
 > Voir `ACQUISITION-SYSTEM-MASTER-PLAN.md` (V3) pour l'architecture complète.
@@ -209,7 +209,7 @@ Si un système n'a **pas** de reference → c'est un bug. Créer le fichier en m
 - `validateContact()` master validator (provenance + suppression + email check)
 - FTC disclosure checker (`captionHasDisclosure()`, `validateCaptionForKit()`)
 - Provenance enforcement (`checkProvenance()` — NO source_url = NO contact)
-- Compliance dashboard `/dashboard/admin/compliance` (stats, blocks, audit log, GDPR)
+- Compliance dashboard `/admin/compliance` (stats, blocks, audit log, GDPR)
 - Table `compliance_audit_log` (11 action types)
 - GDPR export + delete APIs
 - Import flow updated to use 4-way suppression
@@ -219,19 +219,14 @@ Si un système n'a **pas** de reference → c'est un bug. Créer le fichier en m
 
 ---
 
-## 🛣️ FUTURS SYSTEM REFERENCES (V3 SEMAINE 2+)
+## 🛣️ FUTURS SYSTEM REFERENCES
 
-À créer au fur et à mesure du build V3 :
-
-| Fichier | Scope | Semaine |
+| Fichier | Scope | Statut |
 |---|---|---|
-| `SYSTEM-REFERENCE-ADMIN-MATCH-ENGINE.md` | Match algorithm video ↔ influencer (rule-based V1) | S2 DONE |
-| `SYSTEM-REFERENCE-ADMIN-OFFER-GENERATOR.md` | Personalized email generator + A/B variants + subject lines | ✅ S2 |
-| `SYSTEM-REFERENCE-ADMIN-VIDEO-LIBRARY.md` | Bibliothèque vidéos pub admin (upload + tags + métadonnées) | S2 |
-| `SYSTEM-REFERENCE-ADMIN-PUBLICATION-TRACKING.md` | Détection auto des reposts (yt-dlp + form manuel) | S3 |
-| `SYSTEM-REFERENCE-ADMIN-LEARNING-LOOP.md` | Feedback loop : ce qui convertit → re-feed le scoring | S4 |
-| `SYSTEM-REFERENCE-ADMIN-EXPERIMENTATION.md` | A/B testing engine pour offers, captions, hooks | S4-5 |
-| `SYSTEM-REFERENCE-ADMIN-LEAD-QUALITY.md` | Lead source quality score + auto-pause sources qui sous-performent | S5 |
+| `SYSTEM-REFERENCE-ADMIN-PUBLICATION-TRACKING.md` | Détection auto des reposts (yt-dlp + form manuel) | Planifié |
+| `SYSTEM-REFERENCE-ADMIN-LEARNING-LOOP.md` | Feedback loop : ce qui convertit → re-feed le scoring | Planifié |
+| `SYSTEM-REFERENCE-ADMIN-EXPERIMENTATION.md` | A/B testing engine pour offers, captions, hooks | Planifié |
+| `SYSTEM-REFERENCE-ADMIN-LEAD-QUALITY.md` | Lead source quality score + auto-pause sources qui sous-performent | Planifié |
 
 ---
 
@@ -297,6 +292,6 @@ Quand on build un nouveau module, le `SYSTEM-REFERENCE-XXX.md` doit contenir :
 ---
 
 **Maintenu par** : Samy Cloutier
-**Last updated** : 2026-05-27
+**Last updated** : 2026-07-01
 **Branch live** : `master`
 **Production URL** : [viralanimal.com](https://viralanimal.com)

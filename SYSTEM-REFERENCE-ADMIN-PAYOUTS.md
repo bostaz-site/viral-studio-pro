@@ -1,7 +1,7 @@
-# SYSTEM REFERENCE -- Admin Payouts & Stripe Connect (v1)
+# SYSTEM REFERENCE -- Admin Payouts & Stripe Connect (v1.1)
 
 > Source de verite pour le systeme de payouts automatiques via Stripe Connect Express.
-> Derniere mise a jour : 2026-05-13.
+> Derniere mise a jour : 2026-07-01.
 
 ---
 
@@ -257,5 +257,28 @@ Review dialog: Affiliate info + amount + approve/hold buttons
 
 ---
 
-*Document version 1.0 -- Mai 2026*
+## Systemes connexes
+
+| Systeme | Relation |
+|---|---|
+| **AFFILIATES** | La balance payable provient du `affiliate_commission_ledger` (vue `v_affiliate_balances`) |
+| **CRM** | Les statuts influencer (`onboarded`, `active`, `paying`) conditionnent l'eligibilite au payout |
+| **Resend** | Emails KYC onboarding + confirmation payout envoyes via Resend |
+
+> **Note** : `RESEND_API_KEY` requis — compte Resend a creer avant launch.
+> Sans cette cle, les emails d'onboarding Stripe Connect et de confirmation payout ne partiront pas.
+
+---
+
+## Politique : minimum 2 cycles payes
+
+**Regle officielle** : un affilié doit avoir au moins **2 mois de commissions payees** (2 cycles `invoice.payment_succeeded` distincts dans le ledger) avant de recevoir son premier payout.
+
+- Implementee dans `runFraudChecks()` : check "Less than 2 paid cycles" → auto-skip
+- Visible cote partner dans `/partner/payouts` : copy explique la fraud protection window
+- But : fenetre de protection contre les chargebacks et la fraude initiale
+
+---
+
+*Document version 1.1 -- Juillet 2026*
 *Branch: feature/admin-mailbox-health*

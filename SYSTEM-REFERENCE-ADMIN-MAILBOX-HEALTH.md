@@ -1,7 +1,7 @@
-# SYSTEM REFERENCE — Admin Mailbox Health Monitoring (v1)
+# SYSTEM REFERENCE — Admin Mailbox Health Monitoring (v1.1)
 
 > Source de verite pour le monitoring deliverability, reputation et bounce rates des mailboxes.
-> Derniere mise a jour : 2026-05-13.
+> Derniere mise a jour : 2026-07-01.
 
 ---
 
@@ -111,6 +111,27 @@ New wrappers in lib/admin/mailbox/instantly-actions.ts:
   - resumeEmailAccount(id) → POST /accounts/{id}/resume
   - getAccountWarmupStatus(id) → GET /accounts/{id}/warmup
 ```
+
+---
+
+## Systemes connexes
+
+| Systeme | Relation |
+|---|---|
+| **CAMPAIGNS** | Les mailboxes sont les comptes d'envoi des campagnes cold email |
+| **Instantly sync** | Source des donnees mailbox (reputation, volume, status) via cron `sync-instantly` |
+| **WATCHDOG** | Les 7 health checks sont integres dans `runAllChecks()` du watchdog |
+
+---
+
+## Etat : dormant jusqu'au branchement Instantly (launch)
+
+Ce module est **fonctionnel mais inactif** tant que le cron `sync-instantly` n'est pas schedule.
+Aucune mailbox ne sera creee/syncee tant qu'Instantly n'est pas branche en production.
+
+> **Avertissement** : le check #6 ("no sync > 6h") declenchera des alertes **critiques** automatiques
+> si le watchdog tourne alors que le cron `sync-instantly` n'est pas schedule.
+> **Action requise** : desactiver le check mailbox dans le watchdog OU scheduler le cron AVANT d'activer le watchdog en prod.
 
 ---
 

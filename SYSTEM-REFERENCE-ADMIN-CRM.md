@@ -20,9 +20,9 @@ Bulk import influencers from CSV files into the CRM. Supports drag & drop upload
 ### Pages
 | Route | File | Description |
 |-------|------|-------------|
-| `/dashboard/admin/influencers/import` | `app/(dashboard)/admin/influencers/import/page.tsx` | CSV import wizard |
-| `/dashboard/admin/influencers/imports` | `app/(dashboard)/admin/influencers/imports/page.tsx` | Import batch history |
-| `/dashboard/admin/influencers/imports/[id]` | `app/(dashboard)/admin/influencers/imports/[id]/page.tsx` | Batch detail view |
+| `/admin/influencers/import` | `app/(dashboard)/admin/influencers/import/page.tsx` | CSV import wizard |
+| `/admin/influencers/imports` | `app/(dashboard)/admin/influencers/imports/page.tsx` | Import batch history |
+| `/admin/influencers/imports/[id]` | `app/(dashboard)/admin/influencers/imports/[id]/page.tsx` | Batch detail view |
 
 ### Components
 | File | Description |

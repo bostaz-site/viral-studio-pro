@@ -1,7 +1,7 @@
-# System Reference: Admin Campaigns (v2)
+# System Reference: Admin Campaigns (v2.1)
 
 > Source de verite pour le module Campaign Management (Cold Email Engine).
-> Derniere mise a jour : 2026-05-11.
+> Derniere mise a jour : 2026-07-01.
 
 ---
 
@@ -98,7 +98,7 @@ email,first_name,last_name,display_name,platform,niche,audience_size,custom_var_
 - `suppression_list` -- Global compliance list checked before every export
 - `unsubscribe_tokens` -- URL-safe tokens for public unsubscribe page
 - `email_templates` -- Reusable email templates with variables
-- `email_sequences` -- Multi-step campaign sequences
+- `email_sequences` -- Multi-step campaign sequences **(reservee/inutilisee — sequences gerees dans Instantly)**
 - `mailboxes` -- Sender accounts (synced from Instantly)
 - `mailbox_daily_stats` -- Daily health metrics per mailbox
 
@@ -153,7 +153,7 @@ POST /api/cron/sync-instantly — every 15min
 
 ### Admin page
 
-Route: `/dashboard/admin/sync`
+Route: `/admin/sync`
 
 Displays:
 - Last sync time (relative) + success/error indicator
@@ -204,3 +204,45 @@ Both → sync.ts → sync_log table (status tracking)
 - All errors logged via pino and stored in sync result
 - Rate limiting: 200-300ms delays between API calls
 - Fatal errors (bad API key) stop sync but persist partial results
+
+---
+
+## Systemes connexes
+
+| Systeme | Relation |
+|---|---|
+| **OFFER-GENERATOR** | Genere les offres personnalisees injectees dans les templates de campagne |
+| **Instantly sync** | Synchronise mailboxes et metriques campagnes (cron `sync-instantly` toutes les 15 min) |
+| **INBOX** | Les reponses aux campagnes arrivent dans l'inbox unifie pour triage |
+| **COMPLIANCE** | Suppression list partagee — verifiee avant chaque export CSV |
+
+---
+
+## Mode degrade sans API key
+
+> **Mode officiel de launch** : pas de cle API Instantly payante.
+
+| Action | Comment |
+|---|---|
+| **Creer une campagne** | Wizard 3 etapes fonctionne normalement |
+| **Exporter les recipients** | Export CSV manuel (download), import dans Instantly via l'UI web |
+| **Gerer les sequences** | Directement dans Instantly (sequences, delays, A/B) |
+| **Suivre les reponses** | Unibox Instantly (reponses, opens, clicks) |
+| **Sync metriques** | Desactive — pas de `INSTANTLY_API_KEY` |
+
+La cle API Instantly (plan superieur) sera achetee au launch si le volume le justifie.
+Sans cle, le cron `sync-instantly` ne tourne pas et les metriques campagne restent vides cote admin.
+
+---
+
+## Sequence de reference
+
+| Jour | Email | Objectif |
+|---|---|---|
+| **J0** | Kit | Pitch principal + lien repost kit + code promo |
+| **J+2** | Bump zero-effort | Rappel court, zero friction ("just hit repost") |
+| **J+5** | Audience fit | Angle personnalise audience ("your X followers would love...") |
+| **J+9** | Close permission-based | Dernier email, permission-based ("should I stop reaching out?") |
+| **J+16** *(optionnel)* | Reserved leads chauds | Uniquement si opened/clicked/kit_viewed — angle exclusivite |
+
+> Les sequences sont configurees et executees dans Instantly, pas dans l'app.

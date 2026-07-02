@@ -124,7 +124,7 @@ export default function PartnerPayoutsPage() {
       {(!data?.payouts || data.payouts.length === 0) ? (
         <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-8 text-center">
           <DollarSign className="h-8 w-8 text-zinc-600 mx-auto mb-3" />
-          <p className="text-sm text-zinc-500">No payouts yet. Payouts are processed on the 1st of each month when your balance exceeds $50.</p>
+          <p className="text-sm text-zinc-500">No payouts yet. Payouts run on the 1st of each month once your balance exceeds $50 — your first payout is processed after your second month of commissions (fraud protection window).</p>
         </div>
       ) : (
         <div className="bg-zinc-900 border border-zinc-800 rounded-lg overflow-hidden">

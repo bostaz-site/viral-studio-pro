@@ -1,4 +1,4 @@
-# SYSTEM REFERENCE — Match Engine (V3-2C)
+# SYSTEM REFERENCE — Match Engine (V3-2C, v1.1)
 
 > Rule-based V1 match algorithm: assigns the best promo video to each scored influencer.
 > No ML — pure rule-based scoring (niche + audience + language + hook + lead boost).
@@ -181,5 +181,43 @@ Added "Match Engine" (Cpu icon) to admin navigation in `layout.tsx`.
 
 ---
 
-*Document version 1.0 — Mai 2026*
+## Systemes connexes
+
+| Systeme | Relation |
+|---|---|
+| **AI-SCORING** | Les leads scorés (lead_score 0-100) alimentent le facteur #5 Lead Score Boost |
+| **VIDEO-LIBRARY** | Source des `promo_videos` matchées — le match engine ne crée pas de vidéos |
+| **OFFER-GENERATOR** | Consomme le match primaire (`is_primary = true`) pour personnaliser l'offre email |
+| **REPOST-KIT** | Le champ `posted_at` dans `video_assignment_log` est rempli lors du submit du repost kit |
+
+---
+
+## V2 planifiee (post-donnees)
+
+> Activable uniquement après accumulation de données réelles (reposts, conversions, saturation observée).
+
+### Nouveau facteur : `activation_fit` (25 pts)
+
+Mesure la probabilité qu'un influenceur reposte réellement la vidéo assignée, basée sur :
+- Historique de reposts passés (taux de conversion assign → post)
+- Temps moyen entre assignation et repost
+- Taux d'ouverture/clic des emails du même profil
+
+### Saturation par `creative_family`
+
+Remplace la saturation brute (100/vidéo/semaine) par une saturation par famille créative :
+- **Cap réaliste** : 40-60 posts réels par famille par semaine (basé sur données observées)
+- Plusieurs vidéos peuvent appartenir à la même famille (même hook, même angle)
+
+### Caps sur posts reels
+
+En plus du cap d'assignations (100/vidéo/semaine), ajouter un cap sur les posts réels :
+- **15-25 posts réels par vidéo par semaine** (à calibrer avec données)
+- Empêche qu'un même contenu sature l'algorithme TikTok/YouTube
+
+> **Note** : 0 vidéos actuellement en bibliothèque — voir PLAN-VIDEOS-PROMO côté founder avant d'activer V2.
+
+---
+
+*Document version 1.1 — Juillet 2026*
 *Branch: feature/acquisition-v3-match-engine*

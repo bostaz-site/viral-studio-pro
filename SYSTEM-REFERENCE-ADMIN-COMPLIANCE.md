@@ -363,7 +363,7 @@ Auto-adds email to suppression_list (prevent re-contact).
 ## V3 — Compliance Dashboard
 
 ```
-/dashboard/admin/compliance
+/admin/compliance
 
 1. Header — ShieldCheck icon + "Compliance" + CAN-SPAM/CASL/GDPR/FTC subtitle
 2. Stats — Total Suppressed | Blocks Today | Blocks This Week | GDPR Requests
