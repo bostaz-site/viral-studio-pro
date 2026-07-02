@@ -22,6 +22,10 @@ export interface OfferVariables {
   calendly: string
   link: string
   company: string
+  // Metadata (not template vars, but used by generate route)
+  _is_recent_topic_fallback: boolean
+  _is_compliment_fallback: boolean
+  _ai_recommended_offer_angle: string | null
 }
 
 function formatFollowers(n: number | null): string {
@@ -40,30 +44,102 @@ function projectMonthlyEarning(audienceSize: number | null): string {
   return `$${Math.round(monthly * 0.7)}-${Math.round(monthly * 1.3)}`
 }
 
+/**
+ * Clean a video title for use in email copy.
+ * Strips excessive emojis, truncates to 60 chars.
+ */
+function cleanVideoTitle(title: string): string {
+  // Remove runs of 3+ emojis but keep 1-2
+  const cleaned = title
+    .replace(/([\u{1F600}-\u{1F9FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]\s*){3,}/gu, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+
+  if (cleaned.length <= 60) return cleaned
+  return cleaned.slice(0, 57).replace(/\s+\S*$/, '') + '...'
+}
+
+/**
+ * Get promoted product names for an influencer from the distributor graph.
+ * Returns "OpusClip and Submagic" or "clipping tools" as fallback.
+ */
+async function getPromotedApps(influencerId: string): Promise<string> {
+  const admin = createAdminClient()
+
+  const { data } = await admin
+    .from('promoted_products')
+    .select('product_name')
+    .eq('influencer_id', influencerId)
+    .limit(3)
+
+  if (!data?.length) return 'clipping tools'
+
+  const names = data.map((p: { product_name: string }) => p.product_name)
+  if (names.length === 1) return names[0]
+  if (names.length === 2) return `${names[0]} and ${names[1]}`
+  return `${names[0]}, ${names[1]}, and ${names[2]}`
+}
+
 export async function extractVariables(influencerId: string): Promise<OfferVariables> {
   const admin = createAdminClient()
-  const { data: inf } = await admin.from('influencers').select('*').eq('id', influencerId).single()
+  // Cast needed: recent_video_titles and ai_specific_compliment not in generated types yet
+  const { data: inf } = await admin.from('influencers').select('*').eq('id', influencerId).single() as {
+    data: Record<string, unknown> | null
+  }
   if (!inf) throw new Error(`Influencer ${influencerId} not found`)
 
-  const handle = inf.platform_handle || inf.affiliate_code || inf.email?.split('@')[0] || 'creator'
+  const s = (key: string): string => (inf[key] as string) ?? ''
+  const n = (key: string): number | null => (inf[key] as number) ?? null
+  const handle = s('platform_handle') || s('affiliate_code') || s('email').split('@')[0] || 'creator'
+
+  // recent_topic: real video title or niche fallback
+  const videoTitles = (inf.recent_video_titles as string[] | null) ?? []
+  let recentTopic: string
+  let isRecentTopicFallback = true
+  if (videoTitles.length > 0) {
+    recentTopic = cleanVideoTitle(videoTitles[0])
+    isRecentTopicFallback = false
+  } else {
+    recentTopic = s('niche') || 'content creation'
+  }
+
+  // specific_compliment: AI-generated or built from recent_topic
+  let specificCompliment: string
+  let isComplimentFallback = true
+  if (s('ai_specific_compliment')) {
+    specificCompliment = s('ai_specific_compliment')
+    isComplimentFallback = false
+  } else if (!isRecentTopicFallback) {
+    specificCompliment = `your recent video on ${recentTopic} caught my eye`
+    isComplimentFallback = true
+  } else {
+    specificCompliment = `your ${s('niche') || 'content creation'} content stands out`
+  }
+
+  // promoted_apps: real data from distributor graph
+  const promotedApps = await getPromotedApps(influencerId)
+  const niche = s('niche') || 'content creation'
 
   return {
-    first_name: inf.first_name || inf.display_name || handle,
-    full_name: [inf.first_name, inf.last_name].filter(Boolean).join(' ') || inf.display_name || handle,
+    first_name: s('first_name') || s('display_name') || handle,
+    full_name: [s('first_name'), s('last_name')].filter(Boolean).join(' ') || s('display_name') || handle,
     handle,
-    platform: inf.primary_platform || 'social',
-    follower_count_formatted: formatFollowers(inf.audience_size),
-    niche: inf.niche || 'content creation',
-    recent_topic: inf.niche || 'content',
-    specific_compliment: 'really solid content',
-    promoted_apps: 'similar tools',
+    platform: s('primary_platform') || 'social',
+    follower_count_formatted: formatFollowers(n('audience_size')),
+    niche,
+    recent_topic: recentTopic,
+    specific_compliment: specificCompliment,
+    promoted_apps: promotedApps,
     repost_kit_url: `${APP_URL}/partner/repost/${handle}`,
     commission_rate: '30%',
-    projected_monthly_earning: projectMonthlyEarning(inf.audience_size),
-    affiliate_code: inf.affiliate_code || '',
+    projected_monthly_earning: projectMonthlyEarning(n('audience_size')),
+    affiliate_code: s('affiliate_code'),
     signup_link: 'https://viralanimal.com/signup',
     calendly: 'https://calendly.com/viralanimal/demo',
     link: APP_URL,
     company: 'Viral Animal',
+    _is_recent_topic_fallback: isRecentTopicFallback,
+    _is_compliment_fallback: isComplimentFallback,
+    _ai_recommended_offer_angle: s('ai_recommendation') || null,
   }
 }

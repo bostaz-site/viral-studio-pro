@@ -207,7 +207,7 @@ export async function processAiScoringBatch(): Promise<BatchResult> {
           ai_recommended_offer_angle: scored.recommended_offer_angle,
         })
 
-        // Backward-compatible: update influencer AI score if imported
+        // Backward-compatible: update influencer AI score + compliment if imported
         if (matchingResult.influencer_id) {
           await supabase
             .from('influencers')
@@ -215,6 +215,7 @@ export async function processAiScoringBatch(): Promise<BatchResult> {
               ai_affiliate_score: scored.ai_score,
               ai_scored_at: new Date().toISOString(),
               ai_recommendation: scored.recommendation,
+              ai_specific_compliment: scored.specific_compliment || null,
             } as Record<string, unknown>)
             .eq('id', matchingResult.influencer_id)
         }

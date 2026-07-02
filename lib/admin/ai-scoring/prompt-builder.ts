@@ -37,6 +37,7 @@ Output ONLY valid JSON in this exact format:
       "activation_reason": "1 sentence: WHY they would post within 7 days",
       "main_concern": "1 sentence: biggest risk for non-activation",
       "recommended_offer_angle": "1 sentence: best hook for THIS creator's offer email",
+      "specific_compliment": "1 short sentence: a specific, sincere compliment about their actual content (e.g. 'your Valorant fail compilations are exactly the format blowing up right now'). NEVER generic. Match the creator's language (English if EN content, French if FR).",
       "priority": "high_priority" | "medium_priority" | "low_priority" | "skip"
     }
   ]

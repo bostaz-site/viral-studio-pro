@@ -15,6 +15,7 @@ interface ClaudeLeadResult {
   activation_reason: string
   main_concern: string
   recommended_offer_angle: string
+  specific_compliment: string
   priority: 'high_priority' | 'medium_priority' | 'low_priority' | 'skip'
 }
 
@@ -30,6 +31,7 @@ export interface ScoredLead {
   activation_reason: string
   main_concern: string
   recommended_offer_angle: string
+  specific_compliment: string
   priority: 'high_priority' | 'medium_priority' | 'low_priority' | 'skip'
   // Computed final score
   final_score: number

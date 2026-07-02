@@ -73,6 +73,7 @@ export const POST = withAdmin(async (req, user) => {
       let emailSourceUrl: string | null = primaryEmail ? profileUrl : null
       let isBusinessContact = channelEmails[0]?.isBusinessContact ?? false
       let channelCadence: { recentUploadCount: number; lastUploadAt: string | null } = { recentUploadCount: 0, lastUploadAt: null }
+      let channelVideoTitles: string[] = []
 
       // Collect all description texts for link extraction later
       const allDescriptions = [ch.description]
@@ -84,6 +85,7 @@ export const POST = withAdmin(async (req, user) => {
           totalQuotaUsed += videoQuota
           await trackQuotaUsage('youtube_api', videoQuota)
           channelCadence = cadence
+          channelVideoTitles = descriptions.map(vd => vd.title).filter(Boolean)
 
           // Extract emails from video descriptions (only if no email found yet)
           for (const vd of descriptions) {
@@ -198,7 +200,8 @@ export const POST = withAdmin(async (req, user) => {
           niche: null,
           language: ch.country,
           country: ch.country,
-          recent_post_titles: [],
+          recent_post_titles: channelVideoTitles.slice(0, 5),
+          recent_video_titles: channelVideoTitles.slice(0, 10),
           links: allLinks,
           keyword_score: totalScore,
           contactability_score: contactabilityScore,

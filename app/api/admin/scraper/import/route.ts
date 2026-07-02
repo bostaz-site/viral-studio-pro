@@ -117,6 +117,7 @@ export const POST = withAdmin(async (req, user) => {
         source: `scraper_${result.platform}`,
         lead_score: result.keyword_score,
         tags: result.promoted_products?.length ? ['has_competitor_products'] : [],
+        recent_video_titles: result.recent_video_titles ?? null,
       })
       .select('id')
       .single()
