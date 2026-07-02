@@ -483,7 +483,7 @@ Utilise par : `lib/twitch/fetch-streamer-clips.ts`, `lib/kick/fetch-kick-clips.t
 | 3 | **Engagement Proxy** | 15% | Ratio likes/vues + signaux titre (caps, ponctuation) |
 | 4 | **Recency Decay** | 10% | Decroissance exponentielle e^(-age/24) — jamais 0 |
 | 5 | **Early Signal** | 10% | Detection precoce (<6h) : vues/min x log(vues) x decay rapide |
-| 6 | **Format Score** | 10% | Duree optimale TikTok/Reels : 15-45s = 100, >60s = 50 |
+| 6 | **Format Score** | 10% | Duree optimale TikTok/Reels (calibre 2026-07, Buffer 2025 1.1M videos) : 15-45s=100, 45-90s=85, 8-15s=70, >90s=60, <8s=40 |
 | 7 | **Saturation Penalty** | -10% | Penalise les vieux clips viraux (>7j + >1M vues) et les clips morts |
 
 ### Formule finale

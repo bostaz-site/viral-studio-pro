@@ -1,4 +1,4 @@
-# SYSTEM REFERENCE — Enhance / Editor Page (v2)
+# SYSTEM REFERENCE — Enhance / Editor Page (v2.1)
 
 > Ce fichier est la source de verite pour la page Enhance (editeur de viralite).
 > Couvre : architecture, layout, state, chaque section UI, scoring, AI, render, animations.
@@ -452,23 +452,26 @@ boost = headroom * totalWeight
 currentScore = min(99, round((baseline + boost) * 10) / 10)
 ```
 
-### Feature Weights (base)
+### Feature Weights (base) — calibrated 2026-07
 
-| Feature | Weight | Condition |
-|---|---|---|
-| Captions | 0.14 | `captionsEnabled && captionStyle !== 'none'` |
-| Emphasis | 0.08 | `emphasisEffect !== 'none'` |
-| Split-screen | 0.12 | `splitScreenEnabled` |
-| Tag | 0.08 | `tagStyle !== 'none'` |
-| Hook | 0.11 | `hookEnabled` |
-| Hook Reorder | 0.05 | `hookReorderEnabled` |
-| Smart Zoom | 0.05 | `smartZoomEnabled` |
-| Audio Enhance | 0.03 | `audioEnhanceEnabled` |
-| Bass Boost | 0.03-0.05 | mild=0.03, heavy=0.05 |
-| Speed Ramp | 0.02-0.03 | subtle=0.02, dynamic=0.03 |
-| Auto-Cut | 0.03 | `autoCutEnabled` |
+> Poids ancres sur ~70 sources verifiees. Voir `RECHERCHE-VIRALITE-CALIBRATION.md`.
+> Hook=#1 (TikTok officiel), captions=preuve forte, split reduit (preuve anecdotique + risque plateforme), bassBoost retire (inaudible sur telephone).
 
-**Total max** : ~0.69 (tout active, sans mood bonuses)
+| Feature | Weight | Condition | Changement |
+|---|---|---|---|
+| Captions | 0.14 | `captionsEnabled && captionStyle !== 'none'` | inchange |
+| Hook | 0.13 | `hookEnabled` | 0.11→0.13 |
+| Hook Reorder | 0.07 | `hookReorderEnabled` | 0.05→0.07 |
+| Split-screen | 0.07 | `splitScreenEnabled` | 0.12→0.07 |
+| Emphasis | 0.06 | `emphasisEffect !== 'none'` | 0.08→0.06 |
+| Audio Enhance | 0.05 | `audioEnhanceEnabled` | 0.03→0.05 |
+| Auto-Cut | 0.05 | `autoCutEnabled` | 0.03→0.05 |
+| Tag | 0.04 | `tagStyle !== 'none'` | 0.08→0.04 |
+| Smart Zoom | 0.03 | `smartZoomEnabled` | 0.05→0.03 |
+| Speed Ramp | 0.02 | subtle=0.02, dynamic=0.02 | 0.02-0.03→0.02 |
+| ~~Bass Boost~~ | 0.00 | _retire du scoring_ | 0.03-0.05→0.00 |
+
+**Total max** : ~0.66 (tout active, sans mood bonuses)
 
 ### Mood-Match Bonus Weights
 
@@ -481,14 +484,14 @@ currentScore = min(99, round((baseline + boost) * 10) / 10)
 | Smart zoom mode matches | +0.02 |
 | Auto-cut matches | +0.02 |
 
-**Total mood bonus** : ~0.19 max. Grand total ~0.88.
+**Total mood bonus** : ~0.19 max. Grand total ~0.85.
 
 ### Example
 ```
 baseline = 50, headroom = 49
-All features ON + all mood matches → weight = 0.88
-boost = 49 * 0.88 = 43.1
-score = min(99, 50 + 43.1) = 93.1
+All features ON + all mood matches → weight = 0.85
+boost = 49 * 0.85 = 41.7
+score = min(99, 50 + 41.7) = 91.7
 ```
 
 ### `computeScoreBreakdown(settings, baseline, mood?)` → ScoreBreakdown

@@ -421,21 +421,22 @@ export function computeCurrentScore(
   const headroom = Math.max(0, CAP - baseline)
   let totalWeight = 0
 
-  // Base option weights (sum ~0.69 with everything on)
+  // Poids calibres sur la recherche 2026-07 — voir RECHERCHE-VIRALITE-CALIBRATION.md.
+  // Hook=#1 (TikTok officiel), captions=preuve forte, split reduit (preuve anecdotique
+  // + risque plateforme), bassBoost retire (inaudible sur telephone).
   if (settings.captionsEnabled && settings.captionStyle !== 'none') totalWeight += 0.14
-  if (settings.emphasisEffect !== 'none') totalWeight += 0.08
-  if (settings.splitScreenEnabled) totalWeight += 0.12
-  if (settings.tagStyle !== 'none') totalWeight += 0.08
-  if (settings.hookEnabled) totalWeight += 0.11
+  if (settings.emphasisEffect !== 'none') totalWeight += 0.06
+  if (settings.splitScreenEnabled) totalWeight += 0.07
+  if (settings.tagStyle !== 'none') totalWeight += 0.04
+  if (settings.hookEnabled) totalWeight += 0.13
   // hookReorderEnabled is a SUB-feature of hookEnabled — only count if master hook is ON
-  if (settings.hookEnabled && settings.hookReorderEnabled) totalWeight += 0.05
-  if (settings.smartZoomEnabled) totalWeight += 0.05
-  if (settings.audioEnhanceEnabled) totalWeight += 0.03
-  if (settings.bassBoost === 'mild') totalWeight += 0.03
-  else if (settings.bassBoost === 'heavy') totalWeight += 0.05
+  if (settings.hookEnabled && settings.hookReorderEnabled) totalWeight += 0.07
+  if (settings.smartZoomEnabled) totalWeight += 0.03
+  if (settings.audioEnhanceEnabled) totalWeight += 0.05
+  // bassBoost: removed from scoring (phone speakers cut <150-200Hz, wastes loudness headroom)
   if (settings.speedRamp === 'subtle') totalWeight += 0.02
-  else if (settings.speedRamp === 'dynamic') totalWeight += 0.03
-  if (settings.autoCutEnabled) totalWeight += 0.03
+  else if (settings.speedRamp === 'dynamic') totalWeight += 0.02
+  if (settings.autoCutEnabled) totalWeight += 0.05
 
   // Mood-match bonus weights (up to ~0.16 extra)
   if (detectedMood && MOOD_PRESETS[detectedMood]) {
@@ -488,13 +489,13 @@ export function computeScoreBreakdown(
   const CAP = 99.0
   const headroom = Math.max(0, CAP - baseline)
 
-  // Define per-section weights (same weights as computeCurrentScore)
+  // Define per-section weights (same calibrated weights as computeCurrentScore)
   const sections: { key: keyof Omit<ScoreBreakdown, 'total'>; weight: number }[] = []
 
   // Captions
   let captionWeight = 0
   if (settings.captionsEnabled && settings.captionStyle !== 'none') captionWeight += 0.14
-  if (settings.emphasisEffect !== 'none') captionWeight += 0.08
+  if (settings.emphasisEffect !== 'none') captionWeight += 0.06
   if (detectedMood && MOOD_PRESETS[detectedMood]) {
     const preset = MOOD_PRESETS[detectedMood]
     if (settings.captionsEnabled && settings.captionStyle === preset.captionStyle) captionWeight += 0.06
@@ -505,18 +506,18 @@ export function computeScoreBreakdown(
 
   // Split-Screen
   let splitWeight = 0
-  if (settings.splitScreenEnabled) splitWeight += 0.12
+  if (settings.splitScreenEnabled) splitWeight += 0.07
   sections.push({ key: 'splitScreen', weight: splitWeight })
 
   // Tag
   let tagWeight = 0
-  if (settings.tagStyle !== 'none') tagWeight += 0.08
+  if (settings.tagStyle !== 'none') tagWeight += 0.04
   sections.push({ key: 'tag', weight: tagWeight })
 
   // Smart Zoom — mood-match bonuses only when enabled
   let zoomWeight = 0
   if (settings.smartZoomEnabled) {
-    zoomWeight += 0.05
+    zoomWeight += 0.03
     if (detectedMood && MOOD_PRESETS[detectedMood]) {
       const preset = MOOD_PRESETS[detectedMood]
       if (settings.videoZoom === preset.videoZoom) zoomWeight += 0.02
@@ -525,19 +526,17 @@ export function computeScoreBreakdown(
   }
   sections.push({ key: 'smartZoom', weight: zoomWeight })
 
-  // Audio
+  // Audio (bassBoost removed from scoring — inaudible on phone speakers)
   let audioWeight = 0
-  if (settings.audioEnhanceEnabled) audioWeight += 0.03
-  if (settings.bassBoost === 'mild') audioWeight += 0.03
-  else if (settings.bassBoost === 'heavy') audioWeight += 0.05
+  if (settings.audioEnhanceEnabled) audioWeight += 0.05
   if (settings.speedRamp === 'subtle') audioWeight += 0.02
-  else if (settings.speedRamp === 'dynamic') audioWeight += 0.03
+  else if (settings.speedRamp === 'dynamic') audioWeight += 0.02
   sections.push({ key: 'audio', weight: audioWeight })
 
   // Auto-Cut — mood-match bonus only when actually enabled
   let cutWeight = 0
   if (settings.autoCutEnabled) {
-    cutWeight += 0.03
+    cutWeight += 0.05
     if (detectedMood && MOOD_PRESETS[detectedMood]) {
       if (settings.autoCutEnabled === MOOD_PRESETS[detectedMood].autoCutEnabled) cutWeight += 0.02
     }
@@ -547,8 +546,8 @@ export function computeScoreBreakdown(
   // Hook — only count sub-options when master toggle is on
   let hookWeight = 0
   if (settings.hookEnabled) {
-    hookWeight += 0.11
-    if (settings.hookReorderEnabled) hookWeight += 0.05
+    hookWeight += 0.13
+    if (settings.hookReorderEnabled) hookWeight += 0.07
   }
   sections.push({ key: 'hook', weight: hookWeight })
 
