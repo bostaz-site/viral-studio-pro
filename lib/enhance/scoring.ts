@@ -421,7 +421,7 @@ export function computeCurrentScore(
   const headroom = Math.max(0, CAP - baseline)
   let totalWeight = 0
 
-  // Poids calibres sur la recherche 2026-07 — voir RECHERCHE-VIRALITE-CALIBRATION.md.
+  // Poids calibres sur la recherche 2026-07 — voir docs/research/viralite-calibration.md.
   // Hook=#1 (TikTok officiel), captions=preuve forte, split reduit (preuve anecdotique
   // + risque plateforme), bassBoost retire (inaudible sur telephone).
   if (settings.captionsEnabled && settings.captionStyle !== 'none') totalWeight += 0.14

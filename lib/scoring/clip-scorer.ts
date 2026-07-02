@@ -159,7 +159,7 @@ function computeEarlySignalScore(input: ClipScoreInput): number {
 
 // Updated 2026-07 per Buffer 2025 study (1.1M videos): TikTok favors longer
 // videos since 2024. 15-45s remains sweet spot for highlight/gaming clips.
-// See RECHERCHE-VIRALITE-CALIBRATION.md for sources.
+// See docs/research/viralite-calibration.md for sources.
 function computeFormatScore(durationSeconds?: number): number {
   const d = durationSeconds ?? 30
   if (d >= 15 && d <= 45) return 100  // sweet spot: highlight gaming clips

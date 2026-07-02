@@ -1,4 +1,4 @@
-# SYSTEM REFERENCE — Enhance / Editor Page (v2.1)
+# SYSTEM REFERENCE — Enhance / Editor Page (v2.2)
 
 > Ce fichier est la source de verite pour la page Enhance (editeur de viralite).
 > Couvre : architecture, layout, state, chaque section UI, scoring, AI, render, animations.
@@ -454,22 +454,21 @@ currentScore = min(99, round((baseline + boost) * 10) / 10)
 
 ### Feature Weights (base) — calibrated 2026-07
 
-> Poids ancres sur ~70 sources verifiees. Voir `RECHERCHE-VIRALITE-CALIBRATION.md`.
-> Hook=#1 (TikTok officiel), captions=preuve forte, split reduit (preuve anecdotique + risque plateforme), bassBoost retire (inaudible sur telephone).
+> Poids calibres par recherche — source : `docs/research/viralite-calibration.md` (~70 sources verifiees).
 
-| Feature | Weight | Condition | Changement |
+| Feature | Weight | Condition | Justification |
 |---|---|---|---|
-| Captions | 0.14 | `captionsEnabled && captionStyle !== 'none'` | inchange |
-| Hook | 0.13 | `hookEnabled` | 0.11→0.13 |
-| Hook Reorder | 0.07 | `hookReorderEnabled` | 0.05→0.07 |
-| Split-screen | 0.07 | `splitScreenEnabled` | 0.12→0.07 |
-| Emphasis | 0.06 | `emphasisEffect !== 'none'` | 0.08→0.06 |
-| Audio Enhance | 0.05 | `audioEnhanceEnabled` | 0.03→0.05 |
-| Auto-Cut | 0.05 | `autoCutEnabled` | 0.03→0.05 |
-| Tag | 0.04 | `tagStyle !== 'none'` | 0.08→0.04 |
-| Smart Zoom | 0.03 | `smartZoomEnabled` | 0.05→0.03 |
-| Speed Ramp | 0.02 | subtle=0.02, dynamic=0.02 | 0.02-0.03→0.02 |
-| ~~Bass Boost~~ | 0.00 | _retire du scoring_ | 0.03-0.05→0.00 |
+| Captions | 0.14 | `captionsEnabled && captionStyle !== 'none'` | Meilleure preuve directe (+12% view time A/B, +58% ad recall) |
+| Hook | 0.13 | `hookEnabled` | Facteur #1 unanime (TikTok officiel 63% top ads <3s, MrBeast) |
+| Hook Reorder | 0.07 | `hookReorderEnabled` | Moment fort en premier = hook structurel |
+| Split-screen | 0.07 | `splitScreenEnabled` | Preuve anecdotique (1 source Bloomberg) + risque plateforme "AI slop" |
+| Emphasis | 0.06 | `emphasisEffect !== 'none'` | Pas de preuve directe, norme de format |
+| Audio Enhance | 0.05 | `audioEnhanceEnabled` | Loudness = effet technique reel (TikTok ne normalise pas) |
+| Auto-Cut | 0.05 | `autoCutEnabled` | Inference forte (densite + orienting response, Lang) |
+| Tag | 0.04 | `tagStyle !== 'none'` | Zero preuve virale (garde sa valeur relationnelle streamer) |
+| Smart Zoom | 0.03 | `smartZoomEnabled` | Convention esthetique, justifiable comme "cut a bas cout" |
+| Speed Ramp | 0.02 | subtle=0.02, dynamic=0.02 | Aucune donnee dans les deux sens |
+| ~~Bass Boost~~ | 0.00 | _retire du scoring_ | Contre-productif : telephone coupe <150-200Hz, gaspille headroom |
 
 **Total max** : ~0.66 (tout active, sans mood bonuses)
 
@@ -1118,4 +1117,4 @@ Les overlays (hook + tag) sont captures en Canvas 2D a `videoWidth=1080` (resolu
 
 Deploy VPS : Railway auto-deploy depuis le Dockerfile dans `vps/`. Config dans `vps/railway.toml`. Env var `RENDER_QUALITY=high` a ajouter dans Railway (pas Netlify).
 
-Version : v2 — 2026-07-02
+Version : v2.2 — 2026-07-02
