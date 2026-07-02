@@ -29,6 +29,12 @@ type EventName =
   | 'newsletter_submitted'
   | 'pricing_view'
   | 'clip_enhance_started'
+  | 'paywall_shown'
+  | 'paywall_upgrade_clicked'
+  | 'paywall_referral_clicked'
+  | 'paywall_topup_clicked'
+  | 'paywall_save_used'
+  | 'paywall_dismissed'
 
 type Primitive = string | number | boolean
 

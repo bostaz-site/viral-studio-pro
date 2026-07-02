@@ -1,4 +1,4 @@
-# SYSTEM REFERENCE — Enhance / Editor Page (v2.3)
+# SYSTEM REFERENCE — Enhance / Editor Page (v2.4)
 
 > Ce fichier est la source de verite pour la page Enhance (editeur de viralite).
 > Couvre : architecture, layout, state, chaque section UI, scoring, AI, render, animations.
@@ -1167,4 +1167,43 @@ npx tsx scripts/test-peak-detection.ts --recent 10
 
 Affiche : clip_id | titre | peakTime | score | transcript 5s autour du peak.
 
-Version : v2.3 — 2026-07-02
+---
+
+## Paywall (v1 — Contextual Conversion)
+
+Source : `components/paywall-modal.tsx` + `app/api/paywall/save/route.ts` + `app/api/stripe/topup/route.ts`
+Strategy : `docs/research/freemium-paywall-strategy.md`
+
+### Trigger
+
+`handleRender()` checks quota before rendering. If `plan=free && monthly_videos_used >= 3 && bonus_videos <= 0` → show PaywallModal instead of rendering. The clip stays visible behind the modal (desire context).
+
+### Modal options (top to bottom)
+
+1. **One-time save** (first wall only, `paywall_save_used=false`) : "Finish this one free" → POST /api/paywall/save → +1 bonus_video, set paywall_save_used=true, render continues. Lifetime, never shown again.
+2. **Upgrade** (amber primary) : "Upgrade & render this clip" → Stripe checkout Pro ($19/mo)
+3. **Invite** (outline) : "Invite for +3 clips" → copies referral link
+4. **Top-up packs** : "5 clips — $5" / "10 clips — $9" → Stripe one-time payment, webhook credits bonus_videos
+5. **Wait** (text link) : "I'll wait — free clips reset on {date}"
+
+### Counter
+
+Below the Generate button on free plans : "Free plan: render {n} of 3 this month (+X bonus)"
+
+### Migration
+
+`20260702_paywall_save_and_topup.sql` : `profiles.paywall_save_used BOOLEAN DEFAULT FALSE` (applied to prod)
+
+### Env vars required for top-up
+
+`STRIPE_PRICE_PACK5` and `STRIPE_PRICE_PACK10` — Stripe one-time price IDs, to be created in Stripe dashboard.
+
+### Events tracked
+
+paywall_shown, paywall_upgrade_clicked, paywall_referral_clicked, paywall_topup_clicked, paywall_save_used, paywall_dismissed
+
+### TODO
+
+- "Remove watermark — $3" one-time option (not implemented)
+
+Version : v2.4 — 2026-07-02

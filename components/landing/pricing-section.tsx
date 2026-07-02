@@ -26,16 +26,16 @@ const PLANS: PlanConfig[] = [
     name: 'Free',
     price: '$0',
     priceNote: '/mo',
-    summary: '3 videos/mo · max 60s · watermark · TikTok',
+    summary: '3 clips/month · No credit card needed',
     features: [
-      '3 videos/month',
+      '3 clips/month',
       'Clips up to 60s',
       'Auto split-screen',
       'AI viral score',
-      'Viral Animal watermark',
-      'TikTok export only',
+      'Referral bonuses available',
+      'No credit card needed',
     ],
-    cta: 'Start Free',
+    cta: 'Start free',
   },
   {
     id: 'pro',
@@ -113,9 +113,8 @@ export function PricingSection() {
                   <CardDescription>{plan.priceNote}</CardDescription>
                 </div>
                 {plan.id === 'studio' && plan.priceOriginal && (
-                  <div className="mt-1 flex flex-col gap-0.5">
-                    <p className="text-[11px] text-amber-400 font-semibold">Launch Price</p>
-                    <LaunchCountdown />
+                  <div className="mt-1">
+                    <p className="text-[11px] text-amber-400 font-semibold">Founding price — locked in while you stay subscribed</p>
                   </div>
                 )}
                 {plan.summary && (

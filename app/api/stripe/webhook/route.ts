@@ -62,6 +62,36 @@ export async function POST(req: NextRequest) {
         const plan = session.metadata?.plan
         const priceAmount = (session.amount_total ?? 0) / 100
 
+        // Top-up pack (one-time payment, not subscription)
+        if (session.metadata?.type === 'topup' && userId) {
+          const bonusClips = parseInt(session.metadata.bonus_clips ?? '0', 10)
+          if (bonusClips > 0) {
+            const { data: topupProfile } = await admin
+              .from('profiles')
+              .select('bonus_videos')
+              .eq('id', userId)
+              .single()
+
+            await admin
+              .from('profiles')
+              .update({ bonus_videos: (topupProfile?.bonus_videos ?? 0) + bonusClips })
+              .eq('id', userId)
+
+            postToDiscord({
+              channel: 'stripe-events',
+              embed: {
+                title: 'Top-up purchased',
+                color: 0x22d3ee,
+                fields: [
+                  { name: 'User', value: userId, inline: true },
+                  { name: 'Pack', value: `+${bonusClips} clips`, inline: true },
+                ],
+              },
+            }).catch(() => {})
+          }
+          break
+        }
+
         if (userId && plan && (plan === 'pro' || plan === 'studio')) {
           await admin
             .from('profiles')

@@ -34,6 +34,8 @@ import { CaptionsSection } from '@/components/enhance/accordion-sections/caption
 import { SplitScreenSection } from '@/components/enhance/accordion-sections/split-screen-section'
 import { PageHeader } from '@/components/dashboard/page-header'
 import { UnifiedPublishDialog } from '@/components/distribution/unified-publish-dialog'
+import { PaywallModal } from '@/components/paywall-modal'
+import { track } from '@/lib/analytics'
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -90,6 +92,15 @@ export default function EnhancePage() {
   const [showEnhancements, setShowEnhancements] = useState(true)
   const [hookAnalysis, setHookAnalysis] = useState<HookAnalysis | null>(null)
   const [hookGenerating, setHookGenerating] = useState(false)
+
+  // Paywall state
+  const [showPaywall, setShowPaywall] = useState(false)
+  const [paywallSaveUsed, setPaywallSaveUsed] = useState(true) // assume used until bootstrap loads
+  const [userPlan, setUserPlan] = useState<string>('free')
+  const [monthlyUsed, setMonthlyUsed] = useState(0)
+  const [bonusVideos, setBonusVideos] = useState(0)
+  const [referralLink, setReferralLink] = useState<string | null>(null)
+  const [userId, setUserId] = useState('')
   const [hookError, setHookError] = useState<string | null>(null)
   const router = useRouter()
   const sectionRefs = {
@@ -231,6 +242,44 @@ export default function EnhancePage() {
 
     loadClip()
   }, [clipId, storeClips, sourceParam])
+
+  // Bootstrap paywall data (plan, usage, save status)
+  useEffect(() => {
+    async function loadPaywallData() {
+      const supabase = createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+      setUserId(user.id)
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: profile } = await (supabase as any)
+        .from('profiles')
+        .select('plan, monthly_videos_used, bonus_videos, paywall_save_used')
+        .eq('id', user.id)
+        .single()
+
+      if (profile) {
+        setUserPlan(profile.plan ?? 'free')
+        setMonthlyUsed(profile.monthly_videos_used ?? 0)
+        setBonusVideos(profile.bonus_videos ?? 0)
+        setPaywallSaveUsed(profile.paywall_save_used ?? false)
+      }
+
+      // Load referral link if exists
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: code } = await (supabase as any)
+        .from('affiliate_codes')
+        .select('code')
+        .eq('user_id', user.id)
+        .limit(1)
+        .single()
+
+      if (code?.code) {
+        setReferralLink(`${window.location.origin}/r/${code.code}`)
+      }
+    }
+    loadPaywallData()
+  }, [])
 
   // Resolve direct MP4 URL for live preview (Twitch only)
   useEffect(() => {
@@ -402,6 +451,14 @@ export default function EnhancePage() {
 
   const handleRender = useCallback(async () => {
     if (!clip) return
+
+    // Paywall check: free plan, no remaining clips
+    if (userPlan === 'free' && monthlyUsed >= 3 && bonusVideos <= 0) {
+      track('paywall_shown', { userId, monthlyUsed, bonusVideos })
+      setShowPaywall(true)
+      return
+    }
+
     setRendering(true)
     setRenderMessage('⏳ Starting render...')
     setRenderDownloadUrl(null)
@@ -1129,6 +1186,14 @@ export default function EnhancePage() {
             </p>
           )}
 
+          {/* Quota counter (free plan only) */}
+          {userPlan === 'free' && !renderDownloadUrl && !rendering && (
+            <p className="text-xs text-zinc-500 text-center">
+              Free plan: render {monthlyUsed} of 3 this month
+              {bonusVideos > 0 && <span className="text-amber-400"> (+{bonusVideos} bonus)</span>}
+            </p>
+          )}
+
           {/* Generate button — hidden when AI flow active or render done */}
           {!renderDownloadUrl && !makeViralLoading && !analysisSequenceActive && !rendering && (
             <Button
@@ -1151,7 +1216,7 @@ export default function EnhancePage() {
                   kind === 'timeout'
                     ? "The render server timed out. Your clip might be too long — try again or shorten it."
                     : kind === 'quota'
-                      ? 'You\'ve hit your monthly render limit. Upgrade your plan to continue.'
+                      ? 'You\'ve reached your clip limit this month.'
                       : kind === 'network'
                         ? 'Check your internet connection and try again.'
                         : 'Something went wrong on our end. Try again — if it persists, we\'ll look into it.'
@@ -1163,7 +1228,7 @@ export default function EnhancePage() {
                 }}
                 secondaryAction={
                   kind === 'quota'
-                    ? { label: 'Upgrade plan', href: '/settings' }
+                    ? { label: 'See options', onClick: () => setShowPaywall(true) }
                     : undefined
                 }
               />
@@ -2211,6 +2276,32 @@ export default function EnhancePage() {
         clipId={clipId}
         clipTitle={clip?.title ?? undefined}
         videoPreviewUrl={videoUrl ?? undefined}
+      />
+
+      {/* Paywall modal */}
+      <PaywallModal
+        open={showPaywall}
+        onClose={() => setShowPaywall(false)}
+        showOneTimeSave={!paywallSaveUsed}
+        onOneTimeSave={async () => {
+          try {
+            const res = await fetch('/api/paywall/save', { method: 'POST' })
+            const json = await res.json()
+            if (json.data?.granted) {
+              setPaywallSaveUsed(true)
+              setBonusVideos(prev => prev + 1)
+              setShowPaywall(false)
+              handleRender()
+            }
+          } catch { /* silent */ }
+        }}
+        referralLink={referralLink}
+        resetDate={(() => {
+          const now = new Date()
+          const next = new Date(now.getFullYear(), now.getMonth() + 1, 1)
+          return next.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+        })()}
+        userId={userId}
       />
     </div>
   )

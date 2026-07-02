@@ -293,7 +293,7 @@ function StickyBar() {
     <div className="fixed bottom-0 left-0 right-0 z-50 bg-background/95 backdrop-blur-md border-t border-border/50 py-2.5 px-4">
       <div className="max-w-4xl mx-auto flex items-center justify-between gap-4">
         <p className="text-sm text-muted-foreground hidden sm:block">
-          <span className="font-semibold text-foreground">Free trial</span> &middot; No card required
+          <span className="font-semibold text-foreground">Free to start</span> &middot; 3 TikTok-ready clips/month &middot; No card needed
         </p>
         <Link href="/signup" onClick={() => track('cta_hero_click', { location: 'sticky_bar' })}>
           <Button size="sm" className="bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white font-bold gap-1.5 h-9 px-6">
