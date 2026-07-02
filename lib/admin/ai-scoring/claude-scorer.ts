@@ -1,29 +1,71 @@
 import { getSystemPrompt, buildBatchPrompt, estimateTokens } from './prompt-builder'
+import type { LeadContext } from './prompt-builder'
 import { calculateCost, logAiScoringCall } from './cost-tracker'
 
 const MODEL = 'claude-haiku-4-5-20251001'
 
-interface ScoredLead {
+/** Raw response from Claude for a single lead */
+interface ClaudeLeadResult {
   handle: string
-  ai_score: number
-  recommendation: 'high_priority' | 'medium_priority' | 'low_priority' | 'skip'
+  fit_score: number
+  activation_score: number
+  partner_intent_score: number
+  risk_score: number
   confidence: number
-  strengths: string[]
-  concerns: string[]
-  reasoning: string
+  activation_reason: string
+  main_concern: string
+  recommended_offer_angle: string
+  priority: 'high_priority' | 'medium_priority' | 'low_priority' | 'skip'
 }
 
-interface LeadInput {
+/** Scored lead with computed final score + backward-compatible fields */
+export interface ScoredLead {
   handle: string
-  displayName: string | null
-  bio: string | null
-  followers: number
-  engagement: number | null
-  recentPostTitles: string[]
-  promotedProducts: string[]
-  links: string[]
-  keywordScore: number
-  strongSignals: string[]
+  // V2 sub-scores
+  fit_score: number
+  activation_score: number
+  partner_intent_score: number
+  risk_score: number
+  confidence: number
+  activation_reason: string
+  main_concern: string
+  recommended_offer_angle: string
+  priority: 'high_priority' | 'medium_priority' | 'low_priority' | 'skip'
+  // Computed final score
+  final_score: number
+  // Backward-compatible fields for influencers table
+  ai_score: number
+  recommendation: 'high_priority' | 'medium_priority' | 'low_priority' | 'skip'
+}
+
+/**
+ * Compute the final composite score.
+ * Formula: activation*0.30 + fit*0.25 + partner_intent*0.20 + contactability*0.15 - risk*0.25
+ * Contactability is deterministic (from scraper data), passed in separately.
+ */
+export function computeFinalScore(
+  activationScore: number,
+  fitScore: number,
+  partnerIntentScore: number,
+  contactabilityScore: number,
+  riskScore: number,
+): number {
+  const raw = activationScore * 0.30
+    + fitScore * 0.25
+    + partnerIntentScore * 0.20
+    + contactabilityScore * 0.15
+    - riskScore * 0.25
+  return Math.max(0, Math.min(100, Math.round(raw)))
+}
+
+/**
+ * Map final score to recommendation tier (backward-compatible thresholds).
+ */
+export function scoreToRecommendation(score: number): 'high_priority' | 'medium_priority' | 'low_priority' | 'skip' {
+  if (score >= 75) return 'high_priority'
+  if (score >= 50) return 'medium_priority'
+  if (score >= 25) return 'low_priority'
+  return 'skip'
 }
 
 /**
@@ -31,7 +73,8 @@ interface LeadInput {
  * Returns scored results + cost info.
  */
 export async function scoreBatchWithClaude(
-  leads: LeadInput[],
+  leads: LeadContext[],
+  contactabilityScores: Map<string, number>,
   jobId: string,
 ): Promise<{ results: ScoredLead[]; costUsd: number; inputTokens: number; outputTokens: number }> {
   const apiKey = process.env.ANTHROPIC_API_KEY
@@ -51,7 +94,7 @@ export async function scoreBatchWithClaude(
     },
     body: JSON.stringify({
       model: MODEL,
-      max_tokens: 2000,
+      max_tokens: 3000,
       system: systemPrompt,
       messages: [{ role: 'user', content: userPrompt }],
     }),
@@ -84,10 +127,10 @@ export async function scoreBatchWithClaude(
   const costUsd = calculateCost(inputTokens, outputTokens)
 
   // Parse response
-  let results: ScoredLead[] = []
+  let rawResults: ClaudeLeadResult[] = []
   try {
     const parsed = JSON.parse(text)
-    results = parsed.results ?? []
+    rawResults = parsed.results ?? []
   } catch {
     await logAiScoringCall({
       feature: 'batch_scoring',
@@ -103,6 +146,26 @@ export async function scoreBatchWithClaude(
     })
     throw new Error('Failed to parse Claude response as JSON')
   }
+
+  // Compute final scores with contactability
+  const results: ScoredLead[] = rawResults.map(r => {
+    const contactability = contactabilityScores.get(r.handle.toLowerCase()) ?? 30
+    const finalScore = computeFinalScore(
+      r.activation_score,
+      r.fit_score,
+      r.partner_intent_score,
+      contactability,
+      r.risk_score,
+    )
+    const recommendation = scoreToRecommendation(finalScore)
+
+    return {
+      ...r,
+      final_score: finalScore,
+      ai_score: finalScore,
+      recommendation,
+    }
+  })
 
   // Log successful call
   await logAiScoringCall({

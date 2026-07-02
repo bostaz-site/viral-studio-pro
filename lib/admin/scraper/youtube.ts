@@ -106,18 +106,27 @@ interface VideoDescription {
   videoId: string
   title: string
   description: string
+  publishedAt: string | null
+}
+
+/** Cadence data computed from recent videos */
+export interface ChannelCadence {
+  recentUploadCount: number  // Videos in last 14 days
+  lastUploadAt: string | null // Most recent publish date
 }
 
 /**
  * Get descriptions of recent videos for a channel.
  * Uses uploads playlist via playlistItems.list (1 unit) + videos.list batched (1 unit).
- * Total cost: 2 units.
+ * Total cost: 3 units.
+ * Also computes cadence (uploads in last 14 days) for activation scoring.
  */
 export async function getRecentVideoDescriptions(
   channelId: string,
   max: number = 10
-): Promise<{ descriptions: VideoDescription[]; quotaUsed: number }> {
+): Promise<{ descriptions: VideoDescription[]; cadence: ChannelCadence; quotaUsed: number }> {
   const key = getApiKey()
+  const emptyCadence: ChannelCadence = { recentUploadCount: 0, lastUploadAt: null }
 
   // Step 1: Get the uploads playlist ID (channels.list contentDetails, 1 unit)
   const channelParams = new URLSearchParams({
@@ -126,11 +135,11 @@ export async function getRecentVideoDescriptions(
     key,
   })
   const channelRes = await fetch(`${YOUTUBE_API_BASE}/channels?${channelParams}`)
-  if (!channelRes.ok) return { descriptions: [], quotaUsed: 1 }
+  if (!channelRes.ok) return { descriptions: [], cadence: emptyCadence, quotaUsed: 1 }
 
   const channelData = await channelRes.json()
   const uploadsPlaylistId = channelData.items?.[0]?.contentDetails?.relatedPlaylists?.uploads
-  if (!uploadsPlaylistId) return { descriptions: [], quotaUsed: 1 }
+  if (!uploadsPlaylistId) return { descriptions: [], cadence: emptyCadence, quotaUsed: 1 }
 
   // Step 2: Get recent video IDs from uploads playlist (playlistItems.list, 1 unit)
   const playlistParams = new URLSearchParams({
@@ -140,14 +149,14 @@ export async function getRecentVideoDescriptions(
     key,
   })
   const playlistRes = await fetch(`${YOUTUBE_API_BASE}/playlistItems?${playlistParams}`)
-  if (!playlistRes.ok) return { descriptions: [], quotaUsed: 2 }
+  if (!playlistRes.ok) return { descriptions: [], cadence: emptyCadence, quotaUsed: 2 }
 
   const playlistData = await playlistRes.json()
   const videoIds = (playlistData.items ?? [])
     .map((item: { contentDetails?: { videoId?: string } }) => item.contentDetails?.videoId)
     .filter(Boolean) as string[]
 
-  if (videoIds.length === 0) return { descriptions: [], quotaUsed: 2 }
+  if (videoIds.length === 0) return { descriptions: [], cadence: emptyCadence, quotaUsed: 2 }
 
   // Step 3: Batch fetch video snippets (videos.list, 1 unit for up to 50 IDs)
   const videoParams = new URLSearchParams({
@@ -156,18 +165,35 @@ export async function getRecentVideoDescriptions(
     key,
   })
   const videoRes = await fetch(`${YOUTUBE_API_BASE}/videos?${videoParams}`)
-  if (!videoRes.ok) return { descriptions: [], quotaUsed: 3 }
+  if (!videoRes.ok) return { descriptions: [], cadence: emptyCadence, quotaUsed: 3 }
 
   const videoData = await videoRes.json()
   const descriptions: VideoDescription[] = (videoData.items ?? []).map(
-    (v: { id: string; snippet?: { title?: string; description?: string } }) => ({
+    (v: { id: string; snippet?: { title?: string; description?: string; publishedAt?: string } }) => ({
       videoId: v.id,
       title: v.snippet?.title ?? '',
       description: v.snippet?.description ?? '',
+      publishedAt: v.snippet?.publishedAt ?? null,
     })
   )
 
-  return { descriptions, quotaUsed: 3 }
+  // Compute cadence from publishedAt dates
+  const fourteenDaysAgo = Date.now() - 14 * 24 * 60 * 60 * 1000
+  const publishDates = descriptions
+    .map(d => d.publishedAt)
+    .filter((d): d is string => d !== null)
+    .map(d => new Date(d).getTime())
+    .filter(t => !isNaN(t))
+    .sort((a, b) => b - a)
+
+  const recentUploadCount = publishDates.filter(t => t >= fourteenDaysAgo).length
+  const lastUploadAt = publishDates.length > 0 ? new Date(publishDates[0]).toISOString() : null
+
+  return {
+    descriptions,
+    cadence: { recentUploadCount, lastUploadAt },
+    quotaUsed: 3,
+  }
 }
 
 /**

@@ -72,48 +72,51 @@ export const POST = withAdmin(async (req, user) => {
       let emailSource: EmailSource | null = primaryEmail ? 'channel_description' : null
       let emailSourceUrl: string | null = primaryEmail ? profileUrl : null
       let isBusinessContact = channelEmails[0]?.isBusinessContact ?? false
+      let channelCadence: { recentUploadCount: number; lastUploadAt: string | null } = { recentUploadCount: 0, lastUploadAt: null }
 
       // Collect all description texts for link extraction later
       const allDescriptions = [ch.description]
 
-      // --- Step 2: Video descriptions (only if no email yet and within enrichment budget) ---
-      if (!primaryEmail && index < MAX_ENRICHED) {
+      // --- Step 2: Video descriptions (for email extraction + cadence data) ---
+      if (index < MAX_ENRICHED) {
         try {
-          const { descriptions, quotaUsed: videoQuota } = await getRecentVideoDescriptions(ch.id, 10)
+          const { descriptions, cadence, quotaUsed: videoQuota } = await getRecentVideoDescriptions(ch.id, 10)
           totalQuotaUsed += videoQuota
           await trackQuotaUsage('youtube_api', videoQuota)
+          channelCadence = cadence
 
-          // Count how many video descriptions contain the same email (for business detection)
-          const emailOccurrences = new Map<string, number>()
-          const businessKeywords = /business|sponsor|collab|partnership|inquir|booking|press|media|pr\b/i
-
+          // Extract emails from video descriptions (only if no email found yet)
           for (const vd of descriptions) {
             allDescriptions.push(vd.description)
-            const vEmails = extractEmailsFromText(vd.description)
-            for (const ve of vEmails) {
-              emailOccurrences.set(ve.email, (emailOccurrences.get(ve.email) ?? 0) + 1)
-              // Check business context proximity in video description
-              if (businessKeywords.test(ve.context)) {
-                isBusinessContact = true
-              }
-            }
           }
 
-          // Pick best email from video descriptions
-          if (emailOccurrences.size > 0) {
-            // Prefer email found in 3+ videos (clearly the business email)
-            let bestEmail: string | null = null
-            let bestCount = 0
-            for (const [email, count] of emailOccurrences) {
-              if (count > bestCount) { bestEmail = email; bestCount = count }
+          if (!primaryEmail) {
+            const emailOccurrences = new Map<string, number>()
+            const businessKeywords = /business|sponsor|collab|partnership|inquir|booking|press|media|pr\b/i
+
+            for (const vd of descriptions) {
+              const vEmails = extractEmailsFromText(vd.description)
+              for (const ve of vEmails) {
+                emailOccurrences.set(ve.email, (emailOccurrences.get(ve.email) ?? 0) + 1)
+                if (businessKeywords.test(ve.context)) {
+                  isBusinessContact = true
+                }
+              }
             }
 
-            if (bestEmail) {
-              primaryEmail = bestEmail
-              emailSource = 'video_description'
-              emailSourceUrl = profileUrl
-              // 3+ occurrences = strong business signal
-              if (bestCount >= 3) isBusinessContact = true
+            if (emailOccurrences.size > 0) {
+              let bestEmail: string | null = null
+              let bestCount = 0
+              for (const [email, count] of emailOccurrences) {
+                if (count > bestCount) { bestEmail = email; bestCount = count }
+              }
+
+              if (bestEmail) {
+                primaryEmail = bestEmail
+                emailSource = 'video_description'
+                emailSourceUrl = profileUrl
+                if (bestCount >= 3) isBusinessContact = true
+              }
             }
           }
 
@@ -204,6 +207,8 @@ export const POST = withAdmin(async (req, user) => {
           email_source: emailSource,
           email_source_url: emailSourceUrl,
           promoted_products: products.map(p => p.productName),
+          recent_upload_count: channelCadence.recentUploadCount,
+          last_upload_at: channelCadence.lastUploadAt,
           raw_data: { subscriberCount: ch.subscriberCount, videoCount: ch.videoCount, viewCount: ch.viewCount, strongSignals, mediumSignals, isBusinessContact } as Record<string, unknown>,
         })
         .select('id, platform_handle, display_name, audience_size, keyword_score, has_email, promoted_products')
