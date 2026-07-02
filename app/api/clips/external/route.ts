@@ -73,7 +73,7 @@ export async function GET(request: NextRequest) {
     headers: {
       'Content-Type': videoResponse.headers.get('Content-Type') ?? 'video/mp4',
       'Content-Length': videoResponse.headers.get('Content-Length') ?? '',
-      'Cache-Control': 'public, max-age=3600',
+      'Cache-Control': 'private, max-age=3600',
       'Accept-Ranges': videoResponse.headers.get('Accept-Ranges') ?? 'bytes',
     },
   })

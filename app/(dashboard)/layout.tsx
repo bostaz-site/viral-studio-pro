@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
+import { cn } from '@/lib/utils'
 import { Settings, Menu, X, LogOut, Zap, Compass, Wand2, Radio, BarChart3, TrendingUp, Handshake, Users, ChevronRight, Mail, Inbox, Webhook, Brain, Film, Cpu, Sparkles, Radar, Beaker, ShieldCheck } from 'lucide-react'
 import { ViralAnimalLogo } from '@/components/brand/viral-animal-logo'
 import { useUiStore } from '@/stores/ui-store'
@@ -17,6 +18,7 @@ import { isAuditMode } from '@/lib/feature-flags'
 interface UserProfile {
   plan: string | null
   monthly_videos_used: number | null
+  bonus_videos: number | null
 }
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -35,7 +37,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       if (data.user) {
         supabase
           .from('profiles')
-          .select('plan, monthly_videos_used')
+          .select('plan, monthly_videos_used, bonus_videos')
           .eq('id', data.user.id)
           .single()
           .then(({ data: p }) => { if (p) setProfile(p) })
@@ -99,10 +101,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         { name: 'Audits', href: '/admin/audits', icon: ShieldCheck },
       ]
 
-  const planLimits: Record<string, number> = { free: 3, pro: 50, studio: 999 }
+  const planLimits: Record<string, number> = { free: 3, pro: 30, studio: 120 }
   const planLabel: Record<string, string> = { free: 'Free', pro: 'Pro', studio: 'Studio' }
   const currentPlan = profile?.plan || 'free'
   const videosUsed = profile?.monthly_videos_used ?? 0
+  const bonusVideos = profile?.bonus_videos ?? 0
   const videosLimit = planLimits[currentPlan] ?? 3
 
   const userInitials = user?.user_metadata?.full_name
@@ -182,11 +185,19 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <div className="rounded-xl border border-border bg-muted/30 p-3 space-y-2">
             <div className="flex items-center justify-between">
               <span className="text-xs text-muted-foreground">Clips this month</span>
-              <span className="text-xs font-semibold text-foreground">{videosUsed}/{videosLimit === 999 ? '∞' : videosLimit}</span>
+              <span className="text-xs font-semibold text-foreground">
+                {videosUsed}/{videosLimit === 999 ? '\u221E' : videosLimit}
+                {bonusVideos > 0 && <span className="text-amber-400 ml-1">(+{bonusVideos})</span>}
+              </span>
             </div>
             <div className="h-1.5 bg-muted rounded-full overflow-hidden">
               <div
-                className="h-full bg-gradient-to-r from-blue-500 to-indigo-500 rounded-full transition-all duration-300"
+                className={cn(
+                  'h-full rounded-full transition-all duration-300',
+                  (videosUsed / videosLimit) > 0.8
+                    ? 'bg-gradient-to-r from-amber-500 to-amber-400'
+                    : 'bg-gradient-to-r from-cyan-500 to-cyan-400'
+                )}
                 style={{ width: `${Math.min(100, (videosUsed / videosLimit) * 100)}%` }}
               />
             </div>

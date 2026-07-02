@@ -1254,6 +1254,16 @@ Tous les scores sont calcules par `lib/scoring/clip-scorer.ts` et mis a jour par
 
 ---
 
+## Fix: CDN cache poisoning (2026-07-02)
+
+`/api/clips/video-url` returned `Cache-Control: public, max-age=3600` on a route whose response depends on `?slug=`. Netlify CDN served the SAME cached response for ALL slugs for 1h — this caused the historic "wrong clip on hover" bug and dead previews.
+
+Fix: `Cache-Control: private, max-age=3600` (browser caches per full URL, CDN no longer caches). Same fix applied to `/api/clips/external` (response varies by `?path=`). The kick-proxy `.ts` segments correctly use `public, max-age=86400, immutable` (each segment URL is unique).
+
+Hover preview is now reliable across all clips.
+
+---
+
 ## Axes d'amelioration restants
 
 1. **Wirer RemixProgress** — Actuellement simule avec des timers fixes, devrait poller le status reel du render job

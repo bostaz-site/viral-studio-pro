@@ -1418,17 +1418,7 @@ export default function EnhancePage() {
 
         {/* Right: Actions + Settings — scrollable */}
         <div className="space-y-6">
-          {/* ── Export Now CTA — always above the fold ── */}
-          {!renderDownloadUrl && !rendering && !analysisSequenceActive && (
-            <Button
-              className="w-full h-14 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white font-bold text-lg gap-2.5 shadow-lg shadow-orange-500/25 rounded-xl"
-              onClick={handleRender}
-            >
-              <Rocket className="h-5 w-5" /> Export Now
-            </Button>
-          )}
-
-          {/* ── AI Optimize button ── */}
+          {/* ── AI Optimize button (hero — recommended action) ── */}
           {(() => {
             const viralBusy = makeViralLoading || analysisSequenceActive || pendingAutoRenderRef.current || rendering
             const isAnalyzing = makeViralLoading || analysisSequenceActive
@@ -1505,9 +1495,25 @@ export default function EnhancePage() {
             />
           )}
 
-          {/* AI optimization badge removed — the button itself now shows the optimized state */}
-
-          {/* Style selector removed — internal mechanic handled by AI Optimize */}
+          {/* ── Export CTA — secondary until AI Optimize done, then primary ── */}
+          {!renderDownloadUrl && !rendering && !analysisSequenceActive && (
+            analysisComplete ? (
+              <Button
+                className="w-full h-12 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-amber-950 font-bold text-base gap-2 shadow-lg shadow-amber-500/20 rounded-xl"
+                onClick={handleRender}
+              >
+                <Rocket className="h-5 w-5" /> Export Now
+              </Button>
+            ) : (
+              <Button
+                variant="outline"
+                className="w-full h-10 gap-2 border-zinc-700 hover:border-zinc-600 text-zinc-300 rounded-xl"
+                onClick={handleRender}
+              >
+                <Rocket className="h-4 w-4" /> Export with current settings
+              </Button>
+            )
+          )}
 
           {/* Preview video player (from real render) */}
           {previewVideoUrl && (
@@ -1546,7 +1552,7 @@ export default function EnhancePage() {
             scoreBreakdown={scoreBreakdown}
           />
 
-            <Accordion multiple defaultValue={[]} className="space-y-3">
+            <Accordion multiple defaultValue={['captions']} className="space-y-3">
 
             {/* ─── Captions Section ─── */}
             <CaptionsSection
@@ -1586,7 +1592,7 @@ export default function EnhancePage() {
                       : '· Off'}
                   </span>
                   {scoreBreakdown.tag > 0 && (
-                    <span className="ml-auto text-[11px] font-bold text-emerald-400">+{scoreBreakdown.tag} pts</span>
+                    <span className="ml-auto text-[11px] font-bold text-emerald-400">+{Math.round(scoreBreakdown.tag)} pts</span>
                   )}
                 </span>
               </AccordionTrigger>
@@ -1620,7 +1626,7 @@ export default function EnhancePage() {
                       : '· Off'}
                   </span>
                   {scoreBreakdown.smartZoom > 0 && (
-                    <span className="text-[11px] font-bold text-emerald-400">+{scoreBreakdown.smartZoom} pts</span>
+                    <span className="text-[11px] font-bold text-emerald-400">+{Math.round(scoreBreakdown.smartZoom)} pts</span>
                   )}
                   <span className="ml-auto text-[10px] font-normal text-muted-foreground bg-primary/10 text-primary px-2 py-0.5 rounded-full border border-primary/20">
                     New
@@ -1727,7 +1733,7 @@ export default function EnhancePage() {
                     {settings.audioEnhanceEnabled ? '· On' : '· Off'}
                   </span>
                   {scoreBreakdown.audio > 0 && (
-                    <span className="text-[11px] font-bold text-emerald-400">+{scoreBreakdown.audio} pts</span>
+                    <span className="text-[11px] font-bold text-emerald-400">+{Math.round(scoreBreakdown.audio)} pts</span>
                   )}
                   <span className="ml-auto text-[10px] font-normal text-muted-foreground bg-primary/10 text-primary px-2 py-0.5 rounded-full border border-primary/20">
                     New
@@ -1786,7 +1792,7 @@ export default function EnhancePage() {
                     {settings.autoCutEnabled ? `· On · ${settings.autoCutThreshold.toFixed(1)}s threshold` : '· Off'}
                   </span>
                   {scoreBreakdown.autoCut > 0 && (
-                    <span className="text-[11px] font-bold text-emerald-400">+{scoreBreakdown.autoCut} pts</span>
+                    <span className="text-[11px] font-bold text-emerald-400">+{Math.round(scoreBreakdown.autoCut)} pts</span>
                   )}
                   <span className="ml-auto text-[10px] font-normal text-muted-foreground bg-primary/10 text-primary px-2 py-0.5 rounded-full border border-primary/20">
                     New
@@ -1877,7 +1883,7 @@ export default function EnhancePage() {
                       : '· Off'}
                   </span>
                   {scoreBreakdown.hook > 0 && (
-                    <span className="text-[11px] font-bold text-emerald-400">+{scoreBreakdown.hook} pts</span>
+                    <span className="text-[11px] font-bold text-emerald-400">+{Math.round(scoreBreakdown.hook)} pts</span>
                   )}
                   <span className="ml-auto text-[10px] font-normal text-muted-foreground bg-orange-500/10 text-orange-400 px-2 py-0.5 rounded-full border border-orange-500/20">
                     New

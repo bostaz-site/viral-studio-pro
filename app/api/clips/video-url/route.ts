@@ -45,7 +45,7 @@ export async function GET(request: NextRequest) {
   if (cached && Date.now() - cached.ts < CACHE_TTL) {
     return NextResponse.json(
       { video_url: cached.url },
-      { headers: { 'Cache-Control': 'public, max-age=3600' } }
+      { headers: { 'Cache-Control': 'private, max-age=3600' } }
     )
   }
 
@@ -72,7 +72,7 @@ export async function GET(request: NextRequest) {
       cache.set(cacheKey, { url: videoUrl, ts: Date.now() })
       return NextResponse.json(
         { video_url: videoUrl },
-        { headers: { 'Cache-Control': 'public, max-age=3600' } }
+        { headers: { 'Cache-Control': 'private, max-age=3600' } }
       )
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
@@ -169,7 +169,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(
       { video_url: signedUrl },
-      { headers: { 'Cache-Control': 'public, max-age=3600' } }
+      { headers: { 'Cache-Control': 'private, max-age=3600' } }
     )
   } catch (err) {
     logger.error('[clips/video-url] Error:', err)

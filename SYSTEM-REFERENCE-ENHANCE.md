@@ -81,11 +81,14 @@ Alternative : user change les settings manuellement (sans AI Optimize)
    └── "Reset & start over" — remet tout a zero
 
 === Colonne droite (scrollable) ===
-8. AI Optimize button — CTA principal, 3 etats visuels (idle/analyzing/complete)
-9. AI Analysis Sequence — 6 steps animes (apparait apres API calls termines)
-10. Blowup Chance bar — sticky top-0, barre bicolore (orange base + green boost), score /100
-11. Accordion settings :
-    ├── Karaoke Captions (Type icon)
+8. AI Optimize button — CTA HERO en haut (gradient amber primary). Recommended action.
+9. Export CTA — outline/secondary ("Export with current settings") SOUS AI Optimize.
+   Remonte en primary (gradient amber, "Export Now") SEULEMENT apres AI Optimize complete.
+   Constitution : jamais 2 primary dans le meme bloc.
+10. AI Analysis Sequence — 6 steps animes (apparait apres API calls termines)
+11. Blowup Chance bar — sticky top-0, barre bicolore (orange base + green boost), score /100
+12. Accordion settings (Captions ouvert par defaut au premier chargement) :
+    ├── Karaoke Captions (Type icon) — **ouvert par defaut**
     ├── Split-Screen (Monitor icon)
     ├── Streamer Tag (@ icon)
     ├── Smart Zoom (Focus icon) [New]

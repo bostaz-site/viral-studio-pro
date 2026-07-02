@@ -569,7 +569,9 @@ export function computeScoreBreakdown(
 
   for (const section of sections) {
     const pts = headroom * section.weight
-    result[section.key] = Math.round(pts * 10) / 10
+    // Min 1 pt if any contribution exists (never show +0.8 — feels weak)
+    const rounded = Math.round(pts * 10) / 10
+    result[section.key] = rounded > 0 && rounded < 1 ? 1 : rounded
   }
   result.total = Math.round(totalBoost * 10) / 10
 
