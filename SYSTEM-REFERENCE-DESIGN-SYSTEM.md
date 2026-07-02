@@ -468,13 +468,29 @@ Amber focus ring replaces any white/blue default. No additional focus styling ne
 | Common | <25 | zinc-600 | none |
 | Rare | 25-44 | cyan-500 | none |
 | Super Rare | 45-64 | purple-400 | none |
-| Epic | 65-79 | **violet-500** | subtle border glow |
-| Legendary | 80-94 | **amber-400 / gold** | animated shimmer, glow-rank-legendary |
-| Master | 95+ | **red-500 / fire / skull / crown** | glow-rank-master, sparks, flame overlay |
+| Epic | 65-79 | **cyan-400** | subtle corner brackets, glow soft |
+| Legendary | 80-99 | **amber-400 / gold** | 2 intensities (see below) |
+
+**Legendary = sommet unique (80-99).** No master tier.
+
+### Legendary 2 intensities
+
+| Intensity | Score | Visual |
+|---|---|---|
+| Simple | 80-84 | Gold border 1px + inner glow. No frame ornaments. |
+| Full ornate | 85-99 | Ornate gold frame, corner gems (-25% from previous), sparkles (3 instead of 4), glow -30% |
+
+### Score scale by rank (B1)
+
+| Rank | Score font-size | Color | Glow |
+|---|---|---|---|
+| Normal (<65) | 36-42px | zinc/cyan muted | NONE |
+| Epic (65-79) | 52px | cyan #7DD3FC | 0 0 24px rgba(34,211,238,.20) |
+| Legendary (80-99) | 64px | gold gradient | 0 0 32px rgba(245,158,11,.28) |
 
 ### Regle d'or
 
-Les couleurs et ornements de rang (violet, gold shimmer, fire, skull, crown) ne fuient **JAMAIS** dans l'UI SaaS normale. Ils sont reserves aux :
+Les couleurs et ornements de rang (gold shimmer) ne fuient **JAMAIS** dans l'UI SaaS normale. Ils sont reserves aux :
 - Cartes de clip rank (`rank-cards.css`)
 - Badges de rank dans les listes
 - Score displays dans l'enhance page
@@ -595,4 +611,4 @@ Les ecarts suivants ont ete releves dans le code actuel. NE PAS corriger mainten
 
 ---
 
-*Document version 2.1 — 2026-07-02 — Added .va-panel, uppercase system-labels-only rule, 1 primary per zone, glow -30%, global amber focus ring, AI FIT→Match rename.*
+*Document version 2.2 — 2026-07-02 — Master tier removed (legendary = 80-99 single top rank, 2 intensities). Score scale B1. .va-panel, uppercase rule, amber focus ring, AI FIT→Match.*

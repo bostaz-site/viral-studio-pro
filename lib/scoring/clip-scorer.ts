@@ -18,7 +18,7 @@ export interface ClipScoreInput {
   prev_velocity?: number
 }
 
-export type ClipRank = 'common' | 'rare' | 'super_rare' | 'epic' | 'legendary' | 'master'
+export type ClipRank = 'common' | 'rare' | 'super_rare' | 'epic' | 'legendary'
 
 export interface ClipScoreOutput {
   final_score: number
@@ -195,7 +195,6 @@ function computeSaturationScore(input: ClipScoreInput): number {
 // -- Rank classification --
 
 function classifyRank(score: number): ClipRank {
-  if (score >= 95) return 'master'
   if (score >= 80) return 'legendary'
   if (score >= 65) return 'epic'
   if (score >= 45) return 'super_rare'
@@ -206,8 +205,7 @@ function classifyRank(score: number): ClipRank {
 /** Map rank to the DB tier column value (backward compat) */
 function rankToTier(rank: ClipRank): string {
   switch (rank) {
-    case 'master': return 'mega_viral'
-    case 'legendary': return 'viral'
+    case 'legendary': return 'mega_viral'
     case 'epic': return 'hot'
     case 'super_rare': return 'rising'
     case 'rare': return 'normal'

@@ -2,7 +2,7 @@
 export const CLIP_TIERS = ['mega_viral', 'viral', 'hot', 'rising', 'normal', 'dead'] as const
 export type ClipTier = typeof CLIP_TIERS[number]
 
-export const CLIP_RANKS = ['common', 'rare', 'super_rare', 'epic', 'legendary', 'master'] as const
+export const CLIP_RANKS = ['common', 'rare', 'super_rare', 'epic', 'legendary'] as const
 export type ClipRank = typeof CLIP_RANKS[number]
 
 export const FEED_CATEGORIES = ['hot_now', 'early_gem', 'proven', 'normal'] as const

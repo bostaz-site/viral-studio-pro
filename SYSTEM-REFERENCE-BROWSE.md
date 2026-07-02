@@ -1,7 +1,7 @@
-# SYSTEM REFERENCE — Browse / Trending Page (v2.2)
+# SYSTEM REFERENCE — Browse / Trending Page (v3.0 — Loot Feed Overhaul)
 
 > Ce fichier est la source de verite pour la page Browse (Dashboard principal).
-> Derniere mise a jour : 2026-07-02.
+> Derniere mise a jour : 2026-07-02 — master tier removed, 3 visual tiers, daily radar, top pick hero, decluttered cards.
 
 ---
 
@@ -13,7 +13,7 @@
 | `components/trending/trending-card.tsx` | Carte clip (~590 lignes) — thumbnail, hover video preview, rank frames, signal tags, CTA |
 | `components/trending/trending-filters.tsx` | Barre de filtres — search, sort toggle, platform/duration/niche pills |
 | `components/trending/trending-detail-modal.tsx` | Modale detail — stats grid, sparkline, score breakdown, feed category badge |
-| `components/trending/rank-badge.tsx` | SVG decoratifs — `getRankTierClass()`, `DiamondCorner`, `MasterCorner`, `MasterCrown`, `SkullIcon` |
+| `components/trending/rank-badge.tsx` | SVG decoratifs — `getRankTierClass()`, `DiamondCorner` (MasterCorner/Crown/Skull retained but unused) |
 | `components/trending/remix-card.tsx` | Carte remix — status badge, download, compare, re-edit |
 | `components/trending/remix-progress.tsx` | Overlay progression remix — 5 steps simules, progress bar |
 | `components/trending/export-ticker.tsx` | Social proof live — Supabase Realtime broadcast "new_export" |
@@ -28,7 +28,7 @@
 | `lib/trending/utils.ts` | Utilitaires — `formatCount()`, `timeAgo()` |
 | `lib/browse/clip-verdict.ts` | Verdict contextuel, CTA dynamique, couleurs — remplace les phrases hardcodees |
 | `lib/hooks/use-tilt.ts` | Hook 3D tilt — framer-motion springs, amplitude par rank |
-| `app/rank-cards.css` | CSS rank cards (~516 lignes) — 4 tiers visuels + 11 animations |
+| `app/rank-cards.css` | CSS rank cards — 3 tiers visuels (neutral, epic, legendary) + legendary 2 intensities |
 | `app/api/trending/route.ts` | API GET/POST — filtrage, cursor pagination, stream grouping |
 | `app/api/render/quick/route.ts` | API Quick Export — mood detection auto + render pipeline |
 | `hooks/use-render-subscription.ts` | Supabase Realtime subscription + polling fallback |
@@ -47,28 +47,33 @@
 4. ExportTicker — social proof live "A creator just exported..." (Realtime)
 5. Upload error card (si erreur upload)
 6. Twitch refresh toast (si message apres import)
-7. Feed tabs (segmented control) — 5 tabs:
-   Exploding Now (Flame, count) | Proven Winners (Trophy, count) |
-   Fresh Drops (Clock, count) | All Clips (Compass, count, subtle) | Saved (Bookmark, count)
-   - Counts shown per tab when data loaded (e.g. "Exploding Now 3")
-   - Empty tabs dimmed (opacity 40%)
-   - Smart fallback: if default tab (hot_now) has 0 clips → auto-switch to first
-     non-empty tab in [hot_now, proven, all] + fallback note
-8. Tab fallback note (italic, muted) — "Nothing exploding right now — showing proven winners..."
-9. TrendingFilters — compact bar:
-   [Search input (max-w-sm)] [Sort toggle: Score|Date] [Streamer dropdown "All streamers"]
-   [More filters button → collapsible panel: PLATFORM pills | DURATION pills | NICHE pills]
+7. **DAILY RADAR** (E1) — 56px bandeau, radius 16px, border cyan/20, bg cyan/6, Radar icon
+   "DAILY RADAR · {X} new clips since your last visit · {Y} fresh drops · {Z} legendary · Last scan: {N}m ago"
+   - localStorage 'va-last-visit' (timestamp, updated on unmount)
+   - Hidden on first-ever visit
+   - Counts: clips where created_at > lastVisit; legendary = score >= 80
+8. Feed tabs (segmented control) — dynamic tab count:
+   - Exploding Now (Flame) — **AUTO-HIDDEN when 0 clips** (D1). Reappears with content.
+   - Proven Winners (Trophy, count) | Fresh Drops (Clock, count) |
+     All Clips (Compass, count, subtle) | Saved (Bookmark, count)
+   - Smart fallback: if default tab has 0 → auto-switch + fallback note
+   - Fallback note: only shown on tabs that triggered fallback, NOT on Saved/All (D2)
+   - Fallback copy: "No fresh explosions yet. Radar checks every 15 min — proven winners loaded."
+9. TrendingFilters — compact bar
 10. Error card (si erreur fetch)
-11. Content area:
-    ├── Loading → shimmer skeleton grid (10 cards with gradient thumbnails)
-    ├── Empty → tab-specific empty state (see below)
+11. **TOP PICK HERO** (F1) — clip #1 breaks out of the grid:
+    - System label: "Top pick right now — Best chance to post before everyone else"
+    - Card renders at max-w-md (1.35x larger impression)
+    - Not shown on Saved tab
+12. Content area (remaining clips, starting from index 1):
+    ├── Loading → shimmer skeleton grid
+    ├── Empty → tab-specific empty state
     └── Clips → TrendingCard grid (sm:2, lg:3, xl:4, 2xl:5 cols, gap-6)
-12. Load more button (si hasMore, avec remaining count)
-13. Quick Export rendering indicator (fixed bottom-right)
-14. Render completion notification (fixed bottom-right, amber theme)
-15. Refresh indicator (fixed bottom-right)
-16. InstallBanner (PWA)
-17. TrendingDetailModal — "Why this clip?" score breakdown
+    - Each card receives `isNew` prop (clip appeared since last visit)
+13. Load more button
+14. Quick Export / Render notifications
+15. InstallBanner (PWA)
+16. TrendingDetailModal
 ```
 
 ---
@@ -81,8 +86,8 @@
 // Data
 clips: TrendingClip[]               // Tous les clips charges depuis l'API
 filteredClips: TrendingClip[]        // Clips apres filtrage + tri
-megaViralClips: TrendingClip[]       // filteredClips ou rank === 'master' | 'legendary'
-trendingClips: TrendingClip[]        // filteredClips ou rank !== 'master' | 'legendary'
+megaViralClips: TrendingClip[]       // filteredClips ou rank === 'legendary'
+trendingClips: TrendingClip[]        // filteredClips ou rank !== 'legendary'
 stats: TrendingStats                 // Stats calculees a partir de clips[]
 
 // Pagination (cursor-based)

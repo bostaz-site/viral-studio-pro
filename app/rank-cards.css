@@ -1,5 +1,6 @@
 /* ═══════════════════════════════════════════════════════════════════════
-   Rank Cards V2 — 4 visual tiers: Neutral, Epic, Legendary, Master
+   Rank Cards V3 — 3 visual tiers: Neutral (<65), Epic (65-79), Legendary (80-99)
+   Legendary has 2 intensities: 80-84 simple gold border, 85+ ornate frame
    ═══════════════════════════════════════════════════════════════════════ */
 
 /* ─────────────────────────────────────────────────────────────────────
@@ -49,13 +50,6 @@
 }
 
 
-/* ── Custom property for Master conic rotation ── */
-@property --rot {
-  syntax: '<angle>';
-  initial-value: 0deg;
-  inherits: false;
-}
-
 /* ── Score number (Archivo Black, absolute in thumbnail) ── */
 .rank-score {
   position: absolute;
@@ -82,7 +76,7 @@
 .r-neutral { border: 1px solid #181C26 !important; transition: all .3s ease; }
 .r-neutral:hover { transform: translateY(-2px) scale(1.01); border-color: #2A3145 !important; }
 .r-neutral:hover img, .r-neutral:hover video { filter: brightness(1.05); }
-.r-neutral .rank-score { color: #9CA3AF; font-size: 42px; font-weight: 700; }
+.r-neutral .rank-score { color: #9CA3AF; font-size: 40px; font-weight: 700; }
 .r-neutral .cta-viral {
   background: linear-gradient(135deg, #fbbf24, #f59e0b 45%, #d97706);
   border: 1px solid rgba(245,158,11,.4); color: #451a03;
@@ -137,7 +131,7 @@
 .r-epic:hover .cta-viral { opacity: 1; box-shadow: 0 0 20px rgba(245,158,11,.30); }
 
 /* ══════════════════════════════════════════════════════════════════
-   LEGENDARY — score 80-94, ornate gold frame
+   LEGENDARY — score 80-99, gold theme (2 intensities: 80-84 simple, 85+ ornate)
    ══════════════════════════════════════════════════════════════════ */
 
 /* Card shell — no default border, handled by frame-wrapper */
@@ -378,150 +372,27 @@
 .r-legendary:hover .play-btn { opacity: .9 !important; }
 
 /* ══════════════════════════════════════════════════════════════════
-   MASTER — score 95+, fire+gold theme with animations
+   LEGENDARY SIMPLE — score 80-84, gold border, no ornate frame
    ══════════════════════════════════════════════════════════════════ */
-.r-master {
-  position: relative;
-  border: 2.5px solid transparent !important;
-  background:
-    linear-gradient(#120B06,#0E1117) padding-box,
-    conic-gradient(from var(--rot,0deg),
-      #FFD700 0deg, #FFAF38 60deg, #FF5722 130deg,
-      #FFD700 200deg, #FFE066 280deg, #FFD700 360deg
-    ) border-box !important;
-  animation: none;
-  box-shadow:
-    0 0 0 1px rgba(255,170,40,.4),
-    0 0 60px -4px rgba(255,140,0,.7),
-    0 0 120px -20px rgba(255,80,0,.5),
-    0 20px 70px -20px rgba(255,120,0,.7);
-  transition: transform .3s ease;
+.r-legendary-simple {
+  border: 1px solid rgba(245,180,40,.35) !important;
+  border-radius: 16px;
+  box-shadow: 0 0 32px rgba(245,158,11,.15), 0 20px 50px -20px rgba(0,0,0,.7);
 }
-.r-master:hover {
-  transform: translateY(-5px) scale(1.03);
-  animation: masterRotate 10s linear infinite, masterPulse 5.5s ease-in-out infinite;
+.r-legendary-simple .leg-glow { opacity: .3; }
+.r-legendary-simple .leg-frame { display: none; }
+.r-legendary-simple .leg-thumb-simple {
+  position: relative; aspect-ratio: 16/9; border-radius: 16px 16px 0 0;
+  overflow: hidden; background: linear-gradient(135deg, #1a1a2e, #16213e);
 }
-.r-master:hover::after { animation: haloBreathe 5s ease-in-out infinite; }
+.r-legendary-simple .leg-thumb-simple img,
+.r-legendary-simple .leg-thumb-simple video { width: 100%; height: 100%; object-fit: cover; }
 
-/* Master external halo */
-.r-master::after {
-  content: ''; position: absolute; inset: -28px; border-radius: 28px;
-  pointer-events: none; z-index: -1;
-  background:
-    radial-gradient(ellipse at center, rgba(255,150,0,.28), transparent 60%),
-    radial-gradient(ellipse at center, rgba(255,60,0,.12), transparent 75%);
-  animation: none;
-}
-
-.r-master .rank-score {
-  color: #FFE066; font-size: 104px; font-weight: 900;
-  bottom: 2px; letter-spacing: -.06em; line-height: .95;
-  text-shadow:
-    0 0 28px rgba(255,210,60,.95),
-    0 0 12px rgba(255,240,180,.85),
-    0 0 4px #FFD84A,
-    0 4px 12px rgba(0,0,0,.7);
-}
-
-/* Master thumbnail shimmer */
-.r-master .thumb::before {
-  content: ''; position: absolute; inset: 0; z-index: 3; pointer-events: none;
-  background: linear-gradient(110deg, transparent 25%, rgba(255,215,0,.22) 42%, rgba(255,255,255,.38) 50%, rgba(255,140,0,.22) 58%, transparent 75%);
-  background-size: 230% 100%;
-  animation: none;
-  mix-blend-mode: screen;
-}
-.r-master:hover .thumb::before { animation: masterShimmer 4.5s ease-in-out infinite; }
-
-/* Master meta warm tint */
-.r-master .meta-section {
-  background: radial-gradient(ellipse at top, rgba(255,140,0,.08), transparent 60%), #0E1117;
-}
-
-/* Master edges */
-.r-master .rank-frame .edge {
-  background: linear-gradient(90deg, #FCD34D, #B45309, #FCD34D);
-  box-shadow: 0 0 0 1px #1A0F03, 0 0 12px rgba(255,180,40,.6);
-}
-.r-master .rank-frame .edge.top { top: 0; left: 24px; right: 24px; height: 3px; }
-.r-master .rank-frame .edge.bottom { bottom: 0; left: 24px; right: 24px; height: 3px; }
-.r-master .rank-frame .edge.left {
-  left: 0; top: 24px; bottom: 24px; width: 3px;
-  background: linear-gradient(180deg, #FCD34D, #B45309, #FCD34D);
-  box-shadow: 0 0 0 1px #1A0F03, 0 0 12px rgba(255,180,40,.6);
-}
-.r-master .rank-frame .edge.right {
-  right: 0; top: 24px; bottom: 24px; width: 3px;
-  background: linear-gradient(180deg, #FCD34D, #B45309, #FCD34D);
-  box-shadow: 0 0 0 1px #1A0F03, 0 0 12px rgba(255,180,40,.6);
-}
-
-/* Master corners */
-.r-master .rank-frame .corner { width: 34px; height: 34px; }
-.r-master .rank-frame .corner.tl { top: -2px; left: -2px; }
-.r-master .rank-frame .corner.tr { top: -2px; right: -2px; transform: scaleX(-1); }
-.r-master .rank-frame .corner.bl { bottom: -2px; left: -2px; transform: scaleY(-1); }
-.r-master .rank-frame .corner.br { bottom: -2px; right: -2px; transform: scale(-1,-1); }
-
-/* Master skull badge */
-.master-skull {
-  position: absolute; top: 42px; left: 10px; z-index: 6;
-  width: 34px; height: 34px; border-radius: 50%;
-  background: radial-gradient(circle at 40% 35%, #FFF4B8, #FCD34D 50%, #92400E);
-  display: flex; align-items: center; justify-content: center;
-  box-shadow: 0 0 12px rgba(252,211,77,.5);
-  animation: none;
-}
-.r-master:hover .master-skull { animation: skullBob 3s ease-in-out infinite; }
-
-/* Master sparks */
-.master-sparks { position: absolute; top: 4px; right: 8px; z-index: 6; pointer-events: none; }
-.master-sparks span {
-  position: absolute; width: 4px; height: 4px; border-radius: 50%;
-  background: #FFE066; box-shadow: 0 0 6px #FFD700;
-  animation: none;
-}
-.r-master:hover .master-sparks span { animation: spark 3.2s ease-in-out infinite; }
-.master-sparks span:nth-child(1) { top: 0; right: 0; animation-delay: 0s; }
-.master-sparks span:nth-child(2) { top: 20px; right: -6px; animation-delay: .6s; }
-.master-sparks span:nth-child(3) { top: 40px; right: 4px; animation-delay: 1.2s; }
-.master-sparks span:nth-child(4) { top: 60px; right: -4px; animation-delay: 1.8s; }
-.master-sparks span:nth-child(5) { top: 10px; right: 14px; animation-delay: 2.4s; }
-
-/* Master CTA */
-.r-master .cta-viral {
-  position: relative; overflow: hidden;
-  background:
-    radial-gradient(ellipse at top, rgba(255,180,40,.2), transparent 70%),
-    linear-gradient(180deg, #1A0F03 0%, #0A0704 100%);
-  border: 1.5px solid transparent; color: #FFE58A;
-  font-weight: 800; letter-spacing: .04em; font-size: 11.5px; height: 42px;
-  text-shadow: 0 0 10px rgba(255,200,60,.6);
-  box-shadow:
-    0 0 0 1.5px #D97706, 0 0 0 2.5px #FCD34D, 0 0 0 3px #A16207,
-    0 4px 20px -4px rgba(255,150,0,.6),
-    inset 0 1px 0 rgba(255,220,100,.2);
-  transition: all .2s;
-}
-.r-master .cta-viral::before {
-  content: ''; position: absolute; inset: 0;
-  background: linear-gradient(110deg, transparent 30%, rgba(255,215,0,.15) 45%, rgba(255,255,255,.25) 50%, rgba(255,140,0,.15) 55%, transparent 70%);
-  background-size: 230% 100%;
-  animation: none;
-}
-.r-master:hover .cta-viral::before { animation: ctaShimmer 4s ease-in-out infinite; }
-.r-master:hover .cta-viral {
-  box-shadow:
-    0 0 0 1.5px #D97706, 0 0 0 2.5px #FCD34D, 0 0 0 3px #A16207,
-    0 6px 28px -4px rgba(255,150,0,.8),
-    inset 0 1px 0 rgba(255,220,100,.3);
-}
-
-/* Master crown pediment */
-.master-crown {
-  position: absolute; top: -2px; left: 34%; transform: translateX(-50%);
-  z-index: 8; pointer-events: none;
-  filter: drop-shadow(0 2px 6px rgba(255,180,40,.6));
+/* Legendary full (85+) — frame reduced: 1px borders, glow -30% */
+.r-legendary.r-legendary-full .leg-frame { border-width: 1px; }
+.r-legendary:not(.r-legendary-simple) .leg-glow {
+  background: radial-gradient(ellipse at center,
+    rgba(255,200,60,.18) 0%, rgba(245,180,40,.07) 40%, transparent 70%);
 }
 
 /* ── Play button ── */
@@ -533,8 +404,8 @@
   display: flex; align-items: center; justify-content: center;
 }
 .clip:hover .play-btn { opacity: 1; }
-.r-master .play-btn, .r-legendary .play-btn { opacity: 0 !important; }
-.r-master:hover .play-btn, .r-legendary:hover .play-btn { opacity: .9 !important; }
+.r-legendary .play-btn { opacity: 0 !important; }
+.r-legendary:hover .play-btn { opacity: .9 !important; }
 
 /* ── Signal tags (hidden by default, slide-up on hover) ── */
 .signal-tag {
@@ -546,30 +417,9 @@
 /* ══════════════════════════════════════════════════════════════════
    ANIMATIONS
    ══════════════════════════════════════════════════════════════════ */
-@keyframes masterRotate { to { --rot: 360deg; } }
-@keyframes masterPulse {
-  0%, 100% { filter: brightness(1); }
-  50% { filter: brightness(1.12); }
-}
-@keyframes masterShimmer {
-  0%, 100% { background-position: 140% 0; }
-  50% { background-position: -40% 0; }
-}
 @keyframes ctaShimmer {
   0%, 100% { background-position: 140% 0; }
   50% { background-position: -40% 0; }
-}
-@keyframes haloBreathe {
-  0%, 100% { opacity: .8; transform: scale(1); }
-  50% { opacity: 1; transform: scale(1.04); }
-}
-@keyframes skullBob {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-2px); }
-}
-@keyframes spark {
-  0%, 100% { opacity: 0; transform: translateY(0) scale(.6); }
-  50% { opacity: 1; transform: translateY(-4px) scale(1.1); }
 }
 
 /* ── Thumbnail shimmer skeleton ─────────────────────────────────────── */

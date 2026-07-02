@@ -185,10 +185,9 @@ export function ClipBankRail({
           <div className="dist-clip-rail">
             {visibleClips.map((clip, idx) => {
               // Tier classification matches Browse rank tiers (lib/scoring/clip-scorer.ts):
-              // ≥95 master, ≥80 legendary (gold), ≥65 epic (cyan), ≥45 super_rare, ≥25 rare, <25 common
+              // ≥80 legendary (gold), ≥65 epic (cyan), ≥45 super_rare, ≥25 rare, <25 common
               const score = clip.score ?? 0
               const scoreClass =
-                score >= 95 ? 'master' :
                 score >= 80 ? 'legendary' :
                 score >= 65 ? 'epic' :
                 score >= 45 ? 'super-rare' :

@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import {
   TrendingUp, RefreshCw, AlertCircle, Loader2, Sparkles, Compass,
   Download, Flame, X, Bookmark, Lock, Film,
-  UploadCloud, CheckCircle2, Trophy, Clock,
+  UploadCloud, CheckCircle2, Trophy, Clock, Radar,
 } from 'lucide-react'
 import { PageHeader } from '@/components/dashboard/page-header'
 import { Button } from '@/components/ui/button'
@@ -76,6 +76,21 @@ export default function DashboardPage() {
 
   const fetchBootstrap = useTrendingStore(s => s.fetchBootstrap)
   const tabFallbackNote = useTrendingStore(s => s._tabFallbackNote)
+
+  // ── Daily Radar: track last visit (E1) ──
+  const [lastVisit, setLastVisit] = useState<string | null>(null)
+  const [isFirstVisit, setIsFirstVisit] = useState(true)
+  useEffect(() => {
+    const stored = localStorage.getItem('va-last-visit')
+    if (stored) {
+      setLastVisit(stored)
+      setIsFirstVisit(false)
+    }
+    return () => {
+      // Update last-visit on unmount
+      localStorage.setItem('va-last-visit', new Date().toISOString())
+    }
+  }, [])
 
   // Initial fetch: bootstrap (saved + profile + remixes) in parallel with clips
   useEffect(() => {
@@ -346,8 +361,27 @@ export default function DashboardPage() {
     }
   }, [clips, savedClipIds.size])
 
+  // Daily Radar stats (E1)
+  const radarStats = useMemo(() => {
+    if (!lastVisit || isFirstVisit) return null
+    const lvTime = new Date(lastVisit).getTime()
+    const newClips = clips.filter(c => {
+      const t = c.clip_created_at ?? c.scraped_at
+      return t ? new Date(t).getTime() > lvTime : false
+    })
+    const legendary = newClips.filter(c => (c.velocity_score ?? 0) >= 80).length
+    const lastScan = clips.reduce((max, c) => {
+      const t = c.scraped_at ? new Date(c.scraped_at).getTime() : 0
+      return t > max ? t : max
+    }, 0)
+    const lastScanMinAgo = lastScan > 0 ? Math.floor((Date.now() - lastScan) / 60000) : null
+    return { newCount: newClips.length, freshDrops: tabCounts.recent, legendary, lastScanMinAgo }
+  }, [lastVisit, isFirstVisit, clips, tabCounts.recent])
+
+  // D1: Auto-hide "Exploding Now" tab when it has 0 clips
   const feedTabs: { key: FeedFilter; label: string; icon: typeof Flame; count?: number; subtle?: boolean; empty?: boolean }[] = [
-    { key: 'hot_now', label: 'Exploding Now', icon: Flame, count: tabCounts.hot_now, empty: tabCounts.hot_now === 0 && clips.length > 0 },
+    // Only show Exploding Now if it has clips (D1)
+    ...(tabCounts.hot_now > 0 ? [{ key: 'hot_now' as FeedFilter, label: 'Exploding Now', icon: Flame, count: tabCounts.hot_now }] : []),
     { key: 'proven', label: 'Proven Winners', icon: Trophy, count: tabCounts.proven, empty: tabCounts.proven === 0 && clips.length > 0 },
     { key: 'recent', label: 'Fresh Drops', icon: Clock, count: tabCounts.recent, empty: tabCounts.recent === 0 && clips.length > 0 },
     { key: 'all', label: 'All Clips', icon: Compass, count: tabCounts.all, subtle: true },
@@ -441,7 +475,21 @@ export default function DashboardPage() {
         </Card>
       )}
 
-      {/* Tabs + Filters — tight grouping (radar header) */}
+      {/* Daily Radar (E1) — shown after first visit */}
+      {radarStats && radarStats.newCount > 0 && (
+        <div className="flex items-center gap-3 h-14 px-4 rounded-2xl border border-cyan-500/20 bg-cyan-500/6">
+          <Radar className="h-[18px] w-[18px] text-cyan-400 shrink-0" />
+          <span className="text-[13px] font-bold tracking-[0.14em] uppercase text-cyan-400">Daily Radar</span>
+          <span className="text-[13px] text-zinc-300">
+            {radarStats.newCount} new clip{radarStats.newCount !== 1 ? 's' : ''} since your last visit
+            {radarStats.freshDrops > 0 && <> · {radarStats.freshDrops} fresh drop{radarStats.freshDrops !== 1 ? 's' : ''}</>}
+            {radarStats.legendary > 0 && <> · <span className="text-amber-400 font-bold">{radarStats.legendary} legendary</span></>}
+            {radarStats.lastScanMinAgo !== null && <> · <span className="text-zinc-500">Last scan: {radarStats.lastScanMinAgo}m ago</span></>}
+          </span>
+        </div>
+      )}
+
+      {/* Tabs + Filters */}
       <div className="space-y-2">
         {/* Feed tabs — segmented control style, compact */}
         <div className="inline-flex items-center gap-0.5 p-0.5 rounded-lg border border-border bg-card/50 w-fit">
@@ -478,8 +526,8 @@ export default function DashboardPage() {
           })}
         </div>
 
-        {/* Tab fallback note */}
-        {tabFallbackNote && (
+        {/* Tab fallback note — only show on tabs that triggered the fallback (D2), hide on Saved */}
+        {tabFallbackNote && filters.feed !== 'saved' && filters.feed !== 'all' && (
           <p className="text-xs text-muted-foreground/70 italic pl-1">{tabFallbackNote}</p>
         )}
 
@@ -620,8 +668,28 @@ export default function DashboardPage() {
         })()
       ) : (
         <>
+          {/* Top Pick Hero (F1) — clip #1 breaks out of the grid */}
+          {filteredClips.length > 0 && filters.feed !== 'saved' && (
+            <div className="py-4">
+              <p className="text-[11px] font-bold tracking-[0.14em] uppercase text-zinc-500 mb-2">Top pick right now — Best chance to post before everyone else</p>
+              <div className="max-w-md" onClick={() => handleEnhance(filteredClips[0])} style={{ cursor: 'pointer' }}>
+                <TrendingCard
+                  clip={filteredClips[0]}
+                  onRemix={handleEnhance}
+                  onQuickExport={handleQuickExport}
+                  onShowDetail={setDetailClip}
+                  quickExportState={quickExport}
+                  remixing={false}
+                  isSaved={savedClipIds.has(filteredClips[0].id)}
+                  onToggleSave={toggleSaveClip}
+                  isNew={!!(lastVisit && (filteredClips[0].clip_created_at ?? filteredClips[0].scraped_at) && new Date(filteredClips[0].clip_created_at ?? filteredClips[0].scraped_at!).getTime() > new Date(lastVisit).getTime())}
+                />
+              </div>
+            </div>
+          )}
+
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6 py-4">
-            {filteredClips.map((clip) => (
+            {filteredClips.slice(filters.feed !== 'saved' ? 1 : 0).map((clip) => (
               <div key={clip.id} onClick={() => handleEnhance(clip)} className="cursor-pointer relative">
                 <TrendingCard
                   clip={clip}
@@ -634,6 +702,7 @@ export default function DashboardPage() {
                   onToggleSave={toggleSaveClip}
                   onToggleGroup={toggleGroup}
                   isGroupExpanded={clip.stream_group_id ? expandedGroups.has(clip.stream_group_id) : false}
+                  isNew={!!(lastVisit && (clip.clip_created_at ?? clip.scraped_at) && new Date(clip.clip_created_at ?? clip.scraped_at!).getTime() > new Date(lastVisit).getTime())}
                 />
               </div>
             ))}

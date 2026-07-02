@@ -48,7 +48,6 @@ export interface TrendingClip {
 /** Derive rank from the DB tier column or velocity_score */
 export function clipRank(clip: TrendingClip): ClipRank {
   const score = clip.velocity_score ?? 0
-  if (score >= 95) return 'master'
   if (score >= 80) return 'legendary'
   if (score >= 65) return 'epic'
   if (score >= 45) return 'super_rare'

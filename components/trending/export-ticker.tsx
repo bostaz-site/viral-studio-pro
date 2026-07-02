@@ -15,7 +15,7 @@ interface ExportEvent {
 }
 
 const RANK_LABELS: Record<string, string> = {
-  mega_viral: 'Master',
+  mega_viral: 'Legendary',
   viral: 'Legendary',
   hot: 'Epic',
   rising: 'Rare',

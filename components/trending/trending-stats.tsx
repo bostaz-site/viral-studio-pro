@@ -95,7 +95,7 @@ export function TrendingStatsPanel({ stats, lastRefreshed, loading }: TrendingSt
         <StatCard
           icon={Flame}
           label="Epic+"
-          value={(stats.rankCounts?.epic ?? 0) + (stats.rankCounts?.legendary ?? 0) + (stats.rankCounts?.master ?? 0)}
+          value={(stats.rankCounts?.epic ?? 0) + (stats.rankCounts?.legendary ?? 0)}
           sub="🔥 Epic & above"
           accent="bg-orange-500/15 text-orange-400"
           loading={loading}
@@ -103,7 +103,7 @@ export function TrendingStatsPanel({ stats, lastRefreshed, loading }: TrendingSt
         <StatCard
           icon={TrendingUp}
           label="Super Rare+"
-          value={(stats.rankCounts?.super_rare ?? 0) + (stats.rankCounts?.epic ?? 0) + (stats.rankCounts?.legendary ?? 0) + (stats.rankCounts?.master ?? 0)}
+          value={(stats.rankCounts?.super_rare ?? 0) + (stats.rankCounts?.epic ?? 0) + (stats.rankCounts?.legendary ?? 0)}
           sub="💜 Super Rare & above"
           accent="bg-purple-500/15 text-purple-400"
           loading={loading}

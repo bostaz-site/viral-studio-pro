@@ -6,7 +6,6 @@ import type { ClipRank } from '@/types/trending'
 /** Map ClipRank to the CSS tier class for card styling */
 export function getRankTierClass(rank: ClipRank): string {
   switch (rank) {
-    case 'master': return 'r-master'
     case 'legendary': return 'r-legendary'
     case 'epic': return 'r-epic'
     default: return 'r-neutral'
