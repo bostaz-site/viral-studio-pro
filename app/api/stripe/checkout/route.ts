@@ -101,7 +101,7 @@ export const POST = withAuth(async (req, user) => {
     const session = await stripe.checkout.sessions.create({
       mode: 'subscription',
       customer: customerId,
-      payment_method_types: ['card'],
+      payment_method_types: ['card', 'link'],
       line_items: [{ price: PRICE_IDS[plan], quantity: 1 }],
       ...(discounts ? { discounts } : { allow_promotion_codes: true }),
       success_url: `${appUrl}/settings?checkout=success&plan=${plan}`,

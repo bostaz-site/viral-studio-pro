@@ -1,4 +1,4 @@
-# SYSTEM REFERENCE — Enhance / Editor Page (v2.4)
+# SYSTEM REFERENCE — Enhance / Editor Page (v2.5)
 
 > Ce fichier est la source de verite pour la page Enhance (editeur de viralite).
 > Couvre : architecture, layout, state, chaque section UI, scoring, AI, render, animations.
@@ -1074,8 +1074,9 @@ Audio tous tiers : `-c:a aac -b:a {192k|160k} -ar 48000 -ac 2`
 4. unsharp=5:5:0.25:3:3:0.0 (HIGH tiers uniquement)
 5. subtitles ASS (burn APRES le scale final → texte net)
 6. overlays PNG (tag + hook)
-7. watermark
+7. watermark (free plan: @viralanimal, position-alternating top-center/bottom-center)
 8. format=yuv420p (terminal)
+9. end-card (free plan only: 1.2s "clipped with VIRAL ANIMAL" appended via concat)
 ```
 
 Regle : les sous-titres se burn APRES le scale final, jamais avant (sinon texte mou).
@@ -1206,4 +1207,34 @@ paywall_shown, paywall_upgrade_clicked, paywall_referral_clicked, paywall_topup_
 
 - "Remove watermark — $3" one-time option (not implemented)
 
-Version : v2.4 — 2026-07-02
+---
+
+## Watermark + End-Card (v2.5 — Free Plan Growth Loop)
+
+Source : `vps/lib/ffmpeg-render.js` > `buildWatermarkFilter()` + `buildEndCardArgs()`
+
+### Watermark (free plan only)
+- Text: `@viralanimal` (not "viralanimal.com" — shorter, social handle format)
+- Font: 28px, white at 60% opacity, 1px border black at 40% (outline for readability on light+dark)
+- **Position-alternating anti-crop**: top-center for first half of clip, bottom-center for second half
+  - Top Y: `H*0.06` (below TikTok safe zone)
+  - Bottom Y: `H-th-H*0.06`
+  - Centered X: `(W-tw)/2`
+- Uses FFmpeg `enable` expression to switch at `clipDuration/2`
+- Pro/Studio: no watermark unless custom logo provided
+
+### End-Card (free plan only)
+- 1.2s card appended AFTER the main clip via FFmpeg concat protocol
+- Design: dark navy background (0x1a1a2e), "clipped with" (zinc-300), "VIRAL ANIMAL" (amber, large), "viralanimal.com" (zinc-500)
+- Font sizes: 5.5% of canvas width (title), 3.2% (subtitle)
+- Generated as a separate video, then concatenated with the main render
+- Non-fatal: if end-card generation fails, the main clip is returned without it
+- Pattern inspired by CapCut — user cannot crop the end-card without re-editing
+
+### Referral Invite CTA (post-render)
+- After a successful render, the enhance page shows: "Invite a friend — you both get +3 clips"
+- Uses Web Share API (mobile) or clipboard copy (desktop)
+- Link: `/signup?ref={referral_code}` (from profiles table)
+- Reward: +3 bonus_videos to BOTH users, triggered on first render (not signup)
+
+Version : v2.5 — 2026-07-02

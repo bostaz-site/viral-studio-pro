@@ -667,13 +667,48 @@ export async function renderClip(inputPath, outputPath, options = {}) {
     exposureFilter = buildExposureFilter(fallback);
   }
 
+  // ── Helper: append end-card for free plan ──
+  async function maybeAppendEndCard(result) {
+    if (plan !== 'free' || !result.success) return result;
+    try {
+      const canvasDims = getCanvasDimensions(RENDER_TIERS[getTierSequence(process.env.RENDER_QUALITY || 'high')[0]], aspectRatio);
+      const endCard = buildEndCardArgs(outputPath, plan, canvasDims.w, canvasDims.h);
+      if (!endCard) return result;
+
+      // Generate end-card video
+      await execFileAsync(process.env.FFMPEG_PATH || 'ffmpeg', endCard.args, { timeout: 30000 });
+
+      // Concat main + end-card
+      const concatPath = outputPath.replace(/\.mp4$/, '_concat.mp4');
+      const listPath = outputPath.replace(/\.mp4$/, '_list.txt');
+      await fs.promises.writeFile(listPath, `file '${outputPath.replace(/'/g, "'\\''")}'\\nfile '${endCard.endCardPath.replace(/'/g, "'\\''")}'`);
+
+      await execFileAsync(process.env.FFMPEG_PATH || 'ffmpeg', [
+        '-y', '-f', 'concat', '-safe', '0', '-i', listPath,
+        '-c', 'copy', '-movflags', '+faststart', concatPath,
+      ], { timeout: 30000 });
+
+      // Replace original with concatenated version
+      await fs.promises.rename(concatPath, outputPath);
+      // Cleanup
+      await fs.promises.unlink(endCard.endCardPath).catch(() => {});
+      await fs.promises.unlink(listPath).catch(() => {});
+
+      console.log('[FFmpeg] End-card appended (1.2s)');
+    } catch (err) {
+      console.warn('[FFmpeg] End-card failed (non-fatal):', err.message);
+    }
+    return result;
+  }
+
   // ── Split-screen render path ────────────────────────────────────────────
   if (splitScreen && splitScreen.enabled && splitScreen.brollPath) {
-    return renderSplitScreen(inputPath, outputPath, {
+    const result = await renderSplitScreen(inputPath, outputPath, {
       startTime, clipDuration, aspectRatio, captions, watermark, watermarkPosition,
       plan, splitScreen, tag, cropAnchor, timeout, smartZoom, audioPeaks,
       hook, audioEnhance, bassBoost, speedRamp, sourceFps, exposureFilter,
     });
+    return maybeAppendEndCard(result);
   }
 
   // ── Standard render with retry ladder ──────────────────────────────────
@@ -818,7 +853,7 @@ export async function renderClip(inputPath, outputPath, options = {}) {
 
       // ── Step 8: Watermark ──
       if (watermark && (plan === 'free' || (plan !== 'free' && watermark.logoPath))) {
-        const watermarkFilter = buildWatermarkFilter(watermark, watermarkPosition, plan);
+        const watermarkFilter = buildWatermarkFilter(watermark, watermarkPosition, plan, clipDuration);
         if (watermarkFilter) {
           filterComplex += `;${mapVideo}${watermarkFilter}[watermarked]`;
           mapVideo = '[watermarked]';
@@ -912,7 +947,8 @@ export async function renderClip(inputPath, outputPath, options = {}) {
       args.push('-max_muxing_queue_size', '512');
       args.push(outputPath);
 
-      return await execRender(args, outputPath, timeout);
+      const result = await execRender(args, outputPath, timeout);
+      return maybeAppendEndCard(result);
     } catch (err) {
       lastError = err;
       if (isOOMError(err) && ti < tierSequence.length - 1) {
@@ -1098,7 +1134,7 @@ async function renderSplitScreen(inputPath, outputPath, opts) {
 
       // ── Watermark ──
       if (watermark && (plan === 'free' || (plan !== 'free' && watermark.logoPath))) {
-        const wmFilter = buildWatermarkFilter(watermark, watermarkPosition, plan);
+        const wmFilter = buildWatermarkFilter(watermark, watermarkPosition, plan, clipDuration);
         if (wmFilter) {
           filterComplex += `;${mapVideo}${wmFilter}[watermarked]`;
           mapVideo = '[watermarked]';
@@ -1385,27 +1421,55 @@ function buildTagFilter(tagConfig, canvasW = 720, canvasH = 1280, inputLabel = n
 // Watermark
 // ─────────────────────────────────────────────────────────────────────────────
 
-function buildWatermarkFilter(watermark, position, plan) {
+function buildWatermarkFilter(watermark, position, plan, clipDuration) {
   if (plan !== 'free' && !watermark.logoPath) {
     return null;
   }
 
   if (plan === 'free') {
-    const posCoords = getWatermarkCoordinates(position);
-    return `drawtext=text='viralanimal.com':fontsize=24:fontcolor=white@0.8:shadowcolor=black@0.6:shadowx=1:shadowy=1:x=${posCoords.x}:y=${posCoords.y}`;
+    // Position-alternating watermark: top-center first half, bottom-center second half (anti-crop)
+    const halfDuration = (clipDuration || 30) / 2;
+    const topY = 'H*0.06';  // below TikTok safe zone
+    const botY = 'H-th-H*0.06';
+    const centerX = '(W-tw)/2';
+
+    // @viralanimal text with subtle outline for readability on light and dark
+    return `drawtext=text='\\@viralanimal':fontsize=28:fontcolor=white@0.6:borderw=1:bordercolor=black@0.4:x=${centerX}:y=${topY}:enable='lt(t\\,${halfDuration})',drawtext=text='\\@viralanimal':fontsize=28:fontcolor=white@0.6:borderw=1:bordercolor=black@0.4:x=${centerX}:y=${botY}:enable='gte(t\\,${halfDuration})'`;
   }
 
   return null;
 }
 
-function getWatermarkCoordinates(position = 'bottom-right') {
-  const coords = {
-    'top-left': { x: 'W*0.03', y: 'H*0.03' },
-    'top-right': { x: 'W-tw-W*0.03', y: 'H*0.03' },
-    'bottom-left': { x: 'W*0.03', y: 'H-th-H*0.03' },
-    'bottom-right': { x: 'W-tw-W*0.03', y: 'H-th-H*0.03' },
+/**
+ * Build FFmpeg end-card filter for free plan.
+ * 1.2s card after the clip: "clipped with VIRAL ANIMAL" on dark bg.
+ * Returns null for non-free plans.
+ */
+function buildEndCardArgs(outputPath, plan, canvasW, canvasH) {
+  if (plan !== 'free') return null;
+
+  // Generate end-card as a 1.2s video with drawtext on solid bg
+  const endCardPath = outputPath.replace(/\.mp4$/, '_endcard.mp4');
+  const fontSize = Math.round(canvasW * 0.055);
+  const subFontSize = Math.round(canvasW * 0.032);
+
+  return {
+    endCardPath,
+    args: [
+      '-y',
+      '-f', 'lavfi',
+      '-i', `color=c=0x1a1a2e:s=${canvasW}x${canvasH}:d=1.2:r=30`,
+      '-vf', [
+        `drawtext=text='clipped with':fontsize=${subFontSize}:fontcolor=0xd4d4d8@0.7:x=(w-tw)/2:y=(h/2)-${fontSize}-10`,
+        `drawtext=text='VIRAL ANIMAL':fontsize=${fontSize}:fontcolor=0xf59e0b:x=(w-tw)/2:y=(h/2)-${Math.round(fontSize * 0.3)}`,
+        `drawtext=text='viralanimal.com':fontsize=${subFontSize}:fontcolor=0xa1a1aa@0.6:x=(w-tw)/2:y=(h/2)+${fontSize}+5`,
+      ].join(','),
+      '-t', '1.2',
+      '-an',
+      '-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '23',
+      endCardPath,
+    ],
   };
-  return coords[position] || coords['bottom-right'];
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

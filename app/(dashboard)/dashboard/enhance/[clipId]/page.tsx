@@ -8,7 +8,7 @@ import {
   ChevronLeft, Loader2, AlertCircle, Sparkles, Download, CheckCircle, Check,
   Type, Wand2, Eye, ExternalLink, Play,
   Monitor, Zap, Send,
-  Flame, Focus, X, Plus, Volume2, Scissors, RotateCcw, Rocket, Bell, SlidersHorizontal,
+  Flame, Focus, X, Plus, Volume2, Scissors, RotateCcw, Rocket, Bell, SlidersHorizontal, Gift,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from '@/components/ui/accordion'
@@ -100,6 +100,7 @@ export default function EnhancePage() {
   const [monthlyUsed, setMonthlyUsed] = useState(0)
   const [bonusVideos, setBonusVideos] = useState(0)
   const [referralLink, setReferralLink] = useState<string | null>(null)
+  const [referralCode, setReferralCode] = useState<string | null>(null)
   const [userId, setUserId] = useState('')
   const [hookError, setHookError] = useState<string | null>(null)
   const router = useRouter()
@@ -254,7 +255,7 @@ export default function EnhancePage() {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data: profile } = await (supabase as any)
         .from('profiles')
-        .select('plan, monthly_videos_used, bonus_videos, paywall_save_used')
+        .select('plan, monthly_videos_used, bonus_videos, paywall_save_used, referral_code')
         .eq('id', user.id)
         .single()
 
@@ -263,6 +264,7 @@ export default function EnhancePage() {
         setMonthlyUsed(profile.monthly_videos_used ?? 0)
         setBonusVideos(profile.bonus_videos ?? 0)
         setPaywallSaveUsed(profile.paywall_save_used ?? false)
+        if (profile.referral_code) setReferralCode(profile.referral_code)
       }
 
       // Load referral link if exists
@@ -1349,6 +1351,25 @@ export default function EnhancePage() {
                     <Download className="h-4 w-4" />
                     Download MP4
                   </a>
+
+                  {/* Referral invite CTA */}
+                  {referralCode && (
+                    <button
+                      onClick={() => {
+                        const url = `${window.location.origin}/signup?ref=${referralCode}`
+                        if (navigator.share) {
+                          navigator.share({ title: 'Viral Animal', text: 'Make your clips go viral — we both get +3 bonus clips!', url }).catch(() => {})
+                        } else {
+                          navigator.clipboard.writeText(url).catch(() => {})
+                          setRenderMessage('Invite link copied!')
+                        }
+                      }}
+                      className="inline-flex items-center justify-center gap-2 w-full h-9 rounded-lg border border-emerald-500/30 bg-emerald-500/5 text-emerald-400 hover:bg-emerald-500/10 text-xs font-medium transition-all"
+                    >
+                      <Gift className="h-3.5 w-3.5" />
+                      Invite a friend — you both get +3 clips
+                    </button>
+                  )}
 
                   {/* Reset */}
                   <button

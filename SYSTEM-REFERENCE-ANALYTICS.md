@@ -1,7 +1,7 @@
-# SYSTEM REFERENCE — Analytics Page (v5.1)
+# SYSTEM REFERENCE — Analytics Page (v5.2)
 
 > Source of truth for the Analytics page.
-> v5.1: TikTok tracker env flag + persistent Apply adjustments.
+> v5.2: acquisition_source tracking at signup.
 > Derniere mise a jour : 2026-07-02.
 
 ---
@@ -274,10 +274,23 @@ Cron: `POST /api/cron/refresh-post-stats` every 6h, batch 100 posts, auth via `C
 
 ---
 
-## 16. Axes d'amelioration
+## 16. Acquisition Source Tracking (v5.2)
+
+`profiles.acquisition_source` — TEXT nullable, set at signup (optional select, skippable).
+
+Values: `tiktok_watermark`, `friend_invited`, `saw_ad`, `creator_follow`, `other`, or NULL (skipped).
+
+Stored in Supabase auth metadata at signup (`acquisition_source` field), persisted to profiles via `handle_new_user()` trigger. Migration: `20260702_activation_referral.sql`.
+
+Query example: `SELECT acquisition_source, COUNT(*) FROM profiles WHERE acquisition_source IS NOT NULL GROUP BY 1 ORDER BY 2 DESC`
+
+---
+
+## 17. Axes d'amelioration
 
 1. **ProgressionLineChart**: Wire once 4+ weekly snapshots exist per user
 2. **TikTok/Instagram API**: Pending scope approval, code ready (tracker gated by env flag)
 3. **Heatmap multi-platform**: Split by platform when enough data per platform
 4. **A/B testing insights**: Compare caption variants with real results
 5. **Refresh Stats button**: Enable when at least 1 API tracker is approved
+6. **Acquisition source dashboard**: Admin-side chart showing signup sources over time

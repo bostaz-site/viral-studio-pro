@@ -120,7 +120,7 @@ async function handleWebhook(req: NextRequest) {
   // Fetch the current job to check retry state
   const { data: currentJob } = await admin
     .from('render_jobs')
-    .select('id, clip_id, source, status, retry_count, max_retries')
+    .select('id, clip_id, source, status, retry_count, max_retries, user_id')
     .eq('id', payload.jobId)
     .single()
 
@@ -196,6 +196,16 @@ async function handleWebhook(req: NextRequest) {
             return (admin.rpc as CallableFunction)('increment_export_count', { p_clip_id: currentJob.clip_id })
           }
         })
+        .catch(() => {})
+    }
+
+    // Referral reward on first render completion (non-blocking)
+    if (currentJob.user_id) {
+      const uid = currentJob.user_id as string
+      import('@/lib/referral-reward')
+        .then(({ grantReferralRewardOnFirstRender }) =>
+          grantReferralRewardOnFirstRender(uid)
+        )
         .catch(() => {})
     }
   }

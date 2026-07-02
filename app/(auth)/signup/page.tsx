@@ -41,6 +41,7 @@ function SignupForm() {
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
   const [referralCode, setReferralCode] = useState<string | null>(null)
+  const [acquisitionSource, setAcquisitionSource] = useState('')
 
   // Capture ref from URL param, cookie va_ref (set by /r/[code]), or localStorage
   useEffect(() => {
@@ -95,6 +96,7 @@ function SignupForm() {
         data: {
           full_name: fullName,
           ...(referralCode ? { referred_by_code: referralCode } : {}),
+          ...(acquisitionSource ? { acquisition_source: acquisitionSource } : {}),
         },
       },
     })
@@ -243,6 +245,27 @@ function SignupForm() {
                 }`}
               />
             ))}
+          </div>
+
+          {/* Acquisition source (optional, skippable) */}
+          <div className="space-y-1.5">
+            <Label htmlFor="acquisitionSource" className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+              How did you hear about us? <span className="text-zinc-600 normal-case">(optional)</span>
+            </Label>
+            <select
+              id="acquisitionSource"
+              value={acquisitionSource}
+              onChange={(e) => setAcquisitionSource(e.target.value)}
+              disabled={loading}
+              className="w-full h-11 px-3 rounded-md border border-border bg-background text-foreground text-sm"
+            >
+              <option value="">Skip</option>
+              <option value="tiktok_watermark">TikTok watermark</option>
+              <option value="friend_invited">A friend invited me</option>
+              <option value="saw_ad">Saw an ad</option>
+              <option value="creator_follow">A creator I follow</option>
+              <option value="other">Other</option>
+            </select>
           </div>
         </CardContent>
         <CardFooter className="flex flex-col gap-4 pt-2">
