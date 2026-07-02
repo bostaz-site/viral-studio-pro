@@ -1042,3 +1042,77 @@ AlertCircle + message + "Back to feed" button.
 9. ~~**Adaptive auto-cut hint**~~ — RESOLU (2026-05-04). Le hint adaptatif par mood est implemente dans Accordion Section 6 : "AI suggests Xs for {mood} clips" (rage/hype=0.5s, drama=0.7s). `autoCut.mood` envoye au VPS pour threshold server-side.
 
 10. **Timeout recovery** — mentionne dans SYSTEM-REFERENCE.md (60s auto-transition to error si stuck) mais pas implemente dans le code actuel. Le seul guard est le polling max 200 * 3s = 10min.
+
+---
+
+## Qualite de rendu (v2 — 2026-07-02)
+
+### 4 tiers (retry ladder automatique)
+
+Si FFmpeg OOM (exit code null/137), le systeme retente automatiquement au tier suivant avec log `[FFmpeg] fallback tier N`.
+Pilote par env var `RENDER_QUALITY` (defaut `high`).
+
+| Tier | Resolution | Preset | CRF | Maxrate | Bufsize | FPS | Profile/Level | Audio | Unsharp |
+|------|-----------|--------|-----|---------|---------|-----|---------------|-------|---------|
+| **HIGH_60** | 1080x1920 | faster | 19 | 12M | 24M | 60 (si source >= 50fps, sinon 30) | high / 4.2 | 192k | oui |
+| **HIGH_30** | 1080x1920 | faster | 20 | 8M | 16M | 30 | high / 4.2 | 192k | oui |
+| **SAFE** | 720x1280 | veryfast | 23 | 5M | 10M | 30 | high / 4.1 | 160k | non |
+| **LAST_RESORT** | 720x1280 | ultrafast | 26 | 4M | 8M | 30 | high / 4.1 | 160k | non |
+
+Flags communs a tous les tiers : `-profile:v high -level:v 4.2/4.1 -pix_fmt yuv420p -fps_mode cfr -sc_threshold 0 -movflags +faststart -tag:v avc1 -colorspace bt709 -color_primaries bt709 -color_trc bt709 -threads 2 -filter_threads 1 -filter_complex_threads 1`
+
+Audio tous tiers : `-c:a aac -b:a {192k|160k} -ar 48000 -ac 2`
+
+### Ordre du filtergraph
+
+```
+1. scale/crop (compositing blur-bg + foreground lanczos)
+2. smart zoom (scale/crop avec lanczos)
+3. eq (exposition adaptative — 4 buckets)
+4. unsharp=5:5:0.25:3:3:0.0 (HIGH tiers uniquement)
+5. subtitles ASS (burn APRES le scale final → texte net)
+6. overlays PNG (tag + hook)
+7. watermark
+8. format=yuv420p (terminal)
+```
+
+Regle : les sous-titres se burn APRES le scale final, jamais avant (sinon texte mou).
+
+### Exposition adaptative (4 buckets)
+
+| avgLuma | eq filter |
+|---------|-----------|
+| < 65 | brightness=0.035:contrast=1.08:saturation=1.08:gamma=1.03 |
+| 65-95 | brightness=0.015:contrast=1.05:saturation=1.05:gamma=1.01 |
+| 95-140 | brightness=0:contrast=1.02:saturation=1.04 |
+| > 140 | pas de filtre eq |
+
+### ASS PlayRes
+
+`PlayResX` / `PlayResY` suivent dynamiquement la resolution du tier (1080/1920 en HIGH, 720/1280 en SAFE). `ScaledBorderAndShadow: yes` active. Font sizes 64-88px calibres pour 1080x1920 (adaptes automatiquement par `adjustPositioning` pour 720p).
+
+### Audio Enhancement
+
+Quand `audioEnhance` est ON : `highpass=f=80,afftdn=nf=-25,loudnorm=I=-14:LRA=11:TP=-1.5:linear=false:dual_mono=true`
+
+### Overlays PNG
+
+Les overlays (hook + tag) sont captures en Canvas 2D a `videoWidth=1080` (resolution de sortie HIGH). Scale factor = `1080 / 280` (preview width = 280px).
+
+---
+
+## Systemes connexes
+
+| Systeme | Relation avec le render |
+|---------|------------------------|
+| **Enhance editor** | Declencheur principal — settings UI → POST /api/render → VPS FFmpeg |
+| **Quick Export (Browse)** | 1-click export depuis Browse clips — auto mood + preset → meme pipeline render |
+| **Autofarm (Distribution)** | Futur — clip bank → smart publisher → auto-enhance + auto-post |
+| **Whisper transcription** | OpenAI Whisper API sur le VPS — word-level timestamps pour captions ASS |
+| **Supabase Storage** | Stockage des MP4 rendus (bucket `clips/`), thumbnails, source videos |
+| **Railway VPS** | Serveur FFmpeg — Dockerfile, auto-deploy via git push sur branche `master`, `railway.toml` dans `vps/` |
+| **Redis (Upstash)** | File d'attente FIFO des render jobs, concurrence max configurable |
+
+Deploy VPS : Railway auto-deploy depuis le Dockerfile dans `vps/`. Config dans `vps/railway.toml`. Env var `RENDER_QUALITY=high` a ajouter dans Railway (pas Netlify).
+
+Version : v2 — 2026-07-02

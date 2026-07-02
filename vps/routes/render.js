@@ -524,16 +524,9 @@ router.post('/', async (req, res) => {
     // Word-pop + blur background + ASS rendering is heavy; reducing resolution by ~50% helps significantly
     const isWordPopAnimation = settings.captions?.enabled && captionAnim === 'word-pop';
 
-    const canvasSizes = isSplitScreen
-      ? { '9:16': { w: 720, h: 1280 }, '1:1': { w: 720, h: 720 }, '16:9': { w: 1280, h: 720 } }
-      : isWordPopAnimation
-      ? { '9:16': { w: 720, h: 1280 }, '1:1': { w: 720, h: 720 }, '16:9': { w: 1280, h: 720 } }  // Use split-screen sizes for word-pop
-      : { '9:16': { w: 1080, h: 1920 }, '1:1': { w: 1080, h: 1080 }, '16:9': { w: 1920, h: 1080 } };
+    // Always generate ASS subtitles at 1080p — the render tier system handles fallback
+    const canvasSizes = { '9:16': { w: 1080, h: 1920 }, '1:1': { w: 1080, h: 1080 }, '16:9': { w: 1920, h: 1080 } };
     const { w: canvasW, h: canvasH } = canvasSizes[targetAspectRatio] || canvasSizes['9:16'];
-
-    if (isWordPopAnimation) {
-      trc(`CANVAS reduced to 720p for word-pop animation (memory protection)`);
-    }
 
     // Split-screen info for subtitle positioning
     const splitScreenForCaptions = isSplitScreen ? {

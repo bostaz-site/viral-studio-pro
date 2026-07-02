@@ -425,8 +425,8 @@ export default function EnhancePage() {
         hookOverlayData = await captureHookOverlayPNG({
           text: settings.hookText,
           positionPct: settings.hookTextPosition,
-          videoWidth: 720,
-          videoHeight: 1280,
+          videoWidth: 1080,
+          videoHeight: 1920,
           glowColor: theme.hookGlowColor,
         })
       }
@@ -438,8 +438,8 @@ export default function EnhancePage() {
           streamerName,
           style: settings.tagStyle as 'viral-glow' | 'kick-glow' | 'twitch-minimal' | 'kick-minimal',
           tagSize: settings.tagSize || 100,
-          videoWidth: 720,
-          videoHeight: 1280,
+          videoWidth: 1080,
+          videoHeight: 1920,
           splitScreenEnabled: settings.splitScreenEnabled,
           splitRatio: settings.splitRatio,
         })

@@ -16,8 +16,8 @@ export async function captureTagOverlayPNG({
   streamerName,
   style,
   tagSize = 100,
-  videoWidth = 720,
-  videoHeight = 1280,
+  videoWidth = 1080,
+  videoHeight = 1920,
   splitScreenEnabled = false,
   splitRatio = 50,
 }: {

@@ -9,8 +9,8 @@
 export async function captureHookOverlayPNG({
   text,
   positionPct = 15,
-  videoWidth = 720,
-  videoHeight = 1280,
+  videoWidth = 1080,
+  videoHeight = 1920,
   glowColor = '#9146FF',
 }: {
   text: string;
