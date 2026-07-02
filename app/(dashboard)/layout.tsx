@@ -85,10 +85,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     ? []
     : [
         { name: 'Growth', href: '/admin/growth', icon: TrendingUp },
+        { name: 'Influencers', href: '/admin/influencers', icon: Users },
         { name: 'Inbox', href: '/admin/inbox', icon: Inbox },
         { name: 'Affiliates', href: '/admin/affiliates', icon: Handshake },
         { name: 'Campaigns', href: '/admin/campaigns', icon: Mail },
-        { name: 'Streamers', href: '/admin/streamers', icon: Users },
         { name: 'Video Library', href: '/admin/video-library', icon: Film },
         { name: 'Match Engine', href: '/admin/match-engine', icon: Cpu },
         { name: 'Offer Generator', href: '/admin/offer-generator', icon: Sparkles },
