@@ -285,5 +285,14 @@ Returns: `{ ok, processed, classified, drafted, scored, errors }`
 
 ---
 
-*Document version 1.0 — Mai 2026*
-*Branch: feature/admin-ai-triage*
+## Systemes connexes
+
+| Systeme | Relation |
+|---|---|
+| **INBOX** | Les classifications alimentent l'inbox unifie (sentiment, intent, suggested_action) |
+| **CRM** | Les drafts et summaries enrichissent la fiche influencer dans le CRM |
+| **Scoring leads (3 scores)** | `keyword_score` (scraper, pre-filtre) → `lead_score` (triage, 6 facteurs dont Claude sponsorship) → `ai_affiliate_score` (batch scoring, activation-focused). Le triage utilise lead_score pour prioriser les reponses |
+
+---
+
+*Document version 1.1 — Juillet 2026*

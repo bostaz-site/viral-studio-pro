@@ -1,7 +1,7 @@
-# SYSTEM REFERENCE — Admin Watchdog Agent (v1)
+# SYSTEM REFERENCE — Admin Watchdog Agent (v1.1)
 
 > Source de verite pour le watchdog agent qui monitore la sante du systeme admin.
-> Derniere mise a jour : 2026-05-12.
+> Derniere mise a jour : 2026-07-02.
 
 ---
 
@@ -10,7 +10,7 @@
 | Fichier | Role |
 |---|---|
 | `app/api/cron/watchdog/route.ts` | Cron endpoint (POST, auth via CRON_SECRET) — toutes les 15 min |
-| `lib/admin/watchdog/checks.ts` | 10 health checks rule-based (5 critical + 5 important) |
+| `lib/admin/watchdog/checks.ts` | 10 health checks rule-based (5 critical + 5 important) + 7 mailbox checks via health-checker |
 | `lib/admin/watchdog/anomaly-detector.ts` | Claude Haiku weekly anomaly detection |
 | `lib/admin/watchdog/notifier.ts` | Email notification via Resend pour alertes critical |
 | `app/api/admin/watchdog/route.ts` | GET alerts list + health overview |
@@ -74,7 +74,7 @@ POST /api/cron/watchdog (every 15 min, x-api-key: CRON_SECRET)
 
 | # | Check | Condition | Category |
 |---|---|---|---|
-| 1 | Instantly webhooks down | No webhook_events from instantly in 30 min (business hours only) | webhook |
+| 1 | Instantly webhooks down | No webhook_events from instantly in 30 min (business hours only). **Garde** : ne s'active que si >= 1 event instantly dans les 7 derniers jours | webhook |
 | 2 | Stripe webhook failures | webhook_events provider=stripe status=failed in last 60 min | stripe |
 | 3 | Bounce rate > 5% | email_events bounces / sent > 5% in 24h (min 10 sent) | mailbox |
 | 4 | Stripe Connect rejected | influencers with stripe_connect_status=rejected | affiliate |
@@ -186,5 +186,33 @@ Listed in `netlify.toml` cron comment block.
 
 ---
 
-*Document version 1.0 — Mai 2026*
-*Branch: feature/admin-watchdog*
+## Mailbox Health Checks (7 additional — via MAILBOX-HEALTH)
+
+Les 7 checks mailbox definis dans `lib/admin/mailbox/health-checker.ts` sont integres dans `runAllChecks()` via `checkMailboxHealth()`. Voir SYSTEM-REFERENCE-ADMIN-MAILBOX-HEALTH.md pour le detail des seuils.
+
+---
+
+## Gardes anti-faux-positifs
+
+Les checks qui supposent un systeme actif incluent des gardes :
+- **Instantly webhooks down** : exige >= 1 event provider='instantly' dans les 7 derniers jours
+- **Bounce rate** : exige min 10 emails envoyes en 24h
+- **Reply rate drop** : exige min 20 envoyes par semaine (chaque semaine)
+- **Mailbox health** : dormant tant que sync-instantly n'est pas schedule (voir MAILBOX-HEALTH)
+
+---
+
+## Systemes connexes
+
+| Systeme | Relation |
+|---|---|
+| **MAILBOX-HEALTH** | 7 checks mailbox integres dans runAllChecks() |
+| **Instantly sync** | Les checks webhook dependent des donnees de sync-instantly |
+| **Stripe** | Check Stripe webhook failures + Connect KYC rejected |
+| **CRM** | Check hot leads stale + dormant affiliates |
+| **COMPLIANCE** | Check suppression list spike |
+| **AI** | Anomaly detection Claude Haiku (logged dans ai_calls) |
+
+---
+
+*Document version 1.1 — Juillet 2026*

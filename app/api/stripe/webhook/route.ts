@@ -68,7 +68,8 @@ export async function POST(req: NextRequest) {
             .update({
               plan,
               stripe_customer_id: session.customer as string,
-            })
+              subscription_amount_cents: session.amount_total ?? null,
+            } as never)
             .eq('id', userId)
 
           // Get user email for Discord
@@ -165,10 +166,14 @@ export async function POST(req: NextRequest) {
         const priceId = subscription.items.data[0]?.price.id
         const plan = priceId ? (PLAN_BY_PRICE[priceId] ?? 'free') : 'free'
         const isActive = ['active', 'trialing'].includes(subscription.status)
+        const amountCents = subscription.items.data[0]?.price.unit_amount ?? null
 
         await admin
           .from('profiles')
-          .update({ plan: isActive ? plan : 'free' })
+          .update({
+            plan: isActive ? plan : 'free',
+            subscription_amount_cents: isActive ? amountCents : null,
+          } as never)
           .eq('id', userId)
         break
       }

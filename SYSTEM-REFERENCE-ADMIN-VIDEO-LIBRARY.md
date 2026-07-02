@@ -178,13 +178,15 @@ Metrics tracked:
 
 ---
 
-## Dependencies
+## Systemes connexes
 
-- **Match Engine** (V3-2C): Uses promo_videos to match videos to influencers
-- **Repost Kit** (V3-1B): References promo_video_id in repost_kit_sessions
-- **Offer Generator** (V3-2D): Links generated_offers to promo_video_id
+| Systeme | Relation |
+|---|---|
+| **MATCH-ENGINE** | Consomme les promo_videos pour matcher avec les influencers (scoring 5 facteurs) |
+| **REPOST-KIT** | Reference promo_video_id dans repost_kit_sessions (le kit affiche la video assignee) |
+| **OFFER-GENERATOR** | Lie les offres generees au promo_video_id pour personnaliser l'email |
+| **Production** | 0 videos actuellement — voir PLAN-VIDEOS-PROMO cote founder pour le plan de production |
 
 ---
 
-*Document version 1.0 -- Mai 2026*
-*Branch: feature/acquisition-v3-video-library*
+*Document version 1.1 -- Juillet 2026*

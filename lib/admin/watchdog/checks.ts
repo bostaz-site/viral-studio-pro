@@ -33,13 +33,15 @@ export async function checkWebhookDown(admin: SupabaseClient): Promise<AlertCand
   // If we have at least 1 webhook in 30 min, all good
   if (count && count > 0) return null
 
-  // Check if we've ever received any webhooks (don't alert if no setup yet)
-  const { count: totalCount } = await admin
+  // Guard: only alert if Instantly was active recently (at least 1 event in 7 days)
+  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
+  const { count: recentCount } = await admin
     .from('webhook_events')
     .select('id', { count: 'exact', head: true })
     .eq('provider', 'instantly')
+    .gte('received_at', sevenDaysAgo)
 
-  if (!totalCount || totalCount === 0) return null
+  if (!recentCount || recentCount === 0) return null
 
   return {
     severity: 'critical',

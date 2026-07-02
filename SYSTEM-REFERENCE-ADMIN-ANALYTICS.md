@@ -1,6 +1,7 @@
-# SYSTEM REFERENCE — Admin Analytics & Cost Tracker (v1)
+# SYSTEM REFERENCE — Admin Analytics & Cost Tracker (v1.1)
 
 > Pipeline analytics, revenue dashboard, affiliate leaderboard, campaign performance, cohort retention, and P&L cost tracking.
+> Derniere mise a jour : 2026-07-02.
 
 ---
 
@@ -67,14 +68,17 @@ Each stage count is cumulative (includes all subsequent stages). Displayed as ho
 ### MRR Calculation
 
 ```
-MRR = SUM(profiles WHERE plan != 'free') * plan_price
+MRR = SUM(profiles.subscription_amount_cents) pour les plans payants
+Fallback si subscription_amount_cents IS NULL : pro=1900, studio=2400
 ```
 
-Plan prices: free=$0, pro=$29, studio=$49.
+Source de verite = montant Stripe reel stocke via webhook (checkout.session.completed + customer.subscription.updated). Gere les prix launch ($24 studio) vs regular ($29 studio).
+
+Plan fallback : free=$0, pro=$19, studio=$24.
 
 ### Metrics
 
-- **MRR**: Monthly Recurring Revenue (live from profiles)
+- **MRR**: Monthly Recurring Revenue (Stripe-derived, live from profiles)
 - **ARR**: MRR * 12
 - **Plan Breakdown**: Count + MRR per plan
 - **Total Customers**: Profiles with paid plans
@@ -98,7 +102,7 @@ Plan prices: free=$0, pro=$29, studio=$49.
 - Commission earned ($)
 - Conversion rate (conversions / signups %)
 
-Data source: `affiliates` table, sorted by `total_revenue_cents DESC`, top 20.
+Data source : `influencers` avec `affiliate_code` non null, JOIN `affiliate_referrals` (count paying) + `affiliate_commission_ledger` (SUM commissions). Top 20 par revenue. Fallback sur la table legacy `affiliates` si aucun influencer affilie n'existe.
 
 ---
 
@@ -213,5 +217,16 @@ Sub-page tabs visible on all analytics pages: Events | Funnel | Revenue | Affili
 
 ---
 
-*Document version 1.0 — Mai 2026*
-*Branch: feature/admin-mailbox-health*
+## Systemes connexes
+
+| Systeme | Relation |
+|---|---|
+| **Stripe webhook** | Stocke subscription_amount_cents sur profiles (source de verite MRR) |
+| **CRM** | Funnel base sur influencers.status (11 stages) |
+| **AFFILIATES** | Leaderboard base sur influencers + affiliate_referrals + commission_ledger |
+| **CAMPAIGNS** | Performance des campagnes email depuis email_campaigns |
+| **COSTS** | P&L agrege ai_calls + Stripe fees + commissions + couts manuels |
+
+---
+
+*Document version 1.1 — Juillet 2026*

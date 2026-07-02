@@ -68,36 +68,42 @@ export interface RevenueMetrics {
   planBreakdown: { plan: string; count: number; mrr: number }[]
 }
 
-const PLAN_PRICES: Record<string, number> = {
+// Source de verite = montant Stripe reel (gere les prix launch/regular)
+// Fallback si subscription_amount_cents est null (pre-migration)
+const PLAN_FALLBACK_CENTS: Record<string, number> = {
   free: 0,
-  pro: 2900,    // $29
-  studio: 4900, // $49
+  pro: 1900,    // $19 (prix reel)
+  studio: 2400, // $24 (prix launch)
 }
 
 export async function computeRevenue(admin: SupabaseClient): Promise<RevenueMetrics> {
-  const { data } = await admin
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data } = await (admin as any)
     .from('profiles')
-    .select('plan')
+    .select('plan, subscription_amount_cents')
 
   if (!data) return { mrr: 0, arr: 0, totalCustomers: 0, planBreakdown: [] }
 
-  const planCounts: Record<string, number> = {}
-  for (const row of data) {
+  const planAgg: Record<string, { count: number; totalCents: number }> = {}
+
+  for (const row of data as { plan: string | null; subscription_amount_cents: number | null }[]) {
     const p = row.plan || 'free'
-    planCounts[p] = (planCounts[p] || 0) + 1
+    if (!planAgg[p]) planAgg[p] = { count: 0, totalCents: 0 }
+    planAgg[p].count++
+    // Use real Stripe amount if available, else fallback
+    const cents = row.subscription_amount_cents ?? PLAN_FALLBACK_CENTS[p] ?? 0
+    planAgg[p].totalCents += cents
   }
 
   let mrr = 0
-  const planBreakdown = Object.entries(planCounts).map(([plan, count]) => {
-    const price = PLAN_PRICES[plan] ?? 0
-    const planMrr = price * count
-    mrr += planMrr
-    return { plan, count, mrr: planMrr }
+  const planBreakdown = Object.entries(planAgg).map(([plan, agg]) => {
+    mrr += agg.totalCents
+    return { plan, count: agg.count, mrr: agg.totalCents }
   })
 
-  const totalCustomers = Object.entries(planCounts)
+  const totalCustomers = Object.entries(planAgg)
     .filter(([p]) => p !== 'free')
-    .reduce((s, [, c]) => s + c, 0)
+    .reduce((s, [, a]) => s + a.count, 0)
 
   return {
     mrr,
@@ -123,33 +129,83 @@ export interface AffiliateRanking {
 }
 
 export async function getAffiliateLeaderboard(admin: SupabaseClient): Promise<AffiliateRanking[]> {
-  const { data } = await admin
-    .from('affiliates')
-    .select('id, name, handle, platform, total_signups, total_conversions, total_revenue_cents, total_commission_earned, status')
-    .eq('status', 'active')
-    .order('total_revenue_cents', { ascending: false })
-    .limit(20)
+  // Real system: influencers with affiliate_codes + referrals + commission ledger
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: influencers } = await (admin as any)
+    .from('influencers')
+    .select('id, display_name, platform_handle, primary_platform, status, affiliate_code')
+    .not('affiliate_code', 'is', null)
+    .order('updated_at', { ascending: false })
+    .limit(50)
 
-  if (!data) return []
+  if (!influencers || influencers.length === 0) {
+    // Fallback: try legacy affiliates table
+    const { data: legacy } = await admin
+      .from('affiliates')
+      .select('id, name, handle, platform, total_signups, total_conversions, total_revenue_cents, total_commission_earned, status')
+      .eq('status', 'active')
+      .order('total_revenue_cents', { ascending: false })
+      .limit(20)
 
-  return data.map(a => {
-    const conversions = a.total_conversions ?? 0
-    const tier = conversions >= 21 ? 'gold' : conversions >= 6 ? 'silver' : 'bronze'
+    if (!legacy) return []
+    return legacy.map(a => {
+      const conversions = a.total_conversions ?? 0
+      const tier: 'bronze' | 'silver' | 'gold' = conversions >= 21 ? 'gold' : conversions >= 6 ? 'silver' : 'bronze'
+      return {
+        id: a.id, name: a.name, handle: a.handle, platform: a.platform,
+        total_conversions: conversions,
+        total_revenue_cents: a.total_revenue_cents ?? 0,
+        commission_earned_cents: a.total_commission_earned ?? 0,
+        conversion_rate: (a.total_signups && a.total_signups > 0) ? Math.round((conversions / a.total_signups) * 100) : 0,
+        tier, status: a.status,
+      }
+    })
+  }
 
-    return {
-      id: a.id,
-      name: a.name,
-      handle: a.handle,
-      platform: a.platform,
-      total_conversions: conversions,
-      total_revenue_cents: a.total_revenue_cents ?? 0,
-      commission_earned_cents: a.total_commission_earned ?? 0,
-      conversion_rate: (a.total_signups && a.total_signups > 0)
-        ? Math.round((conversions / a.total_signups) * 100) : 0,
-      tier,
-      status: a.status,
+  // Build leaderboard from real influencer data
+  const results: AffiliateRanking[] = []
+  for (const inf of influencers as { id: string; display_name: string; platform_handle: string; primary_platform: string | null; status: string; affiliate_code: string }[]) {
+    // Count paying referrals
+    const { count: payingCount } = await admin
+      .from('affiliate_referrals')
+      .select('id', { count: 'exact', head: true })
+      .eq('influencer_id', inf.id)
+      .eq('status', 'paying')
+
+    // Sum commissions + revenue from ledger
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: ledgerAgg } = await (admin as any)
+      .from('affiliate_commission_ledger')
+      .select('amount_cents, event_type')
+      .eq('influencer_id', inf.id)
+
+    let totalCommission = 0
+    let totalRevenue = 0
+    for (const entry of ledgerAgg ?? []) {
+      if (entry.event_type === 'commission') {
+        totalCommission += entry.amount_cents ?? 0
+        totalRevenue += (entry.amount_cents ?? 0) * 3 // ~30% commission → ~3x = revenue
+      }
     }
-  })
+
+    const conversions = payingCount ?? 0
+    const tier: 'bronze' | 'silver' | 'gold' = conversions >= 21 ? 'gold' : conversions >= 6 ? 'silver' : 'bronze'
+
+    results.push({
+      id: inf.id,
+      name: inf.display_name || inf.platform_handle,
+      handle: inf.platform_handle,
+      platform: inf.primary_platform,
+      total_conversions: conversions,
+      total_revenue_cents: totalRevenue,
+      commission_earned_cents: totalCommission,
+      conversion_rate: 0, // no click tracking yet at this level
+      tier,
+      status: inf.status,
+    })
+  }
+
+  return results.sort((a, b) => b.total_revenue_cents - a.total_revenue_cents).slice(0, 20)
 }
 
 // --- Campaign performance ---
