@@ -1,7 +1,7 @@
-# SYSTEM REFERENCE — Analytics Page (v5.2)
+# SYSTEM REFERENCE — Analytics Page (v5.3)
 
 > Source of truth for the Analytics page.
-> v5.2: acquisition_source tracking at signup.
+> v5.3: section headers → normal case 15px/700 (constitution typography rule). uppercase reserved for system labels only.
 > Derniere mise a jour : 2026-07-02.
 
 ---

@@ -28,7 +28,7 @@ export default function AboutPage() {
           </Link>
           <Link href="/signup">
             <Button size="sm" className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white">
-              Free trial
+              Start free
             </Button>
           </Link>
         </div>

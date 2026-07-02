@@ -39,8 +39,8 @@ const ALL_FAQ_ITEMS = [
     a: 'Yes, 1 click from settings. No contract, no lock-in. You keep access until the end of your billing period.',
   },
   {
-    q: 'Is the 7-day free trial actually free? Will I get charged secretly?',
-    a: 'It&apos;s truly free. You provide a card to start, but nothing charges for 7 days. Cancel before day 7 ends and you&apos;re never charged. Stripe sends a reminder 3 days before expiry.',
+    q: 'Is the free plan really free?',
+    a: 'Yes — 3 clips per month, no credit card required. When you&apos;re ready for more, upgrade to Pro or Studio anytime. Cancel any paid plan in 1 click.',
   },
   {
     q: 'Do I own the clips I create?',

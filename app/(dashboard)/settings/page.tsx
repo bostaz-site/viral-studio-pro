@@ -15,6 +15,7 @@ import { PricingCard } from '@/components/settings/pricing-card'
 import { ConnectAccounts } from '@/components/distribution/connect-accounts'
 import { CreatorRankSection } from '@/components/settings/creator-rank-section'
 import { createClient } from '@/lib/supabase/client'
+import { PLANS } from '@/lib/plans'
 import type { User as SupabaseUser } from '@supabase/supabase-js'
 
 interface Profile {
@@ -31,9 +32,12 @@ interface Profile {
 
 type Plan = 'free' | 'pro' | 'studio'
 
-// Plan quotas — keep in sync with app/(dashboard)/layout.tsx and server enforcement
-const PLAN_VIDEO_LIMITS: Record<Plan, number> = { free: 3, pro: 50, studio: 999 }
-const PLAN_MINUTES_LIMITS: Record<Plan, number> = { free: 30, pro: 500, studio: 5000 }
+// Plan quotas — single source of truth from lib/plans.ts
+const PLAN_VIDEO_LIMITS: Record<Plan, number> = {
+  free: PLANS.free.limits.maxVideosPerMonth,
+  pro: PLANS.pro.limits.maxVideosPerMonth,
+  studio: PLANS.studio.limits.maxVideosPerMonth,
+}
 
 // ── Section wrapper ───────────────────────────────────────────────────────────
 
@@ -288,18 +292,11 @@ function SettingsPageInner() {
         {(() => {
           const videosUsed = profile?.monthly_videos_used ?? 0
           const videosLimit = PLAN_VIDEO_LIMITS[currentPlan]
-          const minutesUsed = profile?.monthly_processing_minutes_used ?? 0
-          const minutesLimit = PLAN_MINUTES_LIMITS[currentPlan]
           const videosPct = Math.min(100, Math.round((videosUsed / videosLimit) * 100))
-          const minutesPct = Math.min(100, Math.round((minutesUsed / minutesLimit) * 100))
           const videosColor =
             videosPct >= 90 ? 'from-red-500 to-rose-500' :
             videosPct >= 70 ? 'from-amber-500 to-orange-500' :
-            'from-blue-500 to-indigo-500'
-          const minutesColor =
-            minutesPct >= 90 ? 'from-red-500 to-rose-500' :
-            minutesPct >= 70 ? 'from-amber-500 to-orange-500' :
-            'from-blue-500 to-indigo-500'
+            'from-cyan-500 to-cyan-400'
           return (
             <Card className="bg-card/50 border-border">
               <CardContent className="p-5 space-y-5">
@@ -313,7 +310,7 @@ function SettingsPageInner() {
                     <span className="text-sm tabular-nums text-muted-foreground">
                       <span className="font-semibold text-foreground">{videosUsed}</span>
                       {' / '}
-                      {videosLimit === 999 ? '∞' : videosLimit}
+                      {videosLimit}
                     </span>
                   </div>
                   <div className="h-2 bg-muted/40 rounded-full overflow-hidden">
@@ -327,29 +324,6 @@ function SettingsPageInner() {
                       You&apos;re close to your monthly limit — upgrade to Pro for 30 clips/month.
                     </p>
                   )}
-                </div>
-
-                <Separator />
-
-                {/* Minutes counter */}
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Clock className="h-4 w-4 text-muted-foreground" />
-                      <span className="text-sm font-medium text-foreground">Render minutes</span>
-                    </div>
-                    <span className="text-sm tabular-nums text-muted-foreground">
-                      <span className="font-semibold text-foreground">{minutesUsed}</span>
-                      {' / '}
-                      {minutesLimit === 5000 ? '∞' : minutesLimit} min
-                    </span>
-                  </div>
-                  <div className="h-2 bg-muted/40 rounded-full overflow-hidden">
-                    <div
-                      className={`h-full bg-gradient-to-r ${minutesColor} rounded-full transition-all duration-500`}
-                      style={{ width: `${minutesPct}%` }}
-                    />
-                  </div>
                 </div>
               </CardContent>
             </Card>

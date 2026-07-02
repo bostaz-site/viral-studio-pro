@@ -15,7 +15,7 @@ export function CaptionCard({ caption, hashtags, handle, onCaptionCopied }: Capt
   const [captionCopied, setCaptionCopied] = useState(false)
   const [hashtagsCopied, setHashtagsCopied] = useState(false)
 
-  const fullCaption = `${caption}\n\nUse code VIRAL-${handle.toUpperCase()} for a free trial!\n#ad #sponsored`
+  const fullCaption = `${caption}\n\nUse code VIRAL-${handle.toUpperCase()} for a discount!\n#ad #sponsored`
 
   const handleCopyCaption = async () => {
     await navigator.clipboard.writeText(fullCaption)

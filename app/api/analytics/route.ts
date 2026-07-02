@@ -16,8 +16,13 @@ import { createAdminClient } from '@/lib/supabase/admin'
  * we double-check with .eq('user_id', user.id) to be safe.
  */
 
-const PLAN_VIDEO_LIMITS: Record<string, number> = { free: 3, pro: 50, studio: 999 }
-const PLAN_MINUTES_LIMITS: Record<string, number> = { free: 30, pro: 500, studio: 5000 }
+// Import from source of truth
+import { PLANS, getPlanConfig } from '@/lib/plans'
+const PLAN_VIDEO_LIMITS: Record<string, number> = {
+  free: PLANS.free.limits.maxVideosPerMonth,
+  pro: PLANS.pro.limits.maxVideosPerMonth,
+  studio: PLANS.studio.limits.maxVideosPerMonth,
+}
 
 function median(values: number[]): number | null {
   if (values.length === 0) return null
@@ -95,8 +100,6 @@ export const GET = withAuth(async (_req, user) => {
     videos: profile?.monthly_videos_used ?? 0,
     videosLimit: PLAN_VIDEO_LIMITS[plan] ?? 3,
     bonusVideos,
-    minutes: profile?.monthly_processing_minutes_used ?? 0,
-    minutesLimit: PLAN_MINUTES_LIMITS[plan] ?? 30,
   }
 
   // ── Recent activity (top 10) ──

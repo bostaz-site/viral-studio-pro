@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { cn } from '@/lib/utils'
+import { PLANS } from '@/lib/plans'
 import { Settings, Menu, X, LogOut, Zap, Compass, Wand2, Radio, BarChart3, TrendingUp, Handshake, Users, ChevronRight, Mail, Inbox, Webhook, Brain, Film, Cpu, Sparkles, Radar, Beaker, ShieldCheck } from 'lucide-react'
 import { ViralAnimalLogo } from '@/components/brand/viral-animal-logo'
 import { useUiStore } from '@/stores/ui-store'
@@ -101,7 +102,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         { name: 'Audits', href: '/admin/audits', icon: ShieldCheck },
       ]
 
-  const planLimits: Record<string, number> = { free: 3, pro: 30, studio: 120 }
+  const planLimits: Record<string, number> = { free: PLANS.free.limits.maxVideosPerMonth, pro: PLANS.pro.limits.maxVideosPerMonth, studio: PLANS.studio.limits.maxVideosPerMonth }
   const planLabel: Record<string, string> = { free: 'Free', pro: 'Pro', studio: 'Studio' }
   const currentPlan = profile?.plan || 'free'
   const videosUsed = profile?.monthly_videos_used ?? 0

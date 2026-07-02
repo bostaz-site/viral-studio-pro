@@ -403,7 +403,7 @@ export function AnalyticsDashboard() {
 
       {/* ─── 4. SMART QUEUE ADJUSTMENTS (promoted) ─── */}
       <div className="animate-in fade-in duration-500" style={{ animationDelay: '100ms', animationFillMode: 'both' }}>
-        <h2 className="text-xs uppercase tracking-widest text-muted-foreground font-medium flex items-center gap-1.5 mb-3">
+        <h2 className="text-[15px] font-bold text-foreground flex items-center gap-1.5 mb-3">
           <ArrowRight className="h-3.5 w-3.5 text-cyan-400" />
           Smart Queue adjustments
         </h2>
@@ -456,7 +456,7 @@ export function AnalyticsDashboard() {
 
       {/* ─── 5. SMART QUEUE INFLUENCE INDICATOR ─── */}
       <Card className="bg-card/60 border-border px-5 py-4">
-        <h3 className="text-xs uppercase tracking-widest text-muted-foreground font-medium mb-3">Distribution Learning Impact</h3>
+        <h3 className="text-[15px] font-bold text-foreground mb-3">Distribution learning impact</h3>
         <div className="flex items-center gap-1 mb-2">
           {INFLUENCE_STAGES.map((stage, i) => (
             <div key={i} className="flex-1 flex flex-col items-center gap-1">
@@ -482,7 +482,7 @@ export function AnalyticsDashboard() {
 
       {/* ─── 6. WHAT'S WORKING ─── */}
       <div className="animate-in fade-in duration-500" style={{ animationDelay: '200ms', animationFillMode: 'both' }}>
-        <h2 className="text-xs uppercase tracking-widest text-muted-foreground font-medium flex items-center gap-1.5 mb-3">
+        <h2 className="text-[15px] font-bold text-foreground flex items-center gap-1.5 mb-3">
           <TrendingUp className="h-3.5 w-3.5 text-emerald-400" />
           What&apos;s working
         </h2>
@@ -532,7 +532,7 @@ export function AnalyticsDashboard() {
 
       {/* ─── 7. BEST POSTING TIMES ─── */}
       <div className="animate-in fade-in duration-500" style={{ animationDelay: '300ms', animationFillMode: 'both' }}>
-        <h2 className="text-xs uppercase tracking-widest text-muted-foreground font-medium flex items-center gap-1.5 mb-3">
+        <h2 className="text-[15px] font-bold text-foreground flex items-center gap-1.5 mb-3">
           <Clock className="h-3.5 w-3.5 text-cyan-400" />
           Best posting times
         </h2>
@@ -578,7 +578,7 @@ export function AnalyticsDashboard() {
 
       {/* ─── 8. WHAT'S NOT WORKING ─── */}
       <div className="animate-in fade-in duration-500" style={{ animationDelay: '400ms', animationFillMode: 'both' }}>
-        <h2 className="text-xs uppercase tracking-widest text-muted-foreground font-medium flex items-center gap-1.5 mb-3">
+        <h2 className="text-[15px] font-bold text-foreground flex items-center gap-1.5 mb-3">
           <AlertCircle className="h-3.5 w-3.5 text-red-400" />
           What&apos;s not working
         </h2>
@@ -604,7 +604,7 @@ export function AnalyticsDashboard() {
 
       {/* ─── 9. CONNECTED ACCOUNTS ─── */}
       <div>
-        <h2 className="text-xs uppercase tracking-widest text-muted-foreground font-medium flex items-center gap-1.5 mb-3">
+        <h2 className="text-[15px] font-bold text-foreground flex items-center gap-1.5 mb-3">
           <BarChart3 className="h-3.5 w-3.5 text-cyan-400" />
           Connected accounts
         </h2>
@@ -662,7 +662,7 @@ export function AnalyticsDashboard() {
 
       {/* ─── 10. POST HISTORY ─── */}
       <div>
-        <h2 className="text-xs uppercase tracking-widest text-muted-foreground font-medium flex items-center gap-1.5 mb-3">
+        <h2 className="text-[15px] font-bold text-foreground flex items-center gap-1.5 mb-3">
           <Film className="h-3.5 w-3.5 text-cyan-400" />
           Post history
         </h2>

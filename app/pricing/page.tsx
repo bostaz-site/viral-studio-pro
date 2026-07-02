@@ -46,7 +46,7 @@ const TIERS: PricingTier[] = [
       '3 videos per month',
       'Clips up to 60 seconds',
       'Automatic split-screen',
-      'AI transcription (Whisper)',
+      'AI transcription word-by-word',
       'Viral score + hook analysis',
       '1 format (9:16 vertical)',
       'Viral Animal watermark',
@@ -70,11 +70,10 @@ const TIERS: PricingTier[] = [
       'Custom branding (logo, colors)',
       '3 export formats',
       'Full Trending dashboard',
-      'Unlimited Remake This',
+      'Unlimited Make It Viral',
     ],
     highlighted: true,
-    trialNote: '7 days free, no commitment',
-    cta: 'Start 7-day free trial',
+    cta: 'Go Pro — $19/mo',
     accentColor: 'from-amber-500 to-amber-600',
   },
   {
@@ -149,10 +148,10 @@ export default function PricingPage() {
             <Link href="/login">
               <Button variant="ghost" size="sm">Sign in</Button>
             </Link>
-            <Link href="/login">
+            <Link href="/signup">
               <Button size="sm" className="gap-1.5">
                 <Rocket className="h-3.5 w-3.5" />
-                Free trial
+                Start free
               </Button>
             </Link>
           </div>
@@ -227,13 +226,11 @@ export default function PricingPage() {
                     </div>
                     {tier.priceOriginal && (
                       <div className="mt-1 flex flex-col gap-0.5">
-                        <p className="text-xs text-amber-400 font-semibold">Launch price — limited offer</p>
+                        <p className="text-xs text-amber-400 font-semibold">Founding price — locked in while you stay subscribed</p>
                         <LaunchCountdown />
                       </div>
                     )}
-                    {tier.trialNote && (
-                      <p className="text-xs text-emerald-400 font-medium mt-1.5">{tier.trialNote}</p>
-                    )}
+                    {/* trialNote removed — freemium without trial */}
                   </div>
 
                   {/* Description */}
@@ -254,16 +251,23 @@ export default function PricingPage() {
                     className={cn(
                       'w-full gap-2 h-11',
                       tier.highlighted
-                        ? 'bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-amber-950'
+                        ? 'text-amber-950 font-bold'
                         : ''
                     )}
                     variant={tier.highlighted ? 'default' : 'outline'}
+                    style={tier.highlighted ? { background: 'linear-gradient(135deg, #fbbf24, #f59e0b 45%, #d97706)', boxShadow: '0 0 20px rgba(245, 158, 11, 0.22)' } : undefined}
                     onClick={() => handleSelectPlan(tier.id)}
                     disabled={loadingPlan === tier.id}
                   >
                     {loadingPlan === tier.id ? 'Loading...' : tier.cta}
                     <ArrowRight className="h-4 w-4" />
                   </Button>
+                  {tier.id === 'free' && (
+                    <div className="mt-2 space-y-1 text-center">
+                      <p className="text-xs text-zinc-500">No card needed</p>
+                      <p className="text-[11px] text-zinc-600">Referral bonuses available (+3 clips per friend)</p>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             )

@@ -19,10 +19,10 @@ const bodySchema = z.object({
   promo_code: z.string().max(30).optional(),
 })
 
-// 7-day free trial on Pro only (Studio is explicitly a committed tier).
-// Null means "no trial" — Stripe rejects 0.
+// Freemium model — no trial period on any tier.
+// Users start free and upgrade when ready.
 const TRIAL_DAYS: Record<'pro' | 'studio', number | null> = {
-  pro: 7,
+  pro: null,
   studio: null,
 }
 
