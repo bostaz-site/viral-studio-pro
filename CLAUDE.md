@@ -28,6 +28,7 @@ Route existante : `app/api/tiktok/creator-info/route.ts`.
 - **YouTube / Instagram / Facebook** : affiches "coming soon", desactives (permissions en attente)
 - L'autofarm auto-post devra gerer le risque contenu tiers (musique detectee par TikTok) : filtre audio ou replace-audio dans le pipeline — note au backlog
 - **Plans** : Free ($0, 3 videos/mois, watermark), Pro ($19, 30 videos/mois), Studio ($24 launch / $29 regular, 120 videos/mois, multi-platform publish)
+- **Pack accounts** : `profiles.is_comp=true` → free Pro access for testers (friends/family). `resolveEffectivePlan(profile)` in `lib/plans.ts` is the single source of truth — returns `'pro'` for comp accounts regardless of stored plan. Excluded from MRR/ARR in admin analytics. Badge: "PACK" in sidebar. No Stripe, no paywall, no billing UI.
 - **Stripe** : checkout + portal + webhooks integres
 - **Feature flag** : `NEXT_PUBLIC_AUDIT_MODE` cache les features browse-clips pendant les reviews TikTok
 
@@ -235,6 +236,8 @@ CREATE TABLE public.profiles (
     plan TEXT DEFAULT 'free' CHECK (plan IN ('free', 'pro', 'studio')),
     stripe_customer_id TEXT,
     monthly_videos_used INTEGER DEFAULT 0,
+    is_comp BOOLEAN NOT NULL DEFAULT FALSE,   -- Pack account (free Pro for testers)
+    comp_note TEXT,                            -- Why comped (who/reason)
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { checkClipDuration, getPlanConfig } from '@/lib/plans'
+import { checkClipDuration, getPlanConfig, resolveEffectivePlan } from '@/lib/plans'
 import { resolveTwitchClipFromUrlOrSlug } from '@/lib/twitch/resolve-clip-url'
 import { withRetry } from '@/lib/utils/with-retry'
 import type { RenderStatus } from '@/types/enums'
@@ -144,11 +144,11 @@ export async function enforcePlanLimits(
 ): Promise<NextResponse | null> {
   const { data: profile } = await (admin
     .from('profiles')
-    .select('plan')
+    .select('plan, is_comp')
     .eq('id', userId)
-    .single() as unknown as Promise<{ data: { plan: string | null } | null }>)
+    .single() as unknown as Promise<{ data: { plan: string | null; is_comp: boolean | null } | null }>)
 
-  const callerPlan = profile?.plan ?? 'free'
+  const callerPlan = resolveEffectivePlan(profile)
 
   // Duration check
   if (typeof clipDuration === 'number' && clipDuration > 0) {

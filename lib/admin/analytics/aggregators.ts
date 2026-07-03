@@ -80,13 +80,15 @@ export async function computeRevenue(admin: SupabaseClient): Promise<RevenueMetr
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data } = await (admin as any)
     .from('profiles')
-    .select('plan, subscription_amount_cents')
+    .select('plan, subscription_amount_cents, is_comp')
 
   if (!data) return { mrr: 0, arr: 0, totalCustomers: 0, planBreakdown: [] }
 
   const planAgg: Record<string, { count: number; totalCents: number }> = {}
 
-  for (const row of data as { plan: string | null; subscription_amount_cents: number | null }[]) {
+  for (const row of data as { plan: string | null; subscription_amount_cents: number | null; is_comp: boolean | null }[]) {
+    // Exclude comp/pack accounts from revenue metrics — they pay $0
+    if (row.is_comp) continue
     const p = row.plan || 'free'
     if (!planAgg[p]) planAgg[p] = { count: 0, totalCents: 0 }
     planAgg[p].count++

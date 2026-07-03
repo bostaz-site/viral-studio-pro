@@ -15,7 +15,7 @@ import { PricingCard } from '@/components/settings/pricing-card'
 import { ConnectAccounts } from '@/components/distribution/connect-accounts'
 import { CreatorRankSection } from '@/components/settings/creator-rank-section'
 import { createClient } from '@/lib/supabase/client'
-import { PLANS } from '@/lib/plans'
+import { PLANS, resolveEffectivePlan } from '@/lib/plans'
 import type { User as SupabaseUser } from '@supabase/supabase-js'
 
 interface Profile {
@@ -28,6 +28,7 @@ interface Profile {
   referral_code: string | null
   bonus_videos: number | null
   updated_at?: string | null
+  is_comp?: boolean | null
 }
 
 type Plan = 'free' | 'pro' | 'studio'
@@ -115,7 +116,7 @@ function SettingsPageInner() {
         }
       }
     })
-      .select('id, email, full_name, plan, monthly_videos_used, monthly_processing_minutes_used, referral_code, bonus_videos, updated_at')
+      .select('id, email, full_name, plan, monthly_videos_used, monthly_processing_minutes_used, referral_code, bonus_videos, updated_at, is_comp')
       .eq('id', currentUser.id)
       .single()
 
@@ -195,7 +196,8 @@ function SettingsPageInner() {
     if (data.data?.url) window.location.href = data.data.url
   }
 
-  const currentPlan = (profile?.plan ?? 'free') as Plan
+  const isComp = profile?.is_comp === true
+  const currentPlan = resolveEffectivePlan(profile) as Plan
 
   if (loading) {
     return (
@@ -486,13 +488,25 @@ function SettingsPageInner() {
       <Section
         icon={CreditCard}
         title="Plan & billing"
-        description="Manage your Viral Animal subscription"
+        description={isComp ? 'Pack member — Pro access' : 'Manage your Viral Animal subscription'}
       >
-        <PricingCard
-          currentPlan={currentPlan}
-          onUpgrade={handleUpgrade}
-          onManageBilling={handleManageBilling}
-        />
+        {isComp ? (
+          <Card className="border-amber-500/20 bg-amber-500/5">
+            <CardContent className="p-5 flex items-center gap-4">
+              <span className="text-2xl">🐺</span>
+              <div>
+                <p className="text-sm font-bold text-foreground">Pack member — full Pro access, courtesy of the wolf.</p>
+                <p className="text-xs text-muted-foreground mt-0.5">Break things and tell us.</p>
+              </div>
+            </CardContent>
+          </Card>
+        ) : (
+          <PricingCard
+            currentPlan={currentPlan}
+            onUpgrade={handleUpgrade}
+            onManageBilling={handleManageBilling}
+          />
+        )}
         {upgradeError && (
           <div className="mt-3 flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm">
             <AlertCircle className="h-4 w-4 text-destructive mt-0.5 shrink-0" />

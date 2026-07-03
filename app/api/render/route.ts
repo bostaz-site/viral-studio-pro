@@ -4,7 +4,7 @@ import { withAuth } from '@/lib/api/withAuth'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { rateLimit, RATE_LIMITS } from '@/lib/rate-limit'
 import { resolveTwitchClipFromUrlOrSlug } from '@/lib/twitch/resolve-clip-url'
-import { checkClipDuration, getPlanConfig } from '@/lib/plans'
+import { checkClipDuration, getPlanConfig, resolveEffectivePlan } from '@/lib/plans'
 import { logger } from '@/lib/logger'
 
 // Allow larger request body for hook overlay PNG (base64 ~500KB-2MB)
@@ -199,11 +199,11 @@ export const POST = withAuth(async (request, user) => {
   //    falls through to bonus_videos when the plan quota is exhausted)
   const { data: profile } = await (admin
     .from('profiles')
-    .select('plan')
+    .select('plan, is_comp')
     .eq('id', user.id)
-    .single() as unknown as Promise<{ data: { plan: string | null } | null }>)
+    .single() as unknown as Promise<{ data: { plan: string | null; is_comp: boolean | null } | null }>)
 
-  const callerPlan = profile?.plan ?? 'free'
+  const callerPlan = resolveEffectivePlan(profile)
 
   // Duration check — skip if we don't know the duration (will rely on VPS)
   if (typeof clipDuration === 'number' && clipDuration > 0) {

@@ -1,9 +1,12 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { Mail, Gift, Users, TrendingUp, AlertCircle, Loader2, Crown } from 'lucide-react'
+import { Mail, Gift, Users, TrendingUp, AlertCircle, Loader2, Crown, ShieldCheck, X } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { createClient } from '@/lib/supabase/client'
 
 interface GrowthData {
   newsletter: {
@@ -221,6 +224,9 @@ export default function AdminGrowthPage() {
           </Card>
         )}
       </section>
+
+      {/* Pack accounts — comp/free Pro for testers */}
+      <PackAccountsSection />
     </div>
   )
 }
@@ -254,5 +260,141 @@ function StatCard({
         </p>
       </CardContent>
     </Card>
+  )
+}
+
+// ── Pack Accounts Section ──
+
+interface PackAccount {
+  id: string
+  email: string
+  full_name: string | null
+  comp_note: string | null
+}
+
+function PackAccountsSection() {
+  const [accounts, setAccounts] = useState<PackAccount[]>([])
+  const [loading, setLoading] = useState(true)
+  const [email, setEmail] = useState('')
+  const [note, setNote] = useState('')
+  const [granting, setGranting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [success, setSuccess] = useState<string | null>(null)
+
+  const loadAccounts = useCallback(async () => {
+    const supabase = createClient()
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data } = await (supabase as any)
+      .from('profiles')
+      .select('id, email, full_name, comp_note')
+      .eq('is_comp', true)
+      .order('updated_at', { ascending: false })
+    setAccounts(data ?? [])
+    setLoading(false)
+  }, [])
+
+  useEffect(() => { loadAccounts() }, [loadAccounts])
+
+  const handleGrant = async () => {
+    if (!email.trim()) return
+    setGranting(true)
+    setError(null)
+    setSuccess(null)
+    try {
+      const supabase = createClient()
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: profile, error: fetchErr } = await (supabase as any)
+        .from('profiles')
+        .select('id, email')
+        .eq('email', email.trim().toLowerCase())
+        .single()
+      if (fetchErr || !profile) {
+        setError('No profile found with that email. The user must sign up first.')
+        return
+      }
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { error: updateErr } = await (supabase as any)
+        .from('profiles')
+        .update({ is_comp: true, comp_note: note.trim() || null })
+        .eq('id', profile.id)
+      if (updateErr) { setError(updateErr.message); return }
+      setSuccess(`Pack granted to ${email}`)
+      setEmail('')
+      setNote('')
+      loadAccounts()
+    } catch { setError('Network error') } finally { setGranting(false) }
+  }
+
+  const handleRevoke = async (id: string) => {
+    const supabase = createClient()
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (supabase as any)
+      .from('profiles')
+      .update({ is_comp: false, comp_note: null })
+      .eq('id', id)
+    loadAccounts()
+  }
+
+  return (
+    <section>
+      <h2 className="text-lg font-semibold text-foreground mb-3 flex items-center gap-2">
+        <ShieldCheck className="h-4 w-4 text-amber-400" />
+        Pack accounts
+        <span className="text-xs text-muted-foreground font-normal ml-1">Free Pro for testers — excluded from MRR</span>
+      </h2>
+
+      {/* Grant form */}
+      <Card className="bg-card/40 mb-4">
+        <CardContent className="p-4 space-y-3">
+          <div className="flex gap-2">
+            <Input
+              placeholder="email@example.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="flex-1"
+            />
+            <Input
+              placeholder="Note (e.g. brother of Samy)"
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              className="flex-1"
+            />
+            <Button onClick={handleGrant} disabled={granting || !email.trim()} size="sm">
+              {granting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : 'Grant'}
+            </Button>
+          </div>
+          {error && <p className="text-xs text-destructive flex items-center gap-1"><AlertCircle className="h-3 w-3" />{error}</p>}
+          {success && <p className="text-xs text-emerald-400">{success}</p>}
+        </CardContent>
+      </Card>
+
+      {/* Active pack accounts list */}
+      {loading ? (
+        <div className="text-center py-4"><Loader2 className="h-4 w-4 animate-spin mx-auto text-muted-foreground" /></div>
+      ) : accounts.length === 0 ? (
+        <Card className="bg-card/40">
+          <CardContent className="p-6 text-sm text-muted-foreground text-center">
+            No pack accounts yet.
+          </CardContent>
+        </Card>
+      ) : (
+        <Card className="bg-card/40 overflow-hidden">
+          <div className="divide-y divide-border/40">
+            {accounts.map((a) => (
+              <div key={a.id} className="flex items-center gap-3 px-5 py-2.5">
+                <span className="text-sm">🐺</span>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-foreground truncate">{a.full_name || a.email}</p>
+                  <p className="text-xs text-muted-foreground truncate">{a.email}{a.comp_note && ` — ${a.comp_note}`}</p>
+                </div>
+                <Button variant="ghost" size="sm" className="h-7 px-2 text-muted-foreground hover:text-destructive" onClick={() => handleRevoke(a.id)}>
+                  <X className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
+    </section>
   )
 }

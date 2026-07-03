@@ -255,12 +255,13 @@ export default function EnhancePage() {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data: profile } = await (supabase as any)
         .from('profiles')
-        .select('plan, monthly_videos_used, bonus_videos, paywall_save_used, referral_code')
+        .select('plan, monthly_videos_used, bonus_videos, paywall_save_used, referral_code, is_comp')
         .eq('id', user.id)
         .single()
 
       if (profile) {
-        setUserPlan(profile.plan ?? 'free')
+        // Comp/pack accounts get Pro access
+        setUserPlan(profile.is_comp ? 'pro' : (profile.plan ?? 'free'))
         setMonthlyUsed(profile.monthly_videos_used ?? 0)
         setBonusVideos(profile.bonus_videos ?? 0)
         setPaywallSaveUsed(profile.paywall_save_used ?? false)

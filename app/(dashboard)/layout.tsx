@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { cn } from '@/lib/utils'
-import { PLANS } from '@/lib/plans'
+import { PLANS, resolveEffectivePlan } from '@/lib/plans'
 import { Settings, Menu, X, LogOut, Zap, Compass, Wand2, Radio, BarChart3, TrendingUp, Handshake, Users, ChevronRight, Mail, Inbox, Webhook, Brain, Film, Cpu, Sparkles, Radar, Beaker, ShieldCheck } from 'lucide-react'
 import { ViralAnimalLogo } from '@/components/brand/viral-animal-logo'
 import { useUiStore } from '@/stores/ui-store'
@@ -20,6 +20,7 @@ interface UserProfile {
   plan: string | null
   monthly_videos_used: number | null
   bonus_videos: number | null
+  is_comp: boolean | null
 }
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -36,12 +37,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     supabase.auth.getUser().then(({ data }) => {
       setUser(data.user)
       if (data.user) {
-        supabase
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        ;(supabase as any)
           .from('profiles')
-          .select('plan, monthly_videos_used, bonus_videos')
+          .select('plan, monthly_videos_used, bonus_videos, is_comp')
           .eq('id', data.user.id)
           .single()
-          .then(({ data: p }) => { if (p) setProfile(p) })
+          .then(({ data: p }: { data: UserProfile | null }) => { if (p) setProfile(p) })
         // Check admin status + effective audit mode server-side
         fetch('/api/auth/me')
           .then(r => r.json())
@@ -104,7 +106,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   const planLimits: Record<string, number> = { free: PLANS.free.limits.maxVideosPerMonth, pro: PLANS.pro.limits.maxVideosPerMonth, studio: PLANS.studio.limits.maxVideosPerMonth }
   const planLabel: Record<string, string> = { free: 'Free', pro: 'Pro', studio: 'Studio' }
-  const currentPlan = profile?.plan || 'free'
+  const isComp = profile?.is_comp === true
+  const currentPlan = resolveEffectivePlan(profile)
   const videosUsed = profile?.monthly_videos_used ?? 0
   const bonusVideos = profile?.bonus_videos ?? 0
   const videosLimit = planLimits[currentPlan] ?? 3
@@ -125,7 +128,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <div className="flex items-center justify-between h-16 px-6 border-b border-border shrink-0">
           <Link href="/" className="flex items-center gap-2">
             <ViralAnimalLogo size={32} />
-            {currentPlan !== 'free' && (
+            {isComp ? (
+              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded border border-amber-500/40 text-amber-400 uppercase">
+                PACK
+              </span>
+            ) : currentPlan !== 'free' && (
               <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-gradient-to-r from-amber-500 to-orange-500 text-white uppercase">
                 {planLabel[currentPlan]}
               </span>

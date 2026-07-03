@@ -130,6 +130,18 @@ export function getPlanConfig(planId: string | null | undefined): PlanConfig {
   return PLANS.free
 }
 
+/**
+ * Resolve the effective plan for a user, accounting for comp/pack accounts.
+ * Comp accounts (is_comp=true) get Pro features regardless of their stored plan.
+ * Use this everywhere that determines user rights/quotas.
+ */
+export function resolveEffectivePlan(profile: { plan?: string | null; is_comp?: boolean | null } | null): PlanId {
+  if (profile?.is_comp) return 'pro'
+  const plan = profile?.plan
+  if (plan && plan in PLANS) return plan as PlanId
+  return 'free'
+}
+
 export interface UsageCheckResult {
   allowed: boolean
   reason?: string
