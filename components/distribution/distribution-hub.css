@@ -3084,9 +3084,9 @@
   position: absolute;
   inset: 20px;
   border-radius: 999px;
-  background: radial-gradient(circle, rgba(56,189,248,.18), transparent 55%), radial-gradient(circle at 50% 45%, rgba(249,115,22,.12), transparent 40%);
+  background: radial-gradient(circle, rgba(56,189,248,.13), transparent 55%), radial-gradient(circle at 50% 45%, rgba(249,115,22,.08), transparent 40%);
   filter: blur(18px);
-  animation: dist-breathe 4s ease-in-out infinite;
+  animation: dist-breathe 5.5s ease-in-out infinite;
   transition: opacity .6s;
 }
 .dist-core-wrap.off .dist-core-glow {
@@ -3094,8 +3094,8 @@
   animation: none;
 }
 @keyframes dist-breathe {
-  0%, 100% { transform: scale(.97); opacity: .72; }
-  50% { transform: scale(1.04); opacity: 1; }
+  0%, 100% { transform: scale(.94); opacity: .7; }
+  50% { transform: scale(1.05); opacity: 1; }
 }
 .dist-brain-svg {
   position: absolute;
@@ -3852,4 +3852,151 @@
 .dist-clip-quick-publish:focus-visible {
   outline: 1px solid rgba(56, 189, 248, 0.8);
   outline-offset: 2px;
+}
+
+/* ═══ Living Farm — Post-sent pulse ═══ */
+.dist-post-pulse {
+  position: absolute;
+  inset: 0;
+  border-radius: 999px;
+  border: 2px solid #fbbf24;
+  opacity: 0;
+  pointer-events: none;
+  z-index: 10;
+}
+.dist-post-pulse.active {
+  animation: dist-pulse-ring 900ms ease-out forwards;
+}
+@keyframes dist-pulse-ring {
+  0% { transform: scale(.85); opacity: .9; }
+  100% { transform: scale(1.6); opacity: 0; }
+}
+/* Platform node flash on post sent */
+.dist-plat-node.post-flash .plat-icon-wrap {
+  animation: dist-node-flash 900ms ease-out;
+}
+@keyframes dist-node-flash {
+  0% { box-shadow: 0 0 0 rgba(251,191,36,0); }
+  30% { box-shadow: 0 0 24px rgba(251,191,36,.7); }
+  100% { box-shadow: 0 0 0 rgba(251,191,36,0); }
+}
+
+/* ═══ Living Farm — Node state chips ═══ */
+.dist-plat-chip {
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  padding: 2px 7px;
+  border-radius: 6px;
+  margin-top: 4px;
+  white-space: nowrap;
+  line-height: 1.4;
+}
+.dist-plat-chip.on {
+  background: rgba(74,222,128,.12);
+  color: #4ade80;
+  border: 1px solid rgba(74,222,128,.25);
+}
+.dist-plat-chip.connect {
+  background: rgba(56,189,248,.08);
+  color: #7dd3fc;
+  border: 1px solid rgba(56,189,248,.2);
+  cursor: pointer;
+}
+.dist-plat-chip.connect:hover {
+  background: rgba(56,189,248,.15);
+}
+.dist-plat-chip.soon {
+  background: rgba(113,113,122,.1);
+  color: #71717a;
+  border: 1px solid rgba(113,113,122,.2);
+}
+
+/* ═══ Living Farm — Live countdown ═══ */
+.dist-countdown {
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  font-size: 16px;
+  font-weight: 800;
+  letter-spacing: .04em;
+  color: #fbbf24;
+  tabular-nums: lining-nums;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ═══ Living Farm — Ticker ═══ */
+.dist-ticker {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  max-height: 72px;
+  overflow: hidden;
+  margin-top: 6px;
+}
+.dist-ticker-item {
+  font-size: 9px;
+  color: #a1a1aa;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  animation: dist-ticker-in 400ms ease-out;
+}
+.dist-ticker-item .ticker-time {
+  color: #71717a;
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+}
+.dist-ticker-item .ticker-dot {
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: #4ade80;
+  flex-shrink: 0;
+}
+@keyframes dist-ticker-in {
+  from { opacity: 0; transform: translateY(-6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ═══ Living Farm — CTA amber button ═══ */
+.dist-add-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border-radius: 10px;
+  border: none;
+  background: linear-gradient(135deg, #fbbf24, #f59e0b 45%, #d97706);
+  color: #451a03;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 120ms ease-out, box-shadow 120ms ease-out;
+  box-shadow: 0 0 14px rgba(245,158,11,.18);
+}
+.dist-add-cta:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 0 22px rgba(245,158,11,.32);
+}
+
+/* ═══ Living Farm — Amber flow particles ═══ */
+.dist-flow-path.amber {
+  stroke: rgba(251,191,36,.35);
+  stroke-width: 1.5;
+  fill: none;
+}
+
+/* ═══ Living Farm — prefers-reduced-motion ═══ */
+@media (prefers-reduced-motion: reduce) {
+  .dist-core-glow {
+    animation: none !important;
+    opacity: .5;
+  }
+  .dist-core-outer-ring { animation: none !important; }
+  .dist-post-pulse { display: none; }
+  .dist-plat-node.post-flash .plat-icon-wrap { animation: none !important; }
+  .dist-map-svg circle,
+  .dist-funnel circle { display: none; }
+  .dist-ticker-item { animation: none !important; }
+  animateMotion { display: none; }
 }

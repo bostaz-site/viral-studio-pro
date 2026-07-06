@@ -1170,6 +1170,58 @@ POST /api/cron/publish-scheduled — every 5-10min
 | v8.1 | TikTok Direct Post compliance : TikTokPublishDialog, creator_info fetch, 7 requirements UX, polling status |
 | v9 | Autofarm executor : queue→DB bridge, cron publish-scheduled, execute-publish.ts, auto-post defaults TikTok, retry logic, Discord notifications |
 | v9.1 | Queue platform filtering (connected+enabled only), honest reach display, Instagram behind NEXT_PUBLIC_INSTAGRAM_ENABLED flag |
+| v9.2 | Living Farm : particules de flux ambre/cyan, onde post-sent, brain breathing 5.5s, node state chips, live countdown, ticker activite, CTA ambre |
+
+---
+
+## Living Farm (v9.2)
+
+Enrichissements visuels pour que le systeme ait l'air vivant en permanence, sans changer le layout.
+
+### Particules de flux
+- **Brain → plateformes actives** : particules AMBRE (#fbbf24), 2 par plateforme max, ~3.5s de trajet, via `<animateMotion>` sur les SVG paths dynamiques
+- **Clip Bank → brain** (funnel) : particules CYAN (#38BDF8), 2 en transit, meme mecanisme
+- Plateformes non connectees : lignes faibles statiques, aucune particule
+- Max 6 particules total
+
+### Onde post-sent
+- Declenchee quand `publishDone` passe a true avec des platforms published
+- Brain emet un pulse ring ambre (`.dist-post-pulse`, scale .85→1.6, opacity .9→0, 900ms)
+- Noeud plateforme flash ambre (`.post-flash`, box-shadow pulse 900ms)
+- Ajout automatique au ticker d'activite
+
+### Respiration du cerveau
+- Keyframe `dist-breathe` : scale .94→1.05, opacity .7→1, cycle 5.5s ease-in-out
+- Glow de base reduit ~30% (opacites .13/.08 au lieu de .18/.12)
+- `prefers-reduced-motion` : glow statique a 50%, aucune animation
+
+### Grammaire des etats de noeuds
+| Etat | Contour | Chip |
+|---|---|---|
+| Connecte/actif | ElectricBorder anime | `● ON · POSTING` (vert) |
+| Connecte/off | Statique | `● OFF` |
+| Disponible | Statique | `CONNECT` (cliquable, cyan) |
+| Coming soon | Fantome (opacity .35) | `SOON` (gris) |
+
+### Countdown live
+- Dans la carte CLIP FARM panel, stat "NEXT POST" affiche un compte a rebours `HH:MM:SS` qui decompte chaque seconde
+- Calcule depuis le vrai `scheduledAt` du premier post visible dans la queue
+- Plateforme + heure affichees en sub-label
+
+### Ticker activite
+- 4 lignes max dans la carte CLIP FARM panel, fade-in par le haut
+- Alimente par les vraies donnees : `published_posts` charges au mount + events de publish en session
+- Format : `HH:MM · ● · posted to TikTok`
+- Si aucune donnee : `farm heartbeat OK`
+
+### CTA ambre
+- Bouton "+ Add clips to the farm" en gradient ambre (#fbbf24→#f59e0b→#d97706, texte #451a03)
+- Hover : translateY(-1px) + glow ambre
+- Place dans la carte CLIP FARM panel, scrolle vers le Clip Bank au clic
+
+### Pill vs Panel (deduplication)
+- Pill header : `● CLIP FARM · RUNNING` (compact, statut global)
+- Panel : `AUTO-DISTRIBUTE` titre + donnees (countdown, queue, ticker, CTA)
 
 ---
 

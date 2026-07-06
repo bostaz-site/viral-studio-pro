@@ -461,6 +461,10 @@ export function DistributionHub() {
   const captionRef = useRef<HTMLTextAreaElement>(null)
   const typewriterRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const [countdown, setCountdown] = useState('')
+  const [postPulseActive, setPostPulseActive] = useState(false)
+  const [postFlashPlatform, setPostFlashPlatform] = useState<string | null>(null)
+  const [liveCountdown, setLiveCountdown] = useState('--:--:--')
+  const [tickerEvents, setTickerEvents] = useState<Array<{ time: string; text: string }>>([])
 
   // Publish sequence state
   const [publishSteps, setPublishSteps] = useState<Array<{
@@ -584,6 +588,29 @@ export function DistributionHub() {
 
   useEffect(() => { fetchAccounts() }, [fetchAccounts])
 
+  // Living Farm: load recent activity for ticker
+  useEffect(() => {
+    async function loadActivity() {
+      const supabase = createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+      const { data: posts } = await supabase
+        .from('published_posts')
+        .select('platform, published_at')
+        .eq('user_id', user.id)
+        .order('published_at', { ascending: false })
+        .limit(4)
+      if (posts && posts.length > 0) {
+        setTickerEvents(posts.map(p => ({
+          time: new Date(p.published_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          text: `posted to ${PLATFORM_LABELS_MAP[p.platform] ?? p.platform}`,
+        })))
+      }
+    }
+    loadActivity()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   // Init queue store
   useEffect(() => { initQueue() }, [initQueue])
 
@@ -634,24 +661,23 @@ export function DistributionHub() {
     return () => document.removeEventListener('keydown', onKey)
   }, [showPlatformPicker, showClipPicker, publishSequenceActive])
 
-  /* Countdown for next post (fake, next 6h slot) */
+  /* Live countdown to next scheduled post — ticks every second */
   useEffect(() => {
     function calcCountdown() {
-      const now = new Date()
-      const hours = now.getHours()
-      const nextSlot = Math.ceil((hours + 1) / 6) * 6
-      const next = new Date(now)
-      next.setHours(nextSlot, 0, 0, 0)
-      if (next <= now) next.setHours(next.getHours() + 6)
-      const diff = next.getTime() - now.getTime()
-      const h = Math.floor(diff / 3600000)
-      const m = Math.floor((diff % 3600000) / 60000)
-      return `${h}h ${m.toString().padStart(2, '0')}min`
+      const visiblePosts = queue?.posts.filter(p => !removedClipIds.has(p.clip.id)) ?? []
+      const nextPost = visiblePosts[0]
+      if (!nextPost) { setLiveCountdown('--:--:--'); setCountdown('--'); return }
+      const diff = Math.max(0, new Date(nextPost.scheduledAt).getTime() - Date.now())
+      const h = Math.floor(diff / 3_600_000)
+      const m = Math.floor((diff % 3_600_000) / 60_000)
+      const s = Math.floor((diff % 60_000) / 1_000)
+      setLiveCountdown(`${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`)
+      setCountdown(`${h}h ${m.toString().padStart(2, '0')}min`)
     }
-    setCountdown(calcCountdown())
-    const interval = setInterval(() => setCountdown(calcCountdown()), 60000)
+    calcCountdown()
+    const interval = setInterval(calcCountdown, 1000)
     return () => clearInterval(interval)
-  }, [])
+  }, [queue, removedClipIds])
 
   // Sync publishProgress with publish sequence steps
   useEffect(() => {
@@ -675,6 +701,15 @@ export function DistributionHub() {
       const clip = clipBank.find(c => c.id === selectedClipId)
       if (published.length > 0) {
         publishRecordedRef.current = true
+        // Living Farm: post-sent pulse + platform flash
+        setPostPulseActive(true)
+        setPostFlashPlatform(published[0])
+        setTimeout(() => { setPostPulseActive(false); setPostFlashPlatform(null) }, 1000)
+        // Living Farm: add to ticker
+        const now = new Date()
+        const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        const platLabel = PLATFORM_LABELS_MAP[published[0]] ?? published[0]
+        setTickerEvents(prev => [{ time: timeStr, text: `posted to ${platLabel}` }, ...prev].slice(0, 4))
         const clipTitle = clip?.title || 'Untitled clip'
         const clipTone = detectTone(clipTitle).tone
         const score = clip?.score ?? 30
@@ -1138,7 +1173,7 @@ export function DistributionHub() {
         <div className="dist-head-right">
           <div className={`dist-running-chip ${aiAutoDistribute ? '' : 'paused'}`}>
             <span className="dot" />
-            CLIP FARM {aiAutoDistribute ? 'ONLINE' : 'PAUSED'}
+            {'\u25CF'} CLIP FARM {'\u00B7'} {aiAutoDistribute ? 'RUNNING' : 'PAUSED'}
           </div>
           <button className="dist-icon-btn" title="Settings" onClick={() => router.push('/settings')}>
             <Settings size={15} />
@@ -1440,40 +1475,31 @@ export function DistributionHub() {
               </feMerge>
             </filter>
           </defs>
-          <path id="flow-path-tiktok" className={`dist-flow-path ${isPlatActive('tiktok') ? 'blue' : 'dim'}`} d={flowPaths.tiktok} />
-          <path id="flow-path-youtube" className={`dist-flow-path ${isPlatActive('youtube') ? 'blue' : 'dim'}`} d={flowPaths.youtube} />
-          <path id="flow-path-instagram" className={`dist-flow-path ${isPlatActive('instagram') ? 'blue' : 'dim'}`} d={flowPaths.instagram} />
+          {/* Flow lines: amber for active (brain→platform), dim for inactive */}
+          <path id="flow-path-tiktok" className={`dist-flow-path ${isPlatActive('tiktok') ? 'amber' : 'dim'}`} d={flowPaths.tiktok} />
+          <path id="flow-path-youtube" className={`dist-flow-path ${isPlatActive('youtube') ? 'amber' : 'dim'}`} d={flowPaths.youtube} />
+          <path id="flow-path-instagram" className={`dist-flow-path ${isPlatActive('instagram') ? 'amber' : 'dim'}`} d={flowPaths.instagram} />
           <path id="flow-path-facebook" className="dist-flow-path dim" d={flowPaths.facebook} />
-          {/* Animated glowing particles flowing along each path */}
+          {/* Amber particles: brain → active platforms (max 2 per active platform) */}
           {flowPaths.tiktok && isPlatActive('tiktok') && (
             <>
-              <circle r="3.5" fill="#38BDF8" filter="url(#particle-glow)">
-                <animateMotion dur="2.6s" repeatCount="indefinite" path={flowPaths.tiktok} />
+              <circle r="3" fill="#fbbf24" filter="url(#particle-glow)">
+                <animateMotion dur="3.5s" repeatCount="indefinite" path={flowPaths.tiktok} />
               </circle>
-              <circle r="2" fill="#7dd3fc" filter="url(#particle-glow)" opacity="0.7">
-                <animateMotion dur="2.6s" begin="0.9s" repeatCount="indefinite" path={flowPaths.tiktok} />
+              <circle r="2" fill="#f59e0b" filter="url(#particle-glow)" opacity="0.7">
+                <animateMotion dur="3.5s" begin="1.5s" repeatCount="indefinite" path={flowPaths.tiktok} />
               </circle>
             </>
           )}
           {flowPaths.youtube && isPlatActive('youtube') && (
-            <>
-              <circle r="3.5" fill="#38BDF8" filter="url(#particle-glow)">
-                <animateMotion dur="2.8s" repeatCount="indefinite" path={flowPaths.youtube} />
-              </circle>
-              <circle r="2" fill="#7dd3fc" filter="url(#particle-glow)" opacity="0.7">
-                <animateMotion dur="2.8s" begin="1.2s" repeatCount="indefinite" path={flowPaths.youtube} />
-              </circle>
-            </>
+            <circle r="2.5" fill="#fbbf24" filter="url(#particle-glow)">
+              <animateMotion dur="3.5s" repeatCount="indefinite" path={flowPaths.youtube} />
+            </circle>
           )}
           {flowPaths.instagram && isPlatActive('instagram') && (
-            <>
-              <circle r="3.5" fill="#38BDF8" filter="url(#particle-glow)">
-                <animateMotion dur="2.5s" repeatCount="indefinite" path={flowPaths.instagram} />
-              </circle>
-              <circle r="2" fill="#7dd3fc" filter="url(#particle-glow)" opacity="0.7">
-                <animateMotion dur="2.5s" begin="0.7s" repeatCount="indefinite" path={flowPaths.instagram} />
-              </circle>
-            </>
+            <circle r="2.5" fill="#fbbf24" filter="url(#particle-glow)">
+              <animateMotion dur="3.5s" repeatCount="indefinite" path={flowPaths.instagram} />
+            </circle>
           )}
         </svg>
 
@@ -1486,7 +1512,7 @@ export function DistributionHub() {
           const posClass = p.id === 'tiktok' ? 'pos-tl' : p.id === 'youtube' ? 'pos-bl' : p.id === 'instagram' ? 'pos-tr' : 'pos-br'
           const platRef = p.id === 'tiktok' ? platTiktokRef : p.id === 'youtube' ? platYoutubeRef : p.id === 'instagram' ? platInstagramRef : platFacebookRef
           return (
-            <div key={p.id} ref={platRef} className={`dist-plat-node ${posClass} ${isActive ? 'active' : isComingSoon ? 'dim' : ''}`}>
+            <div key={p.id} ref={platRef} className={`dist-plat-node ${posClass} ${isActive ? 'active' : isComingSoon ? 'dim' : ''}${postFlashPlatform === p.id ? ' post-flash' : ''}`}>
               {isActive ? (
                 <ElectricBorder color="#38BDF8" speed={0.8} chaos={0.08} borderRadius={20}>
                   <div className="plat-icon-wrap">{p.icon}</div>
@@ -1505,12 +1531,23 @@ export function DistributionHub() {
               ) : (
                 <button className="plat-toggle connect" onClick={() => router.push('/settings')}>Connect</button>
               )}
+              {/* State chip */}
+              {isActive ? (
+                <span className="dist-plat-chip on">{'\u25CF'} ON {'\u00B7'} POSTING</span>
+              ) : isComingSoon ? (
+                <span className="dist-plat-chip soon">SOON</span>
+              ) : isConn ? (
+                <span className="dist-plat-chip on" style={{ opacity: 0.5 }}>{'\u25CF'} OFF</span>
+              ) : (
+                <span className="dist-plat-chip connect" onClick={() => router.push('/settings')}>CONNECT</span>
+              )}
             </div>
           )
         })}
 
         {/* AI Brain Core — premium glass system */}
         <div ref={brainCoreRef} className={`dist-core-wrap ${aiAutoDistribute ? "" : "off"}`}>
+          <div className={`dist-post-pulse ${postPulseActive ? 'active' : ''}`} />
           <div className="dist-core-glow" />
           <div className="dist-core-glass" />
           <svg className="dist-brain-svg" viewBox="0 0 320 320" aria-hidden="true">
@@ -1673,32 +1710,13 @@ export function DistributionHub() {
               <path d="M 204 170 Q 196 168, 190 167" />
             </g>
           </svg>
-          {/* Mini-KPIs in orbit around the brain */}
-          <div className="dist-brain-kpis">
-            {PLATFORMS.find(p => p.id === 'tiktok')?.supported && (
-              <span className="dist-brain-kpi kpi-tl">TikTok ON</span>
-            )}
-            <span className="dist-brain-kpi kpi-tr">Bank {clipBank.filter(c => !removedClipIds.has(c.id)).length} clips</span>
-            {(() => {
-              const nextPost = queue?.posts.find(p => !removedClipIds.has(p.clip.id))
-              const nextTime = nextPost?.scheduledAt ? new Date(nextPost.scheduledAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : null
-              return nextTime ? <span className="dist-brain-kpi kpi-br">Next drop {nextTime}</span> : null
-            })()}
-          </div>
+          {/* Mini-KPIs removed — status now in node chips, bank header, and CLIP FARM panel */}
           {/* Connector line from brain to panel */}
           <div className="dist-core-connector-line" />
           <div className={`dist-core-panel ${aiAutoDistribute ? 'on' : 'off'}`}>
             <div className="dist-core-panel-head">
-              <span className="dist-core-panel-title">CLIP FARM {aiAutoDistribute ? 'RUNNING' : 'PAUSED'}</span>
-              {aiAutoDistribute ? (
-                <span className="dist-core-panel-subtext">
-                  {(() => {
-                    const syncedCount = clipBank.filter(c => !removedClipIds.has(c.id)).length
-                    const scheduledCount = queue ? queue.posts.filter(p => !removedClipIds.has(p.clip.id)).length : 0
-                    return `${syncedCount} clip${syncedCount !== 1 ? 's' : ''} synced \u00b7 ${scheduledCount} scheduled \u00b7 learning enabled`
-                  })()}
-                </span>
-              ) : (
+              <span className="dist-core-panel-title">{aiAutoDistribute ? 'AUTO-DISTRIBUTE' : 'PAUSED'}</span>
+              {!aiAutoDistribute && (
                 <span className="dist-core-panel-hint">Your queue is safe. Nothing will post until you resume.</span>
               )}
             </div>
@@ -1719,20 +1737,19 @@ export function DistributionHub() {
                 return (
                   <>
                     <div className="dist-core-stat">
-                      <span className="stat-label">Next post</span>
-                      <span className="stat-value" style={!aiAutoDistribute ? { color: '#FBBF24', opacity: 0.7 } : undefined}>
-                        {nextPost
-                          ? `Today ${new Date(nextPost.scheduledAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}`
-                          : '\u2014'}
-                      </span>
-                      <span className="stat-sub" style={!aiAutoDistribute && nextPost ? { color: '#F59E0B', opacity: 0.8, fontStyle: 'italic' } : undefined}>
-                        {!aiAutoDistribute && nextPost
-                          ? 'Paused'
-                          : nextPost
-                            ? (PLATFORMS.find(p => p.id === nextPost.platform)?.label
-                               ?? (nextPost.platform.charAt(0).toUpperCase() + nextPost.platform.slice(1)))
-                            : 'No posts'}
-                      </span>
+                      <span className="stat-label">NEXT POST</span>
+                      {nextPost ? (
+                        <>
+                          <span className="dist-countdown" style={!aiAutoDistribute ? { color: '#71717A' } : undefined}>{liveCountdown}</span>
+                          <span className="stat-sub" style={!aiAutoDistribute ? { color: '#F59E0B', opacity: 0.8, fontStyle: 'italic' } : undefined}>
+                            {!aiAutoDistribute
+                              ? 'Paused'
+                              : `${PLATFORMS.find(p => p.id === nextPost.platform)?.label ?? nextPost.platform} \u00b7 ${new Date(nextPost.scheduledAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}`}
+                          </span>
+                        </>
+                      ) : (
+                        <span className="stat-value">{'\u2014'}</span>
+                      )}
                     </div>
                     <div className="dist-core-stat-divider" />
                     <div className="dist-core-stat">
@@ -1752,6 +1769,29 @@ export function DistributionHub() {
                   </>
                 )
               })()}
+            </div>
+            {/* CTA + Live ticker */}
+            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginTop: 8, gap: 12 }}>
+              <button
+                className="dist-add-cta"
+                onClick={() => document.getElementById('clip-bank-section')?.scrollIntoView({ behavior: 'smooth', block: 'center' })}
+              >
+                <Plus size={13} /> Add clips to the farm
+              </button>
+              <div className="dist-ticker">
+                {tickerEvents.length > 0 ? tickerEvents.map((evt, i) => (
+                  <div key={i} className="dist-ticker-item">
+                    <span className="ticker-time">{evt.time}</span>
+                    <span className="ticker-dot" />
+                    <span>{evt.text}</span>
+                  </div>
+                )) : (
+                  <div className="dist-ticker-item">
+                    <span className="ticker-dot" />
+                    <span>farm heartbeat OK</span>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>
