@@ -526,6 +526,9 @@ export function DistributionHub() {
       const targetX = brainBox.left + brainBox.width / 2 - mapBox.left
       const targetY = brainBox.top + brainBox.height / 2 - mapBox.top
 
+      // Brain radius in the container's coordinate space
+      const brainRadius = brainBox.width / 2
+
       const pathTo = (ref: { current: HTMLDivElement | null }) => {
         const node = ref.current
         if (!node) return ''
@@ -536,24 +539,33 @@ export function DistributionHub() {
         const cardB = box.bottom - mapBox.top
         const cardCx = (cardL + cardR) / 2
         const cardCy = (cardT + cardB) / 2
-        // Line starts at the card's INNER CORNER (closest to brain center)
-        const sx = cardCx < targetX ? cardR : cardL
-        const sy = cardCy < targetY ? cardB : cardT
-        // Curve toward brain edge (stop well before center so the panel below doesn't overlap)
-        const dx = targetX - sx
-        const dy = targetY - sy
-        const dist = Math.hypot(dx, dy)
-        const stopShort = 105
-        const ex = sx + dx * (1 - stopShort / dist)
-        const ey = sy + dy * (1 - stopShort / dist)
-        // Control points: line LEAVES the brain horizontally, then curves vertically
-        // (down for bottom apps, up for top apps) to land on the card's inner corner.
-        // Stronger weights make the L-shape clearly visible even when the vertical
-        // delta is small relative to the horizontal one.
-        const c1x = sx
-        const c1y = sy + (ey - sy) * 0.85   // long vertical from card (almost reaches brain y)
-        const c2x = sx + (ex - sx) * 0.25   // short horizontal lead-in near card; long horizontal at brain
-        const c2y = ey
+
+        // Start: midpoint of the card side facing the brain
+        let sx: number, sy: number
+        const dxRaw = targetX - cardCx
+        const dyRaw = targetY - cardCy
+        if (Math.abs(dxRaw) > Math.abs(dyRaw)) {
+          // Horizontal connection — use left or right side midpoint
+          sx = dxRaw > 0 ? cardR : cardL
+          sy = cardCy
+        } else {
+          // Vertical connection — use top or bottom side midpoint
+          sx = cardCx
+          sy = dyRaw > 0 ? cardB : cardT
+        }
+
+        // End: point on the brain circle edge facing the card
+        const angle = Math.atan2(sy - targetY, sx - targetX)
+        const ex = targetX + Math.cos(angle) * brainRadius
+        const ey = targetY + Math.sin(angle) * brainRadius
+
+        // Smooth cubic bezier curve
+        const midX = (sx + ex) / 2
+        const midY = (sy + ey) / 2
+        const c1x = sx + (midX - sx) * 0.1
+        const c1y = sy + (ey - sy) * 0.7
+        const c2x = ex + (midX - ex) * 0.1
+        const c2y = ey + (sy - ey) * 0.3
         return `M ${sx} ${sy} C ${c1x} ${c1y}, ${c2x} ${c2y}, ${ex} ${ey}`
       }
 
@@ -1475,10 +1487,10 @@ export function DistributionHub() {
               </feMerge>
             </filter>
           </defs>
-          {/* Flow lines: amber for active (brain→platform), dim for inactive */}
-          <path id="flow-path-tiktok" className={`dist-flow-path ${isPlatActive('tiktok') ? 'amber' : 'dim'}`} d={flowPaths.tiktok} />
-          <path id="flow-path-youtube" className={`dist-flow-path ${isPlatActive('youtube') ? 'amber' : 'dim'}`} d={flowPaths.youtube} />
-          <path id="flow-path-instagram" className={`dist-flow-path ${isPlatActive('instagram') ? 'amber' : 'dim'}`} d={flowPaths.instagram} />
+          {/* Flow lines: electric for active (animated current), dim for inactive */}
+          <path id="flow-path-tiktok" className={`dist-flow-path ${isPlatActive('tiktok') ? 'electric' : 'dim'}`} d={flowPaths.tiktok} />
+          <path id="flow-path-youtube" className={`dist-flow-path ${isPlatActive('youtube') ? 'electric' : 'dim'}`} d={flowPaths.youtube} />
+          <path id="flow-path-instagram" className={`dist-flow-path ${isPlatActive('instagram') ? 'electric' : 'dim'}`} d={flowPaths.instagram} />
           <path id="flow-path-facebook" className="dist-flow-path dim" d={flowPaths.facebook} />
           {/* Amber particles: brain → active platforms (max 2 per active platform) */}
           {flowPaths.tiktok && isPlatActive('tiktok') && (
@@ -1521,23 +1533,13 @@ export function DistributionHub() {
                 <div className="plat-icon-wrap">{p.icon}</div>
               )}
               <span className="plat-name">{p.label}</span>
-              {isComingSoon ? (
-                <span className="plat-toggle soon">Soon</span>
-              ) : isConn ? (
-                <button className={`plat-toggle ${isActive ? 'on' : 'off'}`} onClick={() => togglePublishTarget(p.id)}>
-                  <span className="toggle-dot" />
-                  {isActive ? 'ON' : 'OFF'}
-                </button>
-              ) : (
-                <button className="plat-toggle connect" onClick={() => router.push('/settings')}>Connect</button>
-              )}
-              {/* State chip */}
+              {/* Single state chip — no duplicate toggles */}
               {isActive ? (
-                <span className="dist-plat-chip on">{'\u25CF'} ON {'\u00B7'} POSTING</span>
+                <span className="dist-plat-chip on" onClick={() => togglePublishTarget(p.id)}>{'\u25CF'} ON {'\u00B7'} POSTING</span>
               ) : isComingSoon ? (
                 <span className="dist-plat-chip soon">SOON</span>
               ) : isConn ? (
-                <span className="dist-plat-chip on" style={{ opacity: 0.5 }}>{'\u25CF'} OFF</span>
+                <span className="dist-plat-chip on" style={{ opacity: 0.5 }} onClick={() => togglePublishTarget(p.id)}>{'\u25CF'} OFF</span>
               ) : (
                 <span className="dist-plat-chip connect" onClick={() => router.push('/settings')}>CONNECT</span>
               )}

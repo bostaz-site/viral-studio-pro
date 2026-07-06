@@ -1178,10 +1178,24 @@ POST /api/cron/publish-scheduled — every 5-10min
 
 Enrichissements visuels pour que le systeme ait l'air vivant en permanence, sans changer le layout.
 
+### Ancrage dynamique des lignes
+- Chaque ligne est un SVG `<path>` (cubic bezier) calcule dynamiquement via `getBoundingClientRect`
+- **Depart** : midpoint du cote du noeud plateforme qui fait face au cerveau (gauche/droite ou haut/bas selon la geometrie)
+- **Arrivee** : point sur le cercle du cerveau (edge, angle vers le noeud via `Math.atan2` + rayon)
+- Recalcul automatique sur `ResizeObserver` (container + chaque noeud) + `window.resize` + delais 100ms/500ms pour layout settle
+- Les particules suivent ces paths reels via `<animateMotion>`
+
+### Lignes electriques (routes actives)
+- Classe `.dist-flow-path.electric` : stroke ambre #fbbf24, dash pattern irregulier `2 6 14 6`
+- Animation de courant : `dist-electric-flow` (stroke-dashoffset, 1.2s/cycle, lineaire)
+- Scintillement organique : `dist-electric-flicker` (opacity .75→1, 2.8s ease-in-out)
+- Glow : drop-shadow ambre (4px tight + 12px diffuse)
+- Routes inactives : `.dim` — pointilles statiques faibles (#475569, opacity .25), aucune animation
+
 ### Particules de flux
 - **Brain → plateformes actives** : particules AMBRE (#fbbf24), 2 par plateforme max, ~3.5s de trajet, via `<animateMotion>` sur les SVG paths dynamiques
 - **Clip Bank → brain** (funnel) : particules CYAN (#38BDF8), 2 en transit, meme mecanisme
-- Plateformes non connectees : lignes faibles statiques, aucune particule
+- Plateformes non connectees : aucune particule
 - Max 6 particules total
 
 ### Onde post-sent
@@ -1195,13 +1209,15 @@ Enrichissements visuels pour que le systeme ait l'air vivant en permanence, sans
 - Glow de base reduit ~30% (opacites .13/.08 au lieu de .18/.12)
 - `prefers-reduced-motion` : glow statique a 50%, aucune animation
 
-### Grammaire des etats de noeuds
-| Etat | Contour | Chip |
+### Grammaire des etats de noeuds (chip unique, pas de toggle duplique)
+| Etat | Contour | Chip unique |
 |---|---|---|
-| Connecte/actif | ElectricBorder anime | `● ON · POSTING` (vert) |
-| Connecte/off | Statique | `● OFF` |
-| Disponible | Statique | `CONNECT` (cliquable, cyan) |
+| Connecte/actif | ElectricBorder anime | `● ON · POSTING` (vert, cliquable → toggle off) |
+| Connecte/off | Statique | `● OFF` (opacity .5, cliquable → toggle on) |
+| Disponible | Statique | `CONNECT` (cliquable → /settings, cyan) |
 | Coming soon | Fantome (opacity .35) | `SOON` (gris) |
+
+Chaque noeud = icone + nom + UN SEUL chip. Pas de bouton toggle separe.
 
 ### Countdown live
 - Dans la carte CLIP FARM panel, stat "NEXT POST" affiche un compte a rebours `HH:MM:SS` qui decompte chaque seconde

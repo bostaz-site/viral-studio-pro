@@ -2960,15 +2960,25 @@
 }
 .dist-flow-path {
   fill: none;
-  stroke-width: 2;
-  stroke-dasharray: 8 12;
+  stroke-width: 1.5;
   stroke-linecap: round;
-  filter: drop-shadow(0 0 6px currentColor) drop-shadow(0 0 14px currentColor);
-  animation: dist-dash 9s linear infinite;
 }
-.dist-flow-path.blue { stroke: #38BDF8; color: #38BDF8; opacity: .8; }
-.dist-flow-path.dim { stroke: #475569; color: #475569; opacity: .22; filter: none; }
+.dist-flow-path.blue { stroke: #38BDF8; color: #38BDF8; opacity: .8; stroke-dasharray: 8 12; filter: drop-shadow(0 0 6px currentColor); animation: dist-dash 9s linear infinite; }
+.dist-flow-path.dim { stroke: #475569; stroke-dasharray: 4 10; opacity: .25; filter: none; animation: none; }
+.dist-flow-path.electric {
+  stroke: #fbbf24;
+  stroke-width: 2;
+  stroke-dasharray: 2 6 14 6;
+  stroke-linecap: round;
+  filter: drop-shadow(0 0 4px rgba(251,191,36,.5)) drop-shadow(0 0 12px rgba(251,191,36,.25));
+  animation: dist-electric-flow 1.2s linear infinite, dist-electric-flicker 2.8s ease-in-out infinite;
+}
 @keyframes dist-dash { to { stroke-dashoffset: -220; } }
+@keyframes dist-electric-flow { to { stroke-dashoffset: -56; } }
+@keyframes dist-electric-flicker {
+  0%, 100% { opacity: .75; }
+  50% { opacity: 1; }
+}
 
 /* Platform nodes — compact icon style */
 .dist-plat-node {
@@ -3897,6 +3907,7 @@
   background: rgba(74,222,128,.12);
   color: #4ade80;
   border: 1px solid rgba(74,222,128,.25);
+  cursor: pointer;
 }
 .dist-plat-chip.connect {
   background: rgba(56,189,248,.08);
@@ -3979,12 +3990,7 @@
   box-shadow: 0 0 22px rgba(245,158,11,.32);
 }
 
-/* ═══ Living Farm — Amber flow particles ═══ */
-.dist-flow-path.amber {
-  stroke: rgba(251,191,36,.35);
-  stroke-width: 1.5;
-  fill: none;
-}
+/* (amber class replaced by .electric above) */
 
 /* ═══ Living Farm — prefers-reduced-motion ═══ */
 @media (prefers-reduced-motion: reduce) {
@@ -3997,6 +4003,11 @@
   .dist-plat-node.post-flash .plat-icon-wrap { animation: none !important; }
   .dist-map-svg circle,
   .dist-funnel circle { display: none; }
+  .dist-flow-path.electric {
+    animation: none !important;
+    stroke-dasharray: 4 8;
+    opacity: .6;
+  }
   .dist-ticker-item { animation: none !important; }
   animateMotion { display: none; }
 }
