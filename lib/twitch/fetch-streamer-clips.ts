@@ -30,7 +30,15 @@ interface StreamerFetchResult {
   upserted: number
   snapshots: number
   streamers_scanned: number
+  streamers_skipped: number
+  timed_out: boolean
   errors: string[]
+}
+
+export interface FetchBudgetOptions {
+  maxStreamers?: number
+  timeBudgetStart?: number
+  timeBudgetMs?: number
 }
 
 // ── Velocity computation ─────────────────────────────────────────────────────
@@ -137,21 +145,30 @@ async function updateStreamerAverages(
 export async function fetchAndScoreStreamerClips(
   admin: SupabaseClient<Database>,
   lookbackHours = 48,
-  clipsPerStreamer = 20
+  clipsPerStreamer = 20,
+  options?: FetchBudgetOptions
 ): Promise<StreamerFetchResult> {
+  const maxStreamers = options?.maxStreamers ?? Infinity
+  const timeBudgetStart = options?.timeBudgetStart ?? Date.now()
+  const timeBudgetMs = options?.timeBudgetMs ?? Infinity
+
   const result: StreamerFetchResult = {
     upserted: 0,
     snapshots: 0,
     streamers_scanned: 0,
+    streamers_skipped: 0,
+    timed_out: false,
     errors: [],
   }
 
+  // Staggered selection: oldest-fetched first so every streamer gets covered across invocations
   const { data: streamersRaw, error: loadErr } = await admin
     .from('streamers')
     .select('id, display_name, twitch_login, twitch_id, kick_slug, priority, avg_clip_views, avg_clip_velocity' as '*')
     .eq('active', true)
     .not('twitch_login', 'is', null)
-    .order('priority', { ascending: false })
+    .order('last_fetched_at', { ascending: true, nullsFirst: true })
+    .limit(maxStreamers)
 
   if (loadErr) {
     result.errors.push(`Load streamers: ${loadErr.message}`)
@@ -169,6 +186,13 @@ export async function fetchAndScoreStreamerClips(
   const resolved = await resolveStreamerIds(admin, streamers)
 
   for (const streamer of resolved) {
+    // Time budget check: stop before exceeding budget
+    if (Date.now() - timeBudgetStart >= timeBudgetMs) {
+      result.streamers_skipped += resolved.length - resolved.indexOf(streamer)
+      result.timed_out = true
+      break
+    }
+
     if (!streamer.twitch_id) {
       result.errors.push(
         `${streamer.display_name}: could not resolve twitch_id for login "${streamer.twitch_login}"`

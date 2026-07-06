@@ -1237,6 +1237,16 @@ Tous les scores sont calcules par `lib/scoring/clip-scorer.ts` et mis a jour par
 
 ## Systemes Connexes
 
+### Cron fetch-twitch-clips (import clips Twitch + Kick)
+- **Route** : `app/api/cron/fetch-twitch-clips/route.ts`
+- **Declencheur externe** : cron-job.org, POST toutes les 5 min, header `x-api-key` = CRON_SECRET, timeout HTTP 30s
+- **Time budget** : 15s max — arrete le traitement et repond immediatement quand depasse
+- **Limite dure** : max 5 streamers par invocation (4 Twitch + 1 Kick)
+- **Staggering** : `ORDER BY last_fetched_at NULLS FIRST` — les streamers les moins recemment fetches passent en premier, tous les streamers sont couverts au fil des invocations successives
+- **last_fetched_at** : colonne TIMESTAMPTZ sur `public.streamers`, mise a jour apres chaque streamer traite
+- **Reponse JSON** : `{ processed, skipped, remaining, elapsed_ms, timed_out, upserted, ... }`
+- **Logique par-streamer** : `lib/twitch/fetch-streamer-clips.ts` (Twitch), `lib/kick/fetch-kick-clips.ts` (Kick) — inchangee
+
 ### Scores ← Scoring Engine
 - `lib/scoring/clip-scorer.ts` calcule les 7 sub-scores + velocity_score pour chaque clip
 - `app/api/cron/rescore-clips/route.ts` re-score selon un cron stratifie (<6h: 15min, 6-24h: 1h, >24h: 1j)

@@ -21,27 +21,43 @@ interface KickFetchResult {
   upserted: number
   snapshots: number
   streamers_scanned: number
+  streamers_skipped: number
+  timed_out: boolean
   errors: string[]
+}
+
+export interface KickFetchBudgetOptions {
+  maxStreamers?: number
+  timeBudgetStart?: number
+  timeBudgetMs?: number
 }
 
 export async function fetchAndScoreKickClips(
   admin: SupabaseClient<Database>,
-  clipsPerStreamer = 20
+  clipsPerStreamer = 20,
+  options?: KickFetchBudgetOptions
 ): Promise<KickFetchResult> {
+  const maxStreamers = options?.maxStreamers ?? Infinity
+  const timeBudgetStart = options?.timeBudgetStart ?? Date.now()
+  const timeBudgetMs = options?.timeBudgetMs ?? Infinity
+
   const result: KickFetchResult = {
     upserted: 0,
     snapshots: 0,
     streamers_scanned: 0,
+    streamers_skipped: 0,
+    timed_out: false,
     errors: [],
   }
 
-  // Load active Kick streamers
+  // Load active Kick streamers — staggered by last_fetched_at
   const { data: streamersRaw, error: loadErr } = await admin
     .from('streamers')
     .select('id, display_name, kick_login, avg_clip_views, avg_clip_velocity' as '*')
     .eq('active', true)
     .not('kick_login', 'is', null)
-    .order('priority', { ascending: false })
+    .order('last_fetched_at', { ascending: true, nullsFirst: true })
+    .limit(maxStreamers)
 
   if (loadErr) {
     result.errors.push(`Load Kick streamers: ${loadErr.message}`)
@@ -55,6 +71,13 @@ export async function fetchAndScoreKickClips(
   const streamers = streamersRaw as unknown as KickStreamer[]
 
   for (const streamer of streamers) {
+    // Time budget check: stop before exceeding budget
+    if (Date.now() - timeBudgetStart >= timeBudgetMs) {
+      result.streamers_skipped += streamers.length - streamers.indexOf(streamer)
+      result.timed_out = true
+      break
+    }
+
     if (!streamer.kick_login) continue
 
     try {
