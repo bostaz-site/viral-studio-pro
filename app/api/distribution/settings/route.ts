@@ -25,6 +25,7 @@ const updateSchema = z.object({
   optimal_hours: z.record(z.string(), z.array(z.number())).optional(),
   ai_optimized: z.boolean().optional(),
   auto_post_defaults: autoPostDefaultsSchema.optional(),
+  auto_distribute_enabled: z.boolean().optional(),
 })
 
 export const GET = withAuth(async (_req, user) => {
@@ -47,6 +48,7 @@ export const GET = withAuth(async (_req, user) => {
       niche: null,
       optimal_hours: {},
       ai_optimized: false,
+      auto_distribute_enabled: false,
     })
   }
 

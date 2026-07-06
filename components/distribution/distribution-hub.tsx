@@ -449,6 +449,7 @@ export function DistributionHub() {
   const [bankLoading, setBankLoading] = useState(true)
   const [selectedClipId, setSelectedClipId] = useState<string | null>(null)
   const [aiAutoDistribute, setAiAutoDistribute] = useState(false)
+  const [dbSettingsLoaded, setDbSettingsLoaded] = useState(false)
   const [captionText, setBioText] = useState('')
   const [captionGenerating, setBioGenerating] = useState(false)
   const [captionStep, setBioStep] = useState(-1)
@@ -599,6 +600,21 @@ export function DistributionHub() {
   }, [])
 
   useEffect(() => { fetchAccounts() }, [fetchAccounts])
+
+  // Load auto_distribute_enabled from DB (single source of truth)
+  useEffect(() => {
+    async function loadDistributionSettings() {
+      try {
+        const res = await fetch('/api/distribution/settings')
+        const json = await res.json()
+        if (json.data?.auto_distribute_enabled) {
+          setAiAutoDistribute(true)
+        }
+      } catch { /* default remains false */ }
+      setDbSettingsLoaded(true)
+    }
+    loadDistributionSettings()
+  }, [])
 
   // Living Farm: load recent activity for ticker
   useEffect(() => {
@@ -929,6 +945,55 @@ export function DistributionHub() {
   }, [clipBank])
 
   const selectedClip = clipBank.find((c) => c.id === selectedClipId) ?? null
+
+  /* Toggle auto-distribute: persist to DB + sync/pause autofarm queue */
+  const handleToggleAutoDistribute = useCallback(async () => {
+    const newValue = !aiAutoDistribute
+    setAiAutoDistribute(newValue)
+
+    // Persist to DB
+    fetch('/api/distribution/settings', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ auto_distribute_enabled: newValue }),
+    }).catch(() => { /* non-blocking */ })
+
+    if (!newValue) {
+      // Turning OFF: cancel all autofarm scheduled rows
+      fetch('/api/distribution/autofarm-sync', { method: 'DELETE' }).catch(() => {})
+    }
+    // When turning ON, the sync effect below will handle pushing queue to DB
+  }, [aiAutoDistribute])
+
+  /* Sync queue to DB when auto-distribute is ON and queue changes */
+  useEffect(() => {
+    if (!aiAutoDistribute || !dbSettingsLoaded) return
+    const visiblePosts = queue?.posts.filter(p => !removedClipIds.has(p.clip.id)) ?? []
+    if (visiblePosts.length === 0) return
+
+    const posts = visiblePosts.slice(0, 6).map(p => ({
+      clip_id: p.clip.id,
+      platform: 'tiktok' as const,
+      scheduled_at: p.scheduledAt.toISOString(),
+      caption: '',
+      hashtags: [] as string[],
+    }))
+
+    fetch('/api/distribution/autofarm-sync', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        posts,
+        tiktok_defaults: {
+          privacy_level: 'PUBLIC_TO_EVERYONE',
+          disable_comment: false,
+          disable_duet: false,
+          disable_stitch: false,
+        },
+      }),
+    }).catch(() => { /* non-blocking */ })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [aiAutoDistribute, dbSettingsLoaded, queue, removedClipIds])
 
   /* Select variant with typewriter effect */
   const selectVariant = useCallback((variant: BioVariant) => {
@@ -1725,7 +1790,7 @@ export function DistributionHub() {
             <button
               ref={pillRef}
               className={`dist-core-pill ${aiAutoDistribute ? 'on' : 'off'}`}
-              onClick={() => setAiAutoDistribute(prev => !prev)}
+              onClick={handleToggleAutoDistribute}
               aria-label={aiAutoDistribute ? 'Pause auto-distribute' : 'Resume auto-distribute'}
             >
               <span className="pill-orb" />

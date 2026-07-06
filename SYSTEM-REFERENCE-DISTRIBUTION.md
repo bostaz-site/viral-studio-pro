@@ -1145,6 +1145,53 @@ POST /api/cron/publish-scheduled — every 5-10min
 
 ---
 
+## Persistance DB (v9.3 — autofarm branché)
+
+Le state de la farm est maintenant persisté en DB (Supabase = source de vérité). Plus aucun état critique en local-only.
+
+### Flux : UI → DB → Cron
+
+```
+[Toggle ON] → PUT /api/distribution/settings { auto_distribute_enabled: true }
+           → POST /api/distribution/autofarm-sync { posts, tiktok_defaults }
+           → INSERT scheduled_publications (source='autofarm', status='scheduled')
+
+[Cron 5min] → SELECT scheduled_publications WHERE status='scheduled' AND scheduled_at <= now()
+            → executePublish() → UPDATE status='published' / 'failed'
+
+[Toggle OFF] → PUT /api/distribution/settings { auto_distribute_enabled: false }
+            → DELETE /api/distribution/autofarm-sync → UPDATE status='cancelled' WHERE source='autofarm'
+```
+
+### Tables/colonnes utilisées
+
+| Table | Colonnes clés | Usage |
+|---|---|---|
+| `distribution_settings` | `user_id`, `auto_distribute_enabled`, `max_posts_per_day`, `auto_post_defaults` | Toggle + réglages auto-distribute |
+| `scheduled_publications` | `user_id`, `clip_id`, `platform`, `scheduled_at`, `status`, `source`, `tiktok_options`, `retry_count` | Queue DB réelle (lue par le cron) |
+| `published_posts` | `user_id`, `platform`, `published_at` | Ticker activité + historique |
+| `render_jobs` | `user_id`, `clip_id`, `status='done'` | Source de la Clip Bank (clips rendus) |
+
+### Chargement au mount
+
+1. `GET /api/distribution/settings` → `auto_distribute_enabled` → set toggle state
+2. Clip bank : query `render_jobs` (status=done) + enrichissement depuis `trending_clips`/`videos`
+3. Ticker : query `published_posts` (4 derniers events)
+4. Queue client (smart-queue-engine) génère les posts → synced to DB si toggle ON
+
+### Sync queue → DB
+
+- Déclenché par un `useEffect` quand `aiAutoDistribute=true` ET que `queue.posts` change
+- Appelle `POST /api/distribution/autofarm-sync` avec les 6 premiers posts
+- L'API fait un clean slate (cancel existing autofarm rows) puis insert les nouveaux
+- Le cron `publish-scheduled` lit ces lignes et publie quand `scheduled_at <= now()`
+
+### Migration requise
+
+`supabase/migrations/20260706_autofarm_persistence.sql` — ajoute `auto_distribute_enabled BOOLEAN DEFAULT FALSE` à `distribution_settings`. **À appliquer manuellement.**
+
+---
+
 ## Improvements left (post v9)
 
 1. **Persistent clip removal** — connecter `removedClipIds` a Supabase (soft delete or status='archived')
