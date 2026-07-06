@@ -702,6 +702,17 @@ const isReady         = !isBest && !isPriority && !isScheduled && !isDraftWithTh
 
 ## Clip Bank — Interactive Features
 
+### Retrait persisté en DB (v9.3)
+- Colonne `render_jobs.removed_from_bank_at TIMESTAMPTZ` : NULL = dans la bank, non-NULL = retiré
+- Route API : `PATCH /api/distribution/bank/[clipId]` body `{ action: 'remove' | 'restore' }`
+  - `remove` : set `removed_from_bank_at = now()` + cancel toutes les `scheduled_publications` (status='scheduled') pour ce clip
+  - `restore` : set `removed_from_bank_at = NULL`
+- Chargement bank : query `render_jobs` avec `.is('removed_from_bank_at', null)` — filtrage côté serveur
+- UI : optimistic update (retire le clip du state `clipBank` immédiatement), pas de rollback visible (fail silently)
+- Migration douce : si `sessionStorage('viral-animal-removed-clips')` contient des IDs au mount, les push vers l'API puis supprime la clé
+- **Plus aucun `removedClipIds` en sessionStorage** — la DB est la seule source de vérité
+- Migration requise : `supabase/migrations/20260706_clip_bank_removal.sql`
+
 ### Click-to-Play Video Preview
 - Click on play glyph (or on the video to stop): toggles video playback
 - First click: fetches video URL from `/api/clips/video-url?clipId=...` then plays
