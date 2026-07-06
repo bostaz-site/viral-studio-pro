@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { Loader2 } from 'lucide-react'
+import { WolfLoader } from '@/components/ui/wolf-loader'
 import { AuditsClient } from './audits-client'
 
 export interface Finding {
@@ -95,7 +95,7 @@ export default function AuditsPage() {
   if (!authorized) {
     return (
       <div className="flex items-center justify-center h-64">
-        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        <WolfLoader variant="spinner" size={24} mode="system" />
       </div>
     )
   }

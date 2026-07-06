@@ -1,7 +1,8 @@
 'use client'
 
 import { useState } from 'react'
-import { Loader2, Upload } from 'lucide-react'
+import { Upload } from 'lucide-react'
+import { WolfLoader } from '@/components/ui/wolf-loader'
 import { Dialog } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
@@ -139,7 +140,7 @@ export function BulkAddDialog({ open, onClose, onSuccess }: BulkAddDialogProps) 
           </Button>
           {!result && (
             <Button onClick={handleSubmit} disabled={loading || validEmails.length === 0} className="gap-1.5">
-              {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+              {loading ? <WolfLoader variant="spinner" size={16} mode="amber" /> : <Upload className="h-4 w-4" />}
               Add {validEmails.length} Email{validEmails.length !== 1 ? 's' : ''}
             </Button>
           )}

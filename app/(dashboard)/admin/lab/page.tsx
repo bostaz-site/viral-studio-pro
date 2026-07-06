@@ -3,10 +3,11 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import {
-  Loader2, ChevronDown, ChevronUp, ArrowLeft, Beaker,
+  ChevronDown, ChevronUp, ArrowLeft, Beaker,
   AlertTriangle, Check, X, Clock, Zap, DollarSign,
   Brain, Target, Shield, Play,
 } from 'lucide-react'
+import { WolfLoader } from '@/components/ui/wolf-loader'
 import Link from 'next/link'
 
 interface DeepDive {
@@ -205,7 +206,7 @@ export default function LabPage() {
   if (!authorized) {
     return (
       <div className="flex items-center justify-center h-64">
-        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        <WolfLoader variant="spinner" size={24} mode="system" />
       </div>
     )
   }
@@ -235,9 +236,9 @@ export default function LabPage() {
             className="flex items-center gap-2 px-4 py-2 text-sm font-bold rounded-lg bg-cyan-500 hover:bg-cyan-600 text-black transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {runningCycle ? (
-              <><Loader2 className="h-4 w-4 animate-spin" /> Starting...</>
+              <><WolfLoader variant="spinner" size={16} mode="system" /> Starting...</>
             ) : hasRunningDive ? (
-              <><Loader2 className="h-4 w-4 animate-spin" /> Cycle in progress</>
+              <><WolfLoader variant="spinner" size={16} mode="system" /> Cycle in progress</>
             ) : (
               <><Play className="h-4 w-4" /> Run Cycle</>
             )}
@@ -314,7 +315,7 @@ export default function LabPage() {
       {/* Loading */}
       {loading && (
         <div className="flex items-center justify-center py-12">
-          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          <WolfLoader variant="spinner" size={24} mode="system" />
         </div>
       )}
 
@@ -403,7 +404,7 @@ export default function LabPage() {
 
                         {/* Council responses */}
                         {councilLoading ? (
-                          <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                          <WolfLoader variant="spinner" size={16} mode="system" />
                         ) : council.length > 0 && (
                           <div className="space-y-2">
                             <p className="text-xs font-semibold text-zinc-400">Multi-LLM Council</p>
@@ -460,7 +461,7 @@ export default function LabPage() {
                     )}
                     {dive.status === 'executing' && (
                       <div className="flex items-center gap-2 mt-2 text-xs text-violet-400">
-                        <Loader2 className="h-3 w-3 animate-spin" />
+                        <WolfLoader variant="spinner" size={12} mode="system" />
                         Claude Code is auto-executing... PR incoming in 5-15 min
                       </div>
                     )}

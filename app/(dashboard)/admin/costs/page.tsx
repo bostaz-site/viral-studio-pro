@@ -2,7 +2,8 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { Loader2, DollarSign, Plus, X } from 'lucide-react'
+import { DollarSign, Plus, X } from 'lucide-react'
+import { WolfLoader } from '@/components/ui/wolf-loader'
 import { createClient } from '@/lib/supabase/client'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -102,11 +103,11 @@ export default function CostsPage() {
   }
 
   if (authLoading || !authorized) {
-    return <div className="flex items-center justify-center py-20"><Loader2 className="h-6 w-6 animate-spin text-zinc-500" /></div>
+    return <div className="flex items-center justify-center py-20"><WolfLoader variant="spinner" size={24} mode="amber" /></div>
   }
 
   if (loading || !data) {
-    return <div className="flex items-center justify-center py-20"><Loader2 className="h-6 w-6 animate-spin text-zinc-500" /></div>
+    return <div className="flex items-center justify-center py-20"><WolfLoader variant="spinner" size={24} mode="amber" /></div>
   }
 
   return (
@@ -261,7 +262,7 @@ export default function CostsPage() {
               <div className="flex justify-end gap-2 pt-2">
                 <Button variant="outline" type="button" onClick={() => setShowModal(false)}>Cancel</Button>
                 <Button type="submit" disabled={saving}>
-                  {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Add Cost'}
+                  {saving ? <WolfLoader variant="spinner" size={16} mode="amber" /> : 'Add Cost'}
                 </Button>
               </div>
             </form>

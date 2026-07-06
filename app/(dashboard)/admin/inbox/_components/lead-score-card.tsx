@@ -1,7 +1,8 @@
 'use client'
 
 import { useState } from 'react'
-import { RefreshCw, Loader2 } from 'lucide-react'
+import { RefreshCw } from 'lucide-react'
+import { WolfLoader } from '@/components/ui/wolf-loader'
 
 interface LeadScoreCardProps {
   influencerId: string
@@ -64,7 +65,7 @@ export function LeadScoreCard({ influencerId, score, onScoreUpdated }: LeadScore
         title="Re-score"
       >
         {rescoring ? (
-          <Loader2 className="h-3 w-3 animate-spin" />
+          <WolfLoader variant="spinner" size={12} mode="amber" />
         ) : (
           <RefreshCw className="h-3 w-3" />
         )}

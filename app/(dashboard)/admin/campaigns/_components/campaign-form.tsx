@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { Loader2 } from 'lucide-react'
+import { WolfLoader } from '@/components/ui/wolf-loader'
 
 const NICHE_OPTIONS = [
   'gaming', 'fps', 'moba', 'irl', 'fitness', 'business',
@@ -157,7 +157,7 @@ export function CampaignForm({ onSubmit, isSubmitting }: CampaignFormProps) {
       <Button type="submit" disabled={!form.name || isSubmitting} className="w-full">
         {isSubmitting ? (
           <>
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            <WolfLoader variant="spinner" size={16} mode="amber" className="mr-2" />
             Creating...
           </>
         ) : (

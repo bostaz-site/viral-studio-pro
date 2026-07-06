@@ -2,7 +2,8 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { Loader2, Globe, ShieldCheck, ShieldX, AlertTriangle } from 'lucide-react'
+import { Globe, ShieldCheck, ShieldX, AlertTriangle } from 'lucide-react'
+import { WolfLoader } from '@/components/ui/wolf-loader'
 import { createClient } from '@/lib/supabase/client'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -55,7 +56,7 @@ export default function DomainsPage() {
   }, [authorized, fetchDomains])
 
   if (authLoading || !authorized) {
-    return <div className="flex items-center justify-center py-20"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
+    return <div className="flex items-center justify-center py-20"><WolfLoader variant="spinner" size={24} mode="amber" /></div>
   }
 
   const totalDomains = domains.length
@@ -79,7 +80,7 @@ export default function DomainsPage() {
       </div>
 
       {loading ? (
-        <div className="flex items-center justify-center py-12"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
+        <div className="flex items-center justify-center py-12"><WolfLoader variant="spinner" size={20} mode="amber" /></div>
       ) : (
         <div className="grid gap-3 md:grid-cols-2">
           {domains.map(d => (

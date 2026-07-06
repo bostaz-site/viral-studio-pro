@@ -2,7 +2,8 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { Webhook, AlertCircle, Loader2, CheckCircle2, XCircle, Clock } from 'lucide-react'
+import { Webhook, AlertCircle, CheckCircle2, XCircle, Clock } from 'lucide-react'
+import { WolfLoader } from '@/components/ui/wolf-loader'
 import { WebhookTable } from './_components/webhook-table'
 
 interface WebhookEvent {
@@ -202,7 +203,7 @@ export default function WebhookHealthPage() {
       {/* Table */}
       {loading ? (
         <div className="flex justify-center py-12">
-          <Loader2 className="h-6 w-6 animate-spin text-zinc-500" />
+          <WolfLoader variant="spinner" size={24} mode="amber" />
         </div>
       ) : (
         <div className="bg-zinc-900 border border-zinc-800 rounded-lg overflow-hidden">
@@ -227,7 +228,7 @@ export default function WebhookHealthPage() {
           >
             {detailLoading ? (
               <div className="flex justify-center py-8">
-                <Loader2 className="h-6 w-6 animate-spin text-zinc-500" />
+                <WolfLoader variant="spinner" size={24} mode="amber" />
               </div>
             ) : detail ? (
               <div className="space-y-4">

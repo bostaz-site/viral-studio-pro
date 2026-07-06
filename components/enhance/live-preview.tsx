@@ -2,7 +2,8 @@
 
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 import Image from 'next/image'
-import { Loader2, Play, Eye } from 'lucide-react'
+import { Play, Eye } from 'lucide-react'
+import { WolfLoader } from '@/components/ui/wolf-loader'
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
 import {
@@ -200,7 +201,7 @@ export function LivePreview({
         {!renderedVideoReady && (
           <div className="absolute inset-0 flex items-center justify-center z-[2]">
             <div className="bg-black/60 rounded-full p-3">
-              <Loader2 className="h-6 w-6 text-white animate-spin" />
+              <WolfLoader variant="spinner" size={24} mode="amber" />
             </div>
           </div>
         )}

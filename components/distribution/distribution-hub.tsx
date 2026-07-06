@@ -8,6 +8,7 @@ import {
   Calendar, TrendingUp, Target, Flame, Rocket, Trophy,
   Settings, Layers, Play, Brain, Copy, RefreshCw, MapPin, CheckCircle2, X,
 } from 'lucide-react'
+import { WolfLoader } from '@/components/ui/wolf-loader'
 import { Card } from '@/components/ui/card'
 import { Switch } from '@/components/ui/switch'
 import { cn } from '@/lib/utils'
@@ -1162,7 +1163,7 @@ export function DistributionHub() {
               onClick={generateCaption}
               disabled={captionGenerating || !selectedClip}
             >
-              {captionGenerating ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
+              {captionGenerating ? <WolfLoader variant="spinner" size={12} mode="system" /> : <Sparkles size={12} />}
               {captionGenerating ? 'Writing captions…' : (aiCaptions || captionText) ? 'Regenerate' : 'Generate AI captions'}
             </button>
           </div>
@@ -1172,7 +1173,7 @@ export function DistributionHub() {
             <div className="dist-console-steps">
               {CAPTION_STEPS.map((step, i) => (
                 <div key={i} className={`dist-step-item ${i < captionStep ? 'done' : i === captionStep ? 'active' : 'pending'}`}>
-                  {i < captionStep ? <Check size={12} /> : i === captionStep ? <Loader2 size={12} className="animate-spin" /> : <div style={{ width: 12, height: 12 }} />}
+                  {i < captionStep ? <Check size={12} /> : i === captionStep ? <WolfLoader variant="spinner" size={12} mode="system" /> : <div style={{ width: 12, height: 12 }} />}
                   <span>{step.text}</span>
                 </div>
               ))}
@@ -1361,7 +1362,7 @@ export function DistributionHub() {
                 <div className="dist-console-steps">
                   {publishSteps.map((step, i) => (
                     <div key={i} className={`dist-step-item ${step.status}`}>
-                      {step.status === 'done' ? <Check size={12} /> : step.status === 'active' ? <Loader2 size={12} className="animate-spin" /> : step.status === 'error' ? <AlertCircle size={12} /> : <div style={{ width: 12, height: 12 }} />}
+                      {step.status === 'done' ? <Check size={12} /> : step.status === 'active' ? <WolfLoader variant="spinner" size={12} mode="amber" /> : step.status === 'error' ? <AlertCircle size={12} /> : <div style={{ width: 12, height: 12 }} />}
                       <span>{step.label}</span>
                     </div>
                   ))}
@@ -1400,7 +1401,7 @@ export function DistributionHub() {
                 disabled={!selectedClip || isPublishing || publishSequenceActive}
               >
                 {publishSequenceActive ? (
-                  <Loader2 size={14} className="animate-spin" />
+                  <WolfLoader variant="spinner" size={14} mode="amber" />
                 ) : (
                   <Send size={13} />
                 )}

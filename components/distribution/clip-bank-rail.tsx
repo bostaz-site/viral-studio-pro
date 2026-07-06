@@ -1,7 +1,8 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { Check, Clock, Film, Flame, Loader2, Pause, Play, Plus, Power, Rocket, Sparkles, Upload, X } from 'lucide-react'
+import { Check, Clock, Film, Flame, Pause, Play, Plus, Power, Rocket, Sparkles, Upload, X } from 'lucide-react'
+import { WolfLoader } from '@/components/ui/wolf-loader'
 import type { QueuePreview } from '@/lib/distribution/smart-queue-engine'
 import { isAuditMode } from '@/lib/feature-flags'
 
@@ -260,7 +261,7 @@ export function ClipBankRail({
                         )}
                         {playingClipId === clip.id && videoLoading && (
                           <div className="dist-clip-video-loading">
-                            <Loader2 size={16} className="animate-spin" />
+                            <WolfLoader variant="spinner" size={16} mode="amber" />
                           </div>
                         )}
                         {playingClipId !== clip.id && (

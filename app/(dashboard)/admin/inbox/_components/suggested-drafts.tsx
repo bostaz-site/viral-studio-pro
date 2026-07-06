@@ -1,7 +1,8 @@
 'use client'
 
 import { useState } from 'react'
-import { Sparkles, Loader2, ChevronDown, ChevronUp } from 'lucide-react'
+import { Sparkles, ChevronDown, ChevronUp } from 'lucide-react'
+import { WolfLoader } from '@/components/ui/wolf-loader'
 
 interface Draft {
   style: string
@@ -56,7 +57,7 @@ export function SuggestedDrafts({ messageId, onUseDraft }: SuggestedDraftsProps)
         className="flex items-center gap-1.5 text-[11px] text-amber-400 hover:text-amber-300 transition-colors disabled:opacity-50"
       >
         {loading ? (
-          <Loader2 className="h-3 w-3 animate-spin" />
+          <WolfLoader variant="spinner" size={12} mode="amber" />
         ) : (
           <Sparkles className="h-3 w-3" />
         )}

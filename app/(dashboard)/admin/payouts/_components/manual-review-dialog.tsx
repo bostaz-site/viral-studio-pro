@@ -1,7 +1,8 @@
 'use client'
 
 import { useState } from 'react'
-import { X, CheckCircle2, XCircle, AlertTriangle, Loader2 } from 'lucide-react'
+import { X, CheckCircle2, XCircle, AlertTriangle } from 'lucide-react'
+import { WolfLoader } from '@/components/ui/wolf-loader'
 
 interface Payout {
   id: string
@@ -94,7 +95,7 @@ export function ManualReviewDialog({ payout, onClose, onAction }: ManualReviewDi
             className="flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-lg border border-zinc-700 text-zinc-400 text-sm hover:bg-zinc-800 transition-colors disabled:opacity-50"
           >
             {loading && actionType === 'reject' ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              <WolfLoader variant="spinner" size={14} mode="amber" />
             ) : (
               <XCircle className="h-3.5 w-3.5" />
             )}
@@ -106,7 +107,7 @@ export function ManualReviewDialog({ payout, onClose, onAction }: ManualReviewDi
             className="flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-green-600 text-white text-sm hover:bg-green-500 transition-colors disabled:opacity-50"
           >
             {loading && actionType === 'approve' ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              <WolfLoader variant="spinner" size={14} mode="amber" />
             ) : (
               <CheckCircle2 className="h-3.5 w-3.5" />
             )}

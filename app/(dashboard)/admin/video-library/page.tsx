@@ -2,7 +2,8 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { Film, Plus, Search, Loader2, Filter } from 'lucide-react'
+import { Film, Plus, Search, Filter } from 'lucide-react'
+import { WolfLoader } from '@/components/ui/wolf-loader'
 import { createClient } from '@/lib/supabase/client'
 import { VideoCard } from './_components/video-card'
 import { UploadDialog } from './_components/upload-dialog'
@@ -99,7 +100,7 @@ export default function VideoLibraryPage() {
   }
 
   if (authLoading) {
-    return <div className="flex justify-center py-24"><Loader2 className="h-8 w-8 animate-spin text-amber-400" /></div>
+    return <div className="flex justify-center py-24"><WolfLoader variant="spinner" size={32} mode="amber" /></div>
   }
   if (!authorized) return null
 
@@ -171,7 +172,7 @@ export default function VideoLibraryPage() {
       {/* Grid */}
       {loading ? (
         <div className="flex justify-center py-12">
-          <Loader2 className="h-6 w-6 animate-spin text-zinc-500" />
+          <WolfLoader variant="spinner" size={24} mode="amber" />
         </div>
       ) : videos.length === 0 ? (
         <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-12 text-center">

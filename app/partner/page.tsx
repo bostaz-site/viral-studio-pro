@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Loader2, AlertCircle, LogOut, Gift } from 'lucide-react'
+import { AlertCircle, LogOut, Gift } from 'lucide-react'
+import { WolfLoader } from '@/components/ui/wolf-loader'
 import { StatsCards } from './_components/stats-cards'
 import { CodeCard } from './_components/code-card'
 import { RecentReferrals } from './_components/recent-referrals'
@@ -71,7 +72,7 @@ export default function PartnerDashboard() {
   if (loading) {
     return (
       <div className="flex justify-center py-24">
-        <Loader2 className="h-8 w-8 animate-spin text-amber-400" />
+        <WolfLoader variant="spinner" size={32} mode="amber" />
       </div>
     )
   }

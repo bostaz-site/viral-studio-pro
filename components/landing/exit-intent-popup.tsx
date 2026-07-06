@@ -1,7 +1,8 @@
 "use client"
 
 import { useEffect, useRef, useState, type FormEvent } from 'react'
-import { X, Sparkles, Check, Loader2, Download } from 'lucide-react'
+import { X, Sparkles, Check, Download } from 'lucide-react'
+import { WolfLoader } from '@/components/ui/wolf-loader'
 import { track } from '@/lib/analytics'
 
 const GUIDE_URL = '/guides/10-hooks-viraux.pdf'
@@ -186,7 +187,7 @@ export function ExitIntentPopup() {
               >
                 {status === 'submitting' ? (
                   <>
-                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <WolfLoader variant="spinner" size={16} mode="amber" />
                     Sending…
                   </>
                 ) : (

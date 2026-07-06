@@ -2,7 +2,8 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { Mail, Gift, Users, TrendingUp, AlertCircle, Loader2, Crown, ShieldCheck, X } from 'lucide-react'
+import { Mail, Gift, Users, TrendingUp, AlertCircle, Crown, ShieldCheck, X } from 'lucide-react'
+import { WolfLoader } from '@/components/ui/wolf-loader'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -84,7 +85,7 @@ export default function AdminGrowthPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
-        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        <WolfLoader variant="spinner" size={24} mode="amber" />
       </div>
     )
   }
@@ -360,7 +361,7 @@ function PackAccountsSection() {
               className="flex-1"
             />
             <Button onClick={handleGrant} disabled={granting || !email.trim()} size="sm">
-              {granting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : 'Grant'}
+              {granting ? <WolfLoader variant="spinner" size={14} mode="amber" /> : 'Grant'}
             </Button>
           </div>
           {error && <p className="text-xs text-destructive flex items-center gap-1"><AlertCircle className="h-3 w-3" />{error}</p>}
@@ -370,7 +371,7 @@ function PackAccountsSection() {
 
       {/* Active pack accounts list */}
       {loading ? (
-        <div className="text-center py-4"><Loader2 className="h-4 w-4 animate-spin mx-auto text-muted-foreground" /></div>
+        <div className="text-center py-4"><WolfLoader variant="spinner" size={16} mode="amber" /></div>
       ) : accounts.length === 0 ? (
         <Card className="bg-card/40">
           <CardContent className="p-6 text-sm text-muted-foreground text-center">

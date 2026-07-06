@@ -1,7 +1,8 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
-import { DollarSign, Clock, CheckCircle2, AlertCircle, XCircle, Loader2 } from 'lucide-react'
+import { DollarSign, Clock, CheckCircle2, AlertCircle, XCircle } from 'lucide-react'
+import { WolfLoader } from '@/components/ui/wolf-loader'
 import { PayoutsTable } from './_components/payouts-table'
 import { ManualReviewDialog } from './_components/manual-review-dialog'
 
@@ -174,7 +175,7 @@ export default function AdminPayoutsPage() {
       {/* Table */}
       {loading ? (
         <div className="flex justify-center py-12">
-          <Loader2 className="h-6 w-6 animate-spin text-zinc-500" />
+          <WolfLoader variant="spinner" size={24} mode="amber" />
         </div>
       ) : (
         <PayoutsTable payouts={payouts} onReview={setReviewPayout} />

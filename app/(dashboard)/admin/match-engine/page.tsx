@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Loader2, Zap, RefreshCw, Cpu } from 'lucide-react'
+import { Zap, RefreshCw, Cpu } from 'lucide-react'
+import { WolfLoader } from '@/components/ui/wolf-loader'
 import { createClient } from '@/lib/supabase/client'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -50,7 +51,7 @@ export default function MatchEnginePage() {
     } catch {} finally { setComputing(false) }
   }
 
-  if (authLoading || !authorized) return <div className="flex items-center justify-center py-20"><Loader2 className="h-6 w-6 animate-spin text-zinc-500" /></div>
+  if (authLoading || !authorized) return <div className="flex items-center justify-center py-20"><WolfLoader variant="spinner" size={24} mode="amber" /></div>
 
   return (
     <div className="max-w-5xl mx-auto space-y-6 p-6">
@@ -63,7 +64,7 @@ export default function MatchEnginePage() {
           </div>
         </div>
         <Button onClick={handleBatch} disabled={computing} className="gap-1.5">
-          {computing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Zap className="h-4 w-4" />}
+          {computing ? <WolfLoader variant="spinner" size={16} mode="amber" /> : <Zap className="h-4 w-4" />}
           {computing ? 'Computing...' : 'Batch Compute'}
         </Button>
       </div>

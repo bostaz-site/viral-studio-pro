@@ -2,7 +2,8 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Trash2, AlertTriangle, Loader2, X } from 'lucide-react'
+import { Trash2, AlertTriangle, X } from 'lucide-react'
+import { WolfLoader } from '@/components/ui/wolf-loader'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { createClient } from '@/lib/supabase/client'
@@ -198,7 +199,7 @@ export function DangerZone({ userEmail }: { userEmail: string }) {
               >
                 {submitting ? (
                   <>
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    <WolfLoader variant="spinner" size={14} mode="amber" />
                     Deleting...
                   </>
                 ) : (

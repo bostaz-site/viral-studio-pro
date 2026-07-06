@@ -4,7 +4,8 @@ import { useState, useEffect, useCallback } from 'react'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
-import { Loader2, Search, Users, Check } from 'lucide-react'
+import { Search, Users, Check } from 'lucide-react'
+import { WolfLoader } from '@/components/ui/wolf-loader'
 
 const STATUS_OPTIONS = ['cold', 'contacted', 'opened', 'replied', 'interested', 'queued']
 const NICHE_OPTIONS = [
@@ -260,7 +261,7 @@ export function RecipientSelector({ onSelectionChange, selectedIds }: RecipientS
       <div className="max-h-[400px] overflow-y-auto rounded-lg border border-zinc-800">
         {loading ? (
           <div className="flex items-center justify-center py-8">
-            <Loader2 className="h-5 w-5 animate-spin text-zinc-500" />
+            <WolfLoader variant="spinner" size={20} mode="amber" />
           </div>
         ) : influencers.length === 0 ? (
           <div className="py-8 text-center text-sm text-zinc-500">

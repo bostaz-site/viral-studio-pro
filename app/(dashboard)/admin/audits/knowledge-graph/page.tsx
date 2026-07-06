@@ -2,7 +2,8 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { Loader2, Network, Shield, ChevronDown, ChevronUp, Brain } from 'lucide-react'
+import { Network, Shield, ChevronDown, ChevronUp, Brain } from 'lucide-react'
+import { WolfLoader } from '@/components/ui/wolf-loader'
 import { createClient } from '@/lib/supabase/client'
 
 interface KNode {
@@ -145,7 +146,7 @@ export default function KnowledgeGraphPage() {
   }
 
   if (!authorized) {
-    return <div className="flex items-center justify-center h-64"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
+    return <div className="flex items-center justify-center h-64"><WolfLoader variant="spinner" size={24} mode="system" /></div>
   }
 
   const nodeTypes = [...new Set(nodes.map((n) => n.node_type))].sort()
@@ -215,7 +216,7 @@ export default function KnowledgeGraphPage() {
 
       {/* Nodes list */}
       {loading ? (
-        <div className="flex items-center justify-center h-32"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
+        <div className="flex items-center justify-center h-32"><WolfLoader variant="spinner" size={20} mode="system" /></div>
       ) : nodes.length === 0 ? (
         <div className="text-center py-12 text-muted-foreground">No nodes found. Run the bootstrap script first.</div>
       ) : (

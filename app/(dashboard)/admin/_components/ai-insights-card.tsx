@@ -1,7 +1,8 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Sparkles, Loader2 } from 'lucide-react'
+import { Sparkles } from 'lucide-react'
+import { WolfLoader } from '@/components/ui/wolf-loader'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
 
 export function AiInsightsCard() {
@@ -30,7 +31,7 @@ export function AiInsightsCard() {
       <CardContent>
         {loading ? (
           <div className="flex items-center gap-2 py-2">
-            <Loader2 className="h-3.5 w-3.5 animate-spin text-purple-400" />
+            <WolfLoader variant="spinner" size={14} mode="amber" />
             <span className="text-xs text-muted-foreground">Generating insights...</span>
           </div>
         ) : (

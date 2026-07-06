@@ -10,6 +10,7 @@ import {
   ChevronRight,
   Send,
 } from 'lucide-react'
+import { WolfLoader } from '@/components/ui/wolf-loader'
 import { Button } from '@/components/ui/button'
 import { Dialog } from '@/components/ui/dialog'
 import { TikTokPublishDialog } from './tiktok-publish-dialog'
@@ -239,7 +240,7 @@ export function UnifiedPublishDialog({
                   const state = platforms[id]
                   const isSelected = state.connected && state.selected
                   const statusIcon = state.status === 'publishing'
-                    ? <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                    ? <WolfLoader variant="spinner" size={16} mode="amber" />
                     : state.status === 'success'
                       ? <CheckCircle2 className="h-4 w-4 text-green-400" />
                       : state.status === 'error'
@@ -341,7 +342,7 @@ export function UnifiedPublishDialog({
               >
                 {isPublishing ? (
                   <>
-                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <WolfLoader variant="spinner" size={16} mode="amber" />
                     Publishing...
                   </>
                 ) : (

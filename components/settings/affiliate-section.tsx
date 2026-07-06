@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { Users, Copy, Check, Loader2, ExternalLink, MousePointer, UserPlus, CreditCard, DollarSign, Pencil } from 'lucide-react'
+import { WolfLoader } from '@/components/ui/wolf-loader'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent } from '@/components/ui/card'
@@ -124,7 +125,7 @@ export function AffiliateSection() {
         </div>
         <Card className="bg-card/50 border-border">
           <CardContent className="p-5 flex items-center justify-center gap-2 text-muted-foreground">
-            <Loader2 className="h-4 w-4 animate-spin" />
+            <WolfLoader variant="spinner" size={16} mode="amber" />
             <span className="text-sm">Loading...</span>
           </CardContent>
         </Card>
@@ -148,7 +149,7 @@ export function AffiliateSection() {
               Share your link, earn commissions when your referrals upgrade.
             </p>
             <Button onClick={fetchAffiliate} disabled={loading}>
-              {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+              {loading ? <WolfLoader variant="spinner" size={16} mode="amber" /> : null}
               Activate Affiliate Program
             </Button>
           </CardContent>
@@ -232,7 +233,7 @@ export function AffiliateSection() {
                     onClick={handleSaveHandle}
                     disabled={savingHandle || newHandle.length < 3}
                   >
-                    {savingHandle ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : 'Save'}
+                    {savingHandle ? <WolfLoader variant="spinner" size={14} mode="amber" /> : 'Save'}
                   </Button>
                   <Button
                     variant="ghost"

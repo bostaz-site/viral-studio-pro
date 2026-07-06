@@ -233,6 +233,78 @@ Glow opacity capped at `.22` at rest, `.30` on hover. Reduced ~30% from previous
 
 ---
 
+## 7b. WolfLoader (loader signature)
+
+Le loader signature de Viral Animal : le loup du logo trace par une lumiere. Composant : `components/ui/wolf-loader.tsx`.
+
+### 3 Variants
+
+| Variant | Usage | Duree boucle | Description |
+|---|---|---|---|
+| `spinner` | Chargements courts (1-5s) : fetch clips, boutons, dialogs | 1.2s/tour | Contour trace en boucle, stroke gradient, CSS pur, pas de comet/yeux/texte. Utilisable 16-48px. |
+| `sequence` | Chargements longs (>10s) : render FFmpeg, analyse IA | ~2.5s | Comete trace contour (1.2s) → machoire+joues (0.45s) → yeux s'allument (0.3s) → "WOLF ONLINE" flash doux → boucle. rAF + getPointAtLength. |
+| `cinematic` | Grands moments (premier render reussi, legendary unlock) | ~4.5s | Meme sequence, timings longs (trace 2.2s, double clignement yeux, hold 1.2s). Reserve, pas encore place dans l'app. |
+
+### Regle des 3 niveaux de chargement
+
+| Duree attendue | Feedback | Implementation |
+|---|---|---|
+| < 1s | Rien OU skeleton existant | Pas de WolfLoader |
+| 1-5s | `variant="spinner"` petit (sm/md) | Inline dans boutons, toasts, cards |
+| > 10s | `variant="sequence"` avec progress si dispo | Bloc central, label de phase, pourcentage |
+
+### Tailles
+
+| Token | px | Usage |
+|---|---|---|
+| `sm` | 20 | Inline boutons, step indicators |
+| `md` | 48 | Toasts, dialogs, cards loading |
+| `lg` | 280 | Plein ecran, render page, first load |
+| `number` | custom | Ex: `size={64}` pour enhance render panel |
+
+### 2 Modes de couleur
+
+| Mode | Palette | Contextes |
+|---|---|---|
+| `amber` (defaut) | #fbbf24 / #f59e0b / #d97706 | Render, publish, reward, action, boutons |
+| `system` | #67e8f9 / #22d3ee / #0891b2 | Analyse IA, mood detection, hook generation, data scan, captions AI |
+
+### Props
+
+```tsx
+type WolfLoaderProps = {
+  variant?: 'spinner' | 'sequence' | 'cinematic'  // defaut: 'spinner'
+  size?: 'sm' | 'md' | 'lg' | number              // defaut: 'md' (48px)
+  mode?: 'amber' | 'system'                       // defaut: 'amber'
+  progress?: number                                // 0-100, optionnel (sequence uniquement)
+  label?: string                                   // texte de statut sous le loup
+  className?: string
+}
+```
+
+### Textes de phases (variant sequence/cinematic)
+
+| Phase | Label par defaut | Surcharge via `label` prop |
+|---|---|---|
+| Trace contour | "TRACING SIGNAL..." | oui |
+| Details (machoire) | "CARVING TRACE..." | oui |
+| Yeux + online | "WOLF ONLINE" | oui |
+
+### Accessibilite
+
+- `role="status"` + `aria-label` sur le wrapper
+- `prefers-reduced-motion: reduce` → loup statique complet affiche (contour + details + yeux visibles), zero animation
+- Pas de clignotement agressif (opacite flash max 0.42)
+- Cleanup complet des timers/rAF au unmount
+
+### Strokes premium
+
+- Contour : stroke-width 2.1, double drop-shadow (0 0 4px + 0 0 14px faible opacite)
+- Details : stroke-width 1.35, meme filtre glow
+- Yeux : fill + stroke, opacity progressive
+
+---
+
 ## 8. Iconographie
 
 **Lucide React** = icones fonctionnelles (navigation, actions, statuts).

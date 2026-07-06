@@ -1,7 +1,8 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { CheckCircle, XCircle, Clock, Loader2 } from 'lucide-react'
+import { CheckCircle, XCircle, Clock } from 'lucide-react'
+import { WolfLoader } from '@/components/ui/wolf-loader'
 import { Card, CardContent } from '@/components/ui/card'
 
 interface SyncStatusCardProps {
@@ -35,7 +36,7 @@ export function SyncStatusCard({
           {/* Last Sync */}
           <div className="flex items-center gap-3">
             {isSyncing ? (
-              <Loader2 className="h-5 w-5 animate-spin text-amber-500" />
+              <WolfLoader variant="spinner" size={20} mode="amber" />
             ) : success === true ? (
               <CheckCircle className="h-5 w-5 text-green-500" />
             ) : success === false ? (

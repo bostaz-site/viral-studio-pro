@@ -1,7 +1,8 @@
 'use client'
 
 import { useState } from 'react'
-import { Loader2, UserPlus } from 'lucide-react'
+import { UserPlus } from 'lucide-react'
+import { WolfLoader } from '@/components/ui/wolf-loader'
 import { Dialog } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -147,7 +148,7 @@ export function CreateAffiliateDialog({ open, onOpenChange }: CreateAffiliateDia
             Cancel
           </Button>
           <Button className="flex-1 gap-1.5" onClick={handleSubmit} disabled={loading}>
-            {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <UserPlus className="h-4 w-4" />}
+            {loading ? <WolfLoader variant="spinner" size={16} mode="amber" /> : <UserPlus className="h-4 w-4" />}
             Create
           </Button>
         </div>

@@ -2,7 +2,8 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { Loader2, Radar, Search, Users, Mail, TrendingUp, AlertCircle } from 'lucide-react'
+import { Radar, Search, Users, Mail, TrendingUp, AlertCircle } from 'lucide-react'
+import { WolfLoader } from '@/components/ui/wolf-loader'
 import { createClient } from '@/lib/supabase/client'
 import { Card, CardContent } from '@/components/ui/card'
 import { QuotaPanel } from './_components/quota-panel'
@@ -140,7 +141,7 @@ export default function ScraperPage() {
   }
 
   if (authLoading || !authorized) {
-    return <div className="flex items-center justify-center py-20"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
+    return <div className="flex items-center justify-center py-20"><WolfLoader variant="spinner" size={24} mode="amber" /></div>
   }
 
   const withEmail = results.filter(r => r.has_email).length

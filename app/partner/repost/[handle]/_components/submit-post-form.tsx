@@ -1,7 +1,8 @@
 'use client'
 
 import { useState } from 'react'
-import { Send, Check, Loader2 } from 'lucide-react'
+import { Send, Check } from 'lucide-react'
+import { WolfLoader } from '@/components/ui/wolf-loader'
 import { trackEvent } from '@/lib/partner/repost-kit/tracker'
 
 interface SubmitPostFormProps {
@@ -74,7 +75,7 @@ export function SubmitPostForm({ sessionId, onSubmitted }: SubmitPostFormProps) 
           disabled={!url.trim() || submitting}
           className="w-full rounded-lg bg-amber-500 text-amber-950 py-3 text-sm font-semibold hover:bg-amber-400 active:scale-[0.98] transition-all disabled:opacity-40 flex items-center justify-center gap-2"
         >
-          {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+          {submitting ? <WolfLoader variant="spinner" size={16} mode="amber" /> : <Send className="h-4 w-4" />}
           {submitting ? 'Submitting...' : 'Submit Post'}
         </button>
       </form>

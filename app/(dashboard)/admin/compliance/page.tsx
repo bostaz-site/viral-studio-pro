@@ -2,7 +2,8 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { ShieldCheck, AlertCircle, Loader2 } from 'lucide-react'
+import { ShieldCheck, AlertCircle } from 'lucide-react'
+import { WolfLoader } from '@/components/ui/wolf-loader'
 import { SuppressionStats } from './_components/suppression-stats'
 import { AuditLogViewer } from './_components/audit-log-viewer'
 import { RecentBlocks } from './_components/recent-blocks'
@@ -160,7 +161,7 @@ export default function CompliancePage() {
 
         {loading ? (
           <div className="flex justify-center py-8">
-            <Loader2 className="h-5 w-5 animate-spin text-zinc-500" />
+            <WolfLoader variant="spinner" size={20} mode="amber" />
           </div>
         ) : (
           <AuditLogViewer entries={entries} loading={false} />

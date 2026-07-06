@@ -2,7 +2,8 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { Sparkles, AlertCircle, Loader2, Send, Zap } from 'lucide-react'
+import { Sparkles, AlertCircle, Send, Zap } from 'lucide-react'
+import { WolfLoader } from '@/components/ui/wolf-loader'
 import { TemplateList } from './_components/template-list'
 import { OfferPreview } from './_components/offer-preview'
 import { BulkGenerateModal } from './_components/bulk-generate-modal'
@@ -102,7 +103,7 @@ export default function OfferGeneratorPage() {
       </div>
 
       {loading ? (
-        <div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-zinc-500" /></div>
+        <div className="flex justify-center py-12"><WolfLoader variant="spinner" size={24} mode="amber" /></div>
       ) : tab === 'templates' ? (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <div>

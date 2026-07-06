@@ -2,7 +2,8 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { Loader2, Mail, ShieldCheck, AlertTriangle, TrendingUp } from 'lucide-react'
+import { Mail, ShieldCheck, AlertTriangle, TrendingUp } from 'lucide-react'
+import { WolfLoader } from '@/components/ui/wolf-loader'
 import { createClient } from '@/lib/supabase/client'
 import { Card, CardContent } from '@/components/ui/card'
 import { MailboxTable, type MailboxRow } from './_components/mailbox-table'
@@ -63,7 +64,7 @@ export default function MailboxesPage() {
   }
 
   if (authLoading || !authorized) {
-    return <div className="flex items-center justify-center py-20"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
+    return <div className="flex items-center justify-center py-20"><WolfLoader variant="spinner" size={24} mode="amber" /></div>
   }
 
   const active = mailboxes.filter(m => m.status === 'active').length

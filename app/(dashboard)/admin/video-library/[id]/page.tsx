@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter, useParams } from 'next/navigation'
-import { ArrowLeft, Film, Clock, Maximize, HardDrive, Play, Pause, Archive, Loader2, BarChart3, Eye, Users, DollarSign } from 'lucide-react'
+import { ArrowLeft, Film, Clock, Maximize, HardDrive, Play, Pause, Archive, BarChart3, Eye, Users, DollarSign } from 'lucide-react'
+import { WolfLoader } from '@/components/ui/wolf-loader'
 import { createClient } from '@/lib/supabase/client'
 import { TagEditor } from '../_components/tag-editor'
 
@@ -85,7 +86,7 @@ export default function VideoDetailPage() {
   }
 
   if (loading) {
-    return <div className="flex justify-center py-24"><Loader2 className="h-8 w-8 animate-spin text-amber-400" /></div>
+    return <div className="flex justify-center py-24"><WolfLoader variant="spinner" size={32} mode="amber" /></div>
   }
   if (!video) {
     return <div className="text-center py-12 text-zinc-500">Video not found</div>

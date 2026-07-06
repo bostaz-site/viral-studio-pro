@@ -3,12 +3,12 @@
 import { useEffect, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import {
-  Loader2,
   CheckCircle2,
   ExternalLink,
   Unplug,
   AlertCircle,
 } from 'lucide-react'
+import { WolfLoader } from '@/components/ui/wolf-loader'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -190,7 +190,7 @@ export function ConnectAccounts() {
 
                 <div className="flex items-center gap-2 shrink-0">
                   {accountsLoading ? (
-                    <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                    <WolfLoader variant="spinner" size={16} mode="amber" />
                   ) : isConnected ? (
                     <>
                       <Badge
@@ -208,7 +208,7 @@ export function ConnectAccounts() {
                         disabled={isDisconnecting}
                       >
                         {isDisconnecting ? (
-                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          <WolfLoader variant="spinner" size={14} mode="amber" />
                         ) : (
                           <Unplug className="h-3.5 w-3.5" />
                         )}

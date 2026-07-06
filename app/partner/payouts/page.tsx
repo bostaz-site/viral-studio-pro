@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Loader2, DollarSign, CheckCircle2, Clock, AlertCircle, ExternalLink } from 'lucide-react'
+import { DollarSign, CheckCircle2, Clock, AlertCircle, ExternalLink } from 'lucide-react'
+import { WolfLoader } from '@/components/ui/wolf-loader'
 
 interface Payout {
   id: string
@@ -71,7 +72,7 @@ export default function PartnerPayoutsPage() {
   if (loading) {
     return (
       <div className="flex justify-center py-24">
-        <Loader2 className="h-8 w-8 animate-spin text-amber-400" />
+        <WolfLoader variant="spinner" size={32} mode="amber" />
       </div>
     )
   }

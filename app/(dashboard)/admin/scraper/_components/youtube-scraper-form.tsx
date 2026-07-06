@@ -1,7 +1,8 @@
 'use client'
 
 import { useState } from 'react'
-import { Search, Loader2, Save, Mail } from 'lucide-react'
+import { Search, Save, Mail } from 'lucide-react'
+import { WolfLoader } from '@/components/ui/wolf-loader'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -93,7 +94,7 @@ export function YouTubeScraperForm({ onSearch, onSaveSearch, loading, savedSearc
 
       <div className="flex items-center gap-3">
         <Button type="submit" disabled={loading || !query.trim()} className="gap-1.5">
-          {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+          {loading ? <WolfLoader variant="spinner" size={16} mode="amber" /> : <Search className="h-4 w-4" />}
           Search YouTube
         </Button>
 

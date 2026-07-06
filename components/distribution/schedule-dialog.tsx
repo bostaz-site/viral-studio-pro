@@ -1,7 +1,8 @@
 'use client'
 
 import { useState } from 'react'
-import { CalendarPlus, Loader2, AlertCircle } from 'lucide-react'
+import { CalendarPlus, AlertCircle } from 'lucide-react'
+import { WolfLoader } from '@/components/ui/wolf-loader'
 import { Dialog } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -156,7 +157,7 @@ export function ScheduleDialog({ open, onOpenChange, clipId: initialClipId }: Sc
             disabled={loading}
           >
             {loading ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
+              <WolfLoader variant="spinner" size={16} mode="amber" />
             ) : (
               <CalendarPlus className="h-4 w-4" />
             )}

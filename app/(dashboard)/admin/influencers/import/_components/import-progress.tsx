@@ -1,6 +1,6 @@
 'use client'
 
-import { Loader2 } from 'lucide-react'
+import { WolfLoader } from '@/components/ui/wolf-loader'
 
 interface ImportBatchStatus {
   rows_total: number
@@ -20,7 +20,7 @@ export function ImportProgress({ batch, isPolling }: ImportProgressProps) {
   if (!batch) {
     return (
       <div className="flex items-center justify-center gap-2 py-8">
-        <Loader2 className="h-5 w-5 animate-spin text-primary" />
+        <WolfLoader variant="spinner" size={20} mode="amber" />
         <span className="text-sm text-muted-foreground">Starting import...</span>
       </div>
     )
@@ -34,7 +34,7 @@ export function ImportProgress({ batch, isPolling }: ImportProgressProps) {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          {!isComplete && <Loader2 className="h-4 w-4 animate-spin text-primary" />}
+          {!isComplete && <WolfLoader variant="spinner" size={16} mode="amber" />}
           <span className="text-sm font-medium">
             {isComplete ? 'Import complete' : 'Importing...'}
           </span>

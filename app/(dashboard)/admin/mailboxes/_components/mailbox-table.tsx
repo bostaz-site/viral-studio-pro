@@ -1,7 +1,8 @@
 'use client'
 
 import { useState } from 'react'
-import { Eye, Pause, Play, RefreshCw, Loader2 } from 'lucide-react'
+import { Eye, Pause, Play, RefreshCw } from 'lucide-react'
+import { WolfLoader } from '@/components/ui/wolf-loader'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -137,15 +138,15 @@ export function MailboxTable({ mailboxes, onViewDetail, onAction, statusFilter, 
                           </Button>
                           {mb.status === 'active' ? (
                             <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-amber-400" onClick={() => handleAction(mb.id, 'pause')} disabled={isLoading('pause')} title="Pause">
-                              {isLoading('pause') ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Pause className="h-3.5 w-3.5" />}
+                              {isLoading('pause') ? <WolfLoader variant="spinner" size={14} mode="amber" /> : <Pause className="h-3.5 w-3.5" />}
                             </Button>
                           ) : mb.status === 'paused' ? (
                             <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-green-400" onClick={() => handleAction(mb.id, 'resume')} disabled={isLoading('resume')} title="Resume">
-                              {isLoading('resume') ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Play className="h-3.5 w-3.5" />}
+                              {isLoading('resume') ? <WolfLoader variant="spinner" size={14} mode="amber" /> : <Play className="h-3.5 w-3.5" />}
                             </Button>
                           ) : null}
                           <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => handleAction(mb.id, 'sync')} disabled={isLoading('sync')} title="Sync">
-                            {isLoading('sync') ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+                            {isLoading('sync') ? <WolfLoader variant="spinner" size={14} mode="amber" /> : <RefreshCw className="h-3.5 w-3.5" />}
                           </Button>
                         </div>
                       </td>

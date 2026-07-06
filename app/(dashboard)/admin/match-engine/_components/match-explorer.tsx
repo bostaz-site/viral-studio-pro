@@ -1,7 +1,8 @@
 'use client'
 
 import { useState } from 'react'
-import { Search, Loader2, ArrowRight, Shield } from 'lucide-react'
+import { Search, ArrowRight, Shield } from 'lucide-react'
+import { WolfLoader } from '@/components/ui/wolf-loader'
 
 interface MatchEntry { id: string; promo_video_id: string; match_score: number; match_breakdown: Record<string, number>; is_primary: boolean; is_admin_override: boolean }
 
@@ -36,7 +37,7 @@ export function MatchExplorer() {
           className="flex-1 rounded-lg bg-zinc-800 border border-zinc-700 px-3 py-2 text-sm text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:ring-1 focus:ring-amber-500" />
         <button onClick={handleSearch} disabled={loading}
           className="rounded-lg bg-amber-500 text-amber-950 px-4 py-2 text-sm font-medium hover:bg-amber-400 disabled:opacity-50 flex items-center gap-1.5">
-          {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />} Search
+          {loading ? <WolfLoader variant="spinner" size={16} mode="amber" /> : <Search className="h-4 w-4" />} Search
         </button>
       </div>
 

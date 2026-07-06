@@ -3,9 +3,10 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import {
-  Loader2, Rocket, Target, Lightbulb, DollarSign,
+  Rocket, Target, Lightbulb, DollarSign,
   CheckCircle2, Clock, XCircle, ChevronDown, ChevronUp,
 } from 'lucide-react'
+import { WolfLoader } from '@/components/ui/wolf-loader'
 
 interface StrategicMove {
   id: string
@@ -94,7 +95,7 @@ export default function StrategicMovesPage() {
   if (!authorized) {
     return (
       <div className="flex items-center justify-center h-64">
-        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        <WolfLoader variant="spinner" size={24} mode="system" />
       </div>
     )
   }
@@ -140,7 +141,7 @@ export default function StrategicMovesPage() {
       {/* Moves list */}
       {loading ? (
         <div className="flex items-center justify-center h-32">
-          <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+          <WolfLoader variant="spinner" size={20} mode="system" />
         </div>
       ) : moves.length === 0 ? (
         <div className="text-center py-12 text-muted-foreground">No moves found for this filter</div>

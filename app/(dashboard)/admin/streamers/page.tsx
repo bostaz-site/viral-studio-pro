@@ -5,6 +5,7 @@ import {
   Users, Plus, RefreshCw, Loader2, ToggleLeft, ToggleRight, Trash2,
   Radio, Zap, Clock, BarChart3, Eye,
 } from 'lucide-react'
+import { WolfLoader } from '@/components/ui/wolf-loader'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -186,7 +187,7 @@ export default function AdminStreamersPage() {
               </div>
             </div>
             <Button size="sm" onClick={handleAdd} disabled={saving || !newName}>
-              {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" /> : <Plus className="h-3.5 w-3.5 mr-1.5" />}
+              {saving ? <WolfLoader variant="spinner" size={14} mode="amber" /> : <Plus className="h-3.5 w-3.5 mr-1.5" />}
               Add
             </Button>
           </CardContent>
@@ -196,7 +197,7 @@ export default function AdminStreamersPage() {
       {/* Streamer list */}
       {loading ? (
         <div className="flex justify-center py-12">
-          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          <WolfLoader variant="spinner" size={24} mode="amber" />
         </div>
       ) : (
         <div className="space-y-2">
@@ -242,7 +243,7 @@ export default function AdminStreamersPage() {
                     title="Fetch now"
                   >
                     {fetchingId === s.id ? (
-                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      <WolfLoader variant="spinner" size={14} mode="amber" />
                     ) : (
                       <Zap className="h-3.5 w-3.5 text-amber-400" />
                     )}

@@ -3,9 +3,10 @@
 import { useEffect, useState, useCallback } from 'react'
 import {
   X, ExternalLink, Mail, Globe, Tag, CalendarClock,
-  ThumbsUp, ThumbsDown, ShieldBan, CheckCircle2, Loader2,
+  ThumbsUp, ThumbsDown, ShieldBan, CheckCircle2,
   Send, Eye, MousePointerClick, MessageSquare, AlertTriangle,
 } from 'lucide-react'
+import { WolfLoader } from '@/components/ui/wolf-loader'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
@@ -211,7 +212,7 @@ export function InfluencerDrawer({ influencer, onClose, onUpdate }: DrawerProps)
             )}
           </div>
           <div className="flex items-center gap-2">
-            {saving && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
+            {saving && <WolfLoader variant="spinner" size={16} mode="system" />}
             <Button variant="ghost" size="icon" onClick={onClose} className="h-8 w-8">
               <X className="h-4 w-4" />
             </Button>
@@ -373,7 +374,7 @@ export function InfluencerDrawer({ influencer, onClose, onUpdate }: DrawerProps)
             </h3>
             {eventsLoading ? (
               <div className="flex items-center justify-center py-6">
-                <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                <WolfLoader variant="spinner" size={16} mode="system" />
               </div>
             ) : events.length === 0 ? (
               <p className="text-xs text-zinc-500 py-4 text-center">No email events</p>

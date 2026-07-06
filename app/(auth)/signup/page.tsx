@@ -4,7 +4,8 @@
 import { Suspense, useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
-import { Loader2, Mail, Lock, User, ArrowRight, CheckCircle2, Gift } from 'lucide-react'
+import { Mail, Lock, User, ArrowRight, CheckCircle2, Gift } from 'lucide-react'
+import { WolfLoader } from '@/components/ui/wolf-loader'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -25,7 +26,7 @@ function SignupSkeleton() {
   return (
     <Card className="bg-card/80 border-border backdrop-blur-sm shadow-xl shadow-black/5">
       <CardContent className="pt-8 pb-8 flex items-center justify-center">
-        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        <WolfLoader variant="spinner" size={24} mode="amber" />
       </CardContent>
     </Card>
   )
@@ -275,7 +276,7 @@ function SignupForm() {
             disabled={loading}
           >
             {loading ? (
-              <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Creating...</>
+              <><WolfLoader variant="spinner" size={16} mode="amber" /> Creating...</>
             ) : (
               <>Create my free account <ArrowRight className="ml-2 h-4 w-4" /></>
             )}

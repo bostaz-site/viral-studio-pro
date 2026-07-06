@@ -1,7 +1,8 @@
 'use client'
 
 import { useState, useCallback, useEffect } from 'react'
-import { Send, Loader2, ChevronDown, AlertCircle, Info } from 'lucide-react'
+import { Send, ChevronDown, AlertCircle, Info } from 'lucide-react'
+import { WolfLoader } from '@/components/ui/wolf-loader'
 import { QuickReplyTemplates, type QuickTemplate } from './quick-reply-templates'
 
 interface ReplyComposerProps {
@@ -190,7 +191,7 @@ export function ReplyComposer({
         >
           {sending ? (
             <>
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              <WolfLoader variant="spinner" size={14} mode="amber" />
               Sending...
             </>
           ) : (

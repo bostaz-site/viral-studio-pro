@@ -10,6 +10,7 @@ import {
   Monitor, Zap, Send,
   Flame, Focus, X, Plus, Volume2, Scissors, RotateCcw, Rocket, Bell, SlidersHorizontal, Gift,
 } from 'lucide-react'
+import { WolfLoader } from '@/components/ui/wolf-loader'
 import { Button } from '@/components/ui/button'
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from '@/components/ui/accordion'
 import { Slider } from '@/components/ui/slider'
@@ -1367,7 +1368,7 @@ export default function EnhancePage() {
               {/* During render: single "Rendering your clip" card replaces all actions */}
               {!renderDownloadUrl && rendering && !analysisSequenceActive && (
                 <div className="va-panel flex flex-col items-center gap-3 text-center">
-                  <Loader2 className="h-6 w-6 text-amber-400 animate-spin" />
+                  <WolfLoader variant="sequence" mode="amber" size={64} progress={renderStageIdx >= 0 ? Math.round(((renderStageIdx + 1) / RENDER_STAGES.length) * 100) : 0} />
                   <div>
                     <p className="text-sm font-bold text-zinc-100">Rendering your clip</p>
                     <p className="text-[10px] text-zinc-500 mt-0.5">{renderStageIdx >= 0 ? RENDER_STAGES[renderStageIdx] : 'Starting'}...</p>
@@ -1456,7 +1457,7 @@ export default function EnhancePage() {
                 )}
                 <div className="relative flex items-center gap-3 px-5 h-full">
                   {isAnalyzing ? (
-                    <Loader2 className="h-[18px] w-[18px] text-amber-950 animate-spin shrink-0" />
+                    <WolfLoader variant="spinner" size={18} mode="amber" className="shrink-0" />
                   ) : isComplete ? (
                     <Check className="h-[18px] w-[18px] text-emerald-950 shrink-0" />
                   ) : (
@@ -2000,7 +2001,7 @@ export default function EnhancePage() {
                         style={{ background: 'linear-gradient(135deg, #fbbf24, #f59e0b 45%, #d97706)', boxShadow: '0 0 20px rgba(245, 158, 11, 0.18)' }}
                       >
                         {hookGenerating ? (
-                          <><Loader2 className="h-4 w-4 animate-spin" /> Analyzing…</>
+                          <><WolfLoader variant="spinner" size={16} mode="system" /> Analyzing…</>
                         ) : hookAnalysis ? (
                           <><Wand2 className="h-4 w-4" /> Regenerate hooks</>
                         ) : (

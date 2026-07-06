@@ -12,6 +12,7 @@ import {
   TrendingUp,
   Sparkles,
 } from 'lucide-react'
+import { WolfLoader } from '@/components/ui/wolf-loader'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 
@@ -197,7 +198,7 @@ export default function AdminAnalyticsPage() {
       <div className="max-w-6xl mx-auto px-6 py-8 space-y-8">
         {loading && !data && (
           <div className="flex items-center justify-center py-20 text-muted-foreground">
-            <Loader2 className="h-5 w-5 animate-spin mr-2" />
+            <WolfLoader variant="spinner" size={20} mode="amber" />
             Loading metrics…
           </div>
         )}

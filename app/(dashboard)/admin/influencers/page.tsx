@@ -3,10 +3,11 @@
 import { Suspense, useEffect, useState, useCallback, useMemo } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import {
-  Loader2, Search, ChevronLeft, ChevronRight, Users, X,
+  Search, ChevronLeft, ChevronRight, Users, X,
   MessageSquareReply, Clock, Star, MailWarning, AlertTriangle, Download,
   Check, Tag, ShieldBan, Filter,
 } from 'lucide-react'
+import { WolfLoader } from '@/components/ui/wolf-loader'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
@@ -104,7 +105,7 @@ const PLATFORMS = ['twitch', 'kick', 'youtube', 'tiktok', 'instagram', 'podcast'
 
 export default function InfluencersPage() {
   return (
-    <Suspense fallback={<div className="flex items-center justify-center py-20"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>}>
+    <Suspense fallback={<div className="flex items-center justify-center py-20"><WolfLoader variant="spinner" size={24} mode="amber" /></div>}>
       <InfluencersPageInner />
     </Suspense>
   )
@@ -252,7 +253,7 @@ function InfluencersPageInner() {
   if (authLoading || !authorized) {
     return (
       <div className="flex items-center justify-center py-20">
-        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        <WolfLoader variant="spinner" size={24} mode="amber" />
       </div>
     )
   }
@@ -457,7 +458,7 @@ function InfluencersPageInner() {
               {loading && influencers.length === 0 && (
                 <tr>
                   <td colSpan={12} className="py-12 text-center text-muted-foreground">
-                    <Loader2 className="h-5 w-5 animate-spin mx-auto mb-2" />
+                    <div className="flex justify-center mb-2"><WolfLoader variant="spinner" size={20} mode="amber" /></div>
                     Loading...
                   </td>
                 </tr>

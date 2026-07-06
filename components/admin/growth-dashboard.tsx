@@ -6,10 +6,10 @@ import {
   TrendingUp,
   DollarSign,
   Target,
-  Loader2,
   AlertCircle,
   Crown,
 } from 'lucide-react'
+import { WolfLoader } from '@/components/ui/wolf-loader'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { useAffiliateStore, type Affiliate } from '@/stores/affiliate-store'
@@ -49,7 +49,7 @@ export function GrowthDashboard() {
   if (loading && affiliates.length === 0) {
     return (
       <div className="flex items-center justify-center py-20">
-        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        <WolfLoader variant="spinner" size={24} mode="amber" />
       </div>
     )
   }

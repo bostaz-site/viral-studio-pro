@@ -3,9 +3,10 @@
 import { useState } from 'react'
 import {
   Flame, RotateCcw, AlertTriangle, CheckCircle2,
-  ChevronDown, ChevronUp, Loader2, BarChart3, Search,
+  ChevronDown, ChevronUp, BarChart3, Search,
   Brain, Sparkles, GitMerge, Bug, Users, GitPullRequest, ShieldAlert, Beaker,
 } from 'lucide-react'
+import { WolfLoader } from '@/components/ui/wolf-loader'
 import Link from 'next/link'
 import type { Finding, MetricSnapshot } from './page'
 
@@ -267,7 +268,7 @@ export function AuditsClient({
       {/* Loading */}
       {loading && (
         <div className="flex items-center justify-center py-12">
-          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          <WolfLoader variant="spinner" size={24} mode="system" />
         </div>
       )}
 

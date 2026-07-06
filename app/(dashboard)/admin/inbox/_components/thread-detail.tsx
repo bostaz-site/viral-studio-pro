@@ -1,7 +1,8 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
-import { Star, Archive, Tag, Loader2, ArrowDown, ArrowUp } from 'lucide-react'
+import { Star, Archive, Tag, ArrowDown, ArrowUp } from 'lucide-react'
+import { WolfLoader } from '@/components/ui/wolf-loader'
 import { InfluencerContextSidebar } from './influencer-context-sidebar'
 import { ReplyComposer } from './reply-composer'
 import { SentimentBadge } from './sentiment-badge'
@@ -105,7 +106,7 @@ export function ThreadDetail({ influencerId, onAction }: ThreadDetailProps) {
   if (loading) {
     return (
       <div className="flex-1 flex items-center justify-center">
-        <Loader2 className="h-6 w-6 animate-spin text-zinc-500" />
+        <WolfLoader variant="spinner" size={24} mode="amber" />
       </div>
     )
   }

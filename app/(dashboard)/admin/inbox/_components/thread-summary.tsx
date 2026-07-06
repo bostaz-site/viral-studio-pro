@@ -1,7 +1,8 @@
 'use client'
 
 import { useState } from 'react'
-import { FileText, Loader2, ChevronDown, ChevronUp } from 'lucide-react'
+import { FileText, ChevronDown, ChevronUp } from 'lucide-react'
+import { WolfLoader } from '@/components/ui/wolf-loader'
 
 interface ThreadSummaryProps {
   influencerId: string
@@ -67,7 +68,7 @@ export function ThreadSummary({ influencerId, messageCount }: ThreadSummaryProps
           className="flex items-center gap-1.5 text-xs text-zinc-400 hover:text-zinc-200 transition-colors disabled:opacity-50"
         >
           {loading ? (
-            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            <WolfLoader variant="spinner" size={14} mode="amber" />
           ) : (
             <FileText className="h-3.5 w-3.5" />
           )}

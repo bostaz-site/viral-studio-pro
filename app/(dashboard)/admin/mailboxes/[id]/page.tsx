@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter, useParams } from 'next/navigation'
-import { Loader2, ArrowLeft, Pause, Play, RefreshCw, Mail, Send, Reply, AlertTriangle } from 'lucide-react'
+import { ArrowLeft, Pause, Play, RefreshCw, Mail, Send, Reply, AlertTriangle } from 'lucide-react'
+import { WolfLoader } from '@/components/ui/wolf-loader'
 import { createClient } from '@/lib/supabase/client'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -71,7 +72,7 @@ export default function MailboxDetailPage() {
   }
 
   if (authLoading || !authorized || loading) {
-    return <div className="flex items-center justify-center py-20"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
+    return <div className="flex items-center justify-center py-20"><WolfLoader variant="spinner" size={24} mode="amber" /></div>
   }
 
   if (!data) {
@@ -114,15 +115,15 @@ export default function MailboxDetailPage() {
         <div className="flex gap-1">
           {mb.status === 'active' ? (
             <Button variant="outline" size="sm" className="gap-1 text-amber-400" onClick={() => handleAction('pause')} disabled={!!actionLoading}>
-              {actionLoading === 'pause' ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Pause className="h-3.5 w-3.5" />} Pause
+              {actionLoading === 'pause' ? <WolfLoader variant="spinner" size={14} mode="amber" /> : <Pause className="h-3.5 w-3.5" />} Pause
             </Button>
           ) : mb.status === 'paused' ? (
             <Button variant="outline" size="sm" className="gap-1 text-green-400" onClick={() => handleAction('resume')} disabled={!!actionLoading}>
-              {actionLoading === 'resume' ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Play className="h-3.5 w-3.5" />} Resume
+              {actionLoading === 'resume' ? <WolfLoader variant="spinner" size={14} mode="amber" /> : <Play className="h-3.5 w-3.5" />} Resume
             </Button>
           ) : null}
           <Button variant="outline" size="sm" className="gap-1" onClick={() => handleAction('sync')} disabled={!!actionLoading}>
-            {actionLoading === 'sync' ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />} Sync
+            {actionLoading === 'sync' ? <WolfLoader variant="spinner" size={14} mode="amber" /> : <RefreshCw className="h-3.5 w-3.5" />} Sync
           </Button>
         </div>
       </div>

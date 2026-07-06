@@ -2,7 +2,8 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { ShieldAlert, AlertCircle, Loader2 } from 'lucide-react'
+import { ShieldAlert, AlertCircle } from 'lucide-react'
+import { WolfLoader } from '@/components/ui/wolf-loader'
 import { HealthOverview } from './_components/health-overview'
 import { AlertsTable } from './_components/alerts-table'
 
@@ -170,7 +171,7 @@ export default function WatchdogPage() {
       {/* Alerts */}
       {loading ? (
         <div className="flex justify-center py-12">
-          <Loader2 className="h-6 w-6 animate-spin text-zinc-500" />
+          <WolfLoader variant="spinner" size={24} mode="amber" />
         </div>
       ) : (
         <AlertsTable

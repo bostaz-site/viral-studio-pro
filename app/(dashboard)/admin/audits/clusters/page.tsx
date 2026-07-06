@@ -3,9 +3,10 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import {
-  Loader2, ChevronDown, ChevronUp, ExternalLink,
+  ChevronDown, ChevronUp, ExternalLink,
   GitPullRequest, ArrowLeft,
 } from 'lucide-react'
+import { WolfLoader } from '@/components/ui/wolf-loader'
 import Link from 'next/link'
 
 interface Cluster {
@@ -110,7 +111,7 @@ export default function ClustersPage() {
   if (!authorized) {
     return (
       <div className="flex items-center justify-center h-64">
-        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        <WolfLoader variant="spinner" size={24} mode="system" />
       </div>
     )
   }
@@ -152,7 +153,7 @@ export default function ClustersPage() {
       {/* Loading */}
       {loading && (
         <div className="flex items-center justify-center py-12">
-          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          <WolfLoader variant="spinner" size={24} mode="system" />
         </div>
       )}
 
@@ -215,7 +216,7 @@ export default function ClustersPage() {
                   {expandedId === c.id && (
                     <div className="mt-3 space-y-1">
                       {drillLoading ? (
-                        <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                        <WolfLoader variant="spinner" size={16} mode="system" />
                       ) : drillFindings.length === 0 ? (
                         <p className="text-xs text-zinc-600">No linked findings</p>
                       ) : (

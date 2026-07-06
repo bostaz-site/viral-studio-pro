@@ -2,7 +2,7 @@
 
 import { Suspense, useEffect, useState } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
-import { Loader2 } from 'lucide-react'
+import { WolfLoader } from '@/components/ui/wolf-loader'
 
 function VerifyContent() {
   const searchParams = useSearchParams()
@@ -26,7 +26,7 @@ function VerifyContent() {
 
   return (
     <div className="max-w-md mx-auto mt-24 text-center space-y-4">
-      <Loader2 className="h-8 w-8 animate-spin text-amber-400 mx-auto" />
+      <WolfLoader variant="spinner" size={32} mode="amber" />
       <p className="text-sm text-zinc-400">Verifying your login link...</p>
     </div>
   )
@@ -34,7 +34,7 @@ function VerifyContent() {
 
 export default function PartnerVerifyPage() {
   return (
-    <Suspense fallback={<div className="flex items-center justify-center mt-24"><Loader2 className="h-6 w-6 animate-spin text-zinc-400" /></div>}>
+    <Suspense fallback={<div className="flex items-center justify-center mt-24"><WolfLoader variant="spinner" size={24} mode="amber" /></div>}>
       <VerifyContent />
     </Suspense>
   )

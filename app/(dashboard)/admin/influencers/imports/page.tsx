@@ -3,7 +3,8 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Loader2, Upload, Clock, CheckCircle2, AlertTriangle, XCircle } from 'lucide-react'
+import { Upload, Clock, CheckCircle2, AlertTriangle, XCircle } from 'lucide-react'
+import { WolfLoader } from '@/components/ui/wolf-loader'
 import { createClient } from '@/lib/supabase/client'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -59,7 +60,7 @@ export default function ImportsHistoryPage() {
   if (authLoading || !authorized) {
     return (
       <div className="flex items-center justify-center py-20">
-        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        <WolfLoader variant="spinner" size={24} mode="amber" />
       </div>
     )
   }
@@ -81,7 +82,7 @@ export default function ImportsHistoryPage() {
 
       {loading ? (
         <div className="flex items-center justify-center py-12">
-          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          <WolfLoader variant="spinner" size={24} mode="amber" />
         </div>
       ) : batches.length === 0 ? (
         <Card>
@@ -139,7 +140,7 @@ function StatusIcon({ status }: { status: string }) {
     case 'failed':
       return <XCircle className="h-5 w-5 text-destructive" />
     default:
-      return <Loader2 className="h-5 w-5 animate-spin text-primary" />
+      return <WolfLoader variant="spinner" size={20} mode="amber" />
   }
 }
 

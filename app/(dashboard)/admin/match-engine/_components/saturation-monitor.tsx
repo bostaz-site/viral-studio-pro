@@ -1,7 +1,8 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Loader2, AlertTriangle } from 'lucide-react'
+import { AlertTriangle } from 'lucide-react'
+import { WolfLoader } from '@/components/ui/wolf-loader'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 
 interface SatEntry { videoId: string; title: string; niche: string[]; assignmentsLast7d: number; saturated: boolean; remaining: number }
@@ -16,7 +17,7 @@ export function SaturationMonitor() {
       .catch(() => {}).finally(() => setLoading(false))
   }, [])
 
-  if (loading) return <div className="flex justify-center py-8"><Loader2 className="h-5 w-5 animate-spin text-zinc-500" /></div>
+  if (loading) return <div className="flex justify-center py-8"><WolfLoader variant="spinner" size={20} mode="amber" /></div>
 
   return (
     <Card>

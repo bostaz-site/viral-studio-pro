@@ -1,7 +1,8 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Users, MousePointerClick, CreditCard, DollarSign, Loader2, Plus } from 'lucide-react'
+import { Users, MousePointerClick, CreditCard, DollarSign, Plus } from 'lucide-react'
+import { WolfLoader } from '@/components/ui/wolf-loader'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { useAffiliateStore } from '@/stores/affiliate-store'
@@ -29,7 +30,7 @@ export function AffiliatesDashboard() {
   if (loading && affiliates.length === 0) {
     return (
       <div className="flex items-center justify-center py-20">
-        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        <WolfLoader variant="spinner" size={24} mode="amber" />
       </div>
     )
   }

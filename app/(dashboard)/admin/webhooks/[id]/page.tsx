@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { ArrowLeft, Loader2, AlertCircle, RefreshCw } from 'lucide-react'
+import { ArrowLeft, AlertCircle, RefreshCw } from 'lucide-react'
+import { WolfLoader } from '@/components/ui/wolf-loader'
 
 interface WebhookDetail {
   id: string
@@ -58,7 +59,7 @@ export default function WebhookDetailPage() {
   if (loading) {
     return (
       <div className="flex justify-center py-12">
-        <Loader2 className="h-6 w-6 animate-spin text-zinc-500" />
+        <WolfLoader variant="spinner" size={24} mode="amber" />
       </div>
     )
   }

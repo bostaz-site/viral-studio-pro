@@ -2,7 +2,8 @@
 
 import { Suspense, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
-import { Loader2, Mail, CheckCircle2, AlertCircle } from 'lucide-react'
+import { Mail, CheckCircle2, AlertCircle } from 'lucide-react'
+import { WolfLoader } from '@/components/ui/wolf-loader'
 
 function PartnerLoginForm() {
   const searchParams = useSearchParams()
@@ -63,7 +64,7 @@ function PartnerLoginForm() {
       <form onSubmit={handleSubmit} className="space-y-4">
         <input type="email" placeholder="you@example.com" value={email} onChange={e => setEmail(e.target.value)} required className="w-full bg-zinc-900 border border-zinc-700 rounded-lg px-4 py-3 text-sm text-zinc-200 placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-amber-500/50" />
         <button type="submit" disabled={loading || !email.trim()} className="w-full bg-amber-500 text-black font-semibold py-3 rounded-lg hover:bg-amber-400 transition-colors disabled:opacity-50 flex items-center justify-center gap-2">
-          {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Send Login Link'}
+          {loading ? <WolfLoader variant="spinner" size={16} mode="amber" /> : 'Send Login Link'}
         </button>
       </form>
       <p className="text-center text-xs text-zinc-500 mt-6">Only active Viral Animal partners can access this portal.</p>
@@ -73,7 +74,7 @@ function PartnerLoginForm() {
 
 export default function PartnerLoginPage() {
   return (
-    <Suspense fallback={<div className="flex items-center justify-center mt-24"><Loader2 className="h-6 w-6 animate-spin text-zinc-400" /></div>}>
+    <Suspense fallback={<div className="flex items-center justify-center mt-24"><WolfLoader variant="spinner" size={24} mode="amber" /></div>}>
       <PartnerLoginForm />
     </Suspense>
   )

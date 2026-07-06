@@ -2,7 +2,8 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { Loader2, Users, DollarSign, TrendingUp, Handshake } from 'lucide-react'
+import { Users, DollarSign, TrendingUp, Handshake } from 'lucide-react'
+import { WolfLoader } from '@/components/ui/wolf-loader'
 import { createClient } from '@/lib/supabase/client'
 import { Card, CardContent } from '@/components/ui/card'
 import { AffiliatesDashboard } from '@/components/admin/affiliates-dashboard'
@@ -65,7 +66,7 @@ export default function AffiliatesAdminPage() {
   if (loading || !authorized) {
     return (
       <div className="flex items-center justify-center py-20">
-        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        <WolfLoader variant="spinner" size={24} mode="amber" />
       </div>
     )
   }
@@ -125,7 +126,7 @@ export default function AffiliatesAdminPage() {
       {tab === 'influencers' ? (
         dataLoading && influencerAffiliates.length === 0 ? (
           <div className="flex items-center justify-center py-12">
-            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+            <WolfLoader variant="spinner" size={20} mode="amber" />
           </div>
         ) : (
           <InfluencerAffiliateTable

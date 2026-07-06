@@ -1,7 +1,8 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Loader2, DollarSign, Copy, CheckCircle2 } from 'lucide-react'
+import { DollarSign, Copy, CheckCircle2 } from 'lucide-react'
+import { WolfLoader } from '@/components/ui/wolf-loader'
 import { Dialog } from '@/components/ui/dialog'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -42,7 +43,7 @@ export function AffiliateDetail({ affiliateId, open, onClose }: AffiliateDetailP
       <Dialog open={open} onClose={onClose} title={aff?.name ?? 'Affiliate Detail'} className="max-w-2xl">
         {detailLoading || !aff ? (
           <div className="flex items-center justify-center py-12">
-            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+            <WolfLoader variant="spinner" size={20} mode="amber" />
           </div>
         ) : (
           <div className="space-y-5">

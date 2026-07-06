@@ -3,7 +3,8 @@
 import { cn } from '@/lib/utils'
 import { ViralAnimalLogo } from '@/components/brand/viral-animal-logo'
 import { Switch } from '@/components/ui/switch'
-import { ExternalLink, Check, Loader2, AlertCircle, Clock } from 'lucide-react'
+import { ExternalLink, Check, AlertCircle, Clock } from 'lucide-react'
+import { WolfLoader } from '@/components/ui/wolf-loader'
 
 interface PlatformNode {
   id: string
@@ -219,7 +220,7 @@ export function PlatformConnectionMap({
                     {/* Progress / AI timing indicator */}
                     {progress?.status === 'publishing' ? (
                       <span className="flex items-center gap-1 text-[9px] text-amber-400 font-medium">
-                        <Loader2 className="h-2.5 w-2.5 animate-spin" /> Posting...
+                        <WolfLoader variant="spinner" size={10} mode="amber" /> Posting...
                       </span>
                     ) : progress?.status === 'published' ? (
                       <span className="flex items-center gap-1 text-[9px] text-emerald-400 font-medium">

@@ -3,9 +3,10 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import {
-  ArrowLeft, Loader2, Target, CheckCircle2,
+  ArrowLeft, Target, CheckCircle2,
   XCircle, HelpCircle, TrendingUp, TrendingDown,
 } from 'lucide-react'
+import { WolfLoader } from '@/components/ui/wolf-loader'
 import Link from 'next/link'
 
 interface Outcome {
@@ -63,7 +64,7 @@ export default function OutcomesPage() {
   if (!authorized) {
     return (
       <div className="flex items-center justify-center h-64">
-        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        <WolfLoader variant="spinner" size={24} mode="system" />
       </div>
     )
   }
@@ -121,7 +122,7 @@ export default function OutcomesPage() {
 
       {loading && (
         <div className="flex items-center justify-center py-12">
-          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          <WolfLoader variant="spinner" size={24} mode="system" />
         </div>
       )}
 

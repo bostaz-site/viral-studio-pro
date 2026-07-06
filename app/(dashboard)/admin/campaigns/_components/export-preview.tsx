@@ -2,7 +2,8 @@
 
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
-import { Loader2, Download, ShieldCheck, AlertTriangle, Copy, FileText } from 'lucide-react'
+import { Download, ShieldCheck, AlertTriangle, Copy, FileText } from 'lucide-react'
+import { WolfLoader } from '@/components/ui/wolf-loader'
 
 interface ExportPreviewProps {
   campaignId: string
@@ -99,7 +100,7 @@ export function ExportPreview({ campaignId, selectedIds, onExportComplete }: Exp
             className="h-7 text-xs"
           >
             {loading ? (
-              <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+              <WolfLoader variant="spinner" size={12} mode="amber" className="mr-1" />
             ) : (
               <ShieldCheck className="mr-1 h-3 w-3" />
             )}
@@ -160,7 +161,7 @@ export function ExportPreview({ campaignId, selectedIds, onExportComplete }: Exp
         >
           {exporting ? (
             <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              <WolfLoader variant="spinner" size={16} mode="amber" className="mr-2" />
               Exporting {selectedIds.length} recipients...
             </>
           ) : (

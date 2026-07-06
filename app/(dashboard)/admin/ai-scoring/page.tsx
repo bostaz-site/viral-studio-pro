@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { Loader2, Brain, Play, DollarSign, Target, CheckCircle, XCircle, Clock } from 'lucide-react'
+import { WolfLoader } from '@/components/ui/wolf-loader'
 import { createClient } from '@/lib/supabase/client'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -73,7 +74,7 @@ export default function AiScoringPage() {
   }
 
   if (authLoading || !authorized) {
-    return <div className="flex items-center justify-center py-20"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
+    return <div className="flex items-center justify-center py-20"><WolfLoader variant="spinner" size={24} mode="amber" /></div>
   }
 
   const totalProcessed = jobs.reduce((s, j) => s + j.processed_leads, 0)
@@ -91,7 +92,7 @@ export default function AiScoringPage() {
           </div>
         </div>
         <Button onClick={handleRunBatch} disabled={running} className="gap-1.5">
-          {running ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
+          {running ? <WolfLoader variant="spinner" size={16} mode="amber" /> : <Play className="h-4 w-4" />}
           Run Batch Now
         </Button>
       </div>

@@ -3,9 +3,10 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import {
-  ArrowLeft, Loader2, Sparkles, Code2, Zap, TrendingUp,
+  ArrowLeft, Sparkles, Code2, Zap, TrendingUp,
   ChevronDown, ChevronUp, ArrowRight, X,
 } from 'lucide-react'
+import { WolfLoader } from '@/components/ui/wolf-loader'
 import Link from 'next/link'
 
 interface Opportunity {
@@ -92,7 +93,7 @@ export default function AIMultiplierPage() {
   if (!authorized) {
     return (
       <div className="flex items-center justify-center h-64">
-        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        <WolfLoader variant="spinner" size={24} mode="system" />
       </div>
     )
   }
@@ -144,7 +145,7 @@ export default function AIMultiplierPage() {
 
       {loading && (
         <div className="flex items-center justify-center py-12">
-          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          <WolfLoader variant="spinner" size={24} mode="system" />
         </div>
       )}
 

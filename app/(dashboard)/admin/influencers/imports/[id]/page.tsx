@@ -3,7 +3,8 @@
 import { useEffect, useState } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, Loader2, CheckCircle2, AlertTriangle, XCircle } from 'lucide-react'
+import { ArrowLeft, CheckCircle2, AlertTriangle, XCircle } from 'lucide-react'
+import { WolfLoader } from '@/components/ui/wolf-loader'
 import { createClient } from '@/lib/supabase/client'
 // Auth check only - data fetched via API
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -72,7 +73,7 @@ export default function BatchDetailPage() {
   if (authLoading || !authorized || loading) {
     return (
       <div className="flex items-center justify-center py-20">
-        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        <WolfLoader variant="spinner" size={24} mode="amber" />
       </div>
     )
   }
@@ -86,7 +87,7 @@ export default function BatchDetailPage() {
   ) : batch.status === 'failed' ? (
     <XCircle className="h-6 w-6 text-destructive" />
   ) : (
-    <Loader2 className="h-6 w-6 animate-spin text-primary" />
+    <WolfLoader variant="spinner" size={24} mode="amber" />
   )
 
   const duration = batch.completed_at

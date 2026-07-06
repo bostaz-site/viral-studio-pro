@@ -1,7 +1,8 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Loader2, Filter } from 'lucide-react'
+import { Filter } from 'lucide-react'
+import { WolfLoader } from '@/components/ui/wolf-loader'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { FunnelChart } from '../../_components/analytics/funnel-chart'
 
@@ -20,7 +21,7 @@ export default function FunnelPage() {
   }, [])
 
   if (loading) {
-    return <div className="flex items-center justify-center py-20"><Loader2 className="h-6 w-6 animate-spin text-zinc-500" /></div>
+    return <div className="flex items-center justify-center py-20"><WolfLoader variant="spinner" size={24} mode="amber" /></div>
   }
 
   // KPI cards from funnel data

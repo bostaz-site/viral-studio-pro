@@ -1,7 +1,8 @@
 'use client'
 
 import { useState } from 'react'
-import { Loader2, DollarSign } from 'lucide-react'
+import { DollarSign } from 'lucide-react'
+import { WolfLoader } from '@/components/ui/wolf-loader'
 import { Dialog } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -66,7 +67,7 @@ export function PayoutDialog({ open, onOpenChange, affiliateId, affiliateName, m
             Cancel
           </Button>
           <Button className="flex-1 gap-1.5" onClick={handlePay} disabled={loading || amount <= 0}>
-            {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <DollarSign className="h-4 w-4" />}
+            {loading ? <WolfLoader variant="spinner" size={16} mode="amber" /> : <DollarSign className="h-4 w-4" />}
             Pay ${amount.toFixed(2)}
           </Button>
         </div>

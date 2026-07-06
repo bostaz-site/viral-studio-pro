@@ -7,12 +7,12 @@ import {
   XCircle,
   CheckCircle2,
   AlertCircle,
-  Loader2,
   Plus,
   Calendar,
   AlertTriangle,
   TrendingDown,
 } from 'lucide-react'
+import { WolfLoader } from '@/components/ui/wolf-loader'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -33,7 +33,7 @@ const STATUS_CONFIG: Record<string, { icon: React.ReactNode; color: string; labe
     label: 'Scheduled',
   },
   publishing: {
-    icon: <Loader2 className="h-3.5 w-3.5 animate-spin" />,
+    icon: <WolfLoader variant="spinner" size={14} mode="amber" />,
     color: 'text-amber-400 border-amber-400/40',
     label: 'Publishing...',
   },
@@ -156,7 +156,7 @@ export function ScheduleQueue({ onAddClick }: ScheduleQueueProps) {
       <CardContent className="space-y-2">
         {queueLoading ? (
           <div className="flex items-center justify-center py-8">
-            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+            <WolfLoader variant="spinner" size={20} mode="amber" />
           </div>
         ) : queueError ? (
           <div className="flex items-center gap-2 py-4 text-sm text-red-400">

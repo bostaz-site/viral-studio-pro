@@ -1,7 +1,8 @@
 'use client'
 
 import { useState } from 'react'
-import { FileText, Trash2, Loader2, CheckCircle2, AlertCircle } from 'lucide-react'
+import { FileText, Trash2, CheckCircle2, AlertCircle } from 'lucide-react'
+import { WolfLoader } from '@/components/ui/wolf-loader'
 
 interface GdprRequestsProps {
   onExport: (email: string) => Promise<void>
@@ -82,7 +83,7 @@ export function GdprRequests({ onExport, onDelete }: GdprRequestsProps) {
               disabled={loading}
               className="flex items-center gap-1.5 px-3 py-1.5 bg-red-500 text-white text-xs rounded-md hover:bg-red-600 transition-colors disabled:opacity-50"
             >
-              {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+              {loading ? <WolfLoader variant="spinner" size={14} mode="amber" /> : <Trash2 className="h-3.5 w-3.5" />}
               Confirm Delete (irreversible)
             </button>
           )}

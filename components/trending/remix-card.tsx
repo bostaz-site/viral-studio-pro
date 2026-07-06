@@ -3,6 +3,7 @@
 import { memo, useState } from 'react'
 import Image from 'next/image'
 import { Download, RefreshCw, CheckCircle, Loader2, XCircle, Clock, SplitSquareHorizontal, TimerOff } from 'lucide-react'
+import { WolfLoader } from '@/components/ui/wolf-loader'
 import { cn } from '@/lib/utils'
 import { timeAgo } from '@/lib/trending/utils'
 import { RemixProgress } from '@/components/trending/remix-progress'
@@ -78,7 +79,7 @@ export const RemixCard = memo(function RemixCard({ remix }: { remix: RemixJob })
             'absolute top-2 right-2 text-xs font-bold px-2 py-0.5 rounded-full bg-black/60 backdrop-blur-sm flex items-center gap-1',
             statusConfig.color
           )}>
-            <StatusIcon className={cn('h-3 w-3', statusConfig.animate && 'animate-spin')} /> {statusConfig.label}
+            {statusConfig.animate ? <WolfLoader variant="spinner" size={12} mode="amber" /> : <StatusIcon className="h-3 w-3" />} {statusConfig.label}
           </span>
         )}
       </div>

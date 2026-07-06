@@ -3,7 +3,8 @@
 import { useEffect, useState, useCallback } from 'react'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
-import { Loader2, Eye, ArrowRight, Zap } from 'lucide-react'
+import { Eye, ArrowRight, Zap } from 'lucide-react'
+import { WolfLoader } from '@/components/ui/wolf-loader'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 
@@ -182,7 +183,7 @@ export function FirstClipOverlay() {
                   {/* Loading overlay */}
                   {isLoading && (
                     <div className="absolute inset-0 bg-background/70 flex items-center justify-center">
-                      <Loader2 className="h-8 w-8 animate-spin text-orange-400" />
+                      <WolfLoader variant="spinner" size={32} mode="amber" />
                     </div>
                   )}
 
@@ -210,7 +211,7 @@ export function FirstClipOverlay() {
                   )}>
                     {isLoading ? (
                       <>
-                        <Loader2 className="h-3 w-3 animate-spin" />
+                        <WolfLoader variant="spinner" size={12} mode="amber" />
                         Starting...
                       </>
                     ) : (

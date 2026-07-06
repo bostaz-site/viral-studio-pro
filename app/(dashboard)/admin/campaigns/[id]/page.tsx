@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter, useParams } from 'next/navigation'
-import { Loader2, ArrowLeft, Download, Pause, Play, Archive, Users, Mail, Eye, MessageSquare } from 'lucide-react'
+import { ArrowLeft, Download, Pause, Play, Archive, Users, Mail, Eye, MessageSquare } from 'lucide-react'
+import { WolfLoader } from '@/components/ui/wolf-loader'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 
@@ -113,7 +114,7 @@ export default function CampaignDetailPage() {
   if (!authorized || loading) {
     return (
       <div className="flex items-center justify-center py-20">
-        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        <WolfLoader variant="spinner" size={24} mode="amber" />
       </div>
     )
   }

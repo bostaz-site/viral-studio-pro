@@ -1,7 +1,8 @@
 'use client'
 
 import { useState, useRef } from 'react'
-import { X, Upload, Loader2, Film, Check } from 'lucide-react'
+import { X, Upload, Film, Check } from 'lucide-react'
+import { WolfLoader } from '@/components/ui/wolf-loader'
 import { extractClientMetadata, generateThumbnailClient } from '@/lib/admin/video-library/metadata'
 
 interface UploadDialogProps {
@@ -194,7 +195,7 @@ export function UploadDialog({ onClose, onUploaded }: UploadDialogProps) {
           {/* Step: Uploading */}
           {step === 'uploading' && (
             <div className="text-center py-8">
-              <Loader2 className="h-8 w-8 animate-spin text-amber-400 mx-auto mb-3" />
+              <WolfLoader variant="spinner" size={32} mode="amber" />
               <p className="text-sm text-zinc-300">Uploading {file?.name}...</p>
               <div className="w-full bg-zinc-800 rounded-full h-1.5 mt-4">
                 <div
@@ -321,7 +322,7 @@ export function UploadDialog({ onClose, onUploaded }: UploadDialogProps) {
           {/* Step: Saving */}
           {step === 'saving' && (
             <div className="text-center py-8">
-              <Loader2 className="h-6 w-6 animate-spin text-amber-400 mx-auto mb-3" />
+              <WolfLoader variant="spinner" size={24} mode="amber" />
               <p className="text-sm text-zinc-400">Saving...</p>
             </div>
           )}

@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import {
-  Loader2,
   CheckCircle2,
   AlertCircle,
   Send,
@@ -11,6 +10,7 @@ import {
   ExternalLink,
   Clock,
 } from 'lucide-react'
+import { WolfLoader } from '@/components/ui/wolf-loader'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent } from '@/components/ui/card'
@@ -325,7 +325,7 @@ export function PublishDialog({ open, onClose, clipId, clipTitle }: PublishDialo
                     <div className="flex items-center gap-2 shrink-0">
                       {progress.status === 'publishing' && (
                         <>
-                          <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                          <WolfLoader variant="spinner" size={16} mode="amber" />
                           <span className="text-xs text-muted-foreground">Publishing...</span>
                         </>
                       )}
@@ -383,7 +383,7 @@ export function PublishDialog({ open, onClose, clipId, clipTitle }: PublishDialo
               >
                 {isPublishing ? (
                   <>
-                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <WolfLoader variant="spinner" size={16} mode="amber" />
                     Publishing...
                   </>
                 ) : (

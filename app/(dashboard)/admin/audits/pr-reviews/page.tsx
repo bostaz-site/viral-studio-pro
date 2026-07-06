@@ -3,9 +3,10 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import {
-  Loader2, ChevronDown, ChevronUp, ArrowLeft,
+  ChevronDown, ChevronUp, ArrowLeft,
   GitPullRequest, Shield, Zap, Code2, TrendingUp,
 } from 'lucide-react'
+import { WolfLoader } from '@/components/ui/wolf-loader'
 import Link from 'next/link'
 
 interface PRReview {
@@ -110,7 +111,7 @@ export default function PRReviewsPage() {
   if (!authorized) {
     return (
       <div className="flex items-center justify-center h-64">
-        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        <WolfLoader variant="spinner" size={24} mode="system" />
       </div>
     )
   }
@@ -219,7 +220,7 @@ export default function PRReviewsPage() {
       {/* Loading */}
       {loading && (
         <div className="flex items-center justify-center py-12">
-          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          <WolfLoader variant="spinner" size={24} mode="system" />
         </div>
       )}
 

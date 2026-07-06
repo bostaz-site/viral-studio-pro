@@ -2,7 +2,8 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { Loader2, RefreshCw, TrendingUp, TrendingDown } from 'lucide-react'
+import { RefreshCw, TrendingUp, TrendingDown } from 'lucide-react'
+import { WolfLoader } from '@/components/ui/wolf-loader'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import type { DashboardOverview } from '@/lib/admin/dashboard/aggregator'
@@ -84,11 +85,11 @@ export default function AdminDashboardPage() {
   }, [authorized, fetchData])
 
   if (authLoading || !authorized) {
-    return <div className="flex items-center justify-center py-20"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
+    return <div className="flex items-center justify-center py-20"><WolfLoader variant="spinner" size={24} mode="amber" /></div>
   }
 
   if (loading || !data) {
-    return <div className="flex items-center justify-center py-20"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
+    return <div className="flex items-center justify-center py-20"><WolfLoader variant="spinner" size={24} mode="amber" /></div>
   }
 
   const mrrDollars = (data.mrr.current / 100).toFixed(0)

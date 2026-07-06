@@ -4,7 +4,8 @@ import { Suspense, useCallback, useEffect, useRef, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Image from 'next/image'
 import Link from 'next/link'
-import { AlertCircle, CheckCircle2, Download, Loader2, Volume2, VolumeX, Zap } from 'lucide-react'
+import { AlertCircle, CheckCircle2, Download, Volume2, VolumeX, Zap } from 'lucide-react'
+import { WolfLoader } from '@/components/ui/wolf-loader'
 import { Button } from '@/components/ui/button'
 import { useRenderSubscription } from '@/hooks/use-render-subscription'
 
@@ -219,7 +220,7 @@ function FirstClipContent() {
         {/* Spinner overlay */}
         <div className="absolute inset-0 bg-black/55 flex items-center justify-center">
           <div className="flex flex-col items-center gap-2">
-            <Loader2 className="h-8 w-8 animate-spin text-orange-400" />
+            <WolfLoader variant="spinner" size={32} mode="amber" />
             {streamer && (
               <p className="text-[11px] font-bold text-white/80 px-2 text-center truncate max-w-[9rem]">
                 {streamer}
@@ -263,7 +264,7 @@ export default function FirstClipPage() {
     <Suspense
       fallback={
         <div className="flex items-center justify-center min-h-[70vh]">
-          <Loader2 className="h-8 w-8 animate-spin text-orange-400" />
+          <WolfLoader variant="spinner" size={32} mode="amber" />
         </div>
       }
     >

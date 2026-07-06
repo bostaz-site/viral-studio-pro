@@ -2,7 +2,8 @@
 
 import { Suspense, useEffect, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
-import { ShieldCheck, AlertTriangle, Loader2 } from 'lucide-react'
+import { ShieldCheck, AlertTriangle } from 'lucide-react'
+import { WolfLoader } from '@/components/ui/wolf-loader'
 
 type Status = 'loading' | 'success' | 'error'
 
@@ -32,7 +33,7 @@ function UnsubscribeContent() {
     <div className="w-full max-w-md text-center space-y-6">
       {status === 'loading' && (
         <>
-          <Loader2 className="h-10 w-10 animate-spin text-muted-foreground mx-auto" />
+          <WolfLoader variant="spinner" size={40} mode="amber" className="mx-auto" />
           <p className="text-muted-foreground">Processing your request...</p>
         </>
       )}
@@ -79,7 +80,7 @@ function UnsubscribeContent() {
 export default function UnsubscribePage() {
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
-      <Suspense fallback={<Loader2 className="h-10 w-10 animate-spin text-muted-foreground" />}>
+      <Suspense fallback={<WolfLoader variant="spinner" size={40} mode="amber" />}>
         <UnsubscribeContent />
       </Suspense>
     </div>

@@ -3,7 +3,8 @@
 import { useState, useRef, useCallback, useEffect, memo } from 'react'
 import Image from 'next/image'
 import { motion } from 'framer-motion'
-import { ExternalLink, Sparkles, Flame, Bookmark, SlidersHorizontal, Loader2, Zap } from 'lucide-react'
+import { ExternalLink, Sparkles, Flame, Bookmark, SlidersHorizontal, Zap } from 'lucide-react'
+import { WolfLoader } from '@/components/ui/wolf-loader'
 import { getRankTierClass, DiamondCorner } from '@/components/trending/rank-badge'
 import { getClipVerdict, getDynamicCTA, getVerdictColor, type CTAIcon } from '@/lib/browse/clip-verdict'
 import { useTilt } from '@/lib/hooks/use-tilt'
@@ -549,7 +550,7 @@ export const TrendingCard = memo(function TrendingCard({ clip, onRemix, onQuickE
                   }}
                   title="Quick Export"
                 >
-                  {isExporting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Zap className="h-3.5 w-3.5" />}
+                  {isExporting ? <WolfLoader variant="spinner" size={14} mode="amber" /> : <Zap className="h-3.5 w-3.5" />}
                 </button>
               )}
               {/* Bookmark — opacity 0 → 1 on hover (C2) */}
@@ -752,7 +753,7 @@ export const TrendingCard = memo(function TrendingCard({ clip, onRemix, onQuickE
                 className="cta-viral h-[44px] px-2.5 flex-shrink-0 flex items-center justify-center rounded-r-xl border-l border-amber-800/30 relative z-10"
                 title="Quick Export"
               >
-                {isExporting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Zap className="h-3.5 w-3.5" />}
+                {isExporting ? <WolfLoader variant="spinner" size={14} mode="amber" /> : <Zap className="h-3.5 w-3.5" />}
               </button>
             )}
           </div>

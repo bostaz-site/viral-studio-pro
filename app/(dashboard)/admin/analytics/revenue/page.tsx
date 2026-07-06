@@ -1,7 +1,8 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Loader2, DollarSign } from 'lucide-react'
+import { DollarSign } from 'lucide-react'
+import { WolfLoader } from '@/components/ui/wolf-loader'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { RevenueChart } from '../../_components/analytics/revenue-chart'
 
@@ -29,7 +30,7 @@ export default function RevenuePage() {
   }, [])
 
   if (loading || !data) {
-    return <div className="flex items-center justify-center py-20"><Loader2 className="h-6 w-6 animate-spin text-zinc-500" /></div>
+    return <div className="flex items-center justify-center py-20"><WolfLoader variant="spinner" size={24} mode="amber" /></div>
   }
 
   return (

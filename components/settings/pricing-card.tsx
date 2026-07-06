@@ -1,7 +1,8 @@
 "use client"
 
 import { useState } from 'react'
-import { Check, Loader2, Zap, Crown, Sparkles } from 'lucide-react'
+import { Check, Zap, Crown, Sparkles } from 'lucide-react'
+import { WolfLoader } from '@/components/ui/wolf-loader'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
@@ -175,7 +176,7 @@ export function PricingCard({ currentPlan, onUpgrade, onManageBilling }: Pricing
                     disabled={loadingPlan === 'portal'}
                   >
                     {loadingPlan === 'portal' ? (
-                      <><Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" /> Loading…</>
+                      <><WolfLoader variant="spinner" size={14} mode="amber" /><span className="ml-2">Loading…</span></>
                     ) : (
                       'Manage subscription'
                     )}
@@ -199,7 +200,7 @@ export function PricingCard({ currentPlan, onUpgrade, onManageBilling }: Pricing
                   disabled={!!loadingPlan || isDowngrade}
                 >
                   {loadingPlan === plan.id ? (
-                    <><Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" /> Redirecting…</>
+                    <><WolfLoader variant="spinner" size={14} mode="amber" /><span className="ml-2">Redirecting…</span></>
                   ) : isDowngrade ? (
                     'Contact support'
                   ) : (

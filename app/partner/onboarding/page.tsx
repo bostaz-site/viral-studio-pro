@@ -2,7 +2,8 @@
 
 import { Suspense, useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { Loader2, CheckCircle2, AlertCircle, ExternalLink, RefreshCw } from 'lucide-react'
+import { CheckCircle2, AlertCircle, ExternalLink, RefreshCw } from 'lucide-react'
+import { WolfLoader } from '@/components/ui/wolf-loader'
 
 interface OnboardingStatus {
   stripe_connect_status: string | null
@@ -41,7 +42,7 @@ const STATUS_MAP: Record<string, { label: string; color: string; description: st
 
 export default function PartnerOnboardingPage() {
   return (
-    <Suspense fallback={<div className="flex justify-center py-24"><Loader2 className="h-8 w-8 animate-spin text-amber-400" /></div>}>
+    <Suspense fallback={<div className="flex justify-center py-24"><WolfLoader variant="spinner" size={32} mode="amber" /></div>}>
       <OnboardingContent />
     </Suspense>
   )
@@ -80,7 +81,7 @@ function OnboardingContent() {
   if (loading) {
     return (
       <div className="flex justify-center py-24">
-        <Loader2 className="h-8 w-8 animate-spin text-amber-400" />
+        <WolfLoader variant="spinner" size={32} mode="amber" />
       </div>
     )
   }

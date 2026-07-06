@@ -1,7 +1,8 @@
 "use client"
 
 import { useEffect, useState } from 'react'
-import { Download, FileAudio, Brain, Scissors, CheckCircle2, Loader2, X, AlertCircle } from 'lucide-react'
+import { Download, FileAudio, Brain, Scissors, CheckCircle2, X, AlertCircle } from 'lucide-react'
+import { WolfLoader } from '@/components/ui/wolf-loader'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
@@ -99,7 +100,7 @@ export function RemixProgress({ active, clipTitle, onClose, error }: RemixProgre
                     {isDone ? (
                       <CheckCircle2 className="h-4 w-4 text-green-400 shrink-0" />
                     ) : isActive ? (
-                      <Loader2 className="h-4 w-4 text-primary animate-spin shrink-0" />
+                      <WolfLoader variant="spinner" size={16} mode="system" />
                     ) : (
                       <StepIcon className="h-4 w-4 text-muted-foreground shrink-0" />
                     )}

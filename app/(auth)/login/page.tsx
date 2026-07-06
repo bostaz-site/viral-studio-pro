@@ -4,7 +4,8 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Loader2, Mail, Lock, ArrowRight } from 'lucide-react'
+import { Mail, Lock, ArrowRight } from 'lucide-react'
+import { WolfLoader } from '@/components/ui/wolf-loader'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -92,7 +93,7 @@ export default function LoginPage() {
             disabled={loading}
           >
             {loading ? (
-              <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Signing in...</>
+              <><WolfLoader variant="spinner" size={16} mode="amber" className="mr-2" /> Signing in...</>
             ) : (
               <>Sign in <ArrowRight className="ml-2 h-4 w-4" /></>
             )}

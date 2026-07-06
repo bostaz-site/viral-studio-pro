@@ -1,7 +1,8 @@
 'use client'
 
 import { useState } from 'react'
-import { Loader2, Zap, CheckCircle2, XCircle } from 'lucide-react'
+import { Zap, CheckCircle2, XCircle } from 'lucide-react'
+import { WolfLoader } from '@/components/ui/wolf-loader'
 
 interface BulkGenerateModalProps {
   templateId: string
@@ -81,7 +82,7 @@ export function BulkGenerateModal({ templateId, templateName, onClose, onGenerat
               <>
                 <p className="text-xs text-zinc-400"><span className="text-amber-400 font-medium">{leads.length}</span> leads found.</p>
                 <button onClick={handleGenerate} disabled={loading} className="w-full py-2.5 bg-amber-500 text-black font-semibold text-sm rounded-lg hover:bg-amber-400 disabled:opacity-50 flex items-center justify-center gap-2">
-                  {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Zap className="h-4 w-4" />}
+                  {loading ? <WolfLoader variant="spinner" size={16} mode="amber" /> : <Zap className="h-4 w-4" />}
                   Generate {leads.length} Offers
                 </button>
               </>

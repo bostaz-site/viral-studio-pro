@@ -7,6 +7,7 @@ import {
   Download, Flame, X, Bookmark, Lock, Film,
   UploadCloud, CheckCircle2, Trophy, Clock, Radar,
 } from 'lucide-react'
+import { WolfLoader } from '@/components/ui/wolf-loader'
 import { PageHeader } from '@/components/dashboard/page-header'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -425,7 +426,7 @@ export default function DashboardPage() {
               {uploadSuccess ? (
                 <CheckCircle2 className="h-3.5 w-3.5" />
               ) : uploading ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                <WolfLoader variant="spinner" size="sm" mode="amber" />
               ) : (
                 <UploadCloud className="h-3.5 w-3.5" />
               )}
@@ -654,7 +655,7 @@ export default function DashboardPage() {
                       disabled={twitchRefreshing}
                     >
                       {twitchRefreshing ? (
-                        <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                        <WolfLoader variant="spinner" size="sm" mode="amber" className="mr-1.5" />
                       ) : (
                         <Download className="h-3.5 w-3.5 mr-1.5" />
                       )}
@@ -719,7 +720,7 @@ export default function DashboardPage() {
                 disabled={loadingMore}
               >
                 {loadingMore ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  <WolfLoader variant="spinner" size="sm" mode="amber" />
                 ) : (
                   <Download className="h-3.5 w-3.5" />
                 )}
@@ -733,7 +734,7 @@ export default function DashboardPage() {
       {/* Quick Export rendering indicator */}
       {quickExport?.status === 'rendering' && (
         <div className="fixed bottom-6 right-6 z-50 flex items-center gap-3 px-4 py-3 rounded-xl bg-card border border-border shadow-xl animate-in slide-in-from-bottom-2 fade-in">
-          <Loader2 className="h-4 w-4 animate-spin text-primary" />
+          <WolfLoader variant="spinner" size="md" mode="amber" />
           <div>
             <p className="text-sm font-medium text-foreground">Rendering your clip...</p>
             <p className="text-xs text-muted-foreground">You can keep browsing</p>
@@ -802,7 +803,7 @@ export default function DashboardPage() {
       {/* Refresh indicator */}
       {refreshing && !quickExport && !renderNotification && (
         <div className="fixed bottom-6 right-6 flex items-center gap-2 px-4 py-2 rounded-full bg-card border border-border shadow-lg animate-in slide-in-from-bottom-2 fade-in">
-          <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
+          <WolfLoader variant="spinner" size="sm" mode="amber" />
           <span className="text-xs text-muted-foreground">Refreshing...</span>
         </div>
       )}

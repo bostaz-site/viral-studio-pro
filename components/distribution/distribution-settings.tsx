@@ -2,10 +2,11 @@
 
 import { useEffect, useState } from 'react'
 import {
-  Sparkles, Save, Loader2, Hash, X,
+  Sparkles, Save, Hash, X,
   TrendingUp, TrendingDown, Minus,
   Brain, BarChart3, Clock,
 } from 'lucide-react'
+import { WolfLoader } from '@/components/ui/wolf-loader'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -280,7 +281,7 @@ export function DistributionSettings() {
               disabled={optimizing}
             >
               {optimizing ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                <WolfLoader variant="spinner" size={14} mode="system" />
               ) : (
                 <Sparkles className="h-3.5 w-3.5" />
               )}
@@ -293,7 +294,7 @@ export function DistributionSettings() {
           {/* Optimize message */}
           {optimizeMessage && optimizing && (
             <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-primary/5 border border-primary/20">
-              <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
+              <WolfLoader variant="spinner" size={14} mode="system" />
               <span className="text-xs text-primary font-medium">{optimizeMessage}</span>
             </div>
           )}
@@ -406,7 +407,7 @@ export function DistributionSettings() {
           {/* Save button */}
           <Button className="w-full gap-1.5" onClick={handleSave} disabled={saving}>
             {saving ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
+              <WolfLoader variant="spinner" size={16} mode="amber" />
             ) : (
               <Save className="h-4 w-4" />
             )}

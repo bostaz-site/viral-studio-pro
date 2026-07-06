@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import {
-  Loader2,
   CheckCircle2,
   AlertCircle,
   Send,
@@ -10,6 +9,7 @@ import {
   Info,
   ExternalLink,
 } from 'lucide-react'
+import { WolfLoader } from '@/components/ui/wolf-loader'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Dialog } from '@/components/ui/dialog'
@@ -332,7 +332,7 @@ export function TikTokPublishDialog({
         }`}
       >
         <div className="flex items-center gap-3">
-          {isProcessing && <Loader2 className="h-5 w-5 animate-spin text-primary" />}
+          {isProcessing && <WolfLoader variant="spinner" size={20} mode="amber" />}
           {isComplete && <CheckCircle2 className="h-5 w-5 text-green-400" />}
           {isFailed && <AlertCircle className="h-5 w-5 text-red-400" />}
 
@@ -675,7 +675,7 @@ export function TikTokPublishDialog({
               >
                 {isPublishing ? (
                   <>
-                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <WolfLoader variant="spinner" size={16} mode="amber" />
                     Publishing...
                   </>
                 ) : (

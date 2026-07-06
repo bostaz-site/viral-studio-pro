@@ -1,7 +1,8 @@
 'use client'
 
 import { useEffect } from 'react'
-import { RefreshCw, Loader2, Clock, Users, Eye, Film, TrendingUp, Zap, Crown, Trophy, Flame } from 'lucide-react'
+import { RefreshCw, Clock, Users, Eye, Film, TrendingUp, Zap, Crown, Trophy, Flame } from 'lucide-react'
+import { WolfLoader } from '@/components/ui/wolf-loader'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useAccountStore } from '@/stores/account-store'
@@ -203,7 +204,7 @@ export function CreatorRankSection() {
             className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 text-white font-semibold px-8 h-11 rounded-xl shadow-lg shadow-purple-500/20"
           >
             {syncing ? (
-              <><Loader2 className="h-4 w-4 animate-spin mr-2" />Analyzing your channel...</>
+              <><WolfLoader variant="spinner" size={16} mode="system" /><span className="ml-2">Analyzing your channel...</span></>
             ) : (
               <><Zap className="h-4 w-4 mr-2" />Sync & Reveal My Rank</>
             )}
@@ -271,7 +272,7 @@ export function CreatorRankSection() {
             disabled={syncing || !canSyncToday}
           >
             {syncing ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              <WolfLoader variant="spinner" size={14} mode="system" />
             ) : (
               <RefreshCw className="h-3.5 w-3.5" />
             )}

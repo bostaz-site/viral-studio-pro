@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useCallback, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { User, CreditCard, CheckCircle2, AlertCircle, Loader2, Bell, Activity, Film, Clock, Gift, Copy, Check, Share2, Settings as SettingsIcon } from 'lucide-react'
+import { User, CreditCard, CheckCircle2, AlertCircle, Bell, Activity, Film, Clock, Gift, Copy, Check, Share2, Settings as SettingsIcon } from 'lucide-react'
+import { WolfLoader } from '@/components/ui/wolf-loader'
 import { PageHeader } from '@/components/dashboard/page-header'
 import { DangerZone } from '@/components/settings/danger-zone'
 import { Button } from '@/components/ui/button'
@@ -202,7 +203,7 @@ function SettingsPageInner() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-[60vh] gap-3">
-        <Loader2 className="h-5 w-5 animate-spin text-primary" />
+        <WolfLoader variant="spinner" size={20} mode="amber" />
         <p className="text-muted-foreground">Loading…</p>
       </div>
     )
@@ -270,7 +271,7 @@ function SettingsPageInner() {
                   className="gap-1.5"
                 >
                   {savingProfile ? (
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    <WolfLoader variant="spinner" size={14} mode="amber" />
                   ) : profileSaved ? (
                     <><CheckCircle2 className="h-3.5 w-3.5 text-green-400" /> Saved</>
                   ) : (

@@ -1,7 +1,8 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Loader2, Trophy } from 'lucide-react'
+import { Trophy } from 'lucide-react'
+import { WolfLoader } from '@/components/ui/wolf-loader'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { LeaderboardTable } from '../../_components/analytics/leaderboard-table'
 
@@ -18,7 +19,7 @@ export default function AffiliatesAnalyticsPage() {
   }, [])
 
   if (loading) {
-    return <div className="flex items-center justify-center py-20"><Loader2 className="h-6 w-6 animate-spin text-zinc-500" /></div>
+    return <div className="flex items-center justify-center py-20"><WolfLoader variant="spinner" size={24} mode="amber" /></div>
   }
 
   const gold = data.filter((a: { tier: string }) => a.tier === 'gold').length

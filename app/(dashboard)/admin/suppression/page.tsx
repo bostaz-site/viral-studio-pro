@@ -2,7 +2,8 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { Loader2, ShieldBan, Plus, ListPlus, BarChart3, Calendar, TrendingUp } from 'lucide-react'
+import { ShieldBan, Plus, ListPlus, BarChart3, Calendar, TrendingUp } from 'lucide-react'
+import { WolfLoader } from '@/components/ui/wolf-loader'
 import { createClient } from '@/lib/supabase/client'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -139,7 +140,7 @@ export default function SuppressionPage() {
   if (authLoading || !authorized) {
     return (
       <div className="flex items-center justify-center py-20">
-        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        <WolfLoader variant="spinner" size={24} mode="amber" />
       </div>
     )
   }
@@ -257,7 +258,7 @@ export default function SuppressionPage() {
           <div className="flex justify-end gap-2 pt-2">
             <Button variant="ghost" onClick={() => setAddOpen(false)}>Cancel</Button>
             <Button onClick={handleAddSingle} disabled={addLoading || !addEmail.trim()} className="gap-1.5">
-              {addLoading && <Loader2 className="h-4 w-4 animate-spin" />}
+              {addLoading && <WolfLoader variant="spinner" size={16} mode="amber" />}
               Add
             </Button>
           </div>
