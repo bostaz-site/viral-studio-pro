@@ -1171,7 +1171,7 @@ Le state de la farm est maintenant persisté en DB (Supabase = source de vérit�
             → executePublish() → UPDATE status='published' / 'failed'
 
 [Toggle OFF] → PUT /api/distribution/settings { auto_distribute_enabled: false }
-            → DELETE /api/distribution/autofarm-sync → UPDATE status='cancelled' WHERE source='autofarm'
+            → DELETE /api/distribution/autofarm-sync → UPDATE status='canceled' WHERE source='autofarm'
 ```
 
 ### Tables/colonnes utilisées
@@ -1197,15 +1197,28 @@ Le state de la farm est maintenant persisté en DB (Supabase = source de vérit�
 - L'API fait un clean slate (cancel existing autofarm rows) puis insert les nouveaux
 - Le cron `publish-scheduled` lit ces lignes et publie quand `scheduled_at <= now()`
 
-### Migration requise
+### Statuts canoniques (v9.4 — CHECK constraints)
 
-`supabase/migrations/20260706_autofarm_persistence.sql` — ajoute `auto_distribute_enabled BOOLEAN DEFAULT FALSE` à `distribution_settings`. **À appliquer manuellement.**
+| Table | Statuts canoniques |
+|---|---|
+| `render_jobs` | `pending`, `queued`, `rendering`, `done`, `error`, `failed`, `canceled`, `expired` |
+| `scheduled_publications` | `scheduled`, `publishing`, `published`, `failed`, `canceled` |
+
+Orthographe unique : **canceled** (simple L, US English). Migration `20260713_status_normalization.sql` normalise les données existantes et ajoute les CHECK constraints.
+
+### Migrations requises
+
+- `20260706_autofarm_persistence.sql` — `auto_distribute_enabled BOOLEAN` sur `distribution_settings`
+- `20260706_clip_bank_removal.sql` — `removed_from_bank_at TIMESTAMPTZ` sur `render_jobs`
+- `20260713_status_normalization.sql` — UPDATE 'cancelled'→'canceled' + CHECK constraints sur les deux tables
+
+**Toutes à appliquer manuellement.**
 
 ---
 
 ## Improvements left (post v9)
 
-1. **Persistent clip removal** — connecter `removedClipIds` a Supabase (soft delete or status='archived')
+1. ~~**Persistent clip removal**~~ — DONE (v9.3, `removed_from_bank_at`)
 2. **Mood tagging** — utiliser le mood detector existant pour tagger chaque clip
 3. **Hook type detection** — parser titres/transcriptions pour detecter type
 4. **Tracking reel** — APIs platforms pour vraies metriques → nourrir learning

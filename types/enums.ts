@@ -13,7 +13,7 @@ export const PLATFORMS = ['twitch', 'kick', 'youtube_gaming'] as const
 export type Platform = typeof PLATFORMS[number]
 
 // ── Render Job ──
-export const RENDER_STATUSES = ['pending', 'queued', 'rendering', 'done', 'error', 'failed', 'cancelled', 'expired'] as const
+export const RENDER_STATUSES = ['pending', 'queued', 'rendering', 'done', 'error', 'failed', 'canceled', 'expired'] as const
 export type RenderStatus = typeof RENDER_STATUSES[number]
 
 // ── Video ──

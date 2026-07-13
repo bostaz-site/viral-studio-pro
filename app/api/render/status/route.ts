@@ -71,7 +71,7 @@ export const GET = withAuth(async (request: NextRequest, user) => {
     }
   }
 
-  if (['done', 'error', 'failed', 'cancelled', 'expired'].includes(job.status)) {
+  if (['done', 'error', 'failed', 'canceled', 'expired'].includes(job.status)) {
     // Job finished — release slot (idempotent) and dispatch next queued render
     releaseJob(job.id).then(() => processNextInQueue()).catch(() => {})
 
@@ -118,8 +118,8 @@ export const GET = withAuth(async (request: NextRequest, user) => {
     message = 'Render complete!'
   } else if (job.status === 'failed') {
     message = `Failed after retries: ${job.error_message}`
-  } else if (job.status === 'cancelled') {
-    message = 'Render cancelled'
+  } else if (job.status === 'canceled') {
+    message = 'Render canceled'
   } else if (job.status === 'expired') {
     message = 'Clip expired — remix again to download'
   } else if (job.status === 'error') {

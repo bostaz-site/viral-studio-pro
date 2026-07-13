@@ -8,7 +8,7 @@ export interface ScheduledPublication {
   caption: string | null
   hashtags: string[]
   scheduled_at: string
-  status: 'scheduled' | 'publishing' | 'published' | 'failed' | 'cancelled'
+  status: 'scheduled' | 'publishing' | 'published' | 'failed' | 'canceled'
   publish_result: Record<string, unknown> | null
   error_message: string | null
   created_at: string
@@ -128,14 +128,14 @@ export const useScheduleStore = create<ScheduleState>((set, get) => ({
       const res = await fetch('/api/distribution/schedule', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id, status: 'cancelled' }),
+        body: JSON.stringify({ id, status: 'canceled' }),
       })
       const json = await res.json()
       if (json.error) throw new Error(json.error)
 
       set((state) => ({
         queue: state.queue.map(item =>
-          item.id === id ? { ...item, status: 'cancelled' as const } : item
+          item.id === id ? { ...item, status: 'canceled' as const } : item
         ),
       }))
     } catch (err) {

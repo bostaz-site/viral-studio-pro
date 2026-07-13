@@ -73,7 +73,7 @@ export function useRenderSubscription({
             doneRef.current = true
             clearPolling()
             onDone({ storagePath: row.storage_path })
-          } else if (row.status === 'error' || row.status === 'failed' || row.status === 'cancelled') {
+          } else if (row.status === 'error' || row.status === 'failed' || row.status === 'canceled') {
             doneRef.current = true
             clearPolling()
             onError(row.error_message ?? 'Unknown error')
@@ -104,7 +104,7 @@ export function useRenderSubscription({
           onDone({ storagePath: d.storagePath })
           return
         }
-        if (d.status === 'error' || d.status === 'failed' || d.status === 'cancelled') {
+        if (d.status === 'error' || d.status === 'failed' || d.status === 'canceled') {
           doneRef.current = true
           clearPolling()
           onError(d.errorMessage ?? 'Unknown error')

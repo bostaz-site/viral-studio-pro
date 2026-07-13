@@ -17,7 +17,7 @@ const createSchema = z.object({
 
 const updateSchema = z.object({
   id: z.string().uuid(),
-  status: z.enum(['scheduled', 'cancelled']).optional(),
+  status: z.enum(['scheduled', 'canceled']).optional(),
   scheduled_at: z.string().datetime().optional(),
   caption: z.string().max(2200).optional(),
   hashtags: z.array(z.string()).max(30).optional(),

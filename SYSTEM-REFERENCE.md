@@ -281,7 +281,8 @@ Async flow: UI settings -> VPS FFmpeg -> Supabase Storage -> signed URL, with Re
 - **Keys:** `render:active_jobs` (Set of active job IDs), `render:started:{jobId}` (per-job TTL 900s — orphan detection), `render:queue` (FIFO list), `render:payload:{jobId}` (stored settings, TTL 1h)
 - **MAX_CONCURRENT:** `RENDER_MAX_CONCURRENT` env var (default 3)
 - **QUEUE_MAX_SIZE:** 50 — returns 429 if full
-- Job lifecycle: `pending` -> `queued` (if no slot) -> `rendering` (VPS picks up) -> `done` | `error` (retriable) | `failed` (dead letter) | `cancelled` (force re-render) | `expired` (storage TTL elapsed)
+- Job lifecycle: `pending` -> `queued` (if no slot) -> `rendering` (VPS picks up) -> `done` | `error` (retriable) | `failed` (dead letter) | `canceled` (force re-render) | `expired` (storage TTL elapsed)
+- **Canonical statuses** (CHECK constraint): `pending | queued | rendering | done | error | failed | canceled | expired` — US spelling 'canceled' (single L)
 - Safety: active jobs tracked via Redis Set (idempotent SREM — no counter drift). Each job has a `render:started:{jobId}` key with 900s TTL, renewed by heartbeat. Reconciler cron removes stale entries every 30min
 - Functions: `enqueueRender()` (SADD), `releaseJob()` (SREM, idempotent), `processNextInQueue()` (dispatch from queue), `getQueueStatus()` (SCARD)
 - Render payload stored in Redis upfront (`render:payload:{jobId}`, TTL 1h) so retries can re-dispatch

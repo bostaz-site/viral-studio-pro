@@ -44,7 +44,7 @@ export const POST = withAuth(async (req, user) => {
   // 1. Cancel all existing 'scheduled' autofarm rows for this user (clean slate)
   await admin
     .from('scheduled_publications')
-    .update({ status: 'cancelled', updated_at: new Date().toISOString() } as never)
+    .update({ status: 'canceled', updated_at: new Date().toISOString() } as never)
     .eq('user_id', user.id)
     .eq('source' as never, 'autofarm')
     .eq('status', 'scheduled')
@@ -81,7 +81,7 @@ export const DELETE = withAuth(async (_req, user) => {
 
   const { data, error } = await admin
     .from('scheduled_publications')
-    .update({ status: 'cancelled', updated_at: new Date().toISOString() } as never)
+    .update({ status: 'canceled', updated_at: new Date().toISOString() } as never)
     .eq('user_id', user.id)
     .eq('source' as never, 'autofarm')
     .eq('status', 'scheduled')

@@ -36,7 +36,7 @@ export async function POST(req: NextRequest) {
         .single()
 
       // Job doesn't exist or is in a terminal state → remove from Set
-      if (!job || ['done', 'error', 'failed', 'cancelled', 'expired'].includes(job.status)) {
+      if (!job || ['done', 'error', 'failed', 'canceled', 'expired'].includes(job.status)) {
         await releaseJob(jobId)
         freed++
         logger.info(`[reconcile] Removed stale job ${jobId} (status: ${job?.status ?? 'missing'})`)
@@ -57,7 +57,7 @@ export async function POST(req: NextRequest) {
     for (const job of stuckQueued) {
       await admin.from('render_jobs').update({
         status: 'error',
-        error_message: 'Stuck in queue > 30min — auto-cancelled by reconciler',
+        error_message: 'Stuck in queue > 30min — auto-canceled by reconciler',
         updated_at: new Date().toISOString(),
       }).eq('id', job.id)
     }

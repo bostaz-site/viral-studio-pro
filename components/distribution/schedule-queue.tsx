@@ -47,10 +47,10 @@ const STATUS_CONFIG: Record<string, { icon: React.ReactNode; color: string; labe
     color: 'text-red-400 border-red-400/40',
     label: 'Failed',
   },
-  cancelled: {
+  canceled: {
     icon: <XCircle className="h-3.5 w-3.5" />,
     color: 'text-muted-foreground border-border',
-    label: 'Cancelled',
+    label: 'Canceled',
   },
 }
 
@@ -265,7 +265,7 @@ function QueueItem({
           <XCircle className="h-3.5 w-3.5" />
         </Button>
       )}
-      {(item.status === 'cancelled' || item.status === 'failed') && (
+      {(item.status === 'canceled' || item.status === 'failed') && (
         <Button
           variant="ghost"
           size="icon"

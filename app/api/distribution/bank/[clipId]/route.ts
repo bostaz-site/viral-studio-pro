@@ -41,7 +41,7 @@ export const PATCH = withAuth(async (req, user) => {
     // Cancel any scheduled posts for this clip
     await admin
       .from('scheduled_publications')
-      .update({ status: 'cancelled', updated_at: new Date().toISOString() } as never)
+      .update({ status: 'canceled', updated_at: new Date().toISOString() } as never)
       .eq('user_id', user.id)
       .eq('clip_id', clipId)
       .eq('status', 'scheduled')

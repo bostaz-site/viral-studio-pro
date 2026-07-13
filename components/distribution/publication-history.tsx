@@ -28,7 +28,7 @@ export function PublicationHistory({ queue }: PublicationHistoryProps) {
   const [statusFilter, setStatusFilter] = useState<string | null>(null)
 
   const history = queue.filter(item =>
-    ['published', 'failed', 'cancelled'].includes(item.status)
+    ['published', 'failed', 'canceled'].includes(item.status)
   )
 
   const filtered = history.filter(item => {
@@ -69,7 +69,7 @@ export function PublicationHistory({ queue }: PublicationHistoryProps) {
           </div>
           <div className="w-px h-5 bg-border self-center" />
           <div className="flex gap-1">
-            {['published', 'failed', 'cancelled'].map(s => (
+            {['published', 'failed', 'canceled'].map(s => (
               <button
                 key={s}
                 onClick={() => setStatusFilter(statusFilter === s ? null : s)}

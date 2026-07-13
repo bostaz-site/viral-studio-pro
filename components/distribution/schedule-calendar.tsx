@@ -27,7 +27,7 @@ export function ScheduleCalendar({ queue }: ScheduleCalendarProps) {
       nextDay.setDate(nextDay.getDate() + 1)
 
       const items = queue.filter(item => {
-        if (item.status === 'cancelled') return false
+        if (item.status === 'canceled') return false
         const d = new Date(item.scheduled_at)
         return d >= date && d < nextDay
       })
