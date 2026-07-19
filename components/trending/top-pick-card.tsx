@@ -121,16 +121,16 @@ export function TopPickCard({ clip, onEnhance }: TopPickCardProps) {
       </p>
 
       <div
-        className="tp-royal group/tp relative max-w-[680px] cursor-pointer"
+        className="tp-royal group/tp relative max-w-[680px] cursor-pointer overflow-visible mt-10"
         onClick={() => onEnhance(clip)}
       >
-        {/* Crown — centered on top edge */}
-        <div className="absolute left-1/2 top-0 -translate-x-1/2 -translate-y-[56%] z-20 pointer-events-none tp-crown">
+        {/* Crown — centered, floating above the frame (base sits on gold edge) */}
+        <div className="absolute left-1/2 top-0 -translate-x-1/2 -translate-y-[72%] z-30 pointer-events-none tp-crown">
           <GoldCrown />
         </div>
 
         {/* Legendary frame layers */}
-        <div className="leg-frame tp-frame-full">
+        <div className="leg-frame tp-frame-full relative z-10">
           <div className="leg-frame-inner-border tp-frame-full">
             <div className="leg-frame-inner-gold tp-frame-full">
 
