@@ -173,11 +173,16 @@ export async function GET(req: NextRequest) {
 
     // Feed filter
     if (feed === 'hot_now') {
-      query = query.eq('feed_category', 'hot_now')
+      // "Exploding Now" = early gems + hot now
+      query = query.in('feed_category', ['early_gem', 'hot_now'])
     } else if (feed === 'early_gem') {
       query = query.eq('feed_category', 'early_gem')
     } else if (feed === 'proven') {
       query = query.eq('feed_category', 'proven')
+    } else if (feed === 'recent') {
+      // "Fresh Drops" = clips created in the last 24h
+      const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
+      query = query.gte('clip_created_at', twentyFourHoursAgo)
     }
 
     // Determine sort column for cursor-based pagination

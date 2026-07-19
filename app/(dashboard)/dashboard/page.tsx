@@ -76,7 +76,8 @@ export default function DashboardPage() {
   } = useTrendingStore()
 
   const fetchBootstrap = useTrendingStore(s => s.fetchBootstrap)
-  const tabFallbackNote = useTrendingStore(s => s._tabFallbackNote)
+  const fetchTabCounts = useTrendingStore(s => s.fetchTabCounts)
+  const tabCounts = useTrendingStore(s => s.tabCounts)
 
   // ── Daily Radar: track last visit (E1) ──
   const [lastVisit, setLastVisit] = useState<string | null>(null)
@@ -93,11 +94,12 @@ export default function DashboardPage() {
     }
   }, [])
 
-  // Initial fetch: bootstrap (saved + profile + remixes) in parallel with clips
+  // Initial fetch: bootstrap (saved + profile + remixes) in parallel with clips + counts
   useEffect(() => {
     fetchClips()
     fetchBootstrap()
-  }, [fetchClips, fetchBootstrap])
+    fetchTabCounts()
+  }, [fetchClips, fetchBootstrap, fetchTabCounts])
 
   // Fetch remixes when tab is active
   useEffect(() => {
@@ -346,23 +348,16 @@ export default function DashboardPage() {
     }
   }, [router])
 
-  // Feed tabs — 3 primary tabs + "All clips" link + Saved
-  // Compute counts per tab from loaded clips for informative display
-  const tabCounts = useMemo(() => {
-    const sixHoursAgo = Date.now() - 6 * 60 * 60 * 1000
-    return {
-      hot_now: clips.filter(c => c.feed_category === 'hot_now').length,
-      proven: clips.filter(c => c.feed_category === 'proven').length,
-      recent: clips.filter(c => {
-        const createdAt = c.clip_created_at ?? c.scraped_at
-        return createdAt ? new Date(createdAt).getTime() > sixHoursAgo : false
-      }).length,
-      all: clips.length,
-      saved: savedClipIds.size,
-    }
-  }, [clips, savedClipIds.size])
+  // Tab counts come from server (single source of truth)
+  const tabCountsDisplay = useMemo(() => ({
+    hot_now: tabCounts.exploding,
+    proven: tabCounts.proven,
+    recent: tabCounts.fresh,
+    all: tabCounts.all,
+    saved: savedClipIds.size,
+  }), [tabCounts, savedClipIds.size])
 
-  // Daily Radar stats (E1)
+  // Daily Radar stats (E1) — uses server counts for consistency
   const radarStats = useMemo(() => {
     if (!lastVisit || isFirstVisit) return null
     const lvTime = new Date(lastVisit).getTime()
@@ -370,26 +365,30 @@ export default function DashboardPage() {
       const t = c.clip_created_at ?? c.scraped_at
       return t ? new Date(t).getTime() > lvTime : false
     })
-    const legendary = newClips.filter(c => (c.velocity_score ?? 0) >= 80).length
     const lastScan = clips.reduce((max, c) => {
       const t = c.scraped_at ? new Date(c.scraped_at).getTime() : 0
       return t > max ? t : max
     }, 0)
     const lastScanMinAgo = lastScan > 0 ? Math.floor((Date.now() - lastScan) / 60000) : null
-    return { newCount: newClips.length, freshDrops: tabCounts.recent, legendary, lastScanMinAgo }
-  }, [lastVisit, isFirstVisit, clips, tabCounts.recent])
+    return {
+      newCount: newClips.length,
+      freshDrops: tabCounts.fresh,
+      legendary: tabCounts.legendary,
+      lastScanMinAgo,
+    }
+  }, [lastVisit, isFirstVisit, clips, tabCounts.fresh, tabCounts.legendary])
 
   // D1: Auto-hide "Exploding Now" tab when it has 0 clips
   const feedTabs: { key: FeedFilter; label: string; icon: typeof Flame; count?: number; subtle?: boolean; empty?: boolean }[] = [
-    // Only show Exploding Now if it has clips (D1)
-    ...(tabCounts.hot_now > 0 ? [{ key: 'hot_now' as FeedFilter, label: 'Exploding Now', icon: Flame, count: tabCounts.hot_now }] : []),
-    { key: 'proven', label: 'Proven Winners', icon: Trophy, count: tabCounts.proven, empty: tabCounts.proven === 0 && clips.length > 0 },
-    { key: 'recent', label: 'Fresh Drops', icon: Clock, count: tabCounts.recent, empty: tabCounts.recent === 0 && clips.length > 0 },
-    { key: 'all', label: 'All Clips', icon: Compass, count: tabCounts.all, subtle: true },
-    { key: 'saved', label: 'Saved', icon: Bookmark, count: tabCounts.saved },
+    ...(tabCountsDisplay.hot_now > 0 ? [{ key: 'hot_now' as FeedFilter, label: 'Exploding Now', icon: Flame, count: tabCountsDisplay.hot_now }] : []),
+    { key: 'proven', label: 'Proven Winners', icon: Trophy, count: tabCountsDisplay.proven, empty: tabCountsDisplay.proven === 0 && tabCountsDisplay.all > 0 },
+    { key: 'recent', label: 'Fresh Drops', icon: Clock, count: tabCountsDisplay.recent, empty: tabCountsDisplay.recent === 0 && tabCountsDisplay.all > 0 },
+    { key: 'all', label: 'All Clips', icon: Compass, count: tabCountsDisplay.all, subtle: true },
+    { key: 'saved', label: 'Saved', icon: Bookmark, count: tabCountsDisplay.saved },
   ]
 
-  const remaining = totalCount - clips.length
+  // "remaining" = server total for this tab minus what's already loaded
+  const remaining = totalCount - filteredClips.length
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
@@ -527,10 +526,6 @@ export default function DashboardPage() {
           })}
         </div>
 
-        {/* Tab fallback note — only show on tabs that triggered the fallback (D2), hide on Saved */}
-        {tabFallbackNote && filters.feed !== 'saved' && filters.feed !== 'all' && (
-          <p className="text-xs text-muted-foreground/70 italic pl-1">{tabFallbackNote}</p>
-        )}
 
         {/* Filters */}
         <TrendingFilters

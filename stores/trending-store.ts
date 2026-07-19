@@ -89,34 +89,12 @@ function filterAndSortClips(
 ): TrendingClip[] {
   let result = [...clips]
 
-  // Feed filter
-  if (filters.feed === 'hot_now') {
-    result = result.filter((c) => c.feed_category === 'hot_now')
-  } else if (filters.feed === 'early_gem') {
-    result = result.filter((c) => c.feed_category === 'early_gem')
-  } else if (filters.feed === 'proven') {
-    result = result.filter((c) => c.feed_category === 'proven')
-  } else if (filters.feed === 'recent') {
-    const sixHoursAgo = Date.now() - 6 * 60 * 60 * 1000
-    result = result.filter((c) => {
-      const createdAt = c.clip_created_at ?? c.scraped_at
-      return createdAt ? new Date(createdAt).getTime() > sixHoursAgo : false
-    })
-  } else if (filters.feed === 'saved') {
+  // Feed filter — only applied client-side for "saved" tab (others are server-side)
+  if (filters.feed === 'saved') {
     result = result.filter((c) => savedClipIds.has(c.id))
   }
 
-  if (filters.search) {
-    const q = filters.search.toLowerCase()
-    result = result.filter(
-      (c) =>
-        c.title?.toLowerCase().includes(q) ||
-        c.author_name?.toLowerCase().includes(q) ||
-        c.author_handle?.toLowerCase().includes(q)
-    )
-  }
-
-  // Streamer filter (single value)
+  // Streamer filter (single value — client-side only, not sent to server)
   if (filters.streamer && filters.streamer !== '') {
     const s = filters.streamer.toLowerCase()
     result = result.filter(
@@ -126,27 +104,7 @@ function filterAndSortClips(
     )
   }
 
-  if (filters.platforms.length > 0) {
-    result = result.filter((c) => filters.platforms.includes(c.platform.toLowerCase()))
-  }
-
-  if (filters.games.length > 0) {
-    result = result.filter((c) => c.niche && filters.games.includes(c.niche.toLowerCase()))
-  }
-
-  // Duration filter
-  if (filters.duration === 'short') {
-    result = result.filter((c) => (c.duration_seconds ?? 0) < 30)
-  } else if (filters.duration === 'medium') {
-    result = result.filter((c) => {
-      const d = c.duration_seconds ?? 0
-      return d >= 30 && d < 60
-    })
-  } else if (filters.duration === 'long') {
-    result = result.filter((c) => (c.duration_seconds ?? 0) >= 60)
-  }
-
-  // Sort
+  // Sort (server sorts too, but we re-sort for client-side combined data / saved tab)
   if (filters.feed === 'recent' || filters.sort === 'date') {
     result.sort((a, b) => new Date(b.clip_created_at ?? b.scraped_at ?? 0).getTime() - new Date(a.clip_created_at ?? a.scraped_at ?? 0).getTime())
   } else {
@@ -177,33 +135,34 @@ interface BootstrapResponse {
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
-/** Check if any server-filterable filters are active (excluding feed tabs) */
-function hasServerFilters(f: TrendingFiltersState): boolean {
-  return (
-    f.search !== '' ||
-    f.games.length > 0 ||
-    f.platforms.length > 0 ||
-    f.duration !== 'all'
-  )
-}
-
 /** Build URLSearchParams from filters for the /api/trending call.
- *  Feed tabs are NOT sent to the server — we always fetch the full dataset
- *  (limit=200) and filter client-side for instant tab switching. */
+ *  Feed tabs ARE sent to the server so pagination works correctly per-tab. */
 function buildFilterParams(f: TrendingFiltersState): URLSearchParams {
   const params = new URLSearchParams({ sort: f.sort })
 
-  // Server-side filters — only add when active
+  // Server-side filters
   if (f.search) params.set('search', f.search)
   if (f.games.length > 0) params.set('niche', f.games.join(','))
   if (f.platforms.length > 0) params.set('platform', f.platforms.join(','))
   if (f.duration !== 'all') params.set('duration', f.duration)
-  // Feed tabs handled client-side — don't pass to server
+
+  // Feed tab — sent to server for pre-pagination filtering
+  if (f.feed && f.feed !== 'all' && f.feed !== 'saved' && f.feed !== 'remixes') {
+    params.set('feed', f.feed)
+  }
 
   return params
 }
 
 // ─── Store ──────────────────────────────────────────────────────────────────
+
+interface TabCounts {
+  exploding: number
+  proven: number
+  fresh: number
+  all: number
+  legendary: number
+}
 
 interface TrendingState {
   // Data
@@ -212,6 +171,9 @@ interface TrendingState {
   megaViralClips: TrendingClip[]
   trendingClips: TrendingClip[]
   stats: TrendingStats
+
+  // Server-side tab counts (single source of truth)
+  tabCounts: TabCounts
 
   // Pagination (cursor-based)
   cursor: string | null
@@ -250,7 +212,6 @@ interface TrendingState {
 
   // Internal
   _searchDebounce: ReturnType<typeof setTimeout> | null
-  _tabFallbackNote: string | null
 
   // Actions
   setFilters: (filters: TrendingFiltersState) => void
@@ -258,6 +219,7 @@ interface TrendingState {
   setAutoRefresh: (enabled: boolean) => void
   markNotificationsRead: () => void
   fetchClips: (silent?: boolean) => Promise<void>
+  fetchTabCounts: () => Promise<void>
   loadMore: () => Promise<void>
   computeStats: () => void
   applyFilters: () => void
@@ -273,6 +235,7 @@ export const useTrendingStore = create<TrendingState>((set, get) => ({
   megaViralClips: [],
   trendingClips: [],
   stats: EMPTY_STATS,
+  tabCounts: { exploding: 0, proven: 0, fresh: 0, all: 0, legendary: 0 },
   cursor: null,
   hasMore: false,
   loadingMore: false,
@@ -295,7 +258,6 @@ export const useTrendingStore = create<TrendingState>((set, get) => ({
   notifications: [],
   notificationsRead: true,
   _searchDebounce: null,
-  _tabFallbackNote: null,
 
   setFilters: (newFilters) => {
     const prev = get().filters
@@ -331,7 +293,7 @@ export const useTrendingStore = create<TrendingState>((set, get) => ({
 
   setFeed: (feed) => {
     const { filters } = get()
-    set({ filters: { ...filters, feed } })
+    set({ filters: { ...filters, feed }, cursor: null, hasMore: false })
 
     // Saved tab: fetch full saved clips with their trending_clips data
     if (feed === 'saved') {
@@ -345,8 +307,8 @@ export const useTrendingStore = create<TrendingState>((set, get) => ({
       return
     }
 
-    // For all other feed tabs: apply client-side filter (data already loaded as 200)
-    get().applyFilters()
+    // All feed tabs: re-fetch from server with filter applied server-side
+    get().fetchClips()
   },
 
   setAutoRefresh: (enabled) => set({ autoRefreshEnabled: enabled }),
@@ -360,9 +322,7 @@ export const useTrendingStore = create<TrendingState>((set, get) => ({
 
     try {
       const params = buildFilterParams(state.filters)
-      // Load 200 when unfiltered (bulk for client-side tab switching),
-      // 50 when filtered (server does the work)
-      params.set('limit', hasServerFilters(state.filters) ? '50' : '200')
+      params.set('limit', '50')
       const res = await fetch(`/api/trending?${params}`)
 
       // Handle non-JSON responses (e.g. Netlify 500 returning plain text)
@@ -417,29 +377,8 @@ export const useTrendingStore = create<TrendingState>((set, get) => ({
       get().computeStats()
       get().applyFilters()
 
-      // Smart tab fallback: if the current tab has 0 results, auto-switch
-      // to the first non-empty tab in priority order
-      if (!silent && get().filteredClips.length === 0 && clips.length > 0) {
-        const fallbackOrder: FeedFilter[] = ['hot_now', 'proven', 'all']
-        const currentFeed = get().filters.feed
-        for (const tab of fallbackOrder) {
-          if (tab === currentFeed) continue
-          // Test how many clips this tab would show
-          const testFiltered = filterAndSortClips(clips, { ...get().filters, feed: tab }, get().savedClipIds)
-          if (testFiltered.length > 0) {
-            set({
-              filters: { ...get().filters, feed: tab },
-              _tabFallbackNote: currentFeed === 'hot_now'
-                ? 'Nothing exploding right now \u2014 showing proven winners. The radar re-checks every 15 min.'
-                : null,
-            })
-            get().applyFilters()
-            break
-          }
-        }
-      } else if (!silent) {
-        set({ _tabFallbackNote: null })
-      }
+      // Also refresh tab counts (non-blocking)
+      get().fetchTabCounts()
     } catch (err) {
       set({
         error: err instanceof Error ? err.message : 'Unknown error',
@@ -489,6 +428,18 @@ export const useTrendingStore = create<TrendingState>((set, get) => ({
       // silent
     } finally {
       set({ loadingMore: false })
+    }
+  },
+
+  fetchTabCounts: async () => {
+    try {
+      const res = await fetch('/api/trending/counts')
+      if (!res.ok) return
+      const json = await res.json() as { data: TabCounts | null; error: string | null }
+      if (json.error || !json.data) return
+      set({ tabCounts: json.data })
+    } catch {
+      // silent — badge counts are non-critical
     }
   },
 

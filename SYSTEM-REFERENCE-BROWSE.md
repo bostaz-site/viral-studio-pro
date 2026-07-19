@@ -132,11 +132,12 @@ _searchDebounce: ReturnType<typeof setTimeout> | null  // Timer pour debounce se
 
 | Action | Declencheur | Comportement |
 |---|---|---|
-| `fetchClips(silent?)` | Mount + refresh + filtre change | Construit URLSearchParams depuis filters, fetch 200 (sans filtres) ou 50 (avec filtres), detecte nouveaux clips viraux pour notifications |
-| `loadMore()` | Bouton "Load more" | Append avec cursor, deduplication par ID |
+| `fetchClips(silent?)` | Mount + refresh + tab change + filtre change | Construit URLSearchParams (incl. feed), fetch limit=50, detecte nouveaux clips viraux pour notifications, triggers `fetchTabCounts()` |
+| `fetchTabCounts()` | After fetchClips + mount | GET /api/trending/counts → tabCounts state (exploding, proven, fresh, all, legendary) |
+| `loadMore()` | Bouton "Load more" | Append avec cursor (feed param inclus), deduplication par ID |
 | `setFilters(filters)` | Changement de filtre UI | Search: debounce 300ms + client-side immediat. Autres: server re-fetch |
-| `setFeed(feed)` | Clic tab feed | Client-side immediat, re-fetch si <10 resultats |
-| `applyFilters()` | Apres fetch ou changement local | Pipeline: feed → search → platform → niche → duration → sort → stream groups |
+| `setFeed(feed)` | Clic tab feed | Resets cursor, triggers fetchClips() (server re-fetch with new feed) |
+| `applyFilters()` | Apres fetch ou changement local | Pipeline: saved filter → streamer → sort → stream groups |
 | `computeStats()` | Apres chaque fetch | Recalcule stats depuis clips[] (rankCounts, feed counts, platforms, games) |
 | `fetchBootstrap()` | Mount (parallele avec fetchClips) | GET /api/bootstrap → saved IDs, remixes, profile |
 | `fetchSavedClips()` | Apres toggleSaveClip pour re-sync | GET /api/clips/saved |
@@ -160,23 +161,18 @@ autre (ex: reset) → applyFilters() seulement
 ### `setFeed()` — Decision tree
 
 ```
-saved / remixes → applyFilters() seulement (client-side)
+saved → fetchSavedClips() + applyFilters()
+remixes → applyFilters() seulement
 
-retour DEPUIS saved/remixes → fetchClips(silent) (clips stale)
-
-hot_now / early_gem / proven / recent / all →
-  applyFilters() immediat
-  SI filteredClips.length < 10 → fetchClips(silent) en background
+hot_now / proven / recent / all → reset cursor + fetchClips() (full server re-fetch with feed param)
 ```
 
 ### `fetchClips()` — Limit logic
 
 ```
-hasServerFilters(filters) === true  → limit=50 (serveur fait le travail)
-hasServerFilters(filters) === false → limit=200 (bulk pour client-side tab switching)
+Always limit=50 — server applies feed + other filters BEFORE pagination.
+Feed param sent: hot_now, proven, recent (not sent for: all, saved, remixes).
 ```
-
-`hasServerFilters` retourne true si: search non vide, games ou platforms non vides, duration !== 'all', ou feed est hot_now/early_gem/proven/recent.
 
 ---
 
@@ -285,29 +281,28 @@ type FeedFilter = 'all' | 'hot_now' | 'early_gem' | 'proven' | 'recent' | 'saved
 
 ## Feed Category Tabs (Current State)
 
-5 tabs visibles. Default: `hot_now` avec smart fallback.
+5 tabs visibles. Default: `hot_now`. **Server-side filtering per tab.**
 
-| Tab | Label UI | Icon | Style | Filtre | Count |
+| Tab | Label UI | Icon | Style | Server filter | Count source |
 |---|---|---|---|---|---|
-| `hot_now` | Exploding Now | Flame | Primary (DEFAULT) | `feed_category === 'hot_now'` | Live count |
-| `proven` | Proven Winners | Trophy | Primary | `feed_category === 'proven'` | Live count |
-| `recent` | Fresh Drops | Clock | Primary | Clips < 6h d'age | Live count |
-| `all` | All Clips | Compass | Subtle (dimmed) | Pas de filtre | Total clips |
-| `saved` | Saved | Bookmark | Normal | Full saved clips (API join) | savedClipIds.size |
+| `hot_now` | Exploding Now | Flame | Primary (DEFAULT) | `feed_category IN ('early_gem','hot_now')` | `/api/trending/counts` → exploding |
+| `proven` | Proven Winners | Trophy | Primary | `feed_category = 'proven'` | `/api/trending/counts` → proven |
+| `recent` | Fresh Drops | Clock | Primary | `clip_created_at >= now - 24h` | `/api/trending/counts` → fresh |
+| `all` | All Clips | Compass | Subtle (dimmed) | No filter | `/api/trending/counts` → all |
+| `saved` | Saved | Bookmark | Normal | Client-side (savedClipIds) | savedClipIds.size |
 
-### Smart tab fallback (on initial load)
+### Tab count — Single source of truth
 
-Si le tab par defaut (`hot_now`) retourne 0 clips mais que `clips.length > 0`:
-1. Teste dans l'ordre: `hot_now` → `proven` → `all`
-2. Bascule automatiquement sur le premier tab non-vide
-3. Affiche note: "Nothing exploding right now — showing proven winners. The radar re-checks every 15 min."
-4. La note disparait au prochain fetch.
+- **`GET /api/trending/counts`** returns `{ exploding, proven, fresh, all, legendary }` via 5 parallel COUNT queries.
+- Called on mount + after every `fetchClips()`.
+- Tab badges, Daily Radar, and "Load more (N remaining)" all derive from these server counts.
+- "Exploding Now" tab auto-hidden when `tabCounts.exploding === 0`.
 
-### Tab count display
+### Tab switching — Server re-fetch
 
-- Chaque tab affiche son count a cote du label quand les donnees sont chargees
-- Tabs avec 0 clips sont visuellement dims (opacity 40%)
-- Le count se met a jour quand les clips sont re-fetches
+`setFeed(tab)` resets cursor + calls `fetchClips()` which sends `?feed={tab}` to the server.
+The server applies the feed filter BEFORE pagination (`.limit(50)`).
+"remaining" = `totalCount - filteredClips.length` (totalCount comes from `{ count: 'exact' }` on the filtered query).
 
 ### Empty states par tab
 
@@ -320,7 +315,7 @@ Si le tab par defaut (`hot_now`) retourne 0 clips mais que `clips.length > 0`:
 | `all` | "Try refreshing — new clips drop every few minutes." | — |
 | (clips.length === 0) | "Clips from Twitch & Kick will appear here once imported." | [Import Clips] |
 
-### Saved tab flow (fixed)
+### Saved tab flow
 
 1. `setFeed('saved')` → calls `fetchSavedClips()`
 2. `GET /api/clips/saved` returns saved rows with `trending_clips(*)` join
@@ -330,10 +325,10 @@ Si le tab par defaut (`hot_now`) retourne 0 clips mais que `clips.length > 0`:
 
 ### Data fetch strategy
 
-- Feed tabs are **client-side only** — not sent as server params
-- `fetchClips()` always requests `limit=200` when no search/niche/platform/duration filters are active
-- Only search/niche/platform/duration filters reduce to `limit=50` (server does the work)
-- This gives 200 clips for instant tab switching without re-fetching
+- Feed tabs ARE sent to the server as `?feed=` param for server-side filtering
+- `fetchClips()` always requests `limit=50` — server filters before paginating
+- Switching tabs triggers a full re-fetch with the new feed param
+- Counts come from a dedicated `/api/trending/counts` endpoint (5 parallel COUNT queries)
 
 ---
 
@@ -366,17 +361,18 @@ Les niches affichees viennent de `availableNiches` (= `stats.games`), triees par
 
 Deux options dans un segment control: `Algo Score` (sort=velocity) et `Date` (sort=date). Style: bg-primary quand actif.
 
-### Filtrage — Client-side vs Server-side
+### Filtrage — Server-side (all filters sent to API)
 
-| Filtre | Client-side | Server-side |
+| Filtre | Server param | Comportement |
 |---|---|---|
-| Feed tab (hot_now, early_gem, etc.) | Immediat via applyFilters() | Si <10 resultats, background fetch |
-| Search | Immediat (includes sur title/author_name/author_handle) | Debounce 300ms, ilike sur title/author_name/author_handle |
-| Platform | Via applyFilters() | Re-fetch immediat |
-| Niche | Via applyFilters() | Re-fetch immediat (ilike single, in multi) |
-| Duration | Via applyFilters() | Re-fetch immediat (lt/gte sur duration_seconds) |
-| Sort | Via applyFilters() | Re-fetch immediat |
-| Saved | Client-side seulement | Non (filtre sur savedClipIds Set) |
+| Feed tab | `?feed=hot_now/proven/recent` | Applied BEFORE pagination. hot_now = IN(early_gem, hot_now). recent = 24h. |
+| Search | `?search=` | Debounce 300ms, ilike on title/author_name/author_handle |
+| Platform | `?platform=twitch,kick` | .eq or .in on platform column |
+| Niche | `?niche=irl,fps` | .ilike single, .in multi |
+| Duration | `?duration=short/medium/long` | lt/gte on duration_seconds |
+| Sort | `?sort=velocity/date` | ORDER BY velocity_score or clip_created_at DESC |
+| Streamer | (client-side only) | Applied in applyFilters() after fetch |
+| Saved | (client-side only) | Uses savedClipIds Set, not sent to server |
 
 ### Count display
 
