@@ -22,9 +22,14 @@ import { PRIVACY_LEVEL_LABELS } from '@/types/tiktok'
 
 // ── Props ────────────────────────────────────────────────────────────────────
 
+export interface TikTokPublishResult {
+  published: boolean
+  mode?: 'direct' | 'inbox'
+}
+
 interface TikTokPublishDialogProps {
   open: boolean
-  onClose: () => void
+  onClose: (result?: TikTokPublishResult) => void
   clipId: string
   clipTitle?: string
   clipDurationSeconds?: number
@@ -64,6 +69,7 @@ export function TikTokPublishDialog({
   const [publishStatus, setPublishStatus] = useState<TikTokPublishStatus | null>(null)
   const [publishError, setPublishError] = useState<string | null>(null)
   const [publishedPostId, setPublishedPostId] = useState<string | null>(null)
+  const [publishMode, setPublishMode] = useState<'direct' | 'inbox' | null>(null)
 
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
@@ -85,6 +91,7 @@ export function TikTokPublishDialog({
     setPublishStatus(null)
     setPublishError(null)
     setPublishedPostId(null)
+    setPublishMode(null)
     setIsPublishing(false)
     setCreatorInfoError(null)
 
@@ -183,6 +190,7 @@ export function TikTokPublishDialog({
       }
 
       const mode = json.data?.mode ?? 'direct'
+      setPublishMode(mode)
       const pid = json.data?.publishId ?? json.data?.postId ?? null
       setPublishId(pid ?? 'inbox-success')
 
@@ -248,7 +256,11 @@ export function TikTokPublishDialog({
       clearInterval(pollingRef.current)
       pollingRef.current = null
     }
-    onClose()
+    if (publishStatus === 'PUBLISH_COMPLETE' && publishMode) {
+      onClose({ published: true, mode: publishMode })
+    } else {
+      onClose()
+    }
   }
 
   // ── Legal text ───────────────────────────────────────────────────────────

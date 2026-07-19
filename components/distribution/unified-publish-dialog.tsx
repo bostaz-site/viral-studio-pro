@@ -24,7 +24,7 @@ interface ConnectedAccount {
   username: string | null
 }
 
-type PublishStatus = 'idle' | 'publishing' | 'success' | 'error'
+type PublishStatus = 'idle' | 'publishing' | 'success' | 'error' | 'inbox'
 
 interface PlatformState {
   connected: boolean
@@ -151,13 +151,31 @@ export function UnifiedPublishDialog({
     window.location.href = `/api/oauth/${platform}/authorize?redirect=${encodeURIComponent(returnUrl + separator + 'publish=1')}`
   }
 
-  // TikTok config callback
-  const handleTikTokConfigured = () => {
+  // TikTok publish result callback — TikTokPublishDialog handles its own publish
+  const handleTikTokConfigured = (result?: { published: boolean; mode?: 'direct' | 'inbox' }) => {
     setShowTikTokConfig(false)
-    setPlatforms(prev => ({
-      ...prev,
-      tiktok: { ...prev.tiktok, tiktokConfigured: true, selected: true },
-    }))
+    if (result?.published) {
+      const mode = result.mode ?? 'direct'
+      setPlatforms(prev => ({
+        ...prev,
+        tiktok: {
+          ...prev.tiktok,
+          tiktokConfigured: true,
+          selected: true,
+          status: mode === 'inbox' ? 'inbox' as PublishStatus : 'success',
+          error: null,
+        },
+      }))
+      setIsPublishing(false)
+      setAllDone(true)
+    } else {
+      // User cancelled — reset TikTok back to idle
+      setPlatforms(prev => ({
+        ...prev,
+        tiktok: { ...prev.tiktok, status: 'idle', error: null },
+      }))
+      setIsPublishing(false)
+    }
   }
 
   // Publish to all selected platforms
@@ -166,51 +184,68 @@ export function UnifiedPublishDialog({
     const selected = (Object.entries(platforms) as [Platform, PlatformState][])
       .filter(([, s]) => s.selected && s.connected)
 
-    // Mark all as publishing
-    setPlatforms(prev => {
-      const next = { ...prev }
-      for (const [p] of selected) {
-        next[p] = { ...next[p], status: 'publishing', error: null }
-      }
-      return next
-    })
+    // TikTok requires its dedicated dialog (Content Sharing compliance:
+    // user must choose privacy/interactions before each publish)
+    const tiktokSelected = selected.some(([p]) => p === 'tiktok')
+    const tiktokAlreadyPublished = platforms.tiktok.tiktokConfigured
+    if (tiktokSelected && !tiktokAlreadyPublished) {
+      setPlatforms(prev => ({
+        ...prev,
+        tiktok: { ...prev.tiktok, status: 'publishing', error: null },
+      }))
+      setShowTikTokConfig(true)
+      // TikTokPublishDialog handles publishing — callback updates state via handleTikTokConfigured
+    }
 
-    // Publish in parallel
-    const results = await Promise.allSettled(
-      selected.map(async ([platform]) => {
-        // TikTok: use the existing dialog flow if configured, otherwise simple publish
-        const body: Record<string, unknown> = {
-          clip_id: clipId,
-          caption: clipTitle || 'Viral clip',
+    // Publish non-TikTok platforms in parallel
+    const nonTiktok = selected.filter(([p]) => p !== 'tiktok')
+
+    if (nonTiktok.length > 0) {
+      setPlatforms(prev => {
+        const next = { ...prev }
+        for (const [p] of nonTiktok) {
+          next[p] = { ...next[p], status: 'publishing', error: null }
         }
+        return next
+      })
 
-        const res = await fetch(`/api/publish/${platform}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(body),
+      const results = await Promise.allSettled(
+        nonTiktok.map(async ([platform]) => {
+          const body: Record<string, unknown> = {
+            clip_id: clipId,
+            caption: clipTitle || 'Viral clip',
+          }
+          const res = await fetch(`/api/publish/${platform}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body),
+          })
+          const json = await res.json() as { data?: { postId?: string }; error?: string }
+          if (json.error) throw new Error(json.error)
+          return { platform, postId: json.data?.postId }
         })
-        const json = await res.json() as { data?: { postId?: string }; error?: string }
-        if (json.error) throw new Error(json.error)
-        return { platform, postId: json.data?.postId }
-      })
-    )
+      )
 
-    // Update per-platform status
-    setPlatforms(prev => {
-      const next = { ...prev }
-      results.forEach((result, i) => {
-        const platform = selected[i][0]
-        if (result.status === 'fulfilled') {
-          next[platform] = { ...next[platform], status: 'success', error: null }
-        } else {
-          next[platform] = { ...next[platform], status: 'error', error: result.reason?.message ?? 'Failed' }
-        }
+      setPlatforms(prev => {
+        const next = { ...prev }
+        results.forEach((result, i) => {
+          const platform = nonTiktok[i][0]
+          if (result.status === 'fulfilled') {
+            next[platform] = { ...next[platform], status: 'success', error: null }
+          } else {
+            next[platform] = { ...next[platform], status: 'error', error: result.reason?.message ?? 'Failed' }
+          }
+        })
+        return next
       })
-      return next
-    })
+    }
 
-    setIsPublishing(false)
-    setAllDone(true)
+    // If TikTok wasn't selected or was already published, we're done now.
+    // If TikTok dialog is open, handleTikTokConfigured will finalize.
+    if (!tiktokSelected || tiktokAlreadyPublished) {
+      setIsPublishing(false)
+      setAllDone(true)
+    }
   }, [platforms, clipId, clipTitle])
 
   const handleClose = () => {
@@ -244,9 +279,11 @@ export function UnifiedPublishDialog({
                     ? <WolfLoader variant="spinner" size={16} mode="amber" />
                     : state.status === 'success'
                       ? <CheckCircle2 className="h-4 w-4 text-green-400" />
-                      : state.status === 'error'
-                        ? <AlertCircle className="h-4 w-4 text-red-400" />
-                        : null
+                      : state.status === 'inbox'
+                        ? <AlertCircle className="h-4 w-4 text-amber-400" />
+                        : state.status === 'error'
+                          ? <AlertCircle className="h-4 w-4 text-red-400" />
+                          : null
 
                   return (
                     <div
@@ -287,14 +324,18 @@ export function UnifiedPublishDialog({
                           {isComingSoon ? (
                             <p className="text-xs text-amber-400/70 mt-0.5">Coming soon</p>
                           ) : state.connected ? (
-                            <p className="text-xs text-muted-foreground mt-0.5 truncate">
+                            <p className={`text-xs mt-0.5 truncate ${
+                              state.status === 'inbox' ? 'text-amber-400' : 'text-muted-foreground'
+                            }`}>
                               {state.status === 'success'
                                 ? 'Published!'
-                                : state.status === 'error'
-                                  ? state.error
-                                  : state.status === 'publishing'
-                                    ? 'Publishing...'
-                                    : `@${state.username ?? 'connected'}`
+                                : state.status === 'inbox'
+                                  ? 'Sent to TikTok drafts \u2014 open the app to finalize'
+                                  : state.status === 'error'
+                                    ? state.error
+                                    : state.status === 'publishing'
+                                      ? 'Publishing...'
+                                      : `@${state.username ?? 'connected'}`
                               }
                             </p>
                           ) : (

@@ -28,6 +28,7 @@ import type { LearnedDistributionProfile } from '@/types/learning'
 import ElectricBorder from '@/components/ui/ElectricBorder'
 import { PlatformPickerModal } from './platform-picker-modal'
 import { ClipPickerModal } from './clip-picker-modal'
+import { TikTokPublishDialog } from './tiktok-publish-dialog'
 import { ClipBankRail } from './clip-bank-rail'
 import './distribution-hub.css'
 
@@ -485,6 +486,7 @@ export function DistributionHub() {
   const [persistentStats, setPersistentStats] = useState<PersistentStats>(() => loadPersistentStats())
   const [activeReward, setActiveReward] = useState<Reward | null>(null)
   const [showPlatformPicker, setShowPlatformPicker] = useState(false)
+  const [showTikTokPublish, setShowTikTokPublish] = useState(false)
   const [showClipPicker, setShowClipPicker] = useState(false)
   const [clipPickerTab, setClipPickerTab] = useState<'bank' | 'remixes'>('bank')
   const [brokenThumbs, setBrokenThumbs] = useState<Set<string>>(new Set())
@@ -1124,6 +1126,16 @@ export function DistributionHub() {
     const enabledTargets = publishTargets.filter(t => t.enabled)
     if (enabledTargets.length === 0) return
 
+    // TikTok requires its dedicated dialog (Content Sharing compliance:
+    // user must choose privacy/interactions before each publish)
+    const hasTikTok = enabledTargets.some(t => t.platform === 'tiktok')
+    if (hasTikTok) {
+      setShowPlatformPicker(false)
+      setShowTikTokPublish(true)
+      return // TikTokPublishDialog handles publishing — callback updates state
+    }
+
+    // Non-TikTok publish flow (future platforms)
     // Build step list
     const steps: Array<{ label: string; status: 'pending' | 'active' | 'done' | 'error'; platform?: string }> = [
       { label: 'Preparing video...', status: 'pending' },
@@ -2298,6 +2310,19 @@ export function DistributionHub() {
           onPublish={handlePublish}
         />
       )}
+
+      {/* ═══ TIKTOK PUBLISH DIALOG (Content Sharing compliance) ═══ */}
+      <TikTokPublishDialog
+        open={showTikTokPublish}
+        onClose={(result) => {
+          setShowTikTokPublish(false)
+          if (result?.published) {
+            setPublishDone(true)
+          }
+        }}
+        clipId={selectedClip?.id ?? ''}
+        clipTitle={selectedClip?.title ?? undefined}
+      />
 
     </div>
   )

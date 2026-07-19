@@ -1412,19 +1412,26 @@ GET /api/tiktok/creator-info
 ### Publish flow
 
 ```
-1. User remplit le form + clique "Publish to TikTok"
-2. POST /api/publish/tiktok avec tiktok_options (privacy, toggles, commercial)
-3. Backend → POST /v2/post/publish/video/init/ (PULL_FROM_URL)
-4. Retourne publish_id
-5. Frontend polling toutes les 5s via POST /api/tiktok/publish-status
+1. User clique "Publish" dans UnifiedPublishDialog OU rocket dans Clip Bank
+2. TikTok est TOUJOURS route vers TikTokPublishDialog (tiktok_options obligatoires)
+   → le dialog unifie et la distribution hub excluent TikTok de leur boucle de publish
+   → TikTokPublishDialog collecte privacy/interactions + publie lui-meme
+   → onClose retourne { published: boolean, mode: 'direct' | 'inbox' }
+3. POST /api/publish/tiktok avec tiktok_options (privacy, toggles, commercial)
+4. Backend → POST /v2/post/publish/video/init/ (PULL_FROM_URL)
+5. Retourne publish_id + mode ('direct' | 'inbox')
+6. Si mode='direct': polling toutes les 5s via POST /api/tiktok/publish-status
    → POST /v2/post/publish/status/fetch/
-6. Statuts : PROCESSING_UPLOAD → PROCESSING_DOWNLOAD → PUBLISH_COMPLETE / FAILED
-7. Message : "It may take a few minutes for content to be visible on your TikTok profile"
+7. Statuts : PROCESSING_UPLOAD → PROCESSING_DOWNLOAD → PUBLISH_COMPLETE / FAILED
+8. Si mode='inbox': affichage ambre "Sent to TikTok drafts — open the app to finalize"
+   → PAS le meme succes vert que Direct Post
 ```
 
 ### Notes importantes
 
-- `TIKTOK_DIRECT_POST_ENABLED=true` active le mode Direct Post (sinon fallback Inbox)
-- Le dialog TikTok est SEPARE du PublishDialog generique (qui gere multi-plateforme)
+- tiktok_options est OBLIGATOIRE pour publier sur TikTok (Content Sharing Guidelines)
+- Sans tiktok_options, la route API fallback en mode inbox (brouillons TikTok)
+- Le dialog TikTok (TikTokPublishDialog) est le seul chemin pour publier TikTok
+  — UnifiedPublishDialog et DistributionHub delegent a TikTokPublishDialog
 - Les toggles interaction sont `disable_*` cote API (inverse du UI `allow_*`)
 - `max_video_post_duration_sec` varie selon le compte createur (peut etre 60s, 180s, ou 600s)
