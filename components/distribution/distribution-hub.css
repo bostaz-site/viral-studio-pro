@@ -2943,11 +2943,11 @@
   position: relative;
   width: 100%;
   box-sizing: border-box;
-  min-height: 700px;
+  min-height: 420px;
   display: grid;
   place-items: start center;
   padding-top: 20px;
-  padding-bottom: 40px;
+  padding-bottom: 20px;
 }
 .dist-map-svg {
   position: absolute;
@@ -3081,17 +3081,11 @@
 .dist-plat-node.pos-tr { right: 40px; top: 40px; }
 .dist-plat-node.pos-br { right: 40px; bottom: 240px; }
 
-/* Clearance for the absolutely-positioned core panel below the brain.
-   Panel hangs at top:calc(100%+5px) ~270px tall + 40px breathing room. */
-:root { --core-panel-clearance: 320px; }
-
 /* AI Core */
 .dist-core-wrap {
   position: relative;
   width: 340px;
   min-height: 340px;
-  padding-bottom: var(--core-panel-clearance);
-  box-sizing: content-box;
   display: grid;
   place-items: center;
   z-index: 2;
@@ -3551,16 +3545,11 @@
 
 
 /* Connector line from brain to panel — animated dashes (matches platform flow lines) */
-/* Spans from inside the brain (~75px above container bottom) down to the panel top (5px below container). */
-/* z-index: 1 keeps it BEHIND the panel (z:5) but above .dist-map-svg (0) */
+/* Connector line — normal flow, bridges brain to panel */
 .dist-core-connector-line {
-  position: absolute;
-  bottom: -5px;
-  left: 50%;
-  transform: translateX(-50%);
   width: 2px;
-  height: 80px;
-  /* Repeating dashes that flow downward via background-position animation */
+  height: 54px;
+  margin: 0 auto;
   background-image: repeating-linear-gradient(
     to bottom,
     #38BDF8 0,
@@ -3575,29 +3564,12 @@
   filter: drop-shadow(0 0 6px rgba(56,189,248,.55));
   pointer-events: none;
   animation: dist-connector-flow 1.4s linear infinite;
-  z-index: 1;
 }
-.dist-core-connector-line::before,
-.dist-core-connector-line::after {
-  content: '';
-  position: absolute;
-  left: 50%;
-  width: 6px;
-  height: 6px;
-  border-radius: 999px;
-  background: #38BDF8;
-  transform: translateX(-50%);
-  box-shadow: 0 0 10px rgba(56,189,248,.8);
-  z-index: 1;
-}
-/* Top dot hidden — line emerges naturally from below the brain, no floating dot in the brain area */
-.dist-core-connector-line::before { display: none; }
-.dist-core-connector-line::after { bottom: -5px; } /* aligns with panel port (::before top:-5px) */
 @keyframes dist-connector-flow {
   from { background-position: 0 0; }
   to { background-position: 0 20px; }
 }
-.dist-core-wrap.off .dist-core-connector-line {
+.dist-core-connector-line.off {
   background-image: repeating-linear-gradient(
     to bottom,
     #475569 0,
@@ -3609,22 +3581,13 @@
   opacity: .35;
   animation: none;
 }
-.dist-core-wrap.off .dist-core-connector-line::before,
-.dist-core-wrap.off .dist-core-connector-line::after {
-  background: #475569;
-  box-shadow: none;
-}
 
 /* Core panel (CLIP FARM box) — premium command console aesthetic */
-/* TOP-ANCHORED so extra content (hint text in PAUSED, button wrap) grows DOWNWARD,
-   never upward into the brain. Panel top is fixed 5px below the container bottom. */
+/* Core panel — normal flow, centered below connector */
 .dist-core-panel {
-  position: absolute;
-  top: calc(100% + 5px);
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 5;
+  position: relative;
   width: 320px;
+  margin: 0 auto;
   border-radius: 16px;
   border: 1px solid rgba(56,189,248,.2);
   background:
@@ -3636,7 +3599,7 @@
   flex-direction: column;
   align-items: center;
   gap: 16px;
-  transition: opacity .4s, border-color .4s; /* only fade things that don't change layout */
+  transition: opacity .4s, border-color .4s;
 }
 /* Connection ports — top (energy from brain) and bottom (energy to clip bank) */
 /* These glowing cyan dots make it visually clear that the dashed lines actually

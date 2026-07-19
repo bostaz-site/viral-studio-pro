@@ -151,15 +151,21 @@ Centre visuel de la page. Symbolise le "AI control center" qui orchestre la dist
     <span className="dist-brain-kpi kpi-br">Next drop 19:00</span>
   </div>
 
-  <div className="dist-core-connector-line" />
-  <div className="dist-core-panel">...CLIP FARM panel...</div>
-</div>
+  {/* rest-node, sr-only */}
+</div>  {/* end dist-core-wrap */}
+</div>  {/* end dist-connection-map */}
+
+{/* Connector + panel — NORMAL FLOW, not inside dist-core-wrap */}
+<div className="dist-core-connector-line {off?}" />
+<div className="dist-core-panel {on|off}">...CLIP FARM panel...</div>
+
+{/* Funnel → Clip Bank */}
 ```
 
 ### Brain dimensions (v9.2 — reduced 15%)
-- `.dist-core-wrap` : **340×340px** (was 400×400)
+- `.dist-core-wrap` : **340×340px** (no padding-bottom)
 - `.dist-brain-svg` : **272×272px** (was 320×320)
-- CLIP FARM panel remounts closer
+- CLIP FARM panel is a sibling below, in normal flow
 
 ### Mini-KPIs
 3-4 discret pills orbiting the brain showing live system state:
@@ -253,14 +259,16 @@ Absolute, `bottom: -185px` from brain wrap (15px plus proche que la version init
 - OFF state : gradient gray, no animation
 - Visually bridges the full gap between brain bottom and CLIP FARM panel top
 
-### CLIP FARM panel positioning
-- **Top-anchored** : `top: calc(100% + 5px)` — content grows DOWNWARD, never into the brain
-- **Clearance reserved** : `.dist-core-wrap` uses `padding-bottom: var(--core-panel-clearance)` (320px)
-  so the absolutely-positioned panel pushes the Clip Bank section down instead of overlapping it.
-  `height` changed to `min-height: 340px` + `box-sizing: content-box` so the padding actually extends the box.
-- **Fixed footprint** : `.dist-core-panel-head { min-height: 48px }` reserves hint space in ON mode,
+### CLIP FARM panel positioning — NORMAL FLOW (final architecture)
+- **Normal flow** : both connector and panel are siblings of `.dist-connection-map` in `.dist-page`
+- **No absolute positioning** : `position: relative; width: 320px; margin: 0 auto;`
+- **DOM order** : `.dist-connection-map` (brain) → `.dist-core-connector-line` (54px) → `.dist-core-panel` → funnel → clip bank
+- **No overlap by construction** : panel is a block element that pushes content below it
+- **Connector** : `width: 2px; height: 54px; margin: 0 auto;` — bridges brain to panel
+- **ON/OFF state** : connector gets `.off` class directly (not via parent), panel keeps `.on`/`.off`
+- **Fixed footprint** : `.dist-core-panel-head { min-height: 48px }` reserves hint space,
   `.pill-label { white-space: nowrap }` prevents wrap → zero layout shift ON↔OFF
-- Panel port (::before top:-5px) sits at container bottom, receives the connector line
+- Panel port (::before top:-5px) decorative dot at panel top, receives the connector visually
 
 ### Funnel lines (panel → Clip Bank)
 ```

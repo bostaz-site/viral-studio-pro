@@ -1827,100 +1827,101 @@ export function DistributionHub() {
           </svg>
           {/* Paused rest-node — single amber dot breathing at top of brain */}
           <div className="dist-rest-node" />
-          {/* Connector line from brain to panel */}
-          <div className="dist-core-connector-line" />
           {/* SR-only status for screen readers */}
           <p className="sr-only" aria-live="polite">
             {coreState === 'publishing' ? 'Publishing clip to connected platforms' :
              coreState === 'success' ? 'Post sent successfully' : ''}
           </p>
-          <div className={`dist-core-panel ${coreState === 'paused' ? 'off' : 'on'}`}>
-            <div className="dist-core-panel-head">
-              <span className="dist-core-panel-title">{
-                coreState === 'paused' ? 'PAUSED' :
-                coreState === 'publishing' ? 'PUBLISHING' :
-                coreState === 'success' ? 'POST SENT' :
-                'AUTO-DISTRIBUTE'
-              }</span>
-              {!aiAutoDistribute && (
-                <span className="dist-core-panel-hint">Your queue is safe. Nothing will post until you resume.</span>
-              )}
-            </div>
-            <button
-              ref={pillRef}
-              className={`dist-core-pill ${aiAutoDistribute ? 'on' : 'off'}`}
-              onClick={handleToggleAutoDistribute}
-              role="switch"
-              aria-checked={aiAutoDistribute}
-              aria-label={aiAutoDistribute ? 'Pause automatic distribution' : 'Resume automatic distribution'}
-            >
-              <span className="pill-orb" />
-              <span className="pill-label">{aiAutoDistribute ? 'Auto-Distribute' : 'Resume Auto-Distribute'}</span>
-              <span className="pill-state">{aiAutoDistribute ? 'On' : 'Off'}</span>
-            </button>
-            <div className="dist-core-panel-stats">
-              {(() => {
-                const visibleQueuePosts = queue?.posts.filter(p => !removedClipIds.has(p.clip.id)) ?? []
-                const nextPost = visibleQueuePosts[0]
-                return (
-                  <>
-                    <div className="dist-core-stat">
-                      <span className="stat-label">NEXT POST</span>
-                      {nextPost ? (
-                        <>
-                          <span className="dist-countdown" style={!aiAutoDistribute ? { color: '#71717A' } : undefined}>{liveCountdown}</span>
-                          <span className="stat-sub" style={!aiAutoDistribute ? { color: '#F59E0B', opacity: 0.8, fontStyle: 'italic' } : undefined}>
-                            {!aiAutoDistribute
-                              ? 'Paused'
-                              : `${PLATFORMS.find(p => p.id === nextPost.platform)?.label ?? nextPost.platform} \u00b7 ${new Date(nextPost.scheduledAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}`}
-                          </span>
-                        </>
-                      ) : (
-                        <span className="stat-value">{'\u2014'}</span>
-                      )}
-                    </div>
-                    <div className="dist-core-stat-divider" />
-                    <div className="dist-core-stat">
-                      <span className="stat-label">Queue</span>
-                      <span className="stat-value" style={!aiAutoDistribute ? { color: '#71717A' } : undefined}>
-                        {visibleQueuePosts.length} scheduled
-                      </span>
-                      <span className="stat-sub" style={!aiAutoDistribute ? { color: 'rgba(245,158,11,0.7)' } : undefined}>
+        </div>
+      </div>
+
+      {/* ═══ CONNECTOR + PANEL — normal flow (no absolute, no overlap by design) ═══ */}
+      <div className={`dist-core-connector-line ${coreState === 'paused' ? 'off' : ''}`} />
+      <div className={`dist-core-panel ${coreState === 'paused' ? 'off' : 'on'}`}>
+        <div className="dist-core-panel-head">
+          <span className="dist-core-panel-title">{
+            coreState === 'paused' ? 'PAUSED' :
+            coreState === 'publishing' ? 'PUBLISHING' :
+            coreState === 'success' ? 'POST SENT' :
+            'AUTO-DISTRIBUTE'
+          }</span>
+          {!aiAutoDistribute && (
+            <span className="dist-core-panel-hint">Your queue is safe. Nothing will post until you resume.</span>
+          )}
+        </div>
+        <button
+          ref={pillRef}
+          className={`dist-core-pill ${aiAutoDistribute ? 'on' : 'off'}`}
+          onClick={handleToggleAutoDistribute}
+          role="switch"
+          aria-checked={aiAutoDistribute}
+          aria-label={aiAutoDistribute ? 'Pause automatic distribution' : 'Resume automatic distribution'}
+        >
+          <span className="pill-orb" />
+          <span className="pill-label">{aiAutoDistribute ? 'Auto-Distribute' : 'Resume Auto-Distribute'}</span>
+          <span className="pill-state">{aiAutoDistribute ? 'On' : 'Off'}</span>
+        </button>
+        <div className="dist-core-panel-stats">
+          {(() => {
+            const visibleQueuePosts = queue?.posts.filter(p => !removedClipIds.has(p.clip.id)) ?? []
+            const nextPost = visibleQueuePosts[0]
+            return (
+              <>
+                <div className="dist-core-stat">
+                  <span className="stat-label">NEXT POST</span>
+                  {nextPost ? (
+                    <>
+                      <span className="dist-countdown" style={!aiAutoDistribute ? { color: '#71717A' } : undefined}>{liveCountdown}</span>
+                      <span className="stat-sub" style={!aiAutoDistribute ? { color: '#F59E0B', opacity: 0.8, fontStyle: 'italic' } : undefined}>
                         {!aiAutoDistribute
-                          ? 'Waiting to resume'
-                          : (() => {
-                              const readyCount = clipBank.filter(c => !removedClipIds.has(c.id) && (c.score ?? 0) >= 60).length - visibleQueuePosts.length
-                              return readyCount > 0 ? `+${readyCount} ready next` : ''
-                            })()}
+                          ? 'Paused'
+                          : `${PLATFORMS.find(p => p.id === nextPost.platform)?.label ?? nextPost.platform} \u00b7 ${new Date(nextPost.scheduledAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}`}
                       </span>
-                    </div>
-                  </>
-                )
-              })()}
-            </div>
-            {/* CTA + Live ticker */}
-            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginTop: 8, gap: 12 }}>
-              <button
-                className="dist-add-cta"
-                onClick={() => document.getElementById('clip-bank-section')?.scrollIntoView({ behavior: 'smooth', block: 'center' })}
-              >
-                <Plus size={13} /> Add clips to the farm
-              </button>
-              <div className="dist-ticker">
-                {tickerEvents.length > 0 ? tickerEvents.map((evt, i) => (
-                  <div key={i} className="dist-ticker-item">
-                    <span className="ticker-time">{evt.time}</span>
-                    <span className="ticker-dot" />
-                    <span>{evt.text}</span>
-                  </div>
-                )) : (
-                  <div className="dist-ticker-item">
-                    <span className="ticker-dot" />
-                    <span>farm heartbeat OK</span>
-                  </div>
-                )}
+                    </>
+                  ) : (
+                    <span className="stat-value">{'\u2014'}</span>
+                  )}
+                </div>
+                <div className="dist-core-stat-divider" />
+                <div className="dist-core-stat">
+                  <span className="stat-label">Queue</span>
+                  <span className="stat-value" style={!aiAutoDistribute ? { color: '#71717A' } : undefined}>
+                    {visibleQueuePosts.length} scheduled
+                  </span>
+                  <span className="stat-sub" style={!aiAutoDistribute ? { color: 'rgba(245,158,11,0.7)' } : undefined}>
+                    {!aiAutoDistribute
+                      ? 'Waiting to resume'
+                      : (() => {
+                          const readyCount = clipBank.filter(c => !removedClipIds.has(c.id) && (c.score ?? 0) >= 60).length - visibleQueuePosts.length
+                          return readyCount > 0 ? `+${readyCount} ready next` : ''
+                        })()}
+                  </span>
+                </div>
+              </>
+            )
+          })()}
+        </div>
+        {/* CTA + Live ticker */}
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginTop: 8, gap: 12 }}>
+          <button
+            className="dist-add-cta"
+            onClick={() => document.getElementById('clip-bank-section')?.scrollIntoView({ behavior: 'smooth', block: 'center' })}
+          >
+            <Plus size={13} /> Add clips to the farm
+          </button>
+          <div className="dist-ticker">
+            {tickerEvents.length > 0 ? tickerEvents.map((evt, i) => (
+              <div key={i} className="dist-ticker-item">
+                <span className="ticker-time">{evt.time}</span>
+                <span className="ticker-dot" />
+                <span>{evt.text}</span>
               </div>
-            </div>
+            )) : (
+              <div className="dist-ticker-item">
+                <span className="ticker-dot" />
+                <span>farm heartbeat OK</span>
+              </div>
+            )}
           </div>
         </div>
       </div>
