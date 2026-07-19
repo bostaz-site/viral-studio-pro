@@ -37,6 +37,7 @@ interface ClipBankItem {
   title: string | null
   score: number | null
   thumbnailUrl: string | null
+  storagePath: string | null
   status: 'draft' | 'scheduled' | 'publishing' | 'published' | 'failed'
   scheduledAt: string | null
   source: 'trending' | 'upload'
@@ -856,6 +857,7 @@ export function DistributionHub() {
         title: null,
         score: null,
         thumbnailUrl: null,
+        storagePath: job.storage_path ?? null,
         status: 'draft' as const,
         scheduledAt: null,
         source: job.source === 'upload' ? 'upload' as const : 'trending' as const,

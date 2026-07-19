@@ -715,13 +715,14 @@ const isReady         = !isBest && !isPriority && !isScheduled && !isDraftWithTh
 
 ### Click-to-Play Video Preview
 - Click on play glyph (or on the video to stop): toggles video playback
-- First click: fetches video URL from `/api/clips/video-url?clipId=...` then plays
-- Cached in a `Map<string, string>` ref (no re-fetch on subsequent clicks)
-- Renders `<video autoPlay muted loop playsInline>` overlay on thumb area
+- First click: creates a signed URL from Supabase Storage (`clips` bucket) via `storagePath` on the ClipBankItem
+- Cached in a `Map<string, string>` ref (no re-fetch on subsequent clicks, signed URL valid 1h)
+- Renders `<video autoPlay muted loop playsInline>` overlay on thumb area (object-fit: cover, 9:16 contained)
 - Re-click on video: pauses + returns to thumbnail
-- Loading state: subtle spinner overlay
+- Loading state: WolfLoader spinner overlay
 - Respects `prefers-reduced-motion` (skipped if active)
 - Touch-device friendly (no hover dependency)
+- If `storagePath` is null (clip not yet rendered): play button does nothing (no crash)
 
 ### Quick Publish Button (Rocket)
 - Visible on hover: absolute **top-right** (shifted left of X button: `right: 36px; top: 8px;`), cyan Rocket icon (28x28px)

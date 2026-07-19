@@ -5,12 +5,14 @@ import { Check, Clock, Film, Flame, Pause, Play, Plus, Power, Rocket, Sparkles, 
 import { WolfLoader } from '@/components/ui/wolf-loader'
 import type { QueuePreview } from '@/lib/distribution/smart-queue-engine'
 import { isAuditMode } from '@/lib/feature-flags'
+import { createClient } from '@/lib/supabase/client'
 
 interface ClipBankItem {
   id: string
   title: string | null
   score: number | null
   thumbnailUrl: string | null
+  storagePath: string | null
   status: 'draft' | 'scheduled' | 'publishing' | 'published' | 'failed'
   scheduledAt: string | null
   source: 'trending' | 'upload'
@@ -66,7 +68,7 @@ export function ClipBankRail({
   }, [highlightClipId, visibleClips])
 
   // Click-to-play: toggle video playback on card/play button click
-  const handlePlayClick = (clipId: string, e: React.MouseEvent) => {
+  const handlePlayClick = async (clipId: string, e: React.MouseEvent) => {
     e.stopPropagation()
     // If already playing this clip → stop
     if (playingClipId === clipId) {
@@ -77,25 +79,31 @@ export function ClipBankRail({
     }
     // Respect reduced motion
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
+
+    const clip = visibleClips.find(c => c.id === clipId)
+    if (!clip?.storagePath) return
+
     setPlayingClipId(clipId)
     // Check cache
     if (videoCache.current.has(clipId)) {
       setVideoUrl(videoCache.current.get(clipId)!)
       return
     }
-    // Fetch video URL
+    // Get signed URL from Supabase Storage (rendered clip in 'clips' bucket)
     setVideoLoading(true)
     setVideoUrl(null)
-    fetch(`/api/clips/video-url?clipId=${encodeURIComponent(clipId)}`)
-      .then(r => r.ok ? r.json() : null)
-      .then(data => {
-        if (data?.video_url) {
-          videoCache.current.set(clipId, data.video_url)
-          setVideoUrl(data.video_url)
-        }
-      })
-      .catch(() => {})
-      .finally(() => setVideoLoading(false))
+    try {
+      const supabase = createClient()
+      const { data } = await supabase.storage.from('clips').createSignedUrl(clip.storagePath, 3600)
+      if (data?.signedUrl) {
+        videoCache.current.set(clipId, data.signedUrl)
+        setVideoUrl(data.signedUrl)
+      }
+    } catch {
+      // Silent — no video preview available
+    } finally {
+      setVideoLoading(false)
+    }
   }
 
   return (
