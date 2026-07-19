@@ -14,11 +14,16 @@ interface CaptionsSectionProps extends AccordionSectionProps {
   sectionRef?: React.Ref<HTMLDivElement>
   /** When true, hides granular controls (position, words/line, custom words) — they live in the Advanced accordion */
   hideGranular?: boolean
+  /** Whether the bonus badge is revealed (after AI Optimize or manual change) */
+  showBonus?: boolean
+  /** Ephemeral delta to show briefly on manual change */
+  ephemeralDelta?: number | null
 }
 
 export function CaptionsSection({
   settings, updateSetting, scoreBreakdown, hasAiAnalyzed, analysisComplete, moodAiDetected,
   selectedMood, scores, getRealImpact, sectionRef, hideGranular = false,
+  showBonus = false, ephemeralDelta,
 }: CaptionsSectionProps) {
   return (
     <AccordionItem value="captions" ref={sectionRef as React.Ref<HTMLDivElement>} className={cn("scroll-mt-32 va-panel px-4 overflow-hidden", settings.captionStyle !== 'none' ? 'va-panel-active' : 'va-panel-muted')}>
@@ -33,8 +38,13 @@ export function CaptionsSection({
             {settings.emphasisEffect !== 'none' && ` · ${EMPHASIS_EFFECTS.find(e => e.id === settings.emphasisEffect)?.label ?? ''}`}
             {settings.emphasisEffect !== 'none' && settings.emphasisColor && ` · ${EMPHASIS_COLORS.find(c => c.id === settings.emphasisColor)?.label ?? ''}`}
           </span>
-          {scoreBreakdown.captions > 0 && (
-            <span className="ml-auto text-[11px] font-bold text-emerald-400">+{scoreBreakdown.captions} pts</span>
+          {showBonus && scoreBreakdown.captions > 0 && (
+            <span className="ml-auto text-[11px] font-bold text-emerald-400 animate-[scorePop_0.4s_ease-out]">+{scoreBreakdown.captions} pts</span>
+          )}
+          {!showBonus && ephemeralDelta != null && ephemeralDelta !== 0 && (
+            <span className={cn("ml-auto text-[11px] font-bold animate-[scorePop_0.4s_ease-out]", ephemeralDelta > 0 ? 'text-emerald-400' : 'text-red-400')}>
+              {ephemeralDelta > 0 ? '+' : ''}{ephemeralDelta} pts
+            </span>
           )}
         </span>
       </AccordionTrigger>

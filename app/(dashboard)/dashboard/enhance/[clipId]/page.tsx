@@ -300,21 +300,6 @@ export default function EnhancePage() {
     return () => { cancelled = true }
   }, [clip])
 
-  const updateSetting = useCallback(<K extends keyof EnhanceSettings>(key: K, value: EnhanceSettings[K]) => {
-    setSettings((s) => ({ ...s, [key]: value }))
-    // Auto-switch to Enhanced preview on first change
-    if (!hasUserChangedSettings.current) {
-      hasUserChangedSettings.current = true
-      setShowEnhancements(true)
-    }
-    // Clear rendered video when user changes settings — avoids confusion
-    // between the baked render and the new settings shown in the preview
-    if (isRenderedVideo) {
-      setIsRenderedVideo(false)
-      setRenderDownloadUrl(null)
-      setRenderMessage(null)
-    }
-  }, [isRenderedVideo])
 
   const scores = useMemo(() => {
     if (!clip) return null
@@ -605,6 +590,11 @@ export default function EnhancePage() {
   const [analysisSequenceActive, setAnalysisSequenceActive] = useState(false)
   const [analysisComplete, setAnalysisComplete] = useState(false)
 
+  // ── Bonus reveal state (UX: bonuses only shown on action, never on arrival) ──
+  const [revealedBonuses, setRevealedBonuses] = useState<Set<string>>(new Set())
+  const [ephemeralDelta, setEphemeralDelta] = useState<{ section: string; value: number } | null>(null)
+  const ephemeralTimerRef = useRef<NodeJS.Timeout | null>(null)
+
   // Advance render stages while rendering (simulated — VPS doesn't report stages)
   useEffect(() => {
     if (!rendering || analysisSequenceActive) {
@@ -686,6 +676,56 @@ export default function EnhancePage() {
     const activeMood = selectedMood ?? detectedMood
     return computeScoreBreakdown(settings, baselineScore, activeMood)
   }, [settings, baselineScore, selectedMood, detectedMood])
+
+  // ── updateSetting with ephemeral delta (defined here because it depends on state above) ──
+  const SETTING_TO_SECTION: Record<string, keyof Omit<ScoreBreakdown, 'total'>> = useMemo(() => ({
+    captionsEnabled: 'captions', captionStyle: 'captions', emphasisEffect: 'captions',
+    emphasisColor: 'captions', captionPosition: 'captions', wordsPerLine: 'captions',
+    splitScreenEnabled: 'splitScreen', brollVideo: 'splitScreen', splitRatio: 'splitScreen', videoZoom: 'splitScreen',
+    tagStyle: 'tag', tagSize: 'tag',
+    smartZoomEnabled: 'smartZoom', smartZoomMode: 'smartZoom',
+    audioEnhanceEnabled: 'audio', bassBoost: 'audio', speedRamp: 'audio',
+    autoCutEnabled: 'autoCut', autoCutThreshold: 'autoCut',
+    hookEnabled: 'hook', hookTextEnabled: 'hook', hookReorderEnabled: 'hook',
+    hookStyle: 'hook', hookTextPosition: 'hook', hookLength: 'hook', hookText: 'hook', hookReorder: 'hook',
+  }), [])
+
+  const updateSetting = useCallback(<K extends keyof EnhanceSettings>(key: K, value: EnhanceSettings[K]) => {
+    // Compute ephemeral delta for manual changes (not during AI optimize)
+    if (!analysisSequenceActive) {
+      const section = SETTING_TO_SECTION[key as string]
+      if (section && !revealedBonuses.has(section)) {
+        const activeMood = selectedMood ?? detectedMood
+        setSettings((prev) => {
+          const newSettings = { ...prev, [key]: value }
+          const oldBreakdown = computeScoreBreakdown(prev, baselineScore, activeMood)
+          const newBreakdown = computeScoreBreakdown(newSettings, baselineScore, activeMood)
+          const delta = Math.round((newBreakdown[section] - oldBreakdown[section]) * 10) / 10
+          if (delta !== 0) {
+            setEphemeralDelta({ section, value: delta })
+            if (ephemeralTimerRef.current) clearTimeout(ephemeralTimerRef.current)
+            ephemeralTimerRef.current = setTimeout(() => setEphemeralDelta(null), 2500)
+          }
+          return newSettings
+        })
+      } else {
+        setSettings((s) => ({ ...s, [key]: value }))
+      }
+    } else {
+      setSettings((s) => ({ ...s, [key]: value }))
+    }
+    // Auto-switch to Enhanced preview on first change
+    if (!hasUserChangedSettings.current) {
+      hasUserChangedSettings.current = true
+      setShowEnhancements(true)
+    }
+    // Clear rendered video when user changes settings
+    if (isRenderedVideo) {
+      setIsRenderedVideo(false)
+      setRenderDownloadUrl(null)
+      setRenderMessage(null)
+    }
+  }, [isRenderedVideo, analysisSequenceActive, SETTING_TO_SECTION, selectedMood, detectedMood, baselineScore, revealedBonuses])
 
   // Helper: compute real impact on "Blowup Chance" for each option
   // Helper: compute real impact on "Blowup Chance" using diminishing returns
@@ -1503,6 +1543,13 @@ export default function EnhancePage() {
               onComplete={() => {
                 setAnalysisComplete(true)
                 setAnalysisSequenceActive(false)
+                // Stagger-reveal section bonuses (~200ms apart)
+                const sections = ['captions', 'splitScreen', 'tag', 'smartZoom', 'audio', 'autoCut', 'hook', '_total'] as const
+                sections.forEach((key, i) => {
+                  setTimeout(() => {
+                    setRevealedBonuses((prev) => new Set([...prev, key]))
+                  }, i * 200)
+                })
               }}
             />
           )}
@@ -1563,6 +1610,7 @@ export default function EnhancePage() {
             displayScore={displayScore}
             baselineScore={baselineScore}
             scoreBreakdown={scoreBreakdown}
+            showBoost={revealedBonuses.has('_total')}
           />
 
             <Accordion multiple defaultValue={['captions']} className="space-y-3 [&_[data-state]]:outline-none">
@@ -1582,6 +1630,8 @@ export default function EnhancePage() {
               scores={scores}
               sectionRef={sectionRefs.captions}
               hideGranular
+              showBonus={revealedBonuses.has('captions')}
+              ephemeralDelta={ephemeralDelta?.section === 'captions' ? ephemeralDelta.value : null}
             />
 
             {/* ─── Split-Screen Section ─── */}
@@ -1591,6 +1641,8 @@ export default function EnhancePage() {
               scoreBreakdown={scoreBreakdown}
               scores={scores}
               sectionRef={sectionRefs.splitscreen}
+              showBonus={revealedBonuses.has('splitScreen')}
+              ephemeralDelta={ephemeralDelta?.section === 'splitScreen' ? ephemeralDelta.value : null}
             />
 
             {/* ─── Tags Section ─── */}
@@ -1604,8 +1656,13 @@ export default function EnhancePage() {
                       ? `· ${TAG_STYLES.find(t => t.id === settings.tagStyle)?.label ?? settings.tagStyle}`
                       : '· Off'}
                   </span>
-                  {scoreBreakdown.tag > 0 && (
-                    <span className="ml-auto text-[11px] font-bold text-emerald-400">+{Math.round(scoreBreakdown.tag)} pts</span>
+                  {revealedBonuses.has('tag') && scoreBreakdown.tag > 0 && (
+                    <span className="ml-auto text-[11px] font-bold text-emerald-400 animate-[scorePop_0.4s_ease-out]">+{Math.round(scoreBreakdown.tag)} pts</span>
+                  )}
+                  {!revealedBonuses.has('tag') && ephemeralDelta?.section === 'tag' && ephemeralDelta.value !== 0 && (
+                    <span className={cn("ml-auto text-[11px] font-bold animate-[scorePop_0.4s_ease-out]", ephemeralDelta.value > 0 ? 'text-emerald-400' : 'text-red-400')}>
+                      {ephemeralDelta.value > 0 ? '+' : ''}{ephemeralDelta.value} pts
+                    </span>
                   )}
                 </span>
               </AccordionTrigger>
@@ -1638,8 +1695,13 @@ export default function EnhancePage() {
                       ? `· ${settings.smartZoomMode === 'micro' ? 'Micro zoom' : settings.smartZoomMode === 'dynamic' ? 'Dynamic' : 'Follow face'}`
                       : '· Off'}
                   </span>
-                  {scoreBreakdown.smartZoom > 0 && (
-                    <span className="ml-auto text-[11px] font-bold text-emerald-400">+{Math.round(scoreBreakdown.smartZoom)} pts</span>
+                  {revealedBonuses.has('smartZoom') && scoreBreakdown.smartZoom > 0 && (
+                    <span className="ml-auto text-[11px] font-bold text-emerald-400 animate-[scorePop_0.4s_ease-out]">+{Math.round(scoreBreakdown.smartZoom)} pts</span>
+                  )}
+                  {!revealedBonuses.has('smartZoom') && ephemeralDelta?.section === 'smartZoom' && ephemeralDelta.value !== 0 && (
+                    <span className={cn("ml-auto text-[11px] font-bold animate-[scorePop_0.4s_ease-out]", ephemeralDelta.value > 0 ? 'text-emerald-400' : 'text-red-400')}>
+                      {ephemeralDelta.value > 0 ? '+' : ''}{ephemeralDelta.value} pts
+                    </span>
                   )}
                 </span>
               </AccordionTrigger>
@@ -1742,8 +1804,13 @@ export default function EnhancePage() {
                   <span className="text-xs text-zinc-500 font-normal">
                     {settings.audioEnhanceEnabled ? '· On' : '· Off'}
                   </span>
-                  {scoreBreakdown.audio > 0 && (
-                    <span className="ml-auto text-[11px] font-bold text-emerald-400">+{Math.round(scoreBreakdown.audio)} pts</span>
+                  {revealedBonuses.has('audio') && scoreBreakdown.audio > 0 && (
+                    <span className="ml-auto text-[11px] font-bold text-emerald-400 animate-[scorePop_0.4s_ease-out]">+{Math.round(scoreBreakdown.audio)} pts</span>
+                  )}
+                  {!revealedBonuses.has('audio') && ephemeralDelta?.section === 'audio' && ephemeralDelta.value !== 0 && (
+                    <span className={cn("ml-auto text-[11px] font-bold animate-[scorePop_0.4s_ease-out]", ephemeralDelta.value > 0 ? 'text-emerald-400' : 'text-red-400')}>
+                      {ephemeralDelta.value > 0 ? '+' : ''}{ephemeralDelta.value} pts
+                    </span>
                   )}
                 </span>
               </AccordionTrigger>
@@ -1798,8 +1865,13 @@ export default function EnhancePage() {
                   <span className="text-xs text-zinc-500 font-normal">
                     {settings.autoCutEnabled ? `· On · ${settings.autoCutThreshold.toFixed(1)}s threshold` : '· Off'}
                   </span>
-                  {scoreBreakdown.autoCut > 0 && (
-                    <span className="ml-auto text-[11px] font-bold text-emerald-400">+{Math.round(scoreBreakdown.autoCut)} pts</span>
+                  {revealedBonuses.has('autoCut') && scoreBreakdown.autoCut > 0 && (
+                    <span className="ml-auto text-[11px] font-bold text-emerald-400 animate-[scorePop_0.4s_ease-out]">+{Math.round(scoreBreakdown.autoCut)} pts</span>
+                  )}
+                  {!revealedBonuses.has('autoCut') && ephemeralDelta?.section === 'autoCut' && ephemeralDelta.value !== 0 && (
+                    <span className={cn("ml-auto text-[11px] font-bold animate-[scorePop_0.4s_ease-out]", ephemeralDelta.value > 0 ? 'text-emerald-400' : 'text-red-400')}>
+                      {ephemeralDelta.value > 0 ? '+' : ''}{ephemeralDelta.value} pts
+                    </span>
                   )}
                 </span>
               </AccordionTrigger>
@@ -1886,8 +1958,13 @@ export default function EnhancePage() {
                       ? `· ${settings.hookStyle.charAt(0).toUpperCase() + settings.hookStyle.slice(1)}${settings.hookText ? ` · "${settings.hookText.slice(0, 20)}${settings.hookText.length > 20 ? '...' : ''}"` : ''}`
                       : '· Off'}
                   </span>
-                  {scoreBreakdown.hook > 0 && (
-                    <span className="ml-auto text-[11px] font-bold text-emerald-400">+{Math.round(scoreBreakdown.hook)} pts</span>
+                  {revealedBonuses.has('hook') && scoreBreakdown.hook > 0 && (
+                    <span className="ml-auto text-[11px] font-bold text-emerald-400 animate-[scorePop_0.4s_ease-out]">+{Math.round(scoreBreakdown.hook)} pts</span>
+                  )}
+                  {!revealedBonuses.has('hook') && ephemeralDelta?.section === 'hook' && ephemeralDelta.value !== 0 && (
+                    <span className={cn("ml-auto text-[11px] font-bold animate-[scorePop_0.4s_ease-out]", ephemeralDelta.value > 0 ? 'text-emerald-400' : 'text-red-400')}>
+                      {ephemeralDelta.value > 0 ? '+' : ''}{ephemeralDelta.value} pts
+                    </span>
                   )}
                 </span>
               </AccordionTrigger>

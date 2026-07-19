@@ -137,6 +137,9 @@ textarea:focus-visible,
 @media (prefers-reduced-motion: reduce) {
   .va-glass, .va-card { transition: none !important; }
   .glow-rank-legendary, .glow-rank-master { animation: none !important; }
+  [class*="animate-[scorePop"] { animation: none !important; }
+  [class*="animate-[barGlow"] { animation: none !important; }
+  [class*="animate-[confettiDrop"] { animation: none !important; }
 }
 
 @keyframes fadeIn {

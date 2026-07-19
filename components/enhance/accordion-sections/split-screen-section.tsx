@@ -10,9 +10,11 @@ import React from 'react'
 
 interface SplitScreenSectionProps extends Pick<AccordionSectionProps, 'settings' | 'updateSetting' | 'scoreBreakdown' | 'scores'> {
   sectionRef?: React.Ref<HTMLDivElement>
+  showBonus?: boolean
+  ephemeralDelta?: number | null
 }
 
-export function SplitScreenSection({ settings, updateSetting, scoreBreakdown, scores, sectionRef }: SplitScreenSectionProps) {
+export function SplitScreenSection({ settings, updateSetting, scoreBreakdown, scores, sectionRef, showBonus = false, ephemeralDelta }: SplitScreenSectionProps) {
   return (
     <AccordionItem value="splitscreen" ref={sectionRef as React.Ref<HTMLDivElement>} className={cn("scroll-mt-32 va-panel px-4 overflow-hidden", settings.splitScreenEnabled ? 'va-panel-active' : 'va-panel-muted')}>
       <AccordionTrigger className="text-zinc-400 hover:text-white">
@@ -24,8 +26,13 @@ export function SplitScreenSection({ settings, updateSetting, scoreBreakdown, sc
               ? `· Blur fill · ${settings.splitRatio}/${100 - settings.splitRatio}`
               : '· Off'}
           </span>
-          {scoreBreakdown.splitScreen > 0 && (
-            <span className="ml-auto text-[11px] font-bold text-emerald-400">+{scoreBreakdown.splitScreen} pts</span>
+          {showBonus && scoreBreakdown.splitScreen > 0 && (
+            <span className="ml-auto text-[11px] font-bold text-emerald-400 animate-[scorePop_0.4s_ease-out]">+{scoreBreakdown.splitScreen} pts</span>
+          )}
+          {!showBonus && ephemeralDelta != null && ephemeralDelta !== 0 && (
+            <span className={cn("ml-auto text-[11px] font-bold animate-[scorePop_0.4s_ease-out]", ephemeralDelta > 0 ? 'text-emerald-400' : 'text-red-400')}>
+              {ephemeralDelta > 0 ? '+' : ''}{ephemeralDelta} pts
+            </span>
           )}
         </span>
       </AccordionTrigger>

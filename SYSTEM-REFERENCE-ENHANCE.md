@@ -391,8 +391,9 @@ Sticky `top-0 z-10` dans la colonne settings, avec `backdrop-blur-md`.
 ```
 
 ### Bicolor Bar
-- **Base segment** : `from-orange-500 to-amber-400`, width = `baselineScore%`
-- **Boost segment** : `from-emerald-500 to-emerald-400`, starts at `baselineScore%`, width = `min(scoreBreakdown.total, 99 - baselineScore)%`
+- **Base segment** : `from-orange-500 to-amber-400`, width = `baselineScore%` (or full `currentScore%` when boost hidden)
+- **Boost segment** : `from-emerald-500 to-emerald-400`, starts at `baselineScore%`, width = `min(scoreBreakdown.total, 99 - baselineScore)%`. **Only visible after AI Optimize** (`showBoost` prop, gated by `revealedBonuses.has('_total')`)
+- **`(+X.X)` text** : hidden on arrival, revealed at end of AI Optimize stagger
 - **Glow pulse** : si total >= 70, overlay `via-white/8` avec animation `barGlow 3s ease-in-out infinite`
 
 ### Dynamic Colors
@@ -1024,7 +1025,7 @@ AlertCircle + message + "Back to feed" button.
 | Full FFmpeg render | **WIRED_REAL** | VPS Railway + Supabase Storage |
 | Render polling | **WIRED_REAL** | 3s interval, sessionStorage persistence |
 | Blowup Chance scoring | **WIRED_REAL** | Real diminishing-returns formula |
-| Score breakdown (+X pts) | **WIRED_REAL** | `computeScoreBreakdown()` avec mood bonuses |
+| Score breakdown (+X pts) | **WIRED_REAL** | `computeScoreBreakdown()` avec mood bonuses. **Bonuses revealed on action only** — hidden on page load. AI Optimize stagger-reveals each section (~200ms apart) then stays. Manual changes show ephemeral delta (2.5s fade). State: `revealedBonuses` Set + `ephemeralDelta`. |
 | AI Analysis Sequence | **WIRED_REAL** | Uses real hookAnalysis data (peaks, peakTime, peakScore) with seeded fallback |
 | Analysis justifications | **WIRED_REAL** | AI-generated per-clip reasons from mood detector (caption_reason, emphasis_reason, hook_reason) with static fallback |
 | "Viral pattern detected" | **WIRED_REAL** | Conditional on peakScore > 7 (real hook analysis data) |
