@@ -205,7 +205,7 @@ interface TrendingClip {
   niche: string | null                // 'irl', 'fps', 'moba', etc.
   view_count: number | null
   like_count: number | null
-  velocity_score: number | null       // Score V2 final (0-100)
+  velocity_score: number | null       // Score V2 final (0-99, soft ceiling — see below)
   thumbnail_url: string | null
   scraped_at: string | null
   created_at: string | null
@@ -245,11 +245,21 @@ FeedCategory = 'hot_now' | 'early_gem' | 'proven' | 'normal'
 ClipTier = 'mega_viral' | 'viral' | 'hot' | 'rising' | 'normal' | 'dead'
 ```
 
+### Score scale — Soft ceiling compression
+
+`lib/scoring/clip-scorer.ts` applies a display curve then soft compression:
+1. **Linear stretch**: `displayRaw = -5 + clamp(rawScore, 0, 100) * 1.5`
+2. **Soft ceiling** (above 88): `88 + 11 * (1 - e^(-(x-88)/10))`
+   - Below 88: score = displayRaw (untouched)
+   - Above 88: compresses asymptotically toward 99 (never reached)
+   - Monotonic, continuous at 88, preserves strict ordering
+   - No hard cap — top clips spread across 89-99 instead of all hitting a wall
+   - 99 = mythic (theoretical max, unreachable in practice)
+
 ### clipRank(clip) — Derivation du rank depuis velocity_score
 
 | Score | Rank |
 |---|---|
-| >= 95 | master |
 | >= 80 | legendary |
 | >= 65 | epic |
 | >= 45 | super_rare |

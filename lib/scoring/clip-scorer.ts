@@ -258,11 +258,16 @@ export function scoreClip(input: ClipScoreInput): ClipScoreOutput {
     formatScore * 0.10 -
     saturationScore * 0.10
 
-  // Display curve: stretch the effective 30-65 raw range into 40-95 display.
-  // Formula: -5 + raw * 1.5 -- monotonic so ranking is preserved.
-  // raw 30 = 40 | raw 40 = 55 | raw 50 = 70 | raw 60 = 85 | raw 67 = 95 | cap 95
-  const displayScore = -5 + clamp(rawScore) * 1.5
-  const finalScore = round1(Math.min(95.0, Math.max(0, displayScore)))
+  // Display curve: stretch the effective 30-65 raw range into 40-95+ display.
+  // Formula: -5 + raw * 1.5, then soft ceiling above 88 (asymptote → 99, never reached).
+  // Below 88: linear. Above 88: compresses via 88 + 11*(1 - e^(-(x-88)/10)).
+  // Monotonic, continuous at 88, preserves strict ordering in the top range.
+  const displayRaw = -5 + clamp(rawScore) * 1.5
+  const displayClamped = Math.max(0, displayRaw)
+  const finalScore = round1(displayClamped <= 88
+    ? displayClamped
+    : 88 + 11 * (1 - Math.exp(-(displayClamped - 88) / 10))
+  )
 
   return {
     final_score: finalScore,
