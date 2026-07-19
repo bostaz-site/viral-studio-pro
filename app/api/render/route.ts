@@ -258,23 +258,22 @@ export const POST = withAuth(async (request, user) => {
     )
   }
 
-  // ── Resolve Twitch webpage URLs to signed CloudFront MP4s ──
+  // ── Resolve Twitch CloudFront URL as FALLBACK only ──
   //
-  // trending_clips.external_url is the Twitch webpage (e.g.
-  // https://www.twitch.tv/ishowspeed/clip/Endearing...) — downloading that
-  // with yt-dlp or fetch returns HTML, not video bytes. We need to hit the
-  // Twitch GQL API to get a signed MP4 URL before handing it to the VPS.
+  // For renders, we send the ORIGINAL page URL (trending_clips.external_url)
+  // as the primary videoUrl — yt-dlp on the VPS resolves it to the BEST
+  // available quality (source 1080p60 for most streamers). The unauthenticated
+  // CloudFront token we can resolve here is capped at ~720p.
   //
-  // If resolution fails (Twitch changed their API, clip was deleted, network
-  // error), fall back to the raw URL and let the VPS try yt-dlp — it may
-  // still succeed for non-Twitch sources or if yt-dlp was updated recently.
-  if (foundSource === 'trending' && videoUrl.includes('twitch.tv')) {
+  // The CloudFront URL is sent as fallbackUrl for robustness: if yt-dlp fails
+  // on the page (version mismatch, geo-block), the VPS can still render at 720p.
+  let fallbackUrl: string | null = null
+  if (foundSource === 'trending' && videoUrl && videoUrl.includes('twitch.tv')) {
     try {
-      const resolved = await resolveTwitchClipFromUrlOrSlug(videoUrl)
-      videoUrl = resolved
+      fallbackUrl = await resolveTwitchClipFromUrlOrSlug(videoUrl)
     } catch (err) {
       logger.warn(
-        '[render] Twitch clip resolution failed, falling back to raw URL:',
+        '[render] Twitch fallback URL resolution failed (non-blocking):',
         err instanceof Error ? err.message : err,
       )
     }
@@ -329,6 +328,7 @@ export const POST = withAuth(async (request, user) => {
   const renderPayload = {
     jobId: job.id,
     videoUrl,
+    fallbackUrl,
     clipId: clip_id,
     source: foundSource,
     userId: user.id,

@@ -3,7 +3,7 @@ FROM node:22-slim
 # yt-dlp version — bump this to force a rebuild with a newer extractor when
 # Twitch/YouTube change their APIs. Using `latest` without a cache-buster
 # means Docker layer caching can pin us to an old yt-dlp for months.
-ARG YT_DLP_VERSION=2025.09.26
+ARG YT_DLP_VERSION=2025.12.23
 
 # Install FFmpeg, FFprobe, and yt-dlp
 RUN apt-get update && \

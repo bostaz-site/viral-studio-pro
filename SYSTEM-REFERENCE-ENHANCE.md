@@ -167,9 +167,17 @@ Pas de Zustand store — tout le state est local au composant `EnhancePage` via 
 - Deep link direct ou refresh de page
 
 ### Video URL Resolution
-- **Twitch** : extrait slug de l'URL → `GET /api/clips/video-url?slug=X` → CloudFront signed MP4
+
+**Preview (browser, 720p OK):**
+- **Twitch** : extrait slug de l'URL → `GET /api/clips/video-url?slug=X` → CloudFront signed MP4 (nauth token ~720p)
 - **Upload** : Supabase Storage signed URL (1h TTL)
 - **Kick** : pas de resolution directe (thumbnail fallback)
+
+**Render (VPS, native quality):**
+- `videoUrl` = page URL originale (`trending_clips.external_url`) — yt-dlp sur le VPS résout la meilleure qualité (source 1080p60 si disponible)
+- `fallbackUrl` = CloudFront signed MP4 résolu côté Next.js (720p, nauth) — utilisé seulement si yt-dlp échoue
+- Observabilité : source WxH @fps + méthode de download loggés dans `debug_log` de chaque render job
+- yt-dlp pinné dans Dockerfile (`YT_DLP_VERSION`), bump régulier nécessaire quand Twitch change ses extracteurs
 
 ---
 

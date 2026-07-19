@@ -225,29 +225,55 @@ async function safeUnlink(path) {
   try { await fs.unlink(path); } catch { /* ignore */ }
 }
 
-async function downloadFromUrl(url, outputPath) {
+/**
+ * Probe source resolution and FPS for observability logging.
+ * Returns string like "1920x1080 @60fps" or "unknown".
+ */
+async function probeSourceResolution(filePath) {
+  try {
+    const { stdout } = await execFileAsync('ffprobe', [
+      '-v', 'error',
+      '-select_streams', 'v:0',
+      '-show_entries', 'stream=width,height,r_frame_rate',
+      '-of', 'csv=p=0',
+      filePath,
+    ], { timeout: 10_000 });
+    const parts = stdout.trim().split(',');
+    if (parts.length >= 3) {
+      const [w, h, fpsRatio] = parts;
+      const fps = fpsRatio.includes('/') ? Math.round(eval(fpsRatio)) : fpsRatio;
+      return `${w}x${h} @${fps}fps`;
+    }
+    return stdout.trim() || 'unknown';
+  } catch {
+    return 'probe-failed';
+  }
+}
+
+async function downloadFromUrl(url, outputPath, fallbackUrl = null) {
   const attempts = [];
 
-  // ── Attempt 1: yt-dlp (best for Twitch clips, handles HLS/redirects) ──
+  // ── Attempt 1: yt-dlp on primary URL (page URL → resolves best quality) ──
   try {
-    console.log(`[download] Trying yt-dlp for: ${url}`);
+    console.log(`[download] Trying yt-dlp (best quality) for: ${url}`);
     await execFileAsync('yt-dlp', [
+      '-f', 'best[ext=mp4]/best',
       '-o', outputPath,
       '--no-check-certificates',
-      '--no-part',        // write directly to outputPath, no .part rename race
+      '--no-part',
       '--force-overwrites',
       '--quiet',
       '--no-warnings',
       url,
-    ], { timeout: 120_000 }); // 2 min — was 60s, too short for long clips
+    ], { timeout: 120_000 });
 
     const stat = await fs.stat(outputPath).catch(() => null);
     if (stat && stat.size > 0) {
       if (await isValidVideoFile(outputPath)) {
         console.log(`[download] yt-dlp success: ${stat.size} bytes, valid MP4`);
-        return true;
+        return { method: 'yt-dlp', url };
       }
-      console.warn(`[download] yt-dlp produced a ${stat.size} byte file but ffprobe rejected it (truncated / wrong format). Retrying with direct fetch…`);
+      console.warn(`[download] yt-dlp produced a ${stat.size} byte file but ffprobe rejected it. Trying fallback…`);
       attempts.push(`yt-dlp: corrupt output (${stat.size} bytes, no moov atom)`);
       await safeUnlink(outputPath);
     } else {
@@ -259,13 +285,14 @@ async function downloadFromUrl(url, outputPath) {
     await safeUnlink(outputPath);
   }
 
-  // ── Attempt 2: direct HTTP fetch with content-type check ──
+  // ── Attempt 2: direct fetch on fallbackUrl (CloudFront signed MP4, 720p) ──
+  const fetchUrl = fallbackUrl || url;
   try {
-    const response = await fetch(url, { redirect: 'follow' });
+    console.log(`[download] Trying direct fetch for: ${fetchUrl.substring(0, 80)}...`);
+    const response = await fetch(fetchUrl, { redirect: 'follow' });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
     const contentType = response.headers.get('content-type') || '';
-    // Reject obvious HTML/JSON error pages disguised as .mp4
     if (contentType.startsWith('text/') || contentType.includes('json')) {
       throw new Error(`unexpected content-type: ${contentType}`);
     }
@@ -278,7 +305,7 @@ async function downloadFromUrl(url, outputPath) {
       throw new Error(`downloaded file is not a valid MP4 (${buffer.length} bytes, content-type=${contentType})`);
     }
     console.log(`[download] direct fetch success: ${buffer.length} bytes, valid MP4`);
-    return true;
+    return { method: 'fetch-fallback', url: fetchUrl };
   } catch (err) {
     console.warn(`[fetch] Failed: ${err.message}`);
     attempts.push(`fetch: ${err.message}`);
@@ -309,6 +336,7 @@ router.post('/', async (req, res) => {
       jobId,
       clipId: reqClipId,
       videoUrl,
+      fallbackUrl,
       source = 'clips',
       userId: reqUserId,
       clipTitle,
@@ -319,6 +347,7 @@ router.post('/', async (req, res) => {
 
     trc(`START source=${source} clipId=${reqClipId} jobId=${jobId || 'none'}`);
     trc(`videoUrl=${videoUrl ? videoUrl.substring(0, 80) + '...' : 'null/undefined'}`);
+    trc(`fallbackUrl=${fallbackUrl ? fallbackUrl.substring(0, 60) + '...' : 'none'}`);
     trc(`settings.tag=${JSON.stringify(settings.tag)}`);
     trc(`settings.captions=${JSON.stringify(settings.captions)}`);
     trc(`settings.splitScreen=${JSON.stringify(settings.splitScreen)}`);
@@ -370,8 +399,13 @@ router.post('/', async (req, res) => {
     // ── DIRECT URL FLOW (trending clips + user-uploaded videos with signed URL) ──
     if (videoUrl && videoUrl.startsWith('http')) {
       console.log(`[Render ${renderSessionId}] Downloading trending clip from: ${videoUrl}`);
-      await downloadFromUrl(videoUrl, inputPath);
-      console.log(`[Render ${renderSessionId}] Downloaded trending clip successfully`);
+      const dlResult = await downloadFromUrl(videoUrl, inputPath, fallbackUrl || null);
+      trc(`DOWNLOAD method=${dlResult.method} url=${dlResult.url.substring(0, 80)}`);
+
+      // Log source resolution for observability
+      const sourceRes = await probeSourceResolution(inputPath);
+      trc(`SOURCE resolution=${sourceRes}`);
+      console.log(`[Render ${renderSessionId}] Downloaded: ${sourceRes} via ${dlResult.method}`);
 
       // Get actual duration from FFprobe.
       //
