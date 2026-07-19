@@ -464,6 +464,7 @@ export function DistributionHub() {
   const typewriterRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const [countdown, setCountdown] = useState('')
   const [postPulseActive, setPostPulseActive] = useState(false)
+  const [postSuccessActive, setPostSuccessActive] = useState(false)
   const [postFlashPlatform, setPostFlashPlatform] = useState<string | null>(null)
   const [liveCountdown, setLiveCountdown] = useState('--:--:--')
   const [tickerEvents, setTickerEvents] = useState<Array<{ time: string; text: string }>>([])
@@ -488,6 +489,7 @@ export function DistributionHub() {
   const [clipPickerTab, setClipPickerTab] = useState<'bank' | 'remixes'>('bank')
   const [brokenThumbs, setBrokenThumbs] = useState<Set<string>>(new Set())
   const [removedClipIds, setRemovedClipIds] = useState<Set<string>>(() => new Set())
+  const [prefersReducedMotion, setPrefersReducedMotion] = useState(false)
 
   // Connection map refs (for dynamic SVG paths from platforms to brain)
   const connectionMapRef = useRef<HTMLDivElement>(null)
@@ -599,6 +601,15 @@ export function DistributionHub() {
       setDbSettingsLoaded(true)
     }
     loadDistributionSettings()
+  }, [])
+
+  // Reduced motion detection
+  useEffect(() => {
+    const mql = window.matchMedia('(prefers-reduced-motion: reduce)')
+    setPrefersReducedMotion(mql.matches)
+    const handler = (e: MediaQueryListEvent) => setPrefersReducedMotion(e.matches)
+    mql.addEventListener('change', handler)
+    return () => mql.removeEventListener('change', handler)
   }, [])
 
   // Living Farm: load recent activity for ticker
@@ -714,10 +725,12 @@ export function DistributionHub() {
       const clip = clipBank.find(c => c.id === selectedClipId)
       if (published.length > 0) {
         publishRecordedRef.current = true
-        // Living Farm: post-sent pulse + platform flash
+        // Living Farm: post-sent pulse + platform flash + success state
         setPostPulseActive(true)
+        setPostSuccessActive(true)
         setPostFlashPlatform(published[0])
         setTimeout(() => { setPostPulseActive(false); setPostFlashPlatform(null) }, 1000)
+        setTimeout(() => setPostSuccessActive(false), 3000)
         // Living Farm: add to ticker
         const now = new Date()
         const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
@@ -1156,6 +1169,13 @@ export function DistributionHub() {
     (t) => t.enabled && connectedPlatforms.includes(t.platform)
   ).length
 
+  // Core state machine (replaces binary on/off)
+  type CoreState = 'paused' | 'running' | 'publishing' | 'success'
+  const coreState: CoreState = !aiAutoDistribute ? 'paused'
+    : postSuccessActive ? 'success'
+    : (publishSequenceActive || isPublishing) ? 'publishing'
+    : 'running'
+
   const isPlatActive = (pid: string) =>
     aiAutoDistribute &&
     connectedPlatforms.includes(pid as typeof connectedPlatforms[number]) &&
@@ -1562,8 +1582,8 @@ export function DistributionHub() {
           <path id="flow-path-youtube" className={`dist-flow-path ${isPlatActive('youtube') ? 'electric' : 'dim'}`} d={flowPaths.youtube} />
           <path id="flow-path-instagram" className={`dist-flow-path ${isPlatActive('instagram') ? 'electric' : 'dim'}`} d={flowPaths.instagram} />
           <path id="flow-path-facebook" className="dist-flow-path dim" d={flowPaths.facebook} />
-          {/* Amber particles: brain → active platforms (max 2 per active platform) */}
-          {flowPaths.tiktok && isPlatActive('tiktok') && (
+          {/* Amber particles: brain → active platforms (skip when reduced motion) */}
+          {!prefersReducedMotion && flowPaths.tiktok && isPlatActive('tiktok') && (
             <>
               <circle r="3" fill="#fbbf24" filter="url(#particle-glow)">
                 <animateMotion dur="3.5s" repeatCount="indefinite" path={flowPaths.tiktok} />
@@ -1573,12 +1593,12 @@ export function DistributionHub() {
               </circle>
             </>
           )}
-          {flowPaths.youtube && isPlatActive('youtube') && (
+          {!prefersReducedMotion && flowPaths.youtube && isPlatActive('youtube') && (
             <circle r="2.5" fill="#fbbf24" filter="url(#particle-glow)">
               <animateMotion dur="3.5s" repeatCount="indefinite" path={flowPaths.youtube} />
             </circle>
           )}
-          {flowPaths.instagram && isPlatActive('instagram') && (
+          {!prefersReducedMotion && flowPaths.instagram && isPlatActive('instagram') && (
             <circle r="2.5" fill="#fbbf24" filter="url(#particle-glow)">
               <animateMotion dur="3.5s" repeatCount="indefinite" path={flowPaths.instagram} />
             </circle>
@@ -1595,30 +1615,32 @@ export function DistributionHub() {
           const platRef = p.id === 'tiktok' ? platTiktokRef : p.id === 'youtube' ? platYoutubeRef : p.id === 'instagram' ? platInstagramRef : platFacebookRef
           return (
             <div key={p.id} ref={platRef} className={`dist-plat-node ${posClass} ${isActive ? 'active' : isComingSoon ? 'dim' : ''}${postFlashPlatform === p.id ? ' post-flash' : ''}`}>
-              {isActive ? (
-                <ElectricBorder color="#38BDF8" speed={0.8} chaos={0.08} borderRadius={20}>
+              {isActive && !prefersReducedMotion ? (
+                <ElectricBorder color="#38BDF8" speed={1.4} chaos={0.04} borderRadius={20}>
                   <div className="plat-icon-wrap">{p.icon}</div>
                 </ElectricBorder>
               ) : (
                 <div className="plat-icon-wrap">{p.icon}</div>
               )}
               <span className="plat-name">{p.label}</span>
-              {/* Single state chip — no duplicate toggles */}
+              {/* Single state chip — accessible buttons */}
               {isActive ? (
-                <span className="dist-plat-chip on" onClick={() => togglePublishTarget(p.id)}>{'\u25CF'} ON {'\u00B7'} POSTING</span>
+                <button type="button" className="dist-plat-chip on" aria-pressed={true} onClick={() => togglePublishTarget(p.id)}>
+                  {'\u25CF'} ON {'\u00B7'} {coreState === 'publishing' ? 'POSTING' : 'READY'}
+                </button>
               ) : isComingSoon ? (
                 <span className="dist-plat-chip soon">SOON</span>
               ) : isConn ? (
-                <span className="dist-plat-chip on" style={{ opacity: 0.5 }} onClick={() => togglePublishTarget(p.id)}>{'\u25CF'} OFF</span>
+                <button type="button" className="dist-plat-chip on" aria-pressed={false} style={{ opacity: 0.5 }} onClick={() => togglePublishTarget(p.id)}>{'\u25CB'} OFF</button>
               ) : (
-                <span className="dist-plat-chip connect" onClick={() => router.push('/settings')}>CONNECT</span>
+                <button type="button" className="dist-plat-chip connect" aria-label={`Connect ${p.label}`} onClick={() => router.push('/settings')}>CONNECT</button>
               )}
             </div>
           )
         })}
 
         {/* AI Brain Core — premium glass system */}
-        <div ref={brainCoreRef} className={`dist-core-wrap ${aiAutoDistribute ? "" : "off"}`}>
+        <div ref={brainCoreRef} className={`dist-core-wrap state-${coreState}${coreState === 'paused' ? ' off' : ''}`}>
           <div className={`dist-post-pulse ${postPulseActive ? 'active' : ''}`} />
           <div className="dist-core-glow" />
           <div className="dist-core-glass" />
@@ -1740,17 +1762,30 @@ export function DistributionHub() {
                 <path d="M244 184 C234 194 219 200 204 198" />
               </g>
 
-              {/* Neural nodes */}
-              <g fill="#7DD3FC" opacity="0.9">
-                <circle cx="88" cy="91" r="3" />
-                <circle cx="102" cy="112" r="2.6" />
-                <circle cx="116" cy="140" r="2.6" />
-                <circle cx="138" cy="166" r="2.6" />
-                <circle cx="232" cy="91" r="3" />
-                <circle cx="218" cy="112" r="2.6" />
-                <circle cx="204" cy="140" r="2.6" />
-                <circle cx="182" cy="166" r="2.6" />
+              {/* Neural nodes with cascade fire classes */}
+              <g className="dist-neural-nodes" fill="#7DD3FC" opacity="0.9">
+                <circle className="nf f0" cx="88" cy="91" r="3" />
+                <circle className="nf f0" cx="232" cy="91" r="3" />
+                <circle className="nf f1" cx="102" cy="112" r="2.6" />
+                <circle className="nf f1" cx="218" cy="112" r="2.6" />
+                <circle className="nf f2" cx="116" cy="140" r="2.6" />
+                <circle className="nf f2" cx="204" cy="140" r="2.6" />
+                <circle className="nf f3" cx="138" cy="166" r="2.6" />
+                <circle className="nf f3" cx="182" cy="166" r="2.6" />
               </g>
+              {/* Node halos (expand on fire) */}
+              <g className="dist-node-halos" fill="none" stroke="#7DD3FC">
+                <circle className="nh f0" cx="88" cy="91" r="3" />
+                <circle className="nh f0" cx="232" cy="91" r="3" />
+                <circle className="nh f1" cx="102" cy="112" r="3" />
+                <circle className="nh f1" cx="218" cy="112" r="3" />
+                <circle className="nh f2" cx="116" cy="140" r="3" />
+                <circle className="nh f2" cx="204" cy="140" r="3" />
+                <circle className="nh f3" cx="138" cy="166" r="3" />
+                <circle className="nh f3" cx="182" cy="166" r="3" />
+              </g>
+              {/* Fissure spark — descends the central fissure */}
+              <circle className="dist-fissure-spark" cx="160" cy="48" r="2.4" fill="#BAE6FD" />
 
             </g>
 
@@ -1760,7 +1795,7 @@ export function DistributionHub() {
                 Matrix(0.55 0 0 0.55 119.3 118.925) places head center exactly at (160, 161). */}
             <g className="dist-brain-wolf" transform="matrix(0.55 0 0 0.55 119.3 118.925)" filter="url(#wolf-glow)">
               <path
-                fill="rgba(2,6,23,0.55)"
+                fill="#020617"
                 stroke="#FFC58A"
                 strokeWidth="2.4"
                 strokeLinejoin="round"
@@ -1770,24 +1805,31 @@ export function DistributionHub() {
               />
             </g>
 
-            {/* ── Subtle bridges from inner-most neural nodes to wolf edges ── */}
+            {/* ── Bridges connecting neural nodes to wolf contour ── */}
             <g className="dist-brain-bridges" stroke="url(#cyan-orange)" strokeWidth="1" fill="none" strokeDasharray="2 4" strokeLinecap="round">
-              {/* From left bottom node (138, 196) toward wolf bottom-left jaw */}
-              <path d="M 138 196 Q 145 192, 150 189" />
-              {/* From right bottom node (182, 196) toward wolf bottom-right jaw */}
-              <path d="M 182 196 Q 175 192, 170 189" />
-              {/* From left mid node (116, 170) toward wolf cheek-left */}
-              <path d="M 116 170 Q 124 168, 130 167" />
-              {/* From right mid node (204, 170) toward wolf cheek-right */}
-              <path d="M 204 170 Q 196 168, 190 167" />
+              <path d="M 138 196 Q 144 197, 149 197" />
+              <path d="M 182 196 Q 176 197, 171 197" />
+              <path d="M 116 170 Q 128 168, 140 166" />
+              <path d="M 204 170 Q 192 168, 180 166" />
             </g>
           </svg>
-          {/* Mini-KPIs removed — status now in node chips, bank header, and CLIP FARM panel */}
+          {/* Paused rest-node — single amber dot breathing at top of brain */}
+          <div className="dist-rest-node" />
           {/* Connector line from brain to panel */}
           <div className="dist-core-connector-line" />
-          <div className={`dist-core-panel ${aiAutoDistribute ? 'on' : 'off'}`}>
+          {/* SR-only status for screen readers */}
+          <p className="sr-only" aria-live="polite">
+            {coreState === 'publishing' ? 'Publishing clip to connected platforms' :
+             coreState === 'success' ? 'Post sent successfully' : ''}
+          </p>
+          <div className={`dist-core-panel ${coreState === 'paused' ? 'off' : 'on'}`}>
             <div className="dist-core-panel-head">
-              <span className="dist-core-panel-title">{aiAutoDistribute ? 'AUTO-DISTRIBUTE' : 'PAUSED'}</span>
+              <span className="dist-core-panel-title">{
+                coreState === 'paused' ? 'PAUSED' :
+                coreState === 'publishing' ? 'PUBLISHING' :
+                coreState === 'success' ? 'POST SENT' :
+                'AUTO-DISTRIBUTE'
+              }</span>
               {!aiAutoDistribute && (
                 <span className="dist-core-panel-hint">Your queue is safe. Nothing will post until you resume.</span>
               )}
@@ -1796,7 +1838,9 @@ export function DistributionHub() {
               ref={pillRef}
               className={`dist-core-pill ${aiAutoDistribute ? 'on' : 'off'}`}
               onClick={handleToggleAutoDistribute}
-              aria-label={aiAutoDistribute ? 'Pause auto-distribute' : 'Resume auto-distribute'}
+              role="switch"
+              aria-checked={aiAutoDistribute}
+              aria-label={aiAutoDistribute ? 'Pause automatic distribution' : 'Resume automatic distribution'}
             >
               <span className="pill-orb" />
               <span className="pill-label">{aiAutoDistribute ? 'Auto-Distribute' : 'Resume Auto-Distribute'}</span>

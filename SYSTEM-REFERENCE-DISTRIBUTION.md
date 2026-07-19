@@ -66,7 +66,41 @@
 
 ---
 
-## AI Brain Core (Connection Map center) — v8 NEW
+## AI Brain Core (Connection Map center) — v10 State Machine + Alive+
+
+### Core State Machine
+```typescript
+type CoreState = 'paused' | 'running' | 'publishing' | 'success'
+```
+- `paused` : toggle OFF. Brain grayscale, animations paused, single amber rest-node breathing.
+- `running` : toggle ON, idle. Neural cascade (4.8s), wolf flash synced, bridges animate.
+- `publishing` : active publish in progress. Cascade 2.4s, bridges .8s, wolf continuous pulse. Chips show "POSTING".
+- `success` : ~3s after publish. Single amber wolf pulse, then back to running.
+
+Class applied: `.dist-core-wrap.state-${coreState}` (+ `.off` when paused for backward compat).
+
+### Brain Alive+ Animations (running state)
+1. **Neural cascade** : 8 nodes fire top→bottom (staggered f0-f3, delays 0/.18/.36/.54s of 4.8s cycle)
+2. **Node halos** : r 3→7→10 expand + fade on each fire
+3. **Bridge flow** : dashoffset -12 (1.6s) + deliver pulse (opacity/glow at 92% of 4.8s)
+4. **Wolf flash** : synced at .9s delay — drop-shadow burst at cycle 92%
+5. **Fissure spark** : small cyan dot descends central fissure (78-84% of cycle)
+6. **Publishing** : all timings halved (2.4s cascade), wolf continuous 1.8s pulse
+7. **Paused** : rest-node (amber r3, 3.2s breathe) at brain top, everything else frozen
+8. **Wolf fill** : opaque #020617 (brain lines no longer bleed through)
+
+### Accessibility
+- Platform chips: `<button>` with `aria-pressed` (toggles) or `aria-label` (CONNECT)
+- Pill toggle: `role="switch"` + `aria-checked`
+- Focus-visible: 2px cyan outline + offset on all interactive elements
+- `<p class="sr-only" aria-live="polite">` announces publishing/success
+- `prefers-reduced-motion`: all animations disabled, animateMotion SVG particles not rendered
+
+### Performance
+- All `transition: all` replaced by targeted property lists (36 instances)
+- `.dist-core-wrap { isolation: isolate; contain: paint; }`
+- `will-change` on outer-ring and connector (the only continuously animated elements)
+- ElectricBorder: speed 1.4, chaos 0.04 (calmer current)
 
 ### Concept
 Centre visuel de la page. Symbolise le "AI control center" qui orchestre la distribution.
@@ -101,9 +135,9 @@ Centre visuel de la page. Symbolise le "AI control center" qui orchestre la dist
           inner grooves (cyan), neural nodes */}
     </g>
 
-    {/* Wolf — neon emblem, centered in brain negative space */}
-    <g transform="matrix(0.55 0 0 0.55 119.3 118.925)" filter="url(#wolf-glow)">
-      <path fill="rgba(2,6,23,0.55)" stroke="#FFC58A" strokeWidth="2.4" />
+    {/* Wolf — neon emblem, centered in brain negative space (opaque fill) */}
+    <g className="dist-brain-wolf" transform="matrix(0.55 0 0 0.55 119.3 118.925)" filter="url(#wolf-glow)">
+      <path fill="#020617" stroke="#FFC58A" strokeWidth="2.4" />
     </g>
 
     {/* 4 subtle bridges neural-node → wolf */}
