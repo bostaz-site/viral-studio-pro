@@ -432,4 +432,68 @@
 @media (prefers-reduced-motion: reduce) {
   .r-master, .r-master .thumb::before, .r-master::after, .master-skull,
   .master-sparks span, .legendary-title, .animate-shimmer { animation: none !important; }
+  .tp-royal .leg-gem, .tp-crown, .tp-score, .tp-royal { animation: none !important; transition: none !important; }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   TOP PICK — Royal compact card (legendary frame, horizontal layout)
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* Full-radius variant of the leg-frame layers (grid uses top-only radius) */
+.tp-frame-full { border-radius: 14px !important; }
+.tp-frame-full > .leg-frame-inner-border,
+.tp-frame-full > .leg-frame-inner-gold { border-radius: 10px; }
+.tp-content { border-radius: 6px; }
+
+/* Gem positions — corners of the outer frame */
+.tp-gem-tl { top: -12px; left: -9px; }
+.tp-gem-tr { top: -12px; right: -9px; transform: scaleX(-1); }
+.tp-gem-bl { bottom: -12px; left: -9px; transform: scaleY(-1); }
+.tp-gem-br { bottom: -12px; right: -9px; transform: scale(-1,-1); }
+
+/* Score — gold legendary gradient */
+.tp-score {
+  font-size: 34px;
+  font-weight: 900;
+  line-height: 1;
+  background: linear-gradient(180deg, #FFF8E1, #F5D478 40%, #DAA520 75%, #B8860B);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 1px 6px rgba(218,165,32,.45));
+}
+
+/* CTA */
+.tp-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #451A03;
+  background: linear-gradient(135deg, #fbbf24, #f59e0b 45%, #d97706);
+  box-shadow: 0 0 12px rgba(245,158,11,.25);
+  transition: transform .2s, box-shadow .2s;
+}
+.tp-cta:hover { transform: scale(1.05); box-shadow: 0 0 18px rgba(245,158,11,.35); }
+.tp-cta-arrow { display: inline-block; transition: transform .2s; }
+.tp-cta:hover .tp-cta-arrow { transform: translateX(3px); }
+
+/* ── Hover sequence (~700ms one-shot, not infinite) ── */
+.tp-royal { transition: transform .3s ease; }
+.tp-royal:hover { transform: translateY(-2px); }
+.tp-royal .leg-gem { animation: none; }
+.tp-royal:hover .leg-gem { animation: legGemGlow 900ms ease-in-out 1; }
+.tp-crown { transition: filter .3s ease; }
+.tp-royal:hover .tp-crown { animation: crownShine 700ms ease-in-out 1; }
+.tp-royal:hover .tp-score { animation: tpScoreFlash 400ms ease-in-out 180ms 1; }
+
+@keyframes crownShine {
+  0%, 100% { filter: drop-shadow(0 2px 8px rgba(218,165,32,.5)); }
+  35% { filter: drop-shadow(0 2px 14px rgba(255,230,80,.95)); }
+}
+@keyframes tpScoreFlash {
+  0%, 100% { filter: drop-shadow(0 1px 6px rgba(218,165,32,.45)); }
+  50% { filter: drop-shadow(0 1px 12px rgba(255,230,80,.8)); }
 }

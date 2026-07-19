@@ -556,6 +556,11 @@ Amber focus ring replaces any white/blue default. No additional focus styling ne
 | Simple | 80-84 | Gold border 1px + inner glow. No frame ornaments. |
 | Full ornate | 85-99 | Ornate gold frame, corner gems (-25% from previous), sparkles (3 instead of 4), glow -30% |
 
+### Legendary SVG components (shared vocabulary)
+- `LegGoldGem` / `TopPickGem` — faceted gem (viewBox 0 0 110 140), uses gradient defs gc1-gc3, gt, gpl-gpr
+- `LegGemDefs` / `TopPickGemDefs` — SVG defs block (linearGradient ids). Grid uses `gc*`/`gp*`, TopPick uses `tp-gc*`/`tp-gp*` (namespaced to avoid conflicts)
+- `GoldCrown` — SVG crown (viewBox 0 0 74 52, 64x46px), body + left facet shadow + band + 3 jewels + 3 tip dots. Used only by TopPickCard.
+
 ### Score scale by rank (B1)
 
 | Rank | Score font-size | Color | Glow |

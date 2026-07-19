@@ -61,12 +61,19 @@
    - Fallback copy: "No fresh explosions yet. Radar checks every 15 min — proven winners loaded."
 9. TrendingFilters — compact bar
 10. Error card (si erreur fetch)
-11. **TOP PICK** — Compact gold card (`TopPickCard`), ~130px high, max-w-[680px]:
+11. **TOP PICK** — Royal compact card (`TopPickCard`), ~130px high, max-w-[680px]:
     - **Criteria**: `feed_category` in (early_gem, hot_now) + `velocity_score >= 75` + clip < 12h old
-    - Layout: thumbnail 150x96 | chip + title + meta + insight | score 32px gold gradient + "Steal this clip" CTA
-    - Gold treatment (same as mega_viral grid cards): border gradient (#F59E0B → #B45309, 1.5px mask xor),
-      score gradient (#FEF3C7 → #F59E0B → #B45309), chip amber (#FEF3C7 → #F59E0B), amber glow on hover
-    - Mobile (<540px): stacks vertically (thumb full-width 150px, score+CTA inline)
+    - Layout: thumbnail 150x96 | chip + title + meta + insight | score 34px gold gradient + "Steal this clip →" CTA
+    - **Legendary frame** (reuses `.leg-frame` / `.leg-frame-inner-border` / `.leg-frame-inner-gold`
+      from rank-cards.css with `.tp-frame-full` full-radius variant)
+    - **Ornaments**: GoldCrown SVG (64x46, centered top -58%), 4x TopPickGem SVG (24x28, corners)
+    - **Hover sequence** (one-shot ~700ms, NOT infinite): gems glow 900ms → crown shine 700ms →
+      score flash 400ms (180ms delay) → card translateY(-2px). Calm after.
+    - Chip: discrete (#FDE68A text, rgba(245,158,11,.10) bg, amber border), NOT solid fill
+    - Insight: grey #94a3b8 text, flame icon in #F59E0B
+    - Score: legendary gradient (#FFF8E1 → #F5D478 → #DAA520 → #B8860B), "VIRAL SCORE" label #8a6d3b
+    - prefers-reduced-motion: all animations disabled
+    - Mobile (<540px): stacks vertically (thumb full-width h150, score+CTA inline)
     - Not shown on Saved tab or when no clip meets criteria
 12. Content area (all clips in grid — top pick also appears in grid):
     ├── Loading → shimmer skeleton grid
