@@ -66,8 +66,10 @@
     - Layout: thumbnail 150x96 | chip + title + meta + insight | score 46px gold gradient + "Steal this clip →" CTA
     - **Legendary frame** (reuses `.leg-frame` / `.leg-frame-inner-border` / `.leg-frame-inner-gold`
       from rank-cards.css with `.tp-frame-full` full-radius variant)
-    - **Ornaments**: GoldCrown SVG (64x46, faceted like gems — triangular kite prongs + faceted band,
-      same tp-gc*/tp-gp* gradients), 4x TopPickGem SVG (24x28, corners)
+    - **Ornaments**: GoldCrown SVG (92x66, faceted like gems — triangular kite prongs + faceted band,
+      same tp-gc*/tp-gp* gradients, translate(-50%,-56%)), 4x TopPickGem SVG (24x28, corners)
+    - **CTA**: reuses `.leg-cta` class (dark gold, cream text, shine sweep on card hover) with
+      `.tp-cta-compact` override (width:auto, h42, px18). Arrow → translateX(3px) on hover.
     - **Score**: 46px, gold gradient, count-up 0→value in 800ms on mount, light sweep animation
       every 6s (tpScoreSweep, background-position on enlarged gradient). No "VIRAL SCORE" label.
       Hover: scale(1.04). THE only rest animation on the card.

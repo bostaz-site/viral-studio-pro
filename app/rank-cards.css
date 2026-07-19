@@ -476,23 +476,19 @@
   100% { background-position: -100% 0; }
 }
 
-/* CTA */
-.tp-cta {
-  display: inline-flex;
+/* CTA — compact override of .leg-cta for horizontal card */
+.tp-cta-compact {
+  width: auto !important;
+  height: 42px !important;
+  padding: 0 18px !important;
+  font-size: 13px !important;
+  display: inline-flex !important;
   align-items: center;
-  gap: 6px;
-  padding: 8px 16px;
-  border-radius: 8px;
-  font-size: 12px;
-  font-weight: 700;
-  color: #451A03;
-  background: linear-gradient(135deg, #fbbf24, #f59e0b 45%, #d97706);
-  box-shadow: 0 0 12px rgba(245,158,11,.25);
-  transition: transform .2s, box-shadow .2s;
 }
-.tp-cta:hover { transform: scale(1.05); box-shadow: 0 0 18px rgba(245,158,11,.35); }
 .tp-cta-arrow { display: inline-block; transition: transform .2s; }
-.tp-cta:hover .tp-cta-arrow { transform: translateX(3px); }
+.tp-cta-compact:hover .tp-cta-arrow { transform: translateX(3px); }
+/* Trigger .leg-cta shine on card hover */
+.tp-royal:hover .leg-cta::before { animation: legBtnShine 3s ease-in-out infinite; }
 
 /* ── Hover sequence (~700ms one-shot, not infinite) ── */
 .tp-royal { transition: transform .3s ease; }

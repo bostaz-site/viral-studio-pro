@@ -43,8 +43,8 @@ const TopPickGem = () => (
 
 /* ── Faceted GoldCrown — built from triangular facets like the gems ── */
 const GoldCrown = () => (
-  <svg width={64} height={46} viewBox="0 0 74 52" fill="none"
-    style={{ filter: 'drop-shadow(0 2px 8px rgba(218,165,32,.5))' }}
+  <svg width={92} height={66} viewBox="0 0 74 52" fill="none"
+    style={{ filter: 'drop-shadow(0 3px 12px rgba(218,165,32,.55))' }}
   >
     {/* Center prong — tallest, kite shape split into 2 facets */}
     <path d="M37 4 L44 20 L37 26Z" fill="url(#tp-gc2)" stroke="#8B6914" strokeWidth=".8"/>
@@ -125,7 +125,7 @@ export function TopPickCard({ clip, onEnhance }: TopPickCardProps) {
         onClick={() => onEnhance(clip)}
       >
         {/* Crown — centered on top edge */}
-        <div className="absolute left-1/2 top-0 -translate-x-1/2 -translate-y-[58%] z-20 pointer-events-none tp-crown">
+        <div className="absolute left-1/2 top-0 -translate-x-1/2 -translate-y-[56%] z-20 pointer-events-none tp-crown">
           <GoldCrown />
         </div>
 
@@ -192,9 +192,9 @@ export function TopPickCard({ clip, onEnhance }: TopPickCardProps) {
                   <AnimatedScore value={score} />
                   <button
                     onClick={(e) => { e.stopPropagation(); onEnhance(clip) }}
-                    className="tp-cta"
+                    className="leg-cta tp-cta-compact"
                   >
-                    Steal this clip <span className="tp-cta-arrow">&rarr;</span>
+                    Steal this clip<span className="tp-cta-arrow">&nbsp;&rarr;</span>
                   </button>
                 </div>
               </div>
