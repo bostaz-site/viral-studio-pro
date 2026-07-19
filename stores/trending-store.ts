@@ -13,7 +13,7 @@ const DEFAULT_FILTERS: TrendingFiltersState = {
   platforms: [],
   sort: 'velocity',
   duration: 'all',
-  feed: 'hot_now',
+  feed: 'all',
 }
 
 const EMPTY_RANK_COUNTS: Record<ClipRank, number> = {

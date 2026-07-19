@@ -142,6 +142,9 @@ textarea:focus-visible,
   [class*="animate-[confettiDrop"] { animation: none !important; }
   [class*="animate-[shineSweep"] { animation: none !important; }
   [class*="animate-[sparkPulse"] { animation: none !important; }
+  [class*="animate-[crownFloat"] { animation: none !important; }
+  [class*="animate-[sparkle"] { animation: none !important; }
+  [class*="animate-[cometSpin"] { animation: none !important; }
 }
 
 @keyframes fadeIn {
@@ -186,4 +189,25 @@ textarea:focus-visible,
   0%, 85%, 100% { transform: scale(1); opacity: 1; }
   90% { transform: scale(1.2); opacity: 0.8; }
   95% { transform: scale(1); opacity: 1; }
+}
+
+@keyframes crownFloat {
+  0%, 100% { transform: translateX(-50%) translateY(-58%); }
+  50% { transform: translateX(-50%) translateY(calc(-58% - 2.5px)); }
+}
+
+@keyframes sparkle {
+  0%, 100% { opacity: 0.2; transform: scale(0.8); }
+  50% { opacity: 1; transform: scale(1.2); }
+}
+
+@property --c {
+  syntax: '<angle>';
+  initial-value: 0deg;
+  inherits: false;
+}
+
+@keyframes cometSpin {
+  from { --c: 0deg; }
+  to { --c: 360deg; }
 }

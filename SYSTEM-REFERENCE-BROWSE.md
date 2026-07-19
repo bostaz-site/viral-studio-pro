@@ -61,11 +61,15 @@
    - Fallback copy: "No fresh explosions yet. Radar checks every 15 min — proven winners loaded."
 9. TrendingFilters — compact bar
 10. Error card (si erreur fetch)
-11. **TOP PICK HERO** (F1) — clip #1 breaks out of the grid:
-    - System label: "Top pick right now — Best chance to post before everyone else"
-    - Card renders at max-w-md (1.35x larger impression)
-    - Not shown on Saved tab
-12. Content area (remaining clips, starting from index 1):
+11. **TOP PICK** — Compact crowned diamond card (`TopPickCard`), ~130px high, max-w-[680px]:
+    - **Criteria**: `feed_category` in (early_gem, hot_now) + `velocity_score >= 75` + clip < 12h old
+    - Layout: thumbnail 150x96 | chip + title + meta + insight | score 32px diamond gradient + "Steal this clip" CTA
+    - Diamond dressing: 4 corner crystals (webp, 58x58), ice border (gradient mask xor),
+      comet spin (@property --c, 5s linear), crown (78px, float animation), 3 CSS sparkles
+    - Mobile (<540px): stacks vertically (thumb full-width 150px, score+CTA inline)
+    - prefers-reduced-motion: comet/float/sparkles off
+    - Not shown on Saved tab or when no clip meets criteria
+12. Content area (all clips in grid — top pick also appears in grid):
     ├── Loading → shimmer skeleton grid
     ├── Empty → tab-specific empty state
     └── Clips → TrendingCard grid (sm:2, lg:3, xl:4, 2xl:5 cols, gap-6)
@@ -281,11 +285,11 @@ type FeedFilter = 'all' | 'hot_now' | 'early_gem' | 'proven' | 'recent' | 'saved
 
 ## Feed Category Tabs (Current State)
 
-5 tabs visibles. Default: `hot_now`. **Server-side filtering per tab.**
+5 tabs visibles. Default: `all` (All Clips, sorted by velocity score). **Server-side filtering per tab.**
 
 | Tab | Label UI | Icon | Style | Server filter | Count source |
 |---|---|---|---|---|---|
-| `hot_now` | Exploding Now | Flame | Primary (DEFAULT) | `feed_category IN ('early_gem','hot_now')` | `/api/trending/counts` → exploding |
+| `hot_now` | Exploding Now | Flame | Primary | `feed_category IN ('early_gem','hot_now')` | `/api/trending/counts` → exploding |
 | `proven` | Proven Winners | Trophy | Primary | `feed_category = 'proven'` | `/api/trending/counts` → proven |
 | `recent` | Fresh Drops | Clock | Primary | `clip_created_at >= now - 24h` | `/api/trending/counts` → fresh |
 | `all` | All Clips | Compass | Subtle (dimmed) | No filter | `/api/trending/counts` → all |
@@ -1096,7 +1100,7 @@ Plus: platform breakdown bar (Twitch purple / Kick green / YouTube red).
 |---|---|
 | Clip feed (Supabase, cursor pagination) | WIRED_REAL |
 | Scoring V2 (7 facteurs, tiers, feed categories) | WIRED_REAL |
-| Feed tabs (hot_now default / proven / recent / all / saved) | WIRED_REAL |
+| Feed tabs (all default / hot_now / proven / recent / saved) | WIRED_REAL |
 | Feed categories client-side filtering | WIRED_REAL |
 | Server-side filtering (search, niche, platform, duration, feed) | WIRED_REAL |
 | Search debounce (300ms) | WIRED_REAL |

@@ -23,6 +23,7 @@ import { useTrendingStore, type TrendingClip } from '@/stores/trending-store'
 import type { FeedFilter } from '@/types/trending'
 import { cn } from '@/lib/utils'
 import { InstallBanner } from '@/components/pwa/install-banner'
+import { TopPickCard } from '@/components/trending/top-pick-card'
 import { track } from '@/lib/analytics'
 
 export default function DashboardPage() {
@@ -390,6 +391,22 @@ export default function DashboardPage() {
   // "remaining" = server total for this tab minus what's already loaded
   const remaining = totalCount - filteredClips.length
 
+  // Top Pick: best clip meeting quality criteria (early_gem/hot_now, score>=75, <12h old)
+  const topPickClip = useMemo(() => {
+    if (filters.feed === 'saved') return null
+    const TWELVE_HOURS = 12 * 60 * 60 * 1000
+    return filteredClips.find((c) => {
+      const score = c.velocity_score ?? 0
+      if (score < 75) return false
+      const cat = c.feed_category
+      if (cat !== 'early_gem' && cat !== 'hot_now') return false
+      const created = c.clip_created_at ?? c.scraped_at
+      if (!created) return false
+      if (Date.now() - new Date(created).getTime() > TWELVE_HOURS) return false
+      return true
+    }) ?? null
+  }, [filteredClips, filters.feed])
+
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
       <FirstClipOverlay />
@@ -664,28 +681,15 @@ export default function DashboardPage() {
         })()
       ) : (
         <>
-          {/* Top Pick Hero (F1) — clip #1 breaks out of the grid */}
-          {filteredClips.length > 0 && filters.feed !== 'saved' && (
-            <div className="py-4">
-              <p className="text-[11px] font-bold tracking-[0.14em] uppercase text-zinc-500 mb-2">Top pick right now — Best chance to post before everyone else</p>
-              <div className="max-w-md" onClick={() => handleEnhance(filteredClips[0])} style={{ cursor: 'pointer' }}>
-                <TrendingCard
-                  clip={filteredClips[0]}
-                  onRemix={handleEnhance}
-                  onQuickExport={handleQuickExport}
-                  onShowDetail={setDetailClip}
-                  quickExportState={quickExport}
-                  remixing={false}
-                  isSaved={savedClipIds.has(filteredClips[0].id)}
-                  onToggleSave={toggleSaveClip}
-                  isNew={!!(lastVisit && (filteredClips[0].clip_created_at ?? filteredClips[0].scraped_at) && new Date(filteredClips[0].clip_created_at ?? filteredClips[0].scraped_at!).getTime() > new Date(lastVisit).getTime())}
-                />
-              </div>
+          {/* Top Pick — compact diamond card (only shown when a clip meets criteria) */}
+          {topPickClip && (
+            <div className="py-4 px-2">
+              <TopPickCard clip={topPickClip} onEnhance={handleEnhance} />
             </div>
           )}
 
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6 py-4">
-            {filteredClips.slice(filters.feed !== 'saved' ? 1 : 0).map((clip) => (
+            {filteredClips.map((clip) => (
               <div key={clip.id} onClick={() => handleEnhance(clip)} className="cursor-pointer relative">
                 <TrendingCard
                   clip={clip}
