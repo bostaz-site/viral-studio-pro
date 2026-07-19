@@ -78,6 +78,29 @@ export async function POST(req: NextRequest) {
       continue
     }
 
+    // 2b. Guard: if already published manually, cancel instead of publishing
+    const { data: alreadyPublished } = await admin
+      .from('published_posts')
+      .select('id')
+      .eq('user_id', row.user_id)
+      .eq('clip_id', row.clip_id)
+      .eq('platform', row.platform)
+      .limit(1)
+
+    if (alreadyPublished && alreadyPublished.length > 0) {
+      await admin
+        .from('scheduled_publications')
+        .update({
+          status: 'canceled',
+          error_message: 'already published manually',
+          updated_at: new Date().toISOString(),
+        } as never)
+        .eq('id', row.id)
+
+      results.push({ id: row.id, status: 'canceled', error: 'already published manually' })
+      continue
+    }
+
     // 3. Execute publish
     const tiktokOptions = row.tiktok_options as {
       privacy_level: string

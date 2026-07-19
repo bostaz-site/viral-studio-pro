@@ -752,6 +752,18 @@ const isReady         = !isBest && !isPriority && !isScheduled && !isDraftWithTh
 - **Plus aucun `removedClipIds` en sessionStorage** — la DB est la seule source de vérité
 - Migration requise : `supabase/migrations/20260706_clip_bank_removal.sql`
 
+### Anti-double-post (publish manuel → retrait banque + cancel schedule)
+- **Apres un publish manuel reussi (mode:'direct' uniquement)** :
+  - Le clip est retire de la Clip Bank (carte "Published" ~2s, puis disparait)
+  - `PATCH /api/distribution/bank/[clipId]` action=remove → `removed_from_bank_at = now()` + cancel `scheduled_publications` (atomique)
+  - Le smart queue store se resynchronise automatiquement (via le useEffect sur `clipBank`)
+  - Fonctionne depuis les 3 entry points : Clip Bank rocket, UnifiedPublishDialog, auto-open post-render
+- **Mode 'inbox'** : rien ne change — le clip reste en banque, schedule intact (pas reellement publie)
+- **Garde-fou cron (defense en profondeur)** :
+  - `lib/distribution/execute-publish.ts` : avant de publier, verifie si `published_posts` contient deja une ligne pour ce (user_id, clip_id, platform)
+  - `app/api/cron/publish-scheduled/route.ts` : meme check — si deja publie, marque la scheduled_publication 'canceled' avec error_message='already published manually'
+  - Protege contre tout etat incoherent passe ou futur
+
 ### Click-to-Play Video Preview
 - Click on play glyph (or on the video to stop): toggles video playback
 - First click: creates a signed URL from Supabase Storage (`clips` bucket) via `storagePath` on the ClipBankItem

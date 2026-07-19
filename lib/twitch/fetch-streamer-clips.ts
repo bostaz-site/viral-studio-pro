@@ -12,6 +12,7 @@ import {
   type TwitchClip,
 } from '@/lib/twitch/client'
 import { scoreClip } from '@/lib/scoring/clip-scorer'
+import { logger } from '@/lib/logger'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@/lib/supabase/types'
 
@@ -197,6 +198,8 @@ export async function fetchAndScoreStreamerClips(
       result.errors.push(
         `${streamer.display_name}: could not resolve twitch_id for login "${streamer.twitch_login}"`
       )
+      // Mark as attempted so it goes to the back of the rotation queue
+      await admin.from('streamers').update({ last_fetched_at: new Date().toISOString() }).eq('id', streamer.id)
       continue
     }
 
@@ -317,16 +320,22 @@ export async function fetchAndScoreStreamerClips(
       // Update streamer averages
       await updateStreamerAverages(admin, streamer.id)
 
-      // Mark last fetched
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      result.errors.push(`${streamer.display_name}: ${msg}`)
+    } finally {
+      // ALWAYS mark as attempted — prevents rotation deadlock when streamers
+      // fail repeatedly (0 clips, API errors, etc.)
       await admin
         .from('streamers')
         .update({ last_fetched_at: new Date().toISOString() })
         .eq('id', streamer.id)
-
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err)
-      result.errors.push(`${streamer.display_name}: ${msg}`)
     }
+  }
+
+  // Observability: warn if we scanned streamers but got nothing
+  if (result.upserted === 0 && result.errors.length > 0) {
+    logger.error(`[fetch-twitch] 0 clips upserted, ${result.errors.length} errors: ${result.errors.slice(0, 3).join('; ')}`)
   }
 
   return result

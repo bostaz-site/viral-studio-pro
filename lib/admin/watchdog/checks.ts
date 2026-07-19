@@ -312,6 +312,29 @@ export async function checkSuppressionSpike(admin: SupabaseClient): Promise<Aler
   }
 }
 
+/**
+ * Trending clips freshness — alerts if no new clips imported in 6+ hours.
+ * This is THE symptom of a fetch rotation deadlock (all slots stuck on failing streamers).
+ */
+export async function checkTrendingClipsFreshness(admin: SupabaseClient): Promise<AlertCandidate | null> {
+  const sixHoursAgo = new Date(Date.now() - 6 * 3600 * 1000).toISOString()
+
+  const { count } = await admin
+    .from('trending_clips')
+    .select('id', { count: 'exact', head: true })
+    .gte('created_at', sixHoursAgo)
+
+  if (count && count > 0) return null
+
+  return {
+    severity: 'critical',
+    category: 'fetch-pipeline',
+    title: 'Trending clips stale — no imports in 6+ hours',
+    description: 'The fetch-streamer-clips cron may be deadlocked (all rotation slots stuck on failing streamers). Check streamer last_fetched_at distribution and cron logs.',
+    metadata: { lastImportBefore: sixHoursAgo },
+  }
+}
+
 // ═══════════════════════════════════════
 //  RUN ALL CHECKS
 // ═══════════════════════════════════════
@@ -324,6 +347,7 @@ export async function runAllChecks(admin: SupabaseClient): Promise<AlertCandidat
     checkBounceRate(admin),
     checkStripeConnectRejected(admin),
     checkWebhookFailSpike(admin),
+    checkTrendingClipsFreshness(admin),
     // Important
     checkHotLeadsStale(admin),
     checkDormantAffiliates(admin),

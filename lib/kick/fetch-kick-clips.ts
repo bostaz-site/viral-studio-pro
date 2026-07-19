@@ -78,7 +78,10 @@ export async function fetchAndScoreKickClips(
       break
     }
 
-    if (!streamer.kick_login) continue
+    if (!streamer.kick_login) {
+      await admin.from('streamers').update({ last_fetched_at: new Date().toISOString() }).eq('id', streamer.id)
+      continue
+    }
 
     try {
       const rawClips = await getKickClips(streamer.kick_login, clipsPerStreamer)
@@ -187,15 +190,15 @@ export async function fetchAndScoreKickClips(
           .eq('id', clipId)
       }
 
-      // Update last_fetched_at for this streamer (match Twitch pipeline behavior)
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      result.errors.push(`${streamer.display_name}: ${msg}`)
+    } finally {
+      // ALWAYS mark as attempted — prevents rotation deadlock
       await admin
         .from('streamers')
         .update({ last_fetched_at: new Date().toISOString() })
         .eq('id', streamer.id)
-
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err)
-      result.errors.push(`${streamer.display_name}: ${msg}`)
     }
   }
 

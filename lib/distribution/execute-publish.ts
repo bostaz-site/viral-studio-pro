@@ -38,6 +38,19 @@ export async function executePublish(params: ExecutePublishParams): Promise<Exec
   const { userId, clipId, platform, caption, hashtags, tiktokOptions } = params
   const admin = createAdminClient()
 
+  // 0. Guard: skip if this clip was already published manually (defense in depth)
+  const { data: existingPost } = await admin
+    .from('published_posts')
+    .select('id')
+    .eq('user_id', userId)
+    .eq('clip_id', clipId)
+    .eq('platform', platform)
+    .limit(1)
+
+  if (existingPost && existingPost.length > 0) {
+    return { success: false, postId: null, error: 'already published manually' }
+  }
+
   // 1. Find clip storage path (render_jobs first, then clips table)
   const { data: renderJobs } = await admin
     .from('render_jobs')
@@ -96,7 +109,7 @@ export async function executePublish(params: ExecutePublishParams): Promise<Exec
 
   try {
     const postInfo: Record<string, unknown> = {
-      title: fullCaption.slice(0, 150),
+      title: fullCaption.slice(0, 2200),
       privacy_level: tiktokOptions.privacy_level,
       disable_comment: tiktokOptions.disable_comment,
       disable_duet: tiktokOptions.disable_duet,

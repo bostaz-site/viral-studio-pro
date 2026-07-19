@@ -168,6 +168,15 @@ export function UnifiedPublishDialog({
       }))
       setIsPublishing(false)
       setAllDone(true)
+      // Direct mode: remove clip from bank + cancel autofarm schedule (no double post)
+      if (mode === 'direct') {
+        fetch(`/api/distribution/bank/${clipId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'remove' }),
+        }).catch(() => {})
+      }
+      // Inbox mode: clip stays in bank, schedule stays — nothing published yet
     } else {
       // User cancelled — reset TikTok back to idle
       setPlatforms(prev => ({

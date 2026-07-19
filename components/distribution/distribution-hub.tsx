@@ -2318,6 +2318,22 @@ export function DistributionHub() {
           setShowTikTokPublish(false)
           if (result?.published) {
             setPublishDone(true)
+            // Direct mode: remove clip from bank + cancel autofarm schedule (no double post)
+            if (result.mode === 'direct' && selectedClip?.id) {
+              const publishedId = selectedClip.id
+              // Brief "Published" state, then remove from bank
+              setTimeout(() => {
+                setClipBank(prev => prev.filter(c => c.id !== publishedId))
+                if (selectedClipId === publishedId) setSelectedClipId(null)
+              }, 2000)
+              // Persist removal + cancel scheduled_publications
+              fetch(`/api/distribution/bank/${publishedId}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'remove' }),
+              }).catch(() => {})
+            }
+            // Inbox mode: clip stays in bank, schedule stays — nothing published yet
           }
         }}
         clipId={selectedClip?.id ?? ''}

@@ -1243,9 +1243,11 @@ Tous les scores sont calcules par `lib/scoring/clip-scorer.ts` et mis a jour par
 - **Time budget** : 15s max — arrete le traitement et repond immediatement quand depasse
 - **Limite dure** : max 5 streamers par invocation (4 Twitch + 1 Kick)
 - **Staggering** : `ORDER BY last_fetched_at NULLS FIRST` — les streamers les moins recemment fetches passent en premier, tous les streamers sont couverts au fil des invocations successives
-- **last_fetched_at** : colonne TIMESTAMPTZ sur `public.streamers`, mise a jour apres chaque streamer traite
+- **last_fetched_at** : colonne TIMESTAMPTZ sur `public.streamers`, mise a jour **a chaque TENTATIVE** (finally block) — succes, 0 clips, OU erreur. Garantit que les streamers en echec vont au fond de la file et ne bloquent jamais la rotation.
 - **Reponse JSON** : `{ processed, skipped, remaining, elapsed_ms, timed_out, upserted, ... }`
-- **Logique par-streamer** : `lib/twitch/fetch-streamer-clips.ts` (Twitch), `lib/kick/fetch-kick-clips.ts` (Kick) — inchangee
+- **Logique par-streamer** : `lib/twitch/fetch-streamer-clips.ts` (Twitch), `lib/kick/fetch-kick-clips.ts` (Kick)
+- **Observabilite** : `logger.error` si 0 clips upserted ET errors > 0 (deadlock symptom)
+- **Watchdog** : `checkTrendingClipsFreshness` alerte CRITICAL si MAX(created_at) trending_clips > 6h (le symptome visible d'un radar mort)
 
 ### Scores ← Scoring Engine
 - `lib/scoring/clip-scorer.ts` calcule les 7 sub-scores + velocity_score pour chaque clip
