@@ -31,12 +31,14 @@ export function BlowupChanceBar({ currentScore, displayScore, baselineScore, sco
           <Flame className={cn('h-3.5 w-3.5 transition-colors duration-500', total >= 80 ? 'text-emerald-400' : 'text-orange-400')} />
           <span className="text-[11px] font-bold tracking-[0.14em] uppercase text-muted-foreground">Blowup Chance</span>
         </div>
-        <span className={cn(
-          'text-[11px] font-bold uppercase tracking-wide transition-colors duration-300',
-          getScoreLabel(currentScore).color
-        )}>
-          {getScoreLabel(currentScore).text}
-        </span>
+        {showBoost && (
+          <span className={cn(
+            'text-[11px] font-bold uppercase tracking-wide transition-colors duration-300 animate-[scorePop_0.4s_ease-out]',
+            getScoreLabel(currentScore).color
+          )}>
+            {getScoreLabel(currentScore).text}
+          </span>
+        )}
       </div>
 
       {/* Progress bar */}

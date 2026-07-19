@@ -140,6 +140,8 @@ textarea:focus-visible,
   [class*="animate-[scorePop"] { animation: none !important; }
   [class*="animate-[barGlow"] { animation: none !important; }
   [class*="animate-[confettiDrop"] { animation: none !important; }
+  [class*="animate-[shineSweep"] { animation: none !important; }
+  [class*="animate-[sparkPulse"] { animation: none !important; }
 }
 
 @keyframes fadeIn {
@@ -173,4 +175,15 @@ textarea:focus-visible,
   0% { transform: translateY(-8px) scale(0.8); opacity: 0; }
   40% { transform: translateY(0) scale(1.05); opacity: 1; }
   100% { transform: translateY(0) scale(1); opacity: 1; }
+}
+
+@keyframes shineSweep {
+  0%, 85% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+@keyframes sparkPulse {
+  0%, 85%, 100% { transform: scale(1); opacity: 1; }
+  90% { transform: scale(1.2); opacity: 0.8; }
+  95% { transform: scale(1); opacity: 1; }
 }

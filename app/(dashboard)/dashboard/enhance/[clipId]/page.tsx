@@ -91,7 +91,7 @@ export default function EnhancePage() {
   const [notifyOnDone, setNotifyOnDone] = useState(false)
   const notifyOnDoneRef = useRef(false)
   const renderStageTimerRef = useRef<NodeJS.Timeout | null>(null)
-  const [showEnhancements, setShowEnhancements] = useState(true)
+  const [showEnhancements, setShowEnhancements] = useState(false)
   const [hookAnalysis, setHookAnalysis] = useState<HookAnalysis | null>(null)
   const [hookGenerating, setHookGenerating] = useState(false)
 
@@ -1022,6 +1022,7 @@ export default function EnhancePage() {
     // 4. API calls done, data is ready — NOW start the analysis sequence
     setMakeViralLoading(false)
     setAnalysisSequenceActive(true)
+    setShowEnhancements(true)
 
     // 5. Auto-render will trigger after sequence completes (onComplete callback)
     pendingAutoRenderRef.current = true
@@ -1190,9 +1191,9 @@ export default function EnhancePage() {
           className="lg:sticky lg:top-4 lg:self-start space-y-3 lg:max-h-[calc(100vh-2rem)] lg:overflow-y-auto lg:pr-1 lg:[scrollbar-width:thin]"
         >
           {/* ── Preview Toggle ──
-              Initial (Viral Boost preset auto-applied): [Original | Enhanced] — Enhanced active by default
-              After render: [Original | Rendered] — Enhanced replaced by actual baked MP4
-              showEnhancements starts true so the preset is visible immediately on page load. */}
+              Initial: [Original | Enhanced] — Original active by default (user sees raw material first)
+              AI Optimize / manual change → auto-switch to Enhanced (before/after moment)
+              After render: [Original | Rendered] — Enhanced replaced by actual baked MP4 */}
           {/* Compact preview pills */}
           <div className="flex gap-1.5 justify-center">
             <button
@@ -1206,7 +1207,7 @@ export default function EnhancePage() {
             >
               Original
             </button>
-            {showEnhancements && !renderDownloadUrl && (
+            {!renderDownloadUrl && (
               <button
                 onClick={() => { setShowEnhancements(true); setIsRenderedVideo(false) }}
                 className={cn(
@@ -1546,7 +1547,7 @@ export default function EnhancePage() {
                     ? 'shadow-md'
                     : viralBusy
                       ? 'shadow-lg'
-                      : 'shadow-lg hover:scale-[1.01]'
+                      : 'shadow-lg hover:scale-[1.015] hover:shadow-[0_0_28px_rgba(245,158,11,0.35)]'
                 )}
                 style={{
                   height: '58px',
@@ -1560,6 +1561,10 @@ export default function EnhancePage() {
                       : '0 0 20px rgba(245, 158, 11, 0.22)',
                 }}
               >
+                {/* Shine sweep — idle invitation, only when not busy and not complete */}
+                {!viralBusy && !isComplete && (
+                  <div className="absolute inset-0 -translate-x-full animate-[shineSweep_5s_ease-in-out_infinite] bg-gradient-to-r from-transparent via-white/15 to-transparent pointer-events-none" />
+                )}
                 {/* Shimmer effect during loading */}
                 {isAnalyzing && (
                   <div className="absolute inset-0 -translate-x-full animate-[shimmer_2s_infinite] bg-gradient-to-r from-transparent via-white/10 to-transparent" />
@@ -1570,14 +1575,14 @@ export default function EnhancePage() {
                   ) : isComplete ? (
                     <Check className="h-[18px] w-[18px] text-emerald-950 shrink-0" />
                   ) : (
-                    <Sparkles className="h-[18px] w-[18px] text-amber-950 shrink-0 group-hover:rotate-12 transition-transform" />
+                    <Sparkles className="h-[18px] w-[18px] text-amber-950 shrink-0 animate-[sparkPulse_5s_ease-in-out_infinite] group-hover:rotate-12 transition-transform" />
                   )}
                   <div className="flex-1 text-left min-w-0">
                     <span className={cn(
                       'text-sm font-bold tracking-tight block leading-tight',
                       isComplete ? 'text-emerald-950' : 'text-amber-950'
                     )}>
-                      {isAnalyzing ? 'Analyzing clip...' : rendering ? 'Rendering...' : isComplete ? 'AI-optimized' : 'AI Optimize'}
+                      {isAnalyzing ? 'Analyzing clip...' : rendering ? 'Rendering...' : isComplete ? 'Optimized' : 'AI Optimize'}
                     </span>
                     <span className={cn(
                       'text-[10px] block',

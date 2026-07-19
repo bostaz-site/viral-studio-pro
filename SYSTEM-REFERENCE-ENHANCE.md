@@ -66,6 +66,9 @@ Alternative : user change les settings manuellement (sans AI Optimize)
 
 === Colonne gauche (sticky, max-h viewport, scroll interne) ===
 3. Preview Toggle — compact pills: "Original" | "Enhanced" | "Rendered" (apparait apres render done)
+   - **Default: Original** — user sees raw material first (`showEnhancements` starts `false`)
+   - AI Optimize → auto-switch to Enhanced (before/after magic moment)
+   - Manual setting change → auto-switch to Enhanced (first change only)
 4. LivePreview — 9:16 phone frame (310px max-width, radius 20px, shadow 0 24px 80px)
    - Label above: "LIVE OUTPUT · TikTok 9:16" (system label style)
    - Enhanced: border amber/20. Empty/Original: border white/10
@@ -92,6 +95,11 @@ Alternative : user change les settings manuellement (sans AI Optimize)
 
 === Colonne droite (scrollable) ===
 8. AI Optimize button — CTA HERO 58px, radius 16px, constitution gradient, text amber-950.
+   - Idle: shine sweep (shineSweep 5s) + sparkle micro-pulse (sparkPulse 5s synced)
+   - Hover: scale(1.015) + glow ambre renforcé (box-shadow 28px 0.35 opacity)
+   - Analyzing: shimmer overlay + WolfLoader spinner
+   - Complete: green gradient, "✓ Optimized", sweep stops
+   - prefers-reduced-motion: no sweep/pulse
 9. Export CTA — outline/secondary ("Export with current settings") SOUS AI Optimize.
    Remonte en primary (constitution gradient, "Export Now") SEULEMENT apres AI Optimize complete.
    Constitution : jamais 2 primary dans le meme bloc.
@@ -401,6 +409,7 @@ Sticky `top-0 z-10` dans la colonne settings, avec `backdrop-blur-md`.
 - **Base segment** : `from-orange-500 to-amber-400`, width = `baselineScore%` (or full `currentScore%` when boost hidden)
 - **Boost segment** : `from-emerald-500 to-emerald-400`, starts at `baselineScore%`, width = `min(scoreBreakdown.total, 99 - baselineScore)%`. **Only visible after AI Optimize** (`showBoost` prop, gated by `revealedBonuses.has('_total')`)
 - **`(+X.X)` text** : hidden on arrival, revealed at end of AI Optimize stagger
+- **Verdict label** (e.g. "VIRAL READY") : hidden on arrival, revealed with `showBoost` (earned by action). Pop scale-in animation.
 - **Glow pulse** : si total >= 70, overlay `via-white/8` avec animation `barGlow 3s ease-in-out infinite`
 
 ### Dynamic Colors
