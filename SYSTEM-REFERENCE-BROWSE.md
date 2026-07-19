@@ -61,13 +61,12 @@
    - Fallback copy: "No fresh explosions yet. Radar checks every 15 min — proven winners loaded."
 9. TrendingFilters — compact bar
 10. Error card (si erreur fetch)
-11. **TOP PICK** — Compact crowned diamond card (`TopPickCard`), ~130px high, max-w-[680px]:
+11. **TOP PICK** — Compact gold card (`TopPickCard`), ~130px high, max-w-[680px]:
     - **Criteria**: `feed_category` in (early_gem, hot_now) + `velocity_score >= 75` + clip < 12h old
-    - Layout: thumbnail 150x96 | chip + title + meta + insight | score 32px diamond gradient + "Steal this clip" CTA
-    - Diamond dressing: 4 corner crystals (webp, 58x58), ice border (gradient mask xor),
-      comet spin (@property --c, 5s linear), crown (78px, float animation), 3 CSS sparkles
+    - Layout: thumbnail 150x96 | chip + title + meta + insight | score 32px gold gradient + "Steal this clip" CTA
+    - Gold treatment (same as mega_viral grid cards): border gradient (#F59E0B → #B45309, 1.5px mask xor),
+      score gradient (#FEF3C7 → #F59E0B → #B45309), chip amber (#FEF3C7 → #F59E0B), amber glow on hover
     - Mobile (<540px): stacks vertically (thumb full-width 150px, score+CTA inline)
-    - prefers-reduced-motion: comet/float/sparkles off
     - Not shown on Saved tab or when no clip meets criteria
 12. Content area (all clips in grid — top pick also appears in grid):
     ├── Loading → shimmer skeleton grid
