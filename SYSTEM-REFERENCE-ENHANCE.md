@@ -77,9 +77,16 @@ Alternative : user change les settings manuellement (sans AI Optimize)
    │     + sub-text "Smart Queue picks the optimal time + platform"
    │     - First click: confirms placement, shows checkmark (green)
    │     - Second click: navigates to Distribution
+   ├── CHAIN FARMING: "Next best clip" card (shown ONLY after banking)
+   │     - Fetches GET /api/trending/next-best?exclude={clipId} → top velocity_score not yet rendered by user
+   │     - Shows: mini-thumbnail + truncated title + score + tier + "⚡ Enhance →"
+   │     - Click → navigate /dashboard/enhance/{nextId} + track('chain_farm_next_clip')
+   │     - Fallback (no clip): "⚡ Find your next clip" → /dashboard
+   │     - Visual: outline amber card, p-3, rounded-xl
    ├── SECONDARY: "Publish now" — outline amber (border amber-500/40, bg amber-500/8)
    ├── TERTIARY: "Download MP4" — outline discret (border zinc-700/60, text zinc-500, smaller h-9)
    ├── Referral pill (green, unchanged)
+   ├── "← Back to Browse" — discrete text link (shown only after banking)
    └── "Reset & start over" — text link
    DURING RENDERING: all actions hidden. Single va-panel card "Rendering your clip" with spinner + pipeline stages + notify-me.
 

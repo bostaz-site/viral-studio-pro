@@ -35,6 +35,7 @@ type EventName =
   | 'paywall_topup_clicked'
   | 'paywall_save_used'
   | 'paywall_dismissed'
+  | 'chain_farm_next_clip'
 
 type Primitive = string | number | boolean
 

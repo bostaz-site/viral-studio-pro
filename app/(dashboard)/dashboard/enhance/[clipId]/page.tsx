@@ -76,6 +76,7 @@ export default function EnhancePage() {
   const [error, setError] = useState<string | null>(null)
   const [rendering, setRendering] = useState(false)
   const [placedInBank, setPlacedInBank] = useState(false)
+  const [nextBestClip, setNextBestClip] = useState<{ id: string; title: string | null; velocity_score: number | null; thumbnail_url: string | null; tier: string | null } | null>(null)
   const [showPublishDialog, setShowPublishDialog] = useState(searchParams.get('publish') === '1')
   const [renderMessage, setRenderMessage] = useState<string | null>(null)
   const [renderOriginalUrl, setRenderOriginalUrl] = useState<string | null>(null)
@@ -299,6 +300,17 @@ export default function EnhancePage() {
       .catch(() => { /* silent — fallback to thumbnail */ })
     return () => { cancelled = true }
   }, [clip])
+
+  // Fetch next best clip when user places current one in bank (chain farming)
+  useEffect(() => {
+    if (!placedInBank) return
+    let cancelled = false
+    fetch(`/api/trending/next-best?exclude=${encodeURIComponent(clipId)}`)
+      .then((r) => r.ok ? r.json() : null)
+      .then((j) => { if (!cancelled && j?.data) setNextBestClip(j.data) })
+      .catch(() => { /* silent */ })
+    return () => { cancelled = true }
+  }, [placedInBank, clipId])
 
 
   const scores = useMemo(() => {
@@ -1339,6 +1351,52 @@ export default function EnhancePage() {
                     </button>
                   )}
 
+                  {/* CHAIN FARMING: Next best clip card — shown after banking */}
+                  {placedInBank && (
+                    nextBestClip ? (
+                      <button
+                        onClick={() => {
+                          track('chain_farm_next_clip', { from_clip: clipId, to_clip: nextBestClip.id })
+                          router.push(`/dashboard/enhance/${nextBestClip.id}`)
+                        }}
+                        className="group w-full rounded-xl border border-amber-500/40 bg-amber-500/8 hover:bg-amber-500/15 hover:border-amber-500/60 p-3 text-left transition-all"
+                        style={{ animation: 'stepFade 0.4s ease-out' }}
+                      >
+                        <div className="flex items-center gap-3">
+                          {nextBestClip.thumbnail_url && (
+                            <img
+                              src={nextBestClip.thumbnail_url}
+                              alt=""
+                              className="w-14 h-10 rounded-md object-cover shrink-0 border border-white/10"
+                            />
+                          )}
+                          <div className="flex-1 min-w-0">
+                            <span className="text-[9px] font-bold uppercase tracking-wider text-amber-400/80 block mb-0.5">Next best clip</span>
+                            <span className="text-xs font-semibold text-foreground block truncate">
+                              {nextBestClip.title || 'Untitled clip'}
+                            </span>
+                            <span className="text-[10px] text-muted-foreground">
+                              {nextBestClip.velocity_score != null && `Score ${Math.round(nextBestClip.velocity_score)}`}
+                              {nextBestClip.tier && ` · ${nextBestClip.tier.replace('_', ' ')}`}
+                            </span>
+                          </div>
+                          <span className="text-amber-400 text-xs font-bold whitespace-nowrap group-hover:translate-x-0.5 transition-transform">
+                            <Zap className="h-3.5 w-3.5 inline mr-0.5" />
+                            Enhance →
+                          </span>
+                        </div>
+                      </button>
+                    ) : (
+                      <Link
+                        href="/dashboard"
+                        className="inline-flex items-center justify-center gap-2 w-full h-10 rounded-lg border border-amber-500/30 bg-amber-500/5 text-amber-400 hover:bg-amber-500/10 text-xs font-bold transition-all"
+                      >
+                        <Zap className="h-3.5 w-3.5" />
+                        Find your next clip
+                      </Link>
+                    )
+                  )}
+
                   {/* SECONDARY: Publish now — soft/outline amber */}
                   <button
                     onClick={() => setShowPublishDialog(true)}
@@ -1375,6 +1433,17 @@ export default function EnhancePage() {
                       <Gift className="h-3.5 w-3.5" />
                       Invite a friend — you both get +3 clips
                     </button>
+                  )}
+
+                  {/* Back to Browse — discrete link for chain farming alternative */}
+                  {placedInBank && (
+                    <Link
+                      href="/dashboard"
+                      className="inline-flex items-center justify-center gap-1.5 w-full h-8 text-[11px] text-zinc-500 hover:text-zinc-300 transition-colors"
+                    >
+                      <ChevronLeft className="h-3 w-3" />
+                      Back to Browse
+                    </Link>
                   )}
 
                   {/* Reset */}
