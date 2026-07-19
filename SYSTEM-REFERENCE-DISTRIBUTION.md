@@ -209,16 +209,21 @@ Absolute, `bottom: -185px` from brain wrap (15px plus proche que la version init
 ### Connector line (brain → panel)
 ```css
 .dist-core-connector-line {
-  bottom: -10px;
-  height: 140px;   /* tall enough to bridge brain SVG bottom to panel top */
+  bottom: -5px;
+  height: 80px;   /* bridges from ~75px above container bottom to panel top (5px below) */
   background-image: repeating-linear-gradient(to bottom, #38BDF8 0-8px, transparent 8-20px);
   animation: dist-connector-flow 1.4s linear (background-position scroll);
-  box-shadow: 0 0 6px rgba(56,189,248,0.55);
 }
-.dist-core-connector-line::before/::after { /* 6px cyan dots on each end */ }
+.dist-core-connector-line::after { bottom: -5px; /* aligns with panel port */ }
 ```
 - OFF state : gradient gray, no animation
 - Visually bridges the full gap between brain bottom and CLIP FARM panel top
+
+### CLIP FARM panel positioning
+- **Top-anchored** : `top: calc(100% + 5px)` — content grows DOWNWARD, never into the brain
+- **Fixed footprint** : `.dist-core-panel-head { min-height: 48px }` reserves hint space in ON mode,
+  `.pill-label { white-space: nowrap }` prevents wrap → zero layout shift ON↔OFF
+- Panel port (::before top:-5px) sits at container bottom, receives the connector line
 
 ### Funnel lines (panel → Clip Bank)
 ```

@@ -3305,6 +3305,7 @@
   gap: 5px;
   position: relative;
   width: 100%;
+  min-height: 48px; /* Reserve space for hint text (PAUSED) so ON↔OFF has zero layout shift */
 }
 /* Top "active rail" — thin cyan glow segment above the title (~65% width).
    Signals "powered on / energy entering" without lighting the whole border. */
@@ -3353,6 +3354,7 @@
   letter-spacing: .14em;
   text-transform: uppercase;
   color: #cbd5e1;
+  white-space: nowrap;
 }
 .dist-core-pill .pill-state {
   font-size: 11px;
@@ -3542,16 +3544,15 @@
 
 
 /* Connector line from brain to panel — animated dashes (matches platform flow lines) */
-/* Anchored from the BOTTOM of the brain (top of the line below the wolf) DOWN to the TOP of the panel */
-/* Panel sits at bottom: -185px from .dist-core-wrap, so connector spans -55px to -185px (130px tall) */
-/* z-index: 1 keeps it BEHIND the brain SVG (which has no explicit z-index = auto) but above .dist-map-svg (0) */
+/* Spans from inside the brain (~75px above container bottom) down to the panel top (5px below container). */
+/* z-index: 1 keeps it BEHIND the panel (z:5) but above .dist-map-svg (0) */
 .dist-core-connector-line {
   position: absolute;
-  bottom: -55px;
+  bottom: -5px;
   left: 50%;
   transform: translateX(-50%);
   width: 2px;
-  height: 130px;
+  height: 80px;
   /* Repeating dashes that flow downward via background-position animation */
   background-image: repeating-linear-gradient(
     to bottom,
@@ -3584,7 +3585,7 @@
 }
 /* Top dot hidden — line emerges naturally from below the brain, no floating dot in the brain area */
 .dist-core-connector-line::before { display: none; }
-.dist-core-connector-line::after { bottom: -4px; }
+.dist-core-connector-line::after { bottom: -5px; } /* aligns with panel port (::before top:-5px) */
 @keyframes dist-connector-flow {
   from { background-position: 0 0; }
   to { background-position: 0 20px; }
@@ -3608,12 +3609,11 @@
 }
 
 /* Core panel (CLIP FARM box) — premium command console aesthetic */
-/* Pushed further below the brain (-235 vs -185) so the box no longer overlaps the
-   brain outer ring. Static height (no breathing animation that would change perceived size).
-   Background = dark glass + radial cyan glow from top-center (energy descending from brain). */
+/* TOP-ANCHORED so extra content (hint text in PAUSED, button wrap) grows DOWNWARD,
+   never upward into the brain. Panel top is fixed 5px below the container bottom. */
 .dist-core-panel {
   position: absolute;
-  bottom: -235px;
+  top: calc(100% + 5px);
   left: 50%;
   transform: translateX(-50%);
   z-index: 5;
