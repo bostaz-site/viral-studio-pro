@@ -255,6 +255,9 @@ Absolute, `bottom: -185px` from brain wrap (15px plus proche que la version init
 
 ### CLIP FARM panel positioning
 - **Top-anchored** : `top: calc(100% + 5px)` — content grows DOWNWARD, never into the brain
+- **Clearance reserved** : `.dist-core-wrap` uses `padding-bottom: var(--core-panel-clearance)` (320px)
+  so the absolutely-positioned panel pushes the Clip Bank section down instead of overlapping it.
+  `height` changed to `min-height: 340px` + `box-sizing: content-box` so the padding actually extends the box.
 - **Fixed footprint** : `.dist-core-panel-head { min-height: 48px }` reserves hint space in ON mode,
   `.pill-label { white-space: nowrap }` prevents wrap → zero layout shift ON↔OFF
 - Panel port (::before top:-5px) sits at container bottom, receives the connector line
