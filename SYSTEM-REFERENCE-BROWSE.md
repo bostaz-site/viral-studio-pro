@@ -63,16 +63,19 @@
 10. Error card (si erreur fetch)
 11. **TOP PICK** — Royal compact card (`TopPickCard`), ~130px high, max-w-[680px]:
     - **Criteria**: `feed_category` in (early_gem, hot_now) + `velocity_score >= 75` + clip < 12h old
-    - Layout: thumbnail 150x96 | chip + title + meta + insight | score 34px gold gradient + "Steal this clip →" CTA
+    - Layout: thumbnail 150x96 | chip + title + meta + insight | score 46px gold gradient + "Steal this clip →" CTA
     - **Legendary frame** (reuses `.leg-frame` / `.leg-frame-inner-border` / `.leg-frame-inner-gold`
       from rank-cards.css with `.tp-frame-full` full-radius variant)
-    - **Ornaments**: GoldCrown SVG (64x46, centered top -58%), 4x TopPickGem SVG (24x28, corners)
+    - **Ornaments**: GoldCrown SVG (64x46, faceted like gems — triangular kite prongs + faceted band,
+      same tp-gc*/tp-gp* gradients), 4x TopPickGem SVG (24x28, corners)
+    - **Score**: 46px, gold gradient, count-up 0→value in 800ms on mount, light sweep animation
+      every 6s (tpScoreSweep, background-position on enlarged gradient). No "VIRAL SCORE" label.
+      Hover: scale(1.04). THE only rest animation on the card.
     - **Hover sequence** (one-shot ~700ms, NOT infinite): gems glow 900ms → crown shine 700ms →
       score flash 400ms (180ms delay) → card translateY(-2px). Calm after.
     - Chip: discrete (#FDE68A text, rgba(245,158,11,.10) bg, amber border), NOT solid fill
-    - Insight: grey #94a3b8 text, flame icon in #F59E0B
-    - Score: legendary gradient (#FFF8E1 → #F5D478 → #DAA520 → #B8860B), "VIRAL SCORE" label #8a6d3b
-    - prefers-reduced-motion: all animations disabled
+    - Insight: grey text, flame icon in #F59E0B. Never duplicated with meta line.
+    - prefers-reduced-motion: all animations disabled (score shows value directly)
     - Mobile (<540px): stacks vertically (thumb full-width h150, score+CTA inline)
     - Not shown on Saved tab or when no clip meets criteria
 12. Content area (all clips in grid — top pick also appears in grid):
