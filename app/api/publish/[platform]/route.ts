@@ -388,7 +388,7 @@ async function publishToTikTok(
     // Uses creator-selected privacy, interaction toggles, and commercial content
     // as required by TikTok Content Sharing Developer Guidelines.
     const postInfo: Record<string, unknown> = {
-      title: caption.slice(0, 150),
+      title: caption.slice(0, 2200),
       privacy_level: tiktokOptions.privacy_level,
       disable_comment: tiktokOptions.disable_comment,
       disable_duet: tiktokOptions.disable_duet,

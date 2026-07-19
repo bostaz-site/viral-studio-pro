@@ -515,7 +515,7 @@ return `M ${sx} ${sy} C ${c1x} ${c1y}, ${c2x} ${c2y}, ${ex} ${ey}`
 ### Platform constraints (enforced server-side)
 | Platform | Caption | Hashtags | Title | Description | Tags |
 |---|---|---|---|---|---|
-| TikTok | <= 150 chars | 8 | — | — | — |
+| TikTok | <= 300 chars (UI) / 2200 (API) | 8 | — | — | — |
 | Instagram | <= 220 chars | 12 | — | — | — |
 | YouTube Shorts | — | — | <= 60 chars | <= 200 chars | 5 |
 
@@ -1376,7 +1376,7 @@ Le dialog "Post to TikTok" contient dans cet ordre :
 
 1. **Nickname TikTok** du createur connecte (avatar + @username) — depuis `creator_info`
 2. **Preview video** — thumbnail/player de la video a poster
-3. **Champ Title** — editable, PAS pre-rempli avec watermark/promo, max 150 chars
+3. **Champ Caption** — textarea auto-grow, editable, PAS pre-rempli avec watermark/promo, max 300 chars UI (API accepte 2200)
 4. **Dropdown Privacy** — options depuis `creator_info.privacy_level_options`, placeholder "Select privacy", PAS de valeur par defaut, selection manuelle obligatoire
 5. **Toggles Interaction** — Comment/Duet/Stitch :
    - OFF par defaut (selection manuelle obligatoire)

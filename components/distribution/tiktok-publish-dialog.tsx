@@ -11,7 +11,6 @@ import {
 } from 'lucide-react'
 import { WolfLoader } from '@/components/ui/wolf-loader'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { Dialog } from '@/components/ui/dialog'
 import type {
   TikTokCreatorInfo,
@@ -485,22 +484,28 @@ export function TikTokPublishDialog({
               </div>
             )}
 
-            {/* 3. Title */}
+            {/* 3. Caption */}
             <div>
               <label htmlFor="tiktok-title" className="text-sm font-medium text-foreground mb-1.5 block">
-                Title
+                Caption
               </label>
-              <Input
+              <textarea
                 id="tiktok-title"
                 value={title}
-                onChange={(e) => setTitle(e.target.value)}
+                onChange={(e) => setTitle(e.target.value.slice(0, 300))}
                 placeholder="Describe your video..."
-                maxLength={150}
+                rows={3}
                 disabled={isPublishing}
+                className="w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm text-foreground resize-none focus:outline-none focus:ring-2 focus:ring-primary/50 disabled:opacity-50"
               />
-              <p className="text-xs text-muted-foreground mt-1 text-right">
-                {title.length} / 150
-              </p>
+              <div className="flex items-center justify-between mt-1">
+                <p className="text-[10.5px] text-slate-500">
+                  Hook court + 3-5 hashtags niche (#streamer #clips) — avoid #fyp
+                </p>
+                <p className="text-xs text-muted-foreground shrink-0">
+                  {title.length} / 300
+                </p>
+              </div>
             </div>
 
             {/* 4. Privacy dropdown — NO DEFAULT */}
