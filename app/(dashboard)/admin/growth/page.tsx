@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { Mail, Gift, Users, TrendingUp, AlertCircle, Crown, ShieldCheck, X } from 'lucide-react'
+import { ViralAnimalLogo } from '@/components/brand/viral-animal-logo'
 import { WolfLoader } from '@/components/ui/wolf-loader'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -383,7 +384,7 @@ function PackAccountsSection() {
           <div className="divide-y divide-border/40">
             {accounts.map((a) => (
               <div key={a.id} className="flex items-center gap-3 px-5 py-2.5">
-                <span className="text-sm">🐺</span>
+                <ViralAnimalLogo iconOnly size={16} />
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-foreground truncate">{a.full_name || a.email}</p>
                   <p className="text-xs text-muted-foreground truncate">{a.email}{a.comp_note && ` — ${a.comp_note}`}</p>

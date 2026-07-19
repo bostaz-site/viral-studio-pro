@@ -235,6 +235,8 @@ Glow opacity capped at `.22` at rest, `.30` on hover. Reduced ~30% from previous
 
 ## 7b. WolfLoader (loader signature)
 
+> **Logo master + finitions (Or Forge, Predator, favicon)** : voir `SYSTEM-REFERENCE-BRAND-LOGO.md`
+
 Le loader signature de Viral Animal : le loup du logo trace par une lumiere. Composant : `components/ui/wolf-loader.tsx`.
 
 ### 3 Variants

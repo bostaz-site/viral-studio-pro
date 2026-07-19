@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { User, CreditCard, CheckCircle2, AlertCircle, Bell, Activity, Film, Clock, Gift, Copy, Check, Share2, Settings as SettingsIcon } from 'lucide-react'
 import { WolfLoader } from '@/components/ui/wolf-loader'
+import { ViralAnimalLogo } from '@/components/brand/viral-animal-logo'
 import { PageHeader } from '@/components/dashboard/page-header'
 import { DangerZone } from '@/components/settings/danger-zone'
 import { Button } from '@/components/ui/button'
@@ -494,7 +495,7 @@ function SettingsPageInner() {
         {isComp ? (
           <Card className="border-amber-500/20 bg-amber-500/5">
             <CardContent className="p-5 flex items-center gap-4">
-              <span className="text-2xl">🐺</span>
+              <ViralAnimalLogo iconOnly size={28} />
               <div>
                 <p className="text-sm font-bold text-foreground">Pack member — full Pro access, courtesy of the wolf.</p>
                 <p className="text-xs text-muted-foreground mt-0.5">Break things and tell us.</p>

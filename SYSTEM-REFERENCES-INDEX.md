@@ -49,7 +49,8 @@ Si un système n'a **pas** de reference → c'est un bug. Créer le fichier en m
 │   └── SYSTEM-REFERENCE-PARTNER-PORTAL.md
 │
 ├── 🎨 DESIGN / UI
-│   └── SYSTEM-REFERENCE-DESIGN-SYSTEM.md
+│   ├── SYSTEM-REFERENCE-DESIGN-SYSTEM.md
+│   └── SYSTEM-REFERENCE-BRAND-LOGO.md
 │
 └── 🚀 V3 ACQUISITION
     ├── SYSTEM-REFERENCE-ADMIN-SCRAPER.md             ← V3-1A ✅ MERGED

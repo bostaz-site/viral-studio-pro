@@ -3841,8 +3841,15 @@
 .state-publishing .dist-fissure-spark { animation: fissure-spark 2.4s ease-in-out infinite; }
 
 /* Success state — single amber pulse 900ms then back to running */
+/* Success dopamine: wolf gets rim cyan flash + metal brightening for ~700ms */
+@keyframes wolf-dopamine {
+  0% { filter: url(#wolf-glow); }
+  30% { filter: url(#wolf-glow) drop-shadow(0 0 8px rgba(103,232,249,.7)) drop-shadow(0 0 20px rgba(103,232,249,.35)) brightness(1.2); }
+  70% { filter: url(#wolf-glow) drop-shadow(0 0 12px rgba(251,146,60,.8)) brightness(1.1); }
+  100% { filter: url(#wolf-glow); }
+}
 .state-success .dist-brain-wolf {
-  animation: wolf-posting .9s ease-in-out 1;
+  animation: wolf-dopamine .7s ease-in-out 1;
 }
 
 /* Paused rest-node — single amber breathing dot at brain top */
