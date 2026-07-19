@@ -166,7 +166,7 @@ export function ConnectAccounts() {
                       <p className="text-sm font-semibold text-foreground">
                         {meta.displayName}
                       </p>
-                      {platform === 'instagram' && (
+                      {(platform === 'youtube' || platform === 'instagram') && (
                         <Badge
                           variant="outline"
                           className="text-[10px] px-1.5 py-0 text-amber-400 border-amber-400/40"
@@ -220,9 +220,10 @@ export function ConnectAccounts() {
                       variant="outline"
                       className="h-8 gap-1.5"
                       onClick={() => handleConnect(platform)}
+                      disabled={platform === 'youtube' || platform === 'instagram'}
                     >
                       <ExternalLink className="h-3.5 w-3.5" />
-                      Connect
+                      {platform === 'youtube' || platform === 'instagram' ? 'Coming soon' : 'Connect'}
                     </Button>
                   )}
                 </div>

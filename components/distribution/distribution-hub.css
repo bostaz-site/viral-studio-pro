@@ -3900,7 +3900,7 @@
 }
 
 /* ═══ PERFORMANCE — containment + will-change on animated elements ═══ */
-.dist-core-wrap { isolation: isolate; contain: paint; }
+.dist-core-wrap { isolation: isolate; }
 .dist-core-outer-ring { will-change: transform; }
 .dist-core-connector-line { will-change: background-position; }
 

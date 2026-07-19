@@ -1169,9 +1169,9 @@ La Smart Queue ne schedule que vers les plateformes reellement connectees ET act
 
 | Plateforme | Flag | Defaut | Status |
 |---|---|---|---|
-| TikTok | (toujours actif) | — | APPROVED |
-| YouTube | (OAuth fonctionnel) | — | APPROVED |
-| Instagram | `NEXT_PUBLIC_INSTAGRAM_ENABLED` | `false` | En review Meta |
+| TikTok | (toujours actif) | — | APPROVED — seule plateforme active au launch |
+| YouTube | (OAuth fonctionnel, UI disabled) | `supported: false` | Coming soon (chip SOON + connect disabled) |
+| Instagram | `NEXT_PUBLIC_INSTAGRAM_ENABLED` | `false` | Coming soon (chip SOON + connect disabled) |
 | Facebook | — | `false` | Coming soon |
 
 ### Cron scheduling

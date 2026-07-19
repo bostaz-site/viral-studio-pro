@@ -237,8 +237,9 @@ export function UnifiedPublishDialog({
               {/* Platform rows */}
               <div className="space-y-2.5">
                 {PLATFORMS.map(({ id, name, icon, colors }) => {
+                  const isComingSoon = id === 'youtube' || id === 'instagram'
                   const state = platforms[id]
-                  const isSelected = state.connected && state.selected
+                  const isSelected = !isComingSoon && state.connected && state.selected
                   const statusIcon = state.status === 'publishing'
                     ? <WolfLoader variant="spinner" size={16} mode="amber" />
                     : state.status === 'success'
@@ -283,7 +284,9 @@ export function UnifiedPublishDialog({
                             {icon}
                             <span className="text-sm font-semibold text-foreground">{name}</span>
                           </div>
-                          {state.connected ? (
+                          {isComingSoon ? (
+                            <p className="text-xs text-amber-400/70 mt-0.5">Coming soon</p>
+                          ) : state.connected ? (
                             <p className="text-xs text-muted-foreground mt-0.5 truncate">
                               {state.status === 'success'
                                 ? 'Published!'
@@ -301,7 +304,9 @@ export function UnifiedPublishDialog({
 
                         {/* Action button */}
                         <div className="shrink-0" onClick={e => e.stopPropagation()}>
-                          {!state.connected ? (
+                          {isComingSoon ? (
+                            <span className="text-[10px] font-semibold text-amber-400/60 uppercase tracking-wider">Soon</span>
+                          ) : !state.connected ? (
                             <Button
                               variant="outline"
                               size="sm"

@@ -87,7 +87,7 @@ const IG_ENABLED = process.env.NEXT_PUBLIC_INSTAGRAM_ENABLED === 'true'
 
 const PLATFORMS: PlatformConfig[] = [
   { id: 'tiktok', label: 'TikTok', icon: '♪', gradient: 'from-zinc-900 to-zinc-700', supported: true, optimalHours: ['7 PM', '9 PM', '11 AM'] },
-  { id: 'youtube', label: 'YouTube Shorts', icon: '▶', gradient: 'from-red-600 to-red-500', supported: true, optimalHours: ['12 PM', '3 PM', '6 PM'] },
+  { id: 'youtube', label: 'YouTube Shorts', icon: '▶', gradient: 'from-red-600 to-red-500', supported: false, optimalHours: ['12 PM', '3 PM', '6 PM'] },
   { id: 'instagram', label: 'Instagram Reels', icon: '◎', gradient: 'from-pink-600 to-purple-600', supported: IG_ENABLED, optimalHours: ['11 AM', '1 PM', '7 PM'] },
   { id: 'facebook', label: 'Facebook Reels', icon: 'f', gradient: 'from-blue-600 to-blue-500', supported: false, optimalHours: ['1 PM', '4 PM', '8 PM'] },
   { id: 'x', label: 'X / Twitter', icon: '𝕏', gradient: 'from-zinc-800 to-zinc-600', supported: false, optimalHours: ['9 AM', '12 PM', '5 PM'] },

@@ -230,6 +230,7 @@ Glow opacity capped at `.22` at rest, `.30` on hover. Reduced ~30% from previous
 - `prefers-reduced-motion: reduce` respecte — desactiver toutes les animations non-essentielles
 - Pas de tilt/parallax au mobile (performance + nausee)
 - Distribution hub blink animations = exception documentee (status indicators)
+- **INTERDIT `contain: paint`** sur les wrappers contenant du glow/blur qui deborde (clippe aux bounds = carre visible)
 
 ---
 
