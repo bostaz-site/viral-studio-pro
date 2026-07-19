@@ -19,7 +19,7 @@ export const GET = withAuth(async (req, user) => {
 
   const admin = createAdminClient()
 
-  const [savedResult, remixResult, profileResult] = await Promise.allSettled([
+  const [savedResult, remixResult, profileResult, usedClipsResult] = await Promise.allSettled([
     admin
       .from('saved_clips')
       .select('clip_id')
@@ -37,6 +37,13 @@ export const GET = withAuth(async (req, user) => {
       .select('plan, monthly_videos_used, bonus_videos')
       .eq('id', user.id)
       .single(),
+
+    // All clip IDs this user has ever rendered (for Top Pick exclusion)
+    admin
+      .from('render_jobs')
+      .select('clip_id')
+      .eq('user_id', user.id)
+      .not('clip_id', 'is', null),
   ])
 
   const savedClipIds = savedResult.status === 'fulfilled'
@@ -51,8 +58,13 @@ export const GET = withAuth(async (req, user) => {
     ? profileResult.value.data
     : null
 
+  const usedClipIds = usedClipsResult.status === 'fulfilled'
+    ? [...new Set((usedClipsResult.value.data ?? []).map((r: { clip_id: string }) => r.clip_id).filter(Boolean))]
+    : []
+
   return jsonResponse({
     saved_clip_ids: savedClipIds as string[],
+    used_clip_ids: usedClipIds as string[],
     recent_remixes: recentRemixes as Array<{
       id: string
       clip_id: string

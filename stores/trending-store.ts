@@ -129,6 +129,7 @@ export interface BootstrapRemix {
 
 interface BootstrapResponse {
   saved_clip_ids: string[]
+  used_clip_ids: string[]
   recent_remixes: BootstrapRemix[]
   profile: { plan: string; monthly_videos_used: number; bonus_videos: number } | null
 }
@@ -185,6 +186,9 @@ interface TrendingState {
   savedClipIds: Set<string>
   savedClips: SavedClip[]
   savedTrendingClips: TrendingClip[]
+
+  // Used clips (rendered/published — for Top Pick exclusion)
+  usedClipIds: Set<string>
 
   // Stream grouping
   expandedGroups: Set<string>
@@ -243,6 +247,7 @@ export const useTrendingStore = create<TrendingState>((set, get) => ({
   savedClipIds: new Set(),
   savedClips: [],
   savedTrendingClips: [],
+  usedClipIds: new Set(),
   expandedGroups: new Set(),
   userPlan: null,
   monthlyVideosUsed: 0,
@@ -474,9 +479,10 @@ export const useTrendingStore = create<TrendingState>((set, get) => ({
       const json = await res.json() as { data: BootstrapResponse | null; error: string | null }
       if (json.error || !json.data) return
 
-      const { saved_clip_ids, recent_remixes, profile } = json.data
+      const { saved_clip_ids, used_clip_ids, recent_remixes, profile } = json.data
       set({
         savedClipIds: new Set(saved_clip_ids),
+        usedClipIds: new Set(used_clip_ids),
         recentRemixes: recent_remixes,
         userPlan: profile?.plan ?? null,
         monthlyVideosUsed: profile?.monthly_videos_used ?? 0,

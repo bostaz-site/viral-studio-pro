@@ -62,7 +62,14 @@
 9. TrendingFilters — compact bar
 10. Error card (si erreur fetch)
 11. **TOP PICK** — Royal compact card (`TopPickCard`), ~130px high, max-w-[680px]:
-    - **Criteria**: `feed_category` in (early_gem, hot_now) + `velocity_score >= 75` + clip < 12h old
+    - **Selection**: Live on every render — highest velocity_score among eligible clips.
+      No cache, no pin. Recalculated from `filteredClips` via `useMemo`.
+    - **Criteria** (all must pass):
+      1. `velocity_score >= 75`
+      2. `clip_created_at < 12h`
+      3. "Exploding": `feed_category IN (early_gem, hot_now)` OR sub-score match
+         (`early_signal_score >= 60 && saturation_score <= 30` OR `momentum_score >= 70`)
+      4. NOT in `usedClipIds` (clips the user already rendered/published, from bootstrap)
     - Layout: thumbnail 150x96 | chip + title + meta + insight | score 46px gold gradient + "Steal this clip →" CTA
     - **Legendary frame** (reuses `.leg-frame` / `.leg-frame-inner-border` / `.leg-frame-inner-gold`
       from rank-cards.css with `.tp-frame-full` full-radius variant)

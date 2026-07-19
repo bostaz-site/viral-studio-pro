@@ -392,20 +392,40 @@ export default function DashboardPage() {
   const remaining = totalCount - filteredClips.length
 
   // Top Pick: best clip meeting quality criteria (early_gem/hot_now, score>=75, <12h old)
+  const usedClipIds = useTrendingStore(s => s.usedClipIds)
   const topPickClip = useMemo(() => {
     if (filters.feed === 'saved') return null
     const TWELVE_HOURS = 12 * 60 * 60 * 1000
-    return filteredClips.find((c) => {
+    const now = Date.now()
+
+    // Filter eligible clips, then pick the highest velocity_score
+    const eligible = filteredClips.filter((c) => {
       const score = c.velocity_score ?? 0
       if (score < 75) return false
-      const cat = c.feed_category
-      if (cat !== 'early_gem' && cat !== 'hot_now') return false
+      // Exclude clips the user already rendered/published
+      if (usedClipIds.has(c.id)) return false
+      // Must be < 12h old
       const created = c.clip_created_at ?? c.scraped_at
       if (!created) return false
-      if (Date.now() - new Date(created).getTime() > TWELVE_HOURS) return false
-      return true
-    }) ?? null
-  }, [filteredClips, filters.feed])
+      if (now - new Date(created).getTime() > TWELVE_HOURS) return false
+      // Must be "exploding": DB feed_category OR real-time sub-score match
+      const cat = c.feed_category
+      if (cat === 'early_gem' || cat === 'hot_now') return true
+      // Fallback: check sub-scores (same logic as verdict engine "Exploding")
+      const early = c.early_signal_score ?? 0
+      const sat = c.saturation_score ?? 0
+      const mom = c.momentum_score ?? 0
+      if (early >= 60 && sat <= 30) return true
+      if (mom >= 70) return true
+      return false
+    })
+
+    if (eligible.length === 0) return null
+    // Already sorted by velocity_score DESC from filterAndSortClips, but be explicit
+    return eligible.reduce((best, c) =>
+      (c.velocity_score ?? 0) > (best.velocity_score ?? 0) ? c : best
+    )
+  }, [filteredClips, filters.feed, usedClipIds])
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
