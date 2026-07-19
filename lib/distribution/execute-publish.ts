@@ -132,15 +132,18 @@ export async function executePublish(params: ExecutePublishParams): Promise<Exec
     const postId = initData.data?.publish_id ?? null
 
     // 6. Log to published_posts (same as manual publish)
+    // MUST be awaited — in serverless (Netlify), fire-and-forget promises
+    // are killed when the response is sent, causing silent data loss.
     const publishedAt = new Date().toISOString()
     let niche: string | null = null
     let algoScore: number | null = null
     let sourcePlatform: string | null = null
     let sourceStreamer: string | null = null
+    let durationFromSource: number | null = null
 
     const { data: trendingClip } = await admin
       .from('trending_clips')
-      .select('platform, author_name, niche, velocity_score')
+      .select('platform, author_name, niche, velocity_score, duration_seconds')
       .eq('id', clipId)
       .single()
 
@@ -149,6 +152,7 @@ export async function executePublish(params: ExecutePublishParams): Promise<Exec
       sourceStreamer = trendingClip.author_name
       niche = trendingClip.niche
       algoScore = trendingClip.velocity_score
+      durationFromSource = trendingClip.duration_seconds
     }
 
     const { data: socialAccount } = await admin
@@ -158,7 +162,7 @@ export async function executePublish(params: ExecutePublishParams): Promise<Exec
       .eq('platform', platform)
       .single()
 
-    void admin.from('published_posts').insert({
+    const { error: insertError } = await admin.from('published_posts').insert({
       user_id: userId,
       clip_id: clipId,
       render_job_id: renderJob?.id ?? null,
@@ -172,7 +176,12 @@ export async function executePublish(params: ExecutePublishParams): Promise<Exec
       source_platform: sourcePlatform,
       source_streamer: sourceStreamer,
       niche,
+      duration_seconds: durationFromSource,
     })
+
+    if (insertError) {
+      logger.error(`[execute-publish] published_posts insert failed: ${insertError.message}`)
+    }
 
     return { success: true, postId }
   } catch (err) {

@@ -1055,7 +1055,9 @@ published_posts (Supabase)
    → SELECT scheduled_publications WHERE status='scheduled' AND scheduled_at <= now() LIMIT 5
    → Lock optimiste : UPDATE status='publishing' WHERE status='scheduled' (0 rows = skip)
    → executePublish() : token refresh, signed URL fraiche, TikTok Direct Post
-   → Succes → status='published', INSERT published_posts
+   → Succes → status='published', AWAIT INSERT published_posts (ticker + refresh-post-stats)
+   → L'insert published_posts est AWAITED (pas fire-and-forget) pour garantir
+     la completion en serverless (Netlify). Enrichi avec trending_clips metadata.
    → Echec → retry_count++ (max 2, +10min delay) ou status='failed'
    → Notification Discord
 
