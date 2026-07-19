@@ -228,6 +228,7 @@ Glow opacity capped at `.22` at rest, `.30` on hover. Reduced ~30% from previous
 - Aucune animation permanente sauf skeleton/loading et rank rares (shimmer legendary/master)
 - Max 1 animation continue visible par viewport
 - `prefers-reduced-motion: reduce` respecte — desactiver toutes les animations non-essentielles
+- **REGLE : reduced-motion ne bloque JAMAIS une action utilisateur** (lecture video, navigation, toggles). Uniquement le decoratif (shine, float, sparkles, comete, pulse).
 - Pas de tilt/parallax au mobile (performance + nausee)
 - Distribution hub blink animations = exception documentee (status indicators)
 - **INTERDIT `contain: paint`** sur les wrappers contenant du glow/blur qui deborde (clippe aux bounds = carre visible)

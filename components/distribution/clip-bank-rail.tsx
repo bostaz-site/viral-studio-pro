@@ -68,6 +68,7 @@ export function ClipBankRail({
   }, [highlightClipId, visibleClips])
 
   // Click-to-play: toggle video playback on card/play button click
+  // NOTE: prefers-reduced-motion must NEVER block user-initiated playback — only decorative animations.
   const handlePlayClick = async (clipId: string, e: React.MouseEvent) => {
     e.stopPropagation()
     // If already playing this clip → stop
@@ -77,11 +78,13 @@ export function ClipBankRail({
       if (videoRef.current) { videoRef.current.pause(); videoRef.current.currentTime = 0 }
       return
     }
-    // Respect reduced motion
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
 
     const clip = visibleClips.find(c => c.id === clipId)
-    if (!clip?.storagePath) return
+    if (!clip?.storagePath) {
+      console.warn('[clip-bank] no storagePath for', clipId)
+      setPlayError(clipId)
+      return
+    }
 
     setPlayingClipId(clipId)
     // Check cache
@@ -94,16 +97,39 @@ export function ClipBankRail({
     setVideoUrl(null)
     try {
       const supabase = createClient()
-      const { data } = await supabase.storage.from('clips').createSignedUrl(clip.storagePath, 3600)
+      const { data, error } = await supabase.storage.from('clips').createSignedUrl(clip.storagePath, 3600)
       if (data?.signedUrl) {
         videoCache.current.set(clipId, data.signedUrl)
         setVideoUrl(data.signedUrl)
+      } else {
+        // Fallback: try public URL (clips bucket has public read policy)
+        console.warn('[clip-bank] createSignedUrl failed, trying public URL:', error?.message)
+        const { data: pubData } = supabase.storage.from('clips').getPublicUrl(clip.storagePath)
+        if (pubData?.publicUrl) {
+          videoCache.current.set(clipId, pubData.publicUrl)
+          setVideoUrl(pubData.publicUrl)
+        } else {
+          console.warn('[clip-bank] public URL also failed for', clipId)
+          setPlayError(clipId)
+          setPlayingClipId(null)
+        }
       }
-    } catch {
-      // Silent — no video preview available
+    } catch (err) {
+      console.warn('[clip-bank] storage error for', clipId, err)
+      setPlayError(clipId)
+      setPlayingClipId(null)
     } finally {
       setVideoLoading(false)
     }
+  }
+
+  // Brief error indicator on the play button when video can't be loaded
+  const [playErrorId, setPlayErrorId] = useState<string | null>(null)
+  const playErrorTimer = useRef<NodeJS.Timeout | null>(null)
+  const setPlayError = (clipId: string) => {
+    setPlayErrorId(clipId)
+    if (playErrorTimer.current) clearTimeout(playErrorTimer.current)
+    playErrorTimer.current = setTimeout(() => setPlayErrorId(null), 2500)
   }
 
   return (
@@ -273,8 +299,13 @@ export function ClipBankRail({
                           </div>
                         )}
                         {playingClipId !== clip.id && (
-                          <div className="play-glyph" onClick={(e) => handlePlayClick(clip.id, e)} style={{ cursor: 'pointer' }}>
-                            <Play size={28} />
+                          <div
+                            className="play-glyph"
+                            onClick={(e) => handlePlayClick(clip.id, e)}
+                            style={{ cursor: 'pointer', opacity: playErrorId === clip.id ? 0.5 : undefined }}
+                            title={playErrorId === clip.id ? 'Video unavailable' : 'Play preview'}
+                          >
+                            {playErrorId === clip.id ? <X size={28} /> : <Play size={28} />}
                           </div>
                         )}
                       </>

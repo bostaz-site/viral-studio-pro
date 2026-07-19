@@ -771,9 +771,11 @@ const isReady         = !isBest && !isPriority && !isScheduled && !isDraftWithTh
 - Renders `<video autoPlay muted loop playsInline>` overlay on thumb area (object-fit: cover, 9:16 contained)
 - Re-click on video: pauses + returns to thumbnail
 - Loading state: WolfLoader spinner overlay
-- Respects `prefers-reduced-motion` (skipped if active)
+- **prefers-reduced-motion does NOT block playback** — user-initiated video play is never a decorative animation
+- Fallback chain: `createSignedUrl` → `getPublicUrl` (clips bucket has public read policy) → error state
+- Error state: play icon replaced by X for 2.5s, console.warn logged
+- If `storagePath` is null: console.warn + brief error indicator (X icon), no crash
 - Touch-device friendly (no hover dependency)
-- If `storagePath` is null (clip not yet rendered): play button does nothing (no crash)
 
 ### Quick Publish Button (Rocket)
 - Visible on hover: absolute **top-right** (shifted left of X button: `right: 36px; top: 8px;`), cyan Rocket icon (28x28px)
