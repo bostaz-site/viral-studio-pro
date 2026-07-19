@@ -7,6 +7,7 @@ import { rateLimit, RATE_LIMITS } from '@/lib/rate-limit'
 import { logger } from '@/lib/logger'
 import { isAuditMode } from '@/lib/feature-flags'
 import { isAdminUser } from '@/lib/admin/is-admin'
+import { MIN_CLIP_DURATION_SECONDS } from '@/lib/scoring/clip-scorer'
 
 const postSchema = z.object({
   external_url: z.string().url(),
@@ -135,6 +136,9 @@ export async function GET(req: NextRequest) {
 
     const admin = createAdminClient()
     let query = admin.from('trending_clips').select('*', { count: 'exact' })
+
+    // Exclude ultra-short clips (< 8s) — unusable for enhance pipeline
+    query = query.gte('duration_seconds', MIN_CLIP_DURATION_SECONDS)
 
     // Niche filter — supports comma-separated values (e.g. "irl,fps")
     if (niche) {

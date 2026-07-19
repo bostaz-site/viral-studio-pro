@@ -5,6 +5,7 @@ import { isAuditMode } from '@/lib/feature-flags'
 import { createClient } from '@/lib/supabase/server'
 import { isAdminUser } from '@/lib/admin/is-admin'
 import { logger } from '@/lib/logger'
+import { MIN_CLIP_DURATION_SECONDS } from '@/lib/scoring/clip-scorer'
 
 /**
  * GET /api/trending/counts — Lightweight endpoint returning clip counts per tab.
@@ -32,21 +33,28 @@ export async function GET(req: NextRequest) {
     // Run all count queries in parallel
     const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
 
+    const minDur = MIN_CLIP_DURATION_SECONDS
+
     const [explodingRes, provenRes, freshRes, allRes, legendaryRes] = await Promise.all([
-      // Exploding Now = early_gem + hot_now
+      // Exploding Now = early_gem + hot_now (excludes ultra-shorts)
       admin.from('trending_clips').select('id', { count: 'exact', head: true })
-        .in('feed_category', ['early_gem', 'hot_now']),
+        .in('feed_category', ['early_gem', 'hot_now'])
+        .gte('duration_seconds', minDur),
       // Proven Winners
       admin.from('trending_clips').select('id', { count: 'exact', head: true })
-        .eq('feed_category', 'proven'),
+        .eq('feed_category', 'proven')
+        .gte('duration_seconds', minDur),
       // Fresh Drops = clip_created_at within 24h
       admin.from('trending_clips').select('id', { count: 'exact', head: true })
-        .gte('clip_created_at', twentyFourHoursAgo),
+        .gte('clip_created_at', twentyFourHoursAgo)
+        .gte('duration_seconds', minDur),
       // All
-      admin.from('trending_clips').select('id', { count: 'exact', head: true }),
+      admin.from('trending_clips').select('id', { count: 'exact', head: true })
+        .gte('duration_seconds', minDur),
       // Legendary (velocity_score >= 80)
       admin.from('trending_clips').select('id', { count: 'exact', head: true })
-        .gte('velocity_score', 80),
+        .gte('velocity_score', 80)
+        .gte('duration_seconds', minDur),
     ])
 
     return NextResponse.json({

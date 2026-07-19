@@ -315,17 +315,30 @@ type FeedFilter = 'all' | 'hot_now' | 'early_gem' | 'proven' | 'recent' | 'saved
 
 5 tabs visibles. Default: `all` (All Clips, sorted by velocity score). **Server-side filtering per tab.**
 
+### Minimum clip duration — 8s floor
+
+`MIN_CLIP_DURATION_SECONDS = 8` (exported from `lib/scoring/clip-scorer.ts`).
+Applied at 3 levels:
+1. **Import**: `lib/twitch/fetch-streamer-clips.ts` and `lib/kick/fetch-kick-clips.ts` skip clips < 8s (never stored)
+2. **Feed queries**: `/api/trending` adds `.gte('duration_seconds', 8)` to every query
+3. **Counts**: `/api/trending/counts` applies the same filter to all 5 COUNT queries
+4. **Top Pick**: explicit `duration_seconds < 8` exclusion in the useMemo
+
+Rationale: clips < 8s are unusable (hook overlay ~2s + captions need reading time).
+Clips > 90s are NOT excluded (they get format_score=60 penalty but can be cut).
+
 | Tab | Label UI | Icon | Style | Server filter | Count source |
 |---|---|---|---|---|---|
-| `all` | All Clips | Compass | Primary (DEFAULT, 1st) | No filter | `/api/trending/counts` → all |
-| `hot_now` | Exploding Now | Flame | Primary | `feed_category IN ('early_gem','hot_now')` | `/api/trending/counts` → exploding |
-| `proven` | Proven Winners | Trophy | Primary | `feed_category = 'proven'` | `/api/trending/counts` → proven |
-| `recent` | Fresh Drops | Clock | Primary | `clip_created_at >= now - 24h` | `/api/trending/counts` → fresh |
+| `all` | All Clips | Compass | Primary (DEFAULT, 1st) | duration >= 8s | `/api/trending/counts` → all |
+| `hot_now` | Exploding Now | Flame | Primary | `feed_category IN ('early_gem','hot_now')` + duration >= 8s | `/api/trending/counts` → exploding |
+| `proven` | Proven Winners | Trophy | Primary | `feed_category = 'proven'` + duration >= 8s | `/api/trending/counts` → proven |
+| `recent` | Fresh Drops | Clock | Primary | `clip_created_at >= now - 24h` + duration >= 8s | `/api/trending/counts` → fresh |
 | `saved` | Saved | Bookmark | Normal | Client-side (savedClipIds) | savedClipIds.size |
 
 ### Tab count — Single source of truth
 
 - **`GET /api/trending/counts`** returns `{ exploding, proven, fresh, all, legendary }` via 5 parallel COUNT queries.
+- All counts include `duration_seconds >= 8` filter for consistency.
 - Called on mount + after every `fetchClips()`.
 - Tab badges, Daily Radar, and "Load more (N remaining)" all derive from these server counts.
 - "Exploding Now" tab auto-hidden when `tabCounts.exploding === 0`.

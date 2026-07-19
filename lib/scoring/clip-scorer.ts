@@ -3,6 +3,10 @@
  * 7 factors: momentum, authority, engagement, recency, early signal, format, saturation.
  */
 
+/** Minimum clip duration for the feed. Clips below this are unusable
+ *  (hook overlay ~2s + captions need content). Applied at import + feed queries. */
+export const MIN_CLIP_DURATION_SECONDS = 8
+
 export interface ClipScoreInput {
   view_count: number
   like_count: number

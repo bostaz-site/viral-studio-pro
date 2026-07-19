@@ -402,6 +402,8 @@ export default function DashboardPage() {
     const eligible = filteredClips.filter((c) => {
       const score = c.velocity_score ?? 0
       if (score < 75) return false
+      // Exclude ultra-short clips (< 8s)
+      if ((c.duration_seconds ?? 0) < 8) return false
       // Exclude clips the user already rendered/published
       if (usedClipIds.has(c.id)) return false
       // Must be < 12h old

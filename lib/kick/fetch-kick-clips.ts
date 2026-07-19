@@ -5,7 +5,7 @@
  */
 
 import { getKickClips } from '@/lib/kick/client'
-import { scoreClip } from '@/lib/scoring/clip-scorer'
+import { scoreClip, MIN_CLIP_DURATION_SECONDS } from '@/lib/scoring/clip-scorer'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@/lib/supabase/types'
 
@@ -103,6 +103,9 @@ export async function fetchAndScoreKickClips(
       const clips = Array.from(bestByTitle.values())
 
       for (const clip of clips) {
+        // Skip ultra-short clips — unusable for the enhance pipeline
+        if (clip.duration < MIN_CLIP_DURATION_SECONDS) continue
+
         const clipUrl = clip.clip_url || `https://kick.com/${streamer.kick_login}/clips/${clip.id}`
 
         const clipRow = {

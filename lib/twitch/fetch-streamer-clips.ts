@@ -11,7 +11,7 @@ import {
   getUsersByLogin,
   type TwitchClip,
 } from '@/lib/twitch/client'
-import { scoreClip } from '@/lib/scoring/clip-scorer'
+import { scoreClip, MIN_CLIP_DURATION_SECONDS } from '@/lib/scoring/clip-scorer'
 import { logger } from '@/lib/logger'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@/lib/supabase/types'
@@ -228,6 +228,9 @@ export async function fetchAndScoreStreamerClips(
       const clips = Array.from(bestByTitle.values())
 
       for (const clip of clips) {
+        // Skip ultra-short clips — unusable for the enhance pipeline
+        if (clip.duration < MIN_CLIP_DURATION_SECONDS) continue
+
         const clipRow = {
           external_url: clip.url,
           platform: 'twitch' as const,
