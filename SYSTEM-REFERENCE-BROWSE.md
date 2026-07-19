@@ -52,10 +52,10 @@
    - localStorage 'va-last-visit' (timestamp, updated on unmount)
    - Hidden on first-ever visit
    - Counts: clips where created_at > lastVisit; legendary = score >= 80
-8. Feed tabs (segmented control) — dynamic tab count:
+8. Feed tabs (segmented control) — dynamic tab count, left-to-right order:
+   - **All Clips** (Compass, count) — DEFAULT, first position
    - Exploding Now (Flame) — **AUTO-HIDDEN when 0 clips** (D1). Reappears with content.
-   - Proven Winners (Trophy, count) | Fresh Drops (Clock, count) |
-     All Clips (Compass, count, subtle) | Saved (Bookmark, count)
+   - Proven Winners (Trophy, count) | Fresh Drops (Clock, count) | Saved (Bookmark, count)
    - Smart fallback: if default tab has 0 → auto-switch + fallback note
    - Fallback note: only shown on tabs that triggered fallback, NOT on Saved/All (D2)
    - Fallback copy: "No fresh explosions yet. Radar checks every 15 min — proven winners loaded."
@@ -298,10 +298,10 @@ type FeedFilter = 'all' | 'hot_now' | 'early_gem' | 'proven' | 'recent' | 'saved
 
 | Tab | Label UI | Icon | Style | Server filter | Count source |
 |---|---|---|---|---|---|
+| `all` | All Clips | Compass | Primary (DEFAULT, 1st) | No filter | `/api/trending/counts` → all |
 | `hot_now` | Exploding Now | Flame | Primary | `feed_category IN ('early_gem','hot_now')` | `/api/trending/counts` → exploding |
 | `proven` | Proven Winners | Trophy | Primary | `feed_category = 'proven'` | `/api/trending/counts` → proven |
 | `recent` | Fresh Drops | Clock | Primary | `clip_created_at >= now - 24h` | `/api/trending/counts` → fresh |
-| `all` | All Clips | Compass | Subtle (dimmed) | No filter | `/api/trending/counts` → all |
 | `saved` | Saved | Bookmark | Normal | Client-side (savedClipIds) | savedClipIds.size |
 
 ### Tab count — Single source of truth

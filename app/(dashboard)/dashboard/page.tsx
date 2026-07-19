@@ -381,10 +381,10 @@ export default function DashboardPage() {
 
   // D1: Auto-hide "Exploding Now" tab when it has 0 clips
   const feedTabs: { key: FeedFilter; label: string; icon: typeof Flame; count?: number; subtle?: boolean; empty?: boolean }[] = [
+    { key: 'all', label: 'All Clips', icon: Compass, count: tabCountsDisplay.all },
     ...(tabCountsDisplay.hot_now > 0 ? [{ key: 'hot_now' as FeedFilter, label: 'Exploding Now', icon: Flame, count: tabCountsDisplay.hot_now }] : []),
     { key: 'proven', label: 'Proven Winners', icon: Trophy, count: tabCountsDisplay.proven, empty: tabCountsDisplay.proven === 0 && tabCountsDisplay.all > 0 },
     { key: 'recent', label: 'Fresh Drops', icon: Clock, count: tabCountsDisplay.recent, empty: tabCountsDisplay.recent === 0 && tabCountsDisplay.all > 0 },
-    { key: 'all', label: 'All Clips', icon: Compass, count: tabCountsDisplay.all, subtle: true },
     { key: 'saved', label: 'Saved', icon: Bookmark, count: tabCountsDisplay.saved },
   ]
 
