@@ -503,7 +503,7 @@ Mobile-first. No fake numbers, no testimonials.
 
 | Section | Component | Data source |
 |---|---|---|
-| Hero | `hero-section.tsx` | Static copy, placeholder visual (video TODO) |
+| Hero | `hero-section.tsx` | 3-clicks pipeline demo (7.2s CSS cycle: Pick→Enhance→Post), real thumbnail from radar API, bridge card with count-up |
 | Radar | `how-it-works-section.tsx` | `GET /api/landing/radar` (ISR 15min, service role, top 4 clips), fallback static |
 | Transformation | `before-after-section.tsx` | Static mockup, checklist stagger on scroll |
 | Farm | `features-grid.tsx` | Static brain mockup + ticker |
