@@ -107,8 +107,8 @@ A remplacer par Or Forge lors du brand pass. Ne plus utiliser pour du nouveau co
 |---|---|
 | Header site + sidebar | B Or Forge (avec reflet) |
 | Logo 32-48px | B sans calque speculaire |
-| Favicon / onglet 16-24px | Path MICRO + B sans reflet |
-| App icons (192/512/maskable/apple) | Path MICRO ou master selon taille, fond sombre #0F172A->#020617 arrondi |
+| Favicon / onglet 16-24px | Path MICRO + B sans reflet, **fond transparent** (loup or nu, pas de tuile sombre) |
+| App icons (192/512/maskable/apple) | Path MICRO, **fond sombre** #0F172A->#020617 arrondi (nécessaire sur écrans d'accueil) |
 | Hero landing page | C Predateur |
 | OG image / partage social | C Predateur + wordmark |
 | Cerveau distribution | Contour ambre trace (variante stylistique existante — ne pas changer) |
@@ -150,8 +150,8 @@ C n'est PAS le logo permanent — c'est la recompense.
 | Asset | Role | Etat |
 |---|---|---|
 | `components/brand/viral-animal-logo.tsx` | Composant canonique (logo + wordmark) | A migrer vers Or Forge |
-| `public/favicon.svg` | Favicon SVG (loup or sur fond sombre) | A regenerer avec MICRO |
-| `public/icons/icon-192/512/maskable` | PWA icons | A regenerer depuis favicon.svg |
+| `public/favicon.svg` | Favicon SVG (loup or nu, fond transparent — pas de tuile sombre) | Path MICRO |
+| `public/icons/icon-192/512/maskable` | PWA icons (fond sombre inclus) | Générés par `scripts/generate-pwa-icons.js` (source indépendante du favicon) |
 | `public/viral_animal_wolf_trace.svg` | Source du WolfLoader (trace orange) | OK — ne pas toucher |
 | `app/opengraph-image.tsx` | Image de partage social | A refaire on-brand (C + wordmark) |
 | `app/icon.png` + `app/apple-icon.png` | Doublons en competition | A SUPPRIMER |
