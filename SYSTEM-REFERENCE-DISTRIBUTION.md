@@ -259,16 +259,30 @@ Absolute, `bottom: -185px` from brain wrap (15px plus proche que la version init
 - OFF state : gradient gray, no animation
 - Visually bridges the full gap between brain bottom and CLIP FARM panel top
 
-### CLIP FARM panel positioning — NORMAL FLOW (final architecture)
-- **Normal flow** : both connector and panel are siblings of `.dist-connection-map` in `.dist-page`
-- **No absolute positioning** : `position: relative; width: 320px; margin: 0 auto;`
-- **DOM order** : `.dist-connection-map` (brain) → `.dist-core-connector-line` (54px) → `.dist-core-panel` → funnel → clip bank
-- **No overlap by construction** : panel is a block element that pushes content below it
-- **Connector** : `width: 2px; height: 54px; margin: 0 auto;` — bridges brain to panel
-- **ON/OFF state** : connector gets `.off` class directly (not via parent), panel keeps `.on`/`.off`
-- **Fixed footprint** : `.dist-core-panel-head { min-height: 48px }` reserves hint space,
-  `.pill-label { white-space: nowrap }` prevents wrap → zero layout shift ON↔OFF
-- Panel port (::before top:-5px) decorative dot at panel top, receives the connector visually
+### Connector zones — structural flow elements (final architecture)
+
+Connectors are dedicated flow elements that define exact spacing AND own their dots.
+No pseudo-elements on the panel, no absolute offsets, no magic margins.
+
+**DOM order**: `.dist-connection-map` → `.dist-connector-top` (56px) → `.dist-core-panel` → `.dist-connector-bottom` (48px) → `ClipBankRail`
+
+#### `.dist-connector-top` (brain → panel)
+- `height: 56px; width: 2px; margin: 0 auto; position: relative;`
+- Background: animated repeating dashed gradient (cyan, flows downward)
+- `::before` dot at `top: -4px` — visually touches brain bottom
+- `::after` dot at `bottom: -4px` — visually touches panel top
+- `.off` state: gray dashes, amber dots, no animation
+
+#### `.dist-connector-bottom` (panel → bank)
+- `height: 48px; width: 100%; position: relative;`
+- `::before` dot at `top: -4px` — visually touches panel bottom
+- Contains `.dist-funnel-inner` SVG (scaleY(-1) inside the zone)
+- `.off` state: amber dot, no animation
+
+#### Panel (`.dist-core-panel`)
+- `position: relative; width: 320px; margin: 0 auto;`
+- No `::before`/`::after` — dots are owned by connector zones
+- `.on`/`.off` class controls border color + opacity
 
 ### Funnel lines (panel → Clip Bank)
 ```

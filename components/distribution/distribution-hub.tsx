@@ -1835,8 +1835,10 @@ export function DistributionHub() {
         </div>
       </div>
 
-      {/* ═══ CONNECTOR + PANEL — normal flow (no absolute, no overlap by design) ═══ */}
-      <div className={`dist-core-connector-line ${coreState === 'paused' ? 'off' : ''}`} />
+      {/* ═══ CONNECTOR TOP — structural zone, brain→panel ═══ */}
+      <div className={`dist-connector-top ${coreState === 'paused' ? 'off' : ''}`} />
+
+      {/* ═══ PANEL — normal flow ═══ */}
       <div className={`dist-core-panel ${coreState === 'paused' ? 'off' : 'on'}`}>
         <div className="dist-core-panel-head">
           <span className="dist-core-panel-title">{
@@ -1926,20 +1928,20 @@ export function DistributionHub() {
         </div>
       </div>
 
-      {/* ═══ FUNNEL — tight 3-line fan from CLIP FARM panel center down to Clip Bank ═══ */}
-      {/* viewBox is 0 0 1316 100; convergence at (660, 100) which after scaleY(-1) becomes top-center */}
-      {/* Tight fan (520-800 instead of 90-1230) so lines clearly emerge from the box, not the page edges */}
-      <svg className="dist-funnel flipped" viewBox="0 0 1316 100" preserveAspectRatio="none" aria-hidden="true">
-        <path className={`dist-flow-path ${aiAutoDistribute ? 'blue' : 'dim'}`} d="M 540 0 C 580 40, 620 70, 660 100" />
-        <path className={`dist-flow-path ${aiAutoDistribute ? 'blue' : 'dim'}`} d="M 660 0 L 660 100" />
-        <path className={`dist-flow-path ${aiAutoDistribute ? 'blue' : 'dim'}`} d="M 780 0 C 740 40, 700 70, 660 100" />
-        {aiAutoDistribute && (
-          <>
-            <circle r="3" fill="#38BDF8" opacity=".9"><animateMotion dur="2.5s" repeatCount="indefinite" path="M 540 0 C 580 40, 620 70, 660 100" /></circle>
-            <circle r="3" fill="#38BDF8" opacity=".9"><animateMotion dur="2.8s" begin="0.5s" repeatCount="indefinite" path="M 780 0 C 740 40, 700 70, 660 100" /></circle>
-          </>
-        )}
-      </svg>
+      {/* ═══ CONNECTOR BOTTOM — structural zone, panel→bank ═══ */}
+      <div className={`dist-connector-bottom ${coreState === 'paused' ? 'off' : ''}`}>
+        <svg className="dist-funnel-inner" viewBox="0 0 1316 100" preserveAspectRatio="none" aria-hidden="true">
+          <path className={`dist-flow-path ${aiAutoDistribute ? 'blue' : 'dim'}`} d="M 540 0 C 580 40, 620 70, 660 100" />
+          <path className={`dist-flow-path ${aiAutoDistribute ? 'blue' : 'dim'}`} d="M 660 0 L 660 100" />
+          <path className={`dist-flow-path ${aiAutoDistribute ? 'blue' : 'dim'}`} d="M 780 0 C 740 40, 700 70, 660 100" />
+          {aiAutoDistribute && (
+            <>
+              <circle r="3" fill="#38BDF8" opacity=".9"><animateMotion dur="2.5s" repeatCount="indefinite" path="M 540 0 C 580 40, 620 70, 660 100" /></circle>
+              <circle r="3" fill="#38BDF8" opacity=".9"><animateMotion dur="2.8s" begin="0.5s" repeatCount="indefinite" path="M 780 0 C 740 40, 700 70, 660 100" /></circle>
+            </>
+          )}
+        </svg>
+      </div>
 
       {/* ═══ CLIP BANK ═══ */}
       <ClipBankRail
