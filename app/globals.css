@@ -226,6 +226,64 @@ textarea:focus-visible,
   50% { opacity: 1; }
 }
 
+/* Hero transformation beam — amber energy flow */
+.hero-beam-flow {
+  background: linear-gradient(180deg, transparent 0%, rgba(245,158,11,.6) 40%, rgba(245,158,11,.2) 60%, transparent 100%);
+  background-size: 100% 200%;
+  animation: heroBeamFlow 2s linear infinite;
+}
+@keyframes heroBeamFlow {
+  from { background-position: 0 0; }
+  to { background-position: 0 200%; }
+}
+
+/* Hero particles traveling along the beam */
+.hero-particle {
+  animation: heroParticleTravel 3s ease-in-out infinite;
+}
+@keyframes heroParticleTravel {
+  0% { top: 0; opacity: 0; }
+  15% { opacity: 1; }
+  85% { opacity: 1; }
+  100% { top: 100%; opacity: 0; }
+}
+
+/* Hero word pop — karaoke style */
+.hero-word-pop {
+  color: rgba(255,255,255,.5);
+  animation: heroWordPop 1.5s ease-in-out infinite;
+}
+@keyframes heroWordPop {
+  0%, 100% { color: rgba(255,255,255,.5); transform: scale(1); }
+  30%, 60% { color: #FBBF24; transform: scale(1.1); text-shadow: 0 0 8px rgba(251,191,36,.4); }
+}
+
+/* Hero badge pop */
+.hero-badge-pop { animation: heroBadgePop 6s ease-in-out infinite; }
+@keyframes heroBadgePop {
+  0%, 70%, 100% { opacity: 0.5; transform: scale(0.95); }
+  75%, 90% { opacity: 1; transform: scale(1); }
+}
+
+/* Hero before card pulse */
+.hero-xform-before { animation: heroBeforePulse 6s ease-in-out infinite; }
+@keyframes heroBeforePulse {
+  0%, 100% { opacity: 1; }
+  10%, 20% { opacity: 0.85; transform: scale(0.98); }
+  30% { opacity: 1; transform: scale(1); }
+}
+
+/* Hero after phone receive */
+.hero-xform-after { animation: heroAfterReceive 6s ease-in-out infinite; }
+@keyframes heroAfterReceive {
+  0%, 30%, 100% { transform: scale(1); }
+  40%, 50% { transform: scale(1.02); }
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .landing-caption-pop, .landing-ticker-loop { animation: none !important; }
+  .landing-caption-pop, .landing-ticker-loop,
+  .hero-beam-flow, .hero-particle, .hero-word-pop,
+  .hero-badge-pop, .hero-xform-before, .hero-xform-after { animation: none !important; }
+  .hero-word-pop { color: #FBBF24 !important; }
+  .hero-badge-pop { opacity: 1 !important; transform: none !important; }
 }
