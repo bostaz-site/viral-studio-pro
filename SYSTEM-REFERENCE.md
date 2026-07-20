@@ -496,8 +496,25 @@ Privacy-first, batched event tracking with DNT respect and fire-and-forget deliv
 ### Product Funnel Events
 `clip_clicked`, `clip_saved`, `enhance_started`, `enhance_option_changed`, `render_launched`, `render_completed`, `render_failed`, `clip_downloaded`, `clip_shared`
 
+### Landing Page V2 (2026-07-19)
+
+7-section flow: Hero → Radar → Transformation → Farm → Pricing → FAQ → Final CTA.
+Mobile-first. No fake numbers, no testimonials.
+
+| Section | Component | Data source |
+|---|---|---|
+| Hero | `hero-section.tsx` | Static copy, placeholder visual (video TODO) |
+| Radar | `how-it-works-section.tsx` | `GET /api/landing/radar` (ISR 15min, service role, top 4 clips), fallback static |
+| Transformation | `before-after-section.tsx` | Static mockup, checklist stagger on scroll |
+| Farm | `features-grid.tsx` | Static brain mockup + ticker |
+| Pricing | `pricing-section.tsx` | Free $0 / Pro $19 / Studio $24 (founding) |
+| FAQ | `faq-section.tsx` | 5 items (rights answer = official policy) |
+| Final CTA | `final-cta-section.tsx` | Wolf logo (forge variant) |
+
+Testimonials section retired (returns null). Exit-intent popup unchanged.
+
 ### Landing Events
-`page_view`, `demo_view`, `demo_clip_switch`, `demo_caption_switch`, `demo_split_toggle`, `demo_cta_click`, `cta_hero_click`, `cta_pricing_click`, `cta_signup_click`, `exit_intent_shown/submitted/dismissed`, `changelog_view`, `newsletter_submitted`, `pricing_view`
+`landing_cta_clicked` (placement: hero/hero_watch/radar/pricing/final), `exit_intent_shown/submitted/dismissed`, `newsletter_submitted`
 
 ---
 

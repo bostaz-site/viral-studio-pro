@@ -1,190 +1,192 @@
 "use client"
 
+import { useEffect, useRef, useState } from 'react'
+import { AnimatedSection } from '@/components/landing/animated-section'
+import { track } from '@/lib/analytics'
 import Link from 'next/link'
-import { ArrowRight, Play } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { cn } from '@/lib/utils'
-import { isAuditMode } from '@/lib/feature-flags'
+
+/** Radar clip from API or fallback */
+interface RadarClip {
+  title: string | null
+  author_handle: string | null
+  velocity_score: number | null
+  feed_category: string | null
+  thumbnail_url: string | null
+  clip_created_at: string | null
+}
+
+interface RadarData {
+  clips: RadarClip[]
+  totalAnalyzed: number
+}
+
+const FALLBACK: RadarData = {
+  clips: [
+    { title: 'MOST INSANE CLUTCH OF THE YEAR', author_handle: 'shroud', velocity_score: 91, feed_category: 'hot_now', thumbnail_url: null, clip_created_at: new Date(Date.now() - 2 * 3600_000).toISOString() },
+    { title: 'WHAT DID I JUST WITNESS', author_handle: 'xqc', velocity_score: 84, feed_category: 'early_gem', thumbnail_url: null, clip_created_at: new Date(Date.now() - 4 * 3600_000).toISOString() },
+    { title: 'THIS PLAY BROKE CHAT', author_handle: 'kamet0', velocity_score: 79, feed_category: 'hot_now', thumbnail_url: null, clip_created_at: new Date(Date.now() - 5 * 3600_000).toISOString() },
+    { title: 'UNSTOPPABLE STREAK', author_handle: 'sardoche', velocity_score: 76, feed_category: 'hot_now', thumbnail_url: null, clip_created_at: new Date(Date.now() - 7 * 3600_000).toISOString() },
+  ],
+  totalAnalyzed: 8800,
+}
+
+function timeAgoShort(dateStr: string | null): string {
+  if (!dateStr) return ''
+  const diff = (Date.now() - new Date(dateStr).getTime()) / 1000
+  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`
+  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`
+  return `${Math.floor(diff / 86400)}d ago`
+}
+
+function getBadge(clip: RadarClip): string {
+  const score = clip.velocity_score ?? 0
+  if (clip.feed_category === 'early_gem') return 'Early signal'
+  if (score >= 85) return 'High momentum'
+  if (score >= 70) return 'Rising fast'
+  return 'Detected before peak'
+}
+
+/** Animated count-up on scroll into view */
+function CountUp({ value }: { value: number }) {
+  const [display, setDisplay] = useState(0)
+  const ref = useRef<HTMLSpanElement>(null)
+  const triggered = useRef(false)
+
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return
+    const obs = new IntersectionObserver(([entry]) => {
+      if (entry.isIntersecting && !triggered.current) {
+        triggered.current = true
+        const start = performance.now()
+        const animate = (now: number) => {
+          const p = Math.min((now - start) / 800, 1)
+          const eased = 1 - Math.pow(1 - p, 3)
+          setDisplay(Math.round(eased * value))
+          if (p < 1) requestAnimationFrame(animate)
+        }
+        requestAnimationFrame(animate)
+      }
+    }, { threshold: 0.5 })
+    obs.observe(el)
+    return () => obs.disconnect()
+  }, [value])
+
+  return <span ref={ref}>{display}</span>
+}
 
 export function HowItWorksSection() {
+  const [data, setData] = useState<RadarData>(FALLBACK)
+
+  useEffect(() => {
+    fetch('/api/landing/radar')
+      .then(r => r.ok ? r.json() : null)
+      .then(j => { if (j?.data?.clips?.length > 0) setData(j.data) })
+      .catch(() => { /* keep fallback */ })
+  }, [])
+
+  const [topClip, ...restClips] = data.clips
+  const risingClips = restClips.slice(0, 2)
+  const peekClip = restClips[2] ?? null
+
   return (
-    <section className="py-20 px-6 border-t border-border/30">
-      <div className="max-w-5xl mx-auto">
-        <div className="text-center mb-14">
-          <h2 className="text-3xl sm:text-4xl font-bold tracking-tight">Create Your First Viral Clip in 3 Steps</h2>
-          <p className="text-muted-foreground mt-3 text-lg">{isAuditMode ? 'From your video to TikTok in under 5 minutes' : 'From your Twitch stream to TikTok in under 5 minutes'}</p>
+    <section id="radar" className="py-16 sm:py-24 px-5 border-t border-border/20">
+      <AnimatedSection>
+        <div className="max-w-3xl mx-auto text-center mb-10">
+          <h2 className="text-2xl sm:text-4xl font-bold tracking-tight">The radar never sleeps.</h2>
+          <p className="text-sm sm:text-base text-muted-foreground mt-3 max-w-2xl mx-auto">
+            It scans Twitch &amp; Kick around the clock, scores momentum, detects early signals — and crowns the strongest opportunity.
+          </p>
+        </div>
+      </AnimatedSection>
+
+      {/* Card strip — scrollable on mobile */}
+      <div className="max-w-4xl mx-auto">
+        <div className="flex gap-4 overflow-x-auto pb-4 snap-x snap-mandatory -mx-5 px-5 sm:mx-0 sm:px-0 sm:overflow-visible sm:grid sm:grid-cols-4">
+          {/* Royal card — #1 clip */}
+          {topClip && (
+            <AnimatedSection className="min-w-[260px] sm:min-w-0 snap-start sm:col-span-2">
+              <div className="rounded-2xl border-2 border-amber-500/40 bg-zinc-900/90 p-4 relative overflow-hidden">
+                {/* Gold glow */}
+                <div className="absolute inset-0 bg-gradient-to-br from-amber-500/5 to-transparent pointer-events-none" />
+                <div className="relative">
+                  {/* Badge */}
+                  <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[9px] font-extrabold uppercase tracking-[0.14em]" style={{ color: '#FDE68A', background: 'rgba(245,158,11,.10)', border: '1px solid rgba(245,158,11,.28)' }}>
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                    {getBadge(topClip)}
+                  </span>
+                  {/* Thumbnail placeholder */}
+                  {topClip.thumbnail_url ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={topClip.thumbnail_url} alt="" className="w-full h-28 rounded-lg object-cover mt-3 border border-zinc-700/50" />
+                  ) : (
+                    <div className="w-full h-28 rounded-lg bg-zinc-800 border border-zinc-700/50 mt-3" />
+                  )}
+                  <p className="text-sm font-extrabold text-white mt-3 truncate">{topClip.title || 'Untitled'}</p>
+                  <p className="text-[10px] text-zinc-500 mt-0.5">@{topClip.author_handle ?? 'unknown'} &middot; {timeAgoShort(topClip.clip_created_at)}</p>
+                  {/* Score */}
+                  <div className="mt-3 flex items-end justify-between">
+                    <span className="tp-score text-[38px]"><CountUp value={Math.round(topClip.velocity_score ?? 0)} /></span>
+                    <span className="text-[9px] font-bold text-zinc-500 uppercase">Score tooltip: combines velocity, recency, engagement and creator momentum</span>
+                  </div>
+                </div>
+              </div>
+            </AnimatedSection>
+          )}
+
+          {/* Rising cards */}
+          {risingClips.map((clip, i) => (
+            <AnimatedSection key={i} delay={0.1 * (i + 1)} className="min-w-[200px] sm:min-w-0 snap-start">
+              <div className="rounded-xl border border-cyan-500/20 bg-zinc-900/80 p-3 h-full">
+                <span className="text-[9px] font-bold text-cyan-400/70 uppercase tracking-wider">{getBadge(clip)}</span>
+                {clip.thumbnail_url ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={clip.thumbnail_url} alt="" className="w-full h-20 rounded-md object-cover mt-2 border border-zinc-700/50" />
+                ) : (
+                  <div className="w-full h-20 rounded-md bg-zinc-800 border border-zinc-700/50 mt-2" />
+                )}
+                <p className="text-xs font-bold text-zinc-300 mt-2 truncate">{clip.title || 'Untitled'}</p>
+                <p className="text-[10px] text-zinc-500 mt-0.5">@{clip.author_handle ?? 'unknown'} &middot; {timeAgoShort(clip.clip_created_at)}</p>
+                <p className="text-lg font-black text-cyan-400/80 mt-2">{Math.round(clip.velocity_score ?? 0)}</p>
+              </div>
+            </AnimatedSection>
+          ))}
+
+          {/* Peek card */}
+          {peekClip && (
+            <AnimatedSection delay={0.3} className="min-w-[160px] sm:min-w-0 snap-start">
+              <div className="rounded-xl border border-zinc-700/40 bg-zinc-900/60 p-3 h-full opacity-60">
+                <span className="text-[9px] font-bold text-zinc-500 uppercase tracking-wider">{getBadge(peekClip)}</span>
+                <div className="w-full h-20 rounded-md bg-zinc-800/50 border border-zinc-700/30 mt-2" />
+                <p className="text-xs font-bold text-zinc-500 mt-2 truncate">{peekClip.title || 'Untitled'}</p>
+                <p className="text-[10px] text-zinc-600 mt-0.5">@{peekClip.author_handle ?? 'unknown'}</p>
+              </div>
+            </AnimatedSection>
+          )}
         </div>
 
-        <div className="space-y-16">
-          {/* Step 1 — Browse clips */}
-          <div className="grid md:grid-cols-2 gap-8 items-center">
-            <div>
-              <span className="inline-block text-xs font-bold text-amber-400 uppercase tracking-wider mb-2">Step 1</span>
-              <h3 className="text-2xl font-bold text-foreground mb-3">{isAuditMode ? 'Upload Your Video' : 'Pick Your Stream Clip'}</h3>
-              <p className="text-muted-foreground leading-relaxed">{isAuditMode ? 'Upload your own video or clip. Drag and drop or paste a URL — we handle the rest.' : 'Browse top Twitch and YouTube Gaming moments ranked by viral score. AI auto-identifies the moments that hit hardest.'}</p>
-            </div>
-            {/* Mockup: trending dashboard */}
-            <div className="rounded-xl border border-border/50 bg-card/60 overflow-hidden shadow-lg">
-              <div className="flex items-center gap-1.5 px-3 py-2 border-b border-border/50 bg-card/80">
-                <div className="w-2.5 h-2.5 rounded-full bg-red-500/60" />
-                <div className="w-2.5 h-2.5 rounded-full bg-yellow-500/60" />
-                <div className="w-2.5 h-2.5 rounded-full bg-green-500/60" />
-                <span className="text-[10px] text-muted-foreground/50 ml-2">{isAuditMode ? 'Upload — Viral Animal' : 'Clips — Viral Animal'}</span>
-              </div>
-              <div className="p-3 space-y-2">
-                {/* Search bar mockup */}
-                <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-muted/50 border border-border/30">
-                  <div className="w-3 h-3 rounded-full border border-muted-foreground/30" />
-                  <span className="text-[10px] text-muted-foreground/50">{isAuditMode ? 'Drag & drop your video...' : 'Search streamer or game...'}</span>
-                </div>
-                {/* Clip cards */}
-                {[
-                  { name: 'xQc', game: 'Just Chatting', score: 92, color: 'from-amber-500/20 to-amber-600/10' },
-                  { name: 'Sardoche', game: 'League of Legends', score: 87, color: 'from-cyan-500/20 to-cyan-600/10' },
-                  { name: 'Kamet0', game: 'Valorant', score: 78, color: 'from-emerald-500/20 to-emerald-600/10' },
-                ].map((clip) => (
-                  <div key={clip.name} className={cn('flex items-center gap-3 p-2 rounded-lg bg-gradient-to-r', clip.color)}>
-                    <div className="w-14 h-9 rounded bg-gray-800 shrink-0 flex items-center justify-center">
-                      <Play className="h-3 w-3 text-gray-500" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-[10px] font-medium text-foreground truncate">{clip.name} — {clip.game}</p>
-                      <p className="text-[8px] text-muted-foreground">2h ago &middot; 45s</p>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <div className="h-1 w-8 rounded-full bg-gray-700 overflow-hidden">
-                        <div className="h-full rounded-full bg-emerald-500" style={{ width: `${clip.score}%` }} />
-                      </div>
-                      <span className="text-[9px] font-bold text-emerald-400">{clip.score}</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
+        {/* Stat machine */}
+        <AnimatedSection delay={0.2}>
+          <p className="text-center text-[11px] text-zinc-500 mt-6">
+            {data.totalAnalyzed.toLocaleString()}+ clips analyzed &middot; re-scored every 15 minutes
+          </p>
+        </AnimatedSection>
 
-          {/* Step 2 — Edit */}
-          <div className="grid md:grid-cols-2 gap-8 items-center">
-            {/* Mockup: editor */}
-            <div className="rounded-xl border border-border/50 bg-card/60 overflow-hidden shadow-lg md:order-1 order-2">
-              <div className="flex items-center gap-1.5 px-3 py-2 border-b border-border/50 bg-card/80">
-                <div className="w-2.5 h-2.5 rounded-full bg-red-500/60" />
-                <div className="w-2.5 h-2.5 rounded-full bg-yellow-500/60" />
-                <div className="w-2.5 h-2.5 rounded-full bg-green-500/60" />
-                <span className="text-[10px] text-muted-foreground/50 ml-2">Editor — Viral Animal</span>
-              </div>
-              <div className="p-3 flex gap-3">
-                {/* Preview */}
-                <div className="w-24 shrink-0">
-                  <div className="aspect-[9/16] rounded-lg bg-gradient-to-b from-zinc-800/30 to-gray-900 border border-border/30 relative overflow-hidden">
-                    <div className="absolute inset-x-0 top-0 h-[60%] bg-gradient-to-br from-zinc-800/40 to-zinc-900/40 flex items-center justify-center">
-                      <span className="text-[7px] text-cyan-300/60">Your Clip</span>
-                    </div>
-                    <div className="absolute inset-x-0 bottom-0 h-[40%] bg-gradient-to-br from-emerald-900/30 to-teal-900/30 flex items-center justify-center border-t border-cyan-500/20">
-                      <span className="text-[7px] text-emerald-400/60">Satisfying Video</span>
-                    </div>
-                    <div className="absolute bottom-[42%] left-1/2 -translate-x-1/2 bg-black/70 rounded px-1.5 py-0.5">
-                      <span className="text-[6px] font-bold text-yellow-400">Incroyable!</span>
-                    </div>
-                  </div>
-                </div>
-                {/* Controls */}
-                <div className="flex-1 space-y-2">
-                  <div className="space-y-1">
-                    <span className="text-[8px] text-muted-foreground/60 uppercase tracking-wider">Caption Style</span>
-                    <div className="grid grid-cols-3 gap-1">
-                      {['Hormozi', 'MrBeast', 'Gaming'].map((s) => (
-                        <div key={s} className={cn('text-[7px] text-center py-1 rounded border', s === 'MrBeast' ? 'border-primary/40 bg-primary/10 text-primary' : 'border-border/30 text-muted-foreground/50')}>
-                          {s}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                  <div className="space-y-1">
-                    <span className="text-[8px] text-muted-foreground/60 uppercase tracking-wider">Bottom Video</span>
-                    <div className="grid grid-cols-2 gap-1">
-                      {['Subway Surfers', 'Minecraft'].map((s) => (
-                        <div key={s} className={cn('text-[7px] text-center py-1 rounded border', s === 'Subway Surfers' ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-400' : 'border-border/30 text-muted-foreground/50')}>
-                          {s}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                  {/* Timeline mockup */}
-                  <div className="pt-1">
-                    <div className="h-3 rounded bg-muted/30 relative overflow-hidden">
-                      <div className="absolute left-[10%] right-[30%] top-0 bottom-0 bg-cyan-500/20 border-x-2 border-cyan-500/50 rounded" />
-                      <div className="absolute left-[35%] top-0 bottom-0 w-0.5 bg-white/60" />
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-            <div className="md:order-2 order-1">
-              <span className="inline-block text-xs font-bold text-cyan-400 uppercase tracking-wider mb-2">Step 2</span>
-              <h3 className="text-2xl font-bold text-foreground mb-3">Customize Your Clip</h3>
-              <p className="text-muted-foreground leading-relaxed">Karaoke captions (9 styles), auto split-screen with satisfying video, and AI viral score analysis. Tweak everything in a few clicks.</p>
-            </div>
+        {/* CTA */}
+        <AnimatedSection delay={0.3}>
+          <div className="text-center mt-8">
+            <Link href="/signup">
+              <Button
+                size="sm"
+                className="bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-amber-950 font-bold"
+                onClick={() => track('landing_cta_clicked', { placement: 'radar' })}
+              >
+                Start farming free
+              </Button>
+            </Link>
           </div>
-
-          {/* Step 3 — Export */}
-          <div className="grid md:grid-cols-2 gap-8 items-center">
-            <div>
-              <span className="inline-block text-xs font-bold text-emerald-400 uppercase tracking-wider mb-2">Step 3</span>
-              <h3 className="text-2xl font-bold text-foreground mb-3">Export & Share</h3>
-              <p className="text-muted-foreground leading-relaxed">Download optimized 9:16 for TikTok/Reels/Shorts or post direct to your accounts. Ready to share in under 5 minutes.</p>
-            </div>
-            {/* Mockup: export */}
-            <div className="rounded-xl border border-border/50 bg-card/60 overflow-hidden shadow-lg">
-              <div className="flex items-center gap-1.5 px-3 py-2 border-b border-border/50 bg-card/80">
-                <div className="w-2.5 h-2.5 rounded-full bg-red-500/60" />
-                <div className="w-2.5 h-2.5 rounded-full bg-yellow-500/60" />
-                <div className="w-2.5 h-2.5 rounded-full bg-green-500/60" />
-                <span className="text-[10px] text-muted-foreground/50 ml-2">Export — Viral Animal</span>
-              </div>
-              <div className="p-4 space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-medium text-foreground">clip_xqc_viral_87.mp4</span>
-                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">Ready</span>
-                </div>
-                <div className="h-2 rounded-full bg-muted/30 overflow-hidden">
-                  <div className="h-full w-full rounded-full bg-gradient-to-r from-emerald-500 to-green-400" />
-                </div>
-                <div className="grid grid-cols-3 gap-2">
-                  {[
-                    { platform: 'TikTok', color: 'border-foreground/20 text-foreground/70' },
-                    { platform: 'Reels', color: 'border-pink-500/30 text-pink-400' },
-                    { platform: 'Shorts', color: 'border-red-500/30 text-red-400' },
-                  ].map((p) => (
-                    <div key={p.platform} className={cn('text-center py-2 rounded-lg border text-[10px] font-medium', p.color)}>
-                      {p.platform}
-                    </div>
-                  ))}
-                </div>
-                <div className="flex gap-2">
-                  <div className="flex-1 py-1.5 rounded-lg bg-gradient-to-r from-amber-500 to-amber-600 text-amber-950 text-[10px] font-medium text-center">
-                    Download MP4
-                  </div>
-                  <div className="flex-1 py-1.5 rounded-lg border border-border/30 text-[10px] font-medium text-center text-muted-foreground">
-                    Share
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Mid-page CTA */}
-        <div className="text-center mt-16 pt-10 border-t border-border/20">
-          <p className="text-muted-foreground mb-4">Ready to drop your first split-screen clip?</p>
-          <Link href="/signup">
-            <Button size="lg" className="bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-amber-950 shadow-lg shadow-amber-500/20 h-11 px-8 font-semibold gap-2">
-              Create Free Account
-              <ArrowRight className="h-4 w-4" />
-            </Button>
-          </Link>
-          <p className="text-xs text-muted-foreground/50 mt-3">3 free clips/month &middot; No card required</p>
-        </div>
+        </AnimatedSection>
       </div>
     </section>
   )

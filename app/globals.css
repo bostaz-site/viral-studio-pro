@@ -211,3 +211,21 @@ textarea:focus-visible,
   from { --c: 0deg; }
   to { --c: 360deg; }
 }
+
+/* Landing page — caption word-pop */
+@keyframes landingCaptionPop {
+  0%, 100% { opacity: 0.3; transform: scaleX(0.7); }
+  30%, 70% { opacity: 1; transform: scaleX(1); }
+}
+.landing-caption-pop { animation: landingCaptionPop 2.4s ease-in-out infinite; transform-origin: left; }
+
+/* Landing page — ticker loop fade */
+.landing-ticker-loop { animation: landingTickerFade 6s ease-in-out infinite; }
+@keyframes landingTickerFade {
+  0%, 100% { opacity: 0.7; }
+  50% { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .landing-caption-pop, .landing-ticker-loop { animation: none !important; }
+}

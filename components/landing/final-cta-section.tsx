@@ -1,30 +1,38 @@
 "use client"
 
 import Link from 'next/link'
-import { ArrowRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { ViralAnimalLogo } from '@/components/brand/viral-animal-logo'
+import { AnimatedSection } from '@/components/landing/animated-section'
 import { track } from '@/lib/analytics'
 
 export function FinalCtaSection() {
   return (
-    <section className="py-20 px-6 border-t border-border/30 bg-gradient-to-b from-transparent via-primary/5 to-transparent">
-      <div className="max-w-2xl mx-auto text-center">
-        <h2 className="text-3xl sm:text-4xl font-black tracking-tight">
-          Stop Scrolling. Start Going Viral.
-        </h2>
-        <p className="text-lg text-muted-foreground mt-4 max-w-lg mx-auto">
-          Your next clip could be the one that blows up. The only thing between you and viral is one click.
-        </p>
-        <Link href="/signup" onClick={() => track('cta_hero_click', { location: 'final_cta' })}>
-          <Button size="lg" className="mt-8 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white shadow-lg shadow-orange-500/25 h-14 px-10 text-lg font-bold gap-2">
-            Start for Free
-            <ArrowRight className="h-5 w-5" />
-          </Button>
-        </Link>
-        <p className="text-xs text-muted-foreground/60 mt-4">
-          No credit card &middot; 3 free clips &middot; Cancel anytime
-        </p>
-      </div>
+    <section className="py-20 sm:py-28 px-5 border-t border-border/20">
+      <AnimatedSection>
+        <div className="max-w-xl mx-auto text-center">
+          {/* Large wolf logo */}
+          <div className="flex justify-center mb-6">
+            <ViralAnimalLogo size={80} iconOnly variant="forge" />
+          </div>
+
+          <p className="text-lg sm:text-xl font-bold text-foreground">
+            The radar already found your next clip.
+          </p>
+
+          <div className="mt-8">
+            <Link href="/signup">
+              <Button
+                size="lg"
+                className="h-12 px-8 text-sm font-bold bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-amber-950 shadow-lg shadow-amber-500/20"
+                onClick={() => track('landing_cta_clicked', { placement: 'final' })}
+              >
+                Claim your first clip
+              </Button>
+            </Link>
+          </div>
+        </div>
+      </AnimatedSection>
     </section>
   )
 }
