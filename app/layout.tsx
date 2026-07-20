@@ -3,6 +3,7 @@ import Script from 'next/script'
 import { Inter, Archivo_Black } from 'next/font/google'
 import './globals.css'
 import './rank-cards.css'
+import './landing-v3.css'
 import { ThemeProvider } from '@/components/theme-provider'
 import { cn } from "@/lib/utils"
 

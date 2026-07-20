@@ -35,25 +35,21 @@ export function LandingPage() {
   }, [])
 
   return (
-    <div className="min-h-screen bg-background text-foreground">
-      {/* Nav */}
-      <nav className="fixed top-0 left-0 right-0 z-50 border-b border-border/50 bg-background/80 backdrop-blur-md">
-        <div className="max-w-5xl mx-auto flex items-center justify-between h-14 px-5">
-          <Link href="/" className="flex items-center gap-2">
+    <div className="lv3 min-h-screen">
+      {/* Nav — V3 sticky */}
+      <nav className="lv3-nav">
+        <div className="lv3-nav-inner">
+          <Link href="/" className="lv3-nav-brand">
             <ViralAnimalLogo size={28} iconOnly variant="forge" />
-            <span className="text-sm font-black tracking-tight bg-gradient-to-r from-amber-400 to-amber-600 bg-clip-text text-transparent">
-              VIRAL ANIMAL
+            <span className="lv3-nav-wordmark">
+              <span style={{ color: '#FFF' }}>VIRAL</span>{' '}
+              <span style={{ color: '#F59E0B' }}>ANIMAL</span>
             </span>
           </Link>
-          <div className="flex items-center gap-2">
-            <Link href="/login">
-              <Button variant="ghost" size="sm" className="text-xs">Log in</Button>
-            </Link>
-            <Link href="/signup">
-              <Button size="sm" className="text-xs bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-amber-950 font-bold">
-                Start free
-              </Button>
-            </Link>
+          <div className="lv3-nav-right">
+            <a href="#pricing" className="lv3-nav-link">Pricing</a>
+            <a href="#faq" className="lv3-nav-link">FAQ</a>
+            <Link href="/signup" className="lv3-nav-cta">Start Free</Link>
           </div>
         </div>
       </nav>

@@ -27,7 +27,7 @@ export const FAQ_ITEMS = [
 
 export function FaqSection() {
   return (
-    <section className="py-16 sm:py-24 px-5 border-t border-border/20">
+    <section id="faq" className="py-16 sm:py-24 px-5 border-t border-border/20">
       <div className="max-w-2xl mx-auto">
         <div className="text-center mb-10">
           <h2 className="text-2xl sm:text-4xl font-bold tracking-tight">Questions</h2>

@@ -71,7 +71,7 @@ const PLANS: PlanConfig[] = [
 
 export function PricingSection() {
   return (
-    <section className="py-16 sm:py-24 px-5 border-t border-border/20">
+    <section id="pricing" className="py-16 sm:py-24 px-5 border-t border-border/20">
       <AnimatedSection>
         <div className="max-w-5xl mx-auto">
           <div className="text-center mb-12">
