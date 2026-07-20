@@ -393,8 +393,186 @@
   4%, 20% { color: #FBBF24; transform: scale(1.12); text-shadow: 0 0 18px rgba(251,191,36,.55); }
 }
 
+/* ═══════════════════════════════════════════════════════════════
+   SECTION 2 — RADAR
+   ═══════════════════════════════════════════════════════════════ */
+.lv3-radar {
+  position: relative;
+  overflow: hidden;
+  padding: clamp(80px,11vw,130px) 20px clamp(64px,9vw,110px);
+}
+
+/* Decorative radar circle — top right */
+.lv3-radar-deco {
+  position: absolute;
+  right: -180px;
+  top: -120px;
+  width: 480px;
+  height: 480px;
+  border-radius: 50%;
+  border: 1px solid rgba(56,189,248,.12);
+  pointer-events: none;
+}
+.lv3-radar-deco::before, .lv3-radar-deco::after {
+  content: '';
+  position: absolute;
+  border-radius: 50%;
+  border: 1px solid rgba(56,189,248,.1);
+}
+.lv3-radar-deco::before { inset: 70px; border-color: rgba(56,189,248,.1); }
+.lv3-radar-deco::after { inset: 140px; border-color: rgba(56,189,248,.08); }
+.lv3-radar-sweep {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: conic-gradient(from 0deg, rgba(56,189,248,.22), transparent 70deg);
+  animation: lv3-spin 7s linear infinite;
+}
+
+/* Header */
+.lv3-radar-eyebrow {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .22em;
+  text-transform: uppercase;
+  color: #67E8F9;
+  margin-bottom: 12px;
+}
+.lv3-radar-h2 {
+  font-size: clamp(28px,5vw,44px);
+  font-weight: 900;
+  letter-spacing: -0.03em;
+  color: #F8FAFC;
+}
+.lv3-radar-sub {
+  font-size: 15px;
+  color: #94A3B8;
+  max-width: 520px;
+  line-height: 1.6;
+  margin-top: 10px;
+}
+.lv3-radar-stat {
+  font-size: 12px;
+  font-weight: 700;
+  color: #38BDF8;
+  font-variant-numeric: tabular-nums;
+  margin-top: 14px;
+}
+
+/* Scanner panel */
+.lv3-scanner {
+  position: relative;
+  border-radius: 16px;
+  border: 1px solid rgba(56,189,248,.14);
+  background: rgba(15,23,42,.4);
+  padding: 20px;
+  overflow: hidden;
+  margin-top: 36px;
+}
+.lv3-scan-line {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: linear-gradient(180deg, transparent, rgba(103,232,249,.8), transparent);
+  z-index: 2;
+  animation: lv3-sweepX 5.5s linear infinite;
+  pointer-events: none;
+}
+
+/* Card rail */
+.lv3-card-rail {
+  display: flex;
+  gap: 16px;
+  align-items: stretch;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  position: relative;
+  z-index: 1;
+}
+.lv3-card-rail::-webkit-scrollbar { display: none; }
+
+/* Gold top pick card */
+.lv3-card-gold {
+  flex: 0 0 min(280px, 74vw);
+  border-radius: 14px;
+  border: 2px solid transparent;
+  background-image: linear-gradient(#0F172A, #0F172A), linear-gradient(135deg, #FBBF24, #D97706 45%, #FBBF24);
+  background-origin: border-box;
+  background-clip: padding-box, border-box;
+  box-shadow: 0 0 44px rgba(245,158,11,.22);
+  position: relative;
+  scroll-snap-align: start;
+  overflow: hidden;
+}
+.lv3-card-gold-meta { padding: 12px 14px; }
+/* Corner gems */
+.lv3-gem {
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  background: #FBBF24;
+  transform: rotate(45deg);
+  z-index: 3;
+  animation: lv3-gemPulse 2.6s ease-in-out infinite;
+}
+.lv3-gem.g-tl { top: -5px; left: -5px; }
+.lv3-gem.g-tr { top: -5px; right: -5px; animation-delay: .65s; }
+.lv3-gem.g-bl { bottom: -5px; left: -5px; animation-delay: 1.3s; }
+.lv3-gem.g-br { bottom: -5px; right: -5px; animation-delay: 1.95s; }
+
+/* Rising fast cards */
+.lv3-card-rising {
+  flex: 0 0 min(230px, 62vw);
+  background: rgba(15,23,42,.85);
+  border: 1px solid rgba(56,189,248,.28);
+  border-radius: 14px;
+  scroll-snap-align: start;
+  overflow: hidden;
+  position: relative;
+}
+.lv3-card-rising-meta { padding: 10px 12px; }
+
+/* Ghost card */
+.lv3-card-ghost {
+  flex: 0 0 230px;
+  opacity: .55;
+  background: rgba(15,23,42,.5);
+  border: 1px solid rgba(56,189,248,.18);
+  border-radius: 14px;
+  scroll-snap-align: start;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 20px;
+  min-height: 200px;
+}
+
+/* Thumb fallbacks */
+.lv3-thumb-fb-gold { background: linear-gradient(135deg, #7C2D12, #B45309 55%, #451A03); }
+.lv3-thumb-fb-cyan1 { background: linear-gradient(135deg, #0C4A6E, #164E63, #082F49); }
+.lv3-thumb-fb-cyan2 { background: linear-gradient(135deg, #134E4A, #0F766E, #042F2E); }
+
+/* ═══ Additional keyframes ═══ */
+@keyframes lv3-spin { to { transform: rotate(360deg); } }
+@keyframes lv3-sweepX {
+  0% { left: -2%; opacity: 0; }
+  8% { opacity: .9; }
+  92% { opacity: .9; }
+  100% { left: 101%; opacity: 0; }
+}
+@keyframes lv3-gemPulse {
+  0%, 100% { box-shadow: 0 0 6px 1px rgba(251,191,36,.7); }
+  50% { box-shadow: 0 0 14px 4px rgba(251,191,36,.95); }
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .lv3-particle, .lv3-eyebrow-dot, .lv3-node-ring, .lv3-node-core, .lv3-kword { animation: none !important; }
+  .lv3-particle, .lv3-eyebrow-dot, .lv3-node-ring, .lv3-node-core, .lv3-kword,
+  .lv3-radar-sweep, .lv3-scan-line, .lv3-gem { animation: none !important; }
   .lv3-kword { color: #FBBF24 !important; }
   .lv3-eyebrow-dot { opacity: 1 !important; }
 }
