@@ -38,10 +38,10 @@
 5. Publish Strip — 2-col grid (mobile: stack)
    ├── Caption Studio (AI) — Generate AI captions / per-platform variants / copy / regenerate
    └── Publish card — clip preview (clickable, opens picker) + targets line + Post now CTA
-6. Connection Map (brain core section)
-   ├── 4 platform cards positioned at circle edges (TikTok TL, IG TR, YouTube BL, Facebook BR)
-   ├── Dynamic SVG flow lines (corner-targeting, L-shaped bezier, animated particles)
-   ├── AI Brain Core (centered)
+6. Connection Map (3-column CSS grid: left platforms | brain | right platforms)
+   ├── 4 platform nodes in grid cells (TikTok row1-col1, YouTube row2-col1, IG row1-col3, Facebook row2-col3)
+   ├── Dynamic SVG flow lines (absolute overlay, bezier paths computed by ResizeObserver)
+   ├── AI Brain Core (center column, spans both rows)
    │   ├── 3 concentric glass rings + outer rotating dashed ring + cyan/orange node accents
    │   ├── Brain SVG (cyan gyri + neural nodes)
    │   ├── Wolf SVG (orange neon emblem) — centered in brain negative space
@@ -284,41 +284,34 @@ SVG .dist-funnel.flipped — viewBox 1316×100, 7 bezier paths
 
 ## Connection Map (platforms ↔ brain) — v8 NEW
 
-### Container
+### Container — 3-column CSS Grid (final architecture)
 ```css
 .dist-connection-map {
-  min-height: 640px;
-  box-sizing: border-box;
   display: grid;
-  place-items: start center;  /* brain anchored to TOP */
-  padding-top: 20px;
-  padding-bottom: 40px;
+  grid-template-columns: 1fr auto 1fr;
+  grid-template-rows: 1fr 1fr;
+  align-items: center;
+  justify-items: center;
+  min-height: 380px;
+  padding: 20px 0;
+  gap: 0 20px;
 }
 ```
+- Height determined by the brain (340px), NOT by the panel
+- SVG overlay (`dist-map-svg`) is `position: absolute; inset: 0` — doesn't affect grid
 
-### Math
-- Container total : 640px (border-box)
-- Padding : top 20 + bottom 40 = 60
-- Content area : 580px
-- Brain wrap (400×400) at TOP of content → wrap from y=20 to y=420
-- Outer circle (radius 148, centered at wrap center y=220) → y=72 to y=368
-- Apps with 32px overhang :
-  - Top apps : `top: 40px` → app extends 40-160 (32px above circle top y=72)
-  - Bottom apps : `bottom: 240px` → app extends 280-400 (32px below circle bottom y=368)
-  - Gap top-app-bottom (160) ↔ bottom-app-top (280) = **120px**
-
-### Platform card positions
+### Platform node positions — grid cells (no absolute)
+```
+| Col 1 (left)  | Col 2 (center) | Col 3 (right)  |
+| Row 1: TikTok | Brain (spans   | Row 1: Instagram|
+| Row 2: YouTube| both rows)     | Row 2: Facebook |
+```
 ```css
-.dist-plat-node {
-  width: 110px;
-  text-align: center;
-  user-select: none;
-  -webkit-user-drag: none;
-}
-.pos-tl { left: 40px; top: 40px; }
-.pos-tr { right: 40px; top: 40px; }
-.pos-bl { left: 40px; bottom: 240px; }
-.pos-br { right: 40px; bottom: 240px; }
+.dist-plat-node.pos-tl { grid-column: 1; grid-row: 1; align-self: end; }
+.dist-plat-node.pos-bl { grid-column: 1; grid-row: 2; align-self: start; }
+.dist-plat-node.pos-tr { grid-column: 3; grid-row: 1; align-self: end; }
+.dist-plat-node.pos-br { grid-column: 3; grid-row: 2; align-self: start; }
+.dist-core-wrap { grid-column: 2; grid-row: 1 / 3; }
 ```
 
 ### Platform card content

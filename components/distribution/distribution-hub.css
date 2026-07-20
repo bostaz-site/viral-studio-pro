@@ -2939,15 +2939,20 @@
 /* ═══════════════════════════════════════════════════════
    CONNECTION MAP — AI Distribution Core
    ═══════════════════════════════════════════════════════ */
+/* 3-column grid: left platforms | brain | right platforms.
+   Height determined by the brain (340px), not by the panel. */
 .dist-connection-map {
   position: relative;
   width: 100%;
   box-sizing: border-box;
-  min-height: 420px;
   display: grid;
-  place-items: start center;
-  padding-top: 20px;
-  padding-bottom: 20px;
+  grid-template-columns: 1fr auto 1fr;
+  grid-template-rows: 1fr 1fr;
+  align-items: center;
+  justify-items: center;
+  min-height: 380px;
+  padding: 20px 0;
+  gap: 0 20px;
 }
 .dist-map-svg {
   position: absolute;
@@ -2982,7 +2987,6 @@
 
 /* Platform nodes — compact icon style */
 .dist-plat-node {
-  position: absolute;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -3067,22 +3071,17 @@
   color: #475569;
   cursor: default;
 }
-/* Math (with box-sizing: border-box, container 640px total):
-   Padding-top 20 + padding-bottom 40 → content area 580.
-   place-items: start center → brain wrap (400) anchored at content TOP.
-   In padding box coords: wrap top y=20, wrap bottom y=420.
-   Brain SVG centered in wrap → outer circle y=72-368 (diameter 296).
-   Apps with 32px overhang beyond circle edges:
-   Top apps: top: 40px → app extends 40-160 (32px above circle top y=72).
-   Bottom apps: bottom: 240px → app extends 280-400 (32px below circle bottom y=368).
-   Gap between top app bottom (160) and bottom app top (280) = 120px. */
-.dist-plat-node.pos-tl { left: 40px; top: 40px; }
-.dist-plat-node.pos-bl { left: 40px; bottom: 240px; }
-.dist-plat-node.pos-tr { right: 40px; top: 40px; }
-.dist-plat-node.pos-br { right: 40px; bottom: 240px; }
+/* Grid placement — left column (1) top/bottom, right column (3) top/bottom.
+   Two rows split the brain height evenly; each column gets one platform per row. */
+.dist-plat-node.pos-tl { grid-column: 1; grid-row: 1; align-self: end; padding-bottom: 16px; }
+.dist-plat-node.pos-bl { grid-column: 1; grid-row: 2; align-self: start; padding-top: 16px; }
+.dist-plat-node.pos-tr { grid-column: 3; grid-row: 1; align-self: end; padding-bottom: 16px; }
+.dist-plat-node.pos-br { grid-column: 3; grid-row: 2; align-self: start; padding-top: 16px; }
 
-/* AI Core */
+/* AI Core — center column, spans both rows */
 .dist-core-wrap {
+  grid-column: 2;
+  grid-row: 1 / 3;
   position: relative;
   width: 340px;
   min-height: 340px;
