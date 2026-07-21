@@ -505,7 +505,7 @@ Mobile-first. No fake numbers, no testimonials.
 |---|---|---|
 | Hero | `hero-section.tsx` | 3-clicks pipeline demo (7.2s CSS cycle: Pick→Enhance→Post), real thumbnail from radar API, bridge card with count-up |
 | Radar | `how-it-works-section.tsx` | 100% static snapshot — crowned royal card (score 92 count-up + pop, lock brackets 9s, cyan gems, CTA shine), 2 rising cards (74 cyan, 67 rainbow gradient 3s), partial card (61, mask fade). Radar BG: concentric rings + sweep 9s + 5 blips. Thumbnails: `/landing/radar-thumb-1..4.jpg` |
-| Transformation | `before-after-section.tsx` | Static mockup, checklist stagger on scroll |
+| ~~Transformation~~ | REMOVED (redundant with hero 3-clicks) | Micro-features line moved under hero |
 | Farm | `features-grid.tsx` | Animated brain pipeline (8s cycle): clip bank → cargo flow → real brain SVG (lobes, nodes, wolf) → 4-way splitter (SMIL animateMotion) → 4 platform icons (receive cascade). Countdown EXAMPLE panel (live JS). Thumbnails: `/landing/farm-thumb-1/2.jpg` |
 | Pricing | `pricing-section.tsx` | Free $0 / Pro $19 / Studio $24 (founding) |
 | FAQ | `faq-section.tsx` | 5 items (rights answer = official policy) |

@@ -214,6 +214,15 @@ export function HeroSection() {
         </div>
       </div>
 
+      {/* Micro-features line */}
+      <div style={{ position: 'relative', zIndex: 1, display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: '6px 10px', marginTop: 20, fontSize: 12, fontWeight: 600, color: '#94A3B8' }}>
+        <span>Karaoke captions (5 styles)</span>
+        <span style={{ color: '#334155' }}>&middot;</span>
+        <span>AI hook + smart zoom</span>
+        <span style={{ color: '#334155' }}>&middot;</span>
+        <span>Automatic creator credit</span>
+      </div>
+
       {/* Bridge card — VALIDATED */}
       <div className="lv3-bridge">
         <span className="lv3-bridge-crown" role="img" aria-label="crown">&#x1F451;</span>

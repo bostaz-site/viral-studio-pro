@@ -7,7 +7,6 @@ import { Button } from '@/components/ui/button'
 import { ViralAnimalLogo } from '@/components/brand/viral-animal-logo'
 import { HeroSection } from '@/components/landing/hero-section'
 import { HowItWorksSection } from '@/components/landing/how-it-works-section'
-import { BeforeAfterSection } from '@/components/landing/before-after-section'
 import { FeaturesGrid } from '@/components/landing/features-grid'
 import { FaqSection, FAQ_ITEMS } from '@/components/landing/faq-section'
 import { PricingSection } from '@/components/landing/pricing-section'
@@ -60,10 +59,7 @@ export function LandingPage() {
       {/* S2: Radar (signature) */}
       <HowItWorksSection />
 
-      {/* S3: Transformation */}
-      <BeforeAfterSection />
-
-      {/* S4: The Farm */}
+      {/* S3: The Farm */}
       <FeaturesGrid />
 
       {/* S5: Pricing */}
