@@ -476,6 +476,131 @@
 }
 
 /* ═══════════════════════════════════════════════════════════════
+   SECTION 4 — THE FARM (animated brain pipeline + 4-way splitter)
+   Master cycle: --farm-B = 8s
+   ═══════════════════════════════════════════════════════════════ */
+:root { --farm-B: 8s; }
+
+.farm-section {
+  position: relative; overflow: hidden;
+  padding: clamp(64px,9vw,110px) 20px;
+  background-image: radial-gradient(50% 60% at 50% 40%, rgba(56,189,248,.05), transparent 70%);
+}
+.farm-eyebrow { font-size:11px; font-weight:700; letter-spacing:.22em; text-transform:uppercase; color:#67E8F9; margin-bottom:12px; text-align:center; }
+.farm-h2 { font-size:clamp(28px,5vw,44px); font-weight:900; letter-spacing:-.03em; color:#F8FAFC; margin-bottom:10px; text-align:center; }
+.farm-sub { font-size:15px; color:#94A3B8; max-width:520px; line-height:1.6; text-align:center; margin:0 auto 38px; }
+
+/* Pipeline row */
+.farm-pipeline { display:flex; align-items:center; justify-content:center; gap:clamp(10px,2vw,22px); flex-wrap:wrap; }
+
+/* ── CLIP BANK ── */
+.farm-bank { display:flex; flex-direction:column; gap:8px; }
+.farm-banklabel { font-size:9px; font-weight:800; letter-spacing:.18em; color:#94A3B8; display:flex; align-items:center; gap:6px; }
+.farm-bankdot { width:5px; height:5px; border-radius:99px; background:#38BDF8; animation:farm-blink 1.6s ease-in-out infinite; }
+@keyframes farm-blink { 50% { opacity:.3; } }
+
+.farm-bcard { width:120px; border-radius:9px; overflow:hidden; background:#0F172A; border:1px solid rgba(148,163,184,.16); position:relative; }
+.farm-bcard img { width:100%; aspect-ratio:16/10; object-fit:cover; display:block; }
+.farm-tag { position:absolute; top:5px; left:5px; font-size:6.5px; font-weight:900; letter-spacing:.1em; padding:2px 6px; border-radius:99px; }
+.farm-tag-best { color:#0C4A6E; background:#7DD3FC; }
+.farm-tag-prio { color:#451A03; background:#FB923C; }
+.farm-score-pill { position:absolute; bottom:5px; right:5px; font-size:10px; font-weight:900; color:#FBBF24; background:rgba(2,6,23,.8); padding:1px 5px; border-radius:5px; }
+
+.farm-bcard-1 { animation: farm-card-depart var(--farm-B) ease-in infinite; }
+@keyframes farm-card-depart { 0%,14% { transform:translateX(0); opacity:1; } 24% { transform:translateX(26px); opacity:0; } 25%,86% { transform:translateX(0); opacity:0; } 93%,100% { transform:translateX(0); opacity:1; } }
+.farm-bcard-2 { animation: farm-queue-shift var(--farm-B) ease infinite; }
+@keyframes farm-queue-shift { 0%,22% { transform:translateY(0); } 28%,86% { transform:translateY(-6px); } 93%,100% { transform:translateY(0); } }
+
+/* ── FLOW bank→brain ── */
+.farm-flow { position:relative; width:clamp(34px,5vw,70px); height:2px; align-self:center; background:repeating-linear-gradient(90deg, rgba(251,146,60,.35) 0 6px, transparent 6px 12px); }
+.farm-cargo { position:absolute; top:50%; left:0; width:7px; height:7px; border-radius:99px; background:#FB923C; box-shadow:0 0 10px #FB923C; transform:translateY(-50%); opacity:0; animation: farm-cargo var(--farm-B) ease-in infinite; }
+@keyframes farm-cargo { 0%,18% { left:0; opacity:0; } 21% { opacity:1; } 34% { left:calc(100% - 7px); opacity:1; } 36%,100% { opacity:0; } }
+
+/* ── BRAIN ── */
+.farm-brainwrap { position:relative; width:250px; height:250px; flex-shrink:0; display:flex; align-items:center; justify-content:center; }
+.farm-brain { width:240px; height:240px; overflow:visible; filter:drop-shadow(0 0 12px rgba(56,189,248,.35)) drop-shadow(0 0 34px rgba(56,189,248,.15)); }
+.farm-breathe { transform-origin:160px 160px; animation: farm-breathe-kf 5.5s ease-in-out infinite; }
+@keyframes farm-breathe-kf { 0%,100% { transform:scale(1); } 50% { transform:scale(1.014); } }
+.farm-outer-ring { transform-origin:160px 160px; animation: lv3-spin 45s linear infinite; }
+.farm-wolfg { animation: farm-wolfbeat var(--farm-B) ease-in-out infinite; }
+@keyframes farm-wolfbeat { 0%,44% { filter:none; } 48%,54% { filter:drop-shadow(0 0 14px rgba(251,146,60,.9)) drop-shadow(0 0 28px rgba(103,232,249,.4)); } 60%,100% { filter:none; } }
+.farm-nnode { opacity:.52; animation: farm-node-event var(--farm-B) ease-in-out infinite; }
+@keyframes farm-node-event { 0%,34% { opacity:.52; } 38% { opacity:1; } 46%,100% { opacity:.52; } }
+.farm-f1 { animation-delay:.22s; } .farm-f2 { animation-delay:.44s; } .farm-f3 { animation-delay:.66s; }
+
+.farm-autofarm-pill {
+  position:absolute; bottom:6px; left:50%; transform:translateX(-50%);
+  font-size:8px; font-weight:800; letter-spacing:.14em; color:#7DD3FC; white-space:nowrap;
+  display:flex; align-items:center; gap:5px;
+}
+.farm-autofarm-dot { width:5px; height:5px; border-radius:99px; background:#4ADE80; display:inline-block; }
+
+/* ── SPLITTER ── */
+.farm-splitter { align-self:center; flex-shrink:0; overflow:visible; }
+.farm-br { stroke:rgba(103,232,249,.35); stroke-width:2; stroke-dasharray:5 7; stroke-linecap:round; animation: farm-br-live var(--farm-B) ease infinite; fill:none; }
+@keyframes farm-br-live { 0%,50% { stroke:rgba(103,232,249,.3); } 56%,72% { stroke:rgba(251,191,36,.75); } 82%,100% { stroke:rgba(103,232,249,.3); } }
+.farm-sp { filter:drop-shadow(0 0 8px #FBBF24); }
+.farm-sp-1 { animation: farm-sp-vis var(--farm-B) linear infinite; }
+@keyframes farm-sp-vis { 0%,53.5% { opacity:0; } 54.5%,63% { opacity:1; } 64%,100% { opacity:0; } }
+.farm-sp-2 { animation: farm-sp-vis2 var(--farm-B) linear infinite; }
+@keyframes farm-sp-vis2 { 0%,55% { opacity:0; } 56%,64.5% { opacity:1; } 65.5%,100% { opacity:0; } }
+.farm-sp-3 { animation: farm-sp-vis3 var(--farm-B) linear infinite; }
+@keyframes farm-sp-vis3 { 0%,56.5% { opacity:0; } 57.5%,66% { opacity:1; } 67%,100% { opacity:0; } }
+.farm-sp-4 { animation: farm-sp-vis4 var(--farm-B) linear infinite; }
+@keyframes farm-sp-vis4 { 0%,58% { opacity:0; } 59%,67.5% { opacity:1; } 68.5%,100% { opacity:0; } }
+
+/* ── APPS ── */
+.farm-apps { display:flex; flex-direction:column; gap:14px; }
+.farm-app { display:flex; align-items:center; gap:9px; font-size:11px; font-weight:700; color:#64748B; }
+.farm-app-ic { width:34px; height:34px; border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:15px; background:rgba(15,23,42,.85); border:1px solid rgba(148,163,184,.2); color:#94A3B8; }
+.farm-app-active { color:#E2E8F0; }
+.farm-app-active .farm-app-ic { border-color:rgba(103,232,249,.5); color:#F8FAFC; box-shadow:0 0 12px rgba(103,232,249,.2); animation: farm-receive var(--farm-B) ease infinite; }
+.farm-app-r2 .farm-app-ic { animation-delay:.12s; }
+.farm-app-r3 .farm-app-ic { animation-delay:.24s; }
+.farm-app-r4 .farm-app-ic { animation-delay:.36s; }
+@keyframes farm-receive { 0%,62% { box-shadow:0 0 12px rgba(103,232,249,.2); background:rgba(15,23,42,.85); border-color:rgba(103,232,249,.5); } 64%,74% { box-shadow:0 0 26px rgba(251,191,36,.7); background:rgba(69,26,3,.5); border-color:#FBBF24; } 84%,100% { box-shadow:0 0 12px rgba(103,232,249,.2); } }
+
+.farm-posted { font-size:8px; font-weight:900; color:#FBBF24; opacity:0; margin-left:4px; }
+.farm-posted-1 { animation: farm-pflag var(--farm-B) ease infinite; }
+.farm-posted-2 { animation: farm-pflag var(--farm-B) ease infinite; animation-delay:.12s; }
+.farm-posted-3 { animation: farm-pflag var(--farm-B) ease infinite; animation-delay:.24s; }
+.farm-posted-4 { animation: farm-pflag var(--farm-B) ease infinite; animation-delay:.36s; }
+@keyframes farm-pflag { 0%,63% { opacity:0; } 65%,86% { opacity:1; } 92%,100% { opacity:0; } }
+
+/* ── NEXT POST panel ── */
+.farm-nextpost { margin-top:22px; border-radius:12px; border:1px solid rgba(56,189,248,.22); background:rgba(15,23,42,.75); padding:12px 20px; display:flex; align-items:baseline; gap:16px; flex-wrap:wrap; justify-content:center; }
+.farm-nextpost-lbl { font-size:10px; font-weight:800; letter-spacing:.2em; color:#94A3B8; }
+.farm-nextpost-cd { font-size:24px; font-weight:900; color:#67E8F9; font-variant-numeric:tabular-nums; }
+.farm-nextpost-win { font-size:12px; font-weight:700; color:#94A3B8; }
+.farm-soon-note { font-size:12px; color:#64748B; font-weight:600; text-align:center; margin-top:18px; }
+
+/* ── Mobile: vertical layout ── */
+@media (max-width: 639px) {
+  .farm-pipeline { flex-direction:column; }
+  .farm-flow { width:2px; height:clamp(24px,4vw,40px); background:repeating-linear-gradient(180deg, rgba(251,146,60,.35) 0 6px, transparent 6px 12px); }
+  .farm-cargo { top:0; left:50%; transform:translateX(-50%); animation-name:farm-cargo-v; }
+  @keyframes farm-cargo-v { 0%,18% { top:0; opacity:0; } 21% { opacity:1; } 34% { top:calc(100% - 7px); opacity:1; } 36%,100% { opacity:0; } }
+  .farm-splitter { transform:rotate(90deg); width:96px; height:96px; }
+  .farm-brainwrap { width:200px; height:200px; }
+  .farm-brain { width:190px; height:190px; }
+  .farm-apps { flex-direction:row; flex-wrap:wrap; justify-content:center; gap:10px; }
+  .farm-app { flex-direction:column; gap:4px; font-size:9px; text-align:center; }
+}
+
+/* ── Reduced motion ── */
+@media (prefers-reduced-motion: reduce) {
+  .farm-bcard-1 { opacity:1 !important; transform:none !important; }
+  .farm-bcard-2, .farm-cargo, .farm-sp, .farm-bankdot,
+  .farm-breathe, .farm-outer-ring, .farm-wolfg,
+  .farm-nnode, .farm-br { animation:none !important; }
+  .farm-cargo { display:none; }
+  .farm-sp { display:none; }
+  .farm-app-active .farm-app-ic { border-color:#FBBF24; box-shadow:0 0 16px rgba(251,191,36,.35); }
+  .farm-posted { opacity:1 !important; }
+  .farm-nnode { opacity:1 !important; }
+}
+
+/* ═══════════════════════════════════════════════════════════════
    SECTION 2 — RADAR
    ═══════════════════════════════════════════════════════════════ */
 .lv3-radar {

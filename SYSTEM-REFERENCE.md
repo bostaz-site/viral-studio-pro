@@ -506,7 +506,7 @@ Mobile-first. No fake numbers, no testimonials.
 | Hero | `hero-section.tsx` | 3-clicks pipeline demo (7.2s CSS cycle: Pick→Enhance→Post), real thumbnail from radar API, bridge card with count-up |
 | Radar | `how-it-works-section.tsx` | `GET /api/landing/radar` (ISR 15min, service role, top 4 clips), fallback static |
 | Transformation | `before-after-section.tsx` | Static mockup, checklist stagger on scroll |
-| Farm | `features-grid.tsx` | Static brain mockup + ticker |
+| Farm | `features-grid.tsx` | Animated brain pipeline (8s cycle): clip bank → cargo flow → real brain SVG (lobes, nodes, wolf) → 4-way splitter (SMIL animateMotion) → 4 platform icons (receive cascade). Countdown EXAMPLE panel (live JS). Thumbnails: `/landing/farm-thumb-1/2.jpg` |
 | Pricing | `pricing-section.tsx` | Free $0 / Pro $19 / Studio $24 (founding) |
 | FAQ | `faq-section.tsx` | 5 items (rights answer = official policy) |
 | Final CTA | `final-cta-section.tsx` | Wolf logo (forge variant) |
