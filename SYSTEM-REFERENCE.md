@@ -268,9 +268,9 @@ Env var `RENDER_QUALITY` (default `high`). Auto-fallback on OOM (exit code null/
 - **SAFE**: 720p30, veryfast, crf 23, maxrate 5M
 - **LAST_RESORT**: 720p30, ultrafast, crf 26, maxrate 4M
 
-Quality tier is stored in `render_jobs.quality_tier` and exposed via `/api/render/status` as `qualityTier` + `reducedQuality` boolean. If tier < HIGH_30, the Enhance page shows a "Rendered at reduced quality" warning.
+Quality tier is stored in `render_jobs.quality_tier` and exposed via `/api/render/status` as `qualityTier` + `reducedQuality` boolean. If tier < HIGH_30, the Enhance page shows a "Rendered at reduced quality" warning. `execRender()` receives `tierName` as 4th param from both `renderClip` and `renderSplitScreen` loops.
 
-Filtergraph: scale/crop → eq (4 buckets) → unsharp (HIGH only) → ASS subtitles → overlays → watermark → format. Details : `SYSTEM-REFERENCE-ENHANCE.md` section "Qualite de rendu v2".
+Filtergraph: scale/crop → eq (4 buckets) → unsharp (HIGH only) → ASS subtitles → overlays → watermark → format. `escapeDrawtext()` uses `'\''` (close-escape-reopen) for apostrophes in user text (hook, tag author) — FFmpeg does not process `\'` inside single-quoted filter values. Details : `SYSTEM-REFERENCE-ENHANCE.md` section "Qualite de rendu v2".
 
 ### Peak Detection (spike + positional prior)
 `vps/lib/hook-generator.js` > `detectPeakMoment()`. Combines audio spikes (×8), viral keywords (+3/+2/+1), ALL CAPS (+2), positional prior (Twitch/Kick clips: last ⅓ boosted ×1.3), anti-edge. Word-boundary snapping for hook reorder. `settings.sourcePlatform` is wired from both `POST /api/render` and `POST /api/render/quick` (derived from `trending_clips.platform`), enabling the positional prior for viewer clips. Details : `SYSTEM-REFERENCE-ENHANCE.md` section "Peak Detection v2".

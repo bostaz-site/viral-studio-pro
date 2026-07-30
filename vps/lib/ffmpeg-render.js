@@ -33,7 +33,7 @@ export function escapePath(filePath) {
 export function escapeDrawtext(text) {
   return text
     .replace(/\\/g, '\\\\')
-    .replace(/'/g, "\\'")
+    .replace(/'/g, "'\\''")
     .replace(/:/g, '\\:')
     .replace(/@/g, '\\@')
     .replace(/\[/g, '\\[')
@@ -947,7 +947,7 @@ export async function renderClip(inputPath, outputPath, options = {}) {
       args.push('-max_muxing_queue_size', '512');
       args.push(outputPath);
 
-      const result = await execRender(args, outputPath, timeout);
+      const result = await execRender(args, outputPath, timeout, tierName);
       return maybeAppendEndCard(result);
     } catch (err) {
       lastError = err;
@@ -1210,7 +1210,7 @@ async function renderSplitScreen(inputPath, outputPath, opts) {
       args.push(outputPath);
 
       console.log(`[FFmpeg] Split-screen render: layout=${layout}, ratio=${ratio}, tier=${tierName}`);
-      return await execRender(args, outputPath, timeout);
+      return await execRender(args, outputPath, timeout, tierName);
     } catch (err) {
       lastError = err;
       if (isOOMError(err) && ti < tierSequence.length - 1) {
@@ -1227,7 +1227,7 @@ async function renderSplitScreen(inputPath, outputPath, opts) {
 // Shared FFmpeg execution
 // ─────────────────────────────────────────────────────────────────────────────
 
-async function execRender(args, outputPath, timeout = 300000) {
+async function execRender(args, outputPath, timeout = 300000, tierName = 'unknown') {
   const cmd = buildCommand(args);
   console.log(`[FFmpeg] Running: ${cmd.substring(0, 300)}...`);
 
