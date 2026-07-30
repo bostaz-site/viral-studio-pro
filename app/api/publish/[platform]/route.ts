@@ -54,6 +54,16 @@ export const POST = withAuth(
       return errorResponse(`Unsupported platform: ${platformParam}`, 400)
     }
 
+    // Hard gate: only TikTok is approved for publish at launch.
+    // YouTube and Instagram are coming soon — block even if client state is corrupted.
+    const LAUNCH_ACTIVE_PLATFORMS: Platform[] = ['tiktok']
+    if (!LAUNCH_ACTIVE_PLATFORMS.includes(platformParam)) {
+      return errorResponse(
+        `${PLATFORM_CONFIGS[platformParam].displayName} publishing is coming soon. Only TikTok is available right now.`,
+        403
+      )
+    }
+
     const config = PLATFORM_CONFIGS[platformParam]
 
     // Instagram requires platform_metadata (IG Business Account ID + page token)

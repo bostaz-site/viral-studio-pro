@@ -71,6 +71,9 @@ export function TikTokPublishDialog({
   const [publishMode, setPublishMode] = useState<'direct' | 'inbox' | null>(null)
 
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const pollCountRef = useRef(0)
+  const pollErrorCountRef = useRef(0)
+  const [pollTimedOut, setPollTimedOut] = useState(false)
 
   // ── Fetch creator info on mount ──────────────────────────────────────────
 
@@ -92,6 +95,9 @@ export function TikTokPublishDialog({
     setPublishedPostId(null)
     setPublishMode(null)
     setIsPublishing(false)
+    setPollTimedOut(false)
+    pollCountRef.current = 0
+    pollErrorCountRef.current = 0
     setCreatorInfoError(null)
 
     const fetchCreatorInfo = async () => {
@@ -200,9 +206,26 @@ export function TikTokPublishDialog({
         return
       }
 
-      // Direct Post mode: poll for status
+      // Direct Post mode: poll for status (max 36 polls = ~3 min)
+      const MAX_POLLS = 36
+      const MAX_CONSECUTIVE_ERRORS = 3
       if (pid) {
+        pollCountRef.current = 0
+        pollErrorCountRef.current = 0
         pollingRef.current = setInterval(async () => {
+          pollCountRef.current++
+
+          // Timeout: stop polling after MAX_POLLS attempts
+          if (pollCountRef.current > MAX_POLLS) {
+            if (pollingRef.current) {
+              clearInterval(pollingRef.current)
+              pollingRef.current = null
+            }
+            setPollTimedOut(true)
+            setIsPublishing(false)
+            return
+          }
+
           try {
             const statusRes = await fetch('/api/tiktok/publish-status', {
               method: 'POST',
@@ -213,6 +236,9 @@ export function TikTokPublishDialog({
               data?: { status: TikTokPublishStatus; fail_reason?: string; post_id?: string }
               error?: string
             }
+
+            // Reset consecutive error count on successful poll
+            pollErrorCountRef.current = 0
 
             if (statusJson.data?.status) {
               setPublishStatus(statusJson.data.status)
@@ -235,7 +261,16 @@ export function TikTokPublishDialog({
               }
             }
           } catch {
-            // Silently retry on network errors
+            // Track consecutive network errors — give up after MAX_CONSECUTIVE_ERRORS
+            pollErrorCountRef.current++
+            if (pollErrorCountRef.current >= MAX_CONSECUTIVE_ERRORS) {
+              if (pollingRef.current) {
+                clearInterval(pollingRef.current)
+                pollingRef.current = null
+              }
+              setPollTimedOut(true)
+              setIsPublishing(false)
+            }
           }
         }, 5000)
       } else {
@@ -250,7 +285,11 @@ export function TikTokPublishDialog({
   // ── Close handler ────────────────────────────────────────────────────────
 
   const handleClose = () => {
-    if (isPublishing) return
+    // Allow close when polling timed out, or when not in the initial publish request.
+    // During PROCESSING, closing is safe — the post continues on TikTok's side.
+    const isInitialPublishRequest = isPublishing && !publishId
+    if (isInitialPublishRequest) return
+
     if (pollingRef.current) {
       clearInterval(pollingRef.current)
       pollingRef.current = null
@@ -326,7 +365,7 @@ export function TikTokPublishDialog({
 
     const isComplete = publishStatus === 'PUBLISH_COMPLETE'
     const isFailed = publishStatus === 'FAILED'
-    const isProcessing = !isComplete && !isFailed
+    const isProcessing = !isComplete && !isFailed && !pollTimedOut
 
     const tiktokVideoUrl = publishedPostId && creatorInfo?.creator_username
       ? `https://www.tiktok.com/@${creatorInfo.creator_username}/video/${publishedPostId}`
@@ -337,23 +376,31 @@ export function TikTokPublishDialog({
         className={`rounded-lg border p-4 ${
           isComplete
             ? 'border-green-500/30 bg-green-500/5'
-            : isFailed
-              ? 'border-red-500/30 bg-red-500/5'
+            : isFailed || pollTimedOut
+              ? pollTimedOut ? 'border-amber-500/30 bg-amber-500/5' : 'border-red-500/30 bg-red-500/5'
               : 'border-border bg-muted/20'
         }`}
       >
         <div className="flex items-center gap-3">
           {isProcessing && <WolfLoader variant="spinner" size={20} mode="amber" />}
           {isComplete && <CheckCircle2 className="h-5 w-5 text-green-400" />}
-          {isFailed && <AlertCircle className="h-5 w-5 text-red-400" />}
+          {isFailed && !pollTimedOut && <AlertCircle className="h-5 w-5 text-red-400" />}
+          {pollTimedOut && <AlertCircle className="h-5 w-5 text-amber-400" />}
 
           <div className="flex-1">
             <p className={`text-sm font-medium ${
-              isComplete ? 'text-green-400' : isFailed ? 'text-red-400' : 'text-foreground'
+              pollTimedOut ? 'text-amber-400' : isComplete ? 'text-green-400' : isFailed ? 'text-red-400' : 'text-foreground'
             }`}>
-              {publishStatus ? statusLabels[publishStatus] : 'Initializing...'}
+              {pollTimedOut
+                ? 'Still processing on TikTok\u2019s side'
+                : publishStatus ? statusLabels[publishStatus] : 'Initializing...'}
             </p>
-            {isProcessing && (
+            {pollTimedOut && (
+              <p className="text-xs text-muted-foreground mt-1">
+                Your post will appear on your TikTok profile when ready. Safe to close.
+              </p>
+            )}
+            {isProcessing && !pollTimedOut && (
               <p className="text-xs text-muted-foreground mt-1">
                 It may take a few minutes for content to be visible on your TikTok profile.
               </p>
@@ -673,8 +720,11 @@ export function TikTokPublishDialog({
         {/* Actions */}
         <div className="flex justify-end gap-3 pt-2 border-t border-border/50">
           {publishId ? (
-            <Button onClick={handleClose} variant="outline" disabled={isPublishing}>
-              {publishStatus === 'PUBLISH_COMPLETE' ? 'Done' : 'Close'}
+            <Button onClick={handleClose} variant="outline" disabled={isPublishing && !publishId}>
+              {publishStatus === 'PUBLISH_COMPLETE' ? 'Done'
+                : pollTimedOut ? 'Close'
+                : isPublishing ? 'Close (post continues on TikTok)'
+                : 'Close'}
             </Button>
           ) : (
             <>

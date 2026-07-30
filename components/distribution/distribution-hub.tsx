@@ -1177,8 +1177,10 @@ export function DistributionHub() {
   }, [selectedClip, captionText, isPublishing, publishClip, publishSequenceActive, publishTargets])
 
   const connectedPlatforms = accounts.map((a) => a.platform)
+  // Only count platforms that are actually supported (not "coming soon")
   const activePlatformCount = publishTargets.filter(
     (t) => t.enabled && connectedPlatforms.includes(t.platform)
+      && PLATFORMS.find(p => p.id === t.platform)?.supported
   ).length
 
   // Core state machine (replaces binary on/off)

@@ -45,6 +45,10 @@ interface UnifiedPublishDialogProps {
 
 // ── Platform config ──────────────────────────────────────────────────────────
 
+// Only TikTok is approved for publish at launch. YouTube/Instagram are "coming soon".
+const LAUNCH_ACTIVE_PLATFORMS: Platform[] = ['tiktok']
+const isComingSoonPlatform = (p: Platform) => !LAUNCH_ACTIVE_PLATFORMS.includes(p)
+
 const PLATFORMS: { id: Platform; name: string; icon: React.ReactNode; colors: string }[] = [
   {
     id: 'tiktok',
@@ -117,7 +121,8 @@ export function UnifiedPublishDialog({
             next[p] = {
               connected: !!acct,
               username: acct?.username ?? null,
-              selected: !!acct,
+              // Never auto-select coming-soon platforms
+              selected: !!acct && !isComingSoonPlatform(p),
               status: 'idle',
               error: null,
               tiktokConfigured: false,
@@ -136,14 +141,15 @@ export function UnifiedPublishDialog({
   }, [open])
 
   const togglePlatform = (p: Platform) => {
-    if (!platforms[p].connected || isPublishing) return
+    if (isComingSoonPlatform(p) || !platforms[p].connected || isPublishing) return
     setPlatforms(prev => ({
       ...prev,
       [p]: { ...prev[p], selected: !prev[p].selected },
     }))
   }
 
-  const selectedCount = Object.values(platforms).filter(p => p.selected && p.connected).length
+  const selectedCount = (Object.entries(platforms) as [Platform, PlatformState][])
+    .filter(([id, s]) => s.selected && s.connected && !isComingSoonPlatform(id)).length
 
   const handleConnect = (platform: Platform) => {
     const returnUrl = window.location.pathname + window.location.search
@@ -187,11 +193,11 @@ export function UnifiedPublishDialog({
     }
   }
 
-  // Publish to all selected platforms
+  // Publish to all selected platforms (only launch-active ones)
   const handlePublish = useCallback(async () => {
     setIsPublishing(true)
     const selected = (Object.entries(platforms) as [Platform, PlatformState][])
-      .filter(([, s]) => s.selected && s.connected)
+      .filter(([id, s]) => s.selected && s.connected && !isComingSoonPlatform(id))
 
     // TikTok requires its dedicated dialog (Content Sharing compliance:
     // user must choose privacy/interactions before each publish)
@@ -281,7 +287,7 @@ export function UnifiedPublishDialog({
               {/* Platform rows */}
               <div className="space-y-2.5">
                 {PLATFORMS.map(({ id, name, icon, colors }) => {
-                  const isComingSoon = id === 'youtube' || id === 'instagram'
+                  const isComingSoon = isComingSoonPlatform(id)
                   const state = platforms[id]
                   const isSelected = !isComingSoon && state.connected && state.selected
                   const statusIcon = state.status === 'publishing'
@@ -302,7 +308,7 @@ export function UnifiedPublishDialog({
                           ? colors
                           : 'border-border bg-muted/20'
                       } ${state.connected && !isPublishing ? 'cursor-pointer' : ''}`}
-                      onClick={() => state.connected && !allDone && togglePlatform(id)}
+                      onClick={() => !isComingSoon && state.connected && !allDone && togglePlatform(id)}
                     >
                       <div className="flex items-center gap-3">
                         {/* Checkbox / status */}

@@ -467,9 +467,22 @@ Multi-platform publishing to TikTok, YouTube, Instagram with OAuth token managem
 - `components/distribution/publish-dialog.tsx` — caption, hashtags, platform selection, **posting time advice**
 
 ### Platform Details
-- **TikTok**: Direct post via `/v2/post/publish/video/init/` (pull-from-URL). Privacy: `SELF_ONLY`
-- **YouTube**: Resumable upload (download video -> start session -> upload bytes). Privacy: `private`
-- **Instagram**: Stubbed (`supportsPublish: false`)
+- **TikTok**: Direct post via `/v2/post/publish/video/init/` (pull-from-URL). Privacy chosen per-post by user in `TikTokPublishDialog`. Falls back to inbox mode if Direct Post scope rejected.
+- **YouTube**: Resumable upload (download video -> start session -> upload bytes). Privacy: `private`. **COMING SOON** — gated client+server.
+- **Instagram**: Reels via Graph API v21.0 container flow. **COMING SOON** — gated client+server.
+
+### Launch Gating (TikTok-only)
+At launch, only TikTok is approved for publishing. YouTube and Instagram are hard-gated:
+- **Server**: `app/api/publish/[platform]/route.ts` rejects any platform not in `LAUNCH_ACTIVE_PLATFORMS` with 403 "coming soon". Even corrupted client state cannot publish elsewhere.
+- **Client (UnifiedPublishDialog)**: `isComingSoonPlatform()` prevents auto-select, toggle, counting, and publishing for non-active platforms. `selectedCount` excludes them. Render shows "Coming soon" badge.
+- **Client (DistributionHub)**: `activePlatformCount` only counts platforms with `supported: true` in PLATFORMS config. Button text reflects real publishable count.
+- To enable a new platform at launch: add it to `LAUNCH_ACTIVE_PLATFORMS` in both `unified-publish-dialog.tsx` and `app/api/publish/[platform]/route.ts`, and set `supported: true` in distribution-hub's PLATFORMS config.
+
+### TikTok PROCESSING Dialog Behavior
+The `TikTokPublishDialog` polls `/api/tiktok/publish-status` every 5s after publishing:
+- **Timeout**: max 36 polls (~3 min). After timeout, shows "Still processing on TikTok's side — your post will appear when ready. Safe to close." Close button becomes active.
+- **Network errors**: 3 consecutive poll failures → same timeout behavior (stop polling, enable close).
+- **Close during PROCESSING**: Always allowed once the initial publish request completes (publishId exists). Closing does not cancel the TikTok-side post — user is informed. Button text: "Close (post continues on TikTok)".
 
 ### Token Manager
 `getValidToken(userId, platform)`: checks expiry with 5-min buffer -> auto-refresh if expired. Uses Upstash Redis distributed lock (`SET lock:token:{platform}:{userId} 1 NX EX 30`) to prevent concurrent refreshes across serverless isolates. If lock is held, waits 2s then re-reads the freshly refreshed token from DB. Lock released in `finally` block.
@@ -477,8 +490,23 @@ Multi-platform publishing to TikTok, YouTube, Instagram with OAuth token managem
 ### Posting Time Advice
 `lib/distribution/posting-schedule.ts` provides per-platform optimal posting hours (UTC). Integrated into the publish dialog: shows a green/amber/red badge per enabled platform with a suggestion like "Best time to post right now!" or "Low engagement now. Best in 3h". Data is static (based on public research), not personalized.
 
-### Autofarm Executor (v9)
-Queue-based auto-posting pipeline: user enables Auto-Distribute toggle → client POST `/api/distribution/autofarm-sync` → insert rows in `scheduled_publications` (source='autofarm', tiktok_options copied from auto-post defaults) → cron `publish-scheduled` (every 5-10min) picks up rows WHERE `status='scheduled' AND scheduled_at <= now()` → optimistic lock → publish via platform API → insert `published_posts` → cleanup. Toggle OFF cancels all pending autofarm rows. Requires `auto_post_defaults` configured (TikTok privacy, disclosure, etc.) — without it, autofarm won't schedule. Launch: TikTok only (other platforms "coming soon"). Details : `SYSTEM-REFERENCE-DISTRIBUTION.md`.
+### Autofarm Executor (v10)
+Queue-based auto-posting pipeline: user enables Auto-Distribute toggle → client POST `/api/distribution/autofarm-sync` → insert rows in `scheduled_publications` (source='autofarm', tiktok_options from user-configured `auto_post_defaults`, caption from `generateVariants()` template engine) → cron `publish-scheduled` (every 5-10min) picks up rows WHERE `status='scheduled' AND scheduled_at <= now()` → optimistic lock → guard against already-published clips → publish via platform API → insert `published_posts` → set `removed_from_bank_at` on render_job (prevent republish loop) → cleanup.
+
+**Key safety mechanisms (v10)**:
+- `auto_post_defaults` REQUIRED before toggle ON (TikTok compliance — user chooses privacy/interactions)
+- Captions never empty: template engine generates from clip title + niche hashtags
+- Sync route inserts FIRST, cancels old rows AFTER (if insert fails, existing queue survives)
+- Clips already in `published_posts` are excluded from sync (no republish)
+- Cron sets `removed_from_bank_at` after successful publish → clip leaves bank → no re-schedule
+- Toggle OFF settings persist to DB; failure reverts toggle with error message
+- TikTok dialog publishes feed the same stats path as publishProgress (publishHistory, persistentStats, rewards)
+
+**Metrics policy**: Post-publish grid shows "PROJECTION · Example only" label on all simulated metrics. Real stats from `publication_performance` table shown when available via `cron-refresh-post-stats`. No fake numbers presented as real.
+
+**Bank route**: `POST /api/distribution/bank` (restore clip to bank), `PATCH /api/distribution/bank/[clipId]` (remove/restore).
+
+Toggle OFF cancels all pending autofarm rows. Launch: TikTok only. Details : `SYSTEM-REFERENCE-DISTRIBUTION.md`.
 
 ### Gotchas
 - TikTok `publish_id` returns immediately but posting is async
