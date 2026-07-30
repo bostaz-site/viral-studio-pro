@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { timingSafeCompare } from '@/lib/crypto'
 import { redis } from '@/lib/upstash'
-import { releaseJob, processNextInQueue } from '@/lib/render-queue'
+import { releaseJob } from '@/lib/render-queue'
+import { processAndDispatchNext } from '@/lib/api/dispatch-render'
 import { logger } from '@/lib/logger'
 
 /**
@@ -117,20 +118,8 @@ export async function POST(req: NextRequest) {
     }
     // Dispatch next queued jobs now that slots are freed
     for (let i = 0; i < zombies.length; i++) {
-      const next = await processNextInQueue()
-      if (!next) break
-      // Fire-and-forget to VPS
-      const vpsUrl = process.env.VPS_RENDER_URL
-      const vpsKey = process.env.VPS_RENDER_API_KEY
-      if (vpsUrl && vpsKey) {
-        await admin.from('render_jobs').update({ status: 'pending' }).eq('id', next.jobId)
-        fetch(`${vpsUrl}/api/render`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'x-api-key': vpsKey },
-          body: JSON.stringify(next.payload),
-          signal: AbortSignal.timeout(15000),
-        }).catch(() => {})
-      }
+      const didDispatch = await processAndDispatchNext(admin)
+      if (!didDispatch) break
     }
 
     logger.info(`[cleanup-render-jobs] Cleaned ${zombies.length} zombie jobs, refunded ${refunded} credits`)

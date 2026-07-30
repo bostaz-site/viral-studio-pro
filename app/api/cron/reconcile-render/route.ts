@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { timingSafeCompare } from '@/lib/crypto'
 import { redis } from '@/lib/upstash'
-import { releaseJob, processNextInQueue } from '@/lib/render-queue'
+import { releaseJob } from '@/lib/render-queue'
+import { processAndDispatchNext } from '@/lib/api/dispatch-render'
 import { logger } from '@/lib/logger'
 
 /**
@@ -54,6 +55,12 @@ export async function POST(req: NextRequest) {
     .limit(10)
 
   if (stuckQueued?.length) {
+    // Fetch user_ids for refund before marking as error
+    const { data: stuckWithUsers } = await admin
+      .from('render_jobs')
+      .select('id, user_id')
+      .in('id', stuckQueued.map(j => j.id))
+
     for (const job of stuckQueued) {
       await admin.from('render_jobs').update({
         status: 'error',
@@ -61,15 +68,26 @@ export async function POST(req: NextRequest) {
         updated_at: new Date().toISOString(),
       }).eq('id', job.id)
     }
-    logger.info(`[reconcile] Cancelled ${stuckQueued.length} stuck queued jobs`)
+
+    // Refund quota for stuck queued jobs
+    const userCounts = new Map<string, number>()
+    for (const j of (stuckWithUsers ?? [])) {
+      const uid = j.user_id as string | null
+      if (uid) userCounts.set(uid, (userCounts.get(uid) ?? 0) + 1)
+    }
+    for (const [uid, count] of userCounts) {
+      (admin.rpc as CallableFunction)('refund_video_usage', { p_user_id: uid, p_count: count }).catch(() => {})
+    }
+
+    logger.info(`[reconcile] Cancelled ${stuckQueued.length} stuck queued jobs, refunded ${userCounts.size} users`)
   }
 
   // 4. After cleanup, dispatch any queued jobs into freed slots
   let dispatched = 0
   if (freed > 0) {
     for (let i = 0; i < freed; i++) {
-      const next = await processNextInQueue()
-      if (!next) break
+      const didDispatch = await processAndDispatchNext(admin)
+      if (!didDispatch) break
       dispatched++
     }
   }

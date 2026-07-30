@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { withAuth } from '@/lib/api/withAuth'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { releaseJob, processNextInQueue } from '@/lib/render-queue'
+import { releaseJob } from '@/lib/render-queue'
+import { processAndDispatchNext } from '@/lib/api/dispatch-render'
 import { redis } from '@/lib/upstash'
 import { rateLimit, RATE_LIMITS } from '@/lib/rate-limit'
 
@@ -91,7 +92,7 @@ export const GET = withAuth(async (request: NextRequest, user) => {
 
   if (['done', 'error', 'failed', 'canceled', 'expired'].includes(job.status)) {
     // Job finished — release slot (idempotent) and dispatch next queued render
-    releaseJob(job.id).then(() => processNextInQueue()).catch(() => {})
+    releaseJob(job.id).then(() => processAndDispatchNext(admin)).catch(() => {})
 
     // Increment export_count on trending clip (idempotent: only once per job)
     if (job.status === 'done' && job.source === 'trending') {

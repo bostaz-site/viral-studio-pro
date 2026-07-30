@@ -3,7 +3,8 @@ import { z } from 'zod'
 import { createHmac } from 'crypto'
 import { withAuth } from '@/lib/api/withAuth'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { releaseJob, processNextInQueue, enqueueRender } from '@/lib/render-queue'
+import { releaseJob, enqueueRender } from '@/lib/render-queue'
+import { processAndDispatchNext } from '@/lib/api/dispatch-render'
 import { redis } from '@/lib/upstash'
 import { timingSafeCompare } from '@/lib/crypto'
 import { rateLimit, RATE_LIMITS } from '@/lib/rate-limit'
@@ -141,7 +142,7 @@ async function handleWebhook(req: NextRequest) {
       .update({
         status: 'queued',
         retry_count: retryCount + 1,
-        error_message: null,
+        error_message: payload.errorMessage || null,
         updated_at: new Date().toISOString(),
       })
       .eq('id', payload.jobId)
@@ -185,7 +186,7 @@ async function handleWebhook(req: NextRequest) {
 
   // Free queue slot and dispatch next job
   await releaseJob(payload.jobId)
-  processNextInQueue().catch(() => {})
+  processAndDispatchNext(admin).catch(() => {})
 
   // Increment export_count (idempotent)
   if (payload.status === 'done') {
@@ -208,6 +209,14 @@ async function handleWebhook(req: NextRequest) {
         )
         .catch(() => {})
     }
+  }
+
+  // Refund quota when render permanently fails (not user's fault)
+  if (finalStatus === 'failed' && currentJob.user_id) {
+    (admin.rpc as CallableFunction)('refund_video_usage', {
+      p_user_id: currentJob.user_id,
+      p_count: 1,
+    }).catch(() => {})
   }
 
   return NextResponse.json({ data: { updated: true, finalStatus }, error: null })

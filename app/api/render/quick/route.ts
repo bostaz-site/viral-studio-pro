@@ -198,7 +198,7 @@ export const POST = withAuth(async (request: NextRequest, user) => {
   }
 
   // Slot available — fire-and-forget to VPS
-  sendToVps(admin, job.id, renderPayload, 'quick-export')
+  sendToVps(admin, job.id, user.id, renderPayload, 'quick-export')
 
   return NextResponse.json({
     data: { jobId: job.id, status: 'pending', mood },

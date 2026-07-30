@@ -321,7 +321,8 @@ Async flow: UI settings -> VPS FFmpeg -> Supabase Storage -> signed URL, with Re
 - `app/api/render/heartbeat/route.ts` — VPS heartbeat to keep long renders alive
 - `hooks/use-render-subscription.ts` — Realtime subscription (channel `render-jobs`) + polling fallback with adaptive backoff (3s -> 5s -> 10s -> 30s)
 - `lib/render-queue.ts` — `enqueueRender()`, `releaseJob()`, `processNextInQueue()`, `getQueueStatus()`
-- `lib/api/render-helpers.ts` — shared: `resolveClip()`, `checkExistingJob(force?)`, `enforcePlanLimits()`, `createRenderJob()`, `sendToVps()`
+- `lib/api/render-helpers.ts` — shared: `resolveClip()`, `checkExistingJob(force?)`, `enforcePlanLimits()`, `createRenderJob()`, `sendToVps(admin, jobId, userId, payload)`
+- `lib/api/dispatch-render.ts` — `processAndDispatchNext(admin)` — unified pop+dispatch (the ONLY correct way to process queued jobs)
 
 ### Heartbeat (VPS -> API)
 **Route:** `POST /api/render/heartbeat` (auth via `x-api-key: VPS_RENDER_API_KEY`)
@@ -337,13 +338,27 @@ When the VPS webhook (`hook/route.ts`) reports `status: 'error'`:
 - DB columns: `retry_count` (default 0), `max_retries` (default 2) — migration `20260425_render_retry.sql`
 
 ### Idempotency
-- **Key-based**: frontend sends `X-Idempotency-Key` header (UUID via `useRef`). API checks unique index `(user_id, idempotency_key)` — returns existing job if found. Key reset on done/error. Migration: `20260425_idempotency.sql`
+- **Key-based** (`/api/render/quick`): frontend sends `X-Idempotency-Key` header. API checks Redis — returns existing job if found.
+- **DB-based** (both `/api/render` and `/api/render/quick`): `checkExistingJob()` queries render_jobs for pending/rendering/queued jobs for same clip+user. Returns existing job instead of creating duplicate.
 - **Force re-render** (`force: true` in POST body): cancels stuck jobs for this clip+user, frees Redis slots, creates fresh job
 
-### Quota
-- `try_consume_video_credit(p_user_id, p_max_videos)` RPC: atomic conditional `UPDATE ... WHERE monthly_videos_used < limit`, falls through to `bonus_videos`. No separate check+increment — prevents race conditions. Migration: `20260425_atomic_quota.sql`
+### Quota & Refund Policy
+- `increment_video_usage` RPC consumes a credit BEFORE render starts
 - Duration limits: free=30s, pro=5min, studio=unlimited
-- Zombie cleanup cron refunds quota via `refund_video_usage` RPC and frees orphaned Redis slots, then dispatches queued jobs
+- **Refund rule**: a credit is ONLY consumed if the render finishes `done`. All other outcomes refund via `refund_video_usage`:
+  - VPS not configured → refund immediately
+  - Job creation failure → refund immediately
+  - Queue full → refund immediately
+  - VPS unreachable (sendToVps error) → refund + release slot
+  - Zombie cleanup (pending/queued/rendering timeout) → refund
+  - Stuck in queue >30min (reconciler) → refund
+  - Max retries exhausted (finalStatus=failed) → refund
+- UI: `monthlyUsed` counter incremented client-side on render done
+
+### Unified Queue Dispatch
+- All 4 call sites (status, hook, reconcile, cleanup) use `processAndDispatchNext(admin)` from `lib/api/dispatch-render.ts`
+- `processNextInQueue()` should NEVER be called directly without dispatch — `processAndDispatchNext` wraps it correctly
+- Both `/api/render` and `/api/render/quick` use `enqueueRender()` for slot management
 
 ### Timeouts
 - **Pending/queued**: 10 minutes (based on `created_at`) — VPS never picked up the job

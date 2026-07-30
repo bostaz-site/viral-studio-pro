@@ -4,6 +4,7 @@ import { checkClipDuration, getPlanConfig, resolveEffectivePlan } from '@/lib/pl
 import { resolveTwitchClipFromUrlOrSlug } from '@/lib/twitch/resolve-clip-url'
 import { withRetry } from '@/lib/utils/with-retry'
 import type { RenderStatus } from '@/types/enums'
+import { releaseJob } from '@/lib/render-queue'
 
 // ── Resolve clip source (trending, user clips, uploads) ──
 
@@ -246,6 +247,7 @@ export async function createRenderJob(
 export function sendToVps(
   admin: SupabaseClient,
   jobId: string,
+  userId: string,
   renderPayload: Record<string, unknown>,
   label = 'render',
 ) {
@@ -291,6 +293,11 @@ export function sendToVps(
           error_message: `VPS unreachable: ${err instanceof Error ? err.message : 'unknown error'}`,
         })
         .eq('id', jobId)
+      // Refund quota and release queue slot on dispatch failure
+      if (userId) {
+        (admin.rpc as CallableFunction)('refund_video_usage', { p_user_id: userId, p_count: 1 }).catch(() => {})
+      }
+      releaseJob(jobId).catch(() => {})
     }
   }
   run()

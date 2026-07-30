@@ -108,6 +108,7 @@ export default function EnhancePage() {
   const [referralCode, setReferralCode] = useState<string | null>(null)
   const [userId, setUserId] = useState('')
   const [hookError, setHookError] = useState<string | null>(null)
+  const paywallRef = useRef({ userPlan, monthlyUsed, bonusVideos })
   const router = useRouter()
   const sectionRefs = {
     captions: useRef<HTMLDivElement>(null),
@@ -289,6 +290,9 @@ export default function EnhancePage() {
     loadPaywallData()
   }, [])
 
+  // Keep paywall ref in sync for stale-closure-safe reads in handleRender
+  useEffect(() => { paywallRef.current = { userPlan, monthlyUsed, bonusVideos } }, [userPlan, monthlyUsed, bonusVideos])
+
   // Resolve direct MP4 URL for live preview (Twitch only)
   useEffect(() => {
     if (!clip || clip.platform !== 'twitch' || !clip.external_url) return
@@ -396,6 +400,7 @@ export default function EnhancePage() {
           setShowEnhancements(true)
           setRenderMessage('✅ Clip rendered with captions! Check the preview above.')
           setRendering(false)
+          setMonthlyUsed(prev => prev + 1)
           setSettingsChangedSinceRender(false)
           setPlacedInBank(false)
           setBankError(null)
@@ -410,6 +415,18 @@ export default function EnhancePage() {
           try { sessionStorage.removeItem(`render-job:${clipId}`) } catch { /* ignore */ }
           setRenderMessage(`❌ Error: ${json.data.errorMessage || 'Unknown error'}`)
           setRendering(false)
+        } else if (['failed', 'canceled', 'expired'].includes(json.data.status)) {
+          if (pollRef.current) clearInterval(pollRef.current)
+          try { sessionStorage.removeItem(`render-job:${clipId}`) } catch { /* ignore */ }
+          setRenderMessage(`❌ ${json.message || 'Render failed'}`)
+          setRendering(false)
+        } else if (json.data.status === 'queued') {
+          const pos = json.data.queuePosition
+          if (typeof pos === 'number' && pos > 0) {
+            setRenderMessage(`⏳ In queue — position ${pos}. Your clip will be processed soon.`)
+          } else {
+            setRenderMessage('⏳ Queued — waiting for a render slot...')
+          }
         } else if (json.data.status === 'rendering') {
           const pos = json.data.queuePosition
           if (typeof pos === 'number' && pos > 0) {
@@ -497,9 +514,10 @@ export default function EnhancePage() {
   const handleRender = useCallback(async () => {
     if (!clip) return
 
-    // Paywall check: free plan, no remaining clips
-    if (userPlan === 'free' && monthlyUsed >= 3 && bonusVideos <= 0) {
-      track('paywall_shown', { userId, monthlyUsed, bonusVideos })
+    // Paywall check: free plan, no remaining clips (read from ref for fresh values)
+    const pw = paywallRef.current
+    if (pw.userPlan === 'free' && pw.monthlyUsed >= 3 && pw.bonusVideos <= 0) {
+      track('paywall_shown', { userId, monthlyUsed: pw.monthlyUsed, bonusVideos: pw.bonusVideos })
       setShowPaywall(true)
       return
     }
@@ -2556,6 +2574,8 @@ export default function EnhancePage() {
             if (json.data?.granted) {
               setPaywallSaveUsed(true)
               setBonusVideos(prev => prev + 1)
+              // Update ref immediately so handleRender sees the new bonus count
+              paywallRef.current = { ...paywallRef.current, bonusVideos: paywallRef.current.bonusVideos + 1 }
               setShowPaywall(false)
               handleRender()
             }

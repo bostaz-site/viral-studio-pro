@@ -95,8 +95,7 @@ export async function processNextInQueue(): Promise<{
   await redis.sadd('render:active_jobs', nextJobId)
   await redis.set(`render:started:${nextJobId}`, '1', { ex: ACTIVE_JOB_TTL })
 
-  // Clean up stored payload
-  await redis.del(`render:payload:${nextJobId}`)
+  // Payload stays in Redis for retries — cleaned up after successful dispatch
 
   return { jobId: nextJobId, payload: JSON.parse(raw) as Record<string, unknown> }
 }

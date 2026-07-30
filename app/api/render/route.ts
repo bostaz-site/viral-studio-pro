@@ -6,6 +6,8 @@ import { rateLimit, RATE_LIMITS } from '@/lib/rate-limit'
 import { resolveTwitchClipFromUrlOrSlug } from '@/lib/twitch/resolve-clip-url'
 import { checkClipDuration, getPlanConfig, resolveEffectivePlan } from '@/lib/plans'
 import { logger } from '@/lib/logger'
+import { enqueueRender } from '@/lib/render-queue'
+import { checkExistingJob, sendToVps } from '@/lib/api/render-helpers'
 
 // Allow larger request body for hook overlay PNG (base64 ~500KB-2MB)
 export const maxDuration = 60
@@ -186,6 +188,10 @@ export const POST = withAuth(async (request, user) => {
     )
   }
 
+  // ── Idempotency: if a render is already in progress for this clip, return it ──
+  const existingJob = await checkExistingJob(admin, clip_id, user.id, foundSource)
+  if (existingJob) return existingJob
+
   // ── Plan enforcement (duration + monthly quota) ──────────────────────────
   //
   // This endpoint is the only path into the FFmpeg pipeline for the Browse
@@ -284,6 +290,8 @@ export const POST = withAuth(async (request, user) => {
   const vpsKey = process.env.VPS_RENDER_API_KEY
 
   if (!vpsUrl || !vpsKey) {
+    // Refund quota — no render will happen
+    (admin.rpc as CallableFunction)('refund_video_usage', { p_user_id: user.id, p_count: 1 }).catch(() => {})
     return NextResponse.json({
       data: { clip_id, rendered: false, source: foundSource, vpsReady: false, originalUrl: videoUrl },
       error: null,
@@ -317,6 +325,8 @@ export const POST = withAuth(async (request, user) => {
     .single()
 
   if (jobError || !job) {
+    // Refund quota — no render will happen
+    (admin.rpc as CallableFunction)('refund_video_usage', { p_user_id: user.id, p_count: 1 }).catch(() => {})
     return NextResponse.json(
       { data: null, error: 'Job creation failed', message: 'Unable to start the render' },
       { status: 500 }
@@ -350,56 +360,34 @@ export const POST = withAuth(async (request, user) => {
     },
   }
 
-  // Fire-and-forget to VPS.
-  //
-  // The VPS /api/render endpoint is SYNCHRONOUS — it runs the full render
-  // (download + FFmpeg + Supabase upload, 30-90s) before responding. We
-  // don't wait for that response: we only care that the POST body was
-  // delivered. The VPS writes status updates directly to the render_jobs
-  // table, which is the single source of truth for the polling UI.
-  //
-  // We abort the fetch after 15s — that is plenty of time to deliver a
-  // multi-MB POST body (hook/tag overlay PNGs can be ~2 MB each) but well
-  // short of the render time. On AbortError we KEEP the job in its
-  // current state and let the VPS drive it to 'done'/'error'. On any
-  // other error (DNS failure, connection refused, non-2xx response on
-  // the handshake) we mark the job as errored so the UI surfaces it.
-  const sendToVps = async () => {
-    const controller = new AbortController()
-    const timeoutId = setTimeout(() => controller.abort(), 15000)
-    try {
-      await fetch(`${vpsUrl}/api/render`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': vpsKey,
-        },
-        body: JSON.stringify(renderPayload),
-        signal: controller.signal,
-      })
-      clearTimeout(timeoutId)
-    } catch (err) {
-      clearTimeout(timeoutId)
-      // AbortError = our own timeout kicked in, which means the POST body
-      // was already flushed to the VPS. The render is in progress and the
-      // VPS will update the job status itself. Do NOT overwrite the row.
-      const isAbort =
-        err instanceof Error &&
-        (err.name === 'AbortError' || err.name === 'TimeoutError')
-      if (isAbort) {
-        return
-      }
-      logger.error('[render] VPS unreachable:', err)
-      await admin
-        .from('render_jobs')
-        .update({
-          status: 'error',
-          error_message: `VPS unreachable: ${err instanceof Error ? err.message : 'unknown error'}`,
-        })
-        .eq('id', job.id)
-    }
+  // ── Queue management — limit VPS concurrency ──
+  const queueResult = await enqueueRender(job.id, renderPayload)
+
+  if (!queueResult.accepted) {
+    // Queue full — refund, mark job as error
+    (admin.rpc as CallableFunction)('refund_video_usage', { p_user_id: user.id, p_count: 1 }).catch(() => {})
+    await admin.from('render_jobs').update({
+      status: 'error',
+      error_message: queueResult.reason ?? 'Queue full',
+    }).eq('id', job.id)
+    return NextResponse.json(
+      { data: null, error: 'queue_full', message: queueResult.reason ?? 'Too many renders in progress. Try again later.' },
+      { status: 429 },
+    )
   }
-  sendToVps()
+
+  if (queueResult.position !== null) {
+    // Queued — processAndDispatchNext will send it when a slot frees up
+    await admin.from('render_jobs').update({ status: 'queued' }).eq('id', job.id)
+    return NextResponse.json({
+      data: { clip_id, jobId: job.id, rendered: false, source: foundSource, vpsReady: true, queuePosition: queueResult.position },
+      error: null,
+      message: `Queued — position ${queueResult.position}. Your clip will render soon.`,
+    })
+  }
+
+  // Slot available — dispatch to VPS immediately (fire-and-forget)
+  sendToVps(admin, job.id, user.id, renderPayload)
 
   return NextResponse.json({
     data: { clip_id, jobId: job.id, rendered: false, source: foundSource, vpsReady: true, originalUrl: videoUrl },
