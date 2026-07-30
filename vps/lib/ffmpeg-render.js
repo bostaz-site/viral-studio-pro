@@ -1245,7 +1245,7 @@ async function execRender(args, outputPath, timeout = 300000) {
     }
 
     console.log(`[FFmpeg] Render completed successfully: ${outputPath}`);
-    return { success: true, outputPath };
+    return { success: true, outputPath, qualityTier: tierName };
   } catch (err) {
     // Extract diagnostic info
     const killed = err.killed || false;

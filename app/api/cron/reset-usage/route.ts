@@ -35,15 +35,15 @@ export async function POST(req: NextRequest) {
   try {
     const admin = createAdminClient()
 
-    // Reset all usage counters
+    // Reset all usage counters (filter covers both 0 and NULL values)
     const { error, count } = await admin
       .from('profiles')
       .update({
         monthly_videos_used: 0,
         monthly_processing_minutes_used: 0,
         updated_at: new Date().toISOString(),
-      })
-      .gte('monthly_videos_used', 0) // Match all rows (workaround: Supabase requires a filter)
+      }, { count: 'exact' })
+      .or('monthly_videos_used.gte.0,monthly_videos_used.is.null')
 
     if (error) {
       return NextResponse.json(

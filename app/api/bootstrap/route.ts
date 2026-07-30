@@ -1,6 +1,7 @@
 import { withAuth, jsonResponse, errorResponse } from '@/lib/api/withAuth'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { rateLimit, RATE_LIMITS } from '@/lib/rate-limit'
+import { resolveEffectivePlan } from '@/lib/plans'
 
 /**
  * GET /api/bootstrap
@@ -32,11 +33,11 @@ export const GET = withAuth(async (req, user) => {
       .order('created_at', { ascending: false })
       .limit(5),
 
-    admin
+    (admin
       .from('profiles')
-      .select('plan, monthly_videos_used, bonus_videos')
+      .select('plan, monthly_videos_used, bonus_videos, is_comp')
       .eq('id', user.id)
-      .single(),
+      .single() as unknown as Promise<{ data: { plan: string | null; monthly_videos_used: number; bonus_videos: number; is_comp: boolean | null } | null }>),
 
     // All clip IDs this user has ever rendered (for Top Pick exclusion)
     admin
@@ -54,8 +55,11 @@ export const GET = withAuth(async (req, user) => {
     ? (remixResult.value.data ?? [])
     : []
 
-  const profile = profileResult.status === 'fulfilled'
+  const rawProfile = (profileResult.status === 'fulfilled'
     ? profileResult.value.data
+    : null) as { plan: string | null; monthly_videos_used: number; bonus_videos: number; is_comp: boolean | null } | null
+  const profile = rawProfile
+    ? { ...rawProfile, plan: resolveEffectivePlan(rawProfile) }
     : null
 
   const usedClipIds = usedClipsResult.status === 'fulfilled'

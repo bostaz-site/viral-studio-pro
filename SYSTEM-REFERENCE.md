@@ -121,22 +121,24 @@ Dashboard page displaying ranked streamer clips with feed tabs, filters, infinit
 - `setFilters()` triggers server re-fetch on niche/platform/duration/sort changes. Search is debounced 300ms.
 - `setFeed()` applies client-side filter immediately; if <10 results, triggers background server fetch.
 - `applyFilters()` remains as client-side safety net (feed -> search -> platform -> niche -> duration -> sort)
-- `toggleSaveClip` is optimistic (updates Set immediately, rolls back on API error)
+- `toggleSaveClip` is optimistic (updates Set immediately, rolls back on API error or non-ok HTTP response)
+- `tabCountsLoaded` flag distinguishes "not yet loaded" from "loaded with 0". When counts haven't loaded, tabs show without badges; `fetchTabCounts` retries once after 5s on failure.
+- `loadMore` error sets `error` state instead of swallowing silently
 - API supports comma-separated `niche` and `platform` params for multi-value filters
 - `expandedGroups: Set<string>` tracks which stream groups are expanded
 - `toggleGroup(groupId)` toggles group expansion and re-applies filters
 - `applyFilters()` hides `stream_group_collapsed: true` clips unless their group is in `expandedGroups`
 
 ### API Endpoints
-- `GET /api/bootstrap` — single call replacing 3 fetches: saved clip IDs, last 5 remixes, user profile (plan + usage + bonus). Uses `Promise.allSettled` — partial failure returns empty arrays, never blocks.
+- `GET /api/bootstrap` — single call replacing 3 fetches: saved clip IDs, last 5 remixes, user profile (plan + usage + bonus + is_comp). Uses `resolveEffectivePlan()` to return the effective plan (comp accounts get 'pro'). `Promise.allSettled` — partial failure returns empty arrays, never blocks.
 - `GET /api/trending` — params: `sort`, `limit` (max 200), `cursor` (format `{score}_{id}`), `niche` (comma-sep), `platform` (comma-sep), `search`, `duration`, `feed`. Response: `{ data, meta: { total, next_cursor } }`. Cursor-based pagination: `(velocity_score, id) DESC` for score sort, `(clip_created_at, id) DESC` for date sort.
 - `GET/POST/DELETE /api/clips/saved` — bookmarks CRUD (upsert on conflict `user_id, clip_id`)
-- `GET /api/clips/video-url?slug=X` — Twitch GQL `VideoAccessToken_Clip` -> signed CloudFront MP4. In-memory cache (1h TTL)
+- `GET /api/clips/video-url?slug=X&platform=twitch|kick` — Twitch GQL `VideoAccessToken_Clip` or Kick API -> direct MP4. In-memory cache (1h TTL). Enhance page resolves both Twitch and Kick clips for live preview.
 - `GET /api/clips/my-remixes?limit=20` — user's `render_jobs` enriched with clip metadata + signed download URLs
 - `GET /api/clips/sparkline?ids=uuid1,uuid2` — batch snapshots for mini velocity graphs (max 50 clips)
 
 ### Feed Tabs
-3 visible tabs + 1 subtle: **Exploding Now** (default, Flame), **Proven Winners** (Trophy), **Fresh Drops** (Zap), **All Clips** (subtle/text link). Plus **Saved** (Lock) and **Remixes** (Scissors) when applicable. Remixes tab triggers separate `GET /api/clips/my-remixes` fetch.
+3 visible tabs + 1 subtle: **Exploding Now** (default, Flame), **Proven Winners** (Trophy), **Fresh Drops** (24h window, Clock), **All Clips** (subtle/text link). Plus **Saved** (Lock) and **Remixes** (Scissors) when applicable. Remixes tab triggers separate `GET /api/clips/my-remixes` fetch. If tab counts haven't loaded, all tabs show without count badges (no "0" misleading users).
 
 ### Quick Export (Browse -> Render in Background)
 Primary CTA on each card. Sends `POST /api/render/quick` with `x-idempotency-key` header (UUID, prevents double-clicks). API runs mood detection (best-effort), builds auto settings from preset, goes through render queue, returns `jobId`. Dashboard subscribes via `useRenderSubscription` and shows a completion toast with Download/View buttons. Auto-dismisses after 15s. Only one quick export at a time per user session (button disabled on other cards while rendering). The "Customize" button (sliders icon) still links to the full enhance page.

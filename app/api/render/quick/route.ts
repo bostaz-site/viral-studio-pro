@@ -76,7 +76,7 @@ export const POST = withAuth(async (request: NextRequest, user) => {
   const resolved = await resolveClip(admin, clip_id, user.id, source)
   if (resolved instanceof NextResponse) return resolved
   let { videoUrl } = resolved
-  const { clipTitle, clipDuration, foundSource, authorName, niche } = resolved
+  const { clipTitle, clipDuration, foundSource, authorName, niche, platform } = resolved
 
   // ── Idempotency ──
   const existing = await checkExistingJob(admin, clip_id, user.id, foundSource)
@@ -161,6 +161,7 @@ export const POST = withAuth(async (request: NextRequest, user) => {
       enabled: false,
     },
     tag: { style: 'none' },
+    sourcePlatform: platform ?? undefined,
   }
 
   // ── Create render job ──

@@ -122,6 +122,7 @@ export const POST = withAuth(async (request, user) => {
   let clipTitle: string | null = null
   let clipDuration: number | null = null
   let foundSource: 'trending' | 'clips' | null = null
+  let clipPlatform: string | null = null
 
   if (source === 'trending') {
     const { data: trendingClip } = await admin
@@ -135,6 +136,7 @@ export const POST = withAuth(async (request, user) => {
       videoUrl = trendingClip.external_url
       clipTitle = trendingClip.title
       clipDuration = (trendingClip as Record<string, unknown>).duration_seconds as number | null
+      clipPlatform = trendingClip.platform
     }
   }
 
@@ -359,6 +361,7 @@ export const POST = withAuth(async (request, user) => {
       smartZoom: settings?.smartZoom ?? { enabled: false, mode: 'micro' },
       audioEnhance: settings?.audioEnhance ?? { enabled: false },
       autoCut: settings?.autoCut ?? { enabled: false },
+      sourcePlatform: clipPlatform ?? undefined,
     },
   }
 

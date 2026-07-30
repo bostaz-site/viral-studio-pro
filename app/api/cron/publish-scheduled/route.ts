@@ -131,6 +131,14 @@ export async function POST(req: NextRequest) {
         } as never)
         .eq('id', row.id)
 
+      // Remove clip from bank to prevent republish loop
+      await admin
+        .from('render_jobs')
+        .update({ removed_from_bank_at: new Date().toISOString() } as never)
+        .eq('clip_id', row.clip_id)
+        .eq('user_id', row.user_id)
+        .eq('status', 'done')
+
       results.push({ id: row.id, status: 'published' })
 
       void postToDiscord({

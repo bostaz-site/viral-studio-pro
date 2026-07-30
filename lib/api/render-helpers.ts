@@ -17,6 +17,8 @@ export interface ResolvedClip {
   authorName?: string | null
   authorHandle?: string | null
   niche?: string | null
+  /** Source platform ('twitch'|'kick') for trending clips, null for uploads */
+  platform?: string | null
 }
 
 export async function resolveClip(
@@ -32,6 +34,7 @@ export async function resolveClip(
   let authorName: string | null = null
   let authorHandle: string | null = null
   let niche: string | null = null
+  let platform: string | null = null
 
   if (preferredSource === 'trending') {
     const { data: trendingClip } = await admin
@@ -48,6 +51,7 @@ export async function resolveClip(
       authorName = trendingClip.author_name
       authorHandle = trendingClip.author_handle
       niche = trendingClip.niche
+      platform = trendingClip.platform
     }
   }
 
@@ -100,7 +104,7 @@ export async function resolveClip(
     )
   }
 
-  return { videoUrl, clipTitle, clipDuration, foundSource, authorName, authorHandle, niche }
+  return { videoUrl, clipTitle, clipDuration, foundSource, authorName, authorHandle, niche, platform }
 }
 
 // ── Idempotency check ──

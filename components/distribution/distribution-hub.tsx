@@ -490,8 +490,14 @@ export function DistributionHub() {
   const [showClipPicker, setShowClipPicker] = useState(false)
   const [clipPickerTab, setClipPickerTab] = useState<'bank' | 'remixes'>('bank')
   const [brokenThumbs, setBrokenThumbs] = useState<Set<string>>(new Set())
-  const [removedClipIds, setRemovedClipIds] = useState<Set<string>>(() => new Set())
   const [prefersReducedMotion, setPrefersReducedMotion] = useState(false)
+  // Auto-post defaults (TikTok compliance — required before autofarm)
+  const [autoPostDefaults, setAutoPostDefaults] = useState<{
+    privacy_level: string; disable_comment: boolean; disable_duet: boolean; disable_stitch: boolean;
+  } | null>(null)
+  const [showDefaultsPanel, setShowDefaultsPanel] = useState(false)
+  const [syncError, setSyncError] = useState<string | null>(null)
+  const removedClipIds = useMemo(() => new Set<string>(), [])
 
   // Connection map refs (for dynamic SVG paths from platforms to brain)
   const connectionMapRef = useRef<HTMLDivElement>(null)
@@ -590,15 +596,15 @@ export function DistributionHub() {
 
   useEffect(() => { fetchAccounts() }, [fetchAccounts])
 
-  // Load auto_distribute_enabled from DB (single source of truth)
+  // Load auto_distribute_enabled + auto_post_defaults from DB
   useEffect(() => {
     async function loadDistributionSettings() {
       try {
         const res = await fetch('/api/distribution/settings')
         const json = await res.json()
-        if (json.data?.auto_distribute_enabled) {
-          setAiAutoDistribute(true)
-        }
+        const settings = json.data ?? json
+        if (settings?.auto_distribute_enabled) setAiAutoDistribute(true)
+        if (settings?.auto_post_defaults) setAutoPostDefaults(settings.auto_post_defaults)
       } catch { /* default remains false */ }
       setDbSettingsLoaded(true)
     }
@@ -622,14 +628,21 @@ export function DistributionHub() {
       if (!user) return
       const { data: posts } = await supabase
         .from('published_posts')
-        .select('platform, published_at')
+        .select('clip_id, platform, published_at, niche')
         .eq('user_id', user.id)
         .order('published_at', { ascending: false })
-        .limit(4)
+        .limit(5)
       if (posts && posts.length > 0) {
-        setTickerEvents(posts.map(p => ({
+        setTickerEvents(posts.slice(0, 4).map(p => ({
           time: new Date(p.published_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
           text: `posted to ${PLATFORM_LABELS_MAP[p.platform] ?? p.platform}`,
+        })))
+        setPublishHistory(posts.map(p => ({
+          clipTitle: (p as Record<string, string>).niche || 'Published clip',
+          platforms: [p.platform],
+          status: 'live' as const,
+          timestamp: new Date(p.published_at),
+          views: 0, likes: 0, growthPercent: 0, tone: 'general',
         })))
       }
     }
@@ -969,51 +982,46 @@ export function DistributionHub() {
   /* Toggle auto-distribute: persist to DB + sync/pause autofarm queue */
   const handleToggleAutoDistribute = useCallback(async () => {
     const newValue = !aiAutoDistribute
+    if (newValue && !autoPostDefaults) { setShowDefaultsPanel(true); return }
     setAiAutoDistribute(newValue)
-
-    // Persist to DB
-    fetch('/api/distribution/settings', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ auto_distribute_enabled: newValue }),
-    }).catch(() => { /* non-blocking */ })
-
+    setSyncError(null)
+    try {
+      const res = await fetch('/api/distribution/settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ auto_distribute_enabled: newValue }),
+      })
+      if (!res.ok) { setAiAutoDistribute(!newValue); setSyncError('Failed to save — try again'); return }
+    } catch { setAiAutoDistribute(!newValue); setSyncError('Failed to save — try again'); return }
     if (!newValue) {
-      // Turning OFF: cancel all autofarm scheduled rows
       fetch('/api/distribution/autofarm-sync', { method: 'DELETE' }).catch(() => {})
     }
-    // When turning ON, the sync effect below will handle pushing queue to DB
-  }, [aiAutoDistribute])
+  }, [aiAutoDistribute, autoPostDefaults])
 
   /* Sync queue to DB when auto-distribute is ON and queue changes */
   useEffect(() => {
-    if (!aiAutoDistribute || !dbSettingsLoaded) return
-    const visiblePosts = queue?.posts.filter(p => !removedClipIds.has(p.clip.id)) ?? []
+    if (!aiAutoDistribute || !dbSettingsLoaded || !autoPostDefaults) return
+    const visiblePosts = queue?.posts ?? []
     if (visiblePosts.length === 0) return
-
-    const posts = visiblePosts.slice(0, 6).map(p => ({
-      clip_id: p.clip.id,
-      platform: 'tiktok' as const,
-      scheduled_at: p.scheduledAt.toISOString(),
-      caption: '',
-      hashtags: [] as string[],
-    }))
-
+    const posts = visiblePosts.slice(0, 6).map(p => {
+      const title = p.clip.title || 'Untitled clip'
+      const variants = generateVariants(title, p.clip.id, { clipScore: p.clip.viralScore ?? 50, platformCount: 1 })
+      const best = variants[0]
+      return { clip_id: p.clip.id, platform: 'tiktok' as const, scheduled_at: p.scheduledAt.toISOString(), caption: best?.caption || title, hashtags: best?.hashtags ?? [] }
+    })
+    setSyncError(null)
     fetch('/api/distribution/autofarm-sync', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        posts,
-        tiktok_defaults: {
-          privacy_level: 'PUBLIC_TO_EVERYONE',
-          disable_comment: false,
-          disable_duet: false,
-          disable_stitch: false,
-        },
-      }),
-    }).catch(() => { /* non-blocking */ })
+      body: JSON.stringify({ posts, tiktok_defaults: autoPostDefaults }),
+    }).then(async (res) => {
+      if (!res.ok) {
+        const json = await res.json().catch(() => ({}))
+        setSyncError(`Sync failed: ${(json as Record<string, string>).error || 'server error'}`)
+      }
+    }).catch(() => { setSyncError('Sync failed — toggle auto-distribute to retry.') })
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [aiAutoDistribute, dbSettingsLoaded, queue, removedClipIds])
+  }, [aiAutoDistribute, dbSettingsLoaded, queue, autoPostDefaults])
 
   /* Select variant with typewriter effect */
   const selectVariant = useCallback((variant: BioVariant) => {
@@ -1120,8 +1128,10 @@ export function DistributionHub() {
   }, [selectedClip, selectVariant, publishTargets])
 
   /* Publish handler with step-by-step sequence */
-  const handlePublish = useCallback(async () => {
-    if (!selectedClip || isPublishing || publishSequenceActive) return
+  const handlePublish = useCallback(async (explicitClipId?: string) => {
+    const clip = explicitClipId ? clipBank.find(c => c.id === explicitClipId) ?? selectedClip : selectedClip
+    if (!clip || isPublishing || publishSequenceActive) return
+    if (explicitClipId && explicitClipId !== selectedClipId) setSelectedClipId(explicitClipId)
 
     const enabledTargets = publishTargets.filter(t => t.enabled)
     if (enabledTargets.length === 0) return
@@ -1164,17 +1174,17 @@ export function DistributionHub() {
     const hashtags = captionText.match(/#\w+/g) || []
     const caption = captionText.replace(/#\w+/g, '').trim()
     const now = new Date()
-    await publishClip(selectedClip.id, caption, hashtags, {
+    await publishClip(clip.id, caption, hashtags, {
       posted_hour_local: now.getHours(),
       posted_weekday: now.getDay(),
-      blowup_chance_at_render: selectedClip.score ?? undefined,
+      blowup_chance_at_render: clip.score ?? undefined,
     })
 
     // Let React process final publishProgress updates
     await new Promise(r => setTimeout(r, 50))
     setPublishSequenceActive(false)
     setPublishDone(true)
-  }, [selectedClip, captionText, isPublishing, publishClip, publishSequenceActive, publishTargets])
+  }, [selectedClip, selectedClipId, clipBank, captionText, isPublishing, publishClip, publishSequenceActive, publishTargets])
 
   const connectedPlatforms = accounts.map((a) => a.platform)
   // Only count platforms that are actually supported (not "coming soon")
@@ -1450,26 +1460,29 @@ export function DistributionHub() {
                 </div>
                 <div>
                   <p style={{ fontSize: 14, fontWeight: 700, color: '#fff', margin: 0 }}>Distribution started!</p>
-                  <p style={{ fontSize: 11, color: 'var(--va-text-muted)', margin: 0 }}>AI Growth Projections</p>
+                  <p style={{ fontSize: 11, color: 'var(--va-text-muted)', margin: 0 }}>Stats sync in ~24h</p>
                 </div>
               </div>
               {trackingMetrics && (
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px 16px', padding: '12px', borderRadius: 12, background: 'rgba(255,255,255,.025)', border: '1px solid rgba(42,42,62,.6)' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <span style={{ fontSize: 10, color: 'var(--va-text-dim)' }}>Views</span>
-                    <span style={{ fontSize: 14, fontWeight: 800, color: '#fff' }}>{formatMetricCount(trackingMetrics.views)}</span>
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <span style={{ fontSize: 10, color: 'var(--va-text-dim)' }}>Likes</span>
-                    <span style={{ fontSize: 14, fontWeight: 800, color: '#fff' }}>{formatMetricCount(trackingMetrics.likes)}</span>
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <span style={{ fontSize: 10, color: 'var(--va-text-dim)' }}>Comments</span>
-                    <span style={{ fontSize: 14, fontWeight: 800, color: '#fff' }}>{formatMetricCount(trackingMetrics.comments)}</span>
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <span style={{ fontSize: 10, color: 'var(--va-text-dim)' }}>Shares</span>
-                    <span style={{ fontSize: 14, fontWeight: 800, color: '#fff' }}>{formatMetricCount(trackingMetrics.shares)}</span>
+                <div style={{ padding: '12px', borderRadius: 12, background: 'rgba(255,255,255,.025)', border: '1px solid rgba(42,42,62,.6)' }}>
+                  <p style={{ fontSize: 9, color: '#FBBF24', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8, fontWeight: 600 }}>Projection &middot; Example only</p>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px 16px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <span style={{ fontSize: 10, color: 'var(--va-text-dim)' }}>Views</span>
+                      <span style={{ fontSize: 14, fontWeight: 800, color: 'rgba(255,255,255,0.5)' }}>~{formatMetricCount(trackingMetrics.views)}</span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <span style={{ fontSize: 10, color: 'var(--va-text-dim)' }}>Likes</span>
+                      <span style={{ fontSize: 14, fontWeight: 800, color: 'rgba(255,255,255,0.5)' }}>~{formatMetricCount(trackingMetrics.likes)}</span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <span style={{ fontSize: 10, color: 'var(--va-text-dim)' }}>Comments</span>
+                      <span style={{ fontSize: 14, fontWeight: 800, color: 'rgba(255,255,255,0.5)' }}>~{formatMetricCount(trackingMetrics.comments)}</span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <span style={{ fontSize: 10, color: 'var(--va-text-dim)' }}>Shares</span>
+                      <span style={{ fontSize: 14, fontWeight: 800, color: 'rgba(255,255,255,0.5)' }}>~{formatMetricCount(trackingMetrics.shares)}</span>
+                    </div>
                   </div>
                 </div>
               )}
@@ -1542,13 +1555,7 @@ export function DistributionHub() {
               {/* Single primary action */}
               <button
                 className="dist-cyan-btn primary"
-                onClick={() => {
-                  if (activePlatformCount === 0) {
-                    setShowPlatformPicker(true)
-                  } else {
-                    setShowPlatformPicker(true)
-                  }
-                }}
+                onClick={() => setShowPlatformPicker(true)}
                 disabled={!selectedClip || isPublishing || publishSequenceActive}
               >
                 {publishSequenceActive ? (
@@ -1865,6 +1872,45 @@ export function DistributionHub() {
           <span className="pill-label">{aiAutoDistribute ? 'Auto-Distribute' : 'Resume Auto-Distribute'}</span>
           <span className="pill-state">{aiAutoDistribute ? 'On' : 'Off'}</span>
         </button>
+        {syncError && (
+          <div style={{ fontSize: 11, color: '#F87171', background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', padding: '6px 12px', borderRadius: 8, marginTop: 8, display: 'flex', alignItems: 'center', gap: 8 }}>
+            <AlertCircle size={12} /><span>{syncError}</span>
+            <button onClick={() => setSyncError(null)} style={{ marginLeft: 'auto', padding: 2 }}><X size={10} /></button>
+          </div>
+        )}
+        {showDefaultsPanel && (
+          <div style={{ marginTop: 10, padding: '14px 16px', borderRadius: 10, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(56,189,248,0.2)' }}>
+            <p style={{ fontSize: 12, fontWeight: 700, color: '#fff', marginBottom: 8 }}>Auto-post defaults</p>
+            <p style={{ fontSize: 10, color: 'var(--va-text-dim)', marginBottom: 10 }}>TikTok requires you to choose privacy before auto-posting.</p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <select value={autoPostDefaults?.privacy_level ?? ''} onChange={(e) => setAutoPostDefaults(prev => ({ privacy_level: e.target.value, disable_comment: prev?.disable_comment ?? true, disable_duet: prev?.disable_duet ?? true, disable_stitch: prev?.disable_stitch ?? true }))} style={{ width: '100%', padding: '6px 8px', fontSize: 12, borderRadius: 6, background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff' }}>
+                <option value="" disabled>Select privacy</option>
+                <option value="PUBLIC_TO_EVERYONE">Everyone</option>
+                <option value="MUTUAL_FOLLOW_FRIENDS">Friends</option>
+                <option value="FOLLOWER_OF_CREATOR">Followers</option>
+                <option value="SELF_ONLY">Only me</option>
+              </select>
+              <div style={{ display: 'flex', gap: 16, fontSize: 11, color: '#fff' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}><input type="checkbox" checked={!(autoPostDefaults?.disable_comment ?? true)} onChange={(e) => setAutoPostDefaults(prev => prev ? { ...prev, disable_comment: !e.target.checked } : null)} /> Comments</label>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}><input type="checkbox" checked={!(autoPostDefaults?.disable_duet ?? true)} onChange={(e) => setAutoPostDefaults(prev => prev ? { ...prev, disable_duet: !e.target.checked } : null)} /> Duet</label>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}><input type="checkbox" checked={!(autoPostDefaults?.disable_stitch ?? true)} onChange={(e) => setAutoPostDefaults(prev => prev ? { ...prev, disable_stitch: !e.target.checked } : null)} /> Stitch</label>
+              </div>
+              <button className="dist-cyan-btn" disabled={!autoPostDefaults?.privacy_level} onClick={async () => {
+                if (!autoPostDefaults?.privacy_level) return
+                try {
+                  const res = await fetch('/api/distribution/settings', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ auto_post_defaults: autoPostDefaults }) })
+                  if (res.ok) setShowDefaultsPanel(false)
+                  else setSyncError('Failed to save defaults')
+                } catch { setSyncError('Failed to save defaults') }
+              }}><Check size={12} /> Save defaults</button>
+            </div>
+          </div>
+        )}
+        {!showDefaultsPanel && autoPostDefaults && (
+          <button onClick={() => setShowDefaultsPanel(true)} style={{ marginTop: 6, fontSize: 10, color: 'var(--va-text-dim)', background: 'none', border: 'none', cursor: 'pointer', padding: '2px 0' }}>
+            Auto-post: {autoPostDefaults.privacy_level === 'PUBLIC_TO_EVERYONE' ? 'Public' : autoPostDefaults.privacy_level === 'SELF_ONLY' ? 'Only me' : autoPostDefaults.privacy_level === 'FOLLOWER_OF_CREATOR' ? 'Followers' : 'Friends'} &middot; Edit
+          </button>
+        )}
         <div className="dist-core-panel-stats">
           {(() => {
             const visibleQueuePosts = queue?.posts.filter(p => !removedClipIds.has(p.clip.id)) ?? []
@@ -1959,17 +2005,25 @@ export function DistributionHub() {
         highlightClipId={bankHighlightClipId}
         onSelect={(id) => { setSelectedClipId(id); resetPublishProgress(); setPublishDone(false); setPublishSteps([]) }}
         onRemove={(id) => {
-          // Optimistic: remove from UI immediately
+          const removedClip = clipBank.find(c => c.id === id)
           setClipBank(prev => prev.filter(c => c.id !== id))
           if (selectedClipId === id) setSelectedClipId(null)
-          // Persist to DB + cancel scheduled posts for this clip
           fetch(`/api/distribution/bank/${id}`, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ action: 'remove' }),
+          }).then(res => {
+            if (!res.ok && removedClip) {
+              setClipBank(prev => [removedClip, ...prev])
+              setSyncError('Failed to remove clip — restored to bank')
+              setTimeout(() => setSyncError(null), 4000)
+            }
           }).catch(() => {
-            // Rollback on failure: re-load bank
-            // (simpler than re-inserting the exact clip)
+            if (removedClip) {
+              setClipBank(prev => [removedClip, ...prev])
+              setSyncError('Failed to remove clip — restored to bank')
+              setTimeout(() => setSyncError(null), 4000)
+            }
           })
         }}
         onThumbError={(id) => setBrokenThumbs(prev => { const next = new Set(prev); next.add(id); return next })}
@@ -2040,9 +2094,7 @@ export function DistributionHub() {
                 {aiAutoDistribute ? 'Smart' : 'Paused'}
               </span>
             </h3>
-            <div style={{ display: 'flex', gap: 8 }}>
-              <button className="dist-ghost-btn">Show all</button>
-            </div>
+            <div style={{ display: 'flex', gap: 8 }} />
           </div>
 
           {/* Paused-state reassurance — explains the queue is safe and what to do */}
@@ -2147,7 +2199,7 @@ export function DistributionHub() {
                     {ctaTier === 'primary' && (
                       <button
                         className="dist-pc-cta primary"
-                        onClick={() => { setSelectedClipId(post.clip.id); handlePublish() }}
+                        onClick={() => handlePublish(post.clip.id)}
                         disabled={!aiAutoDistribute}
                         title={!aiAutoDistribute ? 'Turn on AUTO-DISTRIBUTE to enable scheduled posts' : undefined}
                         style={!aiAutoDistribute ? { opacity: 0.5, cursor: 'not-allowed' } : undefined}
@@ -2157,12 +2209,12 @@ export function DistributionHub() {
                     )}
                     {ctaTier === 'secondary' && (
                       <button className="dist-pc-cta secondary" onClick={() => setSelectedClipId(post.clip.id)} disabled={!aiAutoDistribute} style={!aiAutoDistribute ? { opacity: 0.5, cursor: 'not-allowed' } : undefined}>
-                        Review
+                        View
                       </button>
                     )}
                     {ctaTier === 'weak' && (
                       <button className="dist-pc-cta weak" onClick={() => setSelectedClipId(post.clip.id)} disabled={!aiAutoDistribute} style={!aiAutoDistribute ? { opacity: 0.5, cursor: 'not-allowed' } : undefined}>
-                        <RefreshCw size={11} /> Reschedule
+                        View
                       </button>
                     )}
                   </div>
@@ -2323,6 +2375,25 @@ export function DistributionHub() {
           setShowTikTokPublish(false)
           if (result?.published) {
             setPublishDone(true)
+            // Feed publishHistory + persistentStats + rewards (same path as publishProgress)
+            if (selectedClip) {
+              const clipTitle = selectedClip.title || 'Untitled clip'
+              const clipTone = detectTone(clipTitle).tone
+              const score = selectedClip.score ?? 30
+              setPostPulseActive(true); setPostSuccessActive(true); setPostFlashPlatform('tiktok')
+              setTimeout(() => { setPostPulseActive(false); setPostFlashPlatform(null) }, 1000)
+              setTimeout(() => setPostSuccessActive(false), 3000)
+              const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+              setTickerEvents(prev => [{ time: timeStr, text: 'posted to TikTok' }, ...prev].slice(0, 4))
+              setPublishHistory(prev => [{ clipTitle, platforms: ['tiktok'], status: 'live' as const, timestamp: new Date(), views: 0, likes: 0, growthPercent: 0, tone: clipTone }, ...prev].slice(0, 5))
+              setSessionMemory(prev => recordPublish(prev, { clipId: selectedClip.id, clipTitle, clipScore: score, tone: clipTone, platforms: ['tiktok'], selectedVariant: 'high-ctr' }))
+              const prevTotal = persistentStats.totalClipsPublished
+              const avgScore = persistentStats.clipScores.length > 0 ? Math.round(persistentStats.clipScores.reduce((a, b) => a + b, 0) / persistentStats.clipScores.length) : 0
+              const updatedStats = recordPersistentPublish(persistentStats, { clipScore: score, clipTitle, tone: clipTone, platforms: ['tiktok'], projectedViews: 0 })
+              setPersistentStats(updatedStats)
+              const rewards = collectRewards({ previousTotalClips: prevTotal, newTotalClips: updatedStats.totalClipsPublished, currentStreak: updatedStats.currentStreak, sessionClipCount: sessionMemory.clipsPublished.length + 1, clipScore: score, bestClipScore: persistentStats.bestClipScore, averageScore: avgScore, platformCount: 1 })
+              if (rewards.length > 0) { setActiveReward(rewards[0]); setTimeout(() => setActiveReward(null), 5000) }
+            }
             // Direct mode: remove clip from bank + cancel autofarm schedule (no double post)
             if (result.mode === 'direct' && selectedClip?.id) {
               const publishedId = selectedClip.id

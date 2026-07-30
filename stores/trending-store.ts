@@ -175,6 +175,7 @@ interface TrendingState {
 
   // Server-side tab counts (single source of truth)
   tabCounts: TabCounts
+  tabCountsLoaded: boolean
 
   // Pagination (cursor-based)
   cursor: string | null
@@ -240,6 +241,7 @@ export const useTrendingStore = create<TrendingState>((set, get) => ({
   trendingClips: [],
   stats: EMPTY_STATS,
   tabCounts: { exploding: 0, proven: 0, fresh: 0, all: 0, legendary: 0 },
+  tabCountsLoaded: false,
   cursor: null,
   hasMore: false,
   loadingMore: false,
@@ -430,7 +432,7 @@ export const useTrendingStore = create<TrendingState>((set, get) => ({
       get().computeStats()
       get().applyFilters()
     } catch {
-      // silent
+      set({ error: 'Failed to load more clips — try again.' })
     } finally {
       set({ loadingMore: false })
     }
@@ -439,12 +441,21 @@ export const useTrendingStore = create<TrendingState>((set, get) => ({
   fetchTabCounts: async () => {
     try {
       const res = await fetch('/api/trending/counts')
-      if (!res.ok) return
+      if (!res.ok) {
+        // Retry once after 5s on failure (non-blocking)
+        if (!get().tabCountsLoaded) {
+          setTimeout(() => get().fetchTabCounts(), 5000)
+        }
+        return
+      }
       const json = await res.json() as { data: TabCounts | null; error: string | null }
       if (json.error || !json.data) return
-      set({ tabCounts: json.data })
+      set({ tabCounts: json.data, tabCountsLoaded: true })
     } catch {
-      // silent — badge counts are non-critical
+      // Retry once after 5s if never loaded
+      if (!get().tabCountsLoaded) {
+        setTimeout(() => get().fetchTabCounts(), 5000)
+      }
     }
   },
 
@@ -543,20 +554,22 @@ export const useTrendingStore = create<TrendingState>((set, get) => ({
     set({ savedClipIds: newIds })
 
     try {
-      if (isSaved) {
-        await fetch(`/api/clips/saved/${clipId}`, { method: 'DELETE' })
-      } else {
-        await fetch('/api/clips/saved', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ clip_id: clipId }),
-        })
+      const res = isSaved
+        ? await fetch(`/api/clips/saved/${clipId}`, { method: 'DELETE' })
+        : await fetch('/api/clips/saved', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ clip_id: clipId }),
+          })
+      if (!res.ok) {
+        set({ savedClipIds, error: 'Failed to save clip — try again.' })
+        return
       }
       // Re-fetch to sync
       get().fetchSavedClips()
     } catch {
       // Rollback
-      set({ savedClipIds })
+      set({ savedClipIds, error: 'Failed to save clip — try again.' })
     }
   },
 }))

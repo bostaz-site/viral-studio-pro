@@ -294,15 +294,27 @@ export default function EnhancePage() {
   // Keep paywall ref in sync for stale-closure-safe reads in handleRender
   useEffect(() => { paywallRef.current = { userPlan, monthlyUsed, bonusVideos } }, [userPlan, monthlyUsed, bonusVideos])
 
-  // Resolve direct MP4 URL for live preview (Twitch only)
+  // Resolve direct MP4 URL for live preview (Twitch + Kick)
   useEffect(() => {
-    if (!clip || clip.platform !== 'twitch' || !clip.external_url) return
-    // Extract slug from https://clips.twitch.tv/SLUG or https://www.twitch.tv/CHANNEL/clip/SLUG
-    const m = clip.external_url.match(/clips\.twitch\.tv\/([A-Za-z0-9_-]+)|\/clip\/([A-Za-z0-9_-]+)/)
-    const slug = m ? (m[1] || m[2]) : null
+    if (!clip || !clip.external_url) return
+    const platform = clip.platform
+    if (platform !== 'twitch' && platform !== 'kick') return
+
+    let slug: string | null = null
+    if (platform === 'twitch') {
+      const m = clip.external_url.match(/clips\.twitch\.tv\/([A-Za-z0-9_-]+)|\/clip\/([A-Za-z0-9_-]+)/)
+      slug = m ? (m[1] || m[2]) : null
+    } else {
+      // Kick clip URLs: https://kick.com/CHANNEL?clip=SLUG or https://kick.com/CHANNEL/clips/SLUG
+      const m = clip.external_url.match(/[?&]clip=([A-Za-z0-9_-]+)|\/clips\/([A-Za-z0-9_-]+)/)
+      slug = m ? (m[1] || m[2]) : null
+      // Fallback: use clip ID itself as slug for Kick API
+      if (!slug) slug = clip.id
+    }
     if (!slug) return
+
     let cancelled = false
-    fetch(`/api/clips/video-url?slug=${encodeURIComponent(slug)}`)
+    fetch(`/api/clips/video-url?slug=${encodeURIComponent(slug)}&platform=${platform}`)
       .then((r) => r.ok ? r.json() : null)
       .then((j) => { if (!cancelled && j?.video_url) setVideoUrl(j.video_url) })
       .catch(() => { /* silent — fallback to thumbnail */ })
@@ -369,6 +381,8 @@ export default function EnhancePage() {
             publicUrl?: string | null
             thumbnailUrl?: string | null
             errorMessage?: string | null
+            qualityTier?: string | null
+            reducedQuality?: boolean
             queuePosition?: number | null
           } | null
           message: string
@@ -399,7 +413,11 @@ export default function EnhancePage() {
           // Auto-switch to Rendered view
           setIsRenderedVideo(true)
           setShowEnhancements(true)
-          setRenderMessage('✅ Clip rendered with captions! Check the preview above.')
+          setRenderMessage(
+            json.data.reducedQuality
+              ? '✅ Rendered at reduced quality (server load) — re-generate to try full quality.'
+              : '✅ Clip rendered with captions! Check the preview above.'
+          )
           setRendering(false)
           setMonthlyUsed(prev => prev + 1)
           setSettingsChangedSinceRender(false)

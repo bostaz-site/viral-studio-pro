@@ -79,6 +79,7 @@ export default function DashboardPage() {
   const fetchBootstrap = useTrendingStore(s => s.fetchBootstrap)
   const fetchTabCounts = useTrendingStore(s => s.fetchTabCounts)
   const tabCounts = useTrendingStore(s => s.tabCounts)
+  const tabCountsLoaded = useTrendingStore(s => s.tabCountsLoaded)
 
   // ── Daily Radar: track last visit (E1) ──
   const [lastVisit, setLastVisit] = useState<string | null>(null)
@@ -350,13 +351,14 @@ export default function DashboardPage() {
   }, [router])
 
   // Tab counts come from server (single source of truth)
+  // When counts haven't loaded yet, use undefined so tabs show without badges
   const tabCountsDisplay = useMemo(() => ({
-    hot_now: tabCounts.exploding,
-    proven: tabCounts.proven,
-    recent: tabCounts.fresh,
-    all: tabCounts.all,
+    hot_now: tabCountsLoaded ? tabCounts.exploding : undefined,
+    proven: tabCountsLoaded ? tabCounts.proven : undefined,
+    recent: tabCountsLoaded ? tabCounts.fresh : undefined,
+    all: tabCountsLoaded ? tabCounts.all : undefined,
     saved: savedClipIds.size,
-  }), [tabCounts, savedClipIds.size])
+  }), [tabCounts, tabCountsLoaded, savedClipIds.size])
 
   // Daily Radar stats (E1) — uses server counts for consistency
   const radarStats = useMemo(() => {
@@ -379,17 +381,14 @@ export default function DashboardPage() {
     }
   }, [lastVisit, isFirstVisit, clips, tabCounts.fresh, tabCounts.legendary])
 
-  // D1: Auto-hide "Exploding Now" tab when it has 0 clips
+  // D1: Auto-hide "Exploding Now" tab when we know it has 0 clips (but show it if counts unknown)
   const feedTabs: { key: FeedFilter; label: string; icon: typeof Flame; count?: number; subtle?: boolean; empty?: boolean }[] = [
     { key: 'all', label: 'All Clips', icon: Compass, count: tabCountsDisplay.all },
-    ...(tabCountsDisplay.hot_now > 0 ? [{ key: 'hot_now' as FeedFilter, label: 'Exploding Now', icon: Flame, count: tabCountsDisplay.hot_now }] : []),
-    { key: 'proven', label: 'Proven Winners', icon: Trophy, count: tabCountsDisplay.proven, empty: tabCountsDisplay.proven === 0 && tabCountsDisplay.all > 0 },
-    { key: 'recent', label: 'Fresh Drops', icon: Clock, count: tabCountsDisplay.recent, empty: tabCountsDisplay.recent === 0 && tabCountsDisplay.all > 0 },
+    ...((tabCountsDisplay.hot_now === undefined || tabCountsDisplay.hot_now > 0) ? [{ key: 'hot_now' as FeedFilter, label: 'Exploding Now', icon: Flame, count: tabCountsDisplay.hot_now }] : []),
+    { key: 'proven', label: 'Proven Winners', icon: Trophy, count: tabCountsDisplay.proven, empty: tabCountsDisplay.proven === 0 && (tabCountsDisplay.all ?? 0) > 0 },
+    { key: 'recent', label: 'Fresh Drops', icon: Clock, count: tabCountsDisplay.recent, empty: tabCountsDisplay.recent === 0 && (tabCountsDisplay.all ?? 0) > 0 },
     { key: 'saved', label: 'Saved', icon: Bookmark, count: tabCountsDisplay.saved },
   ]
-
-  // "remaining" = server total for this tab minus what's already loaded
-  const remaining = totalCount - filteredClips.length
 
   // Top Pick: best clip meeting quality criteria (early_gem/hot_now, score>=75, <12h old)
   const usedClipIds = useTrendingStore(s => s.usedClipIds)
@@ -628,7 +627,7 @@ export default function DashboardPage() {
             : filters.feed === 'hot_now'
               ? 'No clips exploding right now. Check Proven Winners or All Clips.'
               : filters.feed === 'recent'
-                ? 'No fresh drops in the last 6 hours. Check Proven Winners.'
+                ? 'No fresh drops in the last 24 hours. Check Proven Winners.'
                 : filters.feed === 'proven'
                   ? 'No proven winners yet. Try All Clips.'
                   : filters.feed === 'saved'
@@ -745,7 +744,7 @@ export default function DashboardPage() {
                 ) : (
                   <Download className="h-3.5 w-3.5" />
                 )}
-                Load more{remaining > 0 && ` (${remaining} remaining)`}
+                Load more
               </Button>
             </div>
           )}

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { User, CreditCard, CheckCircle2, AlertCircle, Bell, Activity, Film, Clock, Gift, Copy, Check, Share2, Settings as SettingsIcon } from 'lucide-react'
+import { User, CreditCard, CheckCircle2, AlertCircle, Activity, Film, Gift, Copy, Check, Share2, Settings as SettingsIcon } from 'lucide-react'
 import { WolfLoader } from '@/components/ui/wolf-loader'
 import { ViralAnimalLogo } from '@/components/brand/viral-animal-logo'
 import { PageHeader } from '@/components/dashboard/page-header'
@@ -12,7 +12,6 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent } from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator'
-import { Switch } from '@/components/ui/switch'
 import { PricingCard } from '@/components/settings/pricing-card'
 import { ConnectAccounts } from '@/components/distribution/connect-accounts'
 import { CreatorRankSection } from '@/components/settings/creator-rank-section'
@@ -88,19 +87,6 @@ function SettingsPageInner() {
   const [savingProfile, setSavingProfile] = useState(false)
   const [profileSaved, setProfileSaved] = useState(false)
 
-  // Notification preferences (stored in localStorage)
-  const NOTIF_GAMES = ['irl'] as const
-  const NOTIF_GAME_LABELS: Record<string, string> = {
-    irl: 'IRL',
-  }
-  const [notifEnabled, setNotifEnabled] = useState(true)
-  const [notifGames, setNotifGames] = useState<Record<string, boolean>>(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('viral_studio_notif_games')
-      if (saved) return JSON.parse(saved) as Record<string, boolean>
-    }
-    return Object.fromEntries(NOTIF_GAMES.map((g) => [g, true]))
-  })
 
   const fetchData = useCallback(async () => {
     const supabase = createClient()
@@ -143,22 +129,6 @@ function SettingsPageInner() {
 
   useEffect(() => { fetchData() }, [fetchData])
 
-  useEffect(() => {
-    localStorage.setItem('viral_studio_notif_games', JSON.stringify(notifGames))
-  }, [notifGames])
-
-  useEffect(() => {
-    localStorage.setItem('viral_studio_notif_enabled', JSON.stringify(notifEnabled))
-  }, [notifEnabled])
-
-  useEffect(() => {
-    const saved = localStorage.getItem('viral_studio_notif_enabled')
-    if (saved !== null) setNotifEnabled(JSON.parse(saved) as boolean)
-  }, [])
-
-  const toggleNotifGame = (game: string) => {
-    setNotifGames((prev) => ({ ...prev, [game]: !prev[game] }))
-  }
 
   const handleSaveProfile = async () => {
     setSavingProfile(true)
@@ -338,49 +308,6 @@ function SettingsPageInner() {
             </Card>
           )
         })()}
-      </Section>
-
-      <Separator />
-
-      {/* ── Stream Notifications ── */}
-      <Section
-        icon={Bell}
-        title="Stream notifications"
-        description="Get alerts when new viral clips show up"
-      >
-        <Card className="bg-card/50 border-border">
-          <CardContent className="p-5 space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-foreground">Enable notifications</p>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  Alerts for clips with a velocity score &ge; 80
-                </p>
-              </div>
-              <Switch checked={notifEnabled} onCheckedChange={setNotifEnabled} />
-            </div>
-
-            {notifEnabled && (
-              <>
-                <Separator />
-                <div>
-                  <p className="text-sm font-medium text-foreground mb-3">By game</p>
-                  <div className="space-y-2">
-                    {NOTIF_GAMES.map((game) => (
-                      <div key={game} className="flex items-center justify-between py-1">
-                        <span className="text-sm text-muted-foreground">{NOTIF_GAME_LABELS[game]}</span>
-                        <Switch
-                          checked={notifGames[game] ?? true}
-                          onCheckedChange={() => toggleNotifGame(game)}
-                        />
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </>
-            )}
-          </CardContent>
-        </Card>
       </Section>
 
       <Separator />

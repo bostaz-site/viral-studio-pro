@@ -47,7 +47,14 @@ export async function GET(
   // Base64url-encode the encrypted state so it's URL-safe
   const stateParam = Buffer.from(encryptedState, 'utf-8').toString('base64url')
 
-  const authUrl = buildAuthUrl(platformParam, stateParam)
+  let authUrl: string
+  try {
+    authUrl = buildAuthUrl(platformParam, stateParam)
+  } catch {
+    const redirectUrl = new URL('/settings', APP_URL)
+    redirectUrl.searchParams.set('oauth_error', `Failed to build auth URL for ${platformParam}. Check platform credentials.`)
+    return NextResponse.redirect(redirectUrl.toString())
+  }
 
   return NextResponse.redirect(authUrl)
 }

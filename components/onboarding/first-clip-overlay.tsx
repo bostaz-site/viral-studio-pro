@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
-import { Eye, ArrowRight, Zap } from 'lucide-react'
+import { Eye, ArrowRight, Zap, AlertCircle } from 'lucide-react'
 import { WolfLoader } from '@/components/ui/wolf-loader'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
@@ -35,6 +35,7 @@ export function FirstClipOverlay() {
   const [open, setOpen] = useState(false)
   const [clips, setClips] = useState<CuratedClip[]>([])
   const [loadingClipId, setLoadingClipId] = useState<string | null>(null)
+  const [errorMsg, setErrorMsg] = useState<string | null>(null)
 
   useEffect(() => {
     // Fast path: localStorage says already done
@@ -88,6 +89,7 @@ export function FirstClipOverlay() {
   const handleMakeViral = useCallback(async (clip: CuratedClip) => {
     if (loadingClipId) return
     setLoadingClipId(clip.id)
+    setErrorMsg(null)
 
     try {
       const idempotencyKey = crypto.randomUUID()
@@ -103,8 +105,16 @@ export function FirstClipOverlay() {
       const json = await res.json() as { data: { jobId: string } | null; error: string | null; message: string }
 
       if (!res.ok || json.error || !json.data?.jobId) {
-        // Kill switch: render failed to start — reset so user can try another
         setLoadingClipId(null)
+        // Show contextual error message
+        const err = json.error ?? ''
+        if (res.status === 402 || err === 'quota_exceeded' || err === 'clip_too_long') {
+          setErrorMsg('Monthly limit reached — upgrade your plan to continue.')
+        } else if (res.status === 429 || err === 'queue_full' || err === 'Rate limited') {
+          setErrorMsg('Too many requests — try again in a minute.')
+        } else {
+          setErrorMsg('Something went wrong — try another clip or retry.')
+        }
         return
       }
 
@@ -121,6 +131,7 @@ export function FirstClipOverlay() {
       router.push(`/dashboard/first-clip?${params.toString()}`)
     } catch {
       setLoadingClipId(null)
+      setErrorMsg('Network error — check your connection and retry.')
     }
   }, [loadingClipId, router])
 
@@ -226,6 +237,14 @@ export function FirstClipOverlay() {
             )
           })}
         </div>
+
+        {/* Error message */}
+        {errorMsg && (
+          <div className="mt-4 flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-destructive/10 border border-destructive/20">
+            <AlertCircle className="h-3.5 w-3.5 text-destructive shrink-0" />
+            <p className="text-xs text-destructive font-medium">{errorMsg}</p>
+          </div>
+        )}
 
         {/* Skip link */}
         <div className="text-center mt-6">

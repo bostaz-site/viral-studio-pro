@@ -41,20 +41,34 @@ export const POST = withAuth(async (req, user) => {
   const { posts, tiktok_defaults } = parsed.data
   const admin = createAdminClient()
 
-  // 1. Cancel all existing 'scheduled' autofarm rows for this user (clean slate)
-  await admin
-    .from('scheduled_publications')
-    .update({ status: 'canceled', updated_at: new Date().toISOString() } as never)
-    .eq('user_id', user.id)
-    .eq('source' as never, 'autofarm')
-    .eq('status', 'scheduled')
-
-  // 2. Insert new queue posts
+  // 0. If no posts to sync, just cancel existing and return
   if (posts.length === 0) {
+    await admin
+      .from('scheduled_publications')
+      .update({ status: 'canceled', updated_at: new Date().toISOString() } as never)
+      .eq('user_id', user.id)
+      .eq('source' as never, 'autofarm')
+      .eq('status', 'scheduled')
     return jsonResponse({ synced: 0 })
   }
 
-  const rows = posts.map(p => ({
+  // 1. Exclude clips already published (prevent republish loop)
+  const clipIds = posts.map(p => p.clip_id)
+  const { data: alreadyPublished } = await admin
+    .from('published_posts')
+    .select('clip_id')
+    .eq('user_id', user.id)
+    .in('clip_id', clipIds)
+
+  const publishedClipIds = new Set((alreadyPublished ?? []).map(r => r.clip_id))
+  const filteredPosts = posts.filter(p => !publishedClipIds.has(p.clip_id))
+
+  if (filteredPosts.length === 0) {
+    return jsonResponse({ synced: 0, skipped: posts.length })
+  }
+
+  // 2. INSERT new rows FIRST (safe: if this fails, existing queue survives)
+  const rows = filteredPosts.map(p => ({
     user_id: user.id,
     clip_id: p.clip_id,
     platform: p.platform,
@@ -72,6 +86,17 @@ export const POST = withAuth(async (req, user) => {
     .insert(rows)
 
   if (error) return errorResponse(error.message, 500)
+
+  // 3. THEN cancel old autofarm rows (only after insert succeeds)
+  //    Exclude the just-inserted IDs by canceling only rows created before now
+  await admin
+    .from('scheduled_publications')
+    .update({ status: 'canceled', updated_at: new Date().toISOString() } as never)
+    .eq('user_id', user.id)
+    .eq('source' as never, 'autofarm')
+    .eq('status', 'scheduled')
+    .not('clip_id', 'in', `(${filteredPosts.map(p => p.clip_id).join(',')})`)
+
   return jsonResponse({ synced: rows.length })
 })
 

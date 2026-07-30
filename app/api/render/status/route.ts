@@ -13,6 +13,7 @@ interface RenderJob {
   status: string
   storage_path: string | null
   error_message: string | null
+  quality_tier: string | null
   created_at: string
   updated_at: string
 }
@@ -97,9 +98,29 @@ export const GET = withAuth(async (request: NextRequest, user) => {
     // Increment export_count on trending clip (idempotent: only once per job)
     if (job.status === 'done' && job.source === 'trending') {
       redis.set(`export_counted:${job.id}`, '1', { nx: true, ex: 86400 })
-        .then(result => {
+        .then(async (result) => {
           if (result === 'OK') {
-            return (admin.rpc as CallableFunction)('increment_export_count', { p_clip_id: job.clip_id })
+            await (admin.rpc as CallableFunction)('increment_export_count', { p_clip_id: job.clip_id })
+            // Emit broadcast for ExportTicker (social proof)
+            try {
+              const { data: tc } = await admin
+                .from('trending_clips')
+                .select('velocity_score, tier, platform')
+                .eq('id', job.clip_id)
+                .single()
+              if (tc) {
+                admin.channel('export-feed').send({
+                  type: 'broadcast',
+                  event: 'new_export',
+                  payload: {
+                    score: tc.velocity_score,
+                    rank: tc.tier ?? 'normal',
+                    platform: tc.platform ?? 'twitch',
+                    timestamp: new Date().toISOString(),
+                  },
+                }).catch(() => {})
+              }
+            } catch { /* non-critical */ }
           }
         })
         .catch(() => {})
@@ -151,6 +172,10 @@ export const GET = withAuth(async (request: NextRequest, user) => {
     message = 'Waiting...'
   }
 
+  // Reduced quality warning
+  const qualityTier = job.quality_tier ?? null
+  const reducedQuality = qualityTier !== null && qualityTier !== 'HIGH_60' && qualityTier !== 'HIGH_30'
+
   return NextResponse.json({
     data: {
       jobId: job.id,
@@ -160,6 +185,8 @@ export const GET = withAuth(async (request: NextRequest, user) => {
       publicUrl,
       thumbnailUrl,
       errorMessage: job.error_message,
+      qualityTier,
+      reducedQuality,
       queuePosition,
       createdAt: job.created_at,
       updatedAt: job.updated_at,

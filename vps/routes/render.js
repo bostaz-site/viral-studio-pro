@@ -1144,7 +1144,7 @@ router.post('/', async (req, res) => {
       ? { enabled: true }
       : (userPlan === 'free' ? { enabled: true } : null);
 
-    await enqueueRender(jobId || renderSessionId, () => renderClip(inputPath, outputPath, {
+    const renderResult = await enqueueRender(jobId || renderSessionId, () => renderClip(inputPath, outputPath, {
       startTime: clipStartTime,
       endTime: clipStartTime + duration,
       duration: duration,
@@ -1178,6 +1178,8 @@ router.post('/', async (req, res) => {
       } : null,
       audioEnhance: settings.audioEnhance?.enabled || false,
     }));
+
+    const qualityTier = renderResult?.qualityTier || null;
 
     // Upload rendered clip to Supabase Storage (unique path per render to avoid CDN cache)
     const renderTs = Date.now();
@@ -1221,7 +1223,7 @@ router.post('/', async (req, res) => {
     const elapsedSeconds = (Date.now() - startTime) / 1000;
     console.log(`[Render ${renderSessionId}] Render completed in ${elapsedSeconds.toFixed(1)}s`);
 
-    trc(`DONE elapsed=${elapsedSeconds.toFixed(1)}s captions=${assFilePath ? 'ASS' : 'none'} tag=${tagConfig?.style || 'none'}`);
+    trc(`DONE elapsed=${elapsedSeconds.toFixed(1)}s captions=${assFilePath ? 'ASS' : 'none'} tag=${tagConfig?.style || 'none'} quality_tier=${qualityTier || 'unknown'}`);
 
     // Mark render job as done
     await updateRenderJob(req.body.jobId, {
@@ -1229,6 +1231,7 @@ router.post('/', async (req, res) => {
       storage_path: clipStoragePath,
       clip_url: uploadResult.url,
       debug_log: trace.join('\n'),
+      quality_tier: qualityTier,
     });
 
     // Send HMAC-signed webhook callback to Next.js (queue management + export tracking)
