@@ -61,6 +61,32 @@ Upload     -->  videos table    AI mood detect    FFmpeg VPS      Queue engine  
 ### Flow utilisateur principal
 Browse (decouvrir) -> Enhance (transformer) -> Distribution (publier) -> Analytics (progresser)
 
+### Flow post-render (Enhance page)
+1. **Render finit** (poll `/api/render/status` detecte `status=done`)
+   - `renderDownloadUrl` est set (signed URL 4h)
+   - `localStorage render-done:{clipId}` ecrit avec `{ url, timestamp }` (TTL 24h)
+   - `sessionStorage render-job:{clipId}` supprime APRES le localStorage write
+   - `UnifiedPublishDialog` s'auto-ouvre (`setShowPublishDialog(true)`)
+   - Preview switch auto sur le tab "Rendered"
+2. **Panneau CTA visible** tant que `renderDownloadUrl` existe :
+   - **Place in bank** : `POST /api/distribution/bank` (verifie render_jobs done, restore si removed)
+   - **Chain farming** : next-best clip via `/api/trending/next-best`
+   - **Publish now** : ouvre `UnifiedPublishDialog`
+   - **Download MP4** : lien direct signed URL
+3. **Changement de reglage post-render** :
+   - `renderDownloadUrl` persiste (CTA reste visible)
+   - `settingsChangedSinceRender=true` → bouton "Re-generate with new settings" (ambre)
+   - Tab "Enhanced" reapparait pour montrer la preview CSS avec les nouveaux reglages
+4. **Persistance refresh (F5)** :
+   - `localStorage render-done:{clipId}` detecte → `GET /api/render/status?clip_id=` (server kill switch)
+   - Retourne le dernier render_jobs done avec des signed URLs frais
+   - Panneau CTA restaure
+5. **Place in bank** :
+   - `POST /api/distribution/bank` avec `{ clipId }`
+   - Verifie `render_jobs.status='done'`, restore `removed_from_bank_at=null` si besoin
+   - Le clip apparait dans la Clip Bank rail de `/dashboard/distribution`
+   - Triggers chain farming (next-best clip)
+
 ---
 
 ## 1. Browse / Trending Feed

@@ -85,6 +85,9 @@ export default function EnhancePage() {
   const [isRenderedVideo, setIsRenderedVideo] = useState(false)
   const [renderedThumbnailUrl, setRenderedThumbnailUrl] = useState<string | null>(null)
   const [originalVideoUrl, setOriginalVideoUrl] = useState<string | null>(null)
+  const [settingsChangedSinceRender, setSettingsChangedSinceRender] = useState(false)
+  const [bankLoading, setBankLoading] = useState(false)
+  const [bankError, setBankError] = useState<string | null>(null)
   const pollRef = useRef<NodeJS.Timeout | null>(null)
   const hasUserChangedSettings = useRef(false)
   const [renderStageIdx, setRenderStageIdx] = useState<number>(-1)
@@ -370,6 +373,13 @@ export default function EnhancePage() {
 
         if (json.data.status === 'done' && json.data.downloadUrl) {
           if (pollRef.current) clearInterval(pollRef.current)
+          // Persist render-done before removing render-job (kill switch for refresh)
+          try {
+            localStorage.setItem(`render-done:${clipId}`, JSON.stringify({
+              url: json.data.downloadUrl,
+              timestamp: Date.now(),
+            }))
+          } catch { /* ignore */ }
           try { sessionStorage.removeItem(`render-job:${clipId}`) } catch { /* ignore */ }
           setRenderDownloadUrl(json.data.downloadUrl)
           // Save rendered video URL and AUTO-SWITCH to the Rendered tab
@@ -386,6 +396,11 @@ export default function EnhancePage() {
           setShowEnhancements(true)
           setRenderMessage('✅ Clip rendered with captions! Check the preview above.')
           setRendering(false)
+          setSettingsChangedSinceRender(false)
+          setPlacedInBank(false)
+          setBankError(null)
+          // Auto-open publish dialog (primary CTA post-render)
+          setShowPublishDialog(true)
           // Browser notification (user opted in via Notification API)
           if (notifyOnDoneRef.current && typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
             try { new Notification('Your clip is ready! 🎬', { body: 'Click to download or publish your viral clip.', icon: '/favicon.ico' }) } catch { /* silent */ }
@@ -450,6 +465,35 @@ export default function EnhancePage() {
       .catch(() => { /* silent */ })
   }, [clip, clipId, startPolling])
 
+  // Restore post-render CTA from localStorage on mount (survives refresh)
+  useEffect(() => {
+    if (!clip || renderDownloadUrl || rendering) return
+    // Skip if sessionStorage has an active job (handled by resume polling above)
+    try { if (sessionStorage.getItem(`render-job:${clipId}`)) return } catch { /* ignore */ }
+    let cancelled = false
+    try {
+      const stored = localStorage.getItem(`render-done:${clipId}`)
+      if (!stored) return
+      const { timestamp } = JSON.parse(stored)
+      if (Date.now() - timestamp > 24 * 60 * 60 * 1000) {
+        localStorage.removeItem(`render-done:${clipId}`)
+        return
+      }
+      // Server kill switch: fetch fresh signed URLs
+      fetch(`/api/render/status?clip_id=${encodeURIComponent(clipId)}`)
+        .then(r => r.ok ? r.json() : null)
+        .then(json => {
+          if (cancelled) return
+          if (!json?.data || json.data.status !== 'done' || !json.data.downloadUrl) return
+          setRenderDownloadUrl(json.data.downloadUrl)
+          setRenderMessage('✅ Clip rendered — ready to publish or bank.')
+        })
+        .catch(() => { /* silent */ })
+    } catch { /* ignore */ }
+    return () => { cancelled = true }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clip, clipId])
+
   const handleRender = useCallback(async () => {
     if (!clip) return
 
@@ -464,6 +508,9 @@ export default function EnhancePage() {
     setRenderMessage('⏳ Starting render...')
     setRenderDownloadUrl(null)
     setRenderOriginalUrl(null)
+    setSettingsChangedSinceRender(false)
+    setPlacedInBank(false)
+    setBankError(null)
     // Revert to CSS preview mode (restore original video URL if we were showing rendered video)
     if (isRenderedVideo && originalVideoUrl) {
       setVideoUrl(originalVideoUrl)
@@ -731,13 +778,12 @@ export default function EnhancePage() {
       hasUserChangedSettings.current = true
       setShowEnhancements(true)
     }
-    // Clear rendered video when user changes settings
-    if (isRenderedVideo) {
-      setIsRenderedVideo(false)
-      setRenderDownloadUrl(null)
-      setRenderMessage(null)
+    // Mark that settings changed since last render (keep CTA panel visible)
+    if (renderDownloadUrl) {
+      if (isRenderedVideo) setIsRenderedVideo(false)
+      setSettingsChangedSinceRender(true)
     }
-  }, [isRenderedVideo, analysisSequenceActive, SETTING_TO_SECTION, selectedMood, detectedMood, baselineScore, revealedBonuses])
+  }, [isRenderedVideo, renderDownloadUrl, analysisSequenceActive, SETTING_TO_SECTION, selectedMood, detectedMood, baselineScore, revealedBonuses])
 
   // Helper: compute real impact on "Blowup Chance" for each option
   // Helper: compute real impact on "Blowup Chance" using diminishing returns
@@ -1014,7 +1060,8 @@ export default function EnhancePage() {
         }))
       }
     } catch {
-      // Silent fail — hook text stays empty but everything else works
+      // Hook fetch failed — disable hookReorderEnabled to unblock auto-render
+      setSettings((s) => ({ ...s, hookReorderEnabled: false, hookReorder: null }))
     } finally {
       setHookGenerating(false)
     }
@@ -1043,8 +1090,7 @@ export default function EnhancePage() {
     // Check captionStyle matches the applied preset (final staged setting)
     const expected = appliedCaptionStyleRef.current
     if (expected && settings.captionStyle !== expected) return
-    // Hook reorder must be ready if we expect it
-    if (settings.hookReorderEnabled && !settings.hookReorder) return
+    // Hook reorder: if enabled but missing, proceed anyway (render works without reorder)
     pendingAutoRenderRef.current = false
     appliedCaptionStyleRef.current = null
     handleRender()
@@ -1207,7 +1253,7 @@ export default function EnhancePage() {
             >
               Original
             </button>
-            {!renderDownloadUrl && (
+            {(!renderDownloadUrl || settingsChangedSinceRender) && (
               <button
                 onClick={() => { setShowEnhancements(true); setIsRenderedVideo(false) }}
                 className={cn(
@@ -1323,19 +1369,56 @@ export default function EnhancePage() {
               {/* Post-render CTAs — Bank is primary (autofarm), Publish is secondary, Download is tertiary */}
               {renderDownloadUrl && (
                 <div className="flex flex-col gap-2.5" style={{ animation: 'stepFade 0.4s ease-out' }}>
+                  {/* Re-generate notice when settings changed since last render */}
+                  {settingsChangedSinceRender && (
+                    <div className="flex flex-col gap-1.5" style={{ animation: 'stepFade 0.3s ease-out' }}>
+                      <p className="text-[10px] text-amber-400/70 text-center">Options below apply to your last render</p>
+                      <button
+                        onClick={handleRender}
+                        disabled={rendering}
+                        className="inline-flex items-center justify-center gap-2 w-full h-11 rounded-xl font-bold text-sm transition-all text-amber-950 disabled:opacity-70"
+                        style={{ background: 'linear-gradient(135deg, #fbbf24, #f59e0b 45%, #d97706)', boxShadow: '0 0 16px rgba(245, 158, 11, 0.18)' }}
+                      >
+                        <Zap className="h-4 w-4" />
+                        Re-generate with new settings
+                      </button>
+                    </div>
+                  )}
                   {/* PRIMARY: Place in bank — amber constitution gradient, main autofarm flow */}
+                  {bankError && (
+                    <p className="text-xs text-red-400 text-center">{bankError}</p>
+                  )}
                   {!placedInBank ? (
                     <button
-                      onClick={() => {
-                        setPlacedInBank(true)
-                        setRenderMessage('✓ Clip placed in your bank — Smart Queue will schedule it.')
+                      onClick={async () => {
+                        setBankLoading(true)
+                        setBankError(null)
+                        try {
+                          const res = await fetch('/api/distribution/bank', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ clipId }),
+                          })
+                          const json = await res.json()
+                          if (!res.ok || json.error) {
+                            setBankError(json.error || json.message || 'Failed to place in bank')
+                            return
+                          }
+                          setPlacedInBank(true)
+                          setRenderMessage('✓ Clip placed in your bank — Smart Queue will schedule it.')
+                        } catch {
+                          setBankError('Network error — try again')
+                        } finally {
+                          setBankLoading(false)
+                        }
                       }}
-                      className="group inline-flex flex-col items-center justify-center gap-1 w-full h-16 rounded-xl font-bold text-amber-950 transition-all hover:scale-[1.01]"
+                      disabled={bankLoading}
+                      className="group inline-flex flex-col items-center justify-center gap-1 w-full h-16 rounded-xl font-bold text-amber-950 transition-all hover:scale-[1.01] disabled:opacity-70"
                       style={{ background: 'linear-gradient(135deg, #fbbf24, #f59e0b 45%, #d97706)', boxShadow: '0 0 20px rgba(245, 158, 11, 0.22)' }}
                     >
                       <span className="inline-flex items-center gap-2.5 text-lg">
-                        <Plus className="h-5 w-5" />
-                        Place in bank
+                        {bankLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Plus className="h-5 w-5" />}
+                        {bankLoading ? 'Placing...' : 'Place in bank'}
                       </span>
                       <span className="text-[10px] font-medium text-amber-950/70">Smart Queue picks the optimal time + platform</span>
                     </button>
@@ -1464,6 +1547,9 @@ export default function EnhancePage() {
                       setRendering(false)
                       setShowEnhancements(false)
                       setPlacedInBank(false)
+                      setSettingsChangedSinceRender(false)
+                      setBankLoading(false)
+                      setBankError(null)
                       hasUserChangedSettings.current = false
                       if (originalVideoUrl) setVideoUrl(originalVideoUrl)
                     }}

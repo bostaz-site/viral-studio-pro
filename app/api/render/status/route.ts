@@ -23,24 +23,42 @@ export const GET = withAuth(async (request: NextRequest, user) => {
   }
 
   const jobId = request.nextUrl.searchParams.get('jobId')
+  const clipIdParam = request.nextUrl.searchParams.get('clip_id')
 
-  if (!jobId) {
+  if (!jobId && !clipIdParam) {
     return NextResponse.json(
-      { data: null, error: 'Missing jobId', message: 'jobId requis' },
+      { data: null, error: 'Missing jobId or clip_id', message: 'jobId ou clip_id requis' },
       { status: 400 }
     )
   }
 
   const admin = createAdminClient()
 
-  const { data: job, error } = await admin
-    .from('render_jobs')
-    .select('*')
-    .eq('id', jobId)
-    .eq('user_id', user.id)
-    .single() as { data: RenderJob | null; error: unknown }
+  let job: RenderJob | null = null
 
-  if (error || !job) {
+  if (jobId) {
+    const { data } = await admin
+      .from('render_jobs')
+      .select('*')
+      .eq('id', jobId)
+      .eq('user_id', user.id)
+      .single() as { data: RenderJob | null; error: unknown }
+    job = data
+  } else {
+    // clip_id mode: return the latest done job for this clip (server-side kill switch)
+    const { data } = await admin
+      .from('render_jobs')
+      .select('*')
+      .eq('clip_id', clipIdParam!)
+      .eq('user_id', user.id)
+      .eq('status', 'done')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .single() as { data: RenderJob | null; error: unknown }
+    job = data
+  }
+
+  if (!job) {
     return NextResponse.json(
       { data: null, error: 'Job not found', message: 'Job introuvable' },
       { status: 404 }
@@ -57,7 +75,7 @@ export const GET = withAuth(async (request: NextRequest, user) => {
         const controller = new AbortController()
         const timer = setTimeout(() => controller.abort(), 2500)
         const res = await fetch(
-          `${vpsUrl.replace(/\/$/, '')}/api/health/queue?jobId=${encodeURIComponent(jobId)}`,
+          `${vpsUrl.replace(/\/$/, '')}/api/health/queue?jobId=${encodeURIComponent(job.id)}`,
           { signal: controller.signal, cache: 'no-store' },
         )
         clearTimeout(timer)
