@@ -164,7 +164,12 @@ function SettingsPageInner() {
     setSavingProfile(true)
     try {
       const supabase = createClient()
-      await supabase.from('profiles').update({ full_name: fullName }).eq('id', user!.id)
+      const { error } = await supabase.from('profiles').update({ full_name: fullName }).eq('id', user!.id)
+      if (error) {
+        setProfileSaved(false)
+        setSavingProfile(false)
+        return
+      }
       await supabase.auth.updateUser({ data: { full_name: fullName } })
       setProfileSaved(true)
       setTimeout(() => setProfileSaved(false), 2000)

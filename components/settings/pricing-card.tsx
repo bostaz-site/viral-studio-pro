@@ -6,6 +6,7 @@ import { WolfLoader } from '@/components/ui/wolf-loader'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
+import { isStudioLaunchActive } from '@/lib/plans'
 
 type Plan = 'free' | 'pro' | 'studio'
 
@@ -27,6 +28,8 @@ interface PlanConfig {
   cta: string
   highlighted?: boolean
 }
+
+const launchActive = isStudioLaunchActive()
 
 const PLANS: PlanConfig[] = [
   {
@@ -56,9 +59,8 @@ const PLANS: PlanConfig[] = [
     features: [
       '30 videos/month',
       'Clips up to 2 min',
-      'Auto split-screen',
-      'Virality Score + Remake',
       'No watermark',
+      'Virality Score + Remake',
       'Custom brand template',
       'Export 9:16 + 1:1 + 16:9',
       'Trending dashboard',
@@ -68,8 +70,8 @@ const PLANS: PlanConfig[] = [
   {
     id: 'studio',
     name: 'Studio',
-    price: '$24',
-    priceOriginal: '$29',
+    price: launchActive ? '$24' : '$29',
+    ...(launchActive ? { priceOriginal: '$29' } : {}),
     priceNote: '/month',
     icon: Sparkles,
     color: 'text-amber-500',
@@ -77,10 +79,7 @@ const PLANS: PlanConfig[] = [
       '120 videos/month (90 + 30 bonus)',
       'Everything in Pro',
       'Multi-platform distribution',
-      'ElevenLabs voiceover',
-      'API access',
       'Priority support',
-      'White-label',
     ],
     cta: 'Upgrade to Studio',
   },

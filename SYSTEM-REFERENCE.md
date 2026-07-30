@@ -271,10 +271,10 @@ Filtergraph: scale/crop → eq (4 buckets) → unsharp (HIGH only) → ASS subti
 `vps/lib/hook-generator.js` > `detectPeakMoment()`. Combines audio spikes (×8), viral keywords (+3/+2/+1), ALL CAPS (+2), positional prior (Twitch/Kick clips: last ⅓ boosted ×1.3), anti-edge. Word-boundary snapping for hook reorder. Details : `SYSTEM-REFERENCE-ENHANCE.md` section "Peak Detection v2".
 
 ### Paywall (contextual conversion)
-Free plan: 3 videos/month. On quota hit → PaywallModal with 5 options: one-time save (first wall only), upgrade, invite (+3 clips), top-up packs ($5/5, $9/10), wait. Strategy : `docs/research/freemium-paywall-strategy.md`.
+Free plan: 3 videos/month. On quota hit (client-side check uses `PLANS[plan].limits.maxVideosPerMonth`) → PaywallModal with 5 options: one-time save (first wall only), upgrade, invite (+5/+2 clips at signup), top-up packs ($5/5, $9/10), wait. Server 402 `quota_exceeded` also opens PaywallModal. Strategy : `docs/research/freemium-paywall-strategy.md`.
 
 ### Watermark + End-Card (free plan)
-Watermark: `@viralanimal` text, position-alternating top/bottom center (anti-crop). End-card: 1.2s appended via concat, "clipped with VIRAL ANIMAL". Pro/Studio: no watermark unless custom logo.
+Next.js render routes send `plan` + `watermark: { enabled: plan==='free' }` in the VPS payload. VPS uses the payload plan (fallback: DB lookup). Free plan: `@viralanimal` drawtext watermark (position-alternating top/bottom center, anti-crop) + 1.2s end-card ("clipped with VIRAL ANIMAL"). Pro/Studio/comp: no watermark, no end-card.
 
 ### API Endpoints
 - `POST /api/enhance/ai-optimize` — mood detection. Returns `{ mood, confidence, explanation, important_words }`
@@ -548,7 +548,7 @@ Mobile-first. No fake numbers, no testimonials.
 | Radar | `how-it-works-section.tsx` | 100% static snapshot — crowned royal card (score 92 count-up + pop, lock brackets 9s, cyan gems, CTA shine), 2 rising cards (74 cyan, 67 rainbow gradient 3s), partial card (61, mask fade). Radar BG: concentric rings + sweep 9s + 5 blips. Thumbnails: `/landing/radar-thumb-1..4.jpg` |
 | ~~Transformation~~ | REMOVED (redundant with hero 3-clicks) | Micro-features line moved under hero |
 | Farm | `features-grid.tsx` | Animated brain pipeline (8s cycle): clip bank → cargo flow → real brain SVG (lobes, nodes, wolf) → 4-way splitter (SMIL animateMotion) → 4 platform icons (receive cascade). Countdown EXAMPLE panel (live JS). Thumbnails: `/landing/farm-thumb-1/2.jpg` |
-| Pricing | `pricing-section.tsx` | Free $0 / Pro $19 / Studio $24 (founding) |
+| Pricing | `pricing-section.tsx` | Free $0 / Pro $19 / Studio $24 founding (via `isStudioLaunchActive()`, expires `STUDIO_LAUNCH_ENDS_AT` 2026-09-30) or $29 after |
 | FAQ | `faq-section.tsx` | 5 items (rights answer = official policy) |
 | Final CTA | `final-cta-section.tsx` | Wolf logo (forge variant) |
 

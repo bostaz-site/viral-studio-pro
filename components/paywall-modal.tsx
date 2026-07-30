@@ -30,11 +30,13 @@ export function PaywallModal({
   userId,
 }: PaywallModalProps) {
   const [loadingCheckout, setLoadingCheckout] = useState<string | null>(null)
+  const [checkoutError, setCheckoutError] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
 
   const handleUpgrade = useCallback(async () => {
     track('paywall_upgrade_clicked', { userId })
     setLoadingCheckout('pro')
+    setCheckoutError(null)
     try {
       const res = await fetch('/api/stripe/checkout', {
         method: 'POST',
@@ -44,8 +46,12 @@ export function PaywallModal({
       const json = await res.json()
       if (json.data?.url) {
         window.location.href = json.data.url
+        return
       }
+      setCheckoutError("Couldn't open checkout — try again")
+      setLoadingCheckout(null)
     } catch {
+      setCheckoutError("Couldn't open checkout — try again")
       setLoadingCheckout(null)
     }
   }, [userId])
@@ -53,6 +59,7 @@ export function PaywallModal({
   const handleTopUp = useCallback(async (pack: 'pack5' | 'pack10') => {
     track('paywall_topup_clicked', { pack, userId })
     setLoadingCheckout(pack)
+    setCheckoutError(null)
     try {
       const res = await fetch('/api/stripe/topup', {
         method: 'POST',
@@ -62,8 +69,12 @@ export function PaywallModal({
       const json = await res.json()
       if (json.data?.url) {
         window.location.href = json.data.url
+        return
       }
+      setCheckoutError("Couldn't open checkout — try again")
+      setLoadingCheckout(null)
     } catch {
+      setCheckoutError("Couldn't open checkout — try again")
       setLoadingCheckout(null)
     }
   }, [userId])
@@ -141,6 +152,9 @@ export function PaywallModal({
             <p className="text-xs text-zinc-500 text-center mt-1.5">
               30 clips/month · no watermark · faster renders
             </p>
+            {checkoutError && (
+              <p className="text-xs text-red-400 text-center mt-1">{checkoutError}</p>
+            )}
           </div>
 
           {/* Secondary: Invite */}
@@ -152,10 +166,10 @@ export function PaywallModal({
                 className="w-full h-10 gap-2 border-zinc-700 hover:border-zinc-600 text-zinc-300"
               >
                 <Users className="h-4 w-4" />
-                {copied ? 'Link copied!' : 'Invite for +3 clips'}
+                {copied ? 'Link copied!' : 'Invite for +5 clips'}
               </Button>
               <p className="text-xs text-zinc-500 text-center mt-1">
-                You both get +3 clips when they render their first clip
+                +5 bonus clips for you, +2 for them — credited at signup
               </p>
             </div>
           )}

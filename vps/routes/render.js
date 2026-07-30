@@ -1133,7 +1133,16 @@ router.post('/', async (req, res) => {
     const outputPath = path.join(tempDir, 'output.mp4');
     console.log(`[Render ${renderSessionId}] Enqueueing FFmpeg render...`);
 
-    const userPlan = (source === 'trending' || userId === 'trending') ? 'pro' : (await getUserProfile(userId))?.plan || 'free';
+    // Use plan from Next.js payload (source of truth); fall back to DB lookup
+    const userPlan = req.body.plan || (
+      (userId && userId !== 'trending')
+        ? ((await getUserProfile(userId))?.plan || 'free')
+        : 'free'
+    );
+    // Watermark config from payload, or derive from plan
+    const watermarkConfig = req.body.watermark?.enabled
+      ? { enabled: true }
+      : (userPlan === 'free' ? { enabled: true } : null);
 
     await enqueueRender(jobId || renderSessionId, () => renderClip(inputPath, outputPath, {
       startTime: clipStartTime,
@@ -1143,7 +1152,7 @@ router.post('/', async (req, res) => {
       captions: assFilePath
         ? { assFilePath, ...settings.captions }
         : null,
-      watermark: null,
+      watermark: watermarkConfig,
       plan: userPlan,
       splitScreen: splitScreenConfig,
       tag: tagConfig,

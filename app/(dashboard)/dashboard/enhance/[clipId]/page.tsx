@@ -36,6 +36,7 @@ import { SplitScreenSection } from '@/components/enhance/accordion-sections/spli
 import { PageHeader } from '@/components/dashboard/page-header'
 import { UnifiedPublishDialog } from '@/components/distribution/unified-publish-dialog'
 import { PaywallModal } from '@/components/paywall-modal'
+import { PLANS } from '@/lib/plans'
 import { track } from '@/lib/analytics'
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -514,9 +515,10 @@ export default function EnhancePage() {
   const handleRender = useCallback(async () => {
     if (!clip) return
 
-    // Paywall check: free plan, no remaining clips (read from ref for fresh values)
+    // Paywall check: plan quota exceeded on client (server is still source of truth)
     const pw = paywallRef.current
-    if (pw.userPlan === 'free' && pw.monthlyUsed >= 3 && pw.bonusVideos <= 0) {
+    const planLimit = PLANS[(pw.userPlan as 'free' | 'pro' | 'studio') ?? 'free']?.limits.maxVideosPerMonth ?? 3
+    if (pw.monthlyUsed >= planLimit && pw.bonusVideos <= 0) {
       track('paywall_shown', { userId, monthlyUsed: pw.monthlyUsed, bonusVideos: pw.bonusVideos })
       setShowPaywall(true)
       return
@@ -641,6 +643,11 @@ export default function EnhancePage() {
       }
 
       if (!res.ok || !data.data) {
+        if (res.status === 402 && data.error === 'quota_exceeded') {
+          setRendering(false)
+          setShowPaywall(true)
+          return
+        }
         setRenderMessage(`❌ ${data.error || data.message || 'Render failed'}`)
         setRendering(false)
       } else if (data.data.vpsReady === false) {
@@ -1320,7 +1327,7 @@ export default function EnhancePage() {
           {/* Quota counter (free plan only) */}
           {userPlan === 'free' && !renderDownloadUrl && !rendering && (
             <p className="text-xs text-zinc-500 text-center">
-              Free plan: render {monthlyUsed} of 3 this month
+              Free plan: render {monthlyUsed} of {PLANS.free.limits.maxVideosPerMonth} this month
               {bonusVideos > 0 && <span className="text-amber-400"> (+{bonusVideos} bonus)</span>}
             </p>
           )}

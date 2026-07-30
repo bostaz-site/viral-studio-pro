@@ -345,6 +345,8 @@ export const POST = withAuth(async (request, user) => {
     clipTitle,
     clipDuration,
     wordTimestamps,
+    plan: callerPlan,
+    watermark: { enabled: callerPlan === 'free' },
     settings: {
       captions: settings?.captions ?? { enabled: true, style: 'word-pop', wordsPerLine: 4 },
       splitScreen: settings?.splitScreen ?? { enabled: false },

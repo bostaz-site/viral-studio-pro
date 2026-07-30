@@ -18,6 +18,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
 import { LaunchCountdown } from '@/components/landing/launch-countdown'
+import { isStudioLaunchActive } from '@/lib/plans'
 
 interface PricingTier {
   id: string
@@ -33,6 +34,8 @@ interface PricingTier {
   cta: string
   accentColor: string
 }
+
+const launchActive = isStudioLaunchActive()
 
 const TIERS: PricingTier[] = [
   {
@@ -65,7 +68,6 @@ const TIERS: PricingTier[] = [
     features: [
       '30 videos per month',
       'Clips up to 2 minutes',
-      'Automatic split-screen',
       'No watermark',
       'Custom branding (logo, colors)',
       '3 export formats',
@@ -79,8 +81,8 @@ const TIERS: PricingTier[] = [
   {
     id: 'studio',
     name: 'Studio',
-    price: 24,
-    priceOriginal: 29,
+    price: launchActive ? 24 : 29,
+    ...(launchActive ? { priceOriginal: 29 } : {}),
     period: '/mo',
     description: 'The complete arsenal for agencies and power users.',
     icon: Crown,
@@ -88,13 +90,10 @@ const TIERS: PricingTier[] = [
       '120 videos per month (90 + 30 welcome bonus)',
       'Everything in Pro included',
       'Multi-platform distribution',
-      'AI voiceover (ElevenLabs)',
-      'API access',
-      'White-label (your brand)',
       'Priority support',
     ],
     highlighted: false,
-    cta: 'Go to Studio',
+    cta: launchActive ? 'Go Studio — $24/mo' : 'Go Studio — $29/mo',
     accentColor: 'from-amber-600 to-amber-700',
   },
 ]
@@ -265,7 +264,7 @@ export default function PricingPage() {
                   {tier.id === 'free' && (
                     <div className="mt-2 space-y-1 text-center">
                       <p className="text-xs text-zinc-500">No card needed</p>
-                      <p className="text-[11px] text-zinc-600">Referral bonuses available (+3 clips per friend)</p>
+                      <p className="text-[11px] text-zinc-600">Referral bonuses available (+5 clips per friend)</p>
                     </div>
                   )}
                 </CardContent>

@@ -2,8 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
 import { rateLimit } from '@/lib/rate-limit'
-
-const MAX_FILE_SIZE = 2 * 1024 * 1024 * 1024 // 2 GB
+import { resolveEffectivePlan, getPlanConfig } from '@/lib/plans'
 
 /**
  * POST /api/upload/sign
@@ -53,9 +52,27 @@ export async function POST(req: NextRequest) {
     )
   }
 
-  if (fileSize && fileSize > MAX_FILE_SIZE) {
+  // Resolve plan-based upload limit
+  let maxUploadMB = 200 // default for anonymous / free
+  if (userId) {
+    const admin = createAdminClient()
+    const { data: profile } = await admin
+      .from('profiles')
+      .select('plan, is_comp')
+      .eq('id', userId)
+      .single()
+    const plan = resolveEffectivePlan(profile as { plan: string | null; is_comp: boolean | null } | null)
+    maxUploadMB = getPlanConfig(plan).limits.maxUploadSizeMB
+  }
+  const maxFileSize = maxUploadMB * 1024 * 1024
+
+  if (fileSize && fileSize > maxFileSize) {
     return NextResponse.json(
-      { data: null, error: 'File too large', message: 'Maximum file size is 2 GB' },
+      {
+        data: null,
+        error: 'File too large',
+        message: `Maximum file size is ${maxUploadMB} MB on your plan. Upgrade for larger uploads.`,
+      },
       { status: 400 },
     )
   }

@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { AnimatedSection } from '@/components/landing/animated-section'
 import { track } from '@/lib/analytics'
+import { isStudioLaunchActive } from '@/lib/plans'
 
 interface PlanConfig {
   id: string
@@ -18,6 +19,8 @@ interface PlanConfig {
   highlighted?: boolean
   cta: string
 }
+
+const launchActive = isStudioLaunchActive()
 
 const PLANS: PlanConfig[] = [
   {
@@ -42,19 +45,19 @@ const PLANS: PlanConfig[] = [
     priceNote: '/mo',
     tagline: 'For casual clippers',
     features: [
-      '30 videos/month',
-      'No watermark',
+      '30 clips/month · no watermark',
       'All caption styles',
       'AI hook + smart zoom',
-      'TikTok Direct Post',
+      'Custom brand template',
+      'Trending dashboard',
     ],
     cta: 'Go Pro',
   },
   {
     id: 'studio',
     name: 'Studio',
-    price: '$24',
-    priceOriginal: '$29',
+    price: launchActive ? '$24' : '$29',
+    ...(launchActive ? { priceOriginal: '$29' } : {}),
     priceNote: '/mo',
     tagline: 'For serious farmers',
     features: [
@@ -92,7 +95,7 @@ export function PricingSection() {
                 {plan.highlighted && (
                   <div className="absolute -top-3 left-1/2 -translate-x-1/2">
                     <span className="text-[9px] font-extrabold uppercase tracking-widest px-3 py-1 rounded-full bg-amber-500 text-amber-950">
-                      Best value &middot; Founding launch price
+                      {launchActive ? 'Best value \u00B7 Founding launch price' : 'Best value'}
                     </span>
                   </div>
                 )}

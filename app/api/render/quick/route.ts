@@ -86,6 +86,14 @@ export const POST = withAuth(async (request: NextRequest, user) => {
   const planError = await enforcePlanLimits(admin, user.id, clipDuration)
   if (planError) return planError
 
+  // Resolve effective plan for watermark/payload
+  const { data: quickProfile } = await (admin
+    .from('profiles')
+    .select('plan, is_comp')
+    .eq('id', user.id)
+    .single() as unknown as Promise<{ data: { plan: string | null; is_comp: boolean | null } | null }>)
+  const callerPlan = (await import('@/lib/plans')).resolveEffectivePlan(quickProfile)
+
   // ── Resolve Twitch URL ──
   videoUrl = await resolveTwitchUrl(videoUrl, foundSource)
 
@@ -168,6 +176,8 @@ export const POST = withAuth(async (request: NextRequest, user) => {
     clipTitle,
     clipDuration,
     wordTimestamps: [],
+    plan: callerPlan,
+    watermark: { enabled: callerPlan === 'free' },
     settings: autoSettings,
   }
 
