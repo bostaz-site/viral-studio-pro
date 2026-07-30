@@ -200,7 +200,7 @@ export function UploadPageClient() {
           )}
 
           <p className="text-xs text-muted-foreground/60 text-center mt-4">
-            Accepted: MP4, MOV, MKV, AVI, WebM &middot; Max 2 GB
+            Accepted: MP4, MOV, MKV, AVI, WebM &middot; Max 200 MB (Free) / 500 MB (Pro/Studio)
           </p>
 
           {!isAuditMode && (

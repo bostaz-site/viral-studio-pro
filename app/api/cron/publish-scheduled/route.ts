@@ -34,7 +34,8 @@ interface ScheduledRow {
 
 export async function POST(req: NextRequest) {
   const apiKey = req.headers.get('x-api-key')
-  if (apiKey !== process.env.CRON_SECRET) {
+  const cronSecret = process.env.CRON_SECRET
+  if (!apiKey || !cronSecret || !(await import('@/lib/crypto')).timingSafeCompare(apiKey, cronSecret)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 

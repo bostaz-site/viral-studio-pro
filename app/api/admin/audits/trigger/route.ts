@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { generateMorningBrief } from '@/lib/audit/morning-brief'
+import { timingSafeCompare } from '@/lib/crypto'
 
 const CRON_SECRET = process.env.AUDIT_CRON_SECRET
 
@@ -11,7 +12,7 @@ export async function POST(req: NextRequest) {
   const apiKey = req.headers.get('x-api-key')
   const token = authHeader?.replace('Bearer ', '') ?? apiKey
 
-  if (!CRON_SECRET || token !== CRON_SECRET) {
+  if (!CRON_SECRET || !token || !timingSafeCompare(token, CRON_SECRET)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 

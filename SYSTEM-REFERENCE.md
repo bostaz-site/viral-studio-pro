@@ -789,3 +789,20 @@ Derived from user's `full_name` or email prefix (sanitized to alphanumeric). If 
 - **Rate limit:** `POST /api/partner/auth/request` limited to 3/hour per email + 3/hour per IP.
 - **Repost submit:** `POST /api/partner/repost/submit` NO LONGER auto-promotes to 'onboarded'. Sets `last_active_at` only + sends Discord notification for manual admin review. Onboarding is admin-only (CRM button).
 - **PostgREST injection:** `/partner/repost/[handle]` validates handle with `^[a-zA-Z0-9_.\-]{1,50}$` before any DB query. Uses separate `.eq()` / `.ilike()` calls instead of `.or()` with interpolation. Same sanitization applied to admin search routes.
+
+### Funnel Tracking & Auth
+- **Events whitelist:** `app/api/events/route.ts` accepts `landing_cta_clicked`, `page_view`, `signup_started`, `signup_completed` + all existing events. Unknown events are filtered (warn-logged) instead of rejecting the whole batch.
+- **Signup tracking:** `signup_started` fired at form submit, `signup_completed` after successful signUp.
+- **Login redirect:** reads `?redirectTo=` from searchParams, validates it starts with `/` (prevents open redirect). Forgot password flow: inline form → `resetPasswordForEmail()` → `/auth/reset` page exchanges PKCE code + `updateUser({password})`.
+- **Password reset page:** `app/auth/reset/page.tsx` — listens for `PASSWORD_RECOVERY` auth state event, shows new password form, updates user, redirects to `/dashboard`.
+
+### Security Hardening
+- **Upload IDOR:** `DELETE /api/upload/sign` requires auth + `eq('user_id', userId)`. No anonymous deletion.
+- **Webhook fail-closed:** `app/api/render/hook` — invalid/missing HMAC signature = 401, always. Timestamp mandatory. No warn-only mode. **NOTE FOR SAMY:** verify `WEBHOOK_SECRET` is identical on Netlify AND Railway.
+- **Client IP:** `lib/api/client-ip.ts` reads `x-nf-client-connection-ip` (Netlify, unspoofable) with fallback to LAST element of `x-forwarded-for`. Never trust the first element.
+- **Admin guard:** `app/(dashboard)/admin/layout.tsx` — server component checks session + `admin_users` table. Non-admins redirected to `/`.
+- **Cron timing-safety:** `publish-scheduled`, `ai-triage`, `audits/trigger` all use `timingSafeCompare` instead of `===`.
+- **Instantly webhook:** missing `INSTANTLY_WEBHOOK_SECRET` = reject (was fail-open). **NOTE FOR SAMY:** set `INSTANTLY_WEBHOOK_SECRET` in Netlify env.
+- **CSP:** `*.ingest.sentry.io` added to `connect-src` (Sentry was loaded but blocked).
+- **Referral claims:** aligned to reality across paywall, settings, pricing: "+3 clips each when your friend renders their first clip (up to 5/month)".
+- **Plan residuals:** `voiceOver: false`, `apiAccess: false` in Studio plan limits (features not shipped).

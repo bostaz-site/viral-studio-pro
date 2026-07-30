@@ -1,8 +1,8 @@
 // TODO: Add rate limiting (brute force protection) — server-side middleware or Supabase rate limit
 "use client"
 
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { Suspense, useState } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { Mail, Lock, ArrowRight } from 'lucide-react'
 import { WolfLoader } from '@/components/ui/wolf-loader'
@@ -13,7 +13,16 @@ import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card'
 
 export default function LoginPage() {
+  return (
+    <Suspense fallback={null}>
+      <LoginForm />
+    </Suspense>
+  )
+}
+
+function LoginForm() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
@@ -33,7 +42,10 @@ export default function LoginPage() {
       return
     }
 
-    router.push('/dashboard')
+    const redirectTo = searchParams?.get('redirectTo')
+    // Validate: must start with / to prevent open redirect
+    const dest = redirectTo && redirectTo.startsWith('/') ? redirectTo : '/dashboard'
+    router.push(dest)
     router.refresh()
   }
 
@@ -104,8 +116,56 @@ export default function LoginPage() {
               Create free account
             </Link>
           </p>
+          <ForgotPassword />
         </CardFooter>
       </form>
     </Card>
+  )
+}
+
+function ForgotPassword() {
+  const [open, setOpen] = useState(false)
+  const [resetEmail, setResetEmail] = useState('')
+  const [sent, setSent] = useState(false)
+  const [sending, setSending] = useState(false)
+
+  const handleReset = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!resetEmail) return
+    setSending(true)
+    const supabase = createClient()
+    await supabase.auth.resetPasswordForEmail(resetEmail, {
+      redirectTo: `${window.location.origin}/auth/reset`,
+    })
+    setSent(true)
+    setSending(false)
+  }
+
+  if (!open) {
+    return (
+      <button type="button" onClick={() => setOpen(true)} className="text-xs text-muted-foreground hover:text-primary transition-colors">
+        Forgot your password?
+      </button>
+    )
+  }
+
+  if (sent) {
+    return <p className="text-xs text-emerald-400 text-center">Check your email for a reset link.</p>
+  }
+
+  return (
+    <form onSubmit={handleReset} className="flex gap-2 items-center w-full">
+      <Input
+        type="email"
+        placeholder="your@email.com"
+        value={resetEmail}
+        onChange={e => setResetEmail(e.target.value)}
+        required
+        className="h-8 text-xs flex-1"
+      />
+      <Button type="submit" size="sm" variant="outline" className="h-8 text-xs" disabled={sending}>
+        {sending ? '...' : 'Reset'}
+      </Button>
+    </form>
   )
 }

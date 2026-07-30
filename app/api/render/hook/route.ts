@@ -93,13 +93,11 @@ async function handleWebhook(req: NextRequest) {
   logger.info('[webhook] Inbound render hook', { source: 'vps', timestamp: new Date().toISOString() })
   const body = await req.text()
   const hmacValid = verifyWebhook(req, body)
-  const hmacOnly = process.env.WEBHOOK_HMAC_ONLY === 'true'
 
-  if (!hmacValid && hmacOnly) {
-    return NextResponse.json({ error: 'Invalid signature' }, { status: 401 })
-  }
+  // Fail-closed: invalid or missing signature = always reject (no warn-only mode)
   if (!hmacValid) {
-    logger.warn('[render/hook] HMAC missing or invalid (warn-only mode)')
+    logger.error('[render/hook] HMAC invalid or missing — rejecting webhook')
+    return NextResponse.json({ error: 'Invalid signature' }, { status: 401 })
   }
 
   let payload: z.infer<typeof webhookSchema>
@@ -109,7 +107,10 @@ async function handleWebhook(req: NextRequest) {
     return NextResponse.json({ error: 'Invalid payload' }, { status: 400 })
   }
 
-  // Anti-replay: reject if timestamp is > 5 minutes old
+  // Anti-replay: reject if timestamp is missing or > 5 minutes old
+  if (!payload.timestamp) {
+    return NextResponse.json({ error: 'Timestamp required' }, { status: 400 })
+  }
   if (payload.timestamp) {
     const age = Date.now() - payload.timestamp
     if (age > 5 * 60 * 1000 || age < -60_000) {

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { timingSafeCompare } from '@/lib/crypto'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { classifyReply } from '@/lib/admin/ai/reply-classifier'
 import { generateReplyDrafts } from '@/lib/admin/ai/reply-drafter'
@@ -13,7 +14,8 @@ const MAX_PER_RUN = 50
  */
 export async function GET(req: NextRequest) {
   const cronSecret = process.env.CRON_SECRET
-  if (!cronSecret || req.headers.get('x-api-key') !== cronSecret) {
+  const apiKey = req.headers.get('x-api-key')
+  if (!cronSecret || !apiKey || !timingSafeCompare(apiKey, cronSecret)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 

@@ -264,7 +264,7 @@ export default function PricingPage() {
                   {tier.id === 'free' && (
                     <div className="mt-2 space-y-1 text-center">
                       <p className="text-xs text-zinc-500">No card needed</p>
-                      <p className="text-[11px] text-zinc-600">Referral bonuses available (+5 clips per friend)</p>
+                      <p className="text-[11px] text-zinc-600">Referral bonuses available (+3 clips each, up to 5/month)</p>
                     </div>
                   )}
                 </CardContent>

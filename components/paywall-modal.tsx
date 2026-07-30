@@ -166,10 +166,10 @@ export function PaywallModal({
                 className="w-full h-10 gap-2 border-zinc-700 hover:border-zinc-600 text-zinc-300"
               >
                 <Users className="h-4 w-4" />
-                {copied ? 'Link copied!' : 'Invite for +5 clips'}
+                {copied ? 'Link copied!' : 'Invite for +3 clips'}
               </Button>
               <p className="text-xs text-zinc-500 text-center mt-1">
-                +5 bonus clips for you, +2 for them — credited at signup
+                +3 clips each when your friend renders their first clip (up to 5/month)
               </p>
             </div>
           )}

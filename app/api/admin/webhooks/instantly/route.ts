@@ -12,10 +12,8 @@ import { rateLimit, RATE_LIMITS } from '@/lib/rate-limit'
 function verifyWebhookToken(req: NextRequest): boolean {
   const secret = process.env.INSTANTLY_WEBHOOK_SECRET
   if (!secret) {
-    // TODO-LAUNCH: Set INSTANTLY_WEBHOOK_SECRET before going live.
-    // Without it, anyone can POST to this endpoint.
-    console.warn('[webhook/instantly] INSTANTLY_WEBHOOK_SECRET not set — accepting all requests (dev mode)')
-    return true
+    console.error('[webhook/instantly] INSTANTLY_WEBHOOK_SECRET not configured — rejecting all requests')
+    return false
   }
 
   const token = req.nextUrl.searchParams.get('token') ?? ''

@@ -383,8 +383,8 @@ function SettingsPageInner() {
 
                 <div className="text-xs text-muted-foreground pt-1 space-y-1">
                   <p>
-                    <span className="text-emerald-400 font-semibold">+5 bonus clips</span> for you every time a friend signs up,
-                    and <span className="text-emerald-400 font-semibold">+2 clips</span> for them as a welcome.
+                    <span className="text-emerald-400 font-semibold">+3 bonus clips</span> each when your friend renders their first clip.
+                    Up to <span className="text-emerald-400 font-semibold">5 referrals/month</span>.
                   </p>
                   <p className="text-muted-foreground/70">
                     Bonus clips kick in automatically when you go over your monthly quota.

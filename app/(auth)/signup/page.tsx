@@ -7,6 +7,7 @@ import Link from 'next/link'
 import { Mail, Lock, User, ArrowRight, CheckCircle2, Gift } from 'lucide-react'
 import { WolfLoader } from '@/components/ui/wolf-loader'
 import { createClient } from '@/lib/supabase/client'
+import { track } from '@/lib/analytics'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -88,6 +89,7 @@ function SignupForm() {
     }
     setLoading(true)
     setError(null)
+    track('signup_started', { hasReferral: !!referralCode })
 
     const supabase = createClient()
     const { error: authError } = await supabase.auth.signUp({
@@ -110,6 +112,7 @@ function SignupForm() {
 
     setSuccess(true)
     setLoading(false)
+    track('signup_completed', { hasReferral: !!referralCode })
 
     // Attribute signup to affiliate (best-effort, non-blocking)
     if (referralCode) {

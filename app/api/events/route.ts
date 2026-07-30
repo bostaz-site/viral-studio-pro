@@ -8,8 +8,11 @@ export const runtime = 'nodejs'
 
 // Events the client is allowed to send. Whitelisting prevents the endpoint
 // from becoming a free-form dumping ground for arbitrary strings.
-const ALLOWED_EVENTS = [
+const ALLOWED_EVENTS = new Set([
   'page_view',
+  'landing_cta_clicked',
+  'signup_started',
+  'signup_completed',
   'demo_view',
   'demo_clip_switch',
   'demo_caption_switch',
@@ -24,10 +27,16 @@ const ALLOWED_EVENTS = [
   'changelog_view',
   'newsletter_submitted',
   'pricing_view',
-] as const
+  'paywall_shown',
+  'paywall_upgrade_clicked',
+  'paywall_topup_clicked',
+  'paywall_referral_clicked',
+  'paywall_save_used',
+  'paywall_dismissed',
+])
 
 const eventSchema = z.object({
-  name: z.enum(ALLOWED_EVENTS),
+  name: z.string().min(1).max(100),
   session_id: z.string().min(6).max(64),
   page_path: z.string().max(512).optional(),
   referrer: z.string().max(512).optional(),
@@ -60,7 +69,8 @@ function rateLimit(key: string, n: number): boolean {
 }
 
 export async function POST(req: NextRequest) {
-  const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown'
+  const { getClientIp } = await import('@/lib/api/client-ip')
+  const ip = getClientIp(req)
   const ipRl = await redisRateLimit(`browse:${ip}`, RATE_LIMITS.browse.limit, RATE_LIMITS.browse.windowMs)
   if (!ipRl.allowed) {
     return NextResponse.json({ data: null, error: 'rate_limited' }, { status: 429 })
@@ -77,7 +87,16 @@ export async function POST(req: NextRequest) {
     )
   }
 
-  const events = 'events' in parsed ? parsed.events : [parsed]
+  const rawEvents = 'events' in parsed ? parsed.events : [parsed]
+  // Filter to allowed events — don't reject the whole batch for one unknown event
+  const events = rawEvents.filter(e => {
+    if (ALLOWED_EVENTS.has(e.name)) return true
+    logger.warn(`[analytics] Unknown event name rejected: ${e.name}`)
+    return false
+  })
+  if (events.length === 0) {
+    return NextResponse.json({ data: { accepted: 0 }, error: null })
+  }
   const sessionId = events[0]?.session_id ?? 'unknown'
 
   if (!rateLimit(sessionId, events.length)) {

@@ -179,18 +179,30 @@ export async function DELETE(req: NextRequest) {
     return NextResponse.json({ error: 'videoId required' }, { status: 400 })
   }
 
+  // Auth required — prevent IDOR (deleting another user's video)
+  let userId: string | null = null
+  try {
+    const supabase = createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    userId = user?.id ?? null
+  } catch { /* anonymous */ }
+
+  if (!userId) {
+    return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
+  }
+
   const admin = createAdminClient()
 
-  // Only delete if status is still 'uploaded' (not yet processed)
+  // Only delete if status is still 'uploading'/'uploaded' AND owned by this user
   const { data } = await admin
     .from('videos')
     .select('id, storage_path, status')
     .eq('id', videoId)
-    .eq('status', 'uploaded')
+    .eq('user_id', userId)
+    .in('status', ['uploading', 'uploaded'])
     .maybeSingle()
 
   if (data) {
-    // Clean up storage file if it exists
     if (data.storage_path) {
       await admin.storage.from('videos').remove([data.storage_path])
     }
