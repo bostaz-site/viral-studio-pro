@@ -265,10 +265,13 @@ Env var `RENDER_QUALITY` (default `high`). Auto-fallback on OOM (exit code null/
 - **HIGH_30**: 1080p30, faster, crf 20, maxrate 8M
 - **SAFE**: 720p30, veryfast, crf 23, maxrate 5M
 - **LAST_RESORT**: 720p30, ultrafast, crf 26, maxrate 4M
+
+Quality tier is stored in `render_jobs.quality_tier` and exposed via `/api/render/status` as `qualityTier` + `reducedQuality` boolean. If tier < HIGH_30, the Enhance page shows a "Rendered at reduced quality" warning.
+
 Filtergraph: scale/crop → eq (4 buckets) → unsharp (HIGH only) → ASS subtitles → overlays → watermark → format. Details : `SYSTEM-REFERENCE-ENHANCE.md` section "Qualite de rendu v2".
 
 ### Peak Detection (spike + positional prior)
-`vps/lib/hook-generator.js` > `detectPeakMoment()`. Combines audio spikes (×8), viral keywords (+3/+2/+1), ALL CAPS (+2), positional prior (Twitch/Kick clips: last ⅓ boosted ×1.3), anti-edge. Word-boundary snapping for hook reorder. Details : `SYSTEM-REFERENCE-ENHANCE.md` section "Peak Detection v2".
+`vps/lib/hook-generator.js` > `detectPeakMoment()`. Combines audio spikes (×8), viral keywords (+3/+2/+1), ALL CAPS (+2), positional prior (Twitch/Kick clips: last ⅓ boosted ×1.3), anti-edge. Word-boundary snapping for hook reorder. `settings.sourcePlatform` is wired from both `POST /api/render` and `POST /api/render/quick` (derived from `trending_clips.platform`), enabling the positional prior for viewer clips. Details : `SYSTEM-REFERENCE-ENHANCE.md` section "Peak Detection v2".
 
 ### Paywall (contextual conversion)
 Free plan: 3 videos/month. On quota hit (client-side check uses `PLANS[plan].limits.maxVideosPerMonth`) → PaywallModal with 5 options: one-time save (first wall only), upgrade, invite (+5/+2 clips at signup), top-up packs ($5/5, $9/10), wait. Server 402 `quota_exceeded` also opens PaywallModal. Strategy : `docs/research/freemium-paywall-strategy.md`.
@@ -567,18 +570,17 @@ Privacy-first, batched event tracking with DNT respect and fire-and-forget deliv
 
 ### Landing Page V2 (2026-07-19)
 
-7-section flow: Hero → Radar → Transformation → Farm → Pricing → FAQ → Final CTA.
+6-section flow: Hero → Radar → Farm → Pricing → FAQ → Final CTA.
 Mobile-first. No fake numbers, no testimonials.
 
-| Section | Component | Data source |
+| Section | Component | Notes |
 |---|---|---|
-| Hero | `hero-section.tsx` | 3-clicks pipeline demo (7.2s CSS cycle: Pick→Enhance→Post), real thumbnail from radar API, bridge card with count-up |
+| Hero | `hero-section.tsx` | 3-clicks pipeline demo (7.2s CSS cycle: Pick→Enhance→Post), micro-features line below ("Karaoke captions · AI hook + smart zoom · Automatic creator credit"), bridge card with count-up |
 | Radar | `how-it-works-section.tsx` | 100% static snapshot — crowned royal card (score 92 count-up + pop, lock brackets 9s, cyan gems, CTA shine), 2 rising cards (74 cyan, 67 rainbow gradient 3s), partial card (61, mask fade). Radar BG: concentric rings + sweep 9s + 5 blips. Thumbnails: `/landing/radar-thumb-1..4.jpg` |
-| ~~Transformation~~ | REMOVED (redundant with hero 3-clicks) | Micro-features line moved under hero |
 | Farm | `features-grid.tsx` | Animated brain pipeline (8s cycle): clip bank → cargo flow → real brain SVG (lobes, nodes, wolf) → 4-way splitter (SMIL animateMotion) → 4 platform icons (receive cascade). Countdown EXAMPLE panel (live JS). Thumbnails: `/landing/farm-thumb-1/2.jpg` |
 | Pricing | `pricing-section.tsx` | Free $0 / Pro $19 / Studio $24 founding (via `isStudioLaunchActive()`, expires `STUDIO_LAUNCH_ENDS_AT` 2026-09-30) or $29 after |
-| FAQ | `faq-section.tsx` | 5 items (rights answer = official policy) |
-| Final CTA | `final-cta-section.tsx` | Wolf logo (forge variant) |
+| FAQ | `faq-section.tsx` | "Questions clippers actually ask" — 5 items single-open accordion (native `<details name="faq">`), bg #0B0F1E, sober slate. Copy: rights, recording, TikTok official, quota, cancel |
+| Final CTA | `final-cta-section.tsx` | Bg #020617 + faint radar echo (2 cyan rings), wolf Or Forge 200px + amber glow, "The radar already found your next clip.", CTA "Claim your first clip", trust line |
 
 Testimonials section retired (returns null). Exit-intent popup unchanged.
 
@@ -597,6 +599,7 @@ Supabase Auth with email/password + Google OAuth, protected routes, welcome moda
 - `middleware.ts` — protects `/dashboard`, `/settings`; redirects authed users from `/login`
 - `lib/supabase/client.ts` (browser), `lib/supabase/server.ts` (SSR)
 - `components/onboarding/welcome-modal.tsx` — 3-step onboarding (localStorage `vsp.onboarding.welcome.v1`)
+- `components/onboarding/first-clip-overlay.tsx` — curated clip grid, 1-click quick export. Error states: quota (402) → upgrade CTA, rate limit (429) → retry message, default → generic retry. Network errors caught separately.
 - `components/onboarding/referral-bonus-banner.tsx` — shows when `bonusVideos > 0`
 
 ### Referral Flow
@@ -617,7 +620,7 @@ Real-time export ticker, velocity badges, trending timers and notification bell 
 `TrendingClip.export_count` on cards: "Fresh -- be the first" if 0, "Used by X creators" otherwise. Incremented via RPC `increment_export_count` when render job reaches `done` status (in `/api/render/status`), with idempotency guard via Redis key `export_counted:{jobId}` (NX, 24h TTL) — prevents double-counting on repeated polls.
 
 ### Live Ticker
-Supabase Broadcast (no DB persistence). Anonymous payload `{ score, rank, platform }`. Auto-hides after 8s. Fire-and-forget — never blocks render flow.
+Supabase Broadcast (no DB persistence). Anonymous payload `{ score, rank, platform }`. Emitted from `/api/render/status` after `increment_export_count` RPC succeeds (same idempotency guard as the count). Auto-hides after 8s. Fire-and-forget — never blocks render flow.
 
 ### Notification Bell
 Triggers when `fetchClips()` detects new clips with `velocity_score >= 80`. Pulsing unread badge. Panel shows title, platform, score, time-ago.
