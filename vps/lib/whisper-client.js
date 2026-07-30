@@ -73,13 +73,21 @@ export async function transcribeWithWhisper(videoPath, options = {}) {
 
     console.log('[Whisper] Sending to OpenAI API...');
     const whisperStartMs = Date.now();
-    const response = await fetch('https://api.openai.com/v1/audio/transcriptions', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: formData,
-    });
+    const whisperAbort = new AbortController();
+    const whisperTimeout = setTimeout(() => whisperAbort.abort(), 120_000); // 120s timeout
+    let response;
+    try {
+      response = await fetch('https://api.openai.com/v1/audio/transcriptions', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+        },
+        body: formData,
+        signal: whisperAbort.signal,
+      });
+    } finally {
+      clearTimeout(whisperTimeout);
+    }
 
     if (!response.ok) {
       const errText = await response.text();

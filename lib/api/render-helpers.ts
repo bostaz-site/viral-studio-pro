@@ -119,12 +119,14 @@ export async function checkExistingJob(
   // When force=true, skip idempotency check (caller already cancelled stuck jobs)
   if (force) return null
 
+  const fifteenMinAgo = new Date(Date.now() - 15 * 60 * 1000).toISOString()
   const { data: existingJob } = await admin
     .from('render_jobs')
     .select('id, status, created_at')
     .eq('clip_id', clipId)
     .eq('user_id', userId)
     .in('status', ['pending', 'rendering', 'queued'] satisfies RenderStatus[])
+    .gte('created_at', fifteenMinAgo)
     .order('created_at', { ascending: false })
     .limit(1)
     .single()

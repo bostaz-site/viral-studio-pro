@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { timingSafeCompare } from '@/lib/crypto'
 import { redis } from '@/lib/upstash'
-import { releaseJob } from '@/lib/render-queue'
+import { releaseJob, removeFromQueue } from '@/lib/render-queue'
 import { processAndDispatchNext } from '@/lib/api/dispatch-render'
 import { logger } from '@/lib/logger'
 
@@ -114,6 +114,7 @@ export async function POST(req: NextRequest) {
     for (const z of zombies) {
       logger.info('[cleanup] Freed orphaned slot for job:', z.id)
       await releaseJob(z.id)
+      await removeFromQueue(z.id)
       redis.del(`render:heartbeat:${z.id}`).catch(() => {})
     }
     // Dispatch next queued jobs now that slots are freed

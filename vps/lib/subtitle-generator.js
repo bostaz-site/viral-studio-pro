@@ -881,7 +881,7 @@ export function generateStaticASS(text, duration, options = {}) {
     for (let i = 0; i < words.length; i++) {
       const wordStart = startOffset + i * wordDuration;
       const wordEnd = Math.min(wordStart + wordDuration, duration);
-      const word = words[i].toUpperCase();
+      const word = words[i].toUpperCase().replace(/\\/g, '\\\\').replace(/\{/g, '\\{').replace(/\}/g, '\\}');
       events.push(`Dialogue: 0,${toASSTime(wordStart)},${toASSTime(wordEnd)},Default,,0,0,0,,{\\an${an}}${word}`);
     }
     return [header, ...events].join('\n');
@@ -900,7 +900,7 @@ export function generateStaticASS(text, duration, options = {}) {
   for (let i = 0; i < lines.length; i++) {
     const start = i * lineDuration;
     const end = Math.min(start + lineDuration, duration);
-    const lineText = lines[i].toUpperCase(); // Uppercase for viral style
+    const lineText = lines[i].toUpperCase().replace(/\\/g, '\\\\').replace(/\{/g, '\\{').replace(/\}/g, '\\}');
     events.push(`Dialogue: 0,${toASSTime(start)},${toASSTime(end)},Default,,0,0,0,,${lineText}`);
   }
 

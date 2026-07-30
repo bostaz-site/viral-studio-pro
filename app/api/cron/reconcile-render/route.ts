@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { timingSafeCompare } from '@/lib/crypto'
 import { redis } from '@/lib/upstash'
-import { releaseJob } from '@/lib/render-queue'
+import { releaseJob, removeFromQueue } from '@/lib/render-queue'
 import { processAndDispatchNext } from '@/lib/api/dispatch-render'
 import { logger } from '@/lib/logger'
 
@@ -67,6 +67,8 @@ export async function POST(req: NextRequest) {
         error_message: 'Stuck in queue > 30min — auto-canceled by reconciler',
         updated_at: new Date().toISOString(),
       }).eq('id', job.id)
+      // Purge from Redis queue + payload to prevent resurrection
+      await removeFromQueue(job.id)
     }
 
     // Refund quota for stuck queued jobs

@@ -301,14 +301,19 @@ export async function generateHookTexts(opts = {}) {
       ? `\n\nPEAK MOMENT (the exact 5 seconds the algorithm detected as the viral moment):\n"${peakTranscript.slice(0, 300)}"\n\nThe hook MUST reference this specific moment. Quote or tease what actually happens at the peak. NEVER write a generic hook. The hook must deliver its promise in under 3 seconds of reading.`
       : '';
 
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-      },
-      body: JSON.stringify({
+    const claudeAbort = new AbortController();
+    const claudeTimeout = setTimeout(() => claudeAbort.abort(), 30_000); // 30s timeout
+    let response;
+    try {
+      response = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': apiKey,
+          'anthropic-version': '2023-06-01',
+        },
+        signal: claudeAbort.signal,
+        body: JSON.stringify({
         model: 'claude-haiku-4-5-20251001',
         max_tokens: 300,
         messages: [{
@@ -341,7 +346,10 @@ JSON only, no text around it:
 ]`
         }],
       }),
-    });
+      });
+    } finally {
+      clearTimeout(claudeTimeout);
+    }
 
     if (!response.ok) {
       const errText = await response.text();

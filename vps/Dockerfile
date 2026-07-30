@@ -13,6 +13,7 @@ RUN apt-get update && \
       fonts-liberation \
       fonts-liberation2 \
       fonts-noto-core \
+      fonts-noto-color-emoji \
       fontconfig \
       python3 \
       python3-pip \

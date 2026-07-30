@@ -3,8 +3,9 @@ import { z } from 'zod'
 import { createHmac } from 'crypto'
 import { withAuth } from '@/lib/api/withAuth'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { releaseJob, enqueueRender } from '@/lib/render-queue'
+import { releaseJob, enqueueRender, cleanupPayload, removeFromQueue } from '@/lib/render-queue'
 import { processAndDispatchNext } from '@/lib/api/dispatch-render'
+import { sendToVps } from '@/lib/api/render-helpers'
 import { redis } from '@/lib/upstash'
 import { timingSafeCompare } from '@/lib/crypto'
 import { rateLimit, RATE_LIMITS } from '@/lib/rate-limit'
@@ -150,11 +151,17 @@ async function handleWebhook(req: NextRequest) {
     // Free the current slot
     await releaseJob(payload.jobId)
 
-    // Retrieve stored payload and re-enqueue for retry
+    // Retrieve stored payload, re-enqueue, and dispatch
     const storedRaw = await redis.get<string>(`render:payload:${payload.jobId}`)
     if (storedRaw) {
       const storedPayload = JSON.parse(storedRaw) as Record<string, unknown>
-      await enqueueRender(payload.jobId, storedPayload)
+      const enqResult = await enqueueRender(payload.jobId, storedPayload)
+      // If a slot was available (position=null), dispatch immediately
+      if (enqResult.accepted && enqResult.position === null) {
+        sendToVps(admin, payload.jobId, (currentJob.user_id as string) ?? '', storedPayload, 'retry-dispatch')
+      } else if (enqResult.accepted && enqResult.position !== null) {
+        // Queued — processAndDispatchNext will pick it up when a slot frees
+      }
     }
 
     return NextResponse.json({ data: { retried: true, attempt: retryCount + 1 }, error: null })
@@ -181,8 +188,9 @@ async function handleWebhook(req: NextRequest) {
     return NextResponse.json({ error: 'DB update failed' }, { status: 500 })
   }
 
-  // Clean up heartbeat key if present
+  // Clean up heartbeat key + stored payload (terminal state — no more retries)
   redis.del(`render:heartbeat:${payload.jobId}`).catch(() => {})
+  cleanupPayload(payload.jobId).catch(() => {})
 
   // Free queue slot and dispatch next job
   await releaseJob(payload.jobId)

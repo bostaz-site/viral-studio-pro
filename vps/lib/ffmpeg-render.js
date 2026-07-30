@@ -612,6 +612,7 @@ export async function renderClip(inputPath, outputPath, options = {}) {
     splitScreen = null,
     tag = null,
     cropAnchor = 'center',
+    backgroundBlur = true,
     maxDuration = 300,
     timeout = 300000,
     smartZoom = null,
@@ -759,9 +760,13 @@ export async function renderClip(inputPath, outputPath, options = {}) {
       } else {
         const fgW = Math.round(canvasW * zoomFactor);
         const fgH = Math.round(canvasH * zoomFactor);
+        // Background: blurred letterbox when backgroundBlur=true, solid black when false
+        const bgChain = backgroundBlur
+          ? `[srcbg]scale=${Math.round(canvasW/4)}:${Math.round(canvasH/4)}:force_original_aspect_ratio=increase,crop=${Math.round(canvasW/4)}:${Math.round(canvasH/4)}:(iw-${Math.round(canvasW/4)})/2:(ih-${Math.round(canvasH/4)})/2,gblur=sigma=12,eq=brightness=-0.35:saturation=1.25:contrast=1.1,scale=${canvasW}:${canvasH}:flags=bilinear,setsar=1[bg]`
+          : `[srcbg]scale=${canvasW}:${canvasH}:force_original_aspect_ratio=increase,crop=${canvasW}:${canvasH}:(iw-${canvasW})/2:(ih-${canvasH})/2,drawbox=x=0:y=0:w=${canvasW}:h=${canvasH}:color=black:t=fill,setsar=1[bg]`;
         filterComplex = [
           `[0:v]fps=${fps},crop=in_w-60:in_h-60:30:30,split=2[srcfg][srcbg]`,
-          `[srcbg]scale=${Math.round(canvasW/4)}:${Math.round(canvasH/4)}:force_original_aspect_ratio=increase,crop=${Math.round(canvasW/4)}:${Math.round(canvasH/4)}:(iw-${Math.round(canvasW/4)})/2:(ih-${Math.round(canvasH/4)})/2,gblur=sigma=12,eq=brightness=-0.35:saturation=1.25:contrast=1.1,scale=${canvasW}:${canvasH}:flags=bilinear,setsar=1[bg]`,
+          bgChain,
           `[srcfg]scale=${fgW}:${fgH}:force_original_aspect_ratio=decrease:flags=lanczos,setsar=1[fg]`,
           `[bg][fg]overlay=(W-w)/2:(H-h)/2[composed]`,
         ].join(';');

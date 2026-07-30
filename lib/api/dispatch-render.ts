@@ -8,7 +8,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { processNextInQueue } from '@/lib/render-queue'
 import { sendToVps } from '@/lib/api/render-helpers'
-import { redis } from '@/lib/upstash'
 
 export async function processAndDispatchNext(
   admin: SupabaseClient,
@@ -31,10 +30,8 @@ export async function processAndDispatchNext(
     .eq('id', next.jobId)
 
   // Dispatch to VPS (fire-and-forget, handles errors internally)
+  // Payload stays in Redis until job reaches terminal state (done/failed) — needed for retries
   sendToVps(admin, next.jobId, userId, next.payload, 'queue-dispatch')
-
-  // Clean up stored payload now that it has been dispatched
-  redis.del(`render:payload:${next.jobId}`).catch(() => {})
 
   return true
 }

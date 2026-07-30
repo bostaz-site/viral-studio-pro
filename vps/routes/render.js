@@ -71,18 +71,26 @@ async function sendWebhookCallback(jobId, status, storagePath, errorMessage) {
   const bodyString = JSON.stringify(payload);
   const signature = 'sha256=' + crypto.createHmac('sha256', webhookSecret).update(bodyString).digest('hex');
 
-  try {
-    const res = await fetch(`${appUrl}/api/render/hook`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Webhook-Signature': signature,
-      },
-      body: bodyString,
-    });
-    console.log(`[Webhook] Callback sent for job ${jobId}: ${res.status}`);
-  } catch (err) {
-    console.error(`[Webhook] Failed to send callback for job ${jobId}:`, err.message);
+  const delays = [0, 5000, 30000]; // immediate, 5s, 30s
+  for (let attempt = 0; attempt < delays.length; attempt++) {
+    if (delays[attempt] > 0) await new Promise(r => setTimeout(r, delays[attempt]));
+    try {
+      const r = await fetch(`${appUrl}/api/render/hook`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Webhook-Signature': signature,
+        },
+        body: bodyString,
+      });
+      if (r.ok) {
+        console.log(`[Webhook] Callback sent for job ${jobId}: ${r.status} (attempt ${attempt + 1})`);
+        return;
+      }
+      console.warn(`[Webhook] Callback ${r.status} for job ${jobId} (attempt ${attempt + 1}/${delays.length})`);
+    } catch (err) {
+      console.error(`[Webhook] Failed for job ${jobId} (attempt ${attempt + 1}/${delays.length}):`, err.message);
+    }
   }
 }
 
@@ -187,7 +195,34 @@ async function ensureDirs() {
   }
 }
 
-ensureDirs();
+/**
+ * Purge stale temp/output entries older than maxAgeMs (default 2h).
+ * Runs at boot and hourly to prevent orphaned dirs from filling the disk.
+ */
+async function purgeStaleDirs(maxAgeMs = 2 * 60 * 60 * 1000) {
+  const now = Date.now();
+  for (const dir of [TEMP_DIR, OUTPUT_DIR]) {
+    try {
+      const entries = await fs.readdir(dir, { withFileTypes: true });
+      for (const entry of entries) {
+        try {
+          const fullPath = path.join(dir, entry.name);
+          const stat = await fs.stat(fullPath);
+          if (now - stat.mtimeMs > maxAgeMs) {
+            await fs.rm(fullPath, { recursive: true, force: true });
+            console.log(`[cleanup] Purged stale entry: ${fullPath}`);
+          }
+        } catch { /* skip entries we can't stat */ }
+      }
+    } catch { /* dir may not exist yet */ }
+  }
+}
+
+// Boot: ensure dirs + purge stale entries from previous deploys/crashes
+ensureDirs().then(() => purgeStaleDirs());
+
+// Hourly purge
+setInterval(() => purgeStaleDirs(), 60 * 60 * 1000);
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Download clip via yt-dlp or direct fetch (for trending clips)
@@ -241,7 +276,7 @@ async function probeSourceResolution(filePath) {
     const parts = stdout.trim().split(',');
     if (parts.length >= 3) {
       const [w, h, fpsRatio] = parts;
-      const fps = fpsRatio.includes('/') ? Math.round(eval(fpsRatio)) : fpsRatio;
+      const fps = fpsRatio.includes('/') ? Math.round(parseInt(fpsRatio.split('/')[0], 10) / parseInt(fpsRatio.split('/')[1], 10)) : fpsRatio;
       return `${w}x${h} @${fps}fps`;
     }
     return stdout.trim() || 'unknown';
@@ -322,6 +357,36 @@ async function downloadFromUrl(url, outputPath, fallbackUrl = null) {
 router.post('/', async (req, res) => {
   const startTime = Date.now();
   let renderSessionId = uuidv4();
+
+  // Gate: reject if VPS queue is too deep (Next.js handles 503 gracefully)
+  const qsBeforeEnqueue = getQueueStatus();
+  if (qsBeforeEnqueue.waiting >= 10) {
+    return res.status(503).json({
+      success: false,
+      error: 'queue_full',
+      message: `VPS queue full (${qsBeforeEnqueue.waiting} waiting). Try again later.`,
+    });
+  }
+
+  // Idempotency: reject if this jobId is already running or queued
+  const incomingJobId = req.body?.jobId;
+  if (incomingJobId) {
+    const qs = getQueueStatus();
+    if (qs.runningJobIds.includes(incomingJobId) || qs.waitingJobIds.includes(incomingJobId)) {
+      return res.status(409).json({
+        success: false,
+        error: 'duplicate_job',
+        message: `Job ${incomingJobId} is already in the VPS queue`,
+      });
+    }
+  }
+
+  // Wrap the ENTIRE pipeline (download + process + render + upload) in the queue
+  // so concurrent requests don't OOM Railway with parallel FFmpeg/Whisper.
+  const jobIdForQueue = incomingJobId || renderSessionId;
+  try {
+    const result = await enqueueRender(jobIdForQueue, async () => {
+
   let clipId = null;
   let tempDir = null;
   const trace = [];
@@ -901,7 +966,7 @@ router.post('/', async (req, res) => {
     // If reorder is requested but no segments provided, calculate them on the fly
     if (settings.hook?.reorderEnabled && (!settings.hook?.reorder || !settings.hook?.reorder?.segments?.length)) {
       trc(`HOOK REORDER: no segments provided, calculating from duration=${duration}s`);
-      const fallbackPeak = detectPeakMoment({ transcript: '', duration, wordTimestamps: [], audioPeaks: [] });
+      const fallbackPeak = detectPeakMoment({ transcript: captionWordTimestamps.map(w => w.word).join(' '), duration, wordTimestamps: captionWordTimestamps, audioPeaks: [] });
       const peakT = fallbackPeak.peakTime > 0 ? fallbackPeak.peakTime : Math.min(duration * 0.6, duration - 2);
       const hookLen = settings.hook?.length ?? 1.5;
       settings.hook.reorder = calculateReorderTimestamps(peakT, duration, hookLen, 8);
@@ -1126,12 +1191,9 @@ router.post('/', async (req, res) => {
     }
 
 
-    // Render clip with FFmpeg — serialize via the render queue so concurrent
-    // requests don't OOM Railway. The queue is in-memory (process-local),
-    // which is fine for a single-VPS deployment. Migrate to BullMQ + Redis
-    // when we scale beyond one worker.
+    // Render clip with FFmpeg (entire pipeline is already serialized by the outer enqueueRender)
     const outputPath = path.join(tempDir, 'output.mp4');
-    console.log(`[Render ${renderSessionId}] Enqueueing FFmpeg render...`);
+    console.log(`[Render ${renderSessionId}] Starting FFmpeg render...`);
 
     // Use plan from Next.js payload (source of truth); fall back to DB lookup
     const userPlan = req.body.plan || (
@@ -1144,7 +1206,7 @@ router.post('/', async (req, res) => {
       ? { enabled: true }
       : (userPlan === 'free' ? { enabled: true } : null);
 
-    const renderResult = await enqueueRender(jobId || renderSessionId, () => renderClip(inputPath, outputPath, {
+    const renderResult = await renderClip(inputPath, outputPath, {
       startTime: clipStartTime,
       endTime: clipStartTime + duration,
       duration: duration,
@@ -1157,9 +1219,8 @@ router.post('/', async (req, res) => {
       splitScreen: splitScreenConfig,
       tag: tagConfig,
       cropAnchor: settings.format?.cropAnchor || 'center',
-      backgroundBlur: settings.format?.backgroundBlur || false,
+      backgroundBlur: settings.format?.backgroundBlur !== false,
       videoZoom: settings.format?.videoZoom || 'contain',
-      crf: settings.format?.crf || 23,
       smartZoom: settings.smartZoom?.enabled ? {
         enabled: true,
         mode: settings.smartZoom.mode || 'micro',
@@ -1177,7 +1238,7 @@ router.post('/', async (req, res) => {
         overlayCapsuleH: settings.hook.overlayCapsuleH || null,
       } : null,
       audioEnhance: settings.audioEnhance?.enabled || false,
-    }));
+    });
 
     const qualityTier = renderResult?.qualityTier || null;
 
@@ -1300,6 +1361,19 @@ router.post('/', async (req, res) => {
       } catch (err) {
         console.warn(`[Render ${renderSessionId}] Warning: Failed to cleanup temp dir:`, err.message);
       }
+    }
+  }
+
+    }); // end enqueueRender callback
+    // enqueueRender resolved — response already sent inside the callback
+  } catch (queueErr) {
+    // enqueueRender rejected (queue full or internal error)
+    if (!res.headersSent) {
+      res.status(503).json({
+        success: false,
+        error: queueErr?.message || 'Queue error',
+        message: 'Render queue error',
+      });
     }
   }
 });
@@ -1438,9 +1512,13 @@ router.post('/preview', async (req, res) => {
 
         if (videos.length > 0) {
           const randomVideo = videos[Math.floor(Math.random() * videos.length)];
+          const rawRatio = settings.splitScreen.ratio || 50;
+          // Normalize: if ratio is 0-1, convert to 0-100; if already 0-100, use as-is
+          const normalizedRatio = rawRatio <= 1 ? Math.round(rawRatio * 100) : rawRatio;
           splitScreenConfig = {
+            enabled: true,
             brollPath: path.join(brollDir, randomVideo),
-            ratio: settings.splitScreen.ratio || 0.5,
+            ratio: normalizedRatio,
           };
         } else {
           const colorInfo = BROLL_COLORS[category] || { color: '333333', label: category.toUpperCase() };
@@ -1452,20 +1530,23 @@ router.post('/preview', async (req, res) => {
             '-c:v', 'libx264', '-preset', 'ultrafast', '-t', String(previewDuration),
             '-y', placeholderPath,
           ], { timeout: 15_000 });
-          splitScreenConfig = { brollPath: placeholderPath, ratio: settings.splitScreen.ratio || 0.5 };
+          const rawRatio2 = settings.splitScreen.ratio || 50;
+          const normalizedRatio2 = rawRatio2 <= 1 ? Math.round(rawRatio2 * 100) : rawRatio2;
+          splitScreenConfig = { enabled: true, brollPath: placeholderPath, ratio: normalizedRatio2 };
         }
       } catch (err) {
         console.warn(`[Preview ${renderSessionId}] Split-screen error:`, err.message);
       }
     }
 
-    // Prepare tag overlay
+    // Prepare tag overlay — align shape with buildTagFilter (expects authorName/authorHandle)
     let tagConfig = null;
-    if (settings.tag?.enabled && settings.tag?.text) {
+    if (settings.tag?.style && settings.tag.style !== 'none') {
       tagConfig = {
-        text: settings.tag.text,
-        style: settings.tag.style || 'modern',
-        position: settings.tag.position || 'bottom-left',
+        style: settings.tag.style,
+        size: settings.tag.size || 100,
+        authorName: settings.tag.authorName || settings.tag.text || null,
+        authorHandle: settings.tag.authorHandle || null,
       };
     }
 

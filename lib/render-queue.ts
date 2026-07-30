@@ -101,6 +101,26 @@ export async function processNextInQueue(): Promise<{
 }
 
 /**
+ * Remove a job from the waiting queue AND clean up its payload.
+ * Use when finalizing a job outside the normal flow (reconcile, cleanup, cancel).
+ * Idempotent — safe if the job isn't in the queue.
+ */
+export async function removeFromQueue(jobId: string): Promise<void> {
+  await Promise.all([
+    redis.lrem('render:queue', 0, jobId),
+    redis.del(`render:payload:${jobId}`),
+  ])
+}
+
+/**
+ * Clean up the stored payload for a finalized job.
+ * Called when a job reaches a terminal state (done/failed).
+ */
+export async function cleanupPayload(jobId: string): Promise<void> {
+  await redis.del(`render:payload:${jobId}`)
+}
+
+/**
  * Get current queue status (for monitoring/status endpoint).
  */
 export async function getQueueStatus(): Promise<{

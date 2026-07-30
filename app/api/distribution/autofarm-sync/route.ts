@@ -67,37 +67,78 @@ export const POST = withAuth(async (req, user) => {
     return jsonResponse({ synced: 0, skipped: posts.length })
   }
 
-  // 2. INSERT new rows FIRST (safe: if this fails, existing queue survives)
-  const rows = filteredPosts.map(p => ({
-    user_id: user.id,
-    clip_id: p.clip_id,
-    platform: p.platform,
-    caption: p.caption,
-    hashtags: p.hashtags,
-    scheduled_at: p.scheduled_at,
-    status: 'scheduled',
-    source: 'autofarm',
-    tiktok_options: tiktok_defaults,
-  }))
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (admin as any)
+  // 2. Deduplicate: skip clips that already have an identical scheduled row
+  //    (same clip + same scheduled_at) to prevent accumulation on repeated syncs
+  const { data: existingRows } = await admin
     .from('scheduled_publications')
-    .insert(rows)
-
-  if (error) return errorResponse(error.message, 500)
-
-  // 3. THEN cancel old autofarm rows (only after insert succeeds)
-  //    Exclude the just-inserted IDs by canceling only rows created before now
-  await admin
-    .from('scheduled_publications')
-    .update({ status: 'canceled', updated_at: new Date().toISOString() } as never)
+    .select('clip_id, scheduled_at')
     .eq('user_id', user.id)
     .eq('source' as never, 'autofarm')
     .eq('status', 'scheduled')
-    .not('clip_id', 'in', `(${filteredPosts.map(p => p.clip_id).join(',')})`)
+    .in('clip_id', filteredPosts.map(p => p.clip_id))
 
-  return jsonResponse({ synced: rows.length })
+  const existingKeys = new Set(
+    (existingRows ?? []).map(r => `${r.clip_id}::${r.scheduled_at}`)
+  )
+  const newPosts = filteredPosts.filter(
+    p => !existingKeys.has(`${p.clip_id}::${p.scheduled_at}`)
+  )
+
+  // 3. INSERT only genuinely new rows
+  let insertedIds: string[] = []
+  if (newPosts.length > 0) {
+    const rows = newPosts.map(p => ({
+      user_id: user.id,
+      clip_id: p.clip_id,
+      platform: p.platform,
+      caption: p.caption,
+      hashtags: p.hashtags,
+      scheduled_at: p.scheduled_at,
+      status: 'scheduled',
+      source: 'autofarm',
+      tiktok_options: tiktok_defaults,
+    }))
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: inserted, error } = await (admin as any)
+      .from('scheduled_publications')
+      .insert(rows)
+      .select('id')
+
+    if (error) return errorResponse(error.message, 500)
+    insertedIds = (inserted ?? []).map((r: { id: string }) => r.id)
+  }
+
+  // 4. Cancel old autofarm rows by ID — keep only the rows we just inserted
+  //    plus any that matched an existing dedup key
+  const keepClipIds = filteredPosts.map(p => p.clip_id)
+  // Get IDs of existing rows we want to KEEP (deduped matches)
+  const { data: keepExisting } = await admin
+    .from('scheduled_publications')
+    .select('id')
+    .eq('user_id', user.id)
+    .eq('source' as never, 'autofarm')
+    .eq('status', 'scheduled')
+    .in('clip_id', keepClipIds)
+
+  const allKeepIds = new Set([
+    ...insertedIds,
+    ...(keepExisting ?? []).map((r: { id: string }) => r.id),
+  ])
+
+  // Cancel any autofarm scheduled rows NOT in the keep set
+  if (allKeepIds.size > 0) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (admin as any)
+      .from('scheduled_publications')
+      .update({ status: 'canceled', updated_at: new Date().toISOString() })
+      .eq('user_id', user.id)
+      .eq('source', 'autofarm')
+      .eq('status', 'scheduled')
+      .not('id', 'in', `(${[...allKeepIds].join(',')})`)
+  }
+
+  return jsonResponse({ synced: newPosts.length, deduped: filteredPosts.length - newPosts.length })
 })
 
 // DELETE: pause all future autofarm-scheduled posts (toggle OFF)

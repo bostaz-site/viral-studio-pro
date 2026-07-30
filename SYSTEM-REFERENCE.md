@@ -315,8 +315,11 @@ Async flow: UI settings -> VPS FFmpeg -> Supabase Storage -> signed URL, with Re
 - Job lifecycle: `pending` -> `queued` (if no slot) -> `rendering` (VPS picks up) -> `done` | `error` (retriable) | `failed` (dead letter) | `canceled` (force re-render) | `expired` (storage TTL elapsed)
 - **Canonical statuses** (CHECK constraint): `pending | queued | rendering | done | error | failed | canceled | expired` — US spelling 'canceled' (single L)
 - Safety: active jobs tracked via Redis Set (idempotent SREM — no counter drift). Each job has a `render:started:{jobId}` key with 900s TTL, renewed by heartbeat. Reconciler cron removes stale entries every 30min
-- Functions: `enqueueRender()` (SADD), `releaseJob()` (SREM, idempotent), `processNextInQueue()` (dispatch from queue), `getQueueStatus()` (SCARD)
-- Render payload stored in Redis upfront (`render:payload:{jobId}`, TTL 1h) so retries can re-dispatch
+- Functions: `enqueueRender()` (SADD), `releaseJob()` (SREM, idempotent), `processNextInQueue()` (dispatch from queue), `removeFromQueue()` (LREM + del payload — use when finalizing outside normal flow), `cleanupPayload()` (del payload on terminal state), `getQueueStatus()` (SCARD)
+- **Payload lifecycle:** stored in Redis at enqueue time (`render:payload:{jobId}`, TTL 1h). Kept alive through retries. Deleted ONLY when job reaches terminal state (done/failed) via `cleanupPayload()` in webhook handler, or via `removeFromQueue()` in reconcile/cleanup crons. Never deleted at dispatch time.
+- **Queue purge:** `removeFromQueue()` called by reconcile + cleanup crons to prevent cancelled/timed-out jobs from being resurrected by a later dispatch
+- **VPS-side queue:** entire pipeline (download + Whisper + FFmpeg + upload) runs inside the VPS in-memory queue (MAX_CONCURRENT=1). Gate: 10-job max waiting, 409 on duplicate jobId
+- **Disk cleanup (VPS):** boot purge + hourly `purgeStaleDirs()` removes TEMP_DIR/OUTPUT_DIR entries > 2h old
 
 ### Files
 - `app/api/render/route.ts` — validation, quota, queue check, VPS handoff, force re-render

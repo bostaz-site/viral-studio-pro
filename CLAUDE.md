@@ -138,7 +138,6 @@ vps/
 │   ├── download.js              # GET /download
 │   └── health.js                # GET /health
 ├── lib/
-│   ├── render-pipeline.js       # Orchestrateur principal (captions + face track + hook + render)
 │   ├── ffmpeg-render.js         # FFmpeg command builder
 │   ├── subtitle-generator.js   # ASS subtitle generation (karaoke styles)
 │   ├── whisper-client.js        # OpenAI Whisper API transcription
