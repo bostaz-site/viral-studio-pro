@@ -28,7 +28,11 @@ export const GET = withAdmin(async (req) => {
   if (audienceMin) query = query.gte('audience_size', parseInt(audienceMin))
   if (audienceMax) query = query.lte('audience_size', parseInt(audienceMax))
   if (country) query = query.ilike('country', country)
-  if (search) query = query.or(`email.ilike.%${search}%,display_name.ilike.%${search}%`)
+  if (search) {
+    // Sanitize search to prevent PostgREST filter injection
+    const safeSearch = search.replace(/[,()]/g, '')
+    query = query.or(`email.ilike.%${safeSearch}%,display_name.ilike.%${safeSearch}%`)
+  }
 
   const { data, count, error } = await query
   if (error) return errorResponse(error.message, 500)

@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { generateMagicLinkToken } from '@/lib/partner/magic-link'
+import { rateLimit } from '@/lib/rate-limit'
+import { hashIp } from '@/lib/admin/ip-hash'
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://viralanimal.com'
 
@@ -10,7 +12,21 @@ export async function POST(req: NextRequest) {
     const { email } = await req.json()
 
     if (!email || typeof email !== 'string') {
-      // Always return success to prevent email enumeration
+      return NextResponse.json({ ok: true })
+    }
+
+    // Rate limit: 3 requests per hour per email + per IP
+    const emailLower = email.toLowerCase().trim()
+    const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? '0.0.0.0'
+    const ipHash = hashIp(ip)
+
+    const [emailRl, ipRl] = await Promise.all([
+      rateLimit(`partner-auth:email:${emailLower}`, 3, 60 * 60 * 1000),
+      rateLimit(`partner-auth:ip:${ipHash}`, 3, 60 * 60 * 1000),
+    ])
+
+    if (!emailRl.allowed || !ipRl.allowed) {
+      // Still return success to prevent enumeration
       return NextResponse.json({ ok: true })
     }
 
@@ -54,7 +70,7 @@ export async function POST(req: NextRequest) {
               <a href="${magicLink}" style="display: inline-block; padding: 12px 24px; background: #f59e0b; color: #000; text-decoration: none; border-radius: 8px; font-weight: bold; margin: 16px 0;">
                 Open Dashboard
               </a>
-              <p style="color: #71717a; font-size: 12px;">This link expires in 30 days. If you didn't request this, ignore this email.</p>
+              <p style="color: #71717a; font-size: 12px;">This link expires in 15 minutes and can only be used once. If you didn't request this, ignore this email.</p>
               <p style="color: #71717a; font-size: 12px;">— Viral Animal Team</p>
             </div>
           `,

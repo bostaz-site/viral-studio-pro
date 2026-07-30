@@ -1,5 +1,6 @@
 import crypto from 'crypto'
 import { createAdminClientUntyped } from '@/lib/supabase/admin-untyped'
+import { filterSuppressed4Way } from '@/lib/admin/compliance/suppression-check'
 
 interface CsvRecipient {
   email: string
@@ -135,19 +136,27 @@ export async function computeExportPreview(
     return { totalSelected: selectedInfluencerIds.length, suppressed: 0, duplicates: 0, willExport: 0, allowedInfluencerIds: [] }
   }
 
-  // 2. Check suppression list in batch
-  const emails = influencers.map((i) => i.email.toLowerCase())
-  const { data: suppressedRows } = await admin
-    .from('suppression_list')
-    .select('email')
-    .in('email', emails)
+  // 2. Full 4-way suppression check (email + domain + handle)
+  const { data: fullInfluencers } = await admin
+    .from('influencers')
+    .select('id, email, platform_handle')
+    .in('id', selectedInfluencerIds)
+
+  const infList = (fullInfluencers ?? []) as { id: string; email: string | null; platform_handle: string | null }[]
+
+  const contacts = infList.map(i => ({
+    email: i.email ?? null,
+    handle: i.platform_handle ?? null,
+  }))
+
+  const suppressionResult = await filterSuppressed4Way(contacts)
   const suppressedEmails = new Set(
-    (suppressedRows || []).map((s) => s.email?.toLowerCase())
+    suppressionResult.suppressed.map(s => infList[s.index]?.email?.toLowerCase()).filter(Boolean)
   )
 
   // Also exclude unsubscribed influencers
   const unsubscribedIds = new Set(
-    influencers.filter((i) => i.unsubscribed).map((i) => i.id)
+    influencers.filter((i: { unsubscribed?: boolean }) => i.unsubscribed).map((i: { id: string }) => i.id)
   )
 
   // 3. Check duplicates (already in an active campaign)

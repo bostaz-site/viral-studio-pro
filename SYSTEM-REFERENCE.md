@@ -777,3 +777,15 @@ Derived from user's `full_name` or email prefix (sanitized to alphanumeric). If 
 - **Anti self-referral:** `/api/affiliate/attribute` rejects if user's email matches influencer's email. Body-only codes (no cookie) require a recent `affiliate_clicks` row within 60 days.
 - **Click dedup:** `/r/[code]` rate-limited 10/IP/24h via `rateLimit()`. Same `ip_hash + code` within 24h = no duplicate row. `total_clicks` derived from `affiliate_clicks` table (no counter column).
 - **Files:** `lib/admin/webhooks/stripe-processor.ts` (commission + clawback + dispute), `lib/admin/stripe/payouts.ts` (monthly payouts + fraud checks), `lib/admin/affiliate-attribution.ts` (signup attribution), `app/api/affiliate/attribute/route.ts`, `app/r/[code]/route.ts`
+
+### Email Compliance (CAN-SPAM / GDPR)
+- **Unsubscribe flow:** `POST /api/unsubscribe` verifies token → adds email to `suppression_list` (NO `email_domain` — domain-level suppression is admin-only) → blocks influencer → removes lead from ALL active Instantly campaigns via `removeLeadFromAllCampaigns()`. Failures logged to `compliance_audit_log` for admin visibility.
+- **Domain suppression policy:** `email_domain` in `suppression_list` is ONLY set by admin domain-block actions, NEVER by individual unsubscribes. Prevents blocking all @gmail.com leads when one person opts out.
+- **Push-time compliance recheck:** `instantly-pusher.ts` re-runs `filterSuppressed4Way()` at push time (not just at offer generation). Leads suppressed since generation are marked `status: 'suppressed'`. CSV export also uses 4-way check.
+- **GDPR delete:** `POST /api/admin/compliance/gdpr-delete` purges ALL influencer-related tables (email_messages, email_events, campaign_recipients, generated_offers, video_influencer_matches, lead_discovery_results, public_contact_points, affiliate_clicks, affiliate_referrals, commission_ledger, payouts, partner_sessions, repost_kit_sessions, fraud_flags, video_assignment_log, influencers). Suppression entry includes email + platform_handle + profile_url (4-way block).
+
+### Partner Portal Security
+- **Magic link:** 2-step flow. `generateMagicLinkToken()` creates a `session_type: 'magic_link'` row valid 15 minutes. On verification, the magic link row is deleted (single-use, atomic via DELETE+SELECT) and a new `session_type: 'session'` row is created (30-day cookie). Column: `partner_sessions.session_type CHECK ('magic_link','session')`.
+- **Rate limit:** `POST /api/partner/auth/request` limited to 3/hour per email + 3/hour per IP.
+- **Repost submit:** `POST /api/partner/repost/submit` NO LONGER auto-promotes to 'onboarded'. Sets `last_active_at` only + sends Discord notification for manual admin review. Onboarding is admin-only (CRM button).
+- **PostgREST injection:** `/partner/repost/[handle]` validates handle with `^[a-zA-Z0-9_.\-]{1,50}$` before any DB query. Uses separate `.eq()` / `.ilike()` calls instead of `.or()` with interpolation. Same sanitization applied to admin search routes.

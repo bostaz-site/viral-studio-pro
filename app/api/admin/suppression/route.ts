@@ -52,7 +52,8 @@ export const GET = withAdmin(async (req) => {
 
   if (reason) query = query.eq('reason', reason)
   if (search) {
-    query = query.or(`email.ilike.%${search}%,email_domain.ilike.%${search}%`)
+    const safeSearch = search.replace(/[,()]/g, '')
+    query = query.or(`email.ilike.%${safeSearch}%,email_domain.ilike.%${safeSearch}%`)
   }
 
   const { data, error, count } = await query

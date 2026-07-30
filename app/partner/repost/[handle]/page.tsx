@@ -50,13 +50,32 @@ export default async function RepostKitPage({ params, searchParams }: {
 
   const admin = createAdminClient()
 
-  // Lookup influencer by platform_handle or affiliate_code
-  const { data: influencer } = await admin
+  // Validate handle: strict alphanumeric + dots/underscores/hyphens only (prevent PostgREST injection)
+  if (!/^[a-zA-Z0-9_.\-]{1,50}$/.test(handle)) {
+    notFound()
+  }
+
+  // Lookup influencer by platform_handle or affiliate_code (separate queries, no .or() interpolation)
+  let influencer: { id: string; first_name: string | null; display_name: string | null; email: string | null; platform_handle: string | null; affiliate_code: string | null; audience_size: number | null; niche: string | null; primary_platform: string | null } | null = null
+
+  const { data: byHandle } = await admin
     .from('influencers')
     .select('id, first_name, display_name, email, platform_handle, affiliate_code, audience_size, niche, primary_platform')
-    .or(`platform_handle.eq.${handle},affiliate_code.ilike.${handle}`)
+    .eq('platform_handle', handle)
     .limit(1)
-    .single()
+    .maybeSingle()
+
+  if (byHandle) {
+    influencer = byHandle
+  } else {
+    const { data: byCode } = await admin
+      .from('influencers')
+      .select('id, first_name, display_name, email, platform_handle, affiliate_code, audience_size, niche, primary_platform')
+      .ilike('affiliate_code', handle)
+      .limit(1)
+      .maybeSingle()
+    influencer = byCode
+  }
 
   if (!influencer) {
     notFound()

@@ -77,7 +77,9 @@ export async function POST(req: NextRequest) {
           .limit(1)
       } catch { /* non-blocking */ }
 
-      // (c) Advance influencer status to 'onboarded' (anti-retrogradation guard)
+      // (c) Update last_active_at + flag repost — DO NOT auto-promote to 'onboarded'
+      //     Promotion is an admin-only action (CRM button) to prevent unauthenticated
+      //     requests from escalating influencer status to payouts-eligible.
       try {
         const { data: inf } = await admin
           .from('influencers')
@@ -86,24 +88,14 @@ export async function POST(req: NextRequest) {
           .single()
 
         const currentStatus = (inf as { status: string } | null)?.status
-        const promotableStatuses = ['replied', 'interested', 'demo_sent', 'evaluating']
-        if (currentStatus && promotableStatuses.includes(currentStatus)) {
-          await admin
-            .from('influencers')
-            .update({
-              status: 'onboarded',
-              last_active_at: new Date().toISOString(),
-            })
-            .eq('id', influencerId)
-        } else if (currentStatus) {
-          // Just update last_active_at without changing status
-          await admin
-            .from('influencers')
-            .update({ last_active_at: new Date().toISOString() })
-            .eq('id', influencerId)
-        }
 
-        // (d) Discord notification
+        // Just update activity timestamp, never change status
+        await admin
+          .from('influencers')
+          .update({ last_active_at: new Date().toISOString() })
+          .eq('id', influencerId)
+
+        // (d) Discord notification — admin can then manually onboard
         const handle = (inf as { platform_handle: string | null } | null)?.platform_handle
           || (inf as { display_name: string | null } | null)?.display_name
           || 'Unknown'
@@ -112,11 +104,11 @@ export async function POST(req: NextRequest) {
             channel: 'conversions',
             embed: {
               title: '\uD83C\uDF89 Repost submitted!',
-              description: `**${handle}** posted the video.`,
+              description: `**${handle}** posted the video. Review and onboard manually in CRM.`,
               color: 0x22c55e, // green-500
               fields: [
                 { name: 'Post URL', value: postUrl, inline: false },
-                { name: 'Status', value: currentStatus ? `${currentStatus} \u2192 onboarded` : 'updated', inline: true },
+                { name: 'Current Status', value: currentStatus ?? 'unknown', inline: true },
               ],
             },
           })

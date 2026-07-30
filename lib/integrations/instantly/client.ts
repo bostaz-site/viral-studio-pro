@@ -144,6 +144,44 @@ export class InstantlyClient {
     await this.request('POST', `/campaigns/${campaignId}/resume`)
     logger.info({ campaignId }, 'Instantly campaign resumed')
   }
+
+  // ── Lead Management ───────────────────────────────────────────────────
+
+  /**
+   * Delete a lead from a specific campaign (Instantly API v2).
+   * This stops all future follow-ups for this lead in the campaign.
+   */
+  async deleteLeadFromCampaign(campaignId: string, email: string): Promise<void> {
+    await this.request('DELETE', `/campaigns/${campaignId}/leads`, {
+      delete_list: [email],
+    })
+    logger.info({ campaignId, email }, 'Lead deleted from Instantly campaign')
+  }
+
+  /**
+   * Remove a lead from ALL active campaigns.
+   * Fetches active campaigns then removes the lead from each.
+   */
+  async removeLeadFromAllCampaigns(email: string): Promise<{ removed: number; failed: number }> {
+    const campaigns = await this.getCampaigns()
+    const activeCampaigns = campaigns.filter(c => c.status === 'active' || c.status === 'paused')
+
+    let removed = 0
+    let failed = 0
+
+    for (const campaign of activeCampaigns) {
+      try {
+        await this.deleteLeadFromCampaign(campaign.id, email)
+        removed++
+      } catch (err) {
+        logger.warn({ campaignId: campaign.id, email, error: (err as Error).message }, 'Failed to remove lead from campaign')
+        failed++
+      }
+      await delay(300) // Rate limit safety
+    }
+
+    return { removed, failed }
+  }
 }
 
 // ── Singleton ─────────────────────────────────────────────────────────────
