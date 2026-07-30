@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { headers } from 'next/headers'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { hashIp } from '@/lib/admin/ip-hash'
+import { rateLimit } from '@/lib/rate-limit'
 
 // GET /r/[code] — public affiliate redirect with click tracking
 export async function GET(
@@ -23,9 +24,12 @@ export async function GET(
     return NextResponse.redirect(new URL(`/ref/${code}`, req.url))
   }
 
-  // Extract tracking data
+  // Rate limit by IP — 10 clicks per 24h per IP
   const headersList = await headers()
   const ip = headersList.get('x-forwarded-for')?.split(',')[0]?.trim() ?? '0.0.0.0'
+  const rl = await rateLimit(`aff-click:${hashIp(ip)}`, 10, 24 * 60 * 60 * 1000)
+
+  // Extract tracking data
   const ipHash = hashIp(ip)
   const ipCountry = headersList.get('x-country') ?? headersList.get('x-nf-client-connection-ip-country') ?? null
   const userAgent = headersList.get('user-agent') ?? null
@@ -42,20 +46,38 @@ export async function GET(
   const fingerprintRaw = `${ip}|${userAgent ?? ''}|${headersList.get('accept-language') ?? ''}`
   const fingerprintHash = hashIp(fingerprintRaw) // reuse hash helper
 
-  // INSERT affiliate_clicks (best-effort, don't block redirect)
-  void supabase.from('affiliate_clicks').insert({
-    affiliate_code: influencer.affiliate_code!,
-    influencer_id: influencer.id,
-    ip_hash: ipHash,
-    ip_country: ipCountry,
-    user_agent: userAgent,
-    fingerprint_hash: fingerprintHash,
-    referrer_url: referrerUrl?.slice(0, 500) ?? null,
-    utm_source: utmSource,
-    utm_medium: utmMedium,
-    utm_campaign: utmCampaign,
-    landing_path: landing,
-  })
+  // Dedup: skip insert if same ip_hash + code clicked in last 24h
+  // Rate limit already caps volume; this prevents duplicate rows
+  if (rl.allowed) {
+    const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
+    const { data: recentClick } = await supabase
+      .from('affiliate_clicks')
+      .select('id')
+      .eq('ip_hash', ipHash)
+      .eq('affiliate_code', influencer.affiliate_code!)
+      .gte('clicked_at', oneDayAgo)
+      .limit(1)
+      .maybeSingle()
+
+    if (!recentClick) {
+      // INSERT affiliate_clicks (best-effort, don't block redirect)
+      void supabase.from('affiliate_clicks').insert({
+        affiliate_code: influencer.affiliate_code!,
+        influencer_id: influencer.id,
+        ip_hash: ipHash,
+        ip_country: ipCountry,
+        user_agent: userAgent,
+        fingerprint_hash: fingerprintHash,
+        referrer_url: referrerUrl?.slice(0, 500) ?? null,
+        utm_source: utmSource,
+        utm_medium: utmMedium,
+        utm_campaign: utmCampaign,
+        landing_path: landing,
+      })
+
+      // total_clicks is derived from affiliate_clicks table — no separate counter to maintain
+    }
+  }
 
   // Build redirect response with cookie
   const destination = new URL(landing.startsWith('/') ? landing : '/', req.url)

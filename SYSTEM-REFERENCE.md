@@ -766,3 +766,14 @@ Replaces the old simple "Referrals" section in `/settings`. Shows: copiable link
 
 ### Code Generation
 Derived from user's `full_name` or email prefix (sanitized to alphanumeric). If taken, appends random 4-digit suffix. Last resort: `ref-{uuid8}`.
+
+### Admin Influencer Affiliate Pipeline (commission lifecycle)
+- **Referral status:** `attributed` (signup) → `paying` (first invoice.payment_succeeded) → `churned`/`refunded`/`disputed`. DB constraint enforces this vocabulary.
+- **Commission base:** 30% on `invoice.subtotal_excluding_tax` (HT, before Stripe fees). Falls back to `amount_paid` if tax field is null.
+- **stripe_charge_id:** populated from `invoice.charge` at commission creation — required for dispute matching.
+- **Dispute handling:** `handleDisputeCreated` matches by `stripe_charge_id`, falls back to `stripe_invoice_id`. Creates `chargeback_clawback` ledger entry + `fraud_flags` row (severity: `critical` — blocks payouts).
+- **Refund delta:** `handleChargeRefunded` computes the delta between total refunded commission and already-clawed-back amount — prevents double clawback on partial refunds.
+- **Payout idempotency:** UNIQUE partial index `(influencer_id, period_start_at) WHERE status != 'canceled'` in DB. Code checks `.eq('period_start_at')` + handles 23505 gracefully.
+- **Anti self-referral:** `/api/affiliate/attribute` rejects if user's email matches influencer's email. Body-only codes (no cookie) require a recent `affiliate_clicks` row within 60 days.
+- **Click dedup:** `/r/[code]` rate-limited 10/IP/24h via `rateLimit()`. Same `ip_hash + code` within 24h = no duplicate row. `total_clicks` derived from `affiliate_clicks` table (no counter column).
+- **Files:** `lib/admin/webhooks/stripe-processor.ts` (commission + clawback + dispute), `lib/admin/stripe/payouts.ts` (monthly payouts + fraud checks), `lib/admin/affiliate-attribution.ts` (signup attribution), `app/api/affiliate/attribute/route.ts`, `app/r/[code]/route.ts`

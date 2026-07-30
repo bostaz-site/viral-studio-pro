@@ -194,8 +194,9 @@ export async function processMonthlyPayouts(): Promise<{
         .from('affiliate_payouts')
         .select('id')
         .eq('influencer_id', affiliate.id)
-        .gte('period_start_at', periodStart.toISOString())
-        .lt('period_end_at', periodEnd.toISOString())
+        .eq('period_start_at', periodStart.toISOString())
+        .not('status', 'eq', 'canceled')
+        .limit(1)
         .maybeSingle()
 
       if (existingPayout) {
@@ -224,7 +225,7 @@ export async function processMonthlyPayouts(): Promise<{
         .from('affiliate_referrals')
         .select('id')
         .eq('influencer_id', affiliate.id)
-        .in('status', ['attributed', 'paying', 'active'])
+        .in('status', ['attributed', 'paying'])
 
       const referralIds = (periodReferrals || []).map(r => r.id)
 
@@ -246,10 +247,13 @@ export async function processMonthlyPayouts(): Promise<{
         .select('id')
         .single()
 
-      if (insertErr || !payout) {
-        errors.push(`${affiliate.id}: ${insertErr?.message || 'Insert failed'}`)
+      if (insertErr) {
+        // Handle UNIQUE constraint violation (23505) — payout already exists for this period
+        if (insertErr.code === '23505') { skipped++; continue }
+        errors.push(`${affiliate.id}: ${insertErr.message}`)
         continue
       }
+      if (!payout) { errors.push(`${affiliate.id}: Insert returned no data`); continue }
 
       if (fraudResult.requiresManualReview) {
         needsReview++
