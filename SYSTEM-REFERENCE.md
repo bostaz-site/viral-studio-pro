@@ -484,7 +484,7 @@ At launch, only TikTok is approved for publishing. YouTube and Instagram are har
 - **Server**: `app/api/publish/[platform]/route.ts` rejects any platform not in `LAUNCH_ACTIVE_PLATFORMS` with 403 "coming soon". Even corrupted client state cannot publish elsewhere.
 - **Client (UnifiedPublishDialog)**: `isComingSoonPlatform()` prevents auto-select, toggle, counting, and publishing for non-active platforms. `selectedCount` excludes them. Render shows "Coming soon" badge.
 - **Client (DistributionHub)**: `activePlatformCount` only counts platforms with `supported: true` in PLATFORMS config. Button text reflects real publishable count.
-- To enable a new platform at launch: add it to `LAUNCH_ACTIVE_PLATFORMS` in both `unified-publish-dialog.tsx` and `app/api/publish/[platform]/route.ts`, and set `supported: true` in distribution-hub's PLATFORMS config.
+- **Single source of truth:** `lib/distribution/launch-platforms.ts` exports `LAUNCH_ACTIVE_PLATFORMS`, `isComingSoonPlatform()`, `isActivePlatform()`. Imported by `unified-publish-dialog.tsx` (client) and `publish/[platform]/route.ts` (server). To enable a new platform: add it to this one file.
 
 ### TikTok PROCESSING Dialog Behavior
 The `TikTokPublishDialog` polls `/api/tiktok/publish-status` every 5s after publishing:
@@ -581,8 +581,8 @@ Mobile-first. No fake numbers, no testimonials.
 | Section | Component | Notes |
 |---|---|---|
 | Hero | `hero-section.tsx` | 3-clicks pipeline demo (7.2s CSS cycle: Pick→Enhance→Post), micro-features line below ("Karaoke captions · AI hook + smart zoom · Automatic creator credit"), bridge card with count-up |
-| Radar | `how-it-works-section.tsx` | 100% static snapshot — crowned royal card (score 92 count-up + pop, lock brackets 9s, cyan gems, CTA shine), 2 rising cards (74 cyan, 67 rainbow gradient 3s), partial card (61, mask fade). Radar BG: concentric rings + sweep 9s + 5 blips. Thumbnails: `/landing/radar-thumb-1..4.jpg` |
-| Farm | `features-grid.tsx` | Animated brain pipeline (8s cycle): clip bank → cargo flow → real brain SVG (lobes, nodes, wolf) → 4-way splitter (SMIL animateMotion) → 4 platform icons (receive cascade). Countdown EXAMPLE panel (live JS). Thumbnails: `/landing/farm-thumb-1/2.jpg` |
+| Radar | `how-it-works-section.tsx` | **LIVE** — fetches `/api/landing/radar` (ISR 15min) for real top 4 clips. Royal card = top pick, 2 rising, 1 partial. Total clips count = real DB count rounded to 100. Static fallback if API fails (local thumbs as onError fallback). Thumbnails: Twitch CDN with `/landing/radar-thumb-*.jpg` fallback |
+| Farm | `features-grid.tsx` | Step 2 — Automation. Brain pipeline (8s cycle). Platform apps: TikTok live + YouTube/Instagram/Facebook with SOON badges. Countdown EXAMPLE panel (live JS). Thumbnails: `/landing/farm-thumb-1/2.jpg` |
 | Pricing | `pricing-section.tsx` | Free $0 / Pro $19 / Studio $24 founding (via `isStudioLaunchActive()`, expires `STUDIO_LAUNCH_ENDS_AT` 2026-09-30) or $29 after |
 | FAQ | `faq-section.tsx` | "Questions clippers actually ask" — 5 items single-open accordion (native `<details name="faq">`), bg #0B0F1E, sober slate. Copy: rights, recording, TikTok official, quota, cancel |
 | Final CTA | `final-cta-section.tsx` | Bg #020617 + faint radar echo (2 cyan rings), wolf Or Forge 200px + amber glow, "The radar already found your next clip.", CTA "Claim your first clip", trust line |

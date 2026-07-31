@@ -30,13 +30,13 @@ export const metadata: Metadata = {
     locale: 'en_US',
     url: siteUrl,
     siteName: 'Viral Animal',
-    title: 'Viral Animal — Turn your streams into viral clips',
-    description: 'Create viral clips from Twitch and YouTube Gaming streams. Karaoke captions, automatic split-screen, AI viral score.',
+    title: 'Viral Animal — The radar finds clips blowing up. You post them in three clicks.',
+    description: 'Browse Twitch & Kick clips scored by AI, add karaoke captions + split-screen, and post to TikTok in one click.',
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Viral Animal — Viral clips from your streams',
-    description: 'Karaoke captions + split-screen + AI viral score. Export to TikTok, Reels, Shorts in 1 click.',
+    title: 'Viral Animal — The radar finds clips blowing up',
+    description: 'Browse Twitch & Kick clips scored by AI, add karaoke captions + split-screen, and post to TikTok in one click.',
     creator: '@viralanimal',
   },
   robots: {

@@ -22,7 +22,7 @@ export function FeaturesGrid() {
   return (
     <section className="farm-section lv3-divider">
       <div className="lv3-container" style={{ position: 'relative', zIndex: 1 }}>
-        <p className="farm-eyebrow">Step 3 — Automation</p>
+        <p className="farm-eyebrow">Step 2 — Automation</p>
         <h2 className="farm-h2">The farm runs while you sleep.</h2>
         <p className="farm-sub">Queue your clips. The system picks the optimal time and posts automatically.</p>
 
@@ -133,20 +133,21 @@ export function FeaturesGrid() {
             </div>
             <div className="farm-app farm-app-active farm-app-r2">
               <span className="farm-app-ic">{'\u25B6'}</span>
-              <span>YouTube</span>
+              <span>YouTube <span style={{ fontSize: 7, fontWeight: 800, color: '#64748B', background: 'rgba(100,116,139,.15)', padding: '1px 4px', borderRadius: 3, marginLeft: 3 }}>SOON</span></span>
               <span className="farm-posted farm-posted-2">PUBLISHED {'\u2713'}</span>
             </div>
             <div className="farm-app farm-app-active farm-app-r3">
               <span className="farm-app-ic">{'\u25CE'}</span>
-              <span>Instagram</span>
+              <span>Instagram <span style={{ fontSize: 7, fontWeight: 800, color: '#64748B', background: 'rgba(100,116,139,.15)', padding: '1px 4px', borderRadius: 3, marginLeft: 3 }}>SOON</span></span>
               <span className="farm-posted farm-posted-3">PUBLISHED {'\u2713'}</span>
             </div>
             <div className="farm-app farm-app-active farm-app-r4">
               <span className="farm-app-ic">f</span>
-              <span>Facebook</span>
+              <span>Facebook <span style={{ fontSize: 7, fontWeight: 800, color: '#64748B', background: 'rgba(100,116,139,.15)', padding: '1px 4px', borderRadius: 3, marginLeft: 3 }}>SOON</span></span>
               <span className="farm-posted farm-posted-4">PUBLISHED {'\u2713'}</span>
             </div>
           </div>
+          <p className="farm-soon-note" style={{ marginTop: 10, marginBottom: 0 }}>TikTok live today. YouTube, Instagram &amp; Facebook coming soon.</p>
         </div>
 
         {/* NEXT POST panel */}
@@ -155,7 +156,6 @@ export function FeaturesGrid() {
           <span className="farm-nextpost-cd">{cd}</span>
           <span className="farm-nextpost-win">Tonight &middot; 7:18 PM &middot; High-activity window</span>
         </div>
-        <p className="farm-soon-note">TikTok live today. YouTube, Instagram &amp; Facebook coming soon.</p>
       </div>
     </section>
   )

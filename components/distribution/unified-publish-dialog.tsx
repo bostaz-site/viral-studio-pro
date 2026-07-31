@@ -45,9 +45,7 @@ interface UnifiedPublishDialogProps {
 
 // ── Platform config ──────────────────────────────────────────────────────────
 
-// Only TikTok is approved for publish at launch. YouTube/Instagram are "coming soon".
-const LAUNCH_ACTIVE_PLATFORMS: Platform[] = ['tiktok']
-const isComingSoonPlatform = (p: Platform) => !LAUNCH_ACTIVE_PLATFORMS.includes(p)
+import { LAUNCH_ACTIVE_PLATFORMS, isComingSoonPlatform } from '@/lib/distribution/launch-platforms'
 
 const PLATFORMS: { id: Platform; name: string; icon: React.ReactNode; colors: string }[] = [
   {

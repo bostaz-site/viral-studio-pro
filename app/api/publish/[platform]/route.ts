@@ -54,10 +54,9 @@ export const POST = withAuth(
       return errorResponse(`Unsupported platform: ${platformParam}`, 400)
     }
 
-    // Hard gate: only TikTok is approved for publish at launch.
-    // YouTube and Instagram are coming soon — block even if client state is corrupted.
-    const LAUNCH_ACTIVE_PLATFORMS: Platform[] = ['tiktok']
-    if (!LAUNCH_ACTIVE_PLATFORMS.includes(platformParam)) {
+    // Hard gate: only active platforms allowed — block even if client state is corrupted.
+    const { LAUNCH_ACTIVE_PLATFORMS: activePlatforms } = await import('@/lib/distribution/launch-platforms')
+    if (!activePlatforms.includes(platformParam as 'tiktok')) {
       return errorResponse(
         `${PLATFORM_CONFIGS[platformParam].displayName} publishing is coming soon. Only TikTok is available right now.`,
         403

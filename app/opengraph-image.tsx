@@ -2,7 +2,7 @@ import { ImageResponse } from 'next/og'
 
 export const runtime = 'edge'
 
-export const alt = 'Viral Animal — Turn streams into viral clips. Automatically.'
+export const alt = 'Viral Animal — The radar finds clips blowing up. You post them in three clicks.'
 export const size = {
   width: 1200,
   height: 630,

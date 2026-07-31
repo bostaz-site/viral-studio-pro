@@ -637,12 +637,24 @@ export function DistributionHub() {
           time: new Date(p.published_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
           text: `posted to ${PLATFORM_LABELS_MAP[p.platform] ?? p.platform}`,
         })))
+        // Fetch real clip titles for activity feed
+        const clipIds = [...new Set(posts.map(p => p.clip_id).filter(Boolean))]
+        let clipTitles: Record<string, string> = {}
+        if (clipIds.length > 0) {
+          const { data: clips } = await supabase
+            .from('trending_clips')
+            .select('id, title')
+            .in('id', clipIds)
+          if (clips) {
+            clipTitles = Object.fromEntries(clips.map(c => [c.id, c.title ?? 'Published clip']))
+          }
+        }
         setPublishHistory(posts.map(p => ({
-          clipTitle: (p as Record<string, string>).niche || 'Published clip',
+          clipTitle: clipTitles[p.clip_id] || 'Published clip',
           platforms: [p.platform],
           status: 'live' as const,
           timestamp: new Date(p.published_at),
-          views: 0, likes: 0, growthPercent: 0, tone: 'general',
+          views: -1, likes: -1, growthPercent: 0, tone: 'general',
         })))
       }
     }
@@ -2283,7 +2295,7 @@ export function DistributionHub() {
                   })}
                 </div>
                 <div style={{ display: 'flex', gap: 14, alignItems: 'center' }}>
-                  {entry.views > 0 && <div className="perf">+{formatMetricCount(entry.views)} views</div>}
+                  {entry.views > 0 ? <div className="perf">+{formatMetricCount(entry.views)} views</div> : entry.views === -1 ? <div className="perf" style={{ color: '#64748B' }}>Stats sync in ~24h</div> : null}
                   <div className="when">{getRelativeTime(entry.timestamp)}</div>
                 </div>
               </div>

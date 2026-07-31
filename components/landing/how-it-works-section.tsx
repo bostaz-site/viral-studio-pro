@@ -5,6 +5,31 @@ import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { track } from '@/lib/analytics'
 
+interface RadarClip {
+  title: string | null
+  author_handle: string | null
+  velocity_score: number | null
+  feed_category: string | null
+  thumbnail_url: string | null
+  clip_created_at: string | null
+}
+
+// Static fallback data (used when API fails)
+const FALLBACK_CLIPS: RadarClip[] = [
+  { title: 'Professor L got the Best Professor Award', author_handle: 'KaiCenat', velocity_score: 92, feed_category: 'hot_now', thumbnail_url: '/landing/radar-thumb-1.jpg', clip_created_at: null },
+  { title: 'poor lacy', author_handle: 'Lacy', velocity_score: 74, feed_category: 'early_gem', thumbnail_url: '/landing/radar-thumb-2.jpg', clip_created_at: null },
+  { title: 'Professor Agent teaches clip farming', author_handle: 'Agent00', velocity_score: 67, feed_category: 'hot_now', thumbnail_url: '/landing/radar-thumb-3.jpg', clip_created_at: null },
+  { title: 'yourragegaming clip', author_handle: 'yourragegaming', velocity_score: 61, feed_category: 'hot_now', thumbnail_url: '/landing/radar-thumb-4.jpg', clip_created_at: null },
+]
+const FALLBACK_TOTAL = 8800
+
+const LOCAL_THUMBS = [
+  '/landing/radar-thumb-1.jpg',
+  '/landing/radar-thumb-2.jpg',
+  '/landing/radar-thumb-3.jpg',
+  '/landing/radar-thumb-4.jpg',
+]
+
 const CyanGem = () => (
   <svg width="18" height="18" viewBox="0 0 18 18">
     <polygon points="9,1 17,9 9,17 1,9" fill="#67E8F9" stroke="#0E7490" strokeWidth="1"/>
@@ -45,7 +70,51 @@ function CountUpScore({ target }: { target: number }) {
   return <span ref={ref} className={`rd-rscore${popped ? ' rd-pop' : ''}`}>{value}</span>
 }
 
+function ThumbImg({ src, fallback, alt }: { src: string | null; fallback: string; alt: string }) {
+  const [useFallback, setUseFallback] = useState(false)
+  const url = useFallback || !src ? fallback : src
+  return (
+    <img
+      src={url}
+      alt={alt}
+      loading="lazy"
+      width={315}
+      height={180}
+      onError={() => setUseFallback(true)}
+    />
+  )
+}
+
+function formatCount(n: number): string {
+  if (n >= 1000) return `${(n / 1000).toFixed(1).replace(/\.0$/, '')}K`
+  return String(n)
+}
+
 export function HowItWorksSection() {
+  const [clips, setClips] = useState<RadarClip[]>(FALLBACK_CLIPS)
+  const [totalAnalyzed, setTotalAnalyzed] = useState(FALLBACK_TOTAL)
+
+  useEffect(() => {
+    fetch('/api/landing/radar')
+      .then(r => r.ok ? r.json() : null)
+      .then((json: { data?: { clips?: RadarClip[]; totalAnalyzed?: number } } | null) => {
+        if (json?.data?.clips && json.data.clips.length >= 4) {
+          setClips(json.data.clips)
+        }
+        if (json?.data?.totalAnalyzed) {
+          setTotalAnalyzed(json.data.totalAnalyzed)
+        }
+      })
+      .catch(() => { /* keep fallback */ })
+  }, [])
+
+  const royal = clips[0]
+  const rising1 = clips[1]
+  const rising2 = clips[2]
+  const partial = clips[3]
+
+  const totalLabel = `${formatCount(totalAnalyzed)}+`
+
   return (
     <section id="radar" className="lv3-divider" style={{ position: 'relative', overflow: 'hidden' }}>
       <div className="rd">
@@ -110,15 +179,14 @@ export function HowItWorksSection() {
                 <div className="rd-rthumb">
                   <span className="rd-toppick-tag">{'\uD83D\uDC51'} TOP PICK</span>
                   <span className="rd-detect">{'\u26A1'} DETECTED BEFORE PEAK</span>
-                  <img src="/landing/radar-thumb-1.jpg" alt="KaiCenat clip" />
+                  <ThumbImg src={royal?.thumbnail_url ?? null} fallback={LOCAL_THUMBS[0]} alt={`${royal?.author_handle ?? 'Top'} clip`} />
                 </div>
                 <div className="rd-rmeta">
                   <div className="rd-rinfo">
-                    <div className="rd-auth">KaiCenat</div>
-                    <div className="rd-ttl">Professor L got the Best Professor Award</div>
-                    <div className="rd-stats">41.5K views &middot; Twitch</div>
+                    <div className="rd-auth">{royal?.author_handle ?? 'KaiCenat'}</div>
+                    <div className="rd-ttl">{royal?.title ?? 'Top clip'}</div>
                   </div>
-                  <CountUpScore target={92} />
+                  <CountUpScore target={royal?.velocity_score ?? 92} />
                 </div>
                 <Link
                   href="/signup"
@@ -136,42 +204,42 @@ export function HowItWorksSection() {
             <div className="rd-rise">
               <div className="rd-rthumb2">
                 <span className="rd-badge">{'\u25B2'} RISING FAST</span>
-                <img src="/landing/radar-thumb-2.jpg" alt="Lacy clip" />
+                <ThumbImg src={rising1?.thumbnail_url ?? null} fallback={LOCAL_THUMBS[1]} alt={`${rising1?.author_handle ?? 'Rising'} clip`} />
               </div>
               <div className="rd-rmeta2">
                 <div>
-                  <div className="rd-auth">Lacy</div>
-                  <div className="rd-ttl">poor lacy</div>
+                  <div className="rd-auth">{rising1?.author_handle ?? 'Lacy'}</div>
+                  <div className="rd-ttl">{rising1?.title ?? 'Rising clip'}</div>
                 </div>
-                <span className="rd-cscore">74</span>
+                <span className="rd-cscore">{rising1?.velocity_score ?? 74}</span>
               </div>
             </div>
             <div className="rd-rise">
               <div className="rd-rthumb2">
                 <span className="rd-badge">{'\u26A1'} EARLY SIGNAL</span>
-                <img src="/landing/radar-thumb-3.jpg" alt="Agent00 clip" />
+                <ThumbImg src={rising2?.thumbnail_url ?? null} fallback={LOCAL_THUMBS[2]} alt={`${rising2?.author_handle ?? 'Early'} clip`} />
               </div>
               <div className="rd-rmeta2">
                 <div>
-                  <div className="rd-auth">Agent00</div>
-                  <div className="rd-ttl">Professor Agent teaches clip farming</div>
+                  <div className="rd-auth">{rising2?.author_handle ?? 'Agent00'}</div>
+                  <div className="rd-ttl">{rising2?.title ?? 'Early signal clip'}</div>
                 </div>
-                <span className="rd-cscore rd-rainbow">67</span>
+                <span className="rd-cscore rd-rainbow">{rising2?.velocity_score ?? 67}</span>
               </div>
             </div>
           </div>
 
           {/* ── PARTIAL CARD ── */}
           <div className="rd-partial">
-            <img src="/landing/radar-thumb-4.jpg" alt="yourragegaming clip" />
-            <div className="rd-pm">yourragegaming</div>
-            <div className="rd-ps">61</div>
+            <ThumbImg src={partial?.thumbnail_url ?? null} fallback={LOCAL_THUMBS[3]} alt={`${partial?.author_handle ?? 'Clip'}`} />
+            <div className="rd-pm">{partial?.author_handle ?? 'yourragegaming'}</div>
+            <div className="rd-ps">{partial?.velocity_score ?? 61}</div>
           </div>
         </div>
 
         {/* Stat machine */}
         <div className="rd-machine">
-          <span><b>9,000+</b> clips analyzed</span>
+          <span><b>{totalLabel}</b> clips analyzed</span>
           <span className="rd-sep">&middot;</span>
           <span>re-scored every <b>15 minutes</b></span>
           <span className="rd-sep">&middot;</span>
