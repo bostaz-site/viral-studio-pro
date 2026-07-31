@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { verifyMagicLinkToken } from '@/lib/partner/magic-link'
-import { createPartnerSession, setPartnerCookie } from '@/lib/partner/auth'
-import { hashIp } from '@/lib/admin/ip-hash'
+import { setPartnerCookie } from '@/lib/partner/auth'
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://viralanimal.com'
 
-// GET /api/partner/auth/verify?t=<token> — verify magic link + set session
+// GET /api/partner/auth/verify?t=<token> — verify magic link + set session cookie
 export async function GET(req: NextRequest) {
+  void req // consumed for URL parsing only
   const token = new URL(req.url).searchParams.get('t')
 
   if (!token) {
@@ -19,13 +19,9 @@ export async function GET(req: NextRequest) {
     return NextResponse.redirect(new URL('/partner/login?error=expired', APP_URL))
   }
 
-  // Create session
-  const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? ''
-  const ipHash = ip ? hashIp(ip) : undefined
-  const userAgent = req.headers.get('user-agent') ?? undefined
-
-  const sessionToken = await createPartnerSession(result.influencerId, ipHash, userAgent)
-  await setPartnerCookie(sessionToken)
+  // verifyMagicLinkToken consumed the magic link and created a long-lived session.
+  // Set the cookie with the raw session token (no duplicate session creation).
+  await setPartnerCookie(result.sessionToken)
 
   return NextResponse.redirect(new URL('/partner', APP_URL))
 }

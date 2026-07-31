@@ -44,8 +44,8 @@ export async function POST(req: NextRequest) {
     await markTokenUsed(result.tokenId)
 
     // Remove lead from all active Instantly campaigns (CAN-SPAM compliance)
-    // Fire-and-forget with retry — log failures visibly for admin monitoring
-    removeFromInstantly(emailLower).catch(() => {})
+    // Awaited — Netlify does not guarantee post-response execution
+    await removeFromInstantly(emailLower)
 
     return NextResponse.json({ ok: true })
   } catch (err) {

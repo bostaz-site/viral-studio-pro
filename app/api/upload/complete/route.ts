@@ -50,8 +50,8 @@ export async function POST(req: NextRequest) {
     )
   }
 
-  // Ownership check (allow anonymous uploads where user_id is null)
-  if (video.user_id && userId && video.user_id !== userId) {
+  // Ownership check — auth required, no anonymous completion
+  if (!userId || (video.user_id && video.user_id !== userId)) {
     return NextResponse.json(
       { data: null, error: 'Forbidden', message: 'You do not own this video' },
       { status: 403 },

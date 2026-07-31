@@ -43,8 +43,8 @@ function LoginForm() {
     }
 
     const redirectTo = searchParams?.get('redirectTo')
-    // Validate: must start with / to prevent open redirect
-    const dest = redirectTo && redirectTo.startsWith('/') ? redirectTo : '/dashboard'
+    // Validate: must be a local path (single slash, not // or /\) to prevent open redirect
+    const dest = redirectTo && /^\/(?![/\\])/.test(redirectTo) ? redirectTo : '/dashboard'
     router.push(dest)
     router.refresh()
   }

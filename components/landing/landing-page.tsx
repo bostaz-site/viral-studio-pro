@@ -12,8 +12,14 @@ import { FaqSection, FAQ_ITEMS } from '@/components/landing/faq-section'
 import { PricingSection } from '@/components/landing/pricing-section'
 import { FinalCtaSection } from '@/components/landing/final-cta-section'
 import { ExitIntentPopup } from '@/components/landing/exit-intent-popup'
+import { track } from '@/lib/analytics'
 
 export function LandingPage() {
+  // Track page view
+  useEffect(() => {
+    track('page_view', { page: '/' })
+  }, [])
+
   // Inject FAQ structured data for SEO
   useEffect(() => {
     const faqJsonLd = {

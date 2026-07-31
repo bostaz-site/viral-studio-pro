@@ -117,7 +117,8 @@ export async function GET(req: NextRequest) {
       )
     }
   }
-  const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown'
+  const { getClientIp } = await import('@/lib/api/client-ip')
+  const ip = getClientIp(req)
   const rl = await rateLimit(`browse:${ip}`, RATE_LIMITS.browse.limit, RATE_LIMITS.browse.windowMs)
   if (!rl.allowed) {
     return NextResponse.json({ data: null, error: 'Rate limited' }, { status: 429 })
@@ -211,8 +212,12 @@ export async function GET(req: NextRequest) {
       if (sepIdx > 0) {
         const cursorValue = cursor.slice(0, sepIdx)
         const cursorId = cursor.slice(sepIdx + 1)
-        // (sortCol, id) < (cursorValue, cursorId) for DESC ordering
-        // Supabase PostgREST: use .or() with compound condition
+        // Validate cursor components to prevent PostgREST injection
+        const isValidValue = /^[\d.eE+-]+$/.test(cursorValue) || /^\d{4}-\d{2}-\d{2}/.test(cursorValue)
+        const isValidId = /^[0-9a-f-]{36}$/.test(cursorId)
+        if (!isValidValue || !isValidId) {
+          return NextResponse.json({ data: null, error: 'Invalid cursor format' }, { status: 400 })
+        }
         query = query.or(
           `${sortCol}.lt.${cursorValue},` +
           `and(${sortCol}.eq.${cursorValue},id.lt.${cursorId})`

@@ -27,6 +27,8 @@ const ALLOWED_EVENTS = new Set([
   'changelog_view',
   'newsletter_submitted',
   'pricing_view',
+  'clip_enhance_started',
+  'chain_farm_next_clip',
   'paywall_shown',
   'paywall_upgrade_clicked',
   'paywall_topup_clicked',

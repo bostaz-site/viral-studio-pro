@@ -17,7 +17,8 @@ import { resolveEffectivePlan, getPlanConfig } from '@/lib/plans'
  * instead of creating a new one (prevents orphans on retry).
  */
 export async function POST(req: NextRequest) {
-  const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown'
+  const { getClientIp } = await import('@/lib/api/client-ip')
+  const ip = getClientIp(req)
   const rl = await rateLimit(`upload-sign:${ip}`, 10, 60_000)
   if (!rl.allowed) {
     return NextResponse.json(
@@ -104,12 +105,19 @@ export async function POST(req: NextRequest) {
     )
   }
 
-  // Retry path: reuse existing video record if provided
+  // Retry path: reuse existing video record if provided (ownership required)
   if (existingVideoId) {
+    if (!userId) {
+      return NextResponse.json(
+        { data: null, error: 'Authentication required for retry', message: 'Login to retry upload' },
+        { status: 401 },
+      )
+    }
     const { data: existing } = await admin
       .from('videos')
       .select('id')
       .eq('id', existingVideoId)
+      .eq('user_id', userId)
       .maybeSingle()
 
     if (existing) {
@@ -118,6 +126,7 @@ export async function POST(req: NextRequest) {
         .from('videos')
         .update({ storage_path: storagePath, status: 'uploading', error_message: null })
         .eq('id', existingVideoId)
+        .eq('user_id', userId)
 
       return NextResponse.json({
         data: {

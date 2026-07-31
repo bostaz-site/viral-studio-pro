@@ -63,6 +63,7 @@ export async function getPartnerSession(): Promise<PartnerSession | null> {
     .from('partner_sessions')
     .select('id, influencer_id, expires_at')
     .eq('token_hash', tokenHash)
+    .eq('session_type' as never, 'session')
     .single()
 
   if (!session) return null
