@@ -93,19 +93,28 @@ function computeEngagementScore(
 ): number {
   let score: number
 
+  // Bayesian smoothing: (likes + prior_likes) / (views + PRIOR_VIEWS)
+  // Prevents tiny-sample inflation (9 views, 1 like = 100 before; ~50 after)
+  const PRIOR_VIEWS = 50
+  const PRIOR_LIKES = 1 // weak prior: ~2% base engagement
+
   if (likeCount === 0 && viewCount === 0) {
-    score = 65 // Neutral-optimistic when no data
+    score = 50 // Neutral when no data
+  } else if (viewCount < 30) {
+    // Very low view count — not enough signal, stay neutral
+    score = 50
   } else if (viewCount > 0 && likeCount > 0) {
-    const ratio = likeCount / viewCount
-    if (ratio > 0.05) score = 100
-    else if (ratio > 0.03) score = 75
-    else if (ratio > 0.01) score = 50
-    else score = ratio / 0.01 * 50
+    const smoothedRatio = (likeCount + PRIOR_LIKES) / (viewCount + PRIOR_VIEWS)
+    if (smoothedRatio > 0.05) score = 100
+    else if (smoothedRatio > 0.03) score = 80
+    else if (smoothedRatio > 0.015) score = 60
+    else if (smoothedRatio > 0.005) score = 40
+    else score = 20
   } else if (viewCount > 0) {
-    // Views but no like data -- assume decent engagement (Twitch clips typically do)
-    score = 65
+    // Views but no like data — assume mediocre engagement
+    score = 50
   } else {
-    score = 65
+    score = 50
   }
 
   // Title punctuation/caps boost (limited to +10% of current score)

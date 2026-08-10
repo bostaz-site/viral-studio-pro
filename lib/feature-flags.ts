@@ -10,9 +10,8 @@
 export const isAuditMode = process.env.NEXT_PUBLIC_AUDIT_MODE === "true"
 
 /**
- * isHoverPreviewV2: enables hover-triggered muted autoplay with IntersectionObserver
+ * isHoverPreviewV2: hover-triggered muted autoplay with IntersectionObserver
  * pre-resolution and the floating overlay CTA on TrendingCard.
- * Set NEXT_PUBLIC_HOVER_PREVIEW_V2="true" to activate; leave unset for current behavior.
- * Used for A/B testing browse_to_enhance_rate.
+ * ON by default. Set NEXT_PUBLIC_HOVER_PREVIEW_V2="false" to disable.
  */
-export const isHoverPreviewV2 = process.env.NEXT_PUBLIC_HOVER_PREVIEW_V2 === "true"
+export const isHoverPreviewV2 = process.env.NEXT_PUBLIC_HOVER_PREVIEW_V2 !== "false"

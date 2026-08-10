@@ -1,13 +1,18 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import { Zap, CheckCircle2 } from 'lucide-react'
+import { WolfLoader } from '@/components/ui/wolf-loader'
 import { timeAgo } from '@/lib/trending/utils'
 import { getClipInsight } from '@/types/trending'
 import type { TrendingClip } from '@/types/trending'
+import type { QuickExportState } from '@/components/trending/trending-card'
 
 interface TopPickCardProps {
   clip: TrendingClip
   onEnhance: (clip: TrendingClip) => void
+  onQuickExport?: (clip: TrendingClip) => void
+  quickExportState?: QuickExportState | null
   /** True when the grid contains a clip with a higher score but older than 12h */
   hasHigherOlderClip?: boolean
 }
@@ -107,7 +112,9 @@ function AnimatedScore({ value }: { value: number }) {
   return <span className="tp-score tp-score-sweep">{display}</span>
 }
 
-export function TopPickCard({ clip, onEnhance, hasHigherOlderClip = false }: TopPickCardProps) {
+export function TopPickCard({ clip, onEnhance, onQuickExport, quickExportState, hasHigherOlderClip = false }: TopPickCardProps) {
+  const isExporting = quickExportState?.clipId === clip.id && quickExportState.status === 'rendering'
+  const isExported = quickExportState?.clipId === clip.id && quickExportState.status === 'done'
   const score = Math.round(clip.velocity_score ?? 0)
   const insight = getClipInsight(clip)
   const age = timeAgo(clip.clip_created_at ?? clip.scraped_at)
@@ -199,12 +206,34 @@ export function TopPickCard({ clip, onEnhance, hasHigherOlderClip = false }: Top
                 {/* Right — score + CTA */}
                 <div className="flex sm:flex-col items-center sm:items-end justify-between sm:justify-center gap-2 sm:gap-1.5 shrink-0">
                   <AnimatedScore value={score} />
-                  <button
-                    onClick={(e) => { e.stopPropagation(); onEnhance(clip) }}
-                    className="leg-cta tp-cta-compact"
-                  >
-                    Steal this clip<span className="tp-cta-arrow">&nbsp;&rarr;</span>
-                  </button>
+                  <div className="flex items-center gap-0">
+                    <button
+                      onClick={(e) => { e.stopPropagation(); onEnhance(clip) }}
+                      className="leg-cta tp-cta-compact"
+                      style={{ borderTopRightRadius: onQuickExport ? 0 : undefined, borderBottomRightRadius: onQuickExport ? 0 : undefined }}
+                    >
+                      Steal this clip<span className="tp-cta-arrow">&nbsp;&rarr;</span>
+                    </button>
+                    {onQuickExport && (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); onQuickExport(clip) }}
+                        disabled={isExporting}
+                        className="h-[36px] px-2.5 flex items-center justify-center"
+                        style={{
+                          background: isExported
+                            ? 'linear-gradient(180deg, #1a3a1a 0%, #0a2a0a 50%, #052005 100%)'
+                            : 'linear-gradient(180deg, #5C4400 0%, #3A2A00 50%, #2A1E00 100%)',
+                          borderRadius: '0 10px 10px 0',
+                          border: isExported ? '2px solid #22c55e' : '2px solid #DAA520',
+                          borderLeft: '1px solid rgba(139,105,20,.4)',
+                          color: isExported ? '#4ADE80' : '#FFE9A8',
+                        }}
+                        title={isExported ? 'In your bank \u2014 export again?' : 'Quick Export'}
+                      >
+                        {isExporting ? <WolfLoader variant="spinner" size={14} mode="amber" /> : isExported ? <CheckCircle2 className="h-3.5 w-3.5" /> : <Zap className="h-3.5 w-3.5" />}
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
 

@@ -194,7 +194,7 @@ Clips from the same stream are grouped to prevent one streamer dominating the fe
 |---|--------|--------|-----------|
 | 1 | Momentum | 25% | velocity + acceleration (or sublinear fallback `age^0.7`). Spike boost 1.5x if velocity > 2x streamer avg |
 | 2 | Authority | 20% | clip views vs streamer avg, weighted by log(views). Neutral=60 if no data |
-| 3 | Engagement | 15% | like/view ratio (5%=100, 3%=75, 1%=50). Neutral=65 if no likes. Title signal boost capped at +10% |
+| 3 | Engagement | 15% | Bayesian smoothed: (likes+1)/(views+50). <30 views=neutral 50. Thresholds: >5%=100, >3%=80, >1.5%=60, >0.5%=40. Title boost capped +10%. Kick view freshness: rescore does NOT re-fetch — import-time only (backlog) |
 | 4 | Recency | 10% | `exp(-age/72)*100`. 6h=92, 24h=72. Never 0 |
 | 5 | Early Signal | 10% | views/min * log(views) * exp(-age/6). Short clip bonus 1.1x. Floor at 50 after 24h |
 | 6 | Format | 10% | 15-45s=100, 45-90s=80, 8-15s=70, >90s=60, <8s=40 (calibrated 2026-07, Buffer 2025 1.1M videos) |
