@@ -9,6 +9,7 @@ import { renderClip, extractThumbnail, checkFfmpegAvailability, buildFollowFaceF
 import { generateASS, generateStaticASS, validateWordTimestamps } from '../lib/subtitle-generator.js';
 import { detectFaces } from '../lib/face-tracker.js';
 import { detectPeakMoment, generateHookTexts, calculateReorderTimestamps } from '../lib/hook-generator.js';
+import { detectBurnedCaptions } from '../lib/caption-detector.js';
 // caption-png.js and drawtext-wordpop.js removed — all animations now use ASS subtitles
 import { transcribeWithWhisper } from '../lib/whisper-client.js';
 import { applyAutoCut, classifyIntensity, getAdaptiveThreshold } from '../lib/auto-cut.js';
@@ -1725,6 +1726,63 @@ router.post('/hook', async (req, res) => {
       error: err.message,
       message: 'Failed to generate hooks',
     });
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// POST /detect-captions — Detect burned-in captions in a video
+// Downloads the video, extracts frames, calls Haiku vision.
+// ─────────────────────────────────────────────────────────────────────────────
+router.post('/detect-captions', async (req, res) => {
+  const { videoUrl, duration } = req.body;
+
+  if (!videoUrl) {
+    return res.status(400).json({ data: null, error: 'videoUrl is required' });
+  }
+
+  const tempDir = path.join('/tmp', `caption-detect-${uuidv4()}`);
+  try {
+    await fs.mkdir(tempDir, { recursive: true });
+
+    // Download the video (reuse yt-dlp for platform URLs, or direct fetch)
+    let inputPath;
+    const isDirectUrl = videoUrl.startsWith('http') && (videoUrl.includes('.mp4') || videoUrl.includes('storage'));
+    if (isDirectUrl) {
+      inputPath = path.join(tempDir, 'input.mp4');
+      const videoRes = await fetch(videoUrl);
+      if (!videoRes.ok) throw new Error(`Failed to download video: ${videoRes.status}`);
+      const buf = Buffer.from(await videoRes.arrayBuffer());
+      await fs.writeFile(inputPath, buf);
+    } else {
+      // Use yt-dlp for Twitch/Kick/etc URLs
+      const { downloadWithYtDlp } = await import('../lib/yt-dlp-wrapper.js');
+      const dlResult = await downloadWithYtDlp(videoUrl, tempDir);
+      inputPath = dlResult.filePath;
+    }
+
+    // Probe duration if not provided
+    let videoDuration = duration;
+    if (!videoDuration) {
+      try {
+        const { stdout } = await execFileAsync('ffprobe', [
+          '-v', 'quiet', '-print_format', 'json', '-show_format', inputPath,
+        ], { timeout: 10_000 });
+        const info = JSON.parse(stdout);
+        videoDuration = parseFloat(info.format?.duration) || 30;
+      } catch {
+        videoDuration = 30;
+      }
+    }
+
+    const result = await detectBurnedCaptions(inputPath, videoDuration, tempDir, console.log);
+
+    res.json({ data: result, error: null });
+  } catch (err) {
+    console.error('[DetectCaptions] Error:', err.message);
+    res.json({ data: { burned_captions: false, position: null, confidence: 0 }, error: null });
+  } finally {
+    // Cleanup temp dir
+    fs.rm(tempDir, { recursive: true, force: true }).catch(() => {});
   }
 });
 

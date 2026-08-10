@@ -10,11 +10,17 @@
 
 ```
 1. Load clip (3 sources : trending store, Supabase DB, ou upload)
+1b. Burned-in caption detection fires in parallel (non-blocking, trending clips only)
+   -> POST /api/enhance/detect-captions -> VPS /render/detect-captions
+   -> VPS extracts 3 frames (25%/50%/75%), crops bottom+center thirds
+   -> Claude Haiku vision analyzes for burned-in subtitles
+   -> Result stored in `burnedCaptions` state ({detected, position, confidence})
 2. User clique "AI Optimize"
 3. Systeme :
    -> detecte le mood (Claude Haiku, fallback 'hype' si timeout)
    -> genere hook text + reorder segments (VPS Railway)
    -> applique le mood preset (~20 settings d'un coup)
+   -> if burnedCaptions.detected && confidence >= 0.7: captions OFF in preset
    -> joue la sequence d'analyse fake (6 steps, ~4s)
    -> trigger auto-render (FFmpeg via VPS)
 4. Render pipeline :
@@ -43,6 +49,8 @@ Alternative : user change les settings manuellement (sans AI Optimize)
 | `components/enhance/tag-panel.tsx` | Panel "Streamer tag" extrait — grille de styles + slider taille (~150 lignes) |
 | `lib/enhance/scoring.ts` | Scoring engine : types, constantes, `computeScores()`, `computeCurrentScore()`, `computeScoreBreakdown()` (~580 lignes) |
 | `lib/enhance/analysis-copy.ts` | Justifications par mood, display names, fake dynamic data seeded, confidence labels (~150 lignes) |
+| `app/api/enhance/detect-captions/route.ts` | Proxy to VPS for burned-in caption detection |
+| `vps/lib/caption-detector.js` | Frame extraction + Haiku vision for burned-in subtitle detection |
 | `lib/ai/mood-detector.ts` | Claude Haiku call — detecte mood + important_words (~140 lignes) |
 | `lib/ai/mood-presets.ts` | 6 moods (rage/funny/drama/wholesome/hype/story) + `MoodPreset` + `PLATFORM_THEME` (~230 lignes) |
 | `lib/capture-hook-overlay.ts` | Canvas 2D → PNG base64 du hook capsule (pas SVG foreignObject) |
@@ -231,6 +239,36 @@ Pas de Zustand store — tout le state est local au composant `EnhancePage` via 
   hookReorder: null,
 }
 ```
+
+---
+
+## Burned-in Caption Detection
+
+Detects whether the source clip already has subtitles/captions baked into the video pixels (common in TikTok reposts, translated clips, etc.).
+
+### Pipeline
+1. Enhance page loads clip -> fires `POST /api/enhance/detect-captions` (non-blocking, trending clips only)
+2. Next.js route proxies to VPS `POST /render/detect-captions`
+3. VPS downloads video via yt-dlp (or direct fetch), extracts 3 frames at 25%/50%/75% of duration
+4. Each frame is cropped to bottom third AND center third (6 images total), resized to 480px wide, JPEG q=8
+5. All images sent to Claude Haiku vision with a strict prompt asking for `{burned_captions, position, confidence}`
+6. Result returned to enhance page, stored in `burnedCaptions` state
+7. Timeout 20s per Haiku call + 1 retry. Silent failure = `burned_captions: false`.
+
+### Adaptation
+- **AI Optimize**: if `burned_captions=true` AND `confidence >= 0.7` -> captions set to OFF in preset (step 1 of `applyMoodPresetStage`). Score points redistribute naturally via diminishing returns.
+- **UI**: `CaptionsSection` shows amber warning banner: "This clip already has captions — ours are off to avoid doubling. You can still turn them on if you want."
+- **User override**: toggle always available — user can force captions ON despite warning.
+- **Never blocks**: detection is fire-and-forget. If not ready when AI Optimize runs, default behavior (captions ON).
+
+### Files
+- `vps/lib/caption-detector.js` — frame extraction + Haiku vision
+- `vps/routes/render.js` — `POST /detect-captions` endpoint
+- `app/api/enhance/detect-captions/route.ts` — Next.js proxy route
+- `components/enhance/accordion-sections/captions-section.tsx` — warning badge UI
+
+### Cost
+~6 images per detection, Haiku vision. Estimated ~$0.002-0.005 per detection (logged in `ai_calls` table, feature: `caption_detection`).
 
 ---
 

@@ -1,7 +1,7 @@
 'use client'
 
 import { cn } from '@/lib/utils'
-import { Type, Zap, Plus, X } from 'lucide-react'
+import { Type, Zap, Plus, X, AlertTriangle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { AccordionItem, AccordionTrigger, AccordionContent } from '@/components/ui/accordion'
 import { Label } from '@/components/ui/label'
@@ -18,12 +18,14 @@ interface CaptionsSectionProps extends AccordionSectionProps {
   showBonus?: boolean
   /** Ephemeral delta to show briefly on manual change */
   ephemeralDelta?: number | null
+  /** Whether burned-in captions were detected in the source clip */
+  burnedCaptionsDetected?: boolean
 }
 
 export function CaptionsSection({
   settings, updateSetting, scoreBreakdown, hasAiAnalyzed, analysisComplete, moodAiDetected,
   selectedMood, scores, getRealImpact, sectionRef, hideGranular = false,
-  showBonus = false, ephemeralDelta,
+  showBonus = false, ephemeralDelta, burnedCaptionsDetected,
 }: CaptionsSectionProps) {
   return (
     <AccordionItem value="captions" ref={sectionRef as React.Ref<HTMLDivElement>} className={cn("scroll-mt-32 va-panel px-4 overflow-hidden", settings.captionStyle !== 'none' ? 'va-panel-active' : 'va-panel-muted')}>
@@ -51,6 +53,17 @@ export function CaptionsSection({
       <AccordionContent>
         {scores && (
           <div className="space-y-5">
+            {burnedCaptionsDetected && (
+              <div className="flex items-start gap-2.5 p-3 rounded-lg border border-amber-500/25 bg-amber-500/5">
+                <AlertTriangle className="h-4 w-4 text-amber-400 shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-xs font-medium text-amber-400">This clip already has captions</p>
+                  <p className="text-[10px] text-muted-foreground mt-0.5">
+                    Ours are off to avoid doubling. You can still turn them on if you want.
+                  </p>
+                </div>
+              </div>
+            )}
             <div className="space-y-2">
               <Label className="text-xs uppercase tracking-wider text-muted-foreground">Style</Label>
               <div className="grid grid-cols-3 gap-2">
