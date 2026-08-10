@@ -15,25 +15,30 @@ self.addEventListener('install', () => {
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     (async () => {
-      // 1. Delete ALL caches (va-v1, va-v2, any others)
+      // 1. Check if there are stale caches to clean (old SW was here)
       const keys = await caches.keys()
-      await Promise.all(keys.map((k) => caches.delete(k)))
+      const hadCaches = keys.length > 0
 
-      // 2. Claim all clients so we can reload them
-      await self.clients.claim()
-
-      // 3. Unregister this service worker
-      const reg = await self.registration.unregister()
-      if (reg) {
-        // eslint-disable-next-line no-console
-        console.log('[sw] Service worker unregistered — kill switch complete')
+      // 2. Delete ALL caches
+      if (hadCaches) {
+        await Promise.all(keys.map((k) => caches.delete(k)))
       }
 
-      // 4. Reload all open tabs to clear any cached navigation responses
-      const clients = await self.clients.matchAll({ type: 'window' })
-      for (const client of clients) {
-        if (client.url && 'navigate' in client) {
-          client.navigate(client.url)
+      // 3. Claim all clients
+      await self.clients.claim()
+
+      // 4. Unregister this service worker
+      await self.registration.unregister()
+
+      // 5. Reload tabs ONLY if we actually cleaned stale caches
+      //    (= old SW was installed). Without this guard, a fresh
+      //    register() → activate with no caches would reload in a loop.
+      if (hadCaches) {
+        const allClients = await self.clients.matchAll({ type: 'window' })
+        for (const client of allClients) {
+          if (client.url && 'navigate' in client) {
+            client.navigate(client.url)
+          }
         }
       }
     })()
