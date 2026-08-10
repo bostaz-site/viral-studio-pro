@@ -2259,7 +2259,7 @@ export default function EnhancePage() {
                           className="rounded-xl border border-border p-2.5 text-center opacity-50 cursor-not-allowed"
                         >
                           <Zap className="h-4 w-4 mx-auto mb-1 text-zinc-500" />
-                          <span className="text-[10px] font-bold text-foreground block">Moment fort 1er</span>
+                          <span className="text-[10px] font-bold text-foreground block">Peak moment first</span>
                           <span className="text-[8px] px-1 py-0.5 rounded bg-zinc-700/60 text-zinc-400 font-bold uppercase tracking-wider">Coming Soon</span>
                         </div>
                       </div>
