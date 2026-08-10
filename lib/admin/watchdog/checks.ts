@@ -335,6 +335,41 @@ export async function checkTrendingClipsFreshness(admin: SupabaseClient): Promis
   }
 }
 
+/**
+ * yt-dlp extractor health — calls VPS GET /api/health/ytdlp to verify
+ * the pinned yt-dlp version can still extract Twitch clips.
+ * If broken: alert so we bump YT_DLP_VERSION in vps/Dockerfile.
+ */
+export async function checkYtdlpExtractor(): Promise<AlertCandidate | null> {
+  const vpsUrl = process.env.VPS_RENDER_URL
+  const vpsKey = process.env.VPS_RENDER_API_KEY
+  if (!vpsUrl || !vpsKey) return null
+
+  try {
+    const res = await fetch(`${vpsUrl}/api/health/ytdlp`, {
+      headers: { 'x-api-key': vpsKey },
+      signal: AbortSignal.timeout(35_000),
+    })
+    if (res.ok) return null
+    const body = await res.json().catch(() => ({ error: `HTTP ${res.status}` }))
+    return {
+      severity: 'critical',
+      category: 'vps',
+      title: 'yt-dlp extractor broken — Twitch downloads failing',
+      description: `VPS /api/health/ytdlp returned ${res.status}: ${(body as Record<string, string>).error ?? 'unknown'}. Bump YT_DLP_VERSION in vps/Dockerfile and redeploy.`,
+      metadata: { status: res.status, error: (body as Record<string, string>).error },
+    }
+  } catch (err) {
+    return {
+      severity: 'critical',
+      category: 'vps',
+      title: 'yt-dlp health check unreachable',
+      description: `Could not reach VPS health endpoint: ${err instanceof Error ? err.message : 'unknown'}. VPS may be down or network issue.`,
+      metadata: { error: err instanceof Error ? err.message : 'unknown' },
+    }
+  }
+}
+
 // ═══════════════════════════════════════
 //  RUN ALL CHECKS
 // ═══════════════════════════════════════
@@ -348,6 +383,7 @@ export async function runAllChecks(admin: SupabaseClient): Promise<AlertCandidat
     checkStripeConnectRejected(admin),
     checkWebhookFailSpike(admin),
     checkTrendingClipsFreshness(admin),
+    checkYtdlpExtractor(),
     // Important
     checkHotLeadsStale(admin),
     checkDormantAffiliates(admin),

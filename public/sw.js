@@ -1,5 +1,5 @@
 // Viral Animal Service Worker — manual (no next-pwa)
-const CACHE_NAME = 'va-v1'
+const CACHE_NAME = 'va-v2'
 const STATIC_ASSETS = ['/offline.html']
 
 // Install: pre-cache offline page

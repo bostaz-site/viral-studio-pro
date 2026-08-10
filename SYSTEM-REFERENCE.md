@@ -376,6 +376,7 @@ When the VPS webhook (`hook/route.ts`) reports `status: 'error'`:
 - VPS: `VPS_RENDER_URL` (Railway) — authenticates with `VPS_RENDER_API_KEY`
 - Supabase Storage: `clips/` for output, `thumbnails/` for thumbnails
 - Supabase Realtime: postgres_changes on `render_jobs` table
+- yt-dlp: pinned in `vps/Dockerfile` `ARG YT_DLP_VERSION=2026.07.04`. Bump when Twitch/YouTube break extractors. Watchdog `checkYtdlpExtractor()` probes `GET /api/health/ytdlp` (30s timeout, known Twitch clip) and alerts Discord if broken.
 
 ### Adaptive Exposure (4 buckets)
 VPS probes average luma of source video and applies eq filter: <65 luma (dark: b=0.035 c=1.08), 65-95 (dim: b=0.015 c=1.05), 95-140 (normal: c=1.02), >140 (no eq). Gentler than before to survive TikTok re-encode.

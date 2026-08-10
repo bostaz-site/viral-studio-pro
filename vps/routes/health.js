@@ -100,4 +100,44 @@ router.get('/queue', (req, res) => {
   });
 });
 
+// ─────────────────────────────────────────────────────────────────────────────
+// GET /api/health/ytdlp — Deep yt-dlp extractor health check
+//
+// Runs `yt-dlp --get-title` on a known stable Twitch clip. If the extractor
+// is broken (Twitch API change), this fails before any user hits it.
+// Called by the watchdog cron from the Next.js app.
+// Auth: x-api-key (same as render routes).
+// ─────────────────────────────────────────────────────────────────────────────
+
+const YTDLP_PROBE_URL = 'https://clips.twitch.tv/CalmClearWatermelonBCouch';
+
+router.get('/ytdlp', async (req, res) => {
+  const apiKey = req.headers['x-api-key'];
+  const expectedKey = process.env.VPS_RENDER_API_KEY || process.env.API_SECRET;
+  if (!apiKey || !expectedKey || apiKey !== expectedKey) {
+    return res.status(401).json({ ok: false, error: 'Unauthorized' });
+  }
+
+  try {
+    const ytdlpPath = process.env.YTDLP_PATH || 'yt-dlp';
+    const { execFile } = await import('child_process');
+    const { promisify } = await import('util');
+    const execFileAsync = promisify(execFile);
+
+    const { stdout } = await execFileAsync(ytdlpPath, ['--get-title', YTDLP_PROBE_URL], {
+      timeout: 30_000,
+    });
+
+    const title = stdout.trim();
+    if (!title) {
+      return res.status(502).json({ ok: false, error: 'yt-dlp returned empty title' });
+    }
+
+    res.json({ ok: true, title });
+  } catch (err) {
+    logger.error({ err: err.message }, 'yt-dlp extractor health check failed');
+    res.status(502).json({ ok: false, error: err.message || 'yt-dlp extractor broken' });
+  }
+});
+
 export default router;

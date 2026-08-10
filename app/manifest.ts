@@ -4,11 +4,11 @@ export default function manifest(): MetadataRoute.Manifest {
   return {
     name: 'Viral Animal',
     short_name: 'ViralAnimal',
-    description: 'Boost your clips\' virality',
+    description: 'The radar finds clips blowing up. You post them in three clicks.',
     start_url: '/dashboard',
     display: 'standalone',
-    background_color: '#0a0a0a',
-    theme_color: '#f97316',
+    background_color: '#020617',
+    theme_color: '#020617',
     orientation: 'portrait',
     icons: [
       {

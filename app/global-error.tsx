@@ -30,7 +30,7 @@ export default function GlobalError({
           <div style={{ display: 'flex', gap: '0.75rem' }}>
             <button
               onClick={reset}
-              style={{ padding: '0.5rem 1rem', borderRadius: '0.5rem', backgroundColor: '#3b82f6', color: 'white', border: 'none', cursor: 'pointer', fontSize: '0.875rem', fontWeight: 500 }}
+              style={{ padding: '0.5rem 1rem', borderRadius: '0.5rem', background: 'linear-gradient(180deg, #FBBF24, #D97706)', color: '#1A1206', border: 'none', cursor: 'pointer', fontSize: '0.875rem', fontWeight: 700 }}
             >
               Try again
             </button>
