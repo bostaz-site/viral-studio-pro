@@ -86,41 +86,46 @@ export function ClipBankRail({
       return
     }
 
+    // Stop any other playing clip
+    if (videoRef.current) { videoRef.current.pause(); videoRef.current.src = '' }
+
     setPlayingClipId(clipId)
-    // Check cache
-    if (videoCache.current.has(clipId)) {
-      setVideoUrl(videoCache.current.get(clipId)!)
-      return
-    }
-    // Get signed URL from Supabase Storage (rendered clip in 'clips' bucket)
-    setVideoLoading(true)
     setVideoUrl(null)
-    try {
-      const supabase = createClient()
-      const { data, error } = await supabase.storage.from('clips').createSignedUrl(clip.storagePath, 3600)
-      if (data?.signedUrl) {
-        videoCache.current.set(clipId, data.signedUrl)
-        setVideoUrl(data.signedUrl)
-      } else {
-        // Fallback: try public URL (clips bucket has public read policy)
-        console.warn('[clip-bank] createSignedUrl failed, trying public URL:', error?.message)
-        const { data: pubData } = supabase.storage.from('clips').getPublicUrl(clip.storagePath)
-        if (pubData?.publicUrl) {
-          videoCache.current.set(clipId, pubData.publicUrl)
-          setVideoUrl(pubData.publicUrl)
+
+    // Resolve URL (cached or fresh signed URL)
+    let url = videoCache.current.get(clipId) ?? null
+    if (!url) {
+      setVideoLoading(true)
+      try {
+        const supabase = createClient()
+        const { data, error } = await supabase.storage.from('clips').createSignedUrl(clip.storagePath, 3600)
+        if (data?.signedUrl) {
+          url = data.signedUrl
+          videoCache.current.set(clipId, url)
         } else {
-          console.warn('[clip-bank] public URL also failed for', clipId)
-          setPlayError(clipId)
-          setPlayingClipId(null)
+          console.warn('[clip-bank] createSignedUrl failed, trying public URL:', error?.message)
+          const { data: pubData } = supabase.storage.from('clips').getPublicUrl(clip.storagePath)
+          if (pubData?.publicUrl) {
+            url = pubData.publicUrl
+            videoCache.current.set(clipId, url)
+          }
         }
+      } catch (err) {
+        console.warn('[clip-bank] storage error for', clipId, err)
+      } finally {
+        setVideoLoading(false)
       }
-    } catch (err) {
-      console.warn('[clip-bank] storage error for', clipId, err)
+    }
+
+    if (!url) {
       setPlayError(clipId)
       setPlayingClipId(null)
-    } finally {
-      setVideoLoading(false)
+      return
     }
+
+    // Set URL — the video element will mount on next render.
+    // We use a ref callback + onCanPlay to call play() imperatively.
+    setVideoUrl(url)
   }
 
   // Brief error indicator on the play button when video can't be loaded
@@ -284,14 +289,35 @@ export function ClipBankRail({
                         {isDraftWithThumb && <div className="dist-clip-thumb-overlay" />}
                         {/* Video preview (click-to-play) */}
                         {playingClipId === clip.id && videoUrl && (
-                          <video
-                            ref={videoRef}
-                            key={videoUrl}
-                            src={videoUrl}
-                            autoPlay muted loop playsInline
-                            className="dist-clip-video-preview"
-                            onClick={(e) => handlePlayClick(clip.id, e)}
-                          />
+                          <>
+                            <video
+                              ref={videoRef}
+                              key={videoUrl}
+                              src={videoUrl}
+                              controls
+                              playsInline
+                              className="dist-clip-video-preview"
+                              onCanPlay={(ev) => {
+                                const v = ev.currentTarget
+                                v.play().catch(() => {
+                                  // Autoplay blocked — user can use controls
+                                })
+                              }}
+                              onError={() => {
+                                setPlayError(clip.id)
+                                setPlayingClipId(null)
+                                setVideoUrl(null)
+                              }}
+                            />
+                            <button
+                              type="button"
+                              className="dist-clip-video-close"
+                              onClick={(e) => { e.stopPropagation(); setPlayingClipId(null); setVideoUrl(null); if (videoRef.current) { videoRef.current.pause(); videoRef.current.src = '' } }}
+                              aria-label="Close video"
+                            >
+                              <X size={14} />
+                            </button>
+                          </>
                         )}
                         {playingClipId === clip.id && videoLoading && (
                           <div className="dist-clip-video-loading">

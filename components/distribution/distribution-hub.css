@@ -2065,7 +2065,9 @@
   opacity: 0;
   transition: opacity .2s;
   background: rgba(2, 6, 23, 0.35);
-  pointer-events: none;
+  pointer-events: auto;
+  z-index: 6;
+  cursor: pointer;
 }
 .dist-clip:hover .play-glyph { opacity: 1; }
 
@@ -3933,7 +3935,25 @@
   object-fit: cover;
   z-index: 5;
   border-radius: inherit;
+  background: #000;
 }
+.dist-clip-video-close {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  z-index: 8;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: rgba(0,0,0,0.7);
+  border: 1px solid rgba(255,255,255,0.2);
+  color: #fff;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.dist-clip-video-close:hover { background: rgba(0,0,0,0.9); }
 .dist-clip-video-loading {
   position: absolute;
   inset: 0;

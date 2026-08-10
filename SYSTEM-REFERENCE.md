@@ -85,6 +85,7 @@ Browse (decouvrir) -> Enhance (transformer) -> Distribution (publier) -> Analyti
    - `POST /api/distribution/bank` avec `{ clipId }`
    - Verifie `render_jobs.status='done'`, restore `removed_from_bank_at=null` si besoin
    - Le clip apparait dans la Clip Bank rail de `/dashboard/distribution`
+   - Bank card play: click play glyph → signed URL from `clips` bucket → `<video controls>` with imperative `play()`. Close via X button. One clip at a time.
    - Triggers chain farming (next-best clip)
 
 ---
