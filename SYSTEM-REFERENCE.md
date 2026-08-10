@@ -99,7 +99,7 @@ Dashboard page displaying ranked streamer clips with feed tabs, filters, infinit
 3. Apply filters (search, platform, niche, duration) -> server-side re-fetch with filter params (search debounced 300ms)
 4. Hover on card -> resolves video URL -> inline preview plays
 5. **Make It Viral** (primary CTA): click -> `router.push('/dashboard/enhance/{clipId}')` for full enhance editor
-6. **Quick Export** (secondary CTA): Zap icon button, calls `POST /api/render/quick` -> renders in background -> notification toast with Download/View on completion. Note: API is WIRED_REAL but CTA is not yet exposed on cards in current UI (accessible via detail modal)
+6. **Quick Export** (secondary CTA): Zap icon on every card. `POST /api/render/quick` -> polls via `useRenderSubscription` (Realtime + polling fallback, adaptive backoff 3s-30s). State persisted in sessionStorage (survives grid re-render/F5). Done: toast with [Publish now] + [View bank]. Error: toast with [Retry]. Card shows green CheckCircle2 for exported clips (`exportedClipIds` Set).
 7. "Load more" -> `GET /api/trending?cursor={score}_{id}&limit=50` with same filter params
 
 ### Files

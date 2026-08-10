@@ -3,7 +3,7 @@
 import { useState, useRef, useCallback, useEffect, memo } from 'react'
 import Image from 'next/image'
 import { motion } from 'framer-motion'
-import { ExternalLink, Sparkles, Flame, Bookmark, SlidersHorizontal, Zap } from 'lucide-react'
+import { ExternalLink, Sparkles, Flame, Bookmark, SlidersHorizontal, Zap, CheckCircle2 } from 'lucide-react'
 import { WolfLoader } from '@/components/ui/wolf-loader'
 import { getRankTierClass, DiamondCorner } from '@/components/trending/rank-badge'
 import { getClipVerdict, getDynamicCTA, getVerdictColor, type CTAIcon } from '@/lib/browse/clip-verdict'
@@ -321,6 +321,7 @@ export const TrendingCard = memo(function TrendingCard({ clip, onRemix, onQuickE
   const tilt = useTilt({ rotateAmplitude: tiltAmplitude, scaleOnHover: 1.0 })
 
   const isExporting = quickExportState?.clipId === clip.id && quickExportState.status === 'rendering'
+  const isExported = quickExportState?.clipId === clip.id && quickExportState.status === 'done'
 
   const verdict = getClipVerdict(clip)
   const dynamicCTA = getDynamicCTA(clip)
@@ -542,15 +543,17 @@ export const TrendingCard = memo(function TrendingCard({ clip, onRemix, onQuickE
                   disabled={isExporting}
                   className="h-[44px] px-3 flex-shrink-0 flex items-center justify-center border-l border-amber-700/40"
                   style={{
-                    background: 'linear-gradient(180deg, #5C4400 0%, #3A2A00 50%, #2A1E00 100%)',
+                    background: isExported
+                      ? 'linear-gradient(180deg, #1a3a1a 0%, #0a2a0a 50%, #052005 100%)'
+                      : 'linear-gradient(180deg, #5C4400 0%, #3A2A00 50%, #2A1E00 100%)',
                     borderRadius: '0 10px 10px 0',
-                    border: '2px solid #DAA520',
+                    border: isExported ? '2px solid #22c55e' : '2px solid #DAA520',
                     borderLeft: '1px solid rgba(139,105,20,.4)',
-                    color: '#FFE9A8',
+                    color: isExported ? '#4ADE80' : '#FFE9A8',
                   }}
-                  title="Quick Export"
+                  title={isExported ? 'In your bank \u2014 export again?' : 'Quick Export'}
                 >
-                  {isExporting ? <WolfLoader variant="spinner" size={14} mode="amber" /> : <Zap className="h-3.5 w-3.5" />}
+                  {isExporting ? <WolfLoader variant="spinner" size={14} mode="amber" /> : isExported ? <CheckCircle2 className="h-3.5 w-3.5" /> : <Zap className="h-3.5 w-3.5" />}
                 </button>
               )}
               {/* Bookmark — opacity 0 → 1 on hover (C2) */}
@@ -750,10 +753,15 @@ export const TrendingCard = memo(function TrendingCard({ clip, onRemix, onQuickE
               <button
                 onClick={(e) => { e.stopPropagation(); onQuickExport(clip) }}
                 disabled={isExporting}
-                className="cta-viral h-[44px] px-2.5 flex-shrink-0 flex items-center justify-center rounded-r-xl border-l border-amber-800/30 relative z-10"
-                title="Quick Export"
+                className={cn(
+                  'h-[44px] px-2.5 flex-shrink-0 flex items-center justify-center rounded-r-xl border-l relative z-10',
+                  isExported
+                    ? 'bg-emerald-950/80 border-emerald-700/30 text-emerald-400'
+                    : 'cta-viral border-amber-800/30',
+                )}
+                title={isExported ? 'In your bank \u2014 export again?' : 'Quick Export'}
               >
-                {isExporting ? <WolfLoader variant="spinner" size={14} mode="amber" /> : <Zap className="h-3.5 w-3.5" />}
+                {isExporting ? <WolfLoader variant="spinner" size={14} mode="amber" /> : isExported ? <CheckCircle2 className="h-3.5 w-3.5" /> : <Zap className="h-3.5 w-3.5" />}
               </button>
             )}
           </div>

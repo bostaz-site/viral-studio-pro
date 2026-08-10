@@ -43,8 +43,20 @@ export default function DashboardPage() {
   const [loadingRemixes, setLoadingRemixes] = useState(false)
   const [detailClip, setDetailClip] = useState<TrendingClip | null>(null)
 
-  // Quick Export state
-  const [quickExport, setQuickExport] = useState<QuickExportState | null>(null)
+  // Quick Export state — persisted in sessionStorage so grid re-renders don't lose it
+  const [quickExport, setQuickExport] = useState<QuickExportState | null>(() => {
+    if (typeof window === 'undefined') return null
+    try {
+      const stored = sessionStorage.getItem('va-quick-export')
+      if (!stored) return null
+      const parsed = JSON.parse(stored) as QuickExportState
+      // Only restore active renders (not stale done/error from previous session)
+      if (parsed.status === 'rendering') return parsed
+      return null
+    } catch { return null }
+  })
+  // Track which clip IDs have a done render (for ✓ state on cards)
+  const [exportedClipIds, setExportedClipIds] = useState<Set<string>>(new Set())
   const [renderNotification, setRenderNotification] = useState<{
     clipId: string
     clipTitle: string | null
@@ -53,6 +65,16 @@ export default function DashboardPage() {
     errorMessage?: string | null
   } | null>(null)
   const notifTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const lastExportedClipRef = useRef<TrendingClip | null>(null)
+
+  // Persist quickExport to sessionStorage
+  useEffect(() => {
+    if (quickExport && quickExport.status === 'rendering') {
+      try { sessionStorage.setItem('va-quick-export', JSON.stringify(quickExport)) } catch {}
+    } else {
+      try { sessionStorage.removeItem('va-quick-export') } catch {}
+    }
+  }, [quickExport])
 
   const {
     filteredClips,
@@ -182,6 +204,7 @@ export default function DashboardPage() {
       }
 
       setQuickExport({ clipId: clip.id, jobId, status: 'rendering' })
+      lastExportedClipRef.current = clip
     } catch {
       setQuickExport({ clipId: clip.id, jobId: '', status: 'error', errorMessage: 'Network error' })
     }
@@ -196,8 +219,9 @@ export default function DashboardPage() {
       .then(json => {
         const downloadUrl = json?.data?.downloadUrl ?? null
         setQuickExport(prev => prev ? { ...prev, status: 'done', downloadUrl } : null)
-        // Find clip title from store
-        const clip = clips.find(c => c.id === quickExport.clipId)
+        // Mark clip as exported for ✓ badge
+        setExportedClipIds(prev => new Set(prev).add(quickExport.clipId))
+        const clip = lastExportedClipRef.current ?? clips.find(c => c.id === quickExport.clipId)
         setRenderNotification({
           clipId: quickExport.clipId,
           clipTitle: clip?.title ?? null,
@@ -207,6 +231,7 @@ export default function DashboardPage() {
       })
       .catch(() => {
         setQuickExport(prev => prev ? { ...prev, status: 'done' } : null)
+        setExportedClipIds(prev => new Set(prev).add(quickExport.clipId))
       })
   }, [quickExport, clips])
 
@@ -717,7 +742,13 @@ export default function DashboardPage() {
                   onRemix={handleEnhance}
                   onQuickExport={handleQuickExport}
                   onShowDetail={setDetailClip}
-                  quickExportState={quickExport}
+                  quickExportState={
+                    quickExport?.clipId === clip.id
+                      ? quickExport
+                      : exportedClipIds.has(clip.id)
+                        ? { clipId: clip.id, jobId: '', status: 'done' }
+                        : null
+                  }
                   remixing={false}
                   isSaved={savedClipIds.has(clip.id)}
                   onToggleSave={toggleSaveClip}
@@ -784,7 +815,7 @@ export default function DashboardPage() {
           <div className="flex-1 min-w-0">
             <p className="text-sm font-semibold text-white truncate">
               {renderNotification.status === 'done'
-                ? 'Your clip is ready!'
+                ? '\u2713 Clip ready \u2014 added to your Clip Bank'
                 : renderNotification.errorMessage ?? 'Export failed'}
             </p>
             {renderNotification.clipTitle && (
@@ -794,21 +825,31 @@ export default function DashboardPage() {
           <div className="flex items-center gap-2 shrink-0">
             {renderNotification.status === 'done' && (
               <button
-                onClick={() => router.push(`/dashboard/enhance/${renderNotification.clipId}`)}
+                onClick={() => router.push(`/dashboard/enhance/${renderNotification.clipId}?source=trending`)}
                 className="px-4 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold transition-colors"
               >
-                Enhance
+                Publish now
               </button>
             )}
-            {renderNotification.status === 'done' && renderNotification.downloadUrl && (
-              <a
-                href={renderNotification.downloadUrl}
-                download
-                onClick={(e) => e.stopPropagation()}
+            {renderNotification.status === 'done' && (
+              <button
+                onClick={() => router.push('/dashboard/distribution')}
                 className="px-3 py-1.5 rounded-lg border border-zinc-700 hover:border-zinc-500 text-zinc-400 hover:text-white text-xs font-medium transition-all"
               >
-                Download
-              </a>
+                View bank
+              </button>
+            )}
+            {renderNotification.status === 'error' && renderNotification.clipId && (
+              <button
+                onClick={() => {
+                  setRenderNotification(null)
+                  const clip = clips.find(c => c.id === renderNotification.clipId)
+                  if (clip) handleQuickExport(clip)
+                }}
+                className="px-3 py-1.5 rounded-lg border border-zinc-700 hover:border-zinc-500 text-zinc-400 hover:text-white text-xs font-medium transition-all"
+              >
+                Retry
+              </button>
             )}
             <button
               onClick={() => setRenderNotification(null)}
