@@ -8,6 +8,8 @@ import type { TrendingClip } from '@/types/trending'
 interface TopPickCardProps {
   clip: TrendingClip
   onEnhance: (clip: TrendingClip) => void
+  /** True when the grid contains a clip with a higher score but older than 12h */
+  hasHigherOlderClip?: boolean
 }
 
 /* ── SVG defs (namespaced tp-* to avoid grid conflicts) ── */
@@ -105,11 +107,16 @@ function AnimatedScore({ value }: { value: number }) {
   return <span className="tp-score tp-score-sweep">{display}</span>
 }
 
-export function TopPickCard({ clip, onEnhance }: TopPickCardProps) {
+export function TopPickCard({ clip, onEnhance, hasHigherOlderClip = false }: TopPickCardProps) {
   const score = Math.round(clip.velocity_score ?? 0)
   const insight = getClipInsight(clip)
   const age = timeAgo(clip.clip_created_at ?? clip.scraped_at)
   const niche = clip.niche ?? ''
+
+  // Dynamic explanation line
+  const explanation = hasHigherOlderClip
+    ? 'Higher scores below already peaked \u2014 this one is still early.'
+    : insight?.text ?? 'High momentum \u00b7 detected before peak'
 
   return (
     <>
@@ -176,15 +183,17 @@ export function TopPickCard({ clip, onEnhance }: TopPickCardProps) {
                   <p className="text-[11px] text-zinc-400 truncate">
                     @{clip.author_handle ?? clip.author_name ?? 'unknown'}
                     {niche && ` \u00b7 ${niche}`}
-                    {age && ` \u00b7 ${age} ago`}
+                    {age && (
+                      <span style={{ color: '#F59E0B', fontWeight: 700 }}>
+                        {' \u00b7 '}{age} ago {'\u2197'} still climbing
+                      </span>
+                    )}
                   </p>
 
-                  {insight && (
-                    <p className="text-[11px] font-medium text-zinc-500">
-                      <span style={{ color: '#F59E0B' }}>{insight.icon}</span>{' '}
-                      {insight.text}
-                    </p>
-                  )}
+                  <p className="text-[11px] font-medium text-zinc-500" title="Top Pick = strongest clip detected in the last 12h, before its peak. Older clips keep their score but lose the crown.">
+                    <span style={{ color: '#F59E0B' }}>{insight?.icon ?? '\u26A1'}</span>{' '}
+                    {explanation}
+                  </p>
                 </div>
 
                 {/* Right — score + CTA */}

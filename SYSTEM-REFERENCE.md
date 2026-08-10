@@ -100,7 +100,8 @@ Dashboard page displaying ranked streamer clips with feed tabs, filters, infinit
 4. Hover on card -> resolves video URL -> inline preview plays
 5. **Make It Viral** (primary CTA): click -> `router.push('/dashboard/enhance/{clipId}')` for full enhance editor
 6. **Quick Export** (secondary CTA): Zap icon on every card. `POST /api/render/quick` -> polls via `useRenderSubscription` (Realtime + polling fallback, adaptive backoff 3s-30s). State persisted in sessionStorage (survives grid re-render/F5). Done: toast with [Publish now] + [View bank]. Error: toast with [Retry]. Card shows green CheckCircle2 for exported clips (`exportedClipIds` Set).
-7. "Load more" -> `GET /api/trending?cursor={score}_{id}&limit=50` with same filter params
+7. **Top Pick** card (`top-pick-card.tsx`): best clip with `score >= 75, feed_category in (early_gem, hot_now), age < 12h`. Age shown in amber bold with "\u2197 still climbing". Dynamic explanation: if grid contains a higher-scoring clip older than 12h → "Higher scores below already peaked — this one is still early." Tooltip: "Top Pick = strongest clip detected in the last 12h, before its peak. Older clips keep their score but lose the crown."
+8. "Load more" -> `GET /api/trending?cursor={score}_{id}&limit=50` with same filter params
 
 ### Files
 - `app/(dashboard)/dashboard/page.tsx` — page, feed tabs, upload, remix tab, grid

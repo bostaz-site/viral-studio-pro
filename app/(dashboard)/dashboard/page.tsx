@@ -467,6 +467,22 @@ export default function DashboardPage() {
     )
   }, [filteredClips, filters.feed, usedClipIds])
 
+  // Check if any clip in the grid has a higher score than the top pick but is older than 12h
+  // (this triggers the explanation "Higher scores below already peaked")
+  const hasHigherOlderClip = useMemo(() => {
+    if (!topPickClip) return false
+    const topScore = topPickClip.velocity_score ?? 0
+    const TWELVE_HOURS = 12 * 60 * 60 * 1000
+    const now = Date.now()
+    return filteredClips.some(c => {
+      if (c.id === topPickClip.id) return false
+      if ((c.velocity_score ?? 0) <= topScore) return false
+      const created = c.clip_created_at ?? c.scraped_at
+      if (!created) return false
+      return now - new Date(created).getTime() > TWELVE_HOURS
+    })
+  }, [topPickClip, filteredClips])
+
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
       <FirstClipOverlay />
@@ -744,7 +760,7 @@ export default function DashboardPage() {
           {/* Top Pick — compact diamond card (only shown when a clip meets criteria) */}
           {topPickClip && (
             <div className="py-4 px-2">
-              <TopPickCard clip={topPickClip} onEnhance={handleEnhance} />
+              <TopPickCard clip={topPickClip} onEnhance={handleEnhance} hasHigherOlderClip={hasHigherOlderClip} />
             </div>
           )}
 
