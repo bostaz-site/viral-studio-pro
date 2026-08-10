@@ -352,13 +352,17 @@ export const POST = withAuth(async (request, user) => {
     settings: {
       captions: settings?.captions ?? { enabled: true, style: 'word-pop', wordsPerLine: 4 },
       splitScreen: settings?.splitScreen ?? { enabled: false },
-      hook: settings?.hook ?? { enabled: false },
+      hook: {
+        ...(settings?.hook ?? { enabled: false }),
+        reorderEnabled: false, // frozen (COMING_SOON_FEATURES)
+        reorder: null,
+      },
       tag: settings?.tag ?? { style: 'none' },
       format: {
         aspectRatio: settings?.format?.aspectRatio ?? '9:16',
         videoZoom: settings?.format?.videoZoom ?? 'contain',
       },
-      smartZoom: settings?.smartZoom ?? { enabled: false, mode: 'micro' },
+      smartZoom: { enabled: false, mode: 'micro' }, // frozen (COMING_SOON_FEATURES)
       audioEnhance: settings?.audioEnhance ?? { enabled: false },
       autoCut: settings?.autoCut ?? { enabled: false },
       sourcePlatform: clipPlatform ?? undefined,

@@ -424,29 +424,27 @@ export function computeCurrentScore(
   // Poids calibres sur la recherche 2026-07 — voir docs/research/viralite-calibration.md.
   // Hook=#1 (TikTok officiel), captions=preuve forte, split reduit (preuve anecdotique
   // + risque plateforme), bassBoost retire (inaudible sur telephone).
-  if (settings.captionsEnabled && settings.captionStyle !== 'none') totalWeight += 0.14
-  if (settings.emphasisEffect !== 'none') totalWeight += 0.06
-  if (settings.splitScreenEnabled) totalWeight += 0.07
-  if (settings.tagStyle !== 'none') totalWeight += 0.04
-  if (settings.hookEnabled) totalWeight += 0.13
-  // hookReorderEnabled is a SUB-feature of hookEnabled — only count if master hook is ON
-  if (settings.hookEnabled && settings.hookReorderEnabled) totalWeight += 0.07
-  if (settings.smartZoomEnabled) totalWeight += 0.03
-  if (settings.audioEnhanceEnabled) totalWeight += 0.05
-  // bassBoost: removed from scoring (phone speakers cut <150-200Hz, wastes loudness headroom)
-  if (settings.speedRamp === 'subtle') totalWeight += 0.02
-  else if (settings.speedRamp === 'dynamic') totalWeight += 0.02
-  if (settings.autoCutEnabled) totalWeight += 0.05
+  // Weights rebalanced: hookReorder (0.07) and smartZoom (0.03+0.02+0.02) removed,
+  // redistributed to remaining features so max total stays equivalent (~0.95+).
+  if (settings.captionsEnabled && settings.captionStyle !== 'none') totalWeight += 0.17
+  if (settings.emphasisEffect !== 'none') totalWeight += 0.08
+  if (settings.splitScreenEnabled) totalWeight += 0.09
+  if (settings.tagStyle !== 'none') totalWeight += 0.05
+  if (settings.hookEnabled) totalWeight += 0.15
+  // hookReorder + smartZoom: frozen (COMING_SOON_FEATURES) — weight 0
+  if (settings.audioEnhanceEnabled) totalWeight += 0.07
+  if (settings.speedRamp === 'subtle') totalWeight += 0.03
+  else if (settings.speedRamp === 'dynamic') totalWeight += 0.03
+  if (settings.autoCutEnabled) totalWeight += 0.07
 
   // Mood-match bonus weights (up to ~0.16 extra)
   if (detectedMood && MOOD_PRESETS[detectedMood]) {
     const preset = MOOD_PRESETS[detectedMood]
-    if (settings.captionsEnabled && settings.captionStyle === preset.captionStyle) totalWeight += 0.06
-    if (settings.emphasisEffect === preset.emphasisEffect) totalWeight += 0.04
-    if (settings.emphasisColor === preset.emphasisColor) totalWeight += 0.03
-    if (settings.videoZoom === preset.videoZoom) totalWeight += 0.02
-    if (settings.smartZoomEnabled && settings.smartZoomMode === preset.smartZoomMode) totalWeight += 0.02
-    if (settings.autoCutEnabled === preset.autoCutEnabled) totalWeight += 0.02
+    if (settings.captionsEnabled && settings.captionStyle === preset.captionStyle) totalWeight += 0.07
+    if (settings.emphasisEffect === preset.emphasisEffect) totalWeight += 0.05
+    if (settings.emphasisColor === preset.emphasisColor) totalWeight += 0.04
+    if (settings.videoZoom === preset.videoZoom) totalWeight += 0.03
+    if (settings.autoCutEnabled === preset.autoCutEnabled) totalWeight += 0.03
   } else {
     // Fallback generic best-option bonus when no mood detected
     if (settings.captionStyle === scores.best.captionStyle) totalWeight += 0.02
@@ -492,62 +490,52 @@ export function computeScoreBreakdown(
   // Define per-section weights (same calibrated weights as computeCurrentScore)
   const sections: { key: keyof Omit<ScoreBreakdown, 'total'>; weight: number }[] = []
 
-  // Captions
+  // Captions (rebalanced — zoom/reorder weights redistributed)
   let captionWeight = 0
-  if (settings.captionsEnabled && settings.captionStyle !== 'none') captionWeight += 0.14
-  if (settings.emphasisEffect !== 'none') captionWeight += 0.06
+  if (settings.captionsEnabled && settings.captionStyle !== 'none') captionWeight += 0.17
+  if (settings.emphasisEffect !== 'none') captionWeight += 0.08
   if (detectedMood && MOOD_PRESETS[detectedMood]) {
     const preset = MOOD_PRESETS[detectedMood]
-    if (settings.captionsEnabled && settings.captionStyle === preset.captionStyle) captionWeight += 0.06
-    if (settings.emphasisEffect === preset.emphasisEffect) captionWeight += 0.04
-    if (settings.emphasisColor === preset.emphasisColor) captionWeight += 0.03
+    if (settings.captionsEnabled && settings.captionStyle === preset.captionStyle) captionWeight += 0.07
+    if (settings.emphasisEffect === preset.emphasisEffect) captionWeight += 0.05
+    if (settings.emphasisColor === preset.emphasisColor) captionWeight += 0.04
   }
   sections.push({ key: 'captions', weight: captionWeight })
 
   // Split-Screen
   let splitWeight = 0
-  if (settings.splitScreenEnabled) splitWeight += 0.07
+  if (settings.splitScreenEnabled) splitWeight += 0.09
   sections.push({ key: 'splitScreen', weight: splitWeight })
 
   // Tag
   let tagWeight = 0
-  if (settings.tagStyle !== 'none') tagWeight += 0.04
+  if (settings.tagStyle !== 'none') tagWeight += 0.05
   sections.push({ key: 'tag', weight: tagWeight })
 
-  // Smart Zoom — mood-match bonuses only when enabled
-  let zoomWeight = 0
-  if (settings.smartZoomEnabled) {
-    zoomWeight += 0.03
-    if (detectedMood && MOOD_PRESETS[detectedMood]) {
-      const preset = MOOD_PRESETS[detectedMood]
-      if (settings.videoZoom === preset.videoZoom) zoomWeight += 0.02
-      if (settings.smartZoomMode === preset.smartZoomMode) zoomWeight += 0.02
-    }
-  }
-  sections.push({ key: 'smartZoom', weight: zoomWeight })
+  // Smart Zoom — frozen (COMING_SOON_FEATURES), always 0
+  sections.push({ key: 'smartZoom', weight: 0 })
 
-  // Audio (bassBoost removed from scoring — inaudible on phone speakers)
+  // Audio (rebalanced — zoom/reorder weights redistributed)
   let audioWeight = 0
-  if (settings.audioEnhanceEnabled) audioWeight += 0.05
-  if (settings.speedRamp === 'subtle') audioWeight += 0.02
-  else if (settings.speedRamp === 'dynamic') audioWeight += 0.02
+  if (settings.audioEnhanceEnabled) audioWeight += 0.07
+  if (settings.speedRamp === 'subtle') audioWeight += 0.03
+  else if (settings.speedRamp === 'dynamic') audioWeight += 0.03
   sections.push({ key: 'audio', weight: audioWeight })
 
-  // Auto-Cut — mood-match bonus only when actually enabled
+  // Auto-Cut (rebalanced)
   let cutWeight = 0
   if (settings.autoCutEnabled) {
-    cutWeight += 0.05
+    cutWeight += 0.07
     if (detectedMood && MOOD_PRESETS[detectedMood]) {
-      if (settings.autoCutEnabled === MOOD_PRESETS[detectedMood].autoCutEnabled) cutWeight += 0.02
+      if (settings.autoCutEnabled === MOOD_PRESETS[detectedMood].autoCutEnabled) cutWeight += 0.03
     }
   }
   sections.push({ key: 'autoCut', weight: cutWeight })
 
-  // Hook — only count sub-options when master toggle is on
+  // Hook — reorder frozen (COMING_SOON_FEATURES), only hook text contributes
   let hookWeight = 0
   if (settings.hookEnabled) {
-    hookWeight += 0.13
-    if (settings.hookReorderEnabled) hookWeight += 0.07
+    hookWeight += 0.15
   }
   sections.push({ key: 'hook', weight: hookWeight })
 

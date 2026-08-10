@@ -223,6 +223,7 @@ Video enhancement page with AI mood detection, hook generation, live CSS preview
 ### Files
 - `app/(dashboard)/dashboard/enhance/[clipId]/page.tsx` — main state machine, all settings, render flow
 - `lib/enhance/scoring.ts` — `EnhanceSettings` type, `computeScores()`, `computeCurrentScore()`
+- `lib/enhance/feature-flags.ts` — `COMING_SOON_FEATURES`: features frozen for launch (smartZoom, hookReorder). Weights redistributed to remaining features. Re-enable by emptying the array.
 - `components/enhance/live-preview.tsx` — CSS-rendered preview: caption animation, split-screen, tags, smart zoom
 - `lib/ai/mood-detector.ts` — Claude Haiku call (model: `claude-haiku-4-5-20251001`)
 - `lib/ai/mood-presets.ts` — 6 moods (rage, funny, drama, wholesome, hype, story) with per-platform adaptation

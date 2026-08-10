@@ -486,45 +486,47 @@ boost = headroom * totalWeight
 currentScore = min(99, round((baseline + boost) * 10) / 10)
 ```
 
-### Feature Weights (base) — calibrated 2026-07
+### Feature Weights (base) — rebalanced 2026-08
 
 > Poids calibres par recherche — source : `docs/research/viralite-calibration.md` (~70 sources verifiees).
+> Hook Reorder + Smart Zoom frozen behind `COMING_SOON_FEATURES` (`lib/enhance/feature-flags.ts`).
+> Their weights (0.07 + 0.03+0.02+0.02 = 0.14) redistributed to remaining features.
+> To re-enable: remove the key from the `COMING_SOON_FEATURES` array and restore weights.
 
 | Feature | Weight | Condition | Justification |
 |---|---|---|---|
-| Captions | 0.14 | `captionsEnabled && captionStyle !== 'none'` | Meilleure preuve directe (+12% view time A/B, +58% ad recall) |
-| Hook | 0.13 | `hookEnabled` | Facteur #1 unanime (TikTok officiel 63% top ads <3s, MrBeast) |
-| Hook Reorder | 0.07 | `hookReorderEnabled` | Moment fort en premier = hook structurel |
-| Split-screen | 0.07 | `splitScreenEnabled` | Preuve anecdotique (1 source Bloomberg) + risque plateforme "AI slop" |
-| Emphasis | 0.06 | `emphasisEffect !== 'none'` | Pas de preuve directe, norme de format |
-| Audio Enhance | 0.05 | `audioEnhanceEnabled` | Loudness = effet technique reel (TikTok ne normalise pas) |
-| Auto-Cut | 0.05 | `autoCutEnabled` | Inference forte (densite + orienting response, Lang) |
-| Tag | 0.04 | `tagStyle !== 'none'` | Zero preuve virale (garde sa valeur relationnelle streamer) |
-| Smart Zoom | 0.03 | `smartZoomEnabled` | Convention esthetique, justifiable comme "cut a bas cout" |
-| Speed Ramp | 0.02 | subtle=0.02, dynamic=0.02 | Aucune donnee dans les deux sens |
+| Captions | 0.17 | `captionsEnabled && captionStyle !== 'none'` | Meilleure preuve directe (+12% view time A/B, +58% ad recall) |
+| Hook (text) | 0.15 | `hookEnabled` | Facteur #1 unanime (TikTok officiel 63% top ads <3s, MrBeast) |
+| Split-screen | 0.09 | `splitScreenEnabled` | Preuve anecdotique (1 source Bloomberg) + risque plateforme "AI slop" |
+| Emphasis | 0.08 | `emphasisEffect !== 'none'` | Pas de preuve directe, norme de format |
+| Audio Enhance | 0.07 | `audioEnhanceEnabled` | Loudness = effet technique reel (TikTok ne normalise pas) |
+| Auto-Cut | 0.07 | `autoCutEnabled` | Inference forte (densite + orienting response, Lang) |
+| Tag | 0.05 | `tagStyle !== 'none'` | Zero preuve virale (garde sa valeur relationnelle streamer) |
+| Speed Ramp | 0.03 | subtle=0.03, dynamic=0.03 | Aucune donnee dans les deux sens |
+| ~~Hook Reorder~~ | 0.00 | _COMING SOON_ | Gele — qualite insuffisante au launch |
+| ~~Smart Zoom~~ | 0.00 | _COMING SOON_ | Gele — qualite insuffisante au launch |
 | ~~Bass Boost~~ | 0.00 | _retire du scoring_ | Contre-productif : telephone coupe <150-200Hz, gaspille headroom |
 
-**Total max** : ~0.66 (tout active, sans mood bonuses)
+**Total max** : ~0.71 (tout active, sans mood bonuses)
 
 ### Mood-Match Bonus Weights
 
 | Match | Bonus |
 |---|---|
-| Caption style matches mood preset | +0.06 |
-| Emphasis effect matches | +0.04 |
-| Emphasis color matches | +0.03 |
-| Video zoom matches | +0.02 |
-| Smart zoom mode matches | +0.02 |
-| Auto-cut matches | +0.02 |
+| Caption style matches mood preset | +0.07 |
+| Emphasis effect matches | +0.05 |
+| Emphasis color matches | +0.04 |
+| Video zoom matches | +0.03 |
+| Auto-cut matches | +0.03 |
 
-**Total mood bonus** : ~0.19 max. Grand total ~0.85.
+**Total mood bonus** : ~0.22 max. Grand total ~0.93.
 
 ### Example
 ```
 baseline = 50, headroom = 49
-All features ON + all mood matches → weight = 0.85
-boost = 49 * 0.85 = 41.7
-score = min(99, 50 + 41.7) = 91.7
+All features ON + all mood matches → weight = 0.93
+boost = 49 * 0.93 = 45.6
+score = min(99, 50 + 45.6) = 95.6
 ```
 
 ### `computeScoreBreakdown(settings, baseline, mood?)` → ScoreBreakdown

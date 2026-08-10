@@ -28,6 +28,7 @@ import {
   type TrendingClipData, type EnhanceSettings, type ScoredOption, type ScoreBreakdown,
 } from '@/lib/enhance/scoring'
 import { LivePreview, ScoreBadge } from '@/components/enhance/live-preview'
+import { COMING_SOON_FEATURES } from '@/lib/enhance/feature-flags'
 import { AIAnalysisSequence } from '@/components/enhance/ai-analysis-sequence'
 import { TagPanel } from '@/components/enhance/tag-panel'
 import { BlowupChanceBar } from '@/components/enhance/blowup-chance-bar'
@@ -109,6 +110,8 @@ export default function EnhancePage() {
   const [referralCode, setReferralCode] = useState<string | null>(null)
   const [userId, setUserId] = useState('')
   const [hookError, setHookError] = useState<string | null>(null)
+  // Burned-in caption detection state
+  const [burnedCaptions, setBurnedCaptions] = useState<{ detected: boolean; position: string | null; confidence: number } | null>(null)
   const paywallRef = useRef({ userPlan, monthlyUsed, bonusVideos })
   const router = useRouter()
   const sectionRefs = {
@@ -143,7 +146,7 @@ export default function EnhancePage() {
     autoCutThreshold: 0.7,
     hookEnabled: false,
     hookTextEnabled: true,
-    hookReorderEnabled: true,
+    hookReorderEnabled: false, // frozen (COMING_SOON_FEATURES)
     hookText: '',
     hookStyle: 'suspense',
     hookTextPosition: 15,
@@ -250,6 +253,44 @@ export default function EnhancePage() {
 
     loadClip()
   }, [clipId, storeClips, sourceParam])
+
+  // Detect burned-in captions when clip loads (fire-and-forget, non-blocking)
+  useEffect(() => {
+    if (!clip?.external_url) return
+    // Only detect for trending clips (uploads are user's own content — less likely to have burned captions)
+    if (sourceParam === 'upload') return
+
+    let cancelled = false
+    async function detect() {
+      try {
+        const controller = new AbortController()
+        const timeout = setTimeout(() => controller.abort(), 35_000)
+        const res = await fetch('/api/enhance/detect-captions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            videoUrl: clip!.external_url,
+            duration: clip!.duration_seconds ?? undefined,
+          }),
+          signal: controller.signal,
+        })
+        clearTimeout(timeout)
+        if (cancelled) return
+        const json = await res.json()
+        if (json.data) {
+          setBurnedCaptions({
+            detected: !!json.data.burned_captions,
+            position: json.data.position ?? null,
+            confidence: json.data.confidence ?? 0,
+          })
+        }
+      } catch {
+        // Silent failure — detection is assistive, never blocking
+      }
+    }
+    detect()
+    return () => { cancelled = true }
+  }, [clip?.external_url, clip?.duration_seconds, sourceParam])
 
   // Bootstrap paywall data (plan, usage, save status)
   useEffect(() => {
@@ -626,7 +667,7 @@ export default function EnhancePage() {
               videoZoom: settings.videoZoom,
             },
             smartZoom: {
-              enabled: settings.smartZoomEnabled,
+              enabled: false, // frozen (COMING_SOON_FEATURES)
               mode: settings.smartZoomMode,
             },
             audioEnhance: {
@@ -641,7 +682,7 @@ export default function EnhancePage() {
               return {
               enabled: settings.hookEnabled,
               textEnabled: settings.hookTextEnabled,
-              reorderEnabled: settings.hookReorderEnabled,
+              reorderEnabled: false, // frozen (COMING_SOON_FEATURES)
               text: settings.hookText,
               style: (['shock', 'curiosity', 'suspense'].includes(settings.hookStyle) ? settings.hookStyle : 'suspense') as 'shock' | 'curiosity' | 'suspense',
               textPosition: settings.hookTextPosition,
@@ -911,14 +952,14 @@ export default function EnhancePage() {
       tagStyle,
       tagSize: preset.tagSize,
       aspectRatio: preset.aspectRatio,
-      smartZoomEnabled: preset.smartZoomEnabled,
+      smartZoomEnabled: false, // frozen (COMING_SOON_FEATURES)
       smartZoomMode: preset.smartZoomMode,
       audioEnhanceEnabled: preset.audioEnhanceEnabled,
       autoCutEnabled: preset.autoCutEnabled,
       autoCutThreshold: preset.autoCutThreshold,
       hookEnabled: preset.hookEnabled,
       hookTextEnabled: preset.hookTextEnabled,
-      hookReorderEnabled: preset.hookReorderEnabled,
+      hookReorderEnabled: false, // frozen (COMING_SOON_FEATURES)
       hookStyle: preset.hookStyle,
       hookTextPosition: preset.hookTextPosition,
       hookLength: preset.hookLength,
@@ -958,30 +999,33 @@ export default function EnhancePage() {
             videoZoom: preset.videoZoom,
             aspectRatio: preset.aspectRatio,
           }
-        case 1: // Next: "Optimizing caption style..." → big captions boost
+        case 1: { // Next: "Optimizing caption style..." → big captions boost
+          // If burned-in captions detected with high confidence, disable ours to avoid doubling
+          const skipCaptions = burnedCaptions?.detected && burnedCaptions.confidence >= 0.7
           return {
             ...s,
-            captionsEnabled: true,
-            captionStyle: preset.captionStyle,
+            captionsEnabled: !skipCaptions,
+            captionStyle: skipCaptions ? 'none' : preset.captionStyle,
             captionPosition: preset.captionPosition,
             wordsPerLine: preset.wordsPerLine,
           }
+        }
         case 2: // Next: "Selecting emphasis & color..." → emphasis boost
           return {
             ...s,
             emphasisEffect: preset.emphasisEffect,
             emphasisColor: preset.emphasisColor,
           }
-        case 3: // Next: "Crafting viral hook..." → hook + smart zoom big boost
+        case 3: // Next: "Crafting viral hook..." → hook text boost (zoom+reorder frozen)
           return {
             ...s,
             hookEnabled: preset.hookEnabled,
             hookTextEnabled: preset.hookTextEnabled,
-            hookReorderEnabled: preset.hookReorderEnabled,
+            hookReorderEnabled: false, // frozen (COMING_SOON_FEATURES)
             hookStyle: preset.hookStyle,
             hookTextPosition: preset.hookTextPosition,
             hookLength: preset.hookLength,
-            smartZoomEnabled: preset.smartZoomEnabled,
+            smartZoomEnabled: false, // frozen (COMING_SOON_FEATURES)
             smartZoomMode: preset.smartZoomMode,
           }
         case 4: // Next: "Finalizing parameters..." → tag + audio + autocut remaining
@@ -1000,7 +1044,7 @@ export default function EnhancePage() {
           return s
       }
     })
-  }, [clip?.platform])
+  }, [clip?.platform, burnedCaptions])
 
   const applyBestCombo = useCallback(async () => {
     if (!clip) return
@@ -1099,11 +1143,11 @@ export default function EnhancePage() {
             hookText: bestHook.text,
             hookStyle: bestHook.style as 'shock' | 'curiosity' | 'suspense',
           } : {}),
-          hookReorder: json.data.reorder,
+          hookReorder: null, // reorder frozen (COMING_SOON_FEATURES)
+          hookReorderEnabled: false,
         }))
       }
     } catch {
-      // Hook fetch failed — disable hookReorderEnabled to unblock auto-render
       setSettings((s) => ({ ...s, hookReorderEnabled: false, hookReorder: null }))
     } finally {
       setHookGenerating(false)
@@ -1835,6 +1879,7 @@ export default function EnhancePage() {
               hideGranular
               showBonus={revealedBonuses.has('captions')}
               ephemeralDelta={ephemeralDelta?.section === 'captions' ? ephemeralDelta.value : null}
+              burnedCaptionsDetected={burnedCaptions?.detected && burnedCaptions.confidence >= 0.7}
             />
 
             {/* ─── Split-Screen Section ─── */}
@@ -1888,24 +1933,12 @@ export default function EnhancePage() {
             {/* Format is locked to 9:16 — no UI selector */}
 
             {/* ─── Smart Zoom Section ─── */}
-            <AccordionItem value="smartzoom" className={cn("scroll-mt-32 va-panel px-4 overflow-hidden", settings.smartZoomEnabled ? 'va-panel-active' : 'va-panel-muted')}>
+            <AccordionItem value="smartzoom" className="scroll-mt-32 va-panel px-4 overflow-hidden va-panel-muted" style={{ opacity: 0.5, pointerEvents: 'none' }}>
               <AccordionTrigger className="text-zinc-400 hover:text-white">
                 <span className="flex items-center gap-2 text-sm font-medium text-foreground">
-                  <Focus className={cn("h-4 w-4", settings.smartZoomEnabled ? 'text-amber-400' : 'text-zinc-500')} />
+                  <Focus className="h-4 w-4 text-zinc-500" />
                   Smart Zoom
-                  <span className="text-xs text-zinc-500 font-normal">
-                    {settings.smartZoomEnabled
-                      ? `· ${settings.smartZoomMode === 'micro' ? 'Micro zoom' : settings.smartZoomMode === 'dynamic' ? 'Dynamic' : 'Follow face'}`
-                      : '· Off'}
-                  </span>
-                  {revealedBonuses.has('smartZoom') && scoreBreakdown.smartZoom > 0 && (
-                    <span className="ml-auto text-[11px] font-bold text-emerald-400 animate-[scorePop_0.4s_ease-out]">+{Math.round(scoreBreakdown.smartZoom)} pts</span>
-                  )}
-                  {!revealedBonuses.has('smartZoom') && ephemeralDelta?.section === 'smartZoom' && ephemeralDelta.value !== 0 && (
-                    <span className={cn("ml-auto text-[11px] font-bold animate-[scorePop_0.4s_ease-out]", ephemeralDelta.value > 0 ? 'text-emerald-400' : 'text-red-400')}>
-                      {ephemeralDelta.value > 0 ? '+' : ''}{ephemeralDelta.value} pts
-                    </span>
-                  )}
+                  <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-zinc-700/60 text-zinc-400 border border-zinc-600/40">Coming Soon</span>
                 </span>
               </AccordionTrigger>
               <AccordionContent>
@@ -2222,26 +2255,13 @@ export default function EnhancePage() {
                           <span className="text-[10px] font-bold text-foreground block">Hook text</span>
                           <span className="text-[8px] text-muted-foreground block">Overlay at start</span>
                         </button>
-                        <button
-                          onClick={() => {
-                            const newVal = !settings.hookReorderEnabled
-                            updateSetting('hookReorderEnabled', newVal)
-                            if (newVal && !settings.hookReorder) {
-                              generateHook()
-                            }
-                          }}
-                          className={cn(
-                            'rounded-xl border p-2.5 text-center transition-all',
-                            settings.hookReorderEnabled
-                              ? 'border-orange-500 bg-orange-500/10 ring-1 ring-orange-500/30'
-                              : 'border-border hover:border-orange-500/40'
-                          )}
+                        <div
+                          className="rounded-xl border border-border p-2.5 text-center opacity-50 cursor-not-allowed"
                         >
-                          <Zap className="h-4 w-4 mx-auto mb-1 text-orange-400" />
+                          <Zap className="h-4 w-4 mx-auto mb-1 text-zinc-500" />
                           <span className="text-[10px] font-bold text-foreground block">Moment fort 1er</span>
-                          <span className="text-[8px] text-muted-foreground block">Reorder clip</span>
-                          {hasAiAnalyzed && <span className="text-[9px] font-bold text-emerald-400 block mt-0.5">+{getOptionPts(0.05)} pts</span>}
-                        </button>
+                          <span className="text-[8px] px-1 py-0.5 rounded bg-zinc-700/60 text-zinc-400 font-bold uppercase tracking-wider">Coming Soon</span>
+                        </div>
                       </div>
 
                       {/* Hook text position slider */}
