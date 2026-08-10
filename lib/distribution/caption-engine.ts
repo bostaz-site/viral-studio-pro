@@ -400,9 +400,14 @@ function assembleCaption(
 // ── Hashtag system
 // ══════════════════════════════════════════════════════════════
 
+// Spam-triggering hashtags — NEVER use these (TikTok spam filter)
+const BLACKLISTED_HASHTAGS = new Set([
+  '#fyp', '#foryou', '#foryoupage', '#viral', '#mustwatch', '#watchthis',
+  '#explore', '#trending', '#goviral', '#blowup', '#algorithm',
+])
+
 const BASE_HASHTAGS: readonly string[] = [
-  '#viral', '#fyp', '#clips', '#shorts', '#trending', '#content',
-  '#mustwatch', '#foryou', '#explore', '#highlights',
+  '#clips', '#shorts', '#highlights',
 ]
 
 const TONE_HASHTAGS: Record<Tone, readonly string[]> = {
@@ -453,36 +458,22 @@ const TONE_HASHTAGS: Record<Tone, readonly string[]> = {
     '#powerful', '#sad', '#raw', '#genuine', '#respect', '#deep',
   ],
   general: [
-    '#gaming', '#streamer', '#omg', '#noway', '#bestclips',
-    '#epicmoment', '#watchthis', '#gamingclips', '#insane', '#epic',
-    '#incredible', '#unreal', '#hype', '#esports', '#live', '#stream',
+    '#gaming', '#streamer', '#bestclips',
+    '#epicmoment', '#gamingclips',
+    '#esports', '#live', '#stream',
   ],
 }
 
-const TRENDING_DAILY: readonly string[] = [
-  '#trending', '#goviral', '#blowup', '#algorithm', '#foryoupage',
-]
-
 function pickHashtags(tone: Tone, seed: string, variantIndex: number): string[] {
-  // Merge base + tone-specific
+  // Merge base + tone-specific, filter blacklisted spam tags
   const pool = [...BASE_HASHTAGS, ...(TONE_HASHTAGS[tone] ?? TONE_HASHTAGS.general)]
-  // Deduplicate
+    .filter(tag => !BLACKLISTED_HASHTAGS.has(tag))
   const unique = [...new Set(pool)]
   const shuffled = seededShuffle(unique, seed, variantIndex * 100)
 
-  // Pick 5-8 hashtags (seeded count)
-  const count = 5 + Math.floor(seededHash(seed, variantIndex * 100 + 99) * 4) // 5,6,7,8
-  const selected = shuffled.slice(0, count)
-
-  // 20% chance to include a trending daily hashtag
-  if (seededHash(seed, variantIndex * 100 + 50) < 0.2) {
-    const trendingTag = seededPick(TRENDING_DAILY, seed, variantIndex * 100 + 51)
-    if (!selected.includes(trendingTag)) {
-      selected.push(trendingTag)
-    }
-  }
-
-  return selected
+  // Pick 3-4 hashtags MAX (specific to niche, not generic spam)
+  const count = 3 + Math.floor(seededHash(seed, variantIndex * 100 + 99) * 2) // 3 or 4
+  return shuffled.slice(0, count)
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -600,11 +591,16 @@ const VARIANT_RISK: Record<VariantId, {
 export function generateVariants(title: string, clipId?: string, params?: {
   clipScore?: number
   platformCount?: number
+  /** Creator handle for mandatory credit line. If provided, appended to every caption. */
+  authorHandle?: string | null
 }): BioVariant[] {
   const { tone, topic } = detectTone(title)
   const seed = clipId ?? title
   const score = params?.clipScore ?? 50
   const platforms = params?.platformCount ?? 1
+  const creditLine = params?.authorHandle
+    ? `\n\n\uD83C\uDFA5 @${params.authorHandle.replace(/^@/, '')}`
+    : ''
 
   const variantIds: VariantId[] = ['high-ctr', 'safe-reach', 'viral-bait']
   const labels: Record<VariantId, string> = {
@@ -630,7 +626,7 @@ export function generateVariants(title: string, clipId?: string, params?: {
       label: labels[id],
       style: styles[id],
       color: colors[id],
-      caption: assembleCaption(tone, id, topic, seed, i),
+      caption: assembleCaption(tone, id, topic, seed, i) + creditLine,
       hashtags: pickHashtags(tone, seed, i),
       reachMultiplier: risk.reachMultiplier,
       failureChance: risk.failureChance,

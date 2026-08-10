@@ -415,6 +415,9 @@ export function UnifiedPublishDialog({
                 )}
               </Button>
             )}
+            <p className="text-[10px] text-zinc-600 text-center mt-2 leading-snug max-w-xs mx-auto">
+              Raw reposts get removed — always publish enhanced versions with captions and creator credit.
+            </p>
           </div>
         </div>
       </Dialog>

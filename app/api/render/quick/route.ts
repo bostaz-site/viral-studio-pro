@@ -162,7 +162,12 @@ export const POST = withAuth(async (request: NextRequest, user) => {
     autoCut: {
       enabled: false,
     },
-    tag: { style: 'none' },
+    tag: {
+      style: (platform === 'kick') ? 'kick-minimal' : 'twitch-minimal',
+      size: 100,
+      authorName: authorName ?? null,
+      authorHandle: resolved.authorHandle ?? null,
+    },
     sourcePlatform: platform ?? undefined,
   }
 
