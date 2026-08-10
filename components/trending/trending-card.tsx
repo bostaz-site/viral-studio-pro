@@ -322,6 +322,9 @@ export const TrendingCard = memo(function TrendingCard({ clip, onRemix, onQuickE
 
   const isExporting = quickExportState?.clipId === clip.id && quickExportState.status === 'rendering'
   const isExported = quickExportState?.clipId === clip.id && quickExportState.status === 'done'
+  // Kick thumbnails serve content-type: application/octet-stream which breaks
+  // the Netlify Image CDN / next/image optimizer → bypass with unoptimized
+  const isKickThumb = !!clip.thumbnail_url && clip.thumbnail_url.includes('kick.com')
 
   const verdict = getClipVerdict(clip)
   const dynamicCTA = getDynamicCTA(clip)
@@ -430,7 +433,7 @@ export const TrendingCard = memo(function TrendingCard({ clip, onRemix, onQuickE
                     />
                   )}
                   {clip.thumbnail_url && !imgError && (
-                    <Image src={clip.thumbnail_url} alt={clip.title ?? 'Clip'} fill
+                    <Image src={clip.thumbnail_url} alt={clip.title ?? 'Clip'} fill unoptimized={isKickThumb}
                       sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
                       className={cn('object-cover transition-all duration-500', hovered && 'scale-105 brightness-75')}
                       onError={() => setImgError(true)} />
@@ -467,7 +470,7 @@ export const TrendingCard = memo(function TrendingCard({ clip, onRemix, onQuickE
               />
             )}
             {clip.thumbnail_url && !imgError && (
-              <Image src={clip.thumbnail_url} alt={clip.title ?? 'Clip'} fill
+              <Image src={clip.thumbnail_url} alt={clip.title ?? 'Clip'} fill unoptimized={isKickThumb}
                 sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
                 className={cn('object-cover transition-all duration-500', hovered && 'scale-105 brightness-75')}
                 onError={() => setImgError(true)} />
@@ -611,6 +614,7 @@ export const TrendingCard = memo(function TrendingCard({ clip, onRemix, onQuickE
             src={clip.thumbnail_url}
             alt={clip.title ?? 'Clip de stream'}
             fill
+            unoptimized={isKickThumb}
             sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
             className={cn(
               'object-cover transition-all duration-500',

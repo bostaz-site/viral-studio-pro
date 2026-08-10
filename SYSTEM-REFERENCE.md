@@ -104,7 +104,7 @@ Dashboard page displaying ranked streamer clips with feed tabs, filters, infinit
 
 ### Files
 - `app/(dashboard)/dashboard/page.tsx` — page, feed tabs, upload, remix tab, grid
-- `components/trending/trending-card.tsx` — card with hover preview, rank frames, signal tags, velocity stats, social proof, CTA (Quick Export + Customize)
+- `components/trending/trending-card.tsx` — card with hover preview, rank frames, signal tags, velocity stats, social proof, CTA (Quick Export + Customize). Kick thumbnails use `unoptimized` on next/image (Kick CDN serves `content-type: application/octet-stream` which breaks Netlify Image CDN). Same fix in `live-preview.tsx` and `first-clip-overlay.tsx`.
 - `components/trending/trending-filters.tsx` — search input, platform/niche/duration pills, sort toggle
 - `stores/trending-store.ts` — Zustand store: all clip state + actions
 - `types/trending.ts` — `TrendingClip`, `FeedFilter`, `clipRank()`, `getClipInsight()`

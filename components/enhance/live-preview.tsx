@@ -283,6 +283,7 @@ export function LivePreview({
                   src={clip.thumbnail_url!}
                   alt=""
                   fill
+                  unoptimized={clip.thumbnail_url!.includes('kick.com')}
                   sizes="310px"
                   className="object-cover scale-110"
                   style={{ filter: 'blur(12px) brightness(0.65) saturate(1.25) contrast(1.1)' }}
@@ -366,6 +367,7 @@ export function LivePreview({
                   alt={clip.title ?? 'Clip'}
                   width={360}
                   height={640}
+                  unoptimized={clip.thumbnail_url!.includes('kick.com')}
                   sizes="310px"
                   className={cn(
                     'z-[1] transition-all duration-500',
