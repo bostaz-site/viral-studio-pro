@@ -150,6 +150,9 @@ export default function RootLayout({
         >
           {children}
         </ThemeProvider>
+        {/* SW register kept so browsers with the old aggressive SW fetch the
+            kill-switch version at /sw.js (which self-destructs on activate).
+            Once all users have cycled through, this Script tag can be removed. */}
         <Script id="sw-register" strategy="afterInteractive">
           {`if('serviceWorker' in navigator){navigator.serviceWorker.register('/sw.js')}`}
         </Script>

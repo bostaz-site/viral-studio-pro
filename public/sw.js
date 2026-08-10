@@ -1,61 +1,41 @@
-// Viral Animal Service Worker — manual (no next-pwa)
-const CACHE_NAME = 'va-v2'
-const STATIC_ASSETS = ['/offline.html']
+// Viral Animal — Service Worker Kill Switch
+//
+// This file MUST remain at /sw.js so browsers with the old SW fetch it,
+// install this version, and self-destruct. After this runs once:
+// - All caches are deleted (no more stale offline.html)
+// - The SW unregisters itself
+// - All open tabs reload with a clean state
+//
+// DO NOT add any fetch handler. This file should do nothing except clean up.
 
-// Install: pre-cache offline page
-self.addEventListener('install', (event) => {
-  event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(STATIC_ASSETS))
-  )
+self.addEventListener('install', () => {
   self.skipWaiting()
 })
 
-// Activate: clean old caches + claim clients
 self.addEventListener('activate', (event) => {
   event.waitUntil(
-    caches.keys().then((keys) =>
-      Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k)))
-    )
+    (async () => {
+      // 1. Delete ALL caches (va-v1, va-v2, any others)
+      const keys = await caches.keys()
+      await Promise.all(keys.map((k) => caches.delete(k)))
+
+      // 2. Claim all clients so we can reload them
+      await self.clients.claim()
+
+      // 3. Unregister this service worker
+      const reg = await self.registration.unregister()
+      if (reg) {
+        // eslint-disable-next-line no-console
+        console.log('[sw] Service worker unregistered — kill switch complete')
+      }
+
+      // 4. Reload all open tabs to clear any cached navigation responses
+      const clients = await self.clients.matchAll({ type: 'window' })
+      for (const client of clients) {
+        if (client.url && 'navigate' in client) {
+          client.navigate(client.url)
+        }
+      }
+    })()
   )
-  self.clients.claim()
-})
-
-// Fetch strategy
-self.addEventListener('fetch', (event) => {
-  const { request } = event
-  const url = new URL(request.url)
-
-  // Never cache API calls or Supabase requests
-  if (url.pathname.startsWith('/api/') || url.hostname.includes('supabase')) {
-    return
-  }
-
-  // Cache-first for static assets (icons, _next/static, fonts)
-  if (
-    url.pathname.startsWith('/icons/') ||
-    url.pathname.startsWith('/_next/static/') ||
-    url.pathname.match(/\.(woff2?|ttf|otf)$/)
-  ) {
-    event.respondWith(
-      caches.match(request).then((cached) => {
-        if (cached) return cached
-        return fetch(request).then((response) => {
-          if (response.ok) {
-            const clone = response.clone()
-            caches.open(CACHE_NAME).then((cache) => cache.put(request, clone))
-          }
-          return response
-        })
-      })
-    )
-    return
-  }
-
-  // Network-first for pages — offline fallback
-  if (request.mode === 'navigate') {
-    event.respondWith(
-      fetch(request).catch(() => caches.match('/offline.html'))
-    )
-    return
-  }
 })

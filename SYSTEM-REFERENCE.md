@@ -710,22 +710,19 @@ Exponential backoff wrapper with HTTP status awareness.
 
 ## 16. PWA (Progressive Web App)
 
-Installable web app with offline fallback. Manual service worker (no next-pwa package).
+Installable web app. **Service worker REMOVED** (2026-08-10) — the old SW caused false "You're offline" pages after deploys (stale cache + overly broad fetch catch). The app is online-only by nature.
 
 ### Files
-- `app/manifest.ts` — Next.js route-based manifest (standalone, portrait, orange theme)
-- `public/sw.js` — service worker: cache-first for static assets, network-first for pages, offline fallback
-- `public/offline.html` — dark mode offline page with retry button
-- `public/icons/` — SVG placeholder icons (192, 512, maskable-512). Replace with real PNGs for production
+- `app/manifest.ts` — Next.js route-based manifest (standalone, portrait, dark theme #020617)
+- `public/sw.js` — **KILL SWITCH** (not a real SW). On activate: deletes all caches, unregisters itself, reloads all tabs. Exists so browsers with the old SW fetch this version and self-destruct.
+- `public/offline.html` — kept but never served (no SW to intercept navigations)
+- `public/icons/` — wolf gold forge icons (192, 512, maskable-512 PNGs)
 - `hooks/use-pwa-install.ts` — listens to `beforeinstallprompt`, exposes `canInstall` + `promptInstall()`
 - `components/pwa/install-banner.tsx` — mobile-only install prompt, dismiss stored in localStorage for 7 days
-- `app/layout.tsx` — PWA meta tags (theme-color, apple-mobile-web-app) + SW registration via `next/script`
+- `app/layout.tsx` — PWA meta tags + `register('/sw.js')` kept temporarily so existing users fetch the kill switch. Remove the Script tag once all users have cycled through (~30 days after deploy).
 
 ### Service Worker Strategy
-- **Cache-first**: `/icons/`, `/_next/static/`, font files — cached on first load, served from cache thereafter
-- **Network-first**: page navigations — falls back to `/offline.html` when offline
-- **Never cached**: `/api/*` routes and Supabase requests — always hit the network
-- Self-updates via `skipWaiting()` + `clients.claim()`
+- **NONE** — no fetch interception, no caching, no offline fallback. The kill-switch SW at `/sw.js` has zero fetch handlers.
 
 ### Install Banner
 - Only shows on mobile (hidden via `md:hidden`)
