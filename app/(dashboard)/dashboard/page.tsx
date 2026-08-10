@@ -760,12 +760,24 @@ export default function DashboardPage() {
           {/* Top Pick — compact diamond card (only shown when a clip meets criteria) */}
           {topPickClip && (
             <div className="py-4 px-2">
-              <TopPickCard clip={topPickClip} onEnhance={handleEnhance} hasHigherOlderClip={hasHigherOlderClip} />
+              <TopPickCard
+                clip={topPickClip}
+                onEnhance={handleEnhance}
+                onQuickExport={handleQuickExport}
+                quickExportState={
+                  quickExport?.clipId === topPickClip.id
+                    ? quickExport
+                    : exportedClipIds.has(topPickClip.id)
+                      ? { clipId: topPickClip.id, jobId: '', status: 'done' }
+                      : null
+                }
+                hasHigherOlderClip={hasHigherOlderClip}
+              />
             </div>
           )}
 
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6 py-4">
-            {filteredClips.map((clip) => (
+            {filteredClips.filter(c => !topPickClip || c.id !== topPickClip.id).map((clip) => (
               <div key={clip.id} onClick={() => handleEnhance(clip)} className="cursor-pointer relative">
                 <TrendingCard
                   clip={clip}

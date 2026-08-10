@@ -96,14 +96,14 @@ Dashboard page displaying ranked streamer clips with feed tabs, filters, infinit
 ### User Flow
 1. Land on `/dashboard` -> `fetchClips()` + `fetchBootstrap()` in parallel. Clips from `GET /api/trending` (200 unfiltered), bootstrap from `GET /api/bootstrap` (saved IDs + recent remixes + profile)
 2. Pick a feed tab -> client-side filter first (instant), then background server fetch if <10 results
-3. Apply filters (search, platform, niche, duration) -> server-side re-fetch with filter params (search debounced 300ms)
+3. Apply filters (search, platform, niche, duration) -> server-side re-fetch with filter params (search debounced 300ms). Platform filter also enforced client-side in `filterAndSortClips` (defense-in-depth against stale data from race conditions).
 4. Hover on card -> resolves video URL -> inline preview plays
 5. **Make It Viral** (primary CTA): click -> `router.push('/dashboard/enhance/{clipId}')` for full enhance editor
 6. **Quick Export** (secondary CTA): Zap icon on every card. `POST /api/render/quick` -> polls via `useRenderSubscription` (Realtime + polling fallback, adaptive backoff 3s-30s). State persisted in sessionStorage (survives grid re-render/F5). Done: toast with [Publish now] + [View bank]. Error: toast with [Retry]. Card shows green CheckCircle2 for exported clips (`exportedClipIds` Set).
 
 ### Safe Publish Floor
 No render can reach TikTok "naked" — Quick Export ALWAYS includes: karaoke captions (mood-based style) + creator credit tag (twitch-minimal/kick-minimal with @handle). Caption engine (`lib/distribution/caption-engine.ts`): max 3-4 hashtags, niche-specific only. Blacklisted spam tags: #fyp, #foryou, #viral, #mustwatch, #watchthis, #explore, #trending, #goviral, #blowup, #algorithm, #foryoupage. Creator credit line (`🎥 @handle`) appended to every generated caption when `authorHandle` is provided. Publish dialog shows guidance: "Raw reposts get removed — always publish enhanced versions with captions and creator credit." Audio fingerprint shift option: queued in improvement_backlog (ffmpeg asetrate/atempo ~2-3%).
-7. **Top Pick** card (`top-pick-card.tsx`): best clip with `score >= 75, feed_category in (early_gem, hot_now), age < 12h`. Age shown in amber bold with "\u2197 still climbing". Dynamic explanation: if grid contains a higher-scoring clip older than 12h → "Higher scores below already peaked — this one is still early." Tooltip: "Top Pick = strongest clip detected in the last 12h, before its peak. Older clips keep their score but lose the crown."
+7. **Top Pick** card (`top-pick-card.tsx`): best clip with `score >= 75, feed_category in (early_gem, hot_now), age < 12h`. Selected from `filteredClips` (respects all active filters incl. platform). Excluded from grid to prevent duplicate card. Score = `clip.velocity_score` (single source of truth, same as grid). Age shown in amber bold with "\u2197 still climbing". Dynamic explanation: if grid contains a higher-scoring clip older than 12h → "Higher scores below already peaked — this one is still early."
 8. "Load more" -> `GET /api/trending?cursor={score}_{id}&limit=50` with same filter params
 
 ### Files

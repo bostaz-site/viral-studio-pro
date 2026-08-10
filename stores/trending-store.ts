@@ -94,6 +94,13 @@ function filterAndSortClips(
     result = result.filter((c) => savedClipIds.has(c.id))
   }
 
+  // Platform filter — defense-in-depth: server already filters, but client
+  // re-enforces to prevent stale data from a race condition showing wrong clips
+  if (filters.platforms.length > 0) {
+    const platformSet = new Set(filters.platforms)
+    result = result.filter((c) => platformSet.has(c.platform?.toLowerCase()))
+  }
+
   // Streamer filter (single value — client-side only, not sent to server)
   if (filters.streamer && filters.streamer !== '') {
     const s = filters.streamer.toLowerCase()
