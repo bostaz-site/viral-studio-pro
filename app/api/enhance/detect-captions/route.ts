@@ -23,7 +23,7 @@ export const POST = withAuth(async (req) => {
     const controller = new AbortController()
     const timeout = setTimeout(() => controller.abort(), 30_000)
 
-    const res = await fetch(`${VPS_URL}/render/detect-captions`, {
+    const res = await fetch(`${VPS_URL}/api/render/detect-captions`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

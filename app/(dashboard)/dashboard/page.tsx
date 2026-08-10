@@ -207,40 +207,54 @@ export default function DashboardPage() {
       lastExportedClipRef.current = clip
     } catch {
       setQuickExport({ clipId: clip.id, jobId: '', status: 'error', errorMessage: 'Network error' })
+      setRenderNotification({
+        clipId: clip.id,
+        clipTitle: clip.title,
+        downloadUrl: null,
+        status: 'error',
+        errorMessage: 'Network error — check your connection and try again',
+      })
     }
   }, [quickExport?.status])
 
   // Subscribe to render job updates for quick export
   const handleRenderDone = useCallback((data: { storagePath: string }) => {
     if (!quickExport) return
-    // Fetch signed download URL
-    fetch(`/api/render/status?jobId=${encodeURIComponent(quickExport.jobId)}`)
+    const doneClipId = quickExport.clipId
+    const doneJobId = quickExport.jobId
+    // Clear quickExport immediately to stop the subscription (prevents infinite loop)
+    setQuickExport(null)
+    setExportedClipIds(prev => new Set(prev).add(doneClipId))
+    // Fetch signed download URL for the toast
+    fetch(`/api/render/status?jobId=${encodeURIComponent(doneJobId)}`)
       .then(r => r.ok ? r.json() : null)
       .then(json => {
         const downloadUrl = json?.data?.downloadUrl ?? null
-        setQuickExport(prev => prev ? { ...prev, status: 'done', downloadUrl } : null)
-        // Mark clip as exported for ✓ badge
-        setExportedClipIds(prev => new Set(prev).add(quickExport.clipId))
-        const clip = lastExportedClipRef.current ?? clips.find(c => c.id === quickExport.clipId)
+        const clip = lastExportedClipRef.current ?? clips.find(c => c.id === doneClipId)
         setRenderNotification({
-          clipId: quickExport.clipId,
+          clipId: doneClipId,
           clipTitle: clip?.title ?? null,
           downloadUrl,
           status: 'done',
         })
       })
       .catch(() => {
-        setQuickExport(prev => prev ? { ...prev, status: 'done' } : null)
-        setExportedClipIds(prev => new Set(prev).add(quickExport.clipId))
+        setRenderNotification({
+          clipId: doneClipId,
+          clipTitle: null,
+          downloadUrl: null,
+          status: 'done',
+        })
       })
   }, [quickExport, clips])
 
   const handleRenderError = useCallback((message: string) => {
     if (!quickExport) return
-    setQuickExport(prev => prev ? { ...prev, status: 'error', errorMessage: message } : null)
-    const clip = clips.find(c => c.id === quickExport.clipId)
+    const errorClipId = quickExport.clipId
+    setQuickExport(null) // Stop subscription
+    const clip = clips.find(c => c.id === errorClipId)
     setRenderNotification({
-      clipId: quickExport.clipId,
+      clipId: errorClipId,
       clipTitle: clip?.title ?? null,
       downloadUrl: null,
       status: 'error',

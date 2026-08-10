@@ -47,13 +47,10 @@ export async function detectBurnedCaptions(videoPath, duration, tempDir, trc = (
   try {
     // Extract 3 frames at 25%, 50%, 75% of duration
     const timestamps = [0.25, 0.50, 0.75].map(pct => Math.max(0.5, duration * pct));
-    const framePaths = [];
 
     trc(`[CaptionDetect] Extracting 3 frames at ${timestamps.map(t => t.toFixed(1) + 's').join(', ')}`);
 
     await Promise.all(timestamps.map(async (ts, i) => {
-      const framePath = path.join(workDir, `caption_detect_${i}.jpg`);
-      framePaths.push(framePath);
 
       // Extract frame, crop bottom third + resize to 480px wide, low quality JPEG
       // vf: crop bottom 1/3 of the frame (in_h/3 tall, starting at 2*in_h/3)
@@ -221,6 +218,7 @@ Respond ONLY with this JSON, no other text:
     }
 
   } catch (err) {
+    clearTimeout(timeout);
     const latencyMs = Date.now() - startMs;
     trc(`[CaptionDetect] Haiku call failed (attempt ${attempt}): ${err.message}`);
 

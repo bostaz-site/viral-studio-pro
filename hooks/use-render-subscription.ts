@@ -40,6 +40,14 @@ export function useRenderSubscription({
   const doneRef = useRef(false)
   const [connected, setConnected] = useState(false)
 
+  // Latest-ref: callbacks change every render but must NOT restart the subscription
+  const onDoneRef = useRef(onDone)
+  const onErrorRef = useRef(onError)
+  const onProgressRef = useRef(onProgress)
+  useEffect(() => { onDoneRef.current = onDone }, [onDone])
+  useEffect(() => { onErrorRef.current = onError }, [onError])
+  useEffect(() => { onProgressRef.current = onProgress }, [onProgress])
+
   const clearPolling = useCallback(() => {
     if (pollTimerRef.current) {
       clearTimeout(pollTimerRef.current)
@@ -72,13 +80,13 @@ export function useRenderSubscription({
           if (row.status === 'done' && row.storage_path) {
             doneRef.current = true
             clearPolling()
-            onDone({ storagePath: row.storage_path })
+            onDoneRef.current({ storagePath: row.storage_path })
           } else if (row.status === 'error' || row.status === 'failed' || row.status === 'canceled') {
             doneRef.current = true
             clearPolling()
-            onError(row.error_message ?? 'Unknown error')
+            onErrorRef.current(row.error_message ?? 'Unknown error')
           } else if (row.status === 'rendering') {
-            onProgress('rendering')
+            onProgressRef.current('rendering')
           }
         }
       )
@@ -101,16 +109,16 @@ export function useRenderSubscription({
         if (d.status === 'done' && d.storagePath) {
           doneRef.current = true
           clearPolling()
-          onDone({ storagePath: d.storagePath })
+          onDoneRef.current({ storagePath: d.storagePath })
           return
         }
         if (d.status === 'error' || d.status === 'failed' || d.status === 'canceled') {
           doneRef.current = true
           clearPolling()
-          onError(d.errorMessage ?? 'Unknown error')
+          onErrorRef.current(d.errorMessage ?? 'Unknown error')
           return
         }
-        onProgress(d.status, d.queuePosition)
+        onProgressRef.current(d.status, d.queuePosition)
       } catch {
         // Swallow — Realtime is the primary channel
       }
@@ -132,7 +140,8 @@ export function useRenderSubscription({
       setConnected(false)
     }
     // clipId is included so we re-subscribe if the clip changes
-  }, [jobId, clipId, onDone, onError, onProgress, clearPolling])
+    // Only re-subscribe when jobId or clipId changes — NOT on callback changes (refs handle that)
+  }, [jobId, clipId, clearPolling])
 
   return { connected }
 }
