@@ -8,7 +8,6 @@ import { Settings, Menu, X, LogOut, Zap, Compass, Wand2, Radio, BarChart3, Trend
 import { ViralAnimalLogo } from '@/components/brand/viral-animal-logo'
 import { useUiStore } from '@/stores/ui-store'
 import { Button } from '@/components/ui/button'
-import { NotificationBell } from '@/components/trending/notification-bell'
 import { createClient } from '@/lib/supabase/client'
 import { useAccountStore } from '@/stores/account-store'
 import { CREATOR_RANK_CONFIG } from '@/lib/scoring/account-scorer'
@@ -139,7 +138,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             )}
           </Link>
           <div className="flex items-center gap-1">
-            <NotificationBell />
             <Button variant="ghost" size="icon" className="md:hidden" onClick={() => setSidebarOpen(false)}>
               <X className="h-5 w-5" />
             </Button>
