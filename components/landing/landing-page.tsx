@@ -11,7 +11,6 @@ import { FeaturesGrid } from '@/components/landing/features-grid'
 import { FaqSection, FAQ_ITEMS } from '@/components/landing/faq-section'
 import { PricingSection } from '@/components/landing/pricing-section'
 import { FinalCtaSection } from '@/components/landing/final-cta-section'
-import { ExitIntentPopup } from '@/components/landing/exit-intent-popup'
 import { track } from '@/lib/analytics'
 
 export function LandingPage() {
@@ -119,8 +118,6 @@ export function LandingPage() {
           </div>
         </div>
       </footer>
-
-      <ExitIntentPopup />
     </div>
   )
 }
