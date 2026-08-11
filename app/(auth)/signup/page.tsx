@@ -12,6 +12,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card'
+import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/ui/select'
 
 const REFERRAL_STORAGE_KEY = 'vsp:referral_code'
 
@@ -256,20 +257,21 @@ function SignupForm() {
             <Label htmlFor="acquisitionSource" className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
               How did you hear about us? <span className="text-zinc-600 normal-case">(optional)</span>
             </Label>
-            <select
-              id="acquisitionSource"
-              value={acquisitionSource}
-              onChange={(e) => setAcquisitionSource(e.target.value)}
-              disabled={loading}
-              className="w-full h-11 px-3 rounded-md border border-border bg-background text-foreground text-sm"
-            >
-              <option value="">Skip</option>
-              <option value="tiktok_watermark">TikTok watermark</option>
-              <option value="friend_invited">A friend invited me</option>
-              <option value="saw_ad">Saw an ad</option>
-              <option value="creator_follow">A creator I follow</option>
-              <option value="other">Other</option>
-            </select>
+            <Select value={acquisitionSource} onValueChange={setAcquisitionSource}>
+              <SelectTrigger id="acquisitionSource" disabled={loading} className="h-11">
+                <span className="line-clamp-1">
+                  {{ '': 'Skip', tiktok_watermark: 'TikTok watermark', friend_invited: 'A friend invited me', saw_ad: 'Saw an ad', creator_follow: 'A creator I follow', other: 'Other' }[acquisitionSource] ?? 'Skip'}
+                </span>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="">Skip</SelectItem>
+                <SelectItem value="tiktok_watermark">TikTok watermark</SelectItem>
+                <SelectItem value="friend_invited">A friend invited me</SelectItem>
+                <SelectItem value="saw_ad">Saw an ad</SelectItem>
+                <SelectItem value="creator_follow">A creator I follow</SelectItem>
+                <SelectItem value="other">Other</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         </CardContent>
         <CardFooter className="flex flex-col gap-4 pt-2">

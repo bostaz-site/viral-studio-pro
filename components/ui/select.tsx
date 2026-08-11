@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { Check } from "lucide-react"
+import { Check, ChevronDown } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 interface SelectContextType {
@@ -31,6 +31,7 @@ const Select: React.FC<SelectProps> = ({ value = "", onValueChange, children }) 
   const [internalValue, setInternalValue] = React.useState(value)
   const [open, setOpen] = React.useState(false)
   const currentValue = value !== undefined ? value : internalValue
+  const wrapperRef = React.useRef<HTMLDivElement>(null)
 
   const handleValueChange = (newValue: string) => {
     setInternalValue(newValue)
@@ -38,9 +39,27 @@ const Select: React.FC<SelectProps> = ({ value = "", onValueChange, children }) 
     setOpen(false)
   }
 
+  React.useEffect(() => {
+    if (!open) return
+    const onMouseDown = (e: MouseEvent) => {
+      if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) {
+        setOpen(false)
+      }
+    }
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false)
+    }
+    document.addEventListener("mousedown", onMouseDown)
+    document.addEventListener("keydown", onKeyDown)
+    return () => {
+      document.removeEventListener("mousedown", onMouseDown)
+      document.removeEventListener("keydown", onKeyDown)
+    }
+  }, [open])
+
   return (
     <SelectContext.Provider value={{ value: currentValue, onValueChange: handleValueChange, open, setOpen }}>
-      <div className="relative w-full">
+      <div ref={wrapperRef} className="relative w-full">
         {children}
       </div>
     </SelectContext.Provider>
@@ -53,7 +72,8 @@ const SelectGroup = ({ children }: { children: React.ReactNode }) => (
 
 const SelectValue = ({ placeholder = "Select..." }: { placeholder?: string }) => {
   const { value } = useSelect()
-  return <span className="line-clamp-1">{value || placeholder}</span>
+  if (!value) return <span className="line-clamp-1 text-white/50">{placeholder}</span>
+  return <span className="line-clamp-1">{value}</span>
 }
 
 const SelectTrigger = React.forwardRef<
@@ -65,14 +85,16 @@ const SelectTrigger = React.forwardRef<
   return (
     <button
       ref={ref}
+      type="button"
       onClick={() => setOpen(!open)}
       className={cn(
-        "flex h-8 w-full items-center justify-between rounded-lg border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-background disabled:cursor-not-allowed disabled:opacity-50",
+        "flex h-8 w-full items-center justify-between gap-2 rounded-lg border bg-black/30 border-white/10 px-3 py-2 text-sm text-white hover:border-white/25 focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:ring-offset-2 focus:ring-offset-background disabled:cursor-not-allowed disabled:opacity-50",
         className
       )}
       {...props}
     >
       {children}
+      <ChevronDown className={cn("h-4 w-4 shrink-0 text-white/40 transition-transform", open && "rotate-180")} />
     </button>
   )
 })
@@ -90,7 +112,7 @@ const SelectContent = React.forwardRef<
     <div
       ref={ref}
       className={cn(
-        "absolute top-full left-0 right-0 z-50 mt-1 max-h-96 min-w-[8rem] overflow-auto rounded-lg border border-border bg-background text-foreground shadow-md animate-in fade-in-0 zoom-in-95",
+        "absolute top-full left-0 right-0 z-50 mt-1 max-h-96 min-w-[8rem] overflow-auto rounded-lg border bg-[#0f172a] border-white/10 text-foreground shadow-lg shadow-black/40 animate-in fade-in-0 zoom-in-95",
         className
       )}
       {...props}
@@ -116,17 +138,18 @@ const SelectItem = React.forwardRef<
   return (
     <button
       ref={ref}
+      type="button"
       onClick={() => onValueChange(value)}
       className={cn(
-        "relative flex w-full cursor-pointer select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm outline-none transition-colors focus:bg-muted focus:text-foreground hover:bg-muted/50",
-        isSelected && "bg-muted text-foreground",
+        "relative flex w-full cursor-pointer select-none items-center rounded-md py-1.5 pl-8 pr-2 text-sm outline-none transition-colors hover:bg-amber-500/15 hover:text-amber-200",
+        isSelected && "bg-amber-500/15 text-amber-200",
         className
       )}
       {...props}
     >
       {isSelected && (
         <span className="absolute left-2 flex h-3.5 w-3.5 items-center justify-center">
-          <Check className="h-4 w-4" />
+          <Check className="h-4 w-4 text-amber-400" />
         </span>
       )}
       <span className="line-clamp-1">{children}</span>
@@ -141,7 +164,7 @@ const SelectSeparator = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <div
     ref={ref}
-    className={cn("-mx-1 my-1 h-px bg-muted", className)}
+    className={cn("-mx-1 my-1 h-px bg-white/10", className)}
     {...props}
   />
 ))

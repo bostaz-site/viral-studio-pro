@@ -221,6 +221,9 @@ Video enhancement page with AI mood detection, hook generation, live CSS preview
 ### UI — Sliders
 All 7 sliders (caption position, words/line, tag size, split ratio, hook position, silence threshold, auto-cut) use the unified `components/ui/slider.tsx` (shadcn-style). Single branded style: `bg-white/10` rail, amber gradient fill (`from-amber-400 to-amber-600`), amber thumb with glow + `hover:scale-110`, accessible focus outline. No per-instance overrides.
 
+### UI — Selects
+All user-facing selects use the unified `components/ui/select.tsx` (custom shadcn-style, not Radix). Single branded style: trigger `bg-black/30 border-white/10 text-white hover:border-white/25 focus:ring-amber-500/50`, built-in chevron `text-white/40`, dropdown `bg-[#0f172a] border-white/10 shadow-lg`, items `hover:bg-amber-500/15 hover:text-amber-200`, selected check `text-amber-400`. Click-outside + Escape to close. Converted selects: browse streamer filter (`trending-filters.tsx`), TikTok privacy in publish dialog (`tiktok-publish-dialog.tsx`, no-default preserved), autofarm defaults in distribution hub (`distribution-hub.tsx`, inline styles removed), signup acquisition source (`signup/page.tsx`). Admin selects untouched.
+
 ### User Flow
 1. Arrive at `/dashboard/enhance/{clipId}` -> load clip from `trending_clips` or `videos`
 2. Toggle settings manually OR click "Make it viral" (AI auto-optimization)

@@ -1,10 +1,11 @@
 "use client"
 
 import { useState, useMemo } from 'react'
-import { Search, X, Timer, SlidersHorizontal, ChevronDown, Users } from 'lucide-react'
+import { Search, X, Timer, SlidersHorizontal, Users } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { NICHE_LABELS } from '@/lib/trending/constants'
 import type { TrendingFiltersState, SortOption, DurationFilter } from '@/types/trending'
 
@@ -121,27 +122,27 @@ export function TrendingFilters({
 
         {/* Streamer dropdown */}
         <div className="relative">
-          <Users className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
-          <select
-            value={filters.streamer ?? ''}
-            onChange={(e) => onChange({ ...filters, streamer: e.target.value })}
-            className={cn(
-              'pl-9 pr-7 h-9 text-xs font-medium border border-border rounded-lg bg-card/50',
-              'appearance-none cursor-pointer transition-colors',
-              'hover:border-primary/40 focus:outline-none focus:ring-1 focus:ring-primary/40',
-              filters.streamer
-                ? 'text-primary border-primary/40'
-                : 'text-muted-foreground'
-            )}
-          >
-            <option value="">All streamers</option>
-            {streamerOptions.map((s) => (
-              <option key={s.name} value={s.name}>
-                {s.name} ({s.count})
-              </option>
-            ))}
-          </select>
-          <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+          <Users className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none z-10" />
+          <Select value={filters.streamer ?? ''} onValueChange={(val) => onChange({ ...filters, streamer: val })}>
+            <SelectTrigger
+              className={cn(
+                'pl-9 h-9 text-xs font-medium w-auto min-w-[140px]',
+                filters.streamer
+                  ? 'text-primary border-primary/40'
+                  : 'text-muted-foreground'
+              )}
+            >
+              <SelectValue placeholder="All streamers" />
+            </SelectTrigger>
+            <SelectContent className="min-w-[180px]">
+              <SelectItem value="">All streamers</SelectItem>
+              {streamerOptions.map((s) => (
+                <SelectItem key={s.name} value={s.name}>
+                  {s.name} ({s.count})
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
 
         {/* More filters toggle */}

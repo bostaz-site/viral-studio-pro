@@ -5,13 +5,14 @@ import {
   CheckCircle2,
   AlertCircle,
   Send,
-  ChevronDown,
   Info,
   ExternalLink,
 } from 'lucide-react'
 import { WolfLoader } from '@/components/ui/wolf-loader'
 import { Button } from '@/components/ui/button'
 import { Dialog } from '@/components/ui/dialog'
+import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/ui/select'
+import { cn } from '@/lib/utils'
 import type {
   TikTokCreatorInfo,
   TikTokPrivacyLevel,
@@ -560,28 +561,20 @@ export function TikTokPublishDialog({
               <label htmlFor="tiktok-privacy" className="text-sm font-medium text-foreground mb-1.5 block">
                 Who can view this video
               </label>
-              <div className="relative">
-                <select
-                  id="tiktok-privacy"
-                  value={privacyLevel ?? ''}
-                  onChange={(e) => {
-                    const val = e.target.value as TikTokPrivacyLevel
-                    setPrivacyLevel(val || null)
-                  }}
-                  disabled={isPublishing}
-                  className="w-full appearance-none rounded-lg border border-border bg-background px-3 py-2.5 pr-8 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 disabled:opacity-50"
-                >
-                  <option value="" disabled>
-                    Select privacy
-                  </option>
+              <Select value={privacyLevel ?? ''} onValueChange={(val) => setPrivacyLevel((val || null) as TikTokPrivacyLevel | null)}>
+                <SelectTrigger id="tiktok-privacy" disabled={isPublishing} className="h-10">
+                  <span className={cn("line-clamp-1", !privacyLevel && "text-white/50")}>
+                    {privacyLevel ? (PRIVACY_LEVEL_LABELS[privacyLevel] ?? privacyLevel) : "Select privacy"}
+                  </span>
+                </SelectTrigger>
+                <SelectContent>
                   {creatorInfo.privacy_level_options.map((level) => (
-                    <option key={level} value={level}>
+                    <SelectItem key={level} value={level}>
                       {PRIVACY_LEVEL_LABELS[level] ?? level}
-                    </option>
+                    </SelectItem>
                   ))}
-                </select>
-                <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
-              </div>
+                </SelectContent>
+              </Select>
               {!privacyLevel && (
                 <p className="text-xs text-amber-400 mt-1">
                   You must select a privacy setting before publishing.
