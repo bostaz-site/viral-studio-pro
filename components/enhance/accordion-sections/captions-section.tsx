@@ -7,6 +7,7 @@ import { AccordionItem, AccordionTrigger, AccordionContent } from '@/components/
 import { Label } from '@/components/ui/label'
 import { ScoreBadge } from '@/components/enhance/live-preview'
 import { CAPTION_STYLES, EMPHASIS_EFFECTS, EMPHASIS_COLORS } from '@/lib/enhance/scoring'
+import { Slider } from '@/components/ui/slider'
 import type { AccordionSectionProps } from '@/components/enhance/enhance-types'
 import React from 'react'
 
@@ -244,14 +245,12 @@ export function CaptionsSection({
               </div>
               <div className="flex items-center gap-3">
                 <span className="text-[10px] text-muted-foreground whitespace-nowrap">Top</span>
-                <input
-                  type="range"
+                <Slider
+                  value={[settings.captionPosition]}
+                  onValueChange={([v]) => updateSetting('captionPosition', v)}
                   min={0}
                   max={100}
                   step={1}
-                  value={settings.captionPosition}
-                  onChange={(e) => updateSetting('captionPosition', Number(e.target.value))}
-                  className="w-full h-1.5 bg-border rounded-full appearance-none cursor-pointer accent-primary [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3.5 [&::-webkit-slider-thumb]:h-3.5 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-primary [&::-webkit-slider-thumb]:shadow-md"
                 />
                 <span className="text-[10px] text-muted-foreground whitespace-nowrap">Bottom</span>
               </div>
@@ -283,14 +282,12 @@ export function CaptionsSection({
                 <Label className="text-xs uppercase tracking-wider text-muted-foreground">Words per Line</Label>
                 <span className="text-xs font-mono text-muted-foreground">{settings.wordsPerLine}</span>
               </div>
-              <input
-                type="range"
+              <Slider
+                value={[settings.wordsPerLine]}
+                onValueChange={([v]) => updateSetting('wordsPerLine', v)}
                 min={1}
                 max={8}
                 step={1}
-                value={settings.wordsPerLine}
-                onChange={(e) => updateSetting('wordsPerLine', Number(e.target.value))}
-                className="w-full accent-primary"
               />
               <div className="flex justify-between text-[10px] text-muted-foreground/60">
                 <span>1 (single)</span>

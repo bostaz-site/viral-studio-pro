@@ -218,6 +218,9 @@ Clips from the same stream are grouped to prevent one streamer dominating the fe
 
 Video enhancement page with AI mood detection, hook generation, live CSS preview and render trigger.
 
+### UI — Sliders
+All 7 sliders (caption position, words/line, tag size, split ratio, hook position, silence threshold, auto-cut) use the unified `components/ui/slider.tsx` (shadcn-style). Single branded style: `bg-white/10` rail, amber gradient fill (`from-amber-400 to-amber-600`), amber thumb with glow + `hover:scale-110`, accessible focus outline. No per-instance overrides.
+
 ### User Flow
 1. Arrive at `/dashboard/enhance/{clipId}` -> load clip from `trending_clips` or `videos`
 2. Toggle settings manually OR click "Make it viral" (AI auto-optimization)

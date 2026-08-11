@@ -2277,7 +2277,6 @@ export default function EnhancePage() {
                             min={5}
                             max={85}
                             step={1}
-                            className="w-full accent-orange-500 [&::-webkit-slider-thumb]:border-orange-500/50 [&::-moz-range-thumb]:border-orange-500/50"
                           />
                           <div className="flex justify-between text-[9px] text-muted-foreground">
                             <span>Top</span>
@@ -2475,14 +2474,12 @@ export default function EnhancePage() {
                       </div>
                       <div className="flex items-center gap-3">
                         <span className="text-[10px] text-muted-foreground whitespace-nowrap">Top</span>
-                        <input
-                          type="range"
+                        <Slider
+                          value={[settings.captionPosition]}
+                          onValueChange={([v]) => updateSetting('captionPosition', v)}
                           min={0}
                           max={100}
                           step={1}
-                          value={settings.captionPosition}
-                          onChange={(e) => updateSetting('captionPosition', Number(e.target.value))}
-                          className="w-full h-1.5 bg-border rounded-full appearance-none cursor-pointer accent-primary [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3.5 [&::-webkit-slider-thumb]:h-3.5 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-primary [&::-webkit-slider-thumb]:shadow-md"
                         />
                         <span className="text-[10px] text-muted-foreground whitespace-nowrap">Bottom</span>
                       </div>
@@ -2516,14 +2513,12 @@ export default function EnhancePage() {
                         <Label className="text-xs uppercase tracking-wider text-muted-foreground">Words per Line</Label>
                         <span className="text-xs font-mono text-muted-foreground">{settings.wordsPerLine}</span>
                       </div>
-                      <input
-                        type="range"
+                      <Slider
+                        value={[settings.wordsPerLine]}
+                        onValueChange={([v]) => updateSetting('wordsPerLine', v)}
                         min={1}
                         max={8}
                         step={1}
-                        value={settings.wordsPerLine}
-                        onChange={(e) => updateSetting('wordsPerLine', Number(e.target.value))}
-                        className="w-full accent-primary"
                       />
                       <div className="flex justify-between text-[10px] text-muted-foreground/60">
                         <span>1 (single)</span>

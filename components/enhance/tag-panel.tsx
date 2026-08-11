@@ -5,6 +5,7 @@ import { AtSign } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
 import { cn } from '@/lib/utils'
+import { Slider } from '@/components/ui/slider'
 import { TAG_STYLES, type EnhanceSettings, type ScoredOption } from '@/lib/enhance/scoring'
 import { MOOD_PRESETS, type ClipMood } from '@/lib/ai/mood-presets'
 import { ScoreBadge } from '@/components/enhance/live-preview'
@@ -123,14 +124,12 @@ export const TagPanel = forwardRef<HTMLDivElement, TagPanelProps>(function TagPa
               {settings.tagSize || 100}%
             </span>
           </div>
-          <input
-            type="range"
+          <Slider
+            value={[settings.tagSize || 100]}
+            onValueChange={([v]) => updateSetting('tagSize', v)}
             min={50}
             max={150}
             step={5}
-            value={settings.tagSize || 100}
-            onChange={(e) => updateSetting('tagSize', Number(e.target.value))}
-            className="w-full accent-primary"
           />
           <div className="flex justify-between text-[10px] text-muted-foreground">
             <span>50%</span>
