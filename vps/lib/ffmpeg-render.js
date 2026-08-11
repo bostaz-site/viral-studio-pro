@@ -1005,7 +1005,15 @@ async function renderSplitScreen(inputPath, outputPath, opts) {
   } = opts;
 
   const layout = splitScreen.layout || 'top-bottom';
-  const ratio = Math.max(30, Math.min(70, splitScreen.ratio || 50)) / 100;
+  // ratio = percentage 0-100 of height for the MAIN clip (top).
+  // Defense: if a caller sends a fraction (0-1), convert to percentage with warning.
+  let rawRatio = splitScreen.ratio || 60;
+  if (rawRatio > 0 && rawRatio <= 1) {
+    console.warn(`[split-screen] ratio ${rawRatio} looks like a fraction — converting to ${Math.round(rawRatio * 100)}%`);
+    rawRatio = Math.round(rawRatio * 100);
+  }
+  // Clamp [50, 80]: main clip must ALWAYS be dominant
+  const ratio = Math.max(50, Math.min(80, rawRatio)) / 100;
   const brollPath = splitScreen.brollPath;
 
   // ── Retry ladder for split-screen ──

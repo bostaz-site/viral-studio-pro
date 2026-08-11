@@ -649,6 +649,8 @@ Utilise pour les ScoreBadge sur chaque option dans l'UI.
 **Trigger summary** : "Blur fill · {ratio}" ou "Off"
 **Score badge** : `+{scoreBreakdown.splitScreen} pts`
 
+**Ratio convention** : `splitScreen.ratio` = **percentage 0-100** of screen height for the MAIN clip (top). E.g. `65` = 65% main clip, 35% gameplay. VPS clamps to [50, 80] — main clip must ALWAYS be dominant. Defense: if VPS receives ratio ≤ 1 (fraction), auto-converts to percentage with warning log. Default: Enhance UI = 60, Quick Export = 65.
+
 **Contenu** :
 - **Blur fill toggle** : custom switch (emerald quand ON). Toggle `splitScreenEnabled` + `brollVideo='blur-fill'`.
 - **Ratio slider** : 40-80%, step 5. Label "{ratio}% / {100-ratio}%".

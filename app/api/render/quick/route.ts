@@ -142,7 +142,7 @@ export const POST = withAuth(async (request: NextRequest, user) => {
     splitScreen: {
       enabled: true,
       brollCategory: 'minecraft',
-      ratio: 0.35,
+      ratio: 65, // percentage 0-100: main clip height (65% clip / 35% gameplay)
     },
     hook: {
       enabled: false,
