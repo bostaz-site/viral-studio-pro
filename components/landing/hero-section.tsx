@@ -80,14 +80,14 @@ export function HeroSection() {
                   <div className="h3c-gem h3c-gem-bl" /><div className="h3c-gem h3c-gem-br" />
                   {/* Thumbnail */}
                   <div className="h3c-z1-thumb">
-                    <div className="h3c-z1-img-fb" />
+                    <img src="/landing/radar-thumb-1.jpg" alt="" className="h3c-z1-img" draggable={false} />
                     <div className="h3c-z1-overlay" />
                   </div>
                 </div>
               </div>
               <div className="h3c-z1-meta">
                 <span className="h3c-z1-badge">&#x1F451; Top Pick</span>
-                <span className="h3c-z1-score">98</span>
+                <span className="h3c-z1-score">87</span>
               </div>
             </div>
             {/* Click wave */}

@@ -587,7 +587,7 @@ Mobile-first. No fake numbers, no testimonials.
 
 | Section | Component | Notes |
 |---|---|---|
-| Hero | `hero-section.tsx` | 3-clicks pipeline demo (7.2s CSS cycle: Pick→Enhance→Post), micro-features line below ("Karaoke captions (5 styles) · Split-screen gameplay · Automatic creator credit"). Bridge card REMOVED — hero ends cleanly on micro-features. No bridge API fetch. Padding-bottom 80px. |
+| Hero | `hero-section.tsx` | 3-clicks pipeline demo (7.2s CSS cycle: Pick→Enhance→Post). Static score narrative: Zone 1 card = 87, Zone 2 bar = 87→96. Thumbnail: `/landing/radar-thumb-1.jpg` (local, no API). Micro-features line below. Bridge card REMOVED. No bridge API fetch. Padding-bottom 80px. |
 | Radar | `how-it-works-section.tsx` | **LIVE** — fetches `/api/landing/radar` (ISR 15min). Royal card = top pick (live), 1st rising = live, **2nd rising (slot 3) = STATIC "67 meme" card** (Agent00 "Professor Agent teaches clip farming", score 67 rainbow — founder's meme, never wired to API), partial = live. All scores Math.round (no decimals). Total clips = real DB count rounded to 100. Static fallback if API fails |
 | Farm | `features-grid.tsx` | Step 2 — Automation. Brain pipeline (8s cycle). Platform apps: TikTok live + YouTube/Instagram/Facebook with SOON badges. Countdown EXAMPLE panel (live JS). Thumbnails: `/landing/farm-thumb-1/2.jpg` |
 | Pricing | `pricing-section.tsx` | Free $0 / Pro $19 / Studio $24 founding (via `isStudioLaunchActive()`, expires `STUDIO_LAUNCH_ENDS_AT` 2026-09-30) or $29 after |
