@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useRef, useCallback, useEffect, memo } from 'react'
+import { useState, useRef, useCallback, useEffect, useMemo, memo } from 'react'
 import Image from 'next/image'
 import { motion } from 'framer-motion'
 import { ExternalLink, Sparkles, Flame, Bookmark, SlidersHorizontal, Zap, CheckCircle2 } from 'lucide-react'
@@ -144,6 +144,17 @@ export const TrendingCard = memo(function TrendingCard({ clip, onRemix, onQuickE
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const hlsRef = useRef<any>(null)
 
+  // Kick CDN: derive HLS playlist URL from thumbnail (no API needed, CORS open)
+  // thumbnail: https://clips.kick.com/clips/02/clip_01KZ.../thumbnail.webp
+  // playlist:  https://clips.kick.com/clips/02/clip_01KZ.../playlist.m3u8
+  const kickCdnPlaylistUrl = useMemo(() => {
+    const thumb = clip.thumbnail_url
+    if (!thumb || !thumb.includes('clips.kick.com/clips/')) return null
+    const lastSlash = thumb.lastIndexOf('/')
+    if (lastSlash < 0) return null
+    return thumb.substring(0, lastSlash + 1) + 'playlist.m3u8'
+  }, [clip.thumbnail_url])
+
   const ps = PLATFORM_STYLES[clip.platform.toLowerCase()]
   const platformStyle = {
     label: ps?.label ?? clip.platform,
@@ -194,9 +205,16 @@ export const TrendingCard = memo(function TrendingCard({ clip, onRemix, onQuickE
     if (!isHoverPreviewV2) return
     const platform = clip.platform?.toLowerCase()
     if (platform !== 'twitch' && platform !== 'kick') return
+    if (preResolvedCache.has(clip.id)) return
+
+    // Kick: use CDN-derived playlist directly (no API needed)
+    if (platform === 'kick' && kickCdnPlaylistUrl) {
+      preResolvedCache.set(clip.id, kickCdnPlaylistUrl)
+      return
+    }
+
     const slug = getClipSlug()
     if (!slug) return
-    if (preResolvedCache.has(clip.id)) return
 
     const el = (tilt.ref as React.RefObject<HTMLElement>).current
     if (!el) return
@@ -218,7 +236,7 @@ export const TrendingCard = memo(function TrendingCard({ clip, onRemix, onQuickE
     observer.observe(el)
     return () => observer.disconnect()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [clip.id, clip.external_url, getClipSlug])
+  }, [clip.id, clip.external_url, getClipSlug, kickCdnPlaylistUrl])
 
   // V2: Overlay CTA timer
   useEffect(() => {
@@ -241,6 +259,14 @@ export const TrendingCard = memo(function TrendingCard({ clip, onRemix, onQuickE
     fetchedForHoverRef.current = false
     const platform = clip.platform?.toLowerCase()
     if (platform !== 'twitch' && platform !== 'kick') return
+
+    // Kick: use CDN-derived playlist directly (no API call, no 403)
+    if (platform === 'kick' && kickCdnPlaylistUrl) {
+      preResolvedCache.set(clip.id, kickCdnPlaylistUrl)
+      setResolvedVideoUrl(kickCdnPlaylistUrl)
+      return
+    }
+
     if (isHoverPreviewV2) {
       const cached = preResolvedCache.get(clip.id)
       if (cached) { setResolvedVideoUrl(cached); return }
@@ -261,7 +287,7 @@ export const TrendingCard = memo(function TrendingCard({ clip, onRemix, onQuickE
         }
       })
       .catch(() => {})
-  }, [clip.platform, clip.id, getClipSlug])
+  }, [clip.platform, clip.id, getClipSlug, kickCdnPlaylistUrl])
 
   const handleMouseLeave = useCallback(() => {
     setHovered(false)

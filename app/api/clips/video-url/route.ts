@@ -50,38 +50,24 @@ export async function GET(request: NextRequest) {
   }
 
   // ─── KICK branch ───────────────────────────────────────────────
+  // Kick API (kick.com/api/v2) is Cloudflare-blocked for server requests (403).
+  // Instead, derive the HLS playlist URL from the thumbnail_url query param.
+  // CDN clips.kick.com serves CORS-open HLS directly — no proxy needed.
   if (platform === 'kick') {
-    try {
-      const cleanSlug = slug.replace(/[^a-zA-Z0-9_-]/g, '')
-      const kickRes = await fetch(`https://kick.com/api/v2/clips/${cleanSlug}`, {
-        headers: {
-          'Accept': 'application/json',
-          'User-Agent': 'ViralAnimal/1.0',
-        },
-      })
-      if (!kickRes.ok) {
-        return NextResponse.json({ error: 'Kick clip fetch failed', status: kickRes.status }, { status: 502 })
+    const thumbUrl = request.nextUrl.searchParams.get('thumb')
+    if (thumbUrl && thumbUrl.includes('clips.kick.com/clips/')) {
+      const lastSlash = thumbUrl.lastIndexOf('/')
+      if (lastSlash > 0) {
+        const playlistUrl = thumbUrl.substring(0, lastSlash + 1) + 'playlist.m3u8'
+        cache.set(cacheKey, { url: playlistUrl, ts: Date.now() })
+        return NextResponse.json(
+          { video_url: playlistUrl },
+          { headers: { 'Cache-Control': 'private, max-age=3600' } }
+        )
       }
-      const kickData = await kickRes.json()
-      // Kick API responses can have the clip object at top level or nested
-      const clipObj = kickData?.clip ?? kickData
-      const rawVideoUrl: string | undefined = clipObj?.video_url ?? clipObj?.clip_url ?? clipObj?.video?.url
-      if (!rawVideoUrl) {
-        return NextResponse.json({ error: 'No video URL in Kick clip response' }, { status: 404 })
-      }
-      // Proxy HLS through kick-proxy to avoid CORS issues on Kick CDN
-      const videoUrl = rawVideoUrl.includes('.m3u8')
-        ? `/api/clips/kick-proxy?url=${encodeURIComponent(rawVideoUrl)}`
-        : rawVideoUrl
-      cache.set(cacheKey, { url: videoUrl, ts: Date.now() })
-      return NextResponse.json(
-        { video_url: videoUrl },
-        { headers: { 'Cache-Control': 'private, max-age=3600' } }
-      )
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err)
-      return NextResponse.json({ error: `Kick fetch error: ${msg}` }, { status: 502 })
     }
+    // Fallback: return 404 (Kick API is Cloudflare-blocked, don't waste time calling it)
+    return NextResponse.json({ error: 'Kick clip: no thumbnail provided for CDN derivation' }, { status: 404 })
   }
 
   // ─── TWITCH branch (default, existing logic) ───────────────────
