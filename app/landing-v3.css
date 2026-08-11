@@ -413,44 +413,7 @@
 }
 
 /* ── Bridge card ── */
-.lv3-bridge {
-  position: absolute;
-  left: 50%;
-  bottom: 0;
-  transform: translate(-50%, 46%);
-  width: min(360px, 86vw);
-  border-radius: 14px;
-  background: #0F172A;
-  border: 2px solid #F59E0B;
-  box-shadow: 0 -8px 50px rgba(245,158,11,.22);
-  padding: 14px 18px;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  z-index: 10;
-}
-.lv3-bridge-crown { font-size: 22px; flex-shrink: 0; }
-.lv3-bridge-label {
-  font-size: 10px;
-  font-weight: 800;
-  letter-spacing: .2em;
-  text-transform: uppercase;
-  color: #FBBF24;
-}
-.lv3-bridge-sub {
-  font-size: 12px;
-  font-weight: 600;
-  color: #94A3B8;
-  margin-top: 2px;
-}
-.lv3-bridge-score {
-  font-size: 20px;
-  font-weight: 900;
-  color: #FBBF24;
-  font-variant-numeric: tabular-nums;
-  margin-left: auto;
-  flex-shrink: 0;
-}
+/* Bridge card removed — hero ends on micro-features line */
 
 /* ═══ Keyframes ═══ */
 @keyframes lv3-floatUp {

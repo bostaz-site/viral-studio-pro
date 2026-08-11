@@ -1,59 +1,10 @@
 /* eslint-disable @next/next/no-img-element */
 "use client"
 
-import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { track } from '@/lib/analytics'
 
-interface BridgeData { title: string; score: number; thumbUrl: string | null }
-
-function CountUp({ value }: { value: number }) {
-  const [display, setDisplay] = useState(0)
-  const ref = useRef<HTMLSpanElement>(null)
-  const triggered = useRef(false)
-  useEffect(() => {
-    const el = ref.current
-    if (!el) return
-    const obs = new IntersectionObserver(([e]) => {
-      if (e.isIntersecting && !triggered.current) {
-        triggered.current = true
-        const start = performance.now()
-        const animate = (now: number) => {
-          const p = Math.min((now - start) / 1800, 1)
-          setDisplay(Math.round((1 - Math.pow(1 - p, 3)) * value))
-          if (p < 1) requestAnimationFrame(animate)
-        }
-        requestAnimationFrame(animate)
-      }
-    }, { threshold: 0.5 })
-    obs.observe(el)
-    return () => obs.disconnect()
-  }, [value])
-  return <span ref={ref}>{display}</span>
-}
-
 export function HeroSection() {
-  const [bridge, setBridge] = useState<BridgeData>({
-    title: 'The radar found one while you were reading.',
-    score: 98,
-    thumbUrl: null,
-  })
-
-  useEffect(() => {
-    fetch('/api/landing/radar')
-      .then(r => r.ok ? r.json() : null)
-      .then(j => {
-        const clip = j?.data?.clips?.[0]
-        if (clip) {
-          setBridge({
-            title: clip.title ?? 'The radar found one while you were reading.',
-            score: Math.round(clip.velocity_score ?? 98),
-            thumbUrl: clip.thumbnail_url ?? null,
-          })
-        }
-      })
-      .catch(() => {})
-  }, [])
 
   return (
     <section className="lv3-hero lv3-divider">
@@ -129,18 +80,14 @@ export function HeroSection() {
                   <div className="h3c-gem h3c-gem-bl" /><div className="h3c-gem h3c-gem-br" />
                   {/* Thumbnail */}
                   <div className="h3c-z1-thumb">
-                    {bridge.thumbUrl ? (
-                      <img src={bridge.thumbUrl} alt="" className="h3c-z1-img" />
-                    ) : (
-                      <div className="h3c-z1-img-fb" />
-                    )}
+                    <div className="h3c-z1-img-fb" />
                     <div className="h3c-z1-overlay" />
                   </div>
                 </div>
               </div>
               <div className="h3c-z1-meta">
                 <span className="h3c-z1-badge">&#x1F451; Top Pick</span>
-                <span className="h3c-z1-score">{bridge.score}</span>
+                <span className="h3c-z1-score">98</span>
               </div>
             </div>
             {/* Click wave */}
@@ -223,15 +170,7 @@ export function HeroSection() {
         <span>Automatic creator credit</span>
       </div>
 
-      {/* Bridge card — VALIDATED */}
-      <div className="lv3-bridge">
-        <span className="lv3-bridge-crown" role="img" aria-label="crown">&#x1F451;</span>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <p className="lv3-bridge-label">Top Pick &middot; Just Detected</p>
-          <p className="lv3-bridge-sub" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{bridge.title}</p>
-        </div>
-        <span className="lv3-bridge-score"><CountUp value={bridge.score} /></span>
-      </div>
+      {/* Bridge card removed — hero ends cleanly on micro-features line */}
     </section>
   )
 }
