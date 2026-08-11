@@ -20,9 +20,10 @@ function getStripe() {
 // POST — Stripe webhook endpoint (public, no auth — signature verified)
 export async function POST(req: NextRequest) {
   const stripe = getStripe()
-  const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET
+  const webhookSecret = process.env.STRIPE_ADMIN_WEBHOOK_SECRET
   if (!webhookSecret) {
-    return NextResponse.json({ error: 'STRIPE_WEBHOOK_SECRET not configured' }, { status: 500 })
+    console.warn('[admin-webhook] STRIPE_ADMIN_WEBHOOK_SECRET not configured — cannot verify admin webhook signatures')
+    return NextResponse.json({ error: 'Admin webhook secret not configured' }, { status: 503 })
   }
   const body = await req.text()
   const sig = req.headers.get('stripe-signature') ?? ''

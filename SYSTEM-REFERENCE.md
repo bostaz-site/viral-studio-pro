@@ -789,6 +789,7 @@ Derived from user's `full_name` or email prefix (sanitized to alphanumeric). If 
 - **Payout idempotency:** UNIQUE partial index `(influencer_id, period_start_at) WHERE status != 'canceled'` in DB. Code checks `.eq('period_start_at')` + handles 23505 gracefully.
 - **Anti self-referral:** `/api/affiliate/attribute` rejects if user's email matches influencer's email. Body-only codes (no cookie) require a recent `affiliate_clicks` row within 60 days.
 - **Click dedup:** `/r/[code]` rate-limited 10/IP/24h via `rateLimit()`. Same `ip_hash + code` within 24h = no duplicate row. `total_clicks` derived from `affiliate_clicks` table (no counter column).
+- **Admin webhook secret:** `app/api/admin/webhooks/stripe/route.ts` uses `STRIPE_ADMIN_WEBHOOK_SECRET` (not `STRIPE_WEBHOOK_SECRET`). Each Stripe webhook destination has its own signing secret. If the env var is missing, the route returns 503 with a console warning instead of silently verifying against the wrong secret.
 - **Files:** `lib/admin/webhooks/stripe-processor.ts` (commission + clawback + dispute), `lib/admin/stripe/payouts.ts` (monthly payouts + fraud checks), `lib/admin/affiliate-attribution.ts` (signup attribution), `app/api/affiliate/attribute/route.ts`, `app/r/[code]/route.ts`
 
 ### Email Compliance (CAN-SPAM / GDPR)
