@@ -326,6 +326,8 @@
 .dist-modal-card {
   width: 100%;
   max-width: 460px;
+  max-height: 90vh;
+  overflow-y: auto;
   border-radius: 18px;
   background: linear-gradient(180deg, rgba(15, 23, 42, 0.96), rgba(2, 6, 23, 0.92));
   border: 1px solid rgba(56, 189, 248, 0.22);
@@ -4142,4 +4144,33 @@
   }
   .dist-ticker-item { animation: none !important; }
   animateMotion { display: none; }
+}
+
+/* ── Mobile: connection map stacked ── */
+@media (max-width: 720px) {
+  .dist-connection-map {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+    min-height: auto;
+    padding: 16px 0;
+  }
+  .dist-map-svg { display: none; }
+  .dist-core-wrap {
+    width: 100%;
+    max-width: 300px;
+    min-height: 280px;
+    order: -1;
+  }
+  .dist-plat-node {
+    width: auto;
+    padding: 0 !important;
+  }
+  .dist-plat-node .plat-icon-wrap {
+    width: 56px;
+    height: 56px;
+    font-size: 24px;
+    border-radius: 16px;
+  }
 }

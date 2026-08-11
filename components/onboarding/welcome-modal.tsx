@@ -74,7 +74,7 @@ export function WelcomeModal() {
       />
 
       {/* Modal card */}
-      <div className="relative w-full max-w-md rounded-2xl border border-border bg-card shadow-2xl p-8 animate-in zoom-in-95 duration-300">
+      <div className="relative w-full max-w-md max-h-[90vh] overflow-y-auto rounded-2xl border border-border bg-card shadow-2xl p-8 animate-in zoom-in-95 duration-300">
         {/* Close button */}
         <button
           type="button"

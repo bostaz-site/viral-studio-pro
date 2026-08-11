@@ -161,7 +161,7 @@ function ForgotPassword() {
         value={resetEmail}
         onChange={e => setResetEmail(e.target.value)}
         required
-        className="h-8 text-xs flex-1"
+        className="h-8 text-base sm:text-xs flex-1"
       />
       <Button type="submit" size="sm" variant="outline" className="h-8 text-xs" disabled={sending}>
         {sending ? '...' : 'Reset'}

@@ -365,7 +365,7 @@ function SettingsPageInner() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-3 gap-3 pt-2">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
                   <div className="rounded-lg border border-border/60 bg-background/40 p-3">
                     <p className="text-[11px] text-muted-foreground uppercase tracking-wider">Code</p>
                     <p className="text-lg font-black font-mono tracking-wider text-primary mt-0.5 truncate">

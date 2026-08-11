@@ -585,11 +585,11 @@ export const TrendingCard = memo(function TrendingCard({ clip, onRemix, onQuickE
                     {scoreDelta! > 0 ? `↑ Heating` : `↓ Cooling (was ${Math.round(prevScore!)})`}
                   </span>
                 )}
-                {/* "Why this clip?" — hover only on desktop (C1) */}
+                {/* "Why this clip?" — visible on mobile, hover-reveal on desktop (C1) */}
                 {onShowDetail && (
                   <button
                     onClick={(e) => { e.stopPropagation(); onShowDetail(clip) }}
-                    className="text-[10px] text-zinc-500 hover:text-zinc-300 transition-colors whitespace-nowrap relative z-10 opacity-0 group-hover:opacity-100 mt-0.5 block"
+                    className="text-[10px] text-zinc-500 hover:text-zinc-300 transition-colors whitespace-nowrap relative z-10 opacity-100 md:opacity-0 md:group-hover:opacity-100 mt-0.5 block"
                   >
                     Why this clip?
                   </button>
@@ -633,8 +633,8 @@ export const TrendingCard = memo(function TrendingCard({ clip, onRemix, onQuickE
                 <button
                   onClick={(e) => { e.stopPropagation(); onToggleSave(clip.id) }}
                   className={cn(
-                    'h-[34px] w-[34px] flex-shrink-0 rounded-lg flex items-center justify-center border transition-all ml-1.5',
-                    isSaved ? 'bg-amber-500/20 border-amber-500/30 text-amber-400 opacity-100' : 'bg-zinc-900/60 border-zinc-700 text-zinc-500 hover:text-amber-400 hover:border-amber-500/30 opacity-0 group-hover:opacity-100'
+                    'h-[34px] w-[34px] md:h-[34px] md:w-[34px] min-h-[44px] min-w-[44px] md:min-h-0 md:min-w-0 flex-shrink-0 rounded-lg flex items-center justify-center border transition-all ml-1.5',
+                    isSaved ? 'bg-amber-500/20 border-amber-500/30 text-amber-400 opacity-100' : 'bg-zinc-900/60 border-zinc-700 text-zinc-500 hover:text-amber-400 hover:border-amber-500/30 opacity-100 md:opacity-0 md:group-hover:opacity-100'
                   )}
                   title={isSaved ? 'Unsave' : 'Save'}
                 >
@@ -800,11 +800,11 @@ export const TrendingCard = memo(function TrendingCard({ clip, onRemix, onQuickE
           </span>
         )}
 
-        {/* "Why this clip?" — hover only (C1) */}
+        {/* "Why this clip?" — visible on mobile, hover-reveal on desktop (C1) */}
         {onShowDetail && (
           <button
             onClick={(e) => { e.stopPropagation(); onShowDetail(clip) }}
-            className="text-[10px] text-zinc-500 hover:text-zinc-300 transition-colors whitespace-nowrap relative z-10 opacity-0 group-hover:opacity-100 mt-0.5 block"
+            className="text-[10px] text-zinc-500 hover:text-zinc-300 transition-colors whitespace-nowrap relative z-10 opacity-100 md:opacity-0 md:group-hover:opacity-100 mt-0.5 block"
           >
             Why this clip?
           </button>
@@ -843,8 +843,8 @@ export const TrendingCard = memo(function TrendingCard({ clip, onRemix, onQuickE
             <button
               onClick={(e) => { e.stopPropagation(); onToggleSave(clip.id) }}
               className={cn(
-                'h-[34px] w-[34px] flex-shrink-0 rounded-xl flex items-center justify-center border transition-all relative z-10',
-                isSaved ? 'bg-amber-500/20 border-amber-500/30 text-amber-400 opacity-100' : 'bg-card/60 border-border text-muted-foreground hover:text-amber-400 hover:border-amber-500/30 opacity-0 group-hover:opacity-100'
+                'h-[34px] w-[34px] md:h-[34px] md:w-[34px] min-h-[44px] min-w-[44px] md:min-h-0 md:min-w-0 flex-shrink-0 rounded-xl flex items-center justify-center border transition-all relative z-10',
+                isSaved ? 'bg-amber-500/20 border-amber-500/30 text-amber-400 opacity-100' : 'bg-card/60 border-border text-muted-foreground hover:text-amber-400 hover:border-amber-500/30 opacity-100 md:opacity-0 md:group-hover:opacity-100'
               )}
               title={isSaved ? 'Unsave' : 'Save'}
             >

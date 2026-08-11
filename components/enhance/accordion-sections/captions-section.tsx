@@ -67,7 +67,7 @@ export function CaptionsSection({
             )}
             <div className="space-y-2">
               <Label className="text-xs uppercase tracking-wider text-muted-foreground">Style</Label>
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                 {CAPTION_STYLES.map((style) => {
                   const { impact, isMoodPick } = getRealImpact('caption', style.id, scores.best.captionStyle)
                   const isHighlight = isMoodPick || (!selectedMood && style.id === scores.best.captionStyle)

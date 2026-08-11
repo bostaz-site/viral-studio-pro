@@ -847,3 +847,20 @@ Layout: `.lv3-hero-split` — desktop: copy left-aligned + mockup right (flex ro
 Reduced motion: static final frame (captions + badge visible, no animation). Phases driven by JS `setTimeout` chain, not CSS animation on the wrapper.
 **Designed to be replaced by `<video>` at same dimensions** — isolate swap to `HeroProductMockup` only.
 CSS: `landing-v3.css` under `HERO PRODUCT MOCKUP` section.
+
+### Mobile Dashboard (390px)
+**Sidebar drawer:** `stores/ui-store.ts` initial `sidebarOpen: false`. Desktop auto-opens on mount (`window.innerWidth >= 768`). Closes on route change (mobile), Escape key, scrim click. Body scroll locked while open. `role="dialog" aria-modal` on the `<aside>`.
+
+**Touch-visible actions:** Bookmark and "Why this clip?" buttons use `opacity-100 md:opacity-0 md:group-hover:opacity-100` (always visible on touch, hover-reveal on desktop). Bookmark targets enlarged to 44px tap area on mobile (`min-h-[44px] min-w-[44px] md:min-h-0 md:min-w-0`).
+
+**Distribution Core (connection map):** `@media (max-width: 720px)` in `distribution-hub.css` — grid becomes flex column, SVG paths hidden, brain centered at 300px max-width, platform nodes compact (56px icons).
+
+**Fixed bottom stacking:** Render toasts/notifications use `inset-x-4 bottom-4 md:left-auto md:right-6` (full-width mobile, right-anchored desktop). Install banner at `bottom-20 z-40` (below toasts at `z-50`).
+
+**Enhance page:** Mobile fixed bottom bar (`lg:hidden`) with Generate CTA always reachable during editing. Rendering state shown in same bar.
+
+**Modal guards:** `max-h-[90vh] overflow-y-auto` on paywall modal, welcome modal, and `.dist-modal-card`. Onboarding overlay: `overflow-y-auto justify-start py-8`, Skip link above grid on mobile.
+
+**Responsive grids:** affiliate stats `grid-cols-2 sm:grid-cols-4`, settings referral `grid-cols-1 sm:grid-cols-3`, caption styles `grid-cols-2 sm:grid-cols-3`, split-screen framing `grid-cols-2 sm:grid-cols-3`. Feed tabs: `overflow-x-auto` with hidden scrollbar. Daily Radar: `flex-wrap min-h-14 py-2`.
+
+**Viewport:** `export const viewport` in `app/layout.tsx` — `width: device-width`, `initialScale: 1`, `viewportFit: cover`. Login reset input: `text-base sm:text-xs` (prevents iOS zoom).

@@ -280,7 +280,7 @@ export function AffiliateSection() {
           <Separator />
 
           {/* Stats grid */}
-          <div className="grid grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             <div className="rounded-lg border border-border/60 bg-background/40 p-3 text-center">
               <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Clicks</p>
               <p className="text-xl font-black text-foreground mt-0.5">{affiliate.clicks}</p>

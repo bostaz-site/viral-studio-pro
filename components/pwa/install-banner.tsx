@@ -39,7 +39,7 @@ export function InstallBanner() {
   if (!visible) return null
 
   return (
-    <div className="fixed bottom-4 left-4 right-4 z-50 md:hidden animate-in slide-in-from-bottom-4 fade-in duration-300">
+    <div className="fixed bottom-20 left-4 right-4 z-40 md:hidden animate-in slide-in-from-bottom-4 fade-in duration-300 pb-[env(safe-area-inset-bottom)]">
       <div className="flex items-center gap-3 p-3 rounded-xl bg-card border border-border shadow-2xl">
         <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-orange-500 to-amber-500">
           <Download className="h-5 w-5 text-white" />

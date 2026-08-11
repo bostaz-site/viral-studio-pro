@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/button'
 import { createClient } from '@/lib/supabase/client'
 import { useAccountStore } from '@/stores/account-store'
 import { CREATOR_RANK_CONFIG } from '@/lib/scoring/account-scorer'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import type { User } from '@supabase/supabase-js'
 import { isAuditMode } from '@/lib/feature-flags'
 
@@ -62,6 +62,33 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     })
     return () => subscription.unsubscribe()
   }, [])
+
+  // Open sidebar on desktop by default (once, on mount)
+  useEffect(() => {
+    if (window.innerWidth >= 768) setSidebarOpen(true)
+  }, [setSidebarOpen])
+
+  // Close sidebar on route change (mobile drawer)
+  useEffect(() => {
+    if (window.innerWidth < 768) setSidebarOpen(false)
+  }, [pathname, setSidebarOpen])
+
+  // Body scroll lock when mobile drawer is open
+  useEffect(() => {
+    if (sidebarOpen && window.innerWidth < 768) {
+      document.body.style.overflow = 'hidden'
+      return () => { document.body.style.overflow = '' }
+    }
+  }, [sidebarOpen])
+
+  // Close on Escape
+  const handleEscape = useCallback((e: KeyboardEvent) => {
+    if (e.key === 'Escape' && sidebarOpen && window.innerWidth < 768) setSidebarOpen(false)
+  }, [sidebarOpen, setSidebarOpen])
+  useEffect(() => {
+    document.addEventListener('keydown', handleEscape)
+    return () => document.removeEventListener('keydown', handleEscape)
+  }, [handleEscape])
 
   const handleLogout = async () => {
     const supabase = createClient()
@@ -119,11 +146,15 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     <div className="flex h-screen bg-background text-foreground overflow-hidden">
       {/* Sidebar bg */}
       {sidebarOpen && (
-        <div className="fixed inset-0 z-30 bg-black/50 md:hidden" onClick={() => setSidebarOpen(false)} />
+        <div className="fixed inset-0 z-30 bg-black/50 md:hidden" onClick={() => setSidebarOpen(false)} aria-hidden />
       )}
 
       {/* Sidebar */}
-      <aside className={`fixed md:static inset-y-0 left-0 z-40 w-64 bg-card border-r border-border transform transition-transform duration-200 ease-in-out flex flex-col ${sidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}>
+      <aside
+        role={sidebarOpen ? 'dialog' : undefined}
+        aria-modal={sidebarOpen ? true : undefined}
+        className={`fixed md:static inset-y-0 left-0 z-40 w-64 bg-card border-r border-border transform transition-transform duration-200 ease-in-out flex flex-col ${sidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}
+      >
         <div className="flex items-center justify-between h-16 px-6 border-b border-border shrink-0">
           <Link href="/" className="flex items-center gap-2">
             <ViralAnimalLogo size={32} />

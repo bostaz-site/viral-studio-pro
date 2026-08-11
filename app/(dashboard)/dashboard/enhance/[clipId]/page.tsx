@@ -2629,6 +2629,27 @@ export default function EnhancePage() {
         })()}
         userId={userId}
       />
+
+      {/* Mobile fixed bottom CTA — Generate clip always reachable */}
+      {!renderDownloadUrl && !makeViralLoading && !analysisSequenceActive && !rendering && (
+        <div className="fixed inset-x-0 bottom-0 z-20 p-3 bg-background/95 backdrop-blur border-t border-border lg:hidden">
+          <Button
+            className="w-full h-12 font-bold text-base gap-2 rounded-xl text-amber-950"
+            style={{ background: 'linear-gradient(135deg, #fbbf24, #f59e0b 45%, #d97706)', boxShadow: '0 0 20px rgba(245, 158, 11, 0.22)' }}
+            onClick={handleRender}
+          >
+            <Zap className="h-5 w-5" /> Generate clip
+          </Button>
+        </div>
+      )}
+      {rendering && (
+        <div className="fixed inset-x-0 bottom-0 z-20 p-3 bg-background/95 backdrop-blur border-t border-border lg:hidden">
+          <div className="flex items-center justify-center gap-2 h-12">
+            <WolfLoader variant="spinner" size={16} mode="amber" />
+            <span className="text-sm font-medium text-foreground">Rendering...</span>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

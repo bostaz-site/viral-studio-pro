@@ -574,7 +574,7 @@ export default function DashboardPage() {
 
       {/* Daily Radar (E1) — shown after first visit */}
       {radarStats && radarStats.newCount > 0 && (
-        <div className="flex items-center gap-3 h-14 px-4 rounded-2xl border border-cyan-500/20 bg-cyan-500/6">
+        <div className="flex items-center flex-wrap gap-3 min-h-14 py-2 px-4 rounded-2xl border border-cyan-500/20 bg-cyan-500/6">
           <Radar className="h-[18px] w-[18px] text-cyan-400 shrink-0" />
           <span className="text-[13px] font-bold tracking-[0.14em] uppercase text-cyan-400">Daily Radar</span>
           <span className="text-[13px] text-zinc-300">
@@ -589,7 +589,7 @@ export default function DashboardPage() {
       {/* Tabs + Filters */}
       <div className="space-y-2">
         {/* Feed tabs — segmented control style, compact */}
-        <div className="inline-flex items-center gap-0.5 p-0.5 rounded-lg border border-border bg-card/50 w-fit">
+        <div className="flex items-center gap-0.5 p-0.5 rounded-lg border border-border bg-card/50 w-fit max-w-full overflow-x-auto -mx-4 px-4 md:mx-0 md:px-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {feedTabs.map(({ key, label, icon: Icon, count, subtle, empty }) => {
             const active = filters.feed === key
             return (
@@ -830,7 +830,7 @@ export default function DashboardPage() {
 
       {/* Quick Export rendering indicator */}
       {quickExport?.status === 'rendering' && (
-        <div className="fixed bottom-6 right-6 z-50 flex items-center gap-3 px-4 py-3 rounded-xl bg-card border border-border shadow-xl animate-in slide-in-from-bottom-2 fade-in">
+        <div className="fixed inset-x-4 bottom-4 md:left-auto md:right-6 md:inset-x-auto z-50 flex items-center gap-3 px-4 py-3 rounded-xl bg-card border border-border shadow-xl animate-in slide-in-from-bottom-2 fade-in md:max-w-sm">
           <WolfLoader variant="spinner" size="md" mode="amber" />
           <div>
             <p className="text-sm font-medium text-foreground">Rendering your clip...</p>
@@ -842,7 +842,7 @@ export default function DashboardPage() {
       {/* Render completion notification */}
       {renderNotification && (
         <div className={cn(
-          'fixed bottom-6 right-6 z-50 flex items-center gap-3 px-5 py-3.5 rounded-2xl border shadow-2xl animate-in slide-in-from-bottom-2 fade-in max-w-sm backdrop-blur-sm',
+          'fixed inset-x-4 bottom-4 md:left-auto md:right-6 md:inset-x-auto z-50 flex items-center gap-3 px-5 py-3.5 rounded-2xl border shadow-2xl animate-in slide-in-from-bottom-2 fade-in md:max-w-sm backdrop-blur-sm',
           renderNotification.status === 'done'
             ? 'bg-zinc-900/95 border-amber-500/40'
             : 'bg-zinc-900/95 border-red-500/40'
@@ -909,7 +909,7 @@ export default function DashboardPage() {
 
       {/* Refresh indicator */}
       {refreshing && !quickExport && !renderNotification && (
-        <div className="fixed bottom-6 right-6 flex items-center gap-2 px-4 py-2 rounded-full bg-card border border-border shadow-lg animate-in slide-in-from-bottom-2 fade-in">
+        <div className="fixed inset-x-4 bottom-4 md:left-auto md:right-6 md:inset-x-auto z-50 flex items-center gap-2 px-4 py-2 rounded-full bg-card border border-border shadow-lg animate-in slide-in-from-bottom-2 fade-in">
           <WolfLoader variant="spinner" size="sm" mode="amber" />
           <span className="text-xs text-muted-foreground">Refreshing...</span>
         </div>

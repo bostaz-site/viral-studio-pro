@@ -1,4 +1,4 @@
-import type { Metadata } from 'next'
+import type { Metadata, Viewport } from 'next'
 import Script from 'next/script'
 import { Inter, Archivo_Black } from 'next/font/google'
 import { Toaster } from 'sonner'
@@ -12,6 +12,12 @@ const inter = Inter({ subsets: ['latin'], variable: '--font-sans' })
 const archivoBlack = Archivo_Black({ weight: '400', subsets: ['latin'], variable: '--font-score' })
 
 const siteUrl = 'https://viralanimal.com'
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  viewportFit: 'cover',
+}
 
 export const metadata: Metadata = {
   verification: {

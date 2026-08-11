@@ -105,7 +105,7 @@ export function PaywallModal({
       {/* Backdrop — lets the clip behind show through */}
       <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={handleDismiss} />
 
-      <div className="relative w-full max-w-md rounded-2xl border border-zinc-800 bg-zinc-900/95 shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+      <div className="relative w-full max-w-md max-h-[90vh] overflow-y-auto rounded-2xl border border-zinc-800 bg-zinc-900/95 shadow-2xl animate-in fade-in zoom-in-95 duration-200">
         {/* Close */}
         <button
           onClick={handleDismiss}

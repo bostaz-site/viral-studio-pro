@@ -81,7 +81,7 @@ export function SplitScreenSection({ settings, updateSetting, scoreBreakdown, sc
             <div className="space-y-2">
               <Label className="text-xs uppercase tracking-wider text-muted-foreground">Video framing</Label>
               <p className="text-[10px] text-muted-foreground">Zoom on main video</p>
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                 {([
                   { id: 'contain' as const, label: 'Contain', desc: '100% visible' },
                   { id: 'fill' as const, label: 'Fill', desc: 'Subtle zoom' },

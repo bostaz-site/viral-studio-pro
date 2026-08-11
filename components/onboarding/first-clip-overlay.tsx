@@ -138,9 +138,19 @@ export function FirstClipOverlay() {
   if (!open) return null
 
   return (
-    <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center p-4 animate-in fade-in duration-300">
+    <div className="fixed inset-0 z-[100] flex flex-col items-center justify-start overflow-y-auto py-8 p-4 animate-in fade-in duration-300">
       {/* Backdrop */}
-      <div className="absolute inset-0 bg-background/90 backdrop-blur-sm" aria-hidden />
+      <div className="fixed inset-0 bg-background/90 backdrop-blur-sm" aria-hidden />
+
+      {/* Skip — above grid on mobile so it's always reachable */}
+      <div className="relative w-full max-w-4xl text-right mb-2 md:hidden">
+        <button
+          onClick={handleSkip}
+          className="text-xs text-muted-foreground hover:text-foreground transition-colors underline-offset-4 hover:underline"
+        >
+          Skip — browse library
+        </button>
+      </div>
 
       {/* Modal */}
       <div className="relative w-full max-w-4xl animate-in zoom-in-95 duration-300">
@@ -246,8 +256,8 @@ export function FirstClipOverlay() {
           </div>
         )}
 
-        {/* Skip link */}
-        <div className="text-center mt-6">
+        {/* Skip link — hidden on mobile (shown above grid instead) */}
+        <div className="text-center mt-6 hidden md:block">
           <button
             onClick={handleSkip}
             className="text-xs text-muted-foreground hover:text-foreground transition-colors underline-offset-4 hover:underline"
