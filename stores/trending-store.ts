@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { toast } from 'sonner'
 import type { TrendingClip, TrendingStats, TrendingFiltersState, ViralNotification, SavedClip, FeedFilter, ClipRank } from '@/types/trending'
 import { clipRank } from '@/types/trending'
 
@@ -570,13 +571,20 @@ export const useTrendingStore = create<TrendingState>((set, get) => ({
           })
       if (!res.ok) {
         set({ savedClipIds, error: 'Failed to save clip — try again.' })
+        toast.error('Failed to save clip — try again.')
         return
+      }
+      if (isSaved) {
+        toast('Removed from favorites')
+      } else {
+        toast.success('Clip saved to favorites')
       }
       // Re-fetch to sync
       get().fetchSavedClips()
     } catch {
       // Rollback
       set({ savedClipIds, error: 'Failed to save clip — try again.' })
+      toast.error('Failed to save clip — try again.')
     }
   },
 }))

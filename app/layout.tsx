@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import Script from 'next/script'
 import { Inter, Archivo_Black } from 'next/font/google'
+import { Toaster } from 'sonner'
 import './globals.css'
 import './rank-cards.css'
 import './landing-v3.css'
@@ -150,6 +151,20 @@ export default function RootLayout({
         >
           {children}
         </ThemeProvider>
+        <Toaster
+          theme="dark"
+          position="bottom-right"
+          toastOptions={{
+            style: {
+              background: '#0f172a',
+              border: '1px solid rgba(255,255,255,0.1)',
+              color: 'white',
+            },
+          }}
+          icons={{
+            success: <span style={{ color: '#f59e0b' }}>&#10003;</span>,
+          }}
+        />
         {/* SW registration REMOVED — browsers with the old SW will auto-check
             /sw.js on navigation (existing registration triggers update check).
             New visitors never register a SW at all. */}

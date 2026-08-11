@@ -821,3 +821,12 @@ Derived from user's `full_name` or email prefix (sanitized to alphanumeric). If 
 Shared component: `components/ui/glitch-error-screen.tsx` — cyan/amber RGB-split glitch effect with framer-motion. `useReducedMotion` → falls back to static layout (no animation). Used by:
 - `app/not-found.tsx` — 404 "This page got clipped." with Go Home / Go Back buttons.
 - `app/error.tsx` — runtime error "The stream dropped." with Retry / Go Home buttons, `reset()` wired to Retry.
+
+### UI Feedback — Sonner Toasts
+Library: `sonner`. `<Toaster />` mounted in `app/layout.tsx` — `theme="dark"`, `position="bottom-right"`, slate-900 background, subtle white border, amber success icon (not green).
+
+Where toasts are wired:
+- **Favorites (Browse):** `stores/trending-store.ts` `toggleSaveClip` — `toast.success('Clip saved to favorites')` on save, `toast('Removed from favorites')` (neutral) on unsave, `toast.error(...)` on failure (both `!res.ok` and `catch`). Optimistic rollback preserved.
+- **Quick Export (Browse):** `app/(dashboard)/dashboard/page.tsx` `handleQuickExport` — `toast.error(...)` on fetch failure, 402 (plan limit), 429 (rate limit), and network error. Does NOT replace existing visual states (rendering spinner, done CheckCircle2, notification bar).
+- **Clip Bank remove (Distribution):** `components/distribution/distribution-hub.tsx` `onRemove` — `toast('Removed from bank')` on success, `toast.error('Failed to remove clip — restored to bank')` on failure (with optimistic rollback).
+- **Profile save (Settings):** `app/(dashboard)/settings/page.tsx` `handleSaveProfile` — `toast.success('Profile saved')` only on actual success, `toast.error(...)` with server message on DB error or network failure. Fixes prior bug where "Saved" showed even on error.

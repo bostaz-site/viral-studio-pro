@@ -15,6 +15,7 @@ import { Separator } from '@/components/ui/separator'
 import { PricingCard } from '@/components/settings/pricing-card'
 import { ConnectAccounts } from '@/components/distribution/connect-accounts'
 import { CreatorRankSection } from '@/components/settings/creator-rank-section'
+import { toast } from 'sonner'
 import { createClient } from '@/lib/supabase/client'
 import { PLANS, resolveEffectivePlan } from '@/lib/plans'
 import type { User as SupabaseUser } from '@supabase/supabase-js'
@@ -138,11 +139,15 @@ function SettingsPageInner() {
       if (error) {
         setProfileSaved(false)
         setSavingProfile(false)
+        toast.error(error.message || 'Failed to save profile')
         return
       }
       await supabase.auth.updateUser({ data: { full_name: fullName } })
       setProfileSaved(true)
+      toast.success('Profile saved')
       setTimeout(() => setProfileSaved(false), 2000)
+    } catch {
+      toast.error('Failed to save profile — check your connection')
     } finally {
       setSavingProfile(false)
     }

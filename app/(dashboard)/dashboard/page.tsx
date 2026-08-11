@@ -21,6 +21,7 @@ import { ReferralBonusBanner } from '@/components/onboarding/referral-bonus-bann
 import { useRenderSubscription } from '@/hooks/use-render-subscription'
 import { useTrendingStore, type TrendingClip } from '@/stores/trending-store'
 import type { FeedFilter } from '@/types/trending'
+import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { InstallBanner } from '@/components/pwa/install-banner'
 import { TopPickCard } from '@/components/trending/top-pick-card'
@@ -186,14 +187,16 @@ export default function DashboardPage() {
       const json = await res.json()
 
       if (!res.ok || json.error) {
-        setQuickExport({ clipId: clip.id, jobId: '', status: 'error', errorMessage: json.message ?? 'Export failed' })
+        const msg = json.message ?? 'Export failed'
+        setQuickExport({ clipId: clip.id, jobId: '', status: 'error', errorMessage: msg })
         setRenderNotification({
           clipId: clip.id,
           clipTitle: clip.title,
           downloadUrl: null,
           status: 'error',
-          errorMessage: json.message ?? 'Export failed',
+          errorMessage: msg,
         })
+        toast.error(res.status === 402 ? 'Video limit reached — upgrade your plan' : res.status === 429 ? 'Too many exports — wait a moment' : msg)
         return
       }
 
@@ -214,6 +217,7 @@ export default function DashboardPage() {
         status: 'error',
         errorMessage: 'Network error — check your connection and try again',
       })
+      toast.error('Network error — check your connection and try again')
     }
   }, [quickExport?.status])
 

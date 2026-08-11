@@ -8,10 +8,12 @@ import {
   Calendar, TrendingUp, Target, Flame, Rocket, Trophy,
   Settings, Layers, Play, Brain, Copy, RefreshCw, MapPin, CheckCircle2, X,
 } from 'lucide-react'
+import { toast } from 'sonner'
 import { WolfLoader } from '@/components/ui/wolf-loader'
 import { Card } from '@/components/ui/card'
 import { Switch } from '@/components/ui/switch'
 import { cn } from '@/lib/utils'
+import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/ui/select'
 import { useDistributionStore } from '@/stores/distribution-store'
 import { createClient } from '@/lib/supabase/client'
 import { generateVariants, detectTone, type BioVariant } from '@/lib/distribution/caption-engine'
@@ -1895,13 +1897,19 @@ export function DistributionHub() {
             <p style={{ fontSize: 12, fontWeight: 700, color: '#fff', marginBottom: 8 }}>Auto-post defaults</p>
             <p style={{ fontSize: 10, color: 'var(--va-text-dim)', marginBottom: 10 }}>TikTok requires you to choose privacy before auto-posting.</p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              <select value={autoPostDefaults?.privacy_level ?? ''} onChange={(e) => setAutoPostDefaults(prev => ({ privacy_level: e.target.value, disable_comment: prev?.disable_comment ?? true, disable_duet: prev?.disable_duet ?? true, disable_stitch: prev?.disable_stitch ?? true }))} style={{ width: '100%', padding: '6px 8px', fontSize: 12, borderRadius: 6, background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff' }}>
-                <option value="" disabled>Select privacy</option>
-                <option value="PUBLIC_TO_EVERYONE">Everyone</option>
-                <option value="MUTUAL_FOLLOW_FRIENDS">Friends</option>
-                <option value="FOLLOWER_OF_CREATOR">Followers</option>
-                <option value="SELF_ONLY">Only me</option>
-              </select>
+              <Select value={autoPostDefaults?.privacy_level ?? ''} onValueChange={(val) => setAutoPostDefaults(prev => ({ privacy_level: val, disable_comment: prev?.disable_comment ?? true, disable_duet: prev?.disable_duet ?? true, disable_stitch: prev?.disable_stitch ?? true }))}>
+                <SelectTrigger className="h-8 text-xs">
+                  <span className={cn("line-clamp-1", !autoPostDefaults?.privacy_level && "text-white/50")}>
+                    {autoPostDefaults?.privacy_level === 'PUBLIC_TO_EVERYONE' ? 'Everyone' : autoPostDefaults?.privacy_level === 'SELF_ONLY' ? 'Only me' : autoPostDefaults?.privacy_level === 'FOLLOWER_OF_CREATOR' ? 'Followers' : autoPostDefaults?.privacy_level === 'MUTUAL_FOLLOW_FRIENDS' ? 'Friends' : 'Select privacy'}
+                  </span>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="PUBLIC_TO_EVERYONE">Everyone</SelectItem>
+                  <SelectItem value="MUTUAL_FOLLOW_FRIENDS">Friends</SelectItem>
+                  <SelectItem value="FOLLOWER_OF_CREATOR">Followers</SelectItem>
+                  <SelectItem value="SELF_ONLY">Only me</SelectItem>
+                </SelectContent>
+              </Select>
               <div style={{ display: 'flex', gap: 16, fontSize: 11, color: '#fff' }}>
                 <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}><input type="checkbox" checked={!(autoPostDefaults?.disable_comment ?? true)} onChange={(e) => setAutoPostDefaults(prev => prev ? { ...prev, disable_comment: !e.target.checked } : null)} /> Comments</label>
                 <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}><input type="checkbox" checked={!(autoPostDefaults?.disable_duet ?? true)} onChange={(e) => setAutoPostDefaults(prev => prev ? { ...prev, disable_duet: !e.target.checked } : null)} /> Duet</label>
@@ -2027,14 +2035,14 @@ export function DistributionHub() {
           }).then(res => {
             if (!res.ok && removedClip) {
               setClipBank(prev => [removedClip, ...prev])
-              setSyncError('Failed to remove clip — restored to bank')
-              setTimeout(() => setSyncError(null), 4000)
+              toast.error('Failed to remove clip — restored to bank')
+            } else {
+              toast('Removed from bank')
             }
           }).catch(() => {
             if (removedClip) {
               setClipBank(prev => [removedClip, ...prev])
-              setSyncError('Failed to remove clip — restored to bank')
-              setTimeout(() => setSyncError(null), 4000)
+              toast.error('Failed to remove clip — restored to bank')
             }
           })
         }}
