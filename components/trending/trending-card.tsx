@@ -316,23 +316,25 @@ export const TrendingCard = memo(function TrendingCard({ clip, onRemix, onQuickE
     const isHls = videoUrl.includes('.m3u8')
     if (!isHls) return // MP4 handled natively by <video src=>
 
-    // Safari supports HLS natively
-    if (video.canPlayType('application/vnd.apple.mpegurl')) {
-      video.src = videoUrl
-      return
-    }
-
-    // Chrome/Firefox: use hls.js
+    // Prefer hls.js whenever it's supported (MSE). Do NOT trust canPlayType first:
+    // Edge on Windows answers "maybe" for application/vnd.apple.mpegurl but then
+    // hangs forever in LOADING — the native branch is only a fallback for real Safari.
     let cancelled = false
     import('hls.js').then(({ default: Hls }) => {
-      if (cancelled || !Hls.isSupported()) return
+      if (cancelled) return
+      if (!Hls.isSupported()) {
+        // Safari (no MSE for HLS but real native support)
+        if (video.canPlayType('application/vnd.apple.mpegurl')) {
+          video.src = videoUrl
+        }
+        return
+      }
       const hls = new Hls({ maxBufferLength: 10, maxMaxBufferLength: 15 })
       hlsRef.current = hls
       hls.loadSource(videoUrl)
       hls.attachMedia(video)
-      hls.on(Hls.Events.ERROR, () => {
-        hls.destroy()
-        hlsRef.current = null
+      hls.on(Hls.Events.ERROR, (_evt, data) => {
+        if (!data?.fatal) return
         hls.destroy()
         hlsRef.current = null
         setShowVideo(false)
@@ -664,7 +666,7 @@ export const TrendingCard = memo(function TrendingCard({ clip, onRemix, onQuickE
           <video
             key={`${clip.id}-${videoUrl}`}
             ref={videoRef}
-            src={videoUrl}
+            src={videoUrl?.includes('.m3u8') ? undefined : videoUrl}
             className="absolute inset-0 w-full h-full object-cover z-[5]"
             autoPlay muted playsInline loop disablePictureInPicture controlsList="nodownload nofullscreen noremoteplayback"
             onPlaying={() => setVideoPlaying(true)}
