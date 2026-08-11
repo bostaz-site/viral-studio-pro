@@ -900,11 +900,25 @@ export async function renderClip(inputPath, outputPath, options = {}) {
         if (hLen < clipDuration) {
           fadeFilters += `,fade=t=out:st=${hLen.toFixed(2)}:d=${fadeOut}:alpha=1`;
         }
-        filterComplex += `;[${hookInputIndex}:v]format=rgba,${fadeFilters}[hookalpha]`;
+        // Browser overlays are always captured at 1080x1920 — rescale to the
+        // active tier canvas so the capsule stays proportional on 720p fallbacks.
+        const CAPTURE_W = 1080;
+        const hookScale = canvasW / CAPTURE_W;
+        const hookScaleFilter = hookScale !== 1
+          ? `scale=trunc(iw*${hookScale.toFixed(4)}/2)*2:-2:flags=lanczos,`
+          : '';
+        filterComplex += `;[${hookInputIndex}:v]format=rgba,${hookScaleFilter}${fadeFilters}[hookalpha]`;
         const isCapsule = hookOverlayEntry.isCapsuleOnly;
         const posPct = hookOverlayEntry.textPosition || 15;
         const overlayX = isCapsule ? '(W-w)/2' : '0';
-        const overlayY = isCapsule ? `H*${posPct}/100-h/2` : '0';
+        // Render parity: the live preview anchors the capsule TOP edge at posPct%
+        // (CSS `top: pct%`, no translateY — see live-preview.tsx). The browser PNG
+        // has a transparent glow padding of round(30 * 1080/280) = 116px above the
+        // capsule at capture scale — offset it so the visible capsule top lands
+        // exactly at posPct%, like the preview. (Previous H*pct/100-h/2 centered
+        // the capsule → rendered visibly higher than the preview.)
+        const hookGlowPad = Math.round(116 * hookScale);
+        const overlayY = isCapsule ? `H*${posPct}/100-${hookGlowPad}` : '0';
         filterComplex += `;${mapVideo}[hookalpha]overlay=${overlayX}:${overlayY}:format=auto[hooked]`;
         mapVideo = '[hooked]';
       }
