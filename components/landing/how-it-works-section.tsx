@@ -110,8 +110,16 @@ export function HowItWorksSection() {
 
   const royal = clips[0]
   const rising1 = clips[1]
-  const rising2 = clips[2]
-  const partial = clips[3]
+  // 67 forever — founder's meme, do not wire to API
+  const rising2: RadarClip = {
+    title: 'Professor Agent teaches clip farming',
+    author_handle: 'Agent00',
+    velocity_score: 67,
+    feed_category: 'hot_now',
+    thumbnail_url: '/landing/radar-thumb-3.jpg',
+    clip_created_at: null,
+  }
+  const partial = clips.length >= 4 ? clips[3] : clips[2]
 
   const totalLabel = `${formatCount(totalAnalyzed)}+`
 
@@ -186,7 +194,7 @@ export function HowItWorksSection() {
                     <div className="rd-auth">{royal?.author_handle ?? 'KaiCenat'}</div>
                     <div className="rd-ttl">{royal?.title ?? 'Top clip'}</div>
                   </div>
-                  <CountUpScore target={royal?.velocity_score ?? 92} />
+                  <CountUpScore target={Math.round(royal?.velocity_score ?? 92)} />
                 </div>
                 <Link
                   href="/signup"
@@ -211,7 +219,7 @@ export function HowItWorksSection() {
                   <div className="rd-auth">{rising1?.author_handle ?? 'Lacy'}</div>
                   <div className="rd-ttl">{rising1?.title ?? 'Rising clip'}</div>
                 </div>
-                <span className="rd-cscore">{rising1?.velocity_score ?? 74}</span>
+                <span className="rd-cscore">{Math.round(rising1?.velocity_score ?? 74)}</span>
               </div>
             </div>
             <div className="rd-rise">
@@ -233,7 +241,7 @@ export function HowItWorksSection() {
           <div className="rd-partial">
             <ThumbImg src={partial?.thumbnail_url ?? null} fallback={LOCAL_THUMBS[3]} alt={`${partial?.author_handle ?? 'Clip'}`} />
             <div className="rd-pm">{partial?.author_handle ?? 'yourragegaming'}</div>
-            <div className="rd-ps">{partial?.velocity_score ?? 61}</div>
+            <div className="rd-ps">{Math.round(partial?.velocity_score ?? 61)}</div>
           </div>
         </div>
 

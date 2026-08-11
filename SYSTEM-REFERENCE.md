@@ -587,8 +587,8 @@ Mobile-first. No fake numbers, no testimonials.
 
 | Section | Component | Notes |
 |---|---|---|
-| Hero | `hero-section.tsx` | 3-clicks pipeline demo (7.2s CSS cycle: Pick→Enhance→Post), micro-features line below ("Karaoke captions (5 styles) · Split-screen gameplay · Automatic creator credit"), bridge card with count-up. Hero bottom padding 100px (was 150px — tighter hero-to-radar gap) |
-| Radar | `how-it-works-section.tsx` | **LIVE** — fetches `/api/landing/radar` (ISR 15min) for real top 4 clips. Royal card = top pick, 2 rising, 1 partial. Total clips count = real DB count rounded to 100. Static fallback if API fails (local thumbs as onError fallback). Thumbnails: Twitch CDN with `/landing/radar-thumb-*.jpg` fallback |
+| Hero | `hero-section.tsx` | 3-clicks pipeline demo (7.2s CSS cycle: Pick→Enhance→Post), micro-features line below ("Karaoke captions (5 styles) · Split-screen gameplay · Automatic creator credit"), bridge card with count-up. Hero bottom padding 80px (tighter hero-to-bridge gap ~48-64px) |
+| Radar | `how-it-works-section.tsx` | **LIVE** — fetches `/api/landing/radar` (ISR 15min). Royal card = top pick (live), 1st rising = live, **2nd rising (slot 3) = STATIC "67 meme" card** (Agent00 "Professor Agent teaches clip farming", score 67 rainbow — founder's meme, never wired to API), partial = live. All scores Math.round (no decimals). Total clips = real DB count rounded to 100. Static fallback if API fails |
 | Farm | `features-grid.tsx` | Step 2 — Automation. Brain pipeline (8s cycle). Platform apps: TikTok live + YouTube/Instagram/Facebook with SOON badges. Countdown EXAMPLE panel (live JS). Thumbnails: `/landing/farm-thumb-1/2.jpg` |
 | Pricing | `pricing-section.tsx` | Free $0 / Pro $19 / Studio $24 founding (via `isStudioLaunchActive()`, expires `STUDIO_LAUNCH_ENDS_AT` 2026-09-30) or $29 after |
 | FAQ | `faq-section.tsx` | "Questions clippers actually ask" — 5 items single-open accordion (native `<details name="faq">`), bg #0B0F1E, sober slate. Copy: rights, recording, TikTok official, quota, cancel |
