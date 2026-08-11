@@ -278,6 +278,9 @@ Quality tier is stored in `render_jobs.quality_tier` and exposed via `/api/rende
 
 Filtergraph: scale/crop → eq (4 buckets) → unsharp (HIGH only) → ASS subtitles → overlays → watermark → format. `escapeDrawtext()` uses `'\''` (close-escape-reopen) for apostrophes in user text (hook, tag author) — FFmpeg does not process `\'` inside single-quoted filter values. Details : `SYSTEM-REFERENCE-ENHANCE.md` section "Qualite de rendu v2".
 
+### Hook Capsule Parity (preview ↔ render)
+`vps/lib/ffmpeg-render.js`: the hook capsule overlay is anchored by its **top** edge at `posPct%` of the video height — matching the CSS preview (`top: posPct%`). The 116 px glow padding baked into the browser-captured PNG is offset so the visible capsule aligns. On downgraded tiers (SAFE / LAST_RESORT = 720p), the browser PNG is rescaled proportionally instead of being placed at its native 1080p size.
+
 ### Peak Detection (spike + positional prior)
 `vps/lib/hook-generator.js` > `detectPeakMoment()`. Combines audio spikes (×8), viral keywords (+3/+2/+1), ALL CAPS (+2), positional prior (Twitch/Kick clips: last ⅓ boosted ×1.3), anti-edge. Word-boundary snapping for hook reorder. `settings.sourcePlatform` is wired from both `POST /api/render` and `POST /api/render/quick` (derived from `trending_clips.platform`), enabling the positional prior for viewer clips. Details : `SYSTEM-REFERENCE-ENHANCE.md` section "Peak Detection v2".
 
@@ -810,3 +813,8 @@ Derived from user's `full_name` or email prefix (sanitized to alphanumeric). If 
 - **CSP:** `*.ingest.sentry.io` added to `connect-src` (Sentry was loaded but blocked).
 - **Referral claims:** aligned to reality across paywall, settings, pricing: "+3 clips each when your friend renders their first clip (up to 5/month)".
 - **Plan residuals:** `voiceOver: false`, `apiAccess: false` in Studio plan limits (features not shipped).
+
+### Branded Error Pages (Glitch Theme)
+Shared component: `components/ui/glitch-error-screen.tsx` — cyan/amber RGB-split glitch effect with framer-motion. `useReducedMotion` → falls back to static layout (no animation). Used by:
+- `app/not-found.tsx` — 404 "This page got clipped." with Go Home / Go Back buttons.
+- `app/error.tsx` — runtime error "The stream dropped." with Retry / Go Home buttons, `reset()` wired to Retry.
