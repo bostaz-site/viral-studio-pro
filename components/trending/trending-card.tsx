@@ -141,6 +141,8 @@ export const TrendingCard = memo(function TrendingCard({ clip, onRemix, onQuickE
   const hoveredRef = useRef(false)
   const overlayTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const isMobileRef = useRef(false)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const hlsRef = useRef<any>(null)
 
   const ps = PLATFORM_STYLES[clip.platform.toLowerCase()]
   const platformStyle = {
@@ -272,13 +274,52 @@ export const TrendingCard = memo(function TrendingCard({ clip, onRemix, onQuickE
     if (overlayTimerRef.current) clearTimeout(overlayTimerRef.current)
     abortRef.current?.abort()
     abortRef.current = null
-    if (videoRef.current) { videoRef.current.pause(); videoRef.current.currentTime = 0 }
+    if (hlsRef.current) { hlsRef.current.destroy(); hlsRef.current = null }
+    if (videoRef.current) { videoRef.current.pause(); videoRef.current.removeAttribute('src'); videoRef.current.load() }
   }, [])
 
   useEffect(() => {
     if (!hovered || !videoUrl) return
     setShowVideo(true)
   }, [hovered, videoUrl])
+
+  // HLS.js attachment for Kick clips (.m3u8 URLs)
+  useEffect(() => {
+    const video = videoRef.current
+    if (!showVideo || !videoUrl || !video) return
+    const isHls = videoUrl.includes('.m3u8')
+    if (!isHls) return // MP4 handled natively by <video src=>
+
+    // Safari supports HLS natively
+    if (video.canPlayType('application/vnd.apple.mpegurl')) {
+      video.src = videoUrl
+      return
+    }
+
+    // Chrome/Firefox: use hls.js
+    let cancelled = false
+    import('hls.js').then(({ default: Hls }) => {
+      if (cancelled || !Hls.isSupported()) return
+      const hls = new Hls({ maxBufferLength: 10, maxMaxBufferLength: 15 })
+      hlsRef.current = hls
+      hls.loadSource(videoUrl)
+      hls.attachMedia(video)
+      hls.on(Hls.Events.ERROR, () => {
+        hls.destroy()
+        hlsRef.current = null
+        hls.destroy()
+        hlsRef.current = null
+        setShowVideo(false)
+        setVideoPlaying(false)
+        setShowOverlay(false)
+      })
+    }).catch(() => {})
+
+    return () => {
+      cancelled = true
+      if (hlsRef.current) { hlsRef.current.destroy(); hlsRef.current = null }
+    }
+  }, [showVideo, videoUrl])
 
   const handleCardClick = useCallback((e: React.MouseEvent) => {
     if (!isHoverPreviewV2 || !isMobileRef.current) return
@@ -425,7 +466,7 @@ export const TrendingCard = memo(function TrendingCard({ clip, onRemix, onQuickE
               <div className="leg-frame-inner-gold">
                 <div className="leg-thumb" style={{ height: '150px' }}>
                   {showVideo && videoUrl && (
-                    <video key={`${clip.id}-${videoUrl}`} ref={videoRef} src={videoUrl}
+                    <video key={`${clip.id}-${videoUrl}`} ref={videoRef} src={videoUrl?.includes('.m3u8') ? undefined : videoUrl}
                       className="absolute inset-0 w-full h-full object-cover z-[5]"
                       autoPlay muted playsInline loop disablePictureInPicture controlsList="nodownload nofullscreen noremoteplayback"
                       onPlaying={() => setVideoPlaying(true)}
@@ -462,7 +503,7 @@ export const TrendingCard = memo(function TrendingCard({ clip, onRemix, onQuickE
           /* Simple legendary (80-84): gold border, no frame ornaments */
           <div className="leg-thumb-simple" style={{ height: '150px' }}>
             {showVideo && videoUrl && (
-              <video key={`${clip.id}-${videoUrl}`} ref={videoRef} src={videoUrl}
+              <video key={`${clip.id}-${videoUrl}`} ref={videoRef} src={videoUrl?.includes('.m3u8') ? undefined : videoUrl}
                 className="absolute inset-0 w-full h-full object-cover z-[5]"
                 autoPlay muted playsInline loop disablePictureInPicture controlsList="nodownload nofullscreen noremoteplayback"
                 onPlaying={() => setVideoPlaying(true)}

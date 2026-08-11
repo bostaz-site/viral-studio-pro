@@ -90,20 +90,22 @@ const GoldCrown = () => (
   </svg>
 )
 
-/* ── Animated score with count-up ── */
+/* ── Animated score with count-up (re-animates when value changes) ── */
 function AnimatedScore({ value }: { value: number }) {
   const [display, setDisplay] = useState(0)
-  const mounted = useRef(false)
+  const prevRef = useRef(0)
 
   useEffect(() => {
-    if (mounted.current) return
-    mounted.current = true
+    const from = prevRef.current
+    const to = value
+    prevRef.current = to
+    if (from === to) return
     const duration = 800
     const start = performance.now()
     const animate = (now: number) => {
       const progress = Math.min((now - start) / duration, 1)
       const eased = 1 - Math.pow(1 - progress, 3)
-      setDisplay(Math.round(eased * value))
+      setDisplay(Math.round(from + eased * (to - from)))
       if (progress < 1) requestAnimationFrame(animate)
     }
     requestAnimationFrame(animate)

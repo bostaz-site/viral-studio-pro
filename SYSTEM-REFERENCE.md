@@ -98,7 +98,7 @@ Dashboard page displaying ranked streamer clips with feed tabs, filters, infinit
 1. Land on `/dashboard` -> `fetchClips()` + `fetchBootstrap()` in parallel. Clips from `GET /api/trending` (200 unfiltered), bootstrap from `GET /api/bootstrap` (saved IDs + recent remixes + profile)
 2. Pick a feed tab -> client-side filter first (instant), then background server fetch if <10 results
 3. Apply filters (search, platform, niche, duration) -> server-side re-fetch with filter params (search debounced 300ms). Platform filter also enforced client-side in `filterAndSortClips` (defense-in-depth against stale data from race conditions).
-4. Hover on card -> resolves video URL -> inline preview plays
+4. Hover on card -> resolves video URL via `/api/clips/video-url` -> inline `<video muted loop>` preview. **Twitch**: direct MP4 src. **Kick**: HLS `.m3u8` via kick-proxy, attached with hls.js (dynamic import on first Kick hover, ~50KB lazy). Safari uses native HLS. `isHoverPreviewV2` is always `true` (env flag removed). Cleanup: hls.destroy() + video.removeAttribute('src') on mouseleave.
 5. **Make It Viral** (primary CTA): click -> `router.push('/dashboard/enhance/{clipId}')` for full enhance editor
 6. **Quick Export** (secondary CTA): Zap icon on every card. `POST /api/render/quick` -> polls via `useRenderSubscription` (Realtime + polling fallback, adaptive backoff 3s-30s). State persisted in sessionStorage (survives grid re-render/F5). Done: toast with [Publish now] + [View bank]. Error: toast with [Retry]. Card shows green CheckCircle2 for exported clips (`exportedClipIds` Set).
 

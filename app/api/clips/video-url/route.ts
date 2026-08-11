@@ -65,10 +65,14 @@ export async function GET(request: NextRequest) {
       const kickData = await kickRes.json()
       // Kick API responses can have the clip object at top level or nested
       const clipObj = kickData?.clip ?? kickData
-      const videoUrl: string | undefined = clipObj?.video_url ?? clipObj?.clip_url ?? clipObj?.video?.url
-      if (!videoUrl) {
+      const rawVideoUrl: string | undefined = clipObj?.video_url ?? clipObj?.clip_url ?? clipObj?.video?.url
+      if (!rawVideoUrl) {
         return NextResponse.json({ error: 'No video URL in Kick clip response' }, { status: 404 })
       }
+      // Proxy HLS through kick-proxy to avoid CORS issues on Kick CDN
+      const videoUrl = rawVideoUrl.includes('.m3u8')
+        ? `/api/clips/kick-proxy?url=${encodeURIComponent(rawVideoUrl)}`
+        : rawVideoUrl
       cache.set(cacheKey, { url: videoUrl, ts: Date.now() })
       return NextResponse.json(
         { video_url: videoUrl },
