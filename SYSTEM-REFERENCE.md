@@ -833,3 +833,16 @@ Where toasts are wired:
 - **Quick Export (Browse):** `app/(dashboard)/dashboard/page.tsx` `handleQuickExport` — `toast.error(...)` on fetch failure, 402 (plan limit), 429 (rate limit), and network error. Does NOT replace existing visual states (rendering spinner, done CheckCircle2, notification bar).
 - **Clip Bank remove (Distribution):** `components/distribution/distribution-hub.tsx` `onRemove` — `toast('Removed from bank')` on success, `toast.error('Failed to remove clip — restored to bank')` on failure (with optimistic rollback).
 - **Profile save (Settings):** `app/(dashboard)/settings/page.tsx` `handleSaveProfile` — `toast.success('Profile saved')` only on actual success, `toast.error(...)` with server message on DB error or network failure. Fixes prior bug where "Saved" showed even on error.
+
+### Hero Product Mockup (Phase 1 — Video-Ready Slot)
+Component: `components/landing/hero-product-mockup.tsx` (`HeroProductMockup`). CSS phone mockup (160x284px, 9:16 ratio) with 7s looping transformation:
+- 0-1s: horizontal 16:9 thumbnail letterboxed in phone frame
+- 1-2.5s: CSS transition to vertical full-frame crop
+- 2.5-4.5s: karaoke captions appear word-by-word (amber highlight) + purple hook capsule slides in from top
+- 4.5-6s: "TIKTOK READY" amber badge pops (spring easing) + score counts 87->96
+- 6-7s: publish pulse (amber ring), fade overlay, cycle restarts
+
+Layout: `.lv3-hero-split` — desktop: copy left-aligned + mockup right (flex row). Mobile (<900px): stacked, copy centered, mockup below. The 3-clicks pipeline demo sits below the split, full width.
+Reduced motion: static final frame (captions + badge visible, no animation). Phases driven by JS `setTimeout` chain, not CSS animation on the wrapper.
+**Designed to be replaced by `<video>` at same dimensions** — isolate swap to `HeroProductMockup` only.
+CSS: `landing-v3.css` under `HERO PRODUCT MOCKUP` section.

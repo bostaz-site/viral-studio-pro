@@ -3,6 +3,7 @@
 
 import Link from 'next/link'
 import { track } from '@/lib/analytics'
+import { HeroProductMockup } from '@/components/landing/hero-product-mockup'
 
 export function HeroSection() {
 
@@ -14,42 +15,53 @@ export function HeroSection() {
       <div className="lv3-particle p2" />
       <div className="lv3-particle p3" />
 
-      {/* Eyebrow */}
-      <div className="lv3-eyebrow" style={{ position: 'relative', zIndex: 1 }}>
-        <span className="lv3-eyebrow-dot" />
-        Radar live &middot; scanning Twitch
+      {/* Desktop: side-by-side | Mobile: stacked */}
+      <div className="lv3-hero-split">
+        {/* Left — Copy */}
+        <div className="lv3-hero-copy">
+          {/* Eyebrow */}
+          <div className="lv3-eyebrow">
+            <span className="lv3-eyebrow-dot" />
+            Radar live &middot; scanning Twitch
+          </div>
+
+          {/* H1 — VALIDATED, don't touch */}
+          <h1 className="lv3-h1">
+            Clips blowing up,{' '}
+            <span className="lv3-h1-accent">found before the crowd.</span>
+          </h1>
+
+          {/* Sub — updated copy */}
+          <p className="lv3-sub">
+            Three clicks from trending to TikTok — captions, vertical crop, hook and automatic credit included.
+          </p>
+
+          {/* Punch */}
+          <p className="lv3-punch">
+            No recording. No downloading. No manual posting.
+          </p>
+
+          {/* CTAs — VALIDATED */}
+          <div className="lv3-ctas">
+            <Link href="/signup" className="lv3-cta-primary" onClick={() => track('landing_cta_clicked', { placement: 'hero' })}>
+              Start Farming Free
+            </Link>
+            <button className="lv3-cta-ghost" onClick={() => { document.getElementById('radar')?.scrollIntoView({ behavior: 'smooth' }); track('landing_cta_clicked', { placement: 'hero_watch' }) }}>
+              Watch It Work
+            </button>
+          </div>
+
+          {/* Trust — VALIDATED */}
+          <p className="lv3-trust">
+            Free plan &middot; No credit card &middot; TikTok Direct Post approved
+          </p>
+        </div>
+
+        {/* Right — Product mockup (video-ready slot) */}
+        <div className="lv3-hero-mockup">
+          <HeroProductMockup />
+        </div>
       </div>
-
-      {/* H1 — VALIDATED, don't touch */}
-      <h1 className="lv3-h1" style={{ position: 'relative', zIndex: 1 }}>
-        Clips blowing up,{' '}
-        <span className="lv3-h1-accent">found before the crowd.</span>
-      </h1>
-
-      {/* Sub — updated copy */}
-      <p className="lv3-sub" style={{ position: 'relative', zIndex: 1 }}>
-        Three clicks from trending to TikTok — captions, vertical crop, hook and automatic credit included.
-      </p>
-
-      {/* Punch */}
-      <p className="lv3-punch" style={{ position: 'relative', zIndex: 1 }}>
-        No recording. No downloading. No manual posting.
-      </p>
-
-      {/* CTAs — VALIDATED */}
-      <div className="lv3-ctas" style={{ position: 'relative', zIndex: 1 }}>
-        <Link href="/signup" className="lv3-cta-primary" onClick={() => track('landing_cta_clicked', { placement: 'hero' })}>
-          Start Farming Free
-        </Link>
-        <button className="lv3-cta-ghost" onClick={() => { document.getElementById('radar')?.scrollIntoView({ behavior: 'smooth' }); track('landing_cta_clicked', { placement: 'hero_watch' }) }}>
-          Watch It Work
-        </button>
-      </div>
-
-      {/* Trust — VALIDATED */}
-      <p className="lv3-trust" style={{ position: 'relative', zIndex: 1 }}>
-        Free plan &middot; No credit card &middot; TikTok Direct Post approved
-      </p>
 
       {/* ── 3-CLICKS PIPELINE DEMO ── */}
       <div className="h3c" style={{ position: 'relative', zIndex: 1 }}>
