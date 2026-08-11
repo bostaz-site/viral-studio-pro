@@ -74,7 +74,7 @@
 .lv3-hero {
   position: relative;
   overflow: hidden;
-  padding: clamp(56px,9vw,110px) 20px 150px;
+  padding: clamp(56px,9vw,110px) 20px 100px;
   display: flex;
   flex-direction: column;
   align-items: center;

@@ -47,7 +47,7 @@ const PLANS: PlanConfig[] = [
     features: [
       '30 clips/month · no watermark',
       'All caption styles',
-      'AI hook + smart zoom',
+      'Split-screen gameplay',
       'Custom brand template',
       'Trending dashboard',
     ],

@@ -42,7 +42,7 @@ export function InvitePage() {
         </span>
       </h1>
       <p className="text-lg text-muted-foreground text-center mt-4 max-w-md">
-        Auto captions, split-screen, AI hook reorder — one click to make any clip go viral.
+        Auto captions, split-screen, creator credit — one click to make any clip go viral.
       </p>
 
       {/* CTA */}
