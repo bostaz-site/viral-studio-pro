@@ -199,6 +199,10 @@ interface TrendingState {
   // Used clips (rendered/published — for Top Pick exclusion)
   usedClipIds: Set<string>
 
+  // Processing status (persistent across sessions)
+  bankedClipIds: Set<string>
+  publishedClipIds: Set<string>
+
   // Stream grouping
   expandedGroups: Set<string>
 
@@ -238,6 +242,9 @@ interface TrendingState {
   applyFilters: () => void
   fetchBootstrap: () => Promise<void>
   fetchSavedClips: () => Promise<void>
+  fetchClipStatus: () => Promise<void>
+  addBankedClip: (clipId: string) => void
+  markClipPublished: (clipId: string) => void
   toggleSaveClip: (clipId: string) => Promise<void>
   toggleGroup: (groupId: string) => void
 }
@@ -258,6 +265,8 @@ export const useTrendingStore = create<TrendingState>((set, get) => ({
   savedClips: [],
   savedTrendingClips: [],
   usedClipIds: new Set(),
+  bankedClipIds: new Set(),
+  publishedClipIds: new Set(),
   expandedGroups: new Set(),
   userPlan: null,
   monthlyVideosUsed: 0,
@@ -508,6 +517,8 @@ export const useTrendingStore = create<TrendingState>((set, get) => ({
         bonusVideos: profile?.bonus_videos ?? 0,
       })
       get().applyFilters()
+      // Fetch processing status (non-blocking)
+      get().fetchClipStatus()
     } catch {
       // Silent — individual fetches remain as fallback
     }
@@ -546,6 +557,32 @@ export const useTrendingStore = create<TrendingState>((set, get) => ({
     }
     set({ expandedGroups: next })
     get().applyFilters()
+  },
+
+  fetchClipStatus: async () => {
+    try {
+      const res = await fetch('/api/clips/my-status')
+      if (!res.ok) return
+      const json = await res.json() as { data: { banked: string[]; published: string[] } | null; error: string | null }
+      if (json.error || !json.data) return
+      set({
+        bankedClipIds: new Set(json.data.banked),
+        publishedClipIds: new Set(json.data.published),
+      })
+    } catch {
+      // silent
+    }
+  },
+
+  addBankedClip: (clipId) => {
+    set({ bankedClipIds: new Set(get().bankedClipIds).add(clipId) })
+  },
+
+  markClipPublished: (clipId) => {
+    const published = new Set(get().publishedClipIds).add(clipId)
+    const banked = new Set(get().bankedClipIds)
+    banked.delete(clipId)
+    set({ publishedClipIds: published, bankedClipIds: banked })
   },
 
   toggleSaveClip: async (clipId) => {

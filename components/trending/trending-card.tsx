@@ -3,7 +3,7 @@
 import { useState, useRef, useCallback, useEffect, useMemo, memo } from 'react'
 import Image from 'next/image'
 import { motion } from 'framer-motion'
-import { ExternalLink, Sparkles, Flame, Bookmark, SlidersHorizontal, Zap, CheckCircle2 } from 'lucide-react'
+import { ExternalLink, Sparkles, Flame, Bookmark, SlidersHorizontal, Zap, CheckCircle2, Archive } from 'lucide-react'
 import { WolfLoader } from '@/components/ui/wolf-loader'
 import { getRankTierClass, DiamondCorner } from '@/components/trending/rank-badge'
 import { getClipVerdict, getDynamicCTA, getVerdictColor, type CTAIcon } from '@/lib/browse/clip-verdict'
@@ -40,6 +40,10 @@ interface TrendingCardProps {
   isNew?: boolean
   /** Timestamp of user's last visit (ISO) for NEW badge logic */
   lastVisit?: string | null
+  /** Clip is in the user's clip bank (rendered, not removed) */
+  isBanked?: boolean
+  /** Clip has been published by the user */
+  isPublished?: boolean
 }
 
 // ── Module-level video URL cache ──
@@ -126,7 +130,7 @@ const LegGemDefs = () => (
 
 // ── Main Card ──
 
-export const TrendingCard = memo(function TrendingCard({ clip, onRemix, onQuickExport, onShowDetail, quickExportState, remixing = false, isSaved = false, onToggleSave, isNew = false }: TrendingCardProps) {
+export const TrendingCard = memo(function TrendingCard({ clip, onRemix, onQuickExport, onShowDetail, quickExportState, remixing = false, isSaved = false, onToggleSave, isNew = false, isBanked = false, isPublished = false }: TrendingCardProps) {
   const [imgError, setImgError] = useState(false)
   const [imgLoaded, setImgLoaded] = useState(false)
   const [hovered, setHovered] = useState(false)
@@ -390,7 +394,7 @@ export const TrendingCard = memo(function TrendingCard({ clip, onRemix, onQuickE
   const tilt = useTilt({ rotateAmplitude: tiltAmplitude, scaleOnHover: 1.0 })
 
   const isExporting = quickExportState?.clipId === clip.id && quickExportState.status === 'rendering'
-  const isExported = quickExportState?.clipId === clip.id && quickExportState.status === 'done'
+  const isExported = (quickExportState?.clipId === clip.id && quickExportState.status === 'done') || isBanked || isPublished
   // Kick thumbnails serve content-type: application/octet-stream which breaks
   // the Netlify Image CDN / next/image optimizer → bypass with unoptimized
   const isKickThumb = !!clip.thumbnail_url && clip.thumbnail_url.includes('kick.com')
@@ -481,6 +485,19 @@ export const TrendingCard = memo(function TrendingCard({ clip, onRemix, onQuickE
     </button>
   ) : null
 
+  // ── Processing status badge (In bank / Posted) ──
+  const statusBadge = isPublished ? (
+    <span className="absolute bottom-2 right-2 z-[7] flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-md bg-emerald-500/20 text-emerald-300 backdrop-blur-sm pointer-events-none">
+      <CheckCircle2 className="h-2.5 w-2.5" />
+      Posted
+    </span>
+  ) : isBanked ? (
+    <span className="absolute bottom-2 right-2 z-[7] flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-md bg-amber-500/15 text-amber-300 backdrop-blur-sm pointer-events-none">
+      <Archive className="h-2.5 w-2.5" />
+      In bank
+    </span>
+  ) : null
+
   // ── Legendary rendering path (80-99) — 2 intensities ──
   if (isLegendary) {
 
@@ -555,6 +572,7 @@ export const TrendingCard = memo(function TrendingCard({ clip, onRemix, onQuickE
                   {mobileScoreBadge}
                   {mobileBookmark}
                   {newBadge}
+                  {statusBadge}
                   {overlayCTA}
                 </div>
               </div>
@@ -592,6 +610,7 @@ export const TrendingCard = memo(function TrendingCard({ clip, onRemix, onQuickE
             {mobileScoreBadge}
             {mobileBookmark}
             {newBadge}
+            {statusBadge}
             {overlayCTA}
           </div>
         )}
@@ -793,6 +812,9 @@ export const TrendingCard = memo(function TrendingCard({ clip, onRemix, onQuickE
 
         {/* NEW badge */}
         {newBadge}
+
+        {/* Processing status */}
+        {statusBadge}
 
         {overlayCTA}
 

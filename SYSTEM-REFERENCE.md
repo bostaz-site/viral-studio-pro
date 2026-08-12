@@ -148,6 +148,11 @@ No render can reach TikTok "naked" — Quick Export ALWAYS includes: karaoke cap
 ### Quick Export (Browse -> Render in Background)
 Primary CTA on each card. Sends `POST /api/render/quick` with `x-idempotency-key` header (UUID, prevents double-clicks). API runs mood detection (best-effort), builds auto settings from preset, goes through render queue, returns `jobId`. Dashboard subscribes via `useRenderSubscription` and shows a completion toast with Download/View buttons. Auto-dismisses after 15s. Only one quick export at a time per user session (button disabled on other cards while rendering). The "Customize" button (sliders icon) still links to the full enhance page.
 
+### Processing Status Badges (In Bank / Posted)
+Persistent indicators on card thumbnails showing whether the user has already processed a clip. Data: `GET /api/clips/my-status` returns `{ banked: string[], published: string[] }` (two lightweight queries on `render_jobs` + `published_posts`). Fetched once via `fetchClipStatus()` in `trending-store.ts` (called from `fetchBootstrap`). Optimistic update on quick export done (`addBankedClip`), publish (`markClipPublished`).
+
+Badge: small pill bottom-right of thumbnail (below duration, no conflict with score/bookmark/NEW). Published (green `bg-emerald-500/20 text-emerald-300`, `✓ Posted`) takes priority over banked (amber `bg-amber-500/15 text-amber-300`, `Archive` icon + `In bank`). Also drives the quick export button's persistent "In your bank" state across sessions (previously session-only via `exportedClipIds`).
+
 ### Card Value Props
 Each card shows concrete value beyond the raw score:
 - **Human velocity**: "+12K/h views" (from `velocity` field, formatted with `formatCount`)
