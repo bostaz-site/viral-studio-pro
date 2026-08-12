@@ -857,18 +857,22 @@ Where toasts are wired:
 - **Clip Bank remove (Distribution):** `components/distribution/distribution-hub.tsx` `onRemove` — `toast('Removed from bank')` on success, `toast.error('Failed to remove clip — restored to bank')` on failure (with optimistic rollback).
 - **Profile save (Settings):** `app/(dashboard)/settings/page.tsx` `handleSaveProfile` — `toast.success('Profile saved')` only on actual success, `toast.error(...)` with server message on DB error or network failure. Fixes prior bug where "Saved" showed even on error.
 
-### Hero Product Mockup (Phase 1 — Video-Ready Slot)
-Component: `components/landing/hero-product-mockup.tsx` (`HeroProductMockup`). CSS phone mockup (160x284px, 9:16 ratio) with 7s looping transformation:
-- 0-1s: horizontal 16:9 thumbnail letterboxed in phone frame
-- 1-2.5s: CSS transition to vertical full-frame crop
-- 2.5-4.5s: karaoke captions appear word-by-word (amber highlight) + purple hook capsule slides in from top
-- 4.5-6s: "TIKTOK READY" amber badge pops (spring easing) + score counts 87->96
-- 6-7s: publish pulse (amber ring), fade overlay, cycle restarts
+### Hero v2 — Permanent Raw-to-Ready
+Component: `components/landing/hero-product-mockup.tsx` (`HeroProductMockup`). Always shows the final "ready" state — no phased transformation cycle.
 
-Layout: `.lv3-hero-split` — desktop: copy left-aligned + mockup right (flex row). Mobile (<900px): stacked, copy centered, mockup below. The 3-clicks pipeline demo sits below the split, full width.
-Reduced motion: static final frame (captions + badge visible, no animation). Phases driven by JS `setTimeout` chain, not CSS animation on the wrapper.
+**Frame source:** `public/landing/radar-thumb-4.jpg` (IRL streamer, bright/contrasty). Same image in both the RAW vignette (16:9 letterbox) and the phone (vertical crop, `object-fit: cover; object-position: center`).
+
+**Visual elements (all permanently visible):**
+- RAW vignette: 110px 16:9 card, "RAW CLIP" label, red "16:9" badge, grey border, -4° tilt, soft float (5s translateY ±5px)
+- Connector: curved dashed SVG arrow (amber, dashoffset animation, opacity 0.75)
+- Phone: 220px wide, thin chrome (1.5px border, 26px radius, 7px padding). Contains: cropped vertical image, purple hook capsule top-center, "96" score badge top-right, looping karaoke captions bottom-center ("THIS IS ACTUALLY INSANE", word-pop amber highlight cycling 2.4s per word with 0.6s stagger), "@streamer · credit added" bottom-left, "⚡ TIKTOK READY" amber text below screen
+- Ambient glow: two radial-gradients behind phone — cyan (~10% opacity top) + amber (~13% bottom). Deep shadow `0 24px 60px rgba(0,0,0,.55)`
+
+**Copy (left column):** Badge "● LIVE RADAR · TWITCH + KICK", H1 unchanged, sub "Find rising Twitch and Kick clips, turn them into TikToks with AI, and post them in one click.", features line "Captions · Vertical crop · Hook · Credit" (grey), CTA "Start Farming Free" + "See how it works ↓" (cyan dotted underline link), trust "Free to start · No credit card · Direct TikTok posting" (plain grey).
+
+Layout: `.lv3-hero-split` — desktop: copy left + mockup right (flex row). Mobile (<900px): stacked, copy first, phone (~190px) below. Reduced motion: all static (no float, no dash animation, karaoke words white).
 **Designed to be replaced by `<video>` at same dimensions** — isolate swap to `HeroProductMockup` only.
-CSS: `landing-v3.css` under `HERO PRODUCT MOCKUP` section.
+CSS: `landing-v3.css` under `HERO PRODUCT MOCKUP v2` section.
 
 ### Mobile Dashboard (390px)
 **Sidebar drawer:** `stores/ui-store.ts` initial `sidebarOpen: false`. Desktop auto-opens on mount (`window.innerWidth >= 768`). Closes on route change (mobile), Escape key, scrim click. Body scroll locked while open. `role="dialog" aria-modal` on the `<aside>`.

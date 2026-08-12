@@ -22,38 +22,41 @@ export function HeroSection() {
           {/* Eyebrow */}
           <div className="lv3-eyebrow">
             <span className="lv3-eyebrow-dot" />
-            Radar live &middot; scanning Twitch
+            LIVE RADAR &middot; TWITCH + KICK
           </div>
 
-          {/* H1 — VALIDATED, don't touch */}
+          {/* H1 */}
           <h1 className="lv3-h1">
             Clips blowing up,{' '}
             <span className="lv3-h1-accent">found before the crowd.</span>
           </h1>
 
-          {/* Sub — updated copy */}
+          {/* Sub */}
           <p className="lv3-sub">
-            Three clicks from trending to TikTok — captions, vertical crop, hook and automatic credit included.
+            Find rising Twitch and Kick clips, turn them into TikToks with AI, and post them in one click.
           </p>
 
-          {/* Punch */}
-          <p className="lv3-punch">
-            No recording. No downloading. No manual posting.
+          {/* Feature pills */}
+          <p className="lv3-features-line">
+            Captions &middot; Vertical crop &middot; Hook &middot; Credit
           </p>
 
-          {/* CTAs — VALIDATED */}
+          {/* CTAs */}
           <div className="lv3-ctas">
             <Link href="/signup" className="lv3-cta-primary" onClick={() => track('landing_cta_clicked', { placement: 'hero' })}>
               Start Farming Free
             </Link>
-            <button className="lv3-cta-ghost" onClick={() => { document.getElementById('radar')?.scrollIntoView({ behavior: 'smooth' }); track('landing_cta_clicked', { placement: 'hero_watch' }) }}>
-              Watch It Work
+            <button
+              className="lv3-cta-how"
+              onClick={() => { document.getElementById('radar')?.scrollIntoView({ behavior: 'smooth' }); track('landing_cta_clicked', { placement: 'hero_how' }) }}
+            >
+              See how it works ↓
             </button>
           </div>
 
-          {/* Trust — VALIDATED */}
-          <p className="lv3-trust">
-            Free plan &middot; No credit card &middot; TikTok Direct Post approved
+          {/* Trust */}
+          <p className="lv3-trust-line">
+            Free to start &middot; No credit card &middot; Direct TikTok posting
           </p>
         </div>
 
@@ -181,8 +184,6 @@ export function HeroSection() {
         <span style={{ color: '#334155' }}>&middot;</span>
         <span>Automatic creator credit</span>
       </div>
-
-      {/* Bridge card removed — hero ends cleanly on micro-features line */}
     </section>
   )
 }
