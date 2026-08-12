@@ -1782,7 +1782,8 @@ export default function EnhancePage() {
             </div>
           </div>
 
-          {/* ── AI Optimize button (hero — recommended action) ── */}
+          {/* ── AI Optimize button (hero — desktop only, Quick Mode replaces on mobile) ── */}
+          <div className="hidden lg:block">
           {(() => {
             const viralBusy = makeViralLoading || analysisSequenceActive || pendingAutoRenderRef.current || rendering
             const isAnalyzing = makeViralLoading || analysisSequenceActive
@@ -1846,6 +1847,7 @@ export default function EnhancePage() {
               </button>
             )
           })()}
+          </div>
 
           {/* ── AI Analysis Sequence (plays in right panel after API calls) ── */}
           {analysisSequenceActive && (

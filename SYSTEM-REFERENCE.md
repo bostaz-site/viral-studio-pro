@@ -874,7 +874,7 @@ CSS: `landing-v3.css` under `HERO PRODUCT MOCKUP` section.
 
 **Fixed bottom stacking:** Render toasts/notifications use `inset-x-4 bottom-4 md:left-auto md:right-6` (full-width mobile, right-anchored desktop). Install banner at `bottom-20 z-40` (below toasts at `z-50`).
 
-**Enhance page — Quick Mode (mobile):** On `< lg`, a Quick Mode block (`lg:hidden`) appears above the accordion: "Make it viral" title + amber CTA button → calls the same `applyBestCombo` handler as the desktop AI Optimize button. After optimization: shows summary (caption style · hook status · split ratio · tag) + score. Below it: "── or customize ──" separator. Accordion starts collapsed on mobile (`defaultValue: []` when `window.innerWidth < 1024`), full on desktop (`['captions']`). Desktop AI Optimize button and accordion are unchanged.
+**Enhance page — Quick Mode (mobile):** On `< lg`, a Quick Mode block (`lg:hidden`) appears above the accordion: "Make it viral" title + amber CTA button → calls the same `applyBestCombo` handler as the desktop AI Optimize button. After optimization: shows summary (caption style · hook status · split ratio · tag) + score. Below it: "── or customize ──" separator. The desktop AI Optimize button is `hidden lg:block` (Quick Mode replaces it on mobile — no duplicate CTAs). Accordion starts collapsed on mobile (`defaultValue: []` when `window.innerWidth < 1024`), full on desktop (`['captions']`).
 
 **Enhance page:** Mobile fixed bottom bar (`lg:hidden`) with Generate CTA always reachable during editing. FFmpeg pipeline on mobile: `hidden md:flex` for 6-stage labels, replaced by compact progress bar: "Rendering — step X/4" + amber gradient bar + current stage name (12px). Desktop keeps full pipeline.
 
