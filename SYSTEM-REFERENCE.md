@@ -396,6 +396,10 @@ When the VPS webhook (`hook/route.ts`) reports `status: 'error'`:
 ### Adaptive Exposure (4 buckets)
 VPS probes average luma of source video and applies eq filter: <65 luma (dark: b=0.035 c=1.08), 65-95 (dim: b=0.015 c=1.05), 95-140 (normal: c=1.02), >140 (no eq). Gentler than before to survive TikTok re-encode.
 
+### Bright First Frame (TikTok thumbnail fix)
+TikTok profile thumbnail = frame 1 of the video. Dark openings → invisible thumbnails → no clicks from profile.
+VPS probes the opening luma (first 10 frames via `signalstats`). If average Y < 16/255, applies a progressive exposure lift on the first 0.5s only: `eq=brightness='0.25*(1-min(t/0.5,1))':eval=frame:enable='lte(t,0.5)'`. Frame 1 gets +0.25 brightness, fading to 0 by t=0.5s. Rest of clip untouched. Decision logged in `debug_log` via `BRIGHT_FIRST_FRAME` trace line. Applies in both standard and split-screen render paths, after global exposure correction (Step 3b).
+
 ### Gotchas
 - VPS POST has 15s timeout but VPS continues processing (fire-and-forget)
 - Polling adaptive backoff: 0-30s = 3s interval, 30s-2min = 5s, 2min-5min = 10s, 5min+ = 30s

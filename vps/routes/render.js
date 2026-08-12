@@ -1242,6 +1242,9 @@ router.post('/', async (req, res) => {
     });
 
     const qualityTier = renderResult?.qualityTier || null;
+    if (renderResult?.openingLuma !== undefined) {
+      trc(`BRIGHT_FIRST_FRAME: openingLuma=${renderResult.openingLuma !== null ? renderResult.openingLuma.toFixed(1) : 'N/A'}, dark=${renderResult.openingDark} (threshold=${16}), action=${renderResult.openingDark ? 'exposure_lift_0.5s' : 'none'}`);
+    }
 
     // Upload rendered clip to Supabase Storage (unique path per render to avoid CDN cache)
     const renderTs = Date.now();

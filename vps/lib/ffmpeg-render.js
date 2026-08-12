@@ -226,6 +226,67 @@ function buildExposureFilter(params) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Bright First Frame (TikTok profile thumbnail fix)
+// ─────────────────────────────────────────────────────────────────────────────
+
+const OPENING_LUMA_THRESHOLD = 16; // Y value 0-255; below = dark opening
+const OPENING_LIFT_DURATION = 0.5; // seconds of progressive brightness lift
+
+/**
+ * Probe average luma of the first ~10 frames (the "opening").
+ * Uses signalstats on vframes=10 from the clip start.
+ * Returns average Y value on 0-255 scale, or null on failure.
+ */
+async function probeOpeningLuma(inputPath, startTime = 0) {
+  try {
+    const result = await execFileAsync('ffmpeg', [
+      '-ss', String(startTime),
+      '-i', inputPath,
+      '-vframes', '10',
+      '-vf', 'signalstats',
+      '-f', 'null', '-',
+    ], { timeout: 15000, maxBuffer: 1024 * 1024 });
+
+    const output = result.stderr || '';
+    const matches = [...output.matchAll(/YAVG=([\d.]+)/g)];
+    if (matches.length === 0) return null;
+
+    const avg = matches.reduce((s, m) => s + parseFloat(m[1]), 0) / matches.length;
+    return avg;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Build an FFmpeg filter that applies a progressive exposure lift on the first
+ * OPENING_LIFT_DURATION seconds ONLY. The lift fades from +brightness down to 0
+ * so frame 1 is brightened but the rest of the clip is untouched.
+ *
+ * Uses the `curves` filter with `enable` for the time window, combined with a
+ * fade expression: brightness = base * (1 - t/duration).
+ *
+ * Since `eq` brightness doesn't support per-frame expressions, we use the
+ * `curves` filter with `enable` for the time gate, then cross-fade with the
+ * original using `overlay` with timeline. Simpler approach: use `eq` with
+ * `eval=frame` and a brightness expression that decays over time.
+ *
+ * @param {string} inputLabel  - Current filter chain output label e.g. '[exposed]'
+ * @param {string} outputLabel - Output label e.g. '[bff]'
+ * @returns {string} FFmpeg filter chain segment
+ */
+function buildBrightFirstFrameFilter(inputLabel, outputLabel) {
+  // eq filter with eval=frame allows per-frame brightness expression.
+  // brightness ramps from 0.25 at t=0 down to 0 at t=OPENING_LIFT_DURATION.
+  // After that time, the enable flag disables the filter entirely → zero cost.
+  const dur = OPENING_LIFT_DURATION;
+  const maxLift = 0.25;
+  // Expression: brightness = maxLift * (1 - t/dur), clamped to [0, maxLift]
+  const brExpr = `${maxLift}*(1-min(t/${dur}\\,1))`;
+  return `${inputLabel}eq=brightness='${brExpr}':eval=frame:enable='lte(t\\,${dur})'${outputLabel}`;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Hook Text Overlay
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -668,6 +729,17 @@ export async function renderClip(inputPath, outputPath, options = {}) {
     exposureFilter = buildExposureFilter(fallback);
   }
 
+  // ── Bright first frame detection (TikTok thumbnail fix) ──
+  let openingDark = false;
+  let openingLuma = null;
+  try {
+    openingLuma = await probeOpeningLuma(inputPath, startTime);
+    openingDark = openingLuma !== null && openingLuma < OPENING_LUMA_THRESHOLD;
+    console.log(`[FFmpeg] Opening luma probe: avgY=${openingLuma !== null ? openingLuma.toFixed(1) : 'N/A'}, dark=${openingDark} (threshold=${OPENING_LUMA_THRESHOLD})`);
+  } catch (err) {
+    console.warn('[FFmpeg] Opening luma probe failed:', err.message);
+  }
+
   // ── Helper: append end-card for free plan ──
   async function maybeAppendEndCard(result) {
     if (plan !== 'free' || !result.success) return result;
@@ -707,7 +779,7 @@ export async function renderClip(inputPath, outputPath, options = {}) {
     const result = await renderSplitScreen(inputPath, outputPath, {
       startTime, clipDuration, aspectRatio, captions, watermark, watermarkPosition,
       plan, splitScreen, tag, cropAnchor, timeout, smartZoom, audioPeaks,
-      hook, audioEnhance, bassBoost, speedRamp, sourceFps, exposureFilter,
+      hook, audioEnhance, bassBoost, speedRamp, sourceFps, exposureFilter, openingDark,
     });
     return maybeAppendEndCard(result);
   }
@@ -793,6 +865,12 @@ export async function renderClip(inputPath, outputPath, options = {}) {
       if (exposureFilter) {
         filterComplex += `;${mapVideo}${exposureFilter}[exposed]`;
         mapVideo = '[exposed]';
+      }
+
+      // ── Step 3b: Bright first frame (dark opening → progressive lift on first 0.5s) ──
+      if (openingDark) {
+        filterComplex += `;${buildBrightFirstFrameFilter(mapVideo, '[bff]')}`;
+        mapVideo = '[bff]';
       }
 
       // ── Step 4: Unsharp (HIGH tiers only, after eq, before subtitles) ──
@@ -967,6 +1045,8 @@ export async function renderClip(inputPath, outputPath, options = {}) {
       args.push(outputPath);
 
       const result = await execRender(args, outputPath, timeout, tierName);
+      result.openingLuma = openingLuma;
+      result.openingDark = openingDark;
       return maybeAppendEndCard(result);
     } catch (err) {
       lastError = err;
@@ -1016,6 +1096,7 @@ async function renderSplitScreen(inputPath, outputPath, opts) {
     speedRamp = 'off',
     sourceFps = 30,
     exposureFilter = null,
+    openingDark = false,
   } = opts;
 
   const layout = splitScreen.layout || 'top-bottom';
@@ -1107,6 +1188,12 @@ async function renderSplitScreen(inputPath, outputPath, opts) {
       if (exposureFilter) {
         filterComplex += `;${mapVideo}${exposureFilter}[exposed]`;
         mapVideo = '[exposed]';
+      }
+
+      // ── Bright first frame (dark opening lift) ──
+      if (openingDark) {
+        filterComplex += `;${buildBrightFirstFrameFilter(mapVideo, '[bff]')}`;
+        mapVideo = '[bff]';
       }
 
       // ── Unsharp (HIGH tiers only) ──
