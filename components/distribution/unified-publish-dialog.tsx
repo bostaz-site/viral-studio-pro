@@ -276,6 +276,8 @@ export function UnifiedPublishDialog({
         })
       )
 
+      const anyNonTiktokSuccess = results.some(r => r.status === 'fulfilled')
+
       setPlatforms(prev => {
         const next = { ...prev }
         results.forEach((result, i) => {
@@ -288,6 +290,15 @@ export function UnifiedPublishDialog({
         })
         return next
       })
+
+      // Published = consumed: remove from bank + cancel pending schedule
+      if (anyNonTiktokSuccess) {
+        fetch(`/api/distribution/bank/${clipId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'remove' }),
+        }).catch(() => {})
+      }
     }
 
     // If TikTok wasn't selected or was already published, we're done now.

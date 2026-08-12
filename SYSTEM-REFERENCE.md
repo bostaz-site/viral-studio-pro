@@ -541,7 +541,7 @@ Queue-based auto-posting pipeline: user enables Auto-Distribute toggle → clien
 - Captions never empty: template engine generates from clip title + niche hashtags
 - Sync route inserts FIRST, cancels old rows AFTER (if insert fails, existing queue survives)
 - Clips already in `published_posts` are excluded from sync (no republish)
-- Cron sets `removed_from_bank_at` after successful publish → clip leaves bank → no re-schedule
+- **Published = consumed (single rule)**: both autofarm cron AND manual publish (UnifiedPublishDialog) call `PATCH /api/distribution/bank/{clipId}` with `action: 'remove'` on successful publish. Sets `removed_from_bank_at` on render_job + cancels pending `scheduled_publications`. TikTok direct: removed in `handleTikTokConfigured`. TikTok inbox (drafts): stays in bank (not confirmed published). Non-TikTok: removed after `Promise.allSettled` if any succeeded. Failed publish = clip stays in bank. The bank is a publish queue, not an archive
 - Toggle OFF settings persist to DB; failure reverts toggle with error message
 - TikTok dialog publishes feed the same stats path as publishProgress (publishHistory, persistentStats, rewards)
 
