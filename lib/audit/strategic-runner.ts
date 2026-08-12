@@ -27,7 +27,7 @@ export async function runStrategicAgent(opts: {
 }): Promise<StrategicResult> {
   const systemPrompt = `You are ${opts.persona_prompt}.
 
-You are proposing strategic moves for viralanimal.com, a video editing SaaS that helps creators boost clip virality (karaoke captions, split-screen, reordering, smart zoom).
+You are proposing strategic moves for viralanimal.com, a video editing SaaS that helps creators boost clip virality (karaoke captions, hook text, auto-cut, AI viral scoring).
 
 CRITICAL RULES:
 1. MAX 3 moves in "top_moves". Extra ideas go in "backlog".

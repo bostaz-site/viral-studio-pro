@@ -26,7 +26,7 @@ export interface PlanLimits {
   maxUploadSizeMB: number
   watermarkForced: boolean
   customBranding: boolean
-  splitScreen: boolean
+
   trendingDashboard: boolean
   multiPlatformPublish: boolean
   voiceOver: boolean
@@ -69,7 +69,7 @@ export const PLANS: Record<PlanId, PlanConfig> = {
       maxUploadSizeMB: 200,
       watermarkForced: true,
       customBranding: false,
-      splitScreen: true,
+
       trendingDashboard: false,
       multiPlatformPublish: false,
       voiceOver: false,
@@ -91,7 +91,7 @@ export const PLANS: Record<PlanId, PlanConfig> = {
       maxUploadSizeMB: 500,
       watermarkForced: false,
       customBranding: true,
-      splitScreen: true,
+
       trendingDashboard: true,
       multiPlatformPublish: false,
       voiceOver: false,
@@ -114,7 +114,7 @@ export const PLANS: Record<PlanId, PlanConfig> = {
       maxUploadSizeMB: 500,
       watermarkForced: false,
       customBranding: true,
-      splitScreen: true,
+
       trendingDashboard: true,
       multiPlatformPublish: true,
       voiceOver: false,

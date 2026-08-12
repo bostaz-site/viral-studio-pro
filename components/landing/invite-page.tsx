@@ -13,8 +13,8 @@ const FEATURES = [
   },
   {
     icon: MonitorPlay,
-    title: 'Split-Screen',
-    description: 'Gameplay footage below for maximum retention',
+    title: 'Hook Detection',
+    description: 'AI finds the peak moment and adds hook text',
     color: 'from-orange-500/20 to-amber-500/20 border-orange-500/30 text-orange-400',
   },
   {
@@ -42,7 +42,7 @@ export function InvitePage() {
         </span>
       </h1>
       <p className="text-lg text-muted-foreground text-center mt-4 max-w-md">
-        Auto captions, split-screen, creator credit — one click to make any clip go viral.
+        Auto captions, AI viral scoring, creator credit — one click to make any clip go viral.
       </p>
 
       {/* CTA */}

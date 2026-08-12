@@ -139,11 +139,6 @@ export const POST = withAuth(async (request: NextRequest, user) => {
       wordsPerLine: 4,
       customImportantWords: importantWords,
     },
-    splitScreen: {
-      enabled: true,
-      brollCategory: 'minecraft',
-      ratio: 65, // percentage 0-100: main clip height (65% clip / 35% gameplay)
-    },
     hook: {
       enabled: false,
       textEnabled: false,

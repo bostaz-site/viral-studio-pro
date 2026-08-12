@@ -50,16 +50,16 @@ export default function AboutPage() {
           {/* Story */}
           <div className="space-y-6 text-sm text-muted-foreground leading-relaxed">
             <p>
-              The problem was simple: I saw clip channels exploding on TikTok with split-screen format (stream on top, Subway Surfers at bottom, karaoke captions). But to do that, you either spent 2 hours in CapCut or paid an editor.
+              The problem was simple: I saw clip channels exploding on TikTok with karaoke captions and punchy hooks. But to do that, you either spent 2 hours in CapCut or paid an editor.
             </p>
             <p>
-              I tried OpusClip, Eklipse, and every tool on the market. None did automatic split-screen. None told me why a clip would work or not. None let me get inspired by trending formats for my own clips.
+              I tried OpusClip, Eklipse, and every tool on the market. None had AI viral scoring. None told me why a clip would work or not. None let me get inspired by trending formats for my own clips.
             </p>
             <p>
               So I decided to build it myself.
             </p>
             <p className="text-foreground font-medium text-base">
-              Viral Animal was born from that frustration. A single tool that does what no other combines: automatic split-screen + karaoke captions + AI viral score + Remake This.
+              Viral Animal was born from that frustration. A single tool that does what no other combines: auto captions + AI viral score + hook detection + auto-cut.
             </p>
           </div>
 

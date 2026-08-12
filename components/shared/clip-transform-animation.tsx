@@ -56,8 +56,6 @@ const SCENES: StreamerScene[] = [
   },
 ]
 
-// Colorful gameplay image for split-screen bottom (local asset)
-const GAMEPLAY_IMG = '/images/gameplay.jpg'
 
 // ─── Animated counter hook ──────────────────────────────────────────────────
 
@@ -224,37 +222,24 @@ export function ClipTransformAnimation({ compact = false }: { compact?: boolean 
               )}
             </AnimatePresence>
 
-            {/* ─── Split divider — phase 1+ ────────────────────── */}
+            {/* ─── Blurred background pad — phase 1+ ───────────── */}
             <AnimatePresence>
               {phase >= 1 && phase < 4 && (
                 <motion.div
-                  initial={{ scaleX: 0 }}
-                  animate={{ scaleX: 1 }}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
-                  transition={{ duration: 0.4 }}
-                  className="absolute top-[58%] inset-x-0 h-[2px] bg-gradient-to-r from-transparent via-blue-400/80 to-transparent z-10 origin-center"
-                />
-              )}
-            </AnimatePresence>
-
-            {/* ─── Gameplay image (split-screen) — phase 1+ ───── */}
-            <AnimatePresence>
-              {phase >= 1 && phase < 4 && (
-                <motion.div
-                  initial={{ opacity: 0, y: 50 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0 }}
-                  transition={{ duration: 0.5, ease: [0.4, 0, 0.2, 1] }}
-                  className="absolute inset-x-0 bottom-0 h-[42%] overflow-hidden"
+                  transition={{ duration: 0.5 }}
+                  className="absolute inset-0 -z-[1] overflow-hidden"
                 >
                   <Image
-                    src={GAMEPLAY_IMG}
-                    alt="Gameplay"
+                    src={scene.thumbnail}
+                    alt=""
                     fill
                     sizes="320px"
-                    className="object-cover brightness-110 saturate-150"
+                    className="object-cover scale-110"
+                    style={{ filter: 'blur(14px) brightness(0.55) saturate(0.85)' }}
                   />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent" />
                 </motion.div>
               )}
             </AnimatePresence>

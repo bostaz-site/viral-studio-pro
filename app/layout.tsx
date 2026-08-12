@@ -27,8 +27,8 @@ export const metadata: Metadata = {
     default: 'Viral Animal — Turn your streams into viral clips with AI',
     template: '%s | Viral Animal',
   },
-  description: 'Create viral clips from Twitch and YouTube Gaming streams. Karaoke captions, Subway Surfers/Minecraft split-screen, AI viral score. Export to TikTok, Reels, Shorts in 1 click.',
-  keywords: ['viral clips', 'Twitch clips', 'stream clips', 'karaoke captions', 'split-screen', 'TikTok clips', 'YouTube Gaming', 'viral clip maker', 'AI', 'gaming', 'streamer'],
+  description: 'Create viral clips from Twitch and YouTube Gaming streams. Karaoke captions, AI viral score, hook text, auto-cut. Export to TikTok, Reels, Shorts in 1 click.',
+  keywords: ['viral clips', 'Twitch clips', 'stream clips', 'karaoke captions', 'auto-cut', 'hook text', 'TikTok clips', 'YouTube Gaming', 'viral clip maker', 'AI', 'gaming', 'streamer'],
   authors: [{ name: 'Viral Animal' }],
   creator: 'Viral Animal',
   metadataBase: new URL(siteUrl),
@@ -38,12 +38,12 @@ export const metadata: Metadata = {
     url: siteUrl,
     siteName: 'Viral Animal',
     title: 'Viral Animal — The radar finds clips blowing up. You post them in three clicks.',
-    description: 'Browse Twitch & Kick clips scored by AI, add karaoke captions + split-screen, and post to TikTok in one click.',
+    description: 'Browse Twitch & Kick clips scored by AI, add karaoke captions + hook text, and post to TikTok in one click.',
   },
   twitter: {
     card: 'summary_large_image',
     title: 'Viral Animal — The radar finds clips blowing up',
-    description: 'Browse Twitch & Kick clips scored by AI, add karaoke captions + split-screen, and post to TikTok in one click.',
+    description: 'Browse Twitch & Kick clips scored by AI, add karaoke captions + hook text, and post to TikTok in one click.',
     creator: '@viralanimal',
   },
   robots: {
@@ -94,7 +94,7 @@ const jsonLd = {
   applicationCategory: 'MultimediaApplication',
   operatingSystem: 'Web',
   url: siteUrl,
-  description: 'Create viral clips from Twitch and YouTube Gaming streams with karaoke captions, split-screen, and AI viral score.',
+  description: 'Create viral clips from Twitch and YouTube Gaming streams with karaoke captions, hook text, and AI viral score.',
   offers: [
     {
       '@type': 'Offer',
@@ -115,7 +115,7 @@ const jsonLd = {
       price: '24',
       priceCurrency: 'USD',
       name: 'Studio',
-      description: 'Launch price $24 (instead of $29). 120 videos per month (90 + 30 bonus), split-screen, multi-platform distribution',
+      description: 'Launch price $24 (instead of $29). 120 videos per month (90 + 30 bonus), multi-platform distribution',
     },
   ],
   aggregateRating: {

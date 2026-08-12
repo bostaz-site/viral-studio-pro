@@ -113,7 +113,6 @@ export function DemoExperience() {
   const [clipId, setClipId] = useState(DEMO_CLIPS[0]?.id ?? 'clutch')
   const [captionStyleId, setCaptionStyleId] =
     useState<CaptionStyleId>('hormozi')
-  const [splitScreen, setSplitScreen] = useState(true)
   const [showScore, setShowScore] = useState(true)
 
   // Fire once when the demo mounts, so we can measure page→interaction rate.
@@ -129,11 +128,6 @@ export function DemoExperience() {
     setCaptionStyleId(id)
     track('demo_caption_switch', { style: id })
   }
-  const handleSplitToggle = (next: boolean) => {
-    setSplitScreen(next)
-    track('demo_split_toggle', { enabled: next })
-  }
-
   const clip = useMemo(
     () => DEMO_CLIPS.find((c) => c.id === clipId) ?? DEMO_CLIPS[0]!,
     [clipId],
@@ -192,7 +186,7 @@ export function DemoExperience() {
             </span>
           </h1>
           <p className="text-lg text-muted-foreground max-w-2xl mx-auto leading-relaxed">
-            Click a clip, change caption style, enable split-screen. This is exactly what you get in the app — real 9:16 vertical format.
+            Click a clip, change caption style, toggle the viral score. This is exactly what you get in the app — real 9:16 vertical format.
           </p>
         </div>
       </section>
@@ -205,7 +199,6 @@ export function DemoExperience() {
             <PhonePreview
               clip={clip}
               style={style}
-              splitScreen={splitScreen}
               showScore={showScore}
             />
           </div>
@@ -283,12 +276,6 @@ export function DemoExperience() {
             >
               <div className="space-y-2">
                 <ToggleRow
-                  label="Split-screen (Subway Surfers)"
-                  description="Satisfying gameplay at the bottom"
-                  value={splitScreen}
-                  onChange={handleSplitToggle}
-                />
-                <ToggleRow
                   label="AI viral score"
                   description="Badge with score 0-100"
                   value={showScore}
@@ -306,7 +293,7 @@ export function DemoExperience() {
                 <div>
                   <p className="text-sm font-bold">Want the real deal?</p>
                   <p className="text-xs text-muted-foreground mt-0.5">
-                    3 free clips per month, no card required. Split-screen included on all plans.
+                    3 free clips per month, no card required. All features included on all plans.
                   </p>
                 </div>
               </div>
@@ -358,17 +345,14 @@ export function DemoExperience() {
 interface PhonePreviewProps {
   clip: DemoClip
   style: CaptionStyleConfig
-  splitScreen: boolean
   showScore: boolean
 }
 
 function PhonePreview({
   clip,
   style,
-  splitScreen,
   showScore,
 }: PhonePreviewProps) {
-  const topHeight = splitScreen ? '60%' : '100%'
 
   return (
     <div className="relative">
@@ -382,10 +366,9 @@ function PhonePreview({
           className="relative rounded-[2rem] overflow-hidden bg-black"
           style={{ aspectRatio: '9/16' }}
         >
-          {/* Top: stream clip */}
+          {/* Stream clip */}
           <div
-            className={`absolute inset-x-0 top-0 bg-gradient-to-br ${clip.accent} transition-all duration-500 flex items-center justify-center`}
-            style={{ height: topHeight }}
+            className={`absolute inset-0 bg-gradient-to-br ${clip.accent} transition-all duration-500 flex items-center justify-center`}
           >
             {/* LIVE tag */}
             <div className="absolute top-3 left-3 flex items-center gap-1.5">
@@ -422,30 +405,11 @@ function PhonePreview({
             )}
           </div>
 
-          {/* Split-screen gameplay */}
-          {splitScreen && (
-            <>
-              <div className="absolute top-[60%] inset-x-0 h-[2px] bg-cyan-500/40" />
-              <div className="absolute inset-x-0 bottom-0 h-[40%] bg-gradient-to-br from-emerald-900/40 via-teal-900/30 to-cyan-900/30 flex items-center justify-center overflow-hidden">
-                <div className="absolute inset-0 bg-[linear-gradient(45deg,rgba(16,185,129,0.08)_25%,transparent_25%,transparent_50%,rgba(16,185,129,0.08)_50%,rgba(16,185,129,0.08)_75%,transparent_75%)] bg-[length:16px_16px] animate-[pulse_3s_ease-in-out_infinite]" />
-                <div className="relative text-center">
-                  <p className="text-[10px] text-emerald-300/80 font-bold uppercase tracking-wider">
-                    Subway Surfers
-                  </p>
-                  <p className="text-[9px] text-emerald-300/50 mt-0.5">
-                    Gameplay 4K · 60fps
-                  </p>
-                </div>
-              </div>
-            </>
-          )}
-
-          {/* Karaoke caption — centered horizontally, sits near the bottom of
-              the top section so it's always visible regardless of split toggle */}
+          {/* Karaoke caption — centered horizontally, near the bottom */}
           <div
             className="absolute left-1/2 -translate-x-1/2 pointer-events-none transition-all duration-500"
             style={{
-              bottom: splitScreen ? '44%' : '18%',
+              bottom: '18%',
             }}
           >
             <div className={`${style.wrapperClass} px-3 py-1`}>

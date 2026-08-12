@@ -141,7 +141,7 @@ export default async function RefPage({
               <span className="text-primary text-lg mt-0.5">2.</span>
               <div>
                 <p className="font-semibold text-sm">Boost it</p>
-                <p className="text-xs text-muted-foreground">Add subtitles, split-screen, hooks — one click</p>
+                <p className="text-xs text-muted-foreground">Add subtitles, hooks, AI scoring — one click</p>
               </div>
             </div>
             <div className="flex items-start gap-3">

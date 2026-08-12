@@ -194,7 +194,6 @@ export async function executePublish(params: ExecutePublishParams): Promise<Exec
       caption_style: (rs?.caption_style as string | null) ?? null,
       hook_style: (rs?.hook_style as string | null) ?? null,
       hook_enabled: (rs?.hook_enabled as boolean | null) ?? null,
-      split_screen_enabled: (rs?.split_screen_enabled as boolean | null) ?? null,
       smart_zoom_mode: (rs?.smart_zoom_mode as string | null) ?? null,
       clip_mood: (rs?.auto_cut_mood as string | null) ?? null,
       algo_score_at_pick: algoScore,

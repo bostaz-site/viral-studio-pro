@@ -33,7 +33,6 @@ import { AIAnalysisSequence } from '@/components/enhance/ai-analysis-sequence'
 import { TagPanel } from '@/components/enhance/tag-panel'
 import { BlowupChanceBar } from '@/components/enhance/blowup-chance-bar'
 import { CaptionsSection } from '@/components/enhance/accordion-sections/captions-section'
-import { SplitScreenSection } from '@/components/enhance/accordion-sections/split-screen-section'
 import { PageHeader } from '@/components/dashboard/page-header'
 import { UnifiedPublishDialog } from '@/components/distribution/unified-publish-dialog'
 import { PaywallModal } from '@/components/paywall-modal'
@@ -130,9 +129,6 @@ export default function EnhancePage() {
     customImportantWords: [],
     captionPosition: 72,
     wordsPerLine: 4,
-    splitScreenEnabled: false,
-    brollVideo: 'none',
-    splitRatio: 60,
     videoZoom: 'contain',
     tagStyle: 'viral-glow',
     tagSize: 100,
@@ -624,8 +620,6 @@ export default function EnhancePage() {
           tagSize: settings.tagSize || 100,
           videoWidth: 1080,
           videoHeight: 1920,
-          splitScreenEnabled: settings.splitScreenEnabled,
-          splitRatio: settings.splitRatio,
         })
       }
 
@@ -646,12 +640,6 @@ export default function EnhancePage() {
               emphasisColor: settings.emphasisColor,
               customImportantWords: settings.customImportantWords,
               position: settings.captionPosition,
-            },
-            splitScreen: {
-              enabled: settings.splitScreenEnabled,
-              brollCategory: settings.brollVideo,
-              ratio: settings.splitRatio,
-              layout: 'top-bottom',
             },
             tag: {
               style: settings.tagStyle,
@@ -824,7 +812,6 @@ export default function EnhancePage() {
   const SETTING_TO_SECTION: Record<string, keyof Omit<ScoreBreakdown, 'total'>> = useMemo(() => ({
     captionsEnabled: 'captions', captionStyle: 'captions', emphasisEffect: 'captions',
     emphasisColor: 'captions', captionPosition: 'captions', wordsPerLine: 'captions',
-    splitScreenEnabled: 'splitScreen', brollVideo: 'splitScreen', splitRatio: 'splitScreen', videoZoom: 'splitScreen',
     tagStyle: 'tag', tagSize: 'tag',
     smartZoomEnabled: 'smartZoom', smartZoomMode: 'smartZoom',
     audioEnhanceEnabled: 'audio', bassBoost: 'audio', speedRamp: 'audio',
@@ -945,9 +932,6 @@ export default function EnhancePage() {
       emphasisColor: preset.emphasisColor,
       captionPosition: preset.captionPosition,
       wordsPerLine: preset.wordsPerLine,
-      splitScreenEnabled: false,
-      brollVideo: preset.brollVideo,
-      splitRatio: preset.splitRatio,
       videoZoom: preset.videoZoom,
       tagStyle,
       tagSize: preset.tagSize,
@@ -1033,9 +1017,6 @@ export default function EnhancePage() {
             ...s,
             tagStyle,
             tagSize: preset.tagSize,
-            splitScreenEnabled: false,
-            brollVideo: preset.brollVideo,
-            splitRatio: preset.splitRatio,
             audioEnhanceEnabled: preset.audioEnhanceEnabled,
             autoCutEnabled: preset.autoCutEnabled,
             autoCutThreshold: preset.autoCutThreshold,
@@ -1759,7 +1740,6 @@ export default function EnhancePage() {
                           <p className="text-[11px] text-zinc-400 truncate">
                             {CAPTION_STYLES.find(s => s.id === settings.captionStyle)?.label ?? 'Captions'}
                             {settings.hookEnabled && ' · Hook on'}
-                            {settings.splitScreenEnabled && ` · Split ${Math.round(settings.splitRatio * 100)}%`}
                             {settings.tagStyle !== 'none' && ' · Tag'}
                           </p>
                         </div>
@@ -1871,7 +1851,7 @@ export default function EnhancePage() {
                 setAnalysisComplete(true)
                 setAnalysisSequenceActive(false)
                 // Stagger-reveal section bonuses (~200ms apart)
-                const sections = ['captions', 'splitScreen', 'tag', 'smartZoom', 'audio', 'autoCut', 'hook', '_total'] as const
+                const sections = ['captions', 'tag', 'smartZoom', 'audio', 'autoCut', 'hook', '_total'] as const
                 sections.forEach((key, i) => {
                   setTimeout(() => {
                     setRevealedBonuses((prev) => new Set([...prev, key]))
@@ -1960,17 +1940,6 @@ export default function EnhancePage() {
               showBonus={revealedBonuses.has('captions')}
               ephemeralDelta={ephemeralDelta?.section === 'captions' ? ephemeralDelta.value : null}
               burnedCaptionsDetected={burnedCaptions?.detected && burnedCaptions.confidence >= 0.7}
-            />
-
-            {/* ─── Split-Screen Section ─── */}
-            <SplitScreenSection
-              settings={settings}
-              updateSetting={updateSetting}
-              scoreBreakdown={scoreBreakdown}
-              scores={scores}
-              sectionRef={sectionRefs.splitscreen}
-              showBonus={revealedBonuses.has('splitScreen')}
-              ephemeralDelta={ephemeralDelta?.section === 'splitScreen' ? ephemeralDelta.value : null}
             />
 
             {/* ─── Tags Section ─── */}
@@ -2685,7 +2654,6 @@ export default function EnhancePage() {
           caption_style: settings.captionStyle,
           hook_style: settings.hookStyle,
           hook_enabled: settings.hookEnabled,
-          split_screen_enabled: settings.splitScreenEnabled,
           smart_zoom_mode: settings.smartZoomMode,
           duration_seconds: clip?.duration_seconds ?? undefined,
           blowup_chance_at_render: currentScore,

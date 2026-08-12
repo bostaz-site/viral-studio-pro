@@ -13,7 +13,7 @@ const __dirname = path.dirname(__filename);
 
 /**
  * FFmpeg render engine for Viral Animal
- * Handles video cutting, reframing, captioning, watermarking, and split-screen rendering
+ * Handles video cutting, reframing, captioning, watermarking, and blurred-background compositing
  */
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -670,7 +670,7 @@ export async function renderClip(inputPath, outputPath, options = {}) {
     watermark = null,
     watermarkPosition = 'bottom-right',
     plan = 'free',
-    splitScreen = null,
+    // splitScreen is permanently removed — ignore silently if old clients send it
     tag = null,
     cropAnchor = 'center',
     backgroundBlur = true,
@@ -774,16 +774,6 @@ export async function renderClip(inputPath, outputPath, options = {}) {
     return result;
   }
 
-  // ── Split-screen render path ────────────────────────────────────────────
-  if (splitScreen && splitScreen.enabled && splitScreen.brollPath) {
-    const result = await renderSplitScreen(inputPath, outputPath, {
-      startTime, clipDuration, aspectRatio, captions, watermark, watermarkPosition,
-      plan, splitScreen, tag, cropAnchor, timeout, smartZoom, audioPeaks,
-      hook, audioEnhance, bassBoost, speedRamp, sourceFps, exposureFilter, openingDark,
-    });
-    return maybeAppendEndCard(result);
-  }
-
   // ── Standard render with retry ladder ──────────────────────────────────
   const quality = process.env.RENDER_QUALITY || 'high';
   const tierSequence = getTierSequence(quality);
@@ -813,14 +803,14 @@ export async function renderClip(inputPath, outputPath, options = {}) {
           const bigH = Math.round(canvasH * zoomFactor);
           filterComplex = [
             `[0:v]fps=${fps},crop=in_w-60:in_h-60:30:30,split=2[wpfg][wpbg]`,
-            `[wpbg]scale=${Math.round(canvasW/4)}:${Math.round(canvasH/4)}:force_original_aspect_ratio=increase,crop=${Math.round(canvasW/4)}:${Math.round(canvasH/4)}:(iw-${Math.round(canvasW/4)})/2:(ih-${Math.round(canvasH/4)})/2,gblur=sigma=12,eq=brightness=-0.35:saturation=1.25:contrast=1.1,scale=${canvasW}:${canvasH}:flags=bilinear,setsar=1[wpbgout]`,
+            `[wpbg]scale=${Math.round(canvasW/4)}:${Math.round(canvasH/4)}:force_original_aspect_ratio=increase,crop=${Math.round(canvasW/4)}:${Math.round(canvasH/4)}:(iw-${Math.round(canvasW/4)})/2:(ih-${Math.round(canvasH/4)})/2,gblur=sigma=6,eq=brightness=-0.45,hue=s=0.85,scale=${canvasW}:${canvasH}:flags=bilinear,setsar=1[wpbgout]`,
             `[wpfg]scale=${bigW}:${bigH}:force_original_aspect_ratio=decrease:flags=lanczos,setsar=1[wpfgscaled]`,
             `[wpbgout][wpfgscaled]overlay=(W-w)/2:(H-h)/2[composed]`,
           ].join(';');
         } else {
           filterComplex = [
             `[0:v]fps=${fps},crop=in_w-60:in_h-60:30:30,split=2[wpfg2][wpbg2]`,
-            `[wpbg2]scale=${Math.round(canvasW/4)}:${Math.round(canvasH/4)}:force_original_aspect_ratio=increase,crop=${Math.round(canvasW/4)}:${Math.round(canvasH/4)}:(iw-${Math.round(canvasW/4)})/2:(ih-${Math.round(canvasH/4)})/2,gblur=sigma=12,eq=brightness=-0.35:saturation=1.25:contrast=1.1,scale=${canvasW}:${canvasH}:flags=bilinear,setsar=1[wpbgout2]`,
+            `[wpbg2]scale=${Math.round(canvasW/4)}:${Math.round(canvasH/4)}:force_original_aspect_ratio=increase,crop=${Math.round(canvasW/4)}:${Math.round(canvasH/4)}:(iw-${Math.round(canvasW/4)})/2:(ih-${Math.round(canvasH/4)})/2,gblur=sigma=6,eq=brightness=-0.45,hue=s=0.85,scale=${canvasW}:${canvasH}:flags=bilinear,setsar=1[wpbgout2]`,
             `[wpfg2]scale=${canvasW}:${canvasH}:force_original_aspect_ratio=decrease:flags=lanczos,setsar=1[wpfgout2]`,
             `[wpbgout2][wpfgout2]overlay=(W-w)/2:(H-h)/2[composed]`,
           ].join(';');
@@ -834,7 +824,7 @@ export async function renderClip(inputPath, outputPath, options = {}) {
         const fgH = Math.round(canvasH * zoomFactor);
         // Background: blurred letterbox when backgroundBlur=true, solid black when false
         const bgChain = backgroundBlur
-          ? `[srcbg]scale=${Math.round(canvasW/4)}:${Math.round(canvasH/4)}:force_original_aspect_ratio=increase,crop=${Math.round(canvasW/4)}:${Math.round(canvasH/4)}:(iw-${Math.round(canvasW/4)})/2:(ih-${Math.round(canvasH/4)})/2,gblur=sigma=12,eq=brightness=-0.35:saturation=1.25:contrast=1.1,scale=${canvasW}:${canvasH}:flags=bilinear,setsar=1[bg]`
+          ? `[srcbg]scale=${Math.round(canvasW/4)}:${Math.round(canvasH/4)}:force_original_aspect_ratio=increase,crop=${Math.round(canvasW/4)}:${Math.round(canvasH/4)}:(iw-${Math.round(canvasW/4)})/2:(ih-${Math.round(canvasH/4)})/2,gblur=sigma=6,eq=brightness=-0.45,hue=s=0.85,scale=${canvasW}:${canvasH}:flags=bilinear,setsar=1[bg]`
           : `[srcbg]scale=${canvasW}:${canvasH}:force_original_aspect_ratio=increase,crop=${canvasW}:${canvasH}:(iw-${canvasW})/2:(ih-${canvasH})/2,drawbox=x=0:y=0:w=${canvasW}:h=${canvasH}:color=black:t=fill,setsar=1[bg]`;
         filterComplex = [
           `[0:v]fps=${fps},crop=in_w-60:in_h-60:30:30,split=2[srcfg][srcbg]`,
@@ -1048,283 +1038,6 @@ export async function renderClip(inputPath, outputPath, options = {}) {
       result.openingLuma = openingLuma;
       result.openingDark = openingDark;
       return maybeAppendEndCard(result);
-    } catch (err) {
-      lastError = err;
-      if (isOOMError(err) && ti < tierSequence.length - 1) {
-        console.log(`[FFmpeg] fallback tier ${ti + 2}: ${tierName} OOM → trying ${tierSequence[ti + 1]}`);
-        continue;
-      }
-      throw err;
-    }
-  }
-  throw lastError;
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Split-Screen Compositing
-// ─────────────────────────────────────────────────────────────────────────────
-
-/**
- * Renders a split-screen clip with the main video + B-roll.
- * Supports 3 layouts:
- *   - top-bottom:  main on top, B-roll on bottom (default)
- *   - side-by-side: main on left, B-roll on right
- *   - pip:          main fullscreen, B-roll in picture-in-picture corner
- *
- * @param {string} inputPath  - Path to main video
- * @param {string} outputPath - Output path
- * @param {object} opts       - Render options
- */
-async function renderSplitScreen(inputPath, outputPath, opts) {
-  const {
-    startTime,
-    clipDuration,
-    aspectRatio,
-    captions,
-    watermark,
-    watermarkPosition,
-    plan,
-    splitScreen,
-    tag,
-    cropAnchor,
-    timeout,
-    smartZoom,
-    audioPeaks = [],
-    hook = null,
-    audioEnhance = false,
-    bassBoost = 'off',
-    speedRamp = 'off',
-    sourceFps = 30,
-    exposureFilter = null,
-    openingDark = false,
-  } = opts;
-
-  const layout = splitScreen.layout || 'top-bottom';
-  // ratio = percentage 0-100 of height for the MAIN clip (top).
-  // Defense: if a caller sends a fraction (0-1), convert to percentage with warning.
-  let rawRatio = splitScreen.ratio || 60;
-  if (rawRatio > 0 && rawRatio <= 1) {
-    console.warn(`[split-screen] ratio ${rawRatio} looks like a fraction — converting to ${Math.round(rawRatio * 100)}%`);
-    rawRatio = Math.round(rawRatio * 100);
-  }
-  // Clamp [50, 80]: main clip must ALWAYS be dominant
-  const ratio = Math.max(50, Math.min(80, rawRatio)) / 100;
-  const brollPath = splitScreen.brollPath;
-
-  // ── Retry ladder for split-screen ──
-  const quality = process.env.RENDER_QUALITY || 'high';
-  const tierSequence = getTierSequence(quality);
-  let lastError;
-
-  for (let ti = 0; ti < tierSequence.length; ti++) {
-    const tierName = tierSequence[ti];
-    const tier = RENDER_TIERS[tierName];
-    const fps = getTierFps(tier, sourceFps);
-    const { w: canvasW, h: canvasH } = getCanvasDimensions(tier, aspectRatio);
-
-    console.log(`[FFmpeg-Split] Render tier ${ti + 1}/${tierSequence.length}: ${tierName} (${canvasW}x${canvasH} @ ${fps}fps)`);
-
-    try {
-      let filterComplex = '';
-      let mapVideo = '';
-
-      // ── Split-screen compositing with lanczos foreground ──
-      if (layout === 'top-bottom') {
-        const topH = Math.round(canvasH * ratio);
-        const botH = canvasH - topH;
-        // Background blur: downscale broll to 540x960 (bicubic) → gblur → upscale (bicubic)
-        const blurW = tier.hd ? 540 : 360;
-        const blurH = tier.hd ? 960 : 640;
-        filterComplex = [
-          `[0:v]fps=${fps},crop=in_w-60:in_h-60:30:30,scale=${canvasW}:${topH}:force_original_aspect_ratio=increase:flags=lanczos,crop=${canvasW}:${topH}:(iw-${canvasW})/2:(ih-${topH})/2,setsar=1,setpts=PTS-STARTPTS[main]`,
-          `[1:v]loop=loop=-1:size=900:start=0,fps=${fps},scale=${canvasW}:${botH}:force_original_aspect_ratio=increase:flags=lanczos,crop=${canvasW}:${botH}:(iw-${canvasW})/2:(ih-${botH})/2,setsar=1,setpts=PTS-STARTPTS[broll]`,
-          `[main][broll]vstack=inputs=2[composed]`,
-        ].join(';');
-        mapVideo = '[composed]';
-      } else if (layout === 'side-by-side') {
-        const leftW = Math.round(canvasW * ratio);
-        const rightW = canvasW - leftW;
-        filterComplex = [
-          `[0:v]fps=${fps},crop=in_w-60:in_h-60:30:30,scale=${leftW}:${canvasH}:force_original_aspect_ratio=increase:flags=lanczos,crop=${leftW}:${canvasH}:(iw-${leftW})/2:(ih-${canvasH})/2,setsar=1,setpts=PTS-STARTPTS[main]`,
-          `[1:v]loop=loop=-1:size=900:start=0,fps=${fps},scale=${rightW}:${canvasH}:force_original_aspect_ratio=increase:flags=lanczos,crop=${rightW}:${canvasH}:(iw-${rightW})/2:(ih-${canvasH})/2,setsar=1,setpts=PTS-STARTPTS[broll]`,
-          `[main][broll]hstack=inputs=2[composed]`,
-        ].join(';');
-        mapVideo = '[composed]';
-      } else if (layout === 'pip') {
-        const pipW = Math.round(canvasW * 0.35);
-        const pipH = Math.round(canvasH * 0.35);
-        const pipX = canvasW - pipW - 20;
-        const pipY = canvasH - pipH - 20;
-        filterComplex = [
-          `[0:v]fps=${fps},crop=in_w-60:in_h-60:30:30,scale=${canvasW}:${canvasH}:force_original_aspect_ratio=increase:flags=lanczos,crop=${canvasW}:${canvasH}:(iw-${canvasW})/2:(ih-${canvasH})/2,setsar=1,setpts=PTS-STARTPTS[main]`,
-          `[1:v]loop=loop=-1:size=900:start=0,fps=${fps},scale=${pipW}:${pipH}:force_original_aspect_ratio=increase:flags=lanczos,crop=${pipW}:${pipH}:(iw-${pipW})/2:(ih-${pipH})/2,setsar=1,setpts=PTS-STARTPTS[broll]`,
-          `[main][broll]overlay=${pipX}:${pipY}[composed]`,
-        ].join(';');
-        mapVideo = '[composed]';
-      } else {
-        return renderSplitScreen(inputPath, outputPath, {
-          ...opts,
-          splitScreen: { ...splitScreen, layout: 'top-bottom' },
-        });
-      }
-
-      // ── Smart Zoom ──
-      if (smartZoom && smartZoom.enabled) {
-        let zoomChain = null;
-        if (smartZoom.mode === 'follow' && Array.isArray(smartZoom.faceKeyframes) && smartZoom.faceKeyframes.length >= 2) {
-          zoomChain = buildFollowFaceFilter(mapVideo, '[zoomed]', canvasW, canvasH, smartZoom.faceKeyframes, clipDuration);
-        }
-        if (!zoomChain) {
-          const fallbackMode = (smartZoom.mode === 'follow') ? 'micro' : (smartZoom.mode || 'micro');
-          zoomChain = buildSmartZoomFilter(mapVideo, '[zoomed]', canvasW, canvasH, clipDuration, fallbackMode, audioPeaks);
-        }
-        if (zoomChain) {
-          filterComplex += `;${zoomChain}`;
-          mapVideo = '[zoomed]';
-        }
-      }
-
-      // ── Exposure (eq) ──
-      if (exposureFilter) {
-        filterComplex += `;${mapVideo}${exposureFilter}[exposed]`;
-        mapVideo = '[exposed]';
-      }
-
-      // ── Bright first frame (dark opening lift) ──
-      if (openingDark) {
-        filterComplex += `;${buildBrightFirstFrameFilter(mapVideo, '[bff]')}`;
-        mapVideo = '[bff]';
-      }
-
-      // ── Unsharp (HIGH tiers only) ──
-      if (tier.unsharp) {
-        filterComplex += `;${mapVideo}unsharp=5:5:0.25:3:3:0.0[sharpened]`;
-        mapVideo = '[sharpened]';
-      }
-
-      // ── ASS captions ──
-      const extraInputs = [];
-      if (captions && captions.assFilePath) {
-        filterComplex += `;${mapVideo}ass='${escapePath(captions.assFilePath)}':fontsdir='/usr/share/fonts'[captioned]`;
-        mapVideo = '[captioned]';
-      }
-
-      // ── Tag overlay ──
-      if (tag && tag.overlayPng && typeof tag.overlayPng === 'string' && tag.overlayPng.startsWith('data:image/png')) {
-        const jobDir = path.dirname(outputPath);
-        const tagPngPath = path.join(jobDir, 'tag-overlay.png');
-        const base64Data = tag.overlayPng.replace(/^data:image\/png;base64,/, '');
-        fs.writeFileSync(tagPngPath, Buffer.from(base64Data, 'base64'));
-        extraInputs.push({
-          pngPath: tagPngPath, startTime: 0, endTime: clipDuration, isTagOverlay: true,
-          anchorX: tag.overlayAnchorX || 0, anchorY: tag.overlayAnchorY || 0,
-        });
-      } else if (tag) {
-        const splitContentH = Math.round(canvasH * ratio);
-        const tagFilter = buildTagFilter(tag, canvasW, canvasH, mapVideo, splitContentH);
-        if (tagFilter) {
-          if (typeof tagFilter === 'string') {
-            filterComplex += `;${mapVideo}${tagFilter}[tagged]`;
-          } else if (tagFilter.complex) {
-            filterComplex += `;${tagFilter.chain}[tagged]`;
-          }
-          mapVideo = '[tagged]';
-        }
-      }
-
-      // ── Hook overlay ──
-      const hookDisplayLenSplit = (hook && hook.length > 0) ? hook.length : clipDuration;
-      if (hook && hook.enabled && hook.textEnabled !== false && hook.text) {
-        const jobDir = path.dirname(outputPath);
-        const hookData = await prepareHookOverlay(hook.text, hookDisplayLenSplit, canvasW, canvasH, hook.textPosition || 15, jobDir, hook);
-        if (hookData) {
-          extraInputs.push({
-            pngPath: hookData.pngPath, startTime: 0, endTime: Math.min(hookDisplayLenSplit + 1, clipDuration),
-            isHookOverlay: true, hookLength: hookDisplayLenSplit,
-            isCapsuleOnly: hookData.isCapsuleOnly, textPosition: hookData.textPosition,
-          });
-        }
-      }
-
-      // ── Watermark ──
-      if (watermark && (plan === 'free' || (plan !== 'free' && watermark.logoPath))) {
-        const wmFilter = buildWatermarkFilter(watermark, watermarkPosition, plan, clipDuration);
-        if (wmFilter) {
-          filterComplex += `;${mapVideo}${wmFilter}[watermarked]`;
-          mapVideo = '[watermarked]';
-        }
-      }
-
-      // ── Wire PNG overlays ──
-      const hookOverlayEntrySplit = extraInputs.find(e => e.isHookOverlay);
-      const tagOverlayEntrySplit = extraInputs.find(e => e.isTagOverlay);
-      let hookInputIndexSplit = -1;
-      let tagInputIndexSplit = -1;
-
-      const args = ['-y'];
-      args.push('-ss', String(startTime));
-      args.push('-i', inputPath);
-      args.push('-i', brollPath);
-      let splitInputIdx = 2;
-      for (const overlay of extraInputs) {
-        const ts = Math.max(0, overlay.startTime);
-        const td = Math.max(0.01, overlay.endTime - overlay.startTime);
-        if (overlay.isHookOverlay) hookInputIndexSplit = splitInputIdx;
-        if (overlay.isTagOverlay) tagInputIndexSplit = splitInputIdx;
-        args.push('-loop', '1', '-t', td.toFixed(3), '-itsoffset', ts.toFixed(3), '-i', overlay.pngPath);
-        splitInputIdx++;
-      }
-
-      if (tagOverlayEntrySplit && tagInputIndexSplit >= 0) {
-        filterComplex += `;[${tagInputIndexSplit}:v]format=rgba[tagalpha]`;
-        filterComplex += `;${mapVideo}[tagalpha]overlay=${tagOverlayEntrySplit.anchorX || 0}:${tagOverlayEntrySplit.anchorY || 0}:format=auto[tagged]`;
-        mapVideo = '[tagged]';
-      }
-
-      if (hookOverlayEntrySplit && hookInputIndexSplit >= 0) {
-        const hLenSplit = hookOverlayEntrySplit.hookLength || clipDuration;
-        let fadeFiltersSplit = `fade=t=in:st=0:d=0.3:alpha=1`;
-        if (hLenSplit < clipDuration) {
-          fadeFiltersSplit += `,fade=t=out:st=${hLenSplit.toFixed(2)}:d=0.3:alpha=1`;
-        }
-        filterComplex += `;[${hookInputIndexSplit}:v]format=rgba,${fadeFiltersSplit}[hookalpha]`;
-        const isCapsule = hookOverlayEntrySplit.isCapsuleOnly;
-        const posPct = hookOverlayEntrySplit.textPosition || 15;
-        filterComplex += `;${mapVideo}[hookalpha]overlay=${isCapsule ? '(W-w)/2' : '0'}:${isCapsule ? `H*${posPct}/100-h/2` : '0'}:format=auto[hooked]`;
-        mapVideo = '[hooked]';
-      }
-
-      // ── Terminal format ──
-      filterComplex += `;${mapVideo}format=yuv420p[vout]`;
-      mapVideo = '[vout]';
-
-      args.push('-t', String(clipDuration));
-      args.push('-filter_complex', filterComplex);
-      args.push('-map', mapVideo);
-      args.push('-map', '0:a?');
-
-      // ── Encoding: same tier system as standard (no more CRF 28 floor) ──
-      args.push(...buildCommonEncodingArgs(tier, fps));
-
-      // ── Audio ──
-      const audioFiltersSplit = [];
-      if (audioEnhance) {
-        audioFiltersSplit.push('highpass=f=80', 'afftdn=nf=-25', 'loudnorm=I=-14:LRA=11:TP=-1.5:linear=false:dual_mono=true');
-      }
-      const bassFiltersSplit = buildBassBoostFilters({ bassBoost });
-      if (bassFiltersSplit.length > 0) audioFiltersSplit.push(...bassFiltersSplit);
-      const speedFiltersSplit = buildSpeedRampFilters({ speedRamp });
-      if (speedFiltersSplit.audio.length > 0) audioFiltersSplit.push(...speedFiltersSplit.audio);
-      if (audioFiltersSplit.length > 0) {
-        args.push('-af', audioFiltersSplit.join(','));
-      }
-      args.push('-c:a', 'aac', '-b:a', tier.audioBitrate, '-ar', '48000', '-ac', '2');
-      args.push('-max_muxing_queue_size', '512');
-      args.push('-shortest');
-      args.push(outputPath);
-
-      console.log(`[FFmpeg] Split-screen render: layout=${layout}, ratio=${ratio}, tier=${tierName}`);
-      return await execRender(args, outputPath, timeout, tierName);
     } catch (err) {
       lastError = err;
       if (isOOMError(err) && ti < tierSequence.length - 1) {

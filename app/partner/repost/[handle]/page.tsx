@@ -20,13 +20,13 @@ export async function generateMetadata({ params }: { params: Promise<{ handle: s
 function buildCaption(niche: string | null): string {
   const nicheHooks: Record<string, string> = {
     gaming: 'This clip editing tool is insane for streamers',
-    fps: 'Auto split-screen + captions for your clips? Yes please',
+    fps: 'Auto captions + AI scoring for your clips? Yes please',
     irl: 'Make your IRL clips go viral in 45 seconds',
     entertainment: 'Turn any clip into a viral short',
     variety: 'This tool makes clipping so easy it should be illegal',
   }
   const hook = nicheHooks[(niche || '').toLowerCase()] ?? 'Make your clips go viral in 45 seconds'
-  return `${hook}\n\nViral Animal does split-screen, karaoke captions, and AI viral scoring — all automatic.`
+  return `${hook}\n\nViral Animal does karaoke captions, hook text, and AI viral scoring — all automatic.`
 }
 
 function buildHashtags(niche: string | null): string {

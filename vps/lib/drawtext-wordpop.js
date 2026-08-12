@@ -92,7 +92,6 @@ const FONT_PATH = '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf';
  * @param {number} opts.canvasWidth   - FFmpeg canvas width  (default 720)
  * @param {number} opts.canvasHeight  - FFmpeg canvas height (default 1280)
  * @param {string} opts.position      - 'top' | 'middle' | 'bottom' (default 'bottom')
- * @param {Object|null} opts.splitScreen - { enabled, layout, ratio }
  * @returns {string[]}  Array of drawtext filter strings (without leading comma)
  */
 export function buildWordPopDrawtext(wordTimestamps, clipStartTime = 0, opts = {}) {
@@ -100,21 +99,15 @@ export function buildWordPopDrawtext(wordTimestamps, clipStartTime = 0, opts = {
     canvasWidth = 720,
     canvasHeight = 1280,
     position = 'bottom',
-    splitScreen = null,
+    // splitScreen is accepted but ignored (permanently removed)
   } = opts;
 
   if (!wordTimestamps || wordTimestamps.length === 0) return [];
 
   // Determine Y position.
   // For 9:16 vertical video, "bottom" = ~72% from top (above tag bar area).
-  // For split-screen top-bottom, place text inside the main (top) portion.
   let yExpr;
-  if (splitScreen && splitScreen.enabled && splitScreen.layout === 'top-bottom') {
-    const ratio = (splitScreen.ratio || 50) / 100;
-    const topH = Math.round(canvasHeight * ratio);
-    // Place at 72% of the top portion height
-    yExpr = `${Math.round(topH * 0.72)}`;
-  } else if (position === 'top') {
+  if (position === 'top') {
     yExpr = `${Math.round(canvasHeight * 0.12)}`;
   } else if (position === 'middle') {
     yExpr = `(h-text_h)/2`;

@@ -42,7 +42,7 @@ const PLANS: PlanConfig[] = [
     features: [
       '3 videos/month',
       'Clips up to 60s',
-      'Auto split-screen',
+      'AI hook text',
       'Virality Score',
       'Watermark included',
     ],

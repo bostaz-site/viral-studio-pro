@@ -28,8 +28,8 @@ export default function EnhanceLandingPage() {
           <h2 className="text-2xl font-bold tracking-tight text-white">Pick a clip to enhance</h2>
           <p className="text-muted-foreground mt-2 max-w-md">
             {isAuditMode
-              ? 'Upload your own clip, then boost virality with karaoke captions, split-screen, hooks and more — all in one click.'
-              : 'Browse trending clips or upload your own, then boost virality with karaoke captions, split-screen, hooks and more — all in one click.'}
+              ? 'Upload your own clip, then boost virality with karaoke captions, hooks and more — all in one click.'
+              : 'Browse trending clips or upload your own, then boost virality with karaoke captions, hooks and more — all in one click.'}
           </p>
         </div>
         <div className="flex items-center gap-3">

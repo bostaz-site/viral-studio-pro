@@ -223,6 +223,9 @@ Clips from the same stream are grouped to prevent one streamer dominating the fe
 
 Video enhancement page with AI mood detection, hook generation, live CSS preview and render trigger.
 
+### Vertical Format (single style)
+Split-screen / b-roll is permanently removed (2026-08-12). The only vertical format: clip centered with `object-contain` on a deep-blur background pad. VPS blur pipeline: downscale /4 → `gblur=sigma=6` (effective sigma 24) → `eq=brightness=-0.45` → `hue=s=0.85` → upscale bilinear. CSS preview mirrors: `blur(14px) brightness(0.55) saturate(0.85)`. `videoZoom` (contain/fill/immersive) still controls the clip scale inside the pad. If an old client sends `settings.splitScreen`, the VPS ignores it silently.
+
 ### UI — Sliders
 All 7 sliders (caption position, words/line, tag size, split ratio, hook position, silence threshold, auto-cut) use the unified `components/ui/slider.tsx` (shadcn-style). Single branded style: `bg-white/10` rail, amber gradient fill (`from-amber-400 to-amber-600`), amber thumb with glow + `hover:scale-110`, accessible focus outline. No per-instance overrides.
 

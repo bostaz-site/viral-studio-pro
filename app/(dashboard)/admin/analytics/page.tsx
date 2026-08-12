@@ -73,7 +73,6 @@ const LABELS: Record<string, string> = {
   demo_view: 'Demo view',
   demo_clip_switch: 'Switch clip',
   demo_caption_switch: 'Switch caption style',
-  demo_split_toggle: 'Toggle split-screen',
   demo_cta_click: 'Demo CTA clicked',
   exit_intent_shown: 'Popup shown',
   exit_intent_submitted: 'Email submitted',

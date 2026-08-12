@@ -6,10 +6,10 @@ import type { Metadata } from 'next'
 
 export const metadata: Metadata = {
   title: 'Viral Animal — Turn any clip into a TikTok banger',
-  description: 'Browse Twitch & Kick clips, add karaoke captions + split-screen gameplay, and post to TikTok in one click. AI viral score, hook reordering, 9:16 export.',
+  description: 'Browse Twitch & Kick clips, add karaoke captions + hook text, and post to TikTok in one click. AI viral score, auto-cut, 9:16 export.',
   openGraph: {
     title: 'Viral Animal — Grab any clip, make it viral',
-    description: 'Karaoke captions + split-screen + AI viral score. Browse Twitch & Kick clips, enhance, and post straight to TikTok.',
+    description: 'Karaoke captions + AI viral score + hook text. Browse Twitch & Kick clips, enhance, and post straight to TikTok.',
   },
 }
 
@@ -18,7 +18,7 @@ const jsonLd = {
   '@type': 'WebSite',
   name: 'Viral Animal',
   url: 'https://viralanimal.com',
-  description: 'Browse Twitch & Kick clips, add karaoke captions + split-screen, and post to TikTok. AI viral score included.',
+  description: 'Browse Twitch & Kick clips, add karaoke captions + hook text, and post to TikTok. AI viral score included.',
 }
 
 export default async function Home() {

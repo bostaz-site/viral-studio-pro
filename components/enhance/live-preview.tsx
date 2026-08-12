@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 import Image from 'next/image'
-import { Play, Eye } from 'lucide-react'
+import { Play } from 'lucide-react'
 import { WolfLoader } from '@/components/ui/wolf-loader'
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
@@ -263,18 +263,18 @@ export function LivePreview({
       {/* Top: Clip video or thumbnail */}
       <div
         className="absolute inset-x-0 top-0 overflow-hidden transition-all duration-500"
-        style={{ height: showEnhancements && settings.splitScreenEnabled ? `${settings.splitRatio}%` : '100%' }}
+        style={{ height: '100%' }}
       >
         {clip.thumbnail_url || videoUrl ? (
           <>
-            {/* Blurred background fill — matches FFmpeg gblur sigma=40 + eq(brightness=-0.35, sat=1.25, contrast=1.1) */}
-            {!(showEnhancements && settings.splitScreenEnabled) && (
+            {/* Blurred background fill — matches FFmpeg gblur sigma=24 + eq(brightness=-0.45) + hue(s=0.85) */}
+            {(
               videoUrl ? (
                 <video
                   key={videoUrl}
                   src={videoUrl}
                   className="absolute inset-0 w-full h-full object-cover scale-110"
-                  style={{ filter: 'blur(12px) brightness(0.65) saturate(1.25) contrast(1.1)' }}
+                  style={{ filter: 'blur(14px) brightness(0.55) saturate(0.85)' }}
                   aria-hidden="true"
                   autoPlay loop muted playsInline
                 />
@@ -286,7 +286,7 @@ export function LivePreview({
                   unoptimized={clip.thumbnail_url!.includes('kick.com')}
                   sizes="310px"
                   className="object-cover scale-110"
-                  style={{ filter: 'blur(12px) brightness(0.65) saturate(1.25) contrast(1.1)' }}
+                  style={{ filter: 'blur(14px) brightness(0.55) saturate(0.85)' }}
                   aria-hidden="true"
                 />
               )
@@ -295,7 +295,6 @@ export function LivePreview({
             {/* Parent overflow-hidden clips the excess. Video stays landscape, just bigger. */}
             {/* Contenir: 100%, Remplir: 115%, Immersif: 135% */}
             {(() => {
-              const isSplit = showEnhancements && settings.splitScreenEnabled
               // Zoom: element bigger than container, object-contain keeps video landscape
               // 115% = subtle zoom, video ~15% bigger, still lots of blur
               // 135% = noticeable zoom, video ~35% bigger, less blur
@@ -304,7 +303,7 @@ export function LivePreview({
                 : 100
               const baseZoom = sizePct / 100
               const hasSmartZoom = showEnhancements && settings.smartZoomEnabled
-              const objectFit = isSplit ? 'object-cover' : 'object-contain'
+              const objectFit = 'object-contain'
               const isZoomed = sizePct > 100
               const needsAbsolute = isZoomed || hasSmartZoom
 
@@ -422,8 +421,7 @@ export function LivePreview({
         <div
           className="absolute z-20 pointer-events-none flex justify-start px-3 origin-bottom-left"
           style={{
-            bottom: showEnhancements && settings.splitScreenEnabled
-              ? `calc(${100 - settings.splitRatio}% + 10px)` : '10px',
+            bottom: '10px',
             left: 0,
             transform: `scale(${(settings.tagSize || 100) / 100})`,
           }}
@@ -502,9 +500,7 @@ export function LivePreview({
               : 'bg-black/80 backdrop-blur-sm'
           )}
           style={{
-            top: settings.splitScreenEnabled
-              ? `${Math.min(settings.captionPosition, settings.splitRatio - 6)}%`
-              : `${settings.captionPosition}%`,
+            top: `${settings.captionPosition}%`,
             fontFamily: captionFontFamily,
           }}
         >
@@ -591,29 +587,6 @@ export function LivePreview({
       )}
 
       {/* Split line */}
-      {showEnhancements && settings.splitScreenEnabled && (
-        <div
-          className="absolute inset-x-0 h-0.5 bg-gradient-to-r from-transparent via-blue-400/60 to-transparent z-10 transition-all duration-500"
-          style={{ top: `${settings.splitRatio}%` }}
-        />
-      )}
-
-      {/* Bottom: Blur fill */}
-      {showEnhancements && settings.splitScreenEnabled && (
-        <div
-          className="absolute inset-x-0 bottom-0 overflow-hidden transition-all duration-500 bg-gradient-to-b from-zinc-700/80 to-zinc-900/90 backdrop-blur-xl"
-          style={{ height: `${100 - settings.splitRatio}%` }}
-        >
-          <div className="absolute inset-0 opacity-30" style={{
-            background: 'radial-gradient(ellipse at center, rgba(255,255,255,0.08) 0%, transparent 70%)',
-          }} />
-          <div className="absolute inset-0 flex flex-col items-center justify-center gap-1">
-            <Eye className="h-4 w-4 text-white/30" />
-            <span className="text-[10px] text-white/40 font-medium">Blur fill</span>
-          </div>
-        </div>
-      )}
-
       {/* Format badge */}
       <div className="absolute top-3 left-1/2 -translate-x-1/2 z-20">
         <span className="text-[9px] text-white/40 font-medium bg-black/30 rounded-full px-2 py-0.5">{settings.aspectRatio}</span>

@@ -230,14 +230,6 @@ export function DistributionSettings() {
                   </span>
                 </span>
               )}
-              {intelligence.split_screen_boost_percent != null && (
-                <span>
-                  <span className="font-medium text-foreground/80">Split-screen:</span>{' '}
-                  <span className={intelligence.split_screen_boost_percent > 0 ? 'text-green-400' : 'text-red-400'}>
-                    {intelligence.split_screen_boost_percent > 0 ? '+' : ''}{intelligence.split_screen_boost_percent}%
-                  </span>
-                </span>
-              )}
             </div>
           </CardContent>
         </Card>

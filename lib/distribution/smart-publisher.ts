@@ -52,7 +52,6 @@ export interface AccountIntelligence {
   optimal_min_hours_between: number | null
   best_clip_duration_range: { min: number; max: number } | null
   captions_boost_percent: number | null
-  split_screen_boost_percent: number | null
   last_post_performance: string | null
   last_post_at: string | null
   consecutive_flops: number
@@ -153,7 +152,6 @@ export interface AnalysisResult {
   worstHours: TimeSlotScore[]
   bestDurationRange: { min: number; max: number } | null
   captionsBoost: number | null
-  splitScreenBoost: number | null
   optimalPostsPerDay: number | null
   adjustedHotThreshold: number
   adjustedFlopThreshold: number
@@ -172,7 +170,6 @@ export function analyzePerformances(
       worstHours: [],
       bestDurationRange: null,
       captionsBoost: null,
-      splitScreenBoost: null,
       optimalPostsPerDay: null,
       adjustedHotThreshold: 75,
       adjustedFlopThreshold: 25,
@@ -226,18 +223,6 @@ export function analyzePerformances(
     }
   }
 
-  // Split screen boost
-  let splitScreenBoost: number | null = null
-  const withSplit = platformPerfs.filter(p => p.has_split_screen)
-  const withoutSplit = platformPerfs.filter(p => !p.has_split_screen)
-  if (withSplit.length >= 3 && withoutSplit.length >= 3) {
-    const avgWith = withSplit.reduce((s, p) => s + (p.performance_score ?? 0), 0) / withSplit.length
-    const avgWithout = withoutSplit.reduce((s, p) => s + (p.performance_score ?? 0), 0) / withoutSplit.length
-    if (avgWithout > 0) {
-      splitScreenBoost = Math.round(((avgWith - avgWithout) / avgWithout) * 100)
-    }
-  }
-
   // Optimal posts per day — look at days with multiple posts and find the best count
   const dayPostMap = new Map<string, number[]>()
   for (const p of platformPerfs) {
@@ -282,7 +267,6 @@ export function analyzePerformances(
     worstHours,
     bestDurationRange,
     captionsBoost,
-    splitScreenBoost,
     optimalPostsPerDay,
     adjustedHotThreshold,
     adjustedFlopThreshold,

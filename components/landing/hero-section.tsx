@@ -177,7 +177,7 @@ export function HeroSection() {
       <div style={{ position: 'relative', zIndex: 1, display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: '6px 10px', marginTop: 20, fontSize: 12, fontWeight: 600, color: '#94A3B8' }}>
         <span>Karaoke captions (5 styles)</span>
         <span style={{ color: '#334155' }}>&middot;</span>
-        <span>Split-screen gameplay</span>
+        <span>AI hook text</span>
         <span style={{ color: '#334155' }}>&middot;</span>
         <span>Automatic creator credit</span>
       </div>

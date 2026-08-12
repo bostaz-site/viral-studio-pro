@@ -39,7 +39,7 @@ export default function TermsPage() {
           <section>
             <h2 className="text-xl font-semibold text-foreground mb-3">2. Service Description</h2>
             <p className="text-muted-foreground leading-relaxed">
-              Viral Animal is a SaaS tool that enables creating viral clips from stream videos. The service includes: automatic transcription, AI analysis, karaoke caption addition, split-screen with satisfying videos, and optimized export for social networks.
+              Viral Animal is a SaaS tool that enables creating viral clips from stream videos. The service includes: automatic transcription, AI analysis, karaoke caption addition, hook text overlay, and optimized export for social networks.
             </p>
           </section>
 
@@ -58,7 +58,7 @@ export default function TermsPage() {
             <ul className="list-disc list-inside space-y-1.5 text-muted-foreground">
               <li><strong className="text-foreground">Free plan</strong>: 3 videos per month, clips up to 60 seconds, watermark included</li>
               <li><strong className="text-foreground">Pro plan ($19/month)</strong>: 30 videos per month, clips up to 2 minutes, no watermark, custom branding</li>
-              <li><strong className="text-foreground">Studio plan ($24/month)</strong>: 120 videos per month (90 + 30 welcome bonus), clips up to 2 minutes, split-screen, multi-platform distribution</li>
+              <li><strong className="text-foreground">Studio plan ($24/month)</strong>: 120 videos per month (90 + 30 welcome bonus), clips up to 2 minutes, multi-platform distribution</li>
               <li>Subscriptions are billed monthly via Stripe</li>
               <li>You can cancel anytime, access remains active until the end of the paid period</li>
             </ul>

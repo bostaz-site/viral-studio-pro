@@ -42,7 +42,6 @@ export interface PublishMetadata {
   caption_tone?: string
   hook_style?: string
   hook_enabled?: boolean
-  split_screen_enabled?: boolean
   smart_zoom_mode?: string
   duration_seconds?: number
   blowup_chance_at_render?: number

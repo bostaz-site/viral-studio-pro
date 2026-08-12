@@ -46,7 +46,6 @@ interface PostRow {
   caption_style: string | null
   hook_style: string | null
   hook_enabled: boolean | null
-  split_screen_enabled: boolean | null
   smart_zoom_mode: string | null
   posted_hour_local: number | null
   views: number | null
@@ -57,7 +56,7 @@ export async function computeProfileForUser(userId: string): Promise<LearnedDist
 
   const { data: rows, error } = await admin
     .from('published_posts')
-    .select('platform, account_id, clip_mood, caption_style, hook_style, hook_enabled, split_screen_enabled, smart_zoom_mode, posted_hour_local, views')
+    .select('platform, account_id, clip_mood, caption_style, hook_style, hook_enabled, smart_zoom_mode, posted_hour_local, views')
     .eq('user_id', userId)
     .not('views', 'is', null)
 

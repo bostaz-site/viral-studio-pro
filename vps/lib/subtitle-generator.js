@@ -239,15 +239,15 @@ function hexToASSColor(hex, alpha = 0) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Adjust caption alignment and marginV based on position setting and split-screen config.
+ * Adjust caption alignment and marginV based on position setting.
  * ASS alignment values: 1-3 = bottom, 4-6 = middle, 7-9 = top (left/center/right)
  * MarginV: distance from the edge determined by alignment (bottom→from bottom, top→from top)
  */
-function adjustPositioning(styleConfig, { position = 'bottom', canvasWidth = 1080, canvasHeight = 1920, splitScreen = null }) {
+function adjustPositioning(styleConfig, { position = 'bottom', canvasWidth = 1080, canvasHeight = 1920 }) {
   const config = { ...styleConfig };
 
   // Scale font size proportionally to canvas (styles designed for 1080x1920)
-  // Clamp to min 0.75 so captions remain readable in split-screen / small canvases
+  // Clamp to min 0.75 so captions remain readable in small canvases
   const scaleFactor = Math.max(0.75, canvasHeight / 1920);
   config.fontsize = Math.round(config.fontsize * scaleFactor);
 
@@ -258,20 +258,10 @@ function adjustPositioning(styleConfig, { position = 'bottom', canvasWidth = 108
     : position === 'middle' ? 42
     : 72; // 'bottom' default
 
-  if (splitScreen && splitScreen.enabled && splitScreen.layout === 'top-bottom') {
-    // Split-screen: clamp position within the top video portion
-    const ratio = (splitScreen.ratio || 50) / 100;
-    const clampedPct = Math.min(numericPos, (ratio * 100) - 6);
-    config.alignment = 8; // top-center
-    config.marginV = Math.round(canvasHeight * (clampedPct / 100));
-  } else {
-    // ── SIMPLE: always use \an8 (top-center), marginV = top offset ──
-    // This matches CSS `top: X%` exactly — the TOP of the text sits at X% from top.
-    // Previous approach used 3 zones (top/middle/bottom) with different alignments
-    // which caused mismatches with the CSS preview.
-    config.alignment = 8;
-    config.marginV = Math.round(canvasHeight * (numericPos / 100));
-  }
+  // ── Always use \an8 (top-center), marginV = top offset ──
+  // This matches CSS `top: X%` exactly — the TOP of the text sits at X% from top.
+  config.alignment = 8;
+  config.marginV = Math.round(canvasHeight * (numericPos / 100));
 
   return config;
 }
@@ -284,7 +274,7 @@ function adjustPositioning(styleConfig, { position = 'bottom', canvasWidth = 108
  * Generate complete ASS subtitle file with karaoke support
  *
  * @param {Array} wordTimestamps - [{word, start, end}, ...]
- * @param {Object} options - {style, clipStartTime, wordsPerLine, customColors, position, canvasWidth, canvasHeight, splitScreen}
+ * @param {Object} options - {style, clipStartTime, wordsPerLine, customColors, position, canvasWidth, canvasHeight}
  * @returns {string} ASS file content
  */
 export function generateASS(wordTimestamps, options = {}) {
@@ -300,7 +290,7 @@ export function generateASS(wordTimestamps, options = {}) {
     position = 'bottom',
     canvasWidth = 1080,
     canvasHeight = 1920,
-    splitScreen = null,
+    // splitScreen is accepted but ignored (permanently removed)
   } = options;
 
   // Get base style
@@ -316,8 +306,8 @@ export function generateASS(wordTimestamps, options = {}) {
     };
   }
 
-  // Adjust positioning based on split-screen and position setting
-  styleConfig = adjustPositioning(styleConfig, { position, canvasWidth, canvasHeight, splitScreen });
+  // Adjust positioning based on position setting
+  styleConfig = adjustPositioning(styleConfig, { position, canvasWidth, canvasHeight });
 
   // Generate ASS header with correct canvas dimensions
   const header = buildASSHeader(styleConfig, canvasWidth, canvasHeight);
@@ -854,13 +844,13 @@ export function generateStaticASS(text, duration, options = {}) {
     position = 'bottom',
     canvasWidth = 1080,
     canvasHeight = 1920,
-    splitScreen = null,
+    // splitScreen is accepted but ignored (permanently removed)
   } = options;
 
   if (!text || !duration || duration <= 0) return '';
 
   let styleConfig = CAPTION_STYLES[style] || CAPTION_STYLES.hormozi;
-  styleConfig = adjustPositioning(styleConfig, { position, canvasWidth, canvasHeight, splitScreen });
+  styleConfig = adjustPositioning(styleConfig, { position, canvasWidth, canvasHeight });
   const header = buildASSHeader(styleConfig, canvasWidth, canvasHeight);
 
   // Split text into words

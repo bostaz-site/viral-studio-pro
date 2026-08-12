@@ -134,7 +134,6 @@ export const POST = withAuth(async (req, user) => {
     optimal_min_hours_between: null as number | null,
     best_clip_duration_range: analysis.bestDurationRange ? JSON.parse(JSON.stringify(analysis.bestDurationRange)) : null,
     captions_boost_percent: analysis.captionsBoost,
-    split_screen_boost_percent: analysis.splitScreenBoost,
     last_post_performance: lastPostPerformance,
     last_post_at: lastPostAt,
     consecutive_flops: consecutiveFlops,
@@ -170,7 +169,6 @@ export const POST = withAuth(async (req, user) => {
       momentum: analysis.momentum,
       bestHours: analysis.bestHours,
       captionsBoost: analysis.captionsBoost,
-      splitScreenBoost: analysis.splitScreenBoost,
       bestDurationRange: analysis.bestDurationRange,
     },
   })

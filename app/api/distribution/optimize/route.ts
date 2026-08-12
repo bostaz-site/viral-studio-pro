@@ -172,7 +172,6 @@ export const POST = withAuth(async (req, user) => {
             optimal_posts_per_day: analysis.optimalPostsPerDay,
             best_clip_duration_range: analysis.bestDurationRange ? JSON.parse(JSON.stringify(analysis.bestDurationRange)) : null,
             captions_boost_percent: analysis.captionsBoost,
-            split_screen_boost_percent: analysis.splitScreenBoost,
             current_momentum: analysis.momentum,
             hot_threshold: analysis.adjustedHotThreshold || 75,
             flop_threshold: analysis.adjustedFlopThreshold || 25,

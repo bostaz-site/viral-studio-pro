@@ -19,9 +19,6 @@ export interface EnhanceSettings {
   customImportantWords: string[]
   captionPosition: number
   wordsPerLine: number
-  splitScreenEnabled: boolean
-  brollVideo: string
-  splitRatio: number
   videoZoom: 'contain' | 'fill' | 'immersive'
   tagStyle: string
   tagSize: number
@@ -86,16 +83,6 @@ export interface EmphasisColor {
 }
 
 /**
- * Represents a b-roll option.
- */
-export interface BrollOption {
-  id: string
-  label: string
-  color: string
-  baseScore: number
-}
-
-/**
  * Represents a tag style option.
  */
 export interface TagStyle {
@@ -122,12 +109,10 @@ export type TrendingClipData = Pick<TrendingClip,
 export interface ComputedScores {
   captionScores: ScoredOption[]
   emphasisScores: ScoredOption[]
-  brollScores: ScoredOption[]
   tagScores: ScoredOption[]
   best: {
     captionStyle: string
     emphasisEffect: string
-    brollVideo: string
     tagStyle: string
   }
   totalBestScore: number
@@ -199,15 +184,6 @@ export const EMPHASIS_COLORS: EmphasisColor[] = [
   { id: 'pink', label: 'Pink', tw: 'bg-pink-500', hex: '#EC4899' },
   { id: 'purple', label: 'Purple', tw: 'bg-purple-400', hex: '#C77DFF' },
   { id: 'white', label: 'White', tw: 'bg-white', hex: '#FFFFFF' },
-]
-
-export const BROLL_OPTIONS: BrollOption[] = [
-  { id: 'subway-surfers', label: 'Subway Surfers', color: 'from-emerald-500 to-teal-500', baseScore: 14 },
-  { id: 'minecraft-parkour', label: 'Minecraft Parkour', color: 'from-green-600 to-lime-500', baseScore: 12 },
-  { id: 'sand-cutting', label: 'Sand Cutting', color: 'from-amber-500 to-orange-500', baseScore: 10 },
-  { id: 'soap-cutting', label: 'Soap Cutting', color: 'from-pink-500 to-rose-500', baseScore: 9 },
-  { id: 'slime-satisfying', label: 'Slime', color: 'from-purple-500 to-violet-500', baseScore: 8 },
-  { id: 'none', label: 'None', color: 'from-slate-700 to-slate-800', baseScore: 0 },
 ]
 
 export const TAG_STYLES: TagStyle[] = [
@@ -310,20 +286,6 @@ export function computeScores(clip: TrendingClipData): ComputedScores {
     s.isBest = s.score === maxEmphasis
   })
 
-  // Score b-roll
-  const brollScores: ScoredOption[] = BROLL_OPTIONS.map((b) => {
-    let score = b.baseScore
-    if (isHighEnergy && b.id === 'minecraft-parkour') score += 6
-    if (niche === 'irl' && b.id === 'subway-surfers') score += 7
-    if (!isHighEnergy && (b.id === 'sand-cutting' || b.id === 'soap-cutting')) score += 4
-    if (isMidEnergy && b.id === 'subway-surfers') score += 3
-    return { id: b.id, score, isBest: false }
-  })
-  const maxBroll = Math.max(...brollScores.map((s) => s.score))
-  brollScores.forEach((s) => {
-    s.isBest = s.score === maxBroll
-  })
-
   // Score tag styles — platform-aware: Kick tags score 0 on Twitch clips and vice versa
   const clipPlatform = (clip.platform ?? '').toLowerCase()
   const tagScores: ScoredOption[] = TAG_STYLES.map((t) => {
@@ -344,8 +306,8 @@ export function computeScores(clip: TrendingClipData): ComputedScores {
     s.isBest = s.score === maxTag
   })
 
-  // Normalize scores to /100 — weights: captions 35, emphasis 15, b-roll 30, tags 20
-  const WEIGHTS = { caption: 35, emphasis: 15, broll: 30, tag: 20 }
+  // Normalize scores to /100 — weights: captions 45, emphasis 20, tags 35
+  const WEIGHTS = { caption: 45, emphasis: 20, tag: 35 }
 
   const normCaption = captionScores.map((s) => ({
     ...s,
@@ -355,10 +317,6 @@ export function computeScores(clip: TrendingClipData): ComputedScores {
     ...s,
     score: Math.round((s.score / maxEmphasis) * WEIGHTS.emphasis),
   }))
-  const normBroll = brollScores.map((s) => ({
-    ...s,
-    score: Math.round((s.score / maxBroll) * WEIGHTS.broll),
-  }))
   const normTag = tagScores.map((s) => ({
     ...s,
     score: Math.round((s.score / maxTag) * WEIGHTS.tag),
@@ -367,15 +325,13 @@ export function computeScores(clip: TrendingClipData): ComputedScores {
   // Best combo — safe fallbacks instead of non-null assertions
   const bestCaption = captionScores.find((s) => s.isBest)?.id ?? captionScores[0]?.id ?? 'word-pop'
   const bestEmphasis = emphasisScores.find((s) => s.isBest)?.id ?? emphasisScores[0]?.id ?? 'highlight'
-  const bestBroll = brollScores.find((s) => s.isBest)?.id ?? brollScores[0]?.id ?? 'subway-surfers'
   const bestTag = tagScores.find((s) => s.isBest)?.id ?? tagScores[0]?.id ?? 'viral-glow'
 
   return {
     captionScores: normCaption,
     emphasisScores: normEmphasis,
-    brollScores: normBroll,
     tagScores: normTag,
-    best: { captionStyle: bestCaption, emphasisEffect: bestEmphasis, brollVideo: bestBroll, tagStyle: bestTag },
+    best: { captionStyle: bestCaption, emphasisEffect: bestEmphasis, tagStyle: bestTag },
     totalBestScore: 100,
   }
 }
@@ -428,7 +384,6 @@ export function computeCurrentScore(
   // redistributed to remaining features so max total stays equivalent (~0.95+).
   if (settings.captionsEnabled && settings.captionStyle !== 'none') totalWeight += 0.17
   if (settings.emphasisEffect !== 'none') totalWeight += 0.08
-  if (settings.splitScreenEnabled) totalWeight += 0.09
   if (settings.tagStyle !== 'none') totalWeight += 0.05
   if (settings.hookEnabled) totalWeight += 0.15
   // hookReorder + smartZoom: frozen (COMING_SOON_FEATURES) — weight 0
@@ -449,7 +404,6 @@ export function computeCurrentScore(
     // Fallback generic best-option bonus when no mood detected
     if (settings.captionStyle === scores.best.captionStyle) totalWeight += 0.02
     if (settings.emphasisEffect === scores.best.emphasisEffect) totalWeight += 0.02
-    if (settings.splitScreenEnabled && settings.brollVideo === scores.best.brollVideo) totalWeight += 0.02
     if (settings.tagStyle === scores.best.tagStyle) totalWeight += 0.02
   }
 
@@ -465,7 +419,6 @@ export function computeCurrentScore(
  */
 export interface ScoreBreakdown {
   captions: number
-  splitScreen: number
   tag: number
   smartZoom: number
   audio: number
@@ -502,11 +455,6 @@ export function computeScoreBreakdown(
   }
   sections.push({ key: 'captions', weight: captionWeight })
 
-  // Split-Screen
-  let splitWeight = 0
-  if (settings.splitScreenEnabled) splitWeight += 0.09
-  sections.push({ key: 'splitScreen', weight: splitWeight })
-
   // Tag
   let tagWeight = 0
   if (settings.tagStyle !== 'none') tagWeight += 0.05
@@ -542,7 +490,6 @@ export function computeScoreBreakdown(
   // Compute points per section using diminishing returns
   const result: ScoreBreakdown = {
     captions: 0,
-    splitScreen: 0,
     tag: 0,
     smartZoom: 0,
     audio: 0,

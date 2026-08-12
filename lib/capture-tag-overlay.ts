@@ -18,16 +18,12 @@ export async function captureTagOverlayPNG({
   tagSize = 100,
   videoWidth = 1080,
   videoHeight = 1920,
-  splitScreenEnabled = false,
-  splitRatio = 50,
 }: {
   streamerName: string;
   style: TagStyle;
   tagSize?: number;
   videoWidth?: number;
   videoHeight?: number;
-  splitScreenEnabled?: boolean;
-  splitRatio?: number;
 }): Promise<{ png: string; w: number; h: number; anchorX: number; anchorY: number } | null> {
   if (!streamerName) return null;
 
@@ -251,7 +247,7 @@ export async function captureTagOverlayPNG({
     // CSS: bottom: 10px (or splitScreen offset), left: 0, px-3
     const marginX = Math.round(12 * scale); // px-3
     const marginBottom = Math.round(10 * scale);
-    const contentAreaH = splitScreenEnabled ? Math.round(videoHeight * splitRatio / 100) : videoHeight;
+    const contentAreaH = videoHeight;
     const anchorX = marginX;
     const anchorY = contentAreaH - marginBottom - canvasH + glowPad; // bottom-aligned
 

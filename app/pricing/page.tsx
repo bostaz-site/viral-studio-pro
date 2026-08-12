@@ -48,7 +48,6 @@ const TIERS: PricingTier[] = [
     features: [
       '3 videos per month',
       'Clips up to 60 seconds',
-      'Automatic split-screen',
       'AI transcription word-by-word',
       'Viral score + hook analysis',
       '1 format (9:16 vertical)',

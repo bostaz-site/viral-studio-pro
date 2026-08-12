@@ -616,7 +616,6 @@ router.post('/', async (req, res) => {
     // ── COMMON RENDER PIPELINE ──
 
     // Determine canvas dimensions (must match FFmpeg render output)
-    const isSplitScreen = settings.splitScreen?.enabled;
     const targetAspectRatio = settings.format?.aspectRatio || '9:16';
     const captionAnim = settings.captions?.animation || 'highlight';
 
@@ -627,13 +626,6 @@ router.post('/', async (req, res) => {
     // Always generate ASS subtitles at 1080p — the render tier system handles fallback
     const canvasSizes = { '9:16': { w: 1080, h: 1920 }, '1:1': { w: 1080, h: 1080 }, '16:9': { w: 1920, h: 1080 } };
     const { w: canvasW, h: canvasH } = canvasSizes[targetAspectRatio] || canvasSizes['9:16'];
-
-    // Split-screen info for subtitle positioning
-    const splitScreenForCaptions = isSplitScreen ? {
-      enabled: true,
-      layout: settings.splitScreen.layout || 'top-bottom',
-      ratio: settings.splitScreen.ratio || 50,
-    } : null;
 
     // Prepare captions if enabled
     // IMPORTANT: also skip when style='none' — user explicitly chose no captions.
@@ -708,7 +700,6 @@ router.post('/', async (req, res) => {
           position: captionPosition,
           canvasWidth: canvasW,
           canvasHeight: canvasH,
-          splitScreen: splitScreenForCaptions,
         };
 
         if (wordTimestamps.length > 0) {
@@ -747,7 +738,7 @@ router.post('/', async (req, res) => {
         if (assContent) {
           assFilePath = path.join(tempDir, 'captions.ass');
           await fs.writeFile(assFilePath, assContent, 'utf-8');
-          trc(`CAPTIONS wrote ASS ${canvasW}x${canvasH} pos=${captionPosition} split=${!!isSplitScreen} size=${assContent.length} bytes`);
+          trc(`CAPTIONS wrote ASS ${canvasW}x${canvasH} pos=${captionPosition} size=${assContent.length} bytes`);
           const assLines = assContent.split('\n');
           trc(`CAPTIONS ASS header lines (first 5): ${assLines.slice(0, 5).join(' | ')}`);
           const dialogueLines = assLines.filter(l => l.startsWith('Dialogue:'));
@@ -758,106 +749,6 @@ router.post('/', async (req, res) => {
       }
     } else {
       trc(`CAPTIONS disabled (enabled=${settings.captions?.enabled}, style=${captionStyleRequested})`);
-    }
-
-    // Prepare split-screen if enabled
-    let splitScreenConfig = null;
-    if (settings.splitScreen?.enabled) {
-      const BROLL_DIR = '/opt/viral-studio/broll';
-      const category = settings.splitScreen.brollCategory || 'minecraft';
-      const brollDir = path.join(BROLL_DIR, category);
-
-      // B-roll category → color for on-the-fly generation when no real B-roll files exist
-      const BROLL_COLORS = {
-        'subway-surfers': { color: '1DB954', label: 'SUBWAY SURFERS' },
-        'minecraft-parkour': { color: '5B8731', label: 'MINECRAFT' },
-        'sand-cutting': { color: 'E8A87C', label: 'SATISFYING' },
-        'soap-cutting': { color: 'FF6B8A', label: 'SATISFYING' },
-        'slime-satisfying': { color: '9B59B6', label: 'SATISFYING' },
-      };
-
-      try {
-        await fs.mkdir(brollDir, { recursive: true });
-        const files = await fs.readdir(brollDir);
-        const videoFiles = files.filter(f => /\.(mp4|mov|mkv|webm)$/i.test(f));
-
-        let brollPath = null;
-
-        if (videoFiles.length > 0) {
-          // Use local B-roll file
-          const picked = videoFiles[Math.floor(Math.random() * videoFiles.length)];
-          brollPath = path.join(brollDir, picked);
-          console.log(`[Render ${renderSessionId}] Using local B-roll: ${picked}`);
-        } else {
-          // Generate a visually interesting B-roll video with gradient stripes and label bar
-          const colorInfo = BROLL_COLORS[category] || { color: '333333', label: 'B-ROLL' };
-          const genPath = path.join(tempDir, `broll-${category}.mp4`);
-          const brollDuration = Math.max(duration, 30); // At least 30s to cover clip
-          console.log(`[Render ${renderSessionId}] Generating enhanced B-roll for "${category}" (${colorInfo.color}, ${brollDuration}s)...`);
-          try {
-            // Build an enhanced lavfi filter chain with:
-            // 1. Base gradient-like effect (overlaying two color strips)
-            // 2. Horizontal stripe pattern for visual interest
-            // 3. Dark background bar at bottom with white text label
-            // 4. Play icon (▶) in center
-            const baseColor = colorInfo.color.toLowerCase();
-
-            // Lighten the hex color by 30% for the bottom stripe (simple approach)
-            const darkenedColor = colorInfo.color.toLowerCase(); // darker variant
-
-            // Complex but safe filter chain:
-            // - Start with base color
-            // - Split into two: one for stripes, one for bottom bar
-            // - Add drawbox for bottom label bar (dark background)
-            // - Add drawtext for play icon (▶) in center
-            // - Add drawtext for category label at bottom
-            const filterChain = `color=c=0x${baseColor}:s=540x480:d=${brollDuration}:r=30,` +
-              // Add horizontal darker stripes at top and middle for depth
-              `drawbox=x=0:y=0:w=540:h=120:color=0x000000@0.3:thickness=fill,` +
-              `drawbox=x=0:y=160:w=540:h=100:color=0x000000@0.2:thickness=fill,` +
-              // Add bottom dark background bar for label (540x80)
-              `drawbox=x=0:y=400:w=540:h=80:color=0x000000@0.7:thickness=fill,` +
-              // Central play icon (▶) in larger font
-              `drawtext=text='▶':fontfile=/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf:fontcolor=white:fontsize=80:x=(w-text_w)/2:y=(h-100-text_h)/2:alpha=0.9,` +
-              // Category label at bottom with shadow effect
-              `drawtext=text='${colorInfo.label}':fontfile=/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf:fontcolor=white:fontsize=28:x=20:y=h-50:alpha=0.95,` +
-              // Small accent bar on the left
-              `drawbox=x=0:y=0:w=4:h=480:color=0xFFFFFF@0.5:thickness=fill,` +
-              `format=yuv420p`;
-
-            await execFileAsync('ffmpeg', [
-              '-y',
-              '-f', 'lavfi', '-i', filterChain,
-              '-f', 'lavfi', '-i', `anullsrc=r=44100:cl=stereo`,
-              '-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '30',
-              '-r', '30',
-              '-c:a', 'aac', '-shortest', '-t', String(brollDuration),
-              genPath,
-            ], { timeout: 30000 });
-            const stat = await fs.stat(genPath);
-            if (stat.size > 1000) {
-              brollPath = genPath;
-              console.log(`[Render ${renderSessionId}] Generated enhanced B-roll: ${stat.size} bytes`);
-            }
-          } catch (genErr) {
-            console.warn(`[Render ${renderSessionId}] B-roll generation failed: ${genErr.message}`);
-          }
-        }
-
-        if (brollPath) {
-          splitScreenConfig = {
-            enabled: true,
-            layout: settings.splitScreen.layout || 'top-bottom',
-            ratio: settings.splitScreen.ratio || 50,
-            brollPath,
-          };
-          console.log(`[Render ${renderSessionId}] Split-screen: layout=${splitScreenConfig.layout}, broll=${brollPath}`);
-        } else {
-          console.warn(`[Render ${renderSessionId}] No B-roll available for "${category}" — rendering without split-screen`);
-        }
-      } catch (err) {
-        console.warn(`[Render ${renderSessionId}] B-roll setup error: ${err.message}`);
-      }
     }
 
     // Prepare tag/credit config
@@ -933,7 +824,6 @@ router.post('/', async (req, res) => {
                 position: captionPosition,
                 canvasWidth: canvasW,
                 canvasHeight: canvasH,
-                splitScreen: splitScreenForCaptions,
                 animation: captionAnim,
                 clipStartTime: 0,
                 wordsPerLine: settings.captions?.wordsPerLine || 4,
@@ -1101,7 +991,6 @@ router.post('/', async (req, res) => {
               position: captionPosition,
               canvasWidth: canvasW,
               canvasHeight: canvasH,
-              splitScreen: splitScreenForCaptions,
               animation: captionAnim,
               clipStartTime: 0,
               wordsPerLine: settings.captions?.wordsPerLine || 4,
@@ -1171,7 +1060,6 @@ router.post('/', async (req, res) => {
               position: captionPosition,
               canvasWidth: canvasW,
               canvasHeight: canvasH,
-              splitScreen: splitScreenForCaptions,
               animation: captionAnim,
               clipStartTime: 0,
               wordsPerLine: settings.captions?.wordsPerLine || 4,
@@ -1217,7 +1105,6 @@ router.post('/', async (req, res) => {
         : null,
       watermark: watermarkConfig,
       plan: userPlan,
-      splitScreen: splitScreenConfig,
       tag: tagConfig,
       cropAnchor: settings.format?.cropAnchor || 'center',
       backgroundBlur: settings.format?.backgroundBlur !== false,
@@ -1446,8 +1333,6 @@ router.post('/preview', async (req, res) => {
 
     // Prepare captions (ASS) — use provided timestamps only, no Whisper
     let assFilePath = null;
-    const isSplitScreen = settings.splitScreen?.enabled;
-    const splitScreenForCaptions = isSplitScreen ? { ratio: settings.splitScreen?.ratio || 0.5 } : null;
 
     if (settings.captions?.enabled && settings.captions?.style !== 'none') {
       try {
@@ -1461,7 +1346,6 @@ router.post('/preview', async (req, res) => {
           position: captionPosition,
           canvasWidth: canvasW,
           canvasHeight: canvasH,
-          splitScreen: splitScreenForCaptions,
         };
 
         let assContent = null;
@@ -1494,55 +1378,6 @@ router.post('/preview', async (req, res) => {
       }
     }
 
-    // Prepare split-screen
-    let splitScreenConfig = null;
-    if (settings.splitScreen?.enabled) {
-      const BROLL_DIR = '/opt/viral-studio/broll';
-      const category = settings.splitScreen.brollCategory || 'minecraft';
-      const brollDir = path.join(BROLL_DIR, category);
-
-      const BROLL_COLORS = {
-        'subway-surfers': { color: '1DB954', label: 'SUBWAY SURFERS' },
-        'minecraft-parkour': { color: '5B8731', label: 'MINECRAFT' },
-        'sand-cutting': { color: 'E8A87C', label: 'SATISFYING' },
-        'soap-cutting': { color: 'FF6B8A', label: 'SATISFYING' },
-        'slime-satisfying': { color: '9B59B6', label: 'SATISFYING' },
-      };
-
-      try {
-        await fs.mkdir(brollDir, { recursive: true });
-        const files = await fs.readdir(brollDir);
-        const videos = files.filter(f => /\.(mp4|webm|mkv)$/i.test(f));
-
-        if (videos.length > 0) {
-          const randomVideo = videos[Math.floor(Math.random() * videos.length)];
-          const rawRatio = settings.splitScreen.ratio || 50;
-          // Normalize: if ratio is 0-1, convert to 0-100; if already 0-100, use as-is
-          const normalizedRatio = rawRatio <= 1 ? Math.round(rawRatio * 100) : rawRatio;
-          splitScreenConfig = {
-            enabled: true,
-            brollPath: path.join(brollDir, randomVideo),
-            ratio: normalizedRatio,
-          };
-        } else {
-          const colorInfo = BROLL_COLORS[category] || { color: '333333', label: category.toUpperCase() };
-          const placeholderPath = path.join(tempDir, 'broll_placeholder.mp4');
-          await execFileAsync('ffmpeg', [
-            '-f', 'lavfi',
-            '-i', `color=c=0x${colorInfo.color}:s=${canvasW}x${Math.round(canvasH * 0.5)}:d=${previewDuration}`,
-            '-vf', `drawtext=text='${colorInfo.label}':fontsize=24:fontcolor=white@0.3:x=(w-text_w)/2:y=(h-text_h)/2`,
-            '-c:v', 'libx264', '-preset', 'ultrafast', '-t', String(previewDuration),
-            '-y', placeholderPath,
-          ], { timeout: 15_000 });
-          const rawRatio2 = settings.splitScreen.ratio || 50;
-          const normalizedRatio2 = rawRatio2 <= 1 ? Math.round(rawRatio2 * 100) : rawRatio2;
-          splitScreenConfig = { enabled: true, brollPath: placeholderPath, ratio: normalizedRatio2 };
-        }
-      } catch (err) {
-        console.warn(`[Preview ${renderSessionId}] Split-screen error:`, err.message);
-      }
-    }
-
     // Prepare tag overlay — align shape with buildTagFilter (expects authorName/authorHandle)
     let tagConfig = null;
     if (settings.tag?.style && settings.tag.style !== 'none') {
@@ -1565,7 +1400,6 @@ router.post('/preview', async (req, res) => {
       captions: assFilePath ? { assFilePath, ...settings.captions } : null,
       watermark: null,
       plan: 'pro',
-      splitScreen: splitScreenConfig,
       tag: tagConfig,
       cropAnchor: settings.format?.cropAnchor || 'center',
       backgroundBlur: settings.format?.backgroundBlur || false,

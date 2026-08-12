@@ -172,7 +172,7 @@ export function UploadPageClient() {
               Upload Your Clip
             </h1>
             <p className="text-muted-foreground mt-3 text-base max-w-md mx-auto">
-              Upload your video and enhance it with AI captions, split-screen, and more
+              Upload your video and enhance it with AI captions, hooks, and more
             </p>
           </div>
 

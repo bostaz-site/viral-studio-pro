@@ -29,12 +29,6 @@ const inputSchema = z.object({
       emphasisColor: z.string().optional(),
       customImportantWords: z.array(z.string()).optional(),
     }).optional(),
-    splitScreen: z.object({
-      enabled: z.boolean().optional(),
-      layout: z.string().optional(),
-      brollCategory: z.string().optional(),
-      ratio: z.number().optional(),
-    }).optional(),
     hook: z.object({
       enabled: z.boolean().optional(),
       textEnabled: z.boolean().optional(),
@@ -323,7 +317,6 @@ export const POST = withAuth(async (request, user) => {
     caption_enabled: settings.captions?.enabled ?? null,
     hook_enabled: settings.hook?.enabled ?? null,
     hook_style: settings.hook?.style ?? null,
-    split_screen_enabled: settings.splitScreen?.enabled ?? null,
     smart_zoom_mode: settings.smartZoom?.mode ?? null,
     smart_zoom_enabled: settings.smartZoom?.enabled ?? null,
     audio_enhance_enabled: settings.audioEnhance?.enabled ?? null,
@@ -370,7 +363,6 @@ export const POST = withAuth(async (request, user) => {
     watermark: { enabled: callerPlan === 'free' },
     settings: {
       captions: settings?.captions ?? { enabled: true, style: 'word-pop', wordsPerLine: 4 },
-      splitScreen: settings?.splitScreen ?? { enabled: false },
       hook: {
         ...(settings?.hook ?? { enabled: false }),
         reorderEnabled: false, // frozen (COMING_SOON_FEATURES)

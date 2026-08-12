@@ -22,12 +22,6 @@ export const renderSettingsSchema = z.object({
     emphasisColor: z.string().optional(),
     customImportantWords: z.array(z.string()).optional(),
   }).optional(),
-  splitScreen: z.object({
-    enabled: z.boolean().optional(),
-    layout: z.string().optional(),
-    brollCategory: z.string().optional(),
-    ratio: z.number().optional(),
-  }).optional(),
   hook: z.object({
     enabled: z.boolean().optional(),
     textEnabled: z.boolean().optional(),

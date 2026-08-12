@@ -21,7 +21,6 @@ const createSchema = z.object({
   retention_rate: z.number().min(0).max(1).optional(),
   niche: z.string().max(50).optional(),
   has_captions: z.boolean().optional(),
-  has_split_screen: z.boolean().optional(),
   clip_duration_seconds: z.number().min(0).optional(),
 })
 
@@ -132,7 +131,6 @@ export const POST = withAuth(async (req, user) => {
     watch_time_avg: parsed.data.watch_time_avg ?? null,
     retention_rate: parsed.data.retention_rate ?? null,
     has_captions: parsed.data.has_captions ?? false,
-    has_split_screen: parsed.data.has_split_screen ?? false,
     clip_duration_seconds: parsed.data.clip_duration_seconds ?? null,
     niche: parsed.data.niche ?? null,
     scheduled_publication_id: parsed.data.scheduled_publication_id ?? null,

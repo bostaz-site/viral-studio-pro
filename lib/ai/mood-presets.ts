@@ -24,9 +24,6 @@ export interface MoodPreset {
   emphasisEffect: string
   emphasisColor: string
 
-  brollVideo: string
-  splitRatio: number
-
   videoZoom: 'contain' | 'fill' | 'immersive'
 
   tagStyle: string
@@ -56,7 +53,6 @@ export interface MoodPreset {
 
 export const BASE_SETTINGS = {
   captionPosition: 60,
-  splitRatio: 60,
   tagSize: 85,
   aspectRatio: '9:16' as const,
   audioEnhanceEnabled: true,
@@ -66,7 +62,6 @@ export const BASE_SETTINGS = {
   hookTextEnabled: true,
   hookTextPosition: 15,
   hookLength: 0,
-  brollVideo: 'none',
   smartZoomEnabled: true,
 }
 
