@@ -9,6 +9,7 @@ import {
   X,
   ChevronRight,
   Send,
+  Download,
 } from 'lucide-react'
 import { WolfLoader } from '@/components/ui/wolf-loader'
 import { Button } from '@/components/ui/button'
@@ -35,12 +36,26 @@ interface PlatformState {
   tiktokConfigured: boolean
 }
 
+export interface PublishMetadata {
+  clip_mood?: string
+  caption_style?: string
+  caption_tone?: string
+  hook_style?: string
+  hook_enabled?: boolean
+  split_screen_enabled?: boolean
+  smart_zoom_mode?: string
+  duration_seconds?: number
+  blowup_chance_at_render?: number
+  [key: string]: unknown
+}
+
 interface UnifiedPublishDialogProps {
   open: boolean
   onClose: () => void
   clipId: string
   clipTitle?: string
   videoPreviewUrl?: string
+  metadata?: PublishMetadata
 }
 
 // ── Platform config ──────────────────────────────────────────────────────────
@@ -88,6 +103,7 @@ export function UnifiedPublishDialog({
   clipId,
   clipTitle,
   videoPreviewUrl,
+  metadata,
 }: UnifiedPublishDialogProps) {
   const [loading, setLoading] = useState(true)
   const [platforms, setPlatforms] = useState<Record<Platform, PlatformState>>({
@@ -98,6 +114,26 @@ export function UnifiedPublishDialog({
   const [showTikTokConfig, setShowTikTokConfig] = useState(false)
   const [isPublishing, setIsPublishing] = useState(false)
   const [allDone, setAllDone] = useState(false)
+  const [downloadUrl, setDownloadUrl] = useState<string | null>(null)
+
+  // Resolve download URL from localStorage kill switch or API
+  useEffect(() => {
+    if (!open || !clipId) return
+    try {
+      const stored = localStorage.getItem(`render-done:${clipId}`)
+      if (stored) {
+        const parsed = JSON.parse(stored)
+        if (parsed?.url) { setDownloadUrl(parsed.url); return }
+      }
+    } catch { /* ignore */ }
+    // Fallback: fetch from API
+    fetch(`/api/render/status?clip_id=${clipId}`)
+      .then(r => r.ok ? r.json() : null)
+      .then(json => {
+        if (json?.data?.clip_url) setDownloadUrl(json.data.clip_url)
+      })
+      .catch(() => {})
+  }, [open, clipId])
 
   // Fetch connected accounts on mount
   useEffect(() => {
@@ -227,6 +263,7 @@ export function UnifiedPublishDialog({
           const body: Record<string, unknown> = {
             clip_id: clipId,
             caption: clipTitle || 'Viral clip',
+            metadata: metadata ?? undefined,
           }
           const res = await fetch(`/api/publish/${platform}`, {
             method: 'POST',
@@ -280,6 +317,12 @@ export function UnifiedPublishDialog({
             <>
               <p className="text-sm text-muted-foreground">
                 Choose where to share your video
+              </p>
+
+              {/* Bank reassurance */}
+              <p className="flex items-center gap-1.5 text-xs text-emerald-400/80">
+                <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
+                Saved to your bank — publish now or come back later
               </p>
 
               {/* Platform rows */}
@@ -389,15 +432,12 @@ export function UnifiedPublishDialog({
           )}
 
           {/* Actions */}
-          <div className="flex justify-end gap-3 pt-3 border-t border-border/50">
-            <Button variant="ghost" onClick={handleClose} disabled={isPublishing}>
-              {allDone ? 'Done' : 'Cancel'}
-            </Button>
+          <div className="pt-3 border-t border-border/50 space-y-3">
             {!allDone && (
               <Button
                 onClick={handlePublish}
                 disabled={selectedCount === 0 || isPublishing || loading}
-                className="gap-2 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-400 hover:to-amber-400 text-white border-0"
+                className="w-full sm:w-auto gap-2 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-400 hover:to-amber-400 text-white border-0 sm:float-right"
               >
                 {isPublishing ? (
                   <>
@@ -415,7 +455,22 @@ export function UnifiedPublishDialog({
                 )}
               </Button>
             )}
-            <p className="text-[10px] text-zinc-600 text-center mt-2 leading-snug max-w-xs mx-auto">
+            <div className="flex items-center gap-2">
+              <Button variant="ghost" onClick={handleClose} disabled={isPublishing}>
+                {allDone ? 'Done' : 'Later'}
+              </Button>
+              {downloadUrl && (
+                <a
+                  href={downloadUrl}
+                  download
+                  className="inline-flex items-center gap-1.5 h-9 px-3 text-xs font-medium rounded-md border border-border bg-background text-foreground hover:bg-muted transition-colors"
+                >
+                  <Download className="h-3.5 w-3.5" />
+                  Download
+                </a>
+              )}
+            </div>
+            <p className="text-[10px] text-zinc-600 leading-snug max-w-xs clear-both">
               Raw reposts get removed — always publish enhanced versions with captions and creator credit.
             </p>
           </div>
@@ -429,6 +484,7 @@ export function UnifiedPublishDialog({
         clipId={clipId}
         clipTitle={clipTitle}
         videoPreviewUrl={videoPreviewUrl}
+        metadata={metadata}
       />
     </>
   )

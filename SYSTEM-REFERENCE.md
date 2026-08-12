@@ -507,7 +507,7 @@ Multi-platform publishing to TikTok, YouTube, Instagram with OAuth token managem
 ### Launch Gating (TikTok-only)
 At launch, only TikTok is approved for publishing. YouTube and Instagram are hard-gated:
 - **Server**: `app/api/publish/[platform]/route.ts` rejects any platform not in `LAUNCH_ACTIVE_PLATFORMS` with 403 "coming soon". Even corrupted client state cannot publish elsewhere.
-- **Client (UnifiedPublishDialog)**: `isComingSoonPlatform()` prevents auto-select, toggle, counting, and publishing for non-active platforms. `selectedCount` excludes them. Render shows "Coming soon" badge.
+- **Client (UnifiedPublishDialog)**: `isComingSoonPlatform()` prevents auto-select, toggle, counting, and publishing for non-active platforms. `selectedCount` excludes them. Render shows "Coming soon" badge. Post-render UX: bank reassurance badge ("✓ Saved to your bank — publish now or come back later"), Download button (resolves URL from `localStorage render-done:{clipId}` → fallback `GET /api/render/status?clip_id=`), "Later" replaces "Cancel" (non-destructive close, clip stays in bank). Mobile footer: publish button full-width, Download + Later below.
 - **Client (DistributionHub)**: `activePlatformCount` only counts platforms with `supported: true` in PLATFORMS config. Button text reflects real publishable count.
 - **Single source of truth:** `lib/distribution/launch-platforms.ts` exports `LAUNCH_ACTIVE_PLATFORMS`, `isComingSoonPlatform()`, `isActivePlatform()`. Imported by `unified-publish-dialog.tsx` (client) and `publish/[platform]/route.ts` (server). To enable a new platform: add it to this one file.
 
@@ -516,6 +516,16 @@ The `TikTokPublishDialog` polls `/api/tiktok/publish-status` every 5s after publ
 - **Timeout**: max 36 polls (~3 min). After timeout, shows "Still processing on TikTok's side — your post will appear when ready. Safe to close." Close button becomes active.
 - **Network errors**: 3 consecutive poll failures → same timeout behavior (stop polling, enable close).
 - **Close during PROCESSING**: Always allowed once the initial publish request completes (publishId exists). Closing does not cancel the TikTok-side post — user is informed. Button text: "Close (post continues on TikTok)".
+
+### Published Posts Learning Loop
+Every publish inserts a `published_posts` row with render settings snapshot for pattern detection. Three metadata sources, cascading:
+1. **Client metadata** — `UnifiedPublishDialog` sends `metadata` (caption_style, hook_style, hook_enabled, split_screen_enabled, smart_zoom_mode, clip_mood, duration_seconds, blowup_chance_at_render) from the enhance page state
+2. **Server auto-resolve** — `render_jobs.render_settings` JSONB column (persisted at render time) fills any gaps the client didn't send
+3. **Trending clip data** — `trending_clips` provides source_platform, source_streamer, niche, algo_score_at_pick, duration_seconds
+
+All three publish paths insert into `published_posts`: manual (via `POST /api/publish/[platform]`), autofarm (via `execute-publish.ts`), and distribution hub TikTok dialog.
+
+Stats cron (`refresh-post-stats`) tracks `last_checked_at` + `check_count` on every attempt (success or failure) to distinguish "never tried" from "tried and failed". Per-platform summary logged each run.
 
 ### Token Manager
 `getValidToken(userId, platform)`: checks expiry with 5-min buffer -> auto-refresh if expired. Uses Upstash Redis distributed lock (`SET lock:token:{platform}:{userId} 1 NX EX 30`) to prevent concurrent refreshes across serverless isolates. If lock is held, waits 2s then re-reads the freshly refreshed token from DB. Lock released in `finally` block.
