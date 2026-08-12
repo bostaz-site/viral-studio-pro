@@ -574,14 +574,21 @@ export default function DashboardPage() {
 
       {/* Daily Radar (E1) — shown after first visit */}
       {radarStats && radarStats.newCount > 0 && (
-        <div className="flex items-center flex-wrap gap-3 min-h-14 py-2 px-4 rounded-2xl border border-cyan-500/20 bg-cyan-500/6">
+        <div className="flex items-center flex-wrap gap-x-3 gap-y-1 min-h-14 md:min-h-14 py-2 px-4 rounded-2xl border border-cyan-500/20 bg-cyan-500/6">
           <Radar className="h-[18px] w-[18px] text-cyan-400 shrink-0" />
           <span className="text-[13px] font-bold tracking-[0.14em] uppercase text-cyan-400">Daily Radar</span>
-          <span className="text-[13px] text-zinc-300">
+          {/* Desktop: full stats line */}
+          <span className="hidden md:inline text-[13px] text-zinc-300">
             {radarStats.newCount} new clip{radarStats.newCount !== 1 ? 's' : ''} since your last visit
             {radarStats.freshDrops > 0 && <> · {radarStats.freshDrops} fresh drop{radarStats.freshDrops !== 1 ? 's' : ''}</>}
             {radarStats.legendary > 0 && <> · <span className="text-amber-400 font-bold">{radarStats.legendary} legendary</span></>}
             {radarStats.lastScanMinAgo !== null && <> · <span className="text-zinc-500">Last scan: {radarStats.lastScanMinAgo}m ago</span></>}
+          </span>
+          {/* Mobile: compact 2nd line */}
+          <span className="md:hidden text-[12px] text-zinc-300 w-full">
+            {radarStats.newCount} exploding
+            {radarStats.legendary > 0 && <> · <span className="text-amber-400 font-bold">{radarStats.legendary} legendary</span></>}
+            {radarStats.lastScanMinAgo !== null && <> · <span className="text-zinc-500">updated {radarStats.lastScanMinAgo}m ago</span></>}
           </span>
         </div>
       )}

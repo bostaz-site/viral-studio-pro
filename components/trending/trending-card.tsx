@@ -410,6 +410,10 @@ export const TrendingCard = memo(function TrendingCard({ clip, onRemix, onQuickE
     : clip.feed_category === 'proven' ? 'Proven performer'
     : verdict.text
 
+  // ── Mobile metadata ──
+  const clipAge = timeAgo(clip.clip_created_at ?? clip.scraped_at)
+  const viewsFormatted = clip.view_count !== null ? formatCount(clip.view_count) : null
+
   // Shared overlay CTA
   const overlayCTA = isHoverPreviewV2 && showOverlay ? (
     <div
@@ -438,16 +442,43 @@ export const TrendingCard = memo(function TrendingCard({ clip, onRemix, onQuickE
     </div>
   ) : null
 
-  // ── NEW badge (E2) ──
+  // ── NEW badge (E2) — repositioned below score badge on mobile ──
   const newBadge = isNew ? (
     <span className={cn(
-      'absolute top-2 right-2 z-[7] text-[11px] font-bold px-2 py-0.5 rounded-md',
+      'absolute right-2 z-[7] text-[11px] font-bold px-2 py-0.5 rounded-md',
+      'top-9 md:top-2',
       isLegendary
         ? 'bg-amber-400/15 border border-amber-400/30 text-amber-300'
         : 'bg-cyan-400/15 border border-cyan-400/30 text-cyan-300'
     )}>
       {isLegendary ? 'LEGENDARY DROP' : 'NEW'}
     </span>
+  ) : null
+
+  // ── Mobile score badge (on thumbnail, md:hidden via CSS) ──
+  const mobileScoreBadge = score !== null ? (
+    <span className={cn(
+      'score-badge',
+      isLegendary ? 'score-badge--legendary' : 'score-badge--default',
+      isEpic && 'score-badge--epic',
+    )}>
+      <Flame className="h-3 w-3" />
+      <span className="score-badge-num">{score}</span>
+      {isLegendary && <span className="score-badge-label">Legendary</span>}
+    </span>
+  ) : null
+
+  // ── Mobile bookmark (on thumbnail) ──
+  const mobileBookmark = onToggleSave ? (
+    <button
+      onClick={(e) => { e.stopPropagation(); onToggleSave(clip.id) }}
+      className={cn(
+        'absolute top-2 left-2 z-[7] h-11 w-11 rounded-xl flex items-center justify-center md:hidden',
+        isSaved ? 'bg-amber-500/30 backdrop-blur-sm text-amber-400' : 'bg-black/50 backdrop-blur-sm text-white/70'
+      )}
+    >
+      <Bookmark className={cn('h-4 w-4', isSaved && 'fill-current')} />
+    </button>
   ) : null
 
   // ── Legendary rendering path (80-99) — 2 intensities ──
@@ -515,12 +546,14 @@ export const TrendingCard = memo(function TrendingCard({ clip, onRemix, onQuickE
                   <div className="absolute inset-0" style={{ background: 'linear-gradient(to top, rgba(0,0,0,.65), transparent 40%, rgba(0,0,0,.25))' }} />
                   <div className="leg-godray" />
                   <div className="leg-shimmer"><div className="leg-shimmer-bar" /></div>
-                  {!showVideo && (<span className={cn('absolute top-2 left-2 z-[6] text-xs font-bold px-2 py-1 rounded-lg border backdrop-blur-sm', platformStyle.colorClass)}>{platformStyle.label}</span>)}
+                  {!showVideo && (<span className={cn('absolute top-2 left-2 z-[6] text-xs font-bold px-2 py-1 rounded-lg border backdrop-blur-sm hidden md:inline', platformStyle.colorClass)}>{platformStyle.label}</span>)}
                   {!showVideo && clip.duration_seconds && (
                     <span className="absolute bottom-2.5 left-2.5 z-[6] text-[13px] text-white bg-black/85 px-2.5 py-1 rounded-lg font-medium" style={{ border: '1px solid rgba(255,255,255,.1)' }}>
                       {formatDuration(clip.duration_seconds)}
                     </span>
                   )}
+                  {mobileScoreBadge}
+                  {mobileBookmark}
                   {newBadge}
                   {overlayCTA}
                 </div>
@@ -550,12 +583,14 @@ export const TrendingCard = memo(function TrendingCard({ clip, onRemix, onQuickE
               </div>
             )}
             <div className="absolute inset-0" style={{ background: 'linear-gradient(to top, rgba(0,0,0,.65), transparent 40%, rgba(0,0,0,.25))' }} />
-            {!showVideo && (<span className={cn('absolute top-2 left-2 z-[6] text-xs font-bold px-2 py-1 rounded-lg border backdrop-blur-sm', platformStyle.colorClass)}>{platformStyle.label}</span>)}
+            {!showVideo && (<span className={cn('absolute top-2 left-2 z-[6] text-xs font-bold px-2 py-1 rounded-lg border backdrop-blur-sm hidden md:inline', platformStyle.colorClass)}>{platformStyle.label}</span>)}
             {!showVideo && clip.duration_seconds && (
               <span className="absolute bottom-2 left-2 z-[6] text-[10px] text-white/80 bg-black/60 px-1.5 py-0.5 rounded-md backdrop-blur-sm font-medium">
                 {formatDuration(clip.duration_seconds)}
               </span>
             )}
+            {mobileScoreBadge}
+            {mobileBookmark}
             {newBadge}
             {overlayCTA}
           </div>
@@ -566,30 +601,40 @@ export const TrendingCard = memo(function TrendingCard({ clip, onRemix, onQuickE
           <div className="leg-meta" style={{ padding: '14px' }}>
             <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14 }}>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <p className="text-[16px] font-bold leading-tight line-clamp-1 text-white">
+                <p
+                  className="text-[14px] md:text-[16px] font-semibold md:font-bold leading-tight line-clamp-1 text-white"
+                  onClick={(e) => { if (isMobileRef.current) { e.stopPropagation(); onRemix?.(clip) } }}
+                >
                   {clip.title ?? clip.author_name ?? 'Stream clip'}
                 </p>
-                <p className="text-[13px] text-zinc-400 mt-1">
+                {/* Desktop metadata */}
+                <p className="hidden md:block text-[13px] text-zinc-400 mt-1">
                   {clip.author_handle && <span className="font-medium text-zinc-300">@{clip.author_handle}</span>}
                   {clip.author_handle && gameLabel ? ' · ' : ''}
                   {gameLabel || ''}
                 </p>
-                {/* Verdict — simplified (C4) */}
-                <p className="text-[13px] font-bold mt-1.5" style={{ color: verdictColor }}>
+                {/* Mobile metadata — compact single line */}
+                <p className="md:hidden text-[12px] text-zinc-400 truncate mt-0.5">
+                  {clip.author_handle && <>@{clip.author_handle}</>}
+                  {viewsFormatted && <> · {viewsFormatted} views</>}
+                  {clipAge && <> · {clipAge}</>}
+                </p>
+                {/* Verdict */}
+                <p className="text-[12px] md:text-[13px] font-bold mt-1 md:mt-1.5 line-clamp-1" style={{ color: verdictColor }}>
                   {verdict.text}
                 </p>
-                <p className="text-[12px] text-zinc-500 line-clamp-1">{verdict.reason}</p>
-                {/* Score delta (E3) */}
+                <p className="hidden md:block text-[12px] text-zinc-500 line-clamp-1">{verdict.reason}</p>
+                {/* Score delta — desktop only */}
                 {showDelta && (
-                  <span className={cn('text-[10px] font-bold mt-0.5 inline-block', scoreDelta! > 0 ? 'text-cyan-400' : 'text-zinc-500')}>
+                  <span className={cn('hidden md:inline-block text-[10px] font-bold mt-0.5', scoreDelta! > 0 ? 'text-cyan-400' : 'text-zinc-500')}>
                     {scoreDelta! > 0 ? `↑ Heating` : `↓ Cooling (was ${Math.round(prevScore!)})`}
                   </span>
                 )}
-                {/* "Why this clip?" — visible on mobile, hover-reveal on desktop (C1) */}
+                {/* "Why this clip?" — desktop only, hover-reveal */}
                 {onShowDetail && (
                   <button
                     onClick={(e) => { e.stopPropagation(); onShowDetail(clip) }}
-                    className="text-[10px] text-zinc-500 hover:text-zinc-300 transition-colors whitespace-nowrap relative z-10 opacity-100 md:opacity-0 md:group-hover:opacity-100 mt-0.5 block"
+                    className="hidden md:block text-[10px] text-zinc-500 hover:text-zinc-300 transition-colors whitespace-nowrap relative z-10 md:opacity-0 md:group-hover:opacity-100 mt-0.5"
                   >
                     Why this clip?
                   </button>
@@ -601,9 +646,9 @@ export const TrendingCard = memo(function TrendingCard({ clip, onRemix, onQuickE
                 </div>
               )}
             </div>
-            <div className="leg-divider" />
-            {/* Split button CTA (C3) */}
-            <div style={{ display: 'flex', gap: 0, alignItems: 'center' }}>
+            <div className="leg-divider hidden md:block" />
+            {/* CTA */}
+            <div className="flex items-center gap-0 mt-2 md:mt-0">
               <button className="leg-cta" style={{ flex: 1, borderTopRightRadius: onQuickExport ? 0 : undefined, borderBottomRightRadius: onQuickExport ? 0 : undefined, height: '44px' }}
                 onClick={(e) => { e.stopPropagation(); onRemix?.(clip) }}
                 disabled={remixing}>
@@ -628,13 +673,13 @@ export const TrendingCard = memo(function TrendingCard({ clip, onRemix, onQuickE
                   {isExporting ? <WolfLoader variant="spinner" size={14} mode="amber" /> : isExported ? <CheckCircle2 className="h-3.5 w-3.5" /> : <Zap className="h-3.5 w-3.5" />}
                 </button>
               )}
-              {/* Bookmark — opacity 0 → 1 on hover (C2) */}
+              {/* Bookmark — desktop only (mobile bookmark is on thumbnail) */}
               {onToggleSave && (
                 <button
                   onClick={(e) => { e.stopPropagation(); onToggleSave(clip.id) }}
                   className={cn(
-                    'h-[34px] w-[34px] md:h-[34px] md:w-[34px] min-h-[44px] min-w-[44px] md:min-h-0 md:min-w-0 flex-shrink-0 rounded-lg flex items-center justify-center border transition-all ml-1.5',
-                    isSaved ? 'bg-amber-500/20 border-amber-500/30 text-amber-400 opacity-100' : 'bg-zinc-900/60 border-zinc-700 text-zinc-500 hover:text-amber-400 hover:border-amber-500/30 opacity-100 md:opacity-0 md:group-hover:opacity-100'
+                    'hidden md:flex h-[34px] w-[34px] flex-shrink-0 rounded-lg items-center justify-center border transition-all ml-1.5',
+                    isSaved ? 'bg-amber-500/20 border-amber-500/30 text-amber-400 opacity-100' : 'bg-zinc-900/60 border-zinc-700 text-zinc-500 hover:text-amber-400 hover:border-amber-500/30 opacity-0 group-hover:opacity-100'
                   )}
                   title={isSaved ? 'Unsave' : 'Save'}
                 >
@@ -709,7 +754,7 @@ export const TrendingCard = memo(function TrendingCard({ clip, onRemix, onQuickE
 
         {!showVideo && (
           <span className={cn(
-            'absolute top-2 left-2 z-[6] text-xs font-bold px-2 py-0.5 rounded-full border backdrop-blur-sm',
+            'absolute top-2 left-2 z-[6] text-xs font-bold px-2 py-0.5 rounded-full border backdrop-blur-sm hidden md:inline',
             platformStyle.colorClass
           )}>
             {platformStyle.label}
@@ -719,7 +764,7 @@ export const TrendingCard = memo(function TrendingCard({ clip, onRemix, onQuickE
         {/* Epic frame */}
         {isEpic && <EpicFrame />}
 
-        {/* Score on thumbnail — B1 rarity scale */}
+        {/* Score on thumbnail — desktop only (B1 rarity scale) */}
         {score !== null && (
           <span className={cn(
             'rank-score',
@@ -733,6 +778,12 @@ export const TrendingCard = memo(function TrendingCard({ clip, onRemix, onQuickE
           </span>
         )}
 
+        {/* Mobile score badge */}
+        {mobileScoreBadge}
+
+        {/* Mobile bookmark overlay */}
+        {mobileBookmark}
+
         {/* Duration pill */}
         {!showVideo && clip.duration_seconds && (
           <span className="absolute bottom-2 left-2 z-[6] text-[10px] text-white/80 bg-black/60 px-1.5 py-0.5 rounded-md backdrop-blur-sm font-medium">
@@ -740,7 +791,7 @@ export const TrendingCard = memo(function TrendingCard({ clip, onRemix, onQuickE
           </span>
         )}
 
-        {/* NEW badge (E2) */}
+        {/* NEW badge */}
         {newBadge}
 
         {overlayCTA}
@@ -748,20 +799,30 @@ export const TrendingCard = memo(function TrendingCard({ clip, onRemix, onQuickE
       </div>
 
       {/* Meta section */}
-      <div className="p-[14px] rounded-b-2xl bg-card/60">
+      <div className="p-3 md:p-[14px] rounded-b-2xl bg-card/60">
         <div className="flex items-start gap-2">
           <div className="flex-1 min-w-0">
-            <p className="text-[16px] font-bold leading-tight line-clamp-1 text-foreground">
+            <p
+              className="text-[14px] md:text-[16px] font-semibold md:font-bold leading-tight line-clamp-1 text-foreground"
+              onClick={(e) => { if (isMobileRef.current) { e.stopPropagation(); onRemix?.(clip) } }}
+            >
               {clip.title ?? clip.author_name ?? 'Stream clip'}
             </p>
+            {/* Desktop metadata */}
             {clip.author_handle && (
-              <p className="text-[13px] text-zinc-400 truncate mt-0.5">
+              <p className="hidden md:block text-[13px] text-zinc-400 truncate mt-0.5">
                 @{clip.author_handle}
                 {gameLabel && <span className="text-zinc-500"> · {gameLabel}</span>}
               </p>
             )}
+            {/* Mobile metadata — compact single line */}
+            <p className="md:hidden text-[12px] text-zinc-400 truncate mt-0.5">
+              {clip.author_handle && <>@{clip.author_handle}</>}
+              {viewsFormatted && <> · {viewsFormatted} views</>}
+              {clipAge && <> · {clipAge}</>}
+            </p>
           </div>
-          {/* Epic score block in meta (hidden on thumbnail via CSS for epic) */}
+          {/* Epic score block in meta — hidden on mobile via CSS */}
           {isEpic && score !== null && (
             <div className="epic-score-block">
               <span className={`epic-score-num${isSixSeven ? ' score-six-seven' : ''}`} style={{ fontSize: '52px' }}>{score}</span>
@@ -769,9 +830,9 @@ export const TrendingCard = memo(function TrendingCard({ clip, onRemix, onQuickE
           )}
         </div>
 
-        {/* Signal tags — hover reveal only (C1) */}
+        {/* Signal tags — desktop hover reveal only */}
         {insight && (clip.feed_category === 'hot_now' || clip.feed_category === 'early_gem') && (
-          <div className="signal-tag">
+          <div className="signal-tag hidden md:block">
             {clip.feed_category === 'hot_now' && (
               <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold"
                 style={{ color: '#FDA4AF', background: 'rgba(239,68,68,.1)', border: '1px solid rgba(239,68,68,.22)' }}>
@@ -787,31 +848,31 @@ export const TrendingCard = memo(function TrendingCard({ clip, onRemix, onQuickE
           </div>
         )}
 
-        {/* Verdict — simplified (C4) */}
-        <p className="text-[13px] font-bold mt-1.5" style={{ color: verdictColor }}>
+        {/* Verdict */}
+        <p className="text-[12px] md:text-[13px] font-bold mt-1 md:mt-1.5 line-clamp-1" style={{ color: verdictColor }}>
           {verdict.text}
         </p>
-        <p className="text-[12px] text-zinc-500 line-clamp-1">{verdict.reason}</p>
+        <p className="hidden md:block text-[12px] text-zinc-500 line-clamp-1">{verdict.reason}</p>
 
-        {/* Score delta (E3) */}
+        {/* Score delta — desktop only */}
         {showDelta && (
-          <span className={cn('text-[10px] font-bold mt-0.5 inline-block', scoreDelta! > 0 ? 'text-cyan-400' : 'text-zinc-500')}>
+          <span className={cn('hidden md:inline-block text-[10px] font-bold mt-0.5', scoreDelta! > 0 ? 'text-cyan-400' : 'text-zinc-500')}>
             {scoreDelta! > 0 ? `↑ Heating` : `↓ Cooling (was ${Math.round(prevScore!)})`}
           </span>
         )}
 
-        {/* "Why this clip?" — visible on mobile, hover-reveal on desktop (C1) */}
+        {/* "Why this clip?" — desktop only, hover-reveal */}
         {onShowDetail && (
           <button
             onClick={(e) => { e.stopPropagation(); onShowDetail(clip) }}
-            className="text-[10px] text-zinc-500 hover:text-zinc-300 transition-colors whitespace-nowrap relative z-10 opacity-100 md:opacity-0 md:group-hover:opacity-100 mt-0.5 block"
+            className="hidden md:block text-[10px] text-zinc-500 hover:text-zinc-300 transition-colors whitespace-nowrap relative z-10 md:opacity-0 md:group-hover:opacity-100 mt-0.5"
           >
             Why this clip?
           </button>
         )}
 
-        {/* Split button CTA + Quick Export (C3, C5) */}
-        <div className="flex items-center gap-1.5 mt-2.5">
+        {/* CTA + Quick Export */}
+        <div className="flex items-center gap-1.5 mt-2 md:mt-2.5">
           <div className="flex flex-1 min-w-0">
             <button
               className="cta-viral flex-1 h-[44px] rounded-l-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all relative z-10"
@@ -838,13 +899,13 @@ export const TrendingCard = memo(function TrendingCard({ clip, onRemix, onQuickE
               </button>
             )}
           </div>
-          {/* Bookmark — opacity 0 → 1 on hover (C2) */}
+          {/* Bookmark — desktop only (mobile bookmark is on thumbnail) */}
           {onToggleSave && (
             <button
               onClick={(e) => { e.stopPropagation(); onToggleSave(clip.id) }}
               className={cn(
-                'h-[34px] w-[34px] md:h-[34px] md:w-[34px] min-h-[44px] min-w-[44px] md:min-h-0 md:min-w-0 flex-shrink-0 rounded-xl flex items-center justify-center border transition-all relative z-10',
-                isSaved ? 'bg-amber-500/20 border-amber-500/30 text-amber-400 opacity-100' : 'bg-card/60 border-border text-muted-foreground hover:text-amber-400 hover:border-amber-500/30 opacity-100 md:opacity-0 md:group-hover:opacity-100'
+                'hidden md:flex h-[34px] w-[34px] flex-shrink-0 rounded-xl items-center justify-center border transition-all relative z-10',
+                isSaved ? 'bg-amber-500/20 border-amber-500/30 text-amber-400 opacity-100' : 'bg-card/60 border-border text-muted-foreground hover:text-amber-400 hover:border-amber-500/30 opacity-0 group-hover:opacity-100'
               )}
               title={isSaved ? 'Unsave' : 'Save'}
             >

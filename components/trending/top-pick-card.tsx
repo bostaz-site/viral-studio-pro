@@ -137,10 +137,10 @@ export function TopPickCard({ clip, onEnhance, onQuickExport, quickExportState, 
       </p>
 
       <div
-        className="tp-royal group/tp relative max-w-[680px] cursor-pointer overflow-visible mt-10"
+        className="tp-royal group/tp relative max-w-[680px] cursor-pointer overflow-visible mt-10 md:mt-10"
         onClick={() => onEnhance(clip)}
       >
-        {/* Crown — centered, floating above the frame (base sits on gold edge) */}
+        {/* Crown — centered, floating above the frame */}
         <div className="absolute left-1/2 top-0 -translate-x-1/2 -translate-y-[72%] z-30 pointer-events-none tp-crown">
           <GoldCrown />
         </div>
@@ -158,7 +158,7 @@ export function TopPickCard({ clip, onEnhance, onQuickExport, quickExportState, 
 
               {/* Card content */}
               <div
-                className="relative flex flex-col sm:flex-row items-stretch gap-3 p-3 sm:p-4 tp-content"
+                className="relative flex flex-col sm:flex-row items-stretch gap-2 sm:gap-3 p-2.5 sm:p-4 tp-content"
                 style={{ background: 'linear-gradient(180deg, rgba(15,23,42,.97), rgba(4,9,24,.95))' }}
               >
                 {/* Thumbnail */}
@@ -167,12 +167,12 @@ export function TopPickCard({ clip, onEnhance, onQuickExport, quickExportState, 
                   <img
                     src={clip.thumbnail_url}
                     alt={clip.title ?? ''}
-                    className="w-full sm:w-[150px] h-[150px] sm:h-[96px] rounded-lg object-cover shrink-0"
+                    className="w-full sm:w-[150px] h-[120px] sm:h-[96px] rounded-lg object-cover shrink-0"
                   />
                 )}
 
                 {/* Center */}
-                <div className="flex-1 min-w-0 flex flex-col justify-center gap-1">
+                <div className="flex-1 min-w-0 flex flex-col justify-center gap-0.5 sm:gap-1">
                   <span
                     className="inline-flex items-center gap-1.5 self-start px-2 py-0.5 rounded-full text-[9px] font-extrabold uppercase tracking-[0.14em]"
                     style={{
@@ -185,7 +185,7 @@ export function TopPickCard({ clip, onEnhance, onQuickExport, quickExportState, 
                     Top Pick &middot; {clip.feed_category === 'early_gem' ? 'Early Gem' : 'Surging'}
                   </span>
 
-                  <p className="text-[15.5px] font-extrabold text-white truncate leading-tight">
+                  <p className="text-[14px] sm:text-[15.5px] font-extrabold text-white truncate leading-tight">
                     {clip.title || 'Untitled clip'}
                   </p>
 
@@ -199,7 +199,7 @@ export function TopPickCard({ clip, onEnhance, onQuickExport, quickExportState, 
                     )}
                   </p>
 
-                  <p className="text-[11px] font-medium text-zinc-500" title="Top Pick = strongest clip detected in the last 12h, before its peak. Older clips keep their score but lose the crown.">
+                  <p className="hidden sm:block text-[11px] font-medium text-zinc-500" title="Top Pick = strongest clip detected in the last 12h, before its peak. Older clips keep their score but lose the crown.">
                     <span style={{ color: '#F59E0B' }}>{insight?.icon ?? '\u26A1'}</span>{' '}
                     {explanation}
                   </p>
@@ -208,7 +208,8 @@ export function TopPickCard({ clip, onEnhance, onQuickExport, quickExportState, 
                 {/* Right — score + CTA */}
                 <div className="flex sm:flex-col items-center sm:items-end justify-between sm:justify-center gap-2 sm:gap-1.5 shrink-0">
                   <AnimatedScore value={score} />
-                  <div className="flex items-center gap-0">
+                  {/* Desktop CTA */}
+                  <div className="hidden sm:flex items-center gap-0">
                     <button
                       onClick={(e) => { e.stopPropagation(); onEnhance(clip) }}
                       className="leg-cta tp-cta-compact"
@@ -236,6 +237,36 @@ export function TopPickCard({ clip, onEnhance, onQuickExport, quickExportState, 
                       </button>
                     )}
                   </div>
+                </div>
+
+                {/* Mobile CTA — full width below content */}
+                <div className="sm:hidden flex items-center gap-0 w-full">
+                  <button
+                    onClick={(e) => { e.stopPropagation(); onEnhance(clip) }}
+                    className="leg-cta tp-cta-compact"
+                    style={{ flex: 1, borderTopRightRadius: onQuickExport ? 0 : undefined, borderBottomRightRadius: onQuickExport ? 0 : undefined }}
+                  >
+                    Steal this clip<span className="tp-cta-arrow">&nbsp;&rarr;</span>
+                  </button>
+                  {onQuickExport && (
+                    <button
+                      onClick={(e) => { e.stopPropagation(); onQuickExport(clip) }}
+                      disabled={isExporting}
+                      className="h-[38px] px-3 flex items-center justify-center"
+                      style={{
+                        background: isExported
+                          ? 'linear-gradient(180deg, #1a3a1a 0%, #0a2a0a 50%, #052005 100%)'
+                          : 'linear-gradient(180deg, #5C4400 0%, #3A2A00 50%, #2A1E00 100%)',
+                        borderRadius: '0 10px 10px 0',
+                        border: isExported ? '2px solid #22c55e' : '2px solid #DAA520',
+                        borderLeft: '1px solid rgba(139,105,20,.4)',
+                        color: isExported ? '#4ADE80' : '#FFE9A8',
+                      }}
+                      title={isExported ? 'In your bank \u2014 export again?' : 'Quick Export'}
+                    >
+                      {isExporting ? <WolfLoader variant="spinner" size={14} mode="amber" /> : isExported ? <CheckCircle2 className="h-3.5 w-3.5" /> : <Zap className="h-3.5 w-3.5" />}
+                    </button>
+                  )}
                 </div>
               </div>
 

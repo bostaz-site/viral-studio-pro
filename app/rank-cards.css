@@ -435,6 +435,87 @@
   .tp-royal .leg-gem, .tp-crown, .tp-score, .tp-score-sweep, .tp-royal { animation: none !important; transition: none !important; }
 }
 
+/* ══════════════════════════════════════════════════════════════════
+   MOBILE — score badges on thumbnail, legendary frame suppressed
+   ══════════════════════════════════════════════════════════════════ */
+
+/* Score badge (overlay on thumbnail) — hidden on desktop, shown on mobile */
+.score-badge {
+  display: none;
+  position: absolute; top: 8px; right: 8px; z-index: 7;
+  align-items: center; gap: 3px;
+  padding: 3px 8px; border-radius: 8px;
+  font-family: var(--font-score), 'Archivo Black', 'Arial Black', sans-serif;
+  font-size: 14px; font-weight: 900; line-height: 1;
+  backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+  pointer-events: none;
+}
+.score-badge--default {
+  background: rgba(0,0,0,.6); color: #fff;
+  border: 1px solid rgba(255,255,255,.1);
+}
+.score-badge--legendary {
+  background: linear-gradient(135deg, rgba(218,165,32,.85), rgba(180,130,20,.85));
+  color: #FFF8E1; border: 1px solid rgba(255,233,168,.4);
+  box-shadow: 0 0 12px rgba(218,165,32,.3);
+}
+.score-badge--epic .score-badge-num { color: #7DD3FC; }
+.score-badge--hot .score-badge-num { color: #FDA4AF; }
+.score-badge-label {
+  font-size: 10px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase;
+  margin-left: 2px;
+}
+
+@media (max-width: 767px) {
+  /* Show mobile score badge */
+  .score-badge { display: inline-flex; }
+
+  /* Hide desktop inline score (normal/epic cards) */
+  .rank-score { display: none !important; }
+  .epic-score-block { display: none !important; }
+  .leg-score-block { display: none !important; }
+
+  /* ── Legendary grid cards: flatten ornate frame to simple gold border ── */
+  .r-legendary:not(.tp-royal) {
+    border: 1px solid rgba(245,180,40,.35) !important;
+    border-radius: 16px;
+    box-shadow: 0 0 16px rgba(245,158,11,.1), 0 8px 24px -8px rgba(0,0,0,.5);
+  }
+  .r-legendary:not(.tp-royal) .leg-glow { display: none; }
+  .r-legendary:not(.tp-royal) .leg-sparkle { display: none !important; }
+  .r-legendary:not(.tp-royal) .leg-godray { display: none; }
+  .r-legendary:not(.tp-royal) .leg-shimmer { display: none; }
+  /* Make frame layers transparent wrappers (keeps thumbnail visible) */
+  .r-legendary:not(.tp-royal) .leg-frame {
+    padding: 0 !important; background: transparent !important;
+    border-radius: 16px 16px 0 0;
+  }
+  .r-legendary:not(.tp-royal) .leg-frame-inner-border {
+    padding: 0 !important; background: transparent !important; border-radius: 16px 16px 0 0;
+  }
+  .r-legendary:not(.tp-royal) .leg-frame-inner-gold {
+    padding: 0 !important; background: transparent !important; border-radius: 16px 16px 0 0;
+  }
+  .r-legendary:not(.tp-royal) .leg-gem { display: none !important; }
+  .r-legendary:not(.tp-royal) .leg-thumb {
+    border-radius: 16px 16px 0 0; height: auto !important;
+  }
+  /* Simple legendary thumb */
+  .r-legendary .leg-thumb-simple {
+    border-radius: 16px 16px 0 0;
+  }
+
+  /* ── Top Pick mobile compact ── */
+  .tp-royal { margin-top: 4px !important; max-width: none; }
+  .tp-royal .tp-crown { transform: translate(-50%, -72%) scale(0.7); }
+  .tp-score { font-size: 36px !important; }
+  .tp-cta-compact {
+    height: 38px !important;
+    padding: 0 14px !important; font-size: 12px !important;
+    justify-content: center;
+  }
+}
+
 /* ═══════════════════════════════════════════════════════════════════════
    TOP PICK — Royal compact card (legendary frame, horizontal layout)
    ═══════════════════════════════════════════════════════════════════════ */

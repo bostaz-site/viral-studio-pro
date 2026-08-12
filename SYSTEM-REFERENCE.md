@@ -851,7 +851,13 @@ CSS: `landing-v3.css` under `HERO PRODUCT MOCKUP` section.
 ### Mobile Dashboard (390px)
 **Sidebar drawer:** `stores/ui-store.ts` initial `sidebarOpen: false`. Desktop auto-opens on mount (`window.innerWidth >= 768`). Closes on route change (mobile), Escape key, scrim click. Body scroll locked while open. `role="dialog" aria-modal` on the `<aside>`.
 
-**Touch-visible actions:** Bookmark and "Why this clip?" buttons use `opacity-100 md:opacity-0 md:group-hover:opacity-100` (always visible on touch, hover-reveal on desktop). Bookmark targets enlarged to 44px tap area on mobile (`min-h-[44px] min-w-[44px] md:min-h-0 md:min-w-0`).
+**Clip cards (mobile vs desktop):** Same component (`trending-card.tsx`), layout split via `md:` breakpoints.
+- **Desktop:** information-rich — large inline score (40-64px), platform badge, verdict + reason, score delta, "Why this clip?" hover-reveal, signal tags, bookmark hover-reveal in CTA row.
+- **Mobile (decision-rich):** thumbnail full-width rounded, score badge overlay (top-right, `score-badge` in `rank-cards.css` — `md:hidden` via CSS), bookmark overlay (top-left, 44px bg-black/50), 3 lines below: title (14px semibold, tappable → enhance), metadata (@handle · views · age, 12px), verdict (12px, 1 line). Single CTA row: Enhance + Quick Export. "Why this clip?" hidden (accessible via preview overlay). NEW/LEGENDARY DROP badge repositioned (`top-9 md:top-2`) below score badge on mobile.
+- **Score badge tiers:** Legendary (80+): golden capsule (`score-badge--legendary`, gradient bg, "LEGENDARY" label). Epic: dark capsule, cyan number (`score-badge--epic`). Default: dark capsule, white number.
+- **Legendary frame:** Desktop 85+ gets ornate gold frame + gems. Mobile: CSS flattens frame to transparent (padding:0, bg:transparent), gems hidden, gold border only (`@media max-width:767px` in `rank-cards.css`). Top Pick keeps full frame on all sizes.
+- **Top Pick mobile:** Crown scaled 0.7, padding reduced, explanation line hidden, CTA full-width below content (`sm:hidden`), score 36px.
+- **Daily Radar mobile:** 2 lines max — line 1: icon + "DAILY RADAR", line 2: "X exploding · Y legendary · updated Zm ago". Desktop unchanged.
 
 **Distribution Core (connection map):** `@media (max-width: 720px)` in `distribution-hub.css` — grid becomes flex column, SVG paths hidden, brain centered at 300px max-width, platform nodes compact (56px icons).
 
