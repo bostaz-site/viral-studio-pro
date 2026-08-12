@@ -35,12 +35,124 @@
   }
 }
 
-/* Mobile status card: shown on mobile, hidden on desktop */
+/* Mobile status card + brain flow: shown on mobile, hidden on desktop */
 .dist-mobile-status-card { display: none; }
+.dist-mobile-brain-flow { display: none; }
 @media (max-width: 720px) {
   .dist-mobile-status-card { display: block; }
+  .dist-mobile-brain-flow { display: flex; }
   .dist-connection-map { display: none !important; }
   .dist-connector-top { display: none !important; }
+}
+
+/* ── Mobile vertical brain flow ── */
+.dist-mobile-brain-flow {
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
+  padding: 16px 0 0;
+}
+
+/* Pills (bank + platforms) */
+.dist-mbf-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 5px 12px;
+  border-radius: 20px;
+  border: 1px solid rgba(56,189,248,.25);
+  background: rgba(56,189,248,.06);
+  color: #7DD3FC;
+  letter-spacing: 0.02em;
+}
+.dist-mbf-pill.bank {
+  font-size: 12px;
+  padding: 6px 14px;
+  border-color: rgba(56,189,248,.3);
+  background: rgba(56,189,248,.08);
+}
+.dist-mbf-pill.active {
+  border-color: rgba(56,189,248,.35);
+  background: rgba(56,189,248,.1);
+  color: #7DD3FC;
+}
+.dist-mbf-pill.dim {
+  border-color: rgba(113,113,122,.3);
+  background: rgba(113,113,122,.06);
+  color: #71717A;
+}
+
+/* Animated dotted connector */
+.dist-mbf-connector {
+  width: 1px;
+  height: 28px;
+  background: repeating-linear-gradient(
+    to bottom,
+    rgba(56,189,248,.4) 0px,
+    rgba(56,189,248,.4) 3px,
+    transparent 3px,
+    transparent 7px
+  );
+  animation: dist-mbf-flow 1.5s linear infinite;
+}
+@keyframes dist-mbf-flow {
+  0% { background-position-y: 0; }
+  100% { background-position-y: 7px; }
+}
+
+/* Compact brain */
+.dist-mbf-brain {
+  position: relative;
+  width: 160px;
+  height: 160px;
+}
+.dist-mbf-brain-glow {
+  position: absolute;
+  inset: -10px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(56,189,248,.12) 0%, transparent 70%);
+  pointer-events: none;
+}
+.dist-mbf-brain-svg {
+  width: 100%;
+  height: 100%;
+}
+/* Reuse the existing outer ring rotation from the desktop brain */
+.dist-mbf-brain .dist-core-outer-ring {
+  transform-origin: 160px 160px;
+  animation: dist-core-ring-rotate 30s linear infinite;
+}
+.dist-mbf-brain-label {
+  position: absolute;
+  bottom: -2px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 10px;
+  font-weight: 700;
+  color: rgba(56,189,248,.6);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  white-space: nowrap;
+}
+.dist-mbf-brain.state-paused .dist-mbf-brain-glow {
+  background: radial-gradient(circle, rgba(245,158,11,.08) 0%, transparent 70%);
+}
+.dist-mbf-brain.state-paused .dist-mbf-brain-label { color: rgba(245,158,11,.5); }
+
+/* Platform row */
+.dist-mbf-platforms {
+  display: flex;
+  gap: 6px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .dist-mbf-connector { animation: none; }
+  .dist-mbf-brain .dist-core-outer-ring { animation: none; }
 }
 
 /* ─── Publish Strip → "Manual override" — moved to bottom of the page ─── */
@@ -2463,9 +2575,36 @@
 @media (max-width: 860px) {
   .dist-post-card {
     grid-template-columns: 70px minmax(0, 1fr) auto;
+    gap: 10px;
+    padding: 12px 14px;
   }
-  .dist-post-card .pc-thumb,
-  .dist-post-card .pc-fit { display: none; }
+  .dist-post-card .dist-pc-thumb,
+  .dist-post-card .dist-pc-fit { display: none; }
+  .dist-pc-title {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-size: 13px;
+    margin-bottom: 4px;
+  }
+  .dist-pc-reason {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    font-size: 11px;
+    margin-top: 5px;
+  }
+  .dist-pc-meta {
+    flex-wrap: wrap;
+    gap: 5px;
+  }
+  .dist-pc-time .match-mobile {
+    display: block;
+    font-size: 10px;
+    color: var(--va-text-dim);
+    margin-top: 3px;
+  }
 }
 
 .dist-pc-time { text-align: left; padding-left: 6px; }
@@ -2490,6 +2629,7 @@
   color: var(--va-text-dim);
   margin-top: 3px;
 }
+.dist-pc-time .match-mobile { display: none; }
 
 .dist-pc-thumb {
   width: 50px;

@@ -1604,79 +1604,124 @@ export function DistributionHub() {
         {(() => {
           const visibleQueuePosts = queue?.posts.filter(p => !removedClipIds.has(p.clip.id)) ?? []
           const nextQueuePost = visibleQueuePosts[0]
+          const bankCount = clipBank.filter(c => !removedClipIds.has(c.id)).length
           return (
-            <div className="rounded-2xl border border-white/[0.06] bg-[rgba(18,18,28,.65)] p-4 space-y-4">
-              {/* Header */}
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Zap className="h-4 w-4 text-cyan-400" />
-                  <span className="text-xs font-bold tracking-[0.1em] uppercase text-cyan-400">AI Distribution</span>
-                </div>
-                <span className={cn(
-                  'text-[10px] font-bold px-2 py-0.5 rounded-full',
-                  aiAutoDistribute
-                    ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30'
-                    : 'bg-zinc-800 text-zinc-500 border border-zinc-700'
-                )}>
-                  {aiAutoDistribute ? 'Active' : 'Paused'}
+            <>
+              {/* ── Mini vertical brain diagram ── */}
+              <div className="dist-mobile-brain-flow">
+                {/* Clip Bank pill */}
+                <span className="dist-mbf-pill bank">
+                  <Layers className="h-3 w-3" />
+                  Clip Bank · {bankCount}
                 </span>
+
+                {/* Connector down */}
+                <div className="dist-mbf-connector" />
+
+                {/* Compact brain */}
+                <div className={`dist-mbf-brain state-${coreState}`}>
+                  <div className="dist-mbf-brain-glow" />
+                  <svg className="dist-mbf-brain-svg" viewBox="0 0 320 320" aria-hidden="true">
+                    <circle cx="160" cy="160" r="148" fill="rgba(8,15,28,0.32)" stroke="rgba(56,189,248,0.22)" strokeWidth="1" />
+                    <circle cx="160" cy="160" r="142" fill="none" stroke="rgba(56,189,248,0.12)" strokeWidth="0.6" />
+                    <g className="dist-core-outer-ring">
+                      <circle cx="160" cy="160" r="148" fill="none" stroke="rgba(56,189,248,0.55)" strokeWidth="1.1" strokeDasharray="2 7" strokeLinecap="round" />
+                    </g>
+                    <g transform="translate(0 30)">
+                      <path d="M153 48 C132 24 92 30 79 58 C48 63 35 91 47 116 C23 138 35 176 65 184 C68 219 111 235 153 207 Z" fill="rgba(56,189,248,0.06)" />
+                      <path d="M167 48 C188 24 228 30 241 58 C272 63 285 91 273 116 C297 138 285 176 255 184 C252 219 209 235 167 207 Z" fill="rgba(56,189,248,0.06)" />
+                      <g stroke="rgba(56,189,248,0.7)" strokeWidth="5.5" strokeLinecap="round" strokeLinejoin="round" fill="none">
+                        <path d="M153 48 C132 24 92 30 79 58 C48 63 35 91 47 116 C23 138 35 176 65 184 C68 219 111 235 153 207" />
+                        <path d="M167 48 C188 24 228 30 241 58 C272 63 285 91 273 116 C297 138 285 176 255 184 C252 219 209 235 167 207" />
+                        <path d="M160 45 L160 78" opacity="0.9" />
+                        <path d="M160 188 L160 218" opacity="0.9" />
+                      </g>
+                    </g>
+                    {/* Wolf */}
+                    <g transform="matrix(0.55 0 0 0.55 119.3 118.925)">
+                      <path fill="#020617" stroke="#FFC58A" strokeWidth="2.4" strokeLinejoin="round" strokeLinecap="round" fillRule="evenodd"
+                        d="M 16 5 L 16 46 L 21 63 L 27 59 L 24 27 L 41 53 L 35 53 L 36 69 L 28 63 L 8 80 L 17 85 L 4 103 L 14 102 L 14 112 L 31 111 L 28 101 L 40 111 L 41 106 L 50 112 L 49 125 L 62 149 L 63 142 L 71 138 L 62 126 L 64 122 L 85 123 L 77 137 L 84 141 L 86 149 L 98 127 L 96 111 L 106 106 L 108 110 L 119 101 L 116 111 L 134 112 L 132 103 L 144 103 L 130 85 L 139 80 L 119 63 L 111 69 L 113 53 L 106 53 L 123 27 L 120 59 L 126 64 L 131 44 L 130 4 L 88 41 L 59 41 Z"
+                      />
+                    </g>
+                  </svg>
+                  <div className="dist-mbf-brain-label">{coreState === 'paused' ? 'Paused' : 'AI Engine'}</div>
+                </div>
+
+                {/* Connector down */}
+                <div className="dist-mbf-connector" />
+
+                {/* Platform pills */}
+                <div className="dist-mbf-platforms">
+                  {PLATFORMS.filter(p => ['tiktok', 'youtube', 'instagram'].includes(p.id)).map((p) => {
+                    const isConn = connectedPlatforms.includes(p.id as typeof connectedPlatforms[number])
+                    return (
+                      <span key={p.id} className={cn(
+                        'dist-mbf-pill',
+                        isConn && p.supported ? 'active' : 'dim'
+                      )}>
+                        {p.icon} {p.label.split(' ')[0]}
+                      </span>
+                    )
+                  })}
+                </div>
               </div>
 
-              {/* Next post */}
-              <div className="rounded-xl bg-black/30 border border-white/[0.06] p-3">
-                {nextQueuePost ? (
-                  <div className="flex items-center gap-3">
-                    <div className="h-9 w-9 rounded-lg bg-cyan-500/10 flex items-center justify-center shrink-0">
-                      <Clock className="h-4 w-4 text-cyan-400" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-white truncate">{nextQueuePost.clip.title || 'Untitled clip'}</p>
-                      <p className="text-[11px] text-zinc-400">
-                        {new Date(nextQueuePost.scheduledAt).toLocaleDateString('en-US', { weekday: 'short' })}
-                        {' · '}
-                        {new Date(nextQueuePost.scheduledAt).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
-                        {' · '}
-                        {PLATFORMS.find(pl => pl.id === nextQueuePost.platform)?.label ?? nextQueuePost.platform}
-                      </p>
-                    </div>
+              {/* ── Status card (without platform pills — already above) ── */}
+              <div className="rounded-2xl border border-white/[0.06] bg-[rgba(18,18,28,.65)] p-4 space-y-3 mt-4">
+                {/* Header */}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Zap className="h-4 w-4 text-cyan-400" />
+                    <span className="text-xs font-bold tracking-[0.1em] uppercase text-cyan-400">AI Distribution</span>
                   </div>
-                ) : (
-                  <div className="text-center py-2">
-                    <p className="text-sm text-zinc-400">No clip queued</p>
-                    <p className="text-[11px] text-zinc-500">Add one from your bank below</p>
-                  </div>
-                )}
-              </div>
+                  <span className={cn(
+                    'text-[10px] font-bold px-2 py-0.5 rounded-full',
+                    aiAutoDistribute
+                      ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30'
+                      : 'bg-zinc-800 text-zinc-500 border border-zinc-700'
+                  )}>
+                    {aiAutoDistribute ? 'Active' : 'Paused'}
+                  </span>
+                </div>
 
-              {/* Platforms */}
-              <div className="flex items-center gap-2">
-                {PLATFORMS.filter(p => ['tiktok', 'youtube', 'instagram'].includes(p.id)).map((p) => {
-                  const isConn = connectedPlatforms.includes(p.id as typeof connectedPlatforms[number])
-                  return (
-                    <span key={p.id} className={cn(
-                      'text-[10px] font-medium px-2.5 py-1 rounded-full border',
-                      isConn && p.supported
-                        ? 'border-cyan-500/30 bg-cyan-500/10 text-cyan-400'
-                        : 'border-zinc-700 bg-zinc-800/50 text-zinc-500'
-                    )}>
-                      {p.icon} {p.label.split(' ')[0]}
-                      {!p.supported && ' · soon'}
-                    </span>
-                  )
-                })}
-              </div>
+                {/* Next post */}
+                <div className="rounded-xl bg-black/30 border border-white/[0.06] p-3">
+                  {nextQueuePost ? (
+                    <div className="flex items-center gap-3">
+                      <div className="h-9 w-9 rounded-lg bg-cyan-500/10 flex items-center justify-center shrink-0">
+                        <Clock className="h-4 w-4 text-cyan-400" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-white truncate">{nextQueuePost.clip.title || 'Untitled clip'}</p>
+                        <p className="text-[11px] text-zinc-400">
+                          {new Date(nextQueuePost.scheduledAt).toLocaleDateString('en-US', { weekday: 'short' })}
+                          {' · '}
+                          {new Date(nextQueuePost.scheduledAt).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
+                          {' · '}
+                          {PLATFORMS.find(pl => pl.id === nextQueuePost.platform)?.label ?? nextQueuePost.platform}
+                        </p>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-center py-2">
+                      <p className="text-sm text-zinc-400">No clip queued</p>
+                      <p className="text-[11px] text-zinc-500">Add one from your bank below</p>
+                    </div>
+                  )}
+                </div>
 
-              {/* CTA */}
-              <button
-                onClick={() => {
-                  const el = document.getElementById('dist-queue-section')
-                  el?.scrollIntoView({ behavior: 'smooth' })
-                }}
-                className="w-full h-9 rounded-lg text-xs font-bold text-cyan-400 border border-cyan-500/30 bg-cyan-500/5 hover:bg-cyan-500/10 transition-colors flex items-center justify-center gap-1.5"
-              >
-                Schedule <ChevronRight className="h-3 w-3" />
-              </button>
-            </div>
+                {/* CTA */}
+                <button
+                  onClick={() => {
+                    const el = document.getElementById('dist-queue-section')
+                    el?.scrollIntoView({ behavior: 'smooth' })
+                  }}
+                  className="w-full h-9 rounded-lg text-xs font-bold text-cyan-400 border border-cyan-500/30 bg-cyan-500/5 hover:bg-cyan-500/10 transition-colors flex items-center justify-center gap-1.5"
+                >
+                  Schedule <ChevronRight className="h-3 w-3" />
+                </button>
+              </div>
+            </>
           )
         })()}
       </div>
@@ -2265,6 +2310,7 @@ export function DistributionHub() {
                     <div className="in" style={!aiAutoDistribute ? { color: 'rgba(245,158,11,0.7)', fontStyle: 'italic' } : undefined}>
                       {!aiAutoDistribute ? `${inLabel} (paused)` : inLabel}
                     </div>
+                    <span className="match-mobile">{fitScore}% match</span>
                   </div>
 
                   {hasThumb ? (

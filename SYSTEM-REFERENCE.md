@@ -861,7 +861,9 @@ CSS: `landing-v3.css` under `HERO PRODUCT MOCKUP` section.
 
 **Single gutter:** Distribution hub CSS: `@media (max-width: 767px) { .dist-page { padding: 0 } }` — inherits `px-4` from dashboard layout, matching Browse (358px usable on 390px). Desktop keeps `padding: 0 24px 48px`.
 
-**Distribution Core (connection map):** `@media (max-width: 720px)` in `distribution-hub.css` — connection map + connector hidden (`display: none`), replaced by `.dist-mobile-status-card`: header (⚡ AI DISTRIBUTION + active/paused badge from `aiAutoDistribute`), next queued post (title + time + platform from `queue.posts[0]`), platform pills (connected vs "soon"), "Schedule →" CTA scrolling to `#dist-queue-section`. Desktop: full brain diagram + SVG paths + platform nodes unchanged.
+**Distribution Core (connection map):** `@media (max-width: 720px)` in `distribution-hub.css` — connection map + connector hidden (`display: none`). Replaced by `.dist-mobile-status-card` containing: (1) `.dist-mobile-brain-flow` — vertical diagram: Clip Bank pill (with count) → animated dotted connector → compact 160px brain (outer ring reuses `dist-core-ring-rotate`, wolf silhouette, state-aware glow) → connector → platform pills (TikTok/YouTube/Instagram, active/dim). (2) Status card: header (⚡ AI DISTRIBUTION + active/paused badge), next queued post (title + time + platform), "Schedule →" CTA scrolling to `#dist-queue-section`. Desktop: full brain diagram + SVG paths + platform nodes unchanged.
+
+**Distribution schedule cards (≤860px):** CSS selectors fixed (`.dist-pc-thumb`/`.dist-pc-fit`, was `.pc-thumb`/`.pc-fit` — dead selectors causing overlap). Mobile grid: `70px 1fr auto`, thumbnail + fit% column hidden, title truncated 1 line, reason clamped 2 lines (`-webkit-line-clamp: 2`), pills wrap, match% shown in time column as `.match-mobile` (hidden on desktop).
 
 **Feed tabs fade rail:** Mobile: `mask-image: linear-gradient(to right, black 0%, black 85%, transparent 100%)` on tab container, `pr-8` padding for last-tab reveal, `gap-1.5` spacing. Desktop: no mask, `gap-0.5`, `pr-0.5`. Never wraps to two rows.
 
