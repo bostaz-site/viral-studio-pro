@@ -859,14 +859,29 @@ CSS: `landing-v3.css` under `HERO PRODUCT MOCKUP` section.
 - **Top Pick mobile:** Crown scaled 0.7, padding reduced, explanation line hidden, CTA full-width below content (`sm:hidden`), score 36px.
 - **Daily Radar mobile:** 2 lines max — line 1: icon + "DAILY RADAR", line 2: "X exploding · Y legendary · updated Zm ago". Desktop unchanged.
 
+**Single gutter:** Distribution hub CSS: `@media (max-width: 767px) { .dist-page { padding: 0 } }` — inherits `px-4` from dashboard layout, matching Browse (358px usable on 390px). Desktop keeps `padding: 0 24px 48px`.
+
 **Distribution Core (connection map):** `@media (max-width: 720px)` in `distribution-hub.css` — grid becomes flex column, SVG paths hidden, brain centered at 300px max-width, platform nodes compact (56px icons).
+
+**Feed tabs fade rail:** Mobile: `mask-image: linear-gradient(to right, black 0%, black 85%, transparent 100%)` on tab container, `pr-8` padding for last-tab reveal, `gap-1.5` spacing. Desktop: no mask, `gap-0.5`, `pr-0.5`. Never wraps to two rows.
+
+**Bottom Layer Manager:** One floating surface at a time on mobile. Priority: render toast > PWA banner.
+- `stores/ui-store.ts` tracks `hasActiveRenderToast` (boolean). Browse page syncs it from `quickExport?.status === 'rendering' || renderNotification`.
+- PWA `InstallBanner` reads `hasActiveRenderToast` — hides when true. Also hides on Enhance page (not mounted there).
+- **PWA banner timing:** `vsp:pwa-sessions` counter in localStorage, incremented per mount. Banner only appears from session >= 2. Dismiss = 7-day cooldown (`vsp:pwa-dismiss` timestamp). `appinstalled` event = permanent hide (1-year cooldown). `beforeinstallprompt` = required for `canInstall`.
 
 **Fixed bottom stacking:** Render toasts/notifications use `inset-x-4 bottom-4 md:left-auto md:right-6` (full-width mobile, right-anchored desktop). Install banner at `bottom-20 z-40` (below toasts at `z-50`).
 
-**Enhance page:** Mobile fixed bottom bar (`lg:hidden`) with Generate CTA always reachable during editing. Rendering state shown in same bar.
+**Enhance page:** Mobile fixed bottom bar (`lg:hidden`) with Generate CTA always reachable during editing. FFmpeg pipeline on mobile: `hidden md:flex` for 6-stage labels, replaced by compact progress bar: "Rendering — step X/4" + amber gradient bar + current stage name (12px). Desktop keeps full pipeline.
 
 **Modal guards:** `max-h-[90vh] overflow-y-auto` on paywall modal, welcome modal, and `.dist-modal-card`. Onboarding overlay: `overflow-y-auto justify-start py-8`, Skip link above grid on mobile.
 
-**Responsive grids:** affiliate stats `grid-cols-2 sm:grid-cols-4`, settings referral `grid-cols-1 sm:grid-cols-3`, caption styles `grid-cols-2 sm:grid-cols-3`, split-screen framing `grid-cols-2 sm:grid-cols-3`. Feed tabs: `overflow-x-auto` with hidden scrollbar. Daily Radar: `flex-wrap min-h-14 py-2`.
+**Mobile typography:** No text < 10px on user pages. 8px labels bumped to `text-[10px] md:text-[8px]`: hook overlay/coming-soon labels, segment durations, caption animLabel, hook style descriptions. Exceptions: "AI" pip badges (decorative, inside larger text), platform abbreviations (YT/TK/IG in 16px icons).
+
+**Slider touch targets:** `components/ui/slider.tsx` — input `h-11 md:h-1.5` (44px touch area on mobile, 6px on desktop). Visual thumb unchanged (16px). Rail and fill unchanged.
+
+**Drawer nav items:** `layout.tsx` user nav items: `min-h-[48px] md:min-h-0` (48px touch target on mobile). Active state: `bg-amber-500/10 text-amber-400` with amber icon (replaces `bg-primary/10 text-primary`).
+
+**Responsive grids:** affiliate stats `grid-cols-2 sm:grid-cols-4`, settings referral `grid-cols-1 sm:grid-cols-3`, caption styles `grid-cols-2 sm:grid-cols-3`, split-screen framing `grid-cols-2 sm:grid-cols-3`. Feed tabs: `overflow-x-auto` with hidden scrollbar + fade mask. Daily Radar: `flex-wrap min-h-14 py-2`.
 
 **Viewport:** `export const viewport` in `app/layout.tsx` — `width: device-width`, `initialScale: 1`, `viewportFit: cover`. Login reset input: `text-base sm:text-xs` (prevents iOS zoom).

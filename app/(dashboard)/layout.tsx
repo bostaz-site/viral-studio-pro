@@ -184,8 +184,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 : pathname?.startsWith(item.href)
               return (
                 <Link key={item.name} href={item.href}>
-                  <span className={`flex items-center px-4 py-2.5 text-sm font-medium rounded-xl transition-all duration-200 ${isActive ? 'bg-primary/10 text-primary shadow-sm' : 'text-muted-foreground hover:bg-muted hover:text-foreground'}`}>
-                    <item.icon className={`h-5 w-5 mr-3 ${isActive ? 'text-primary' : 'text-muted-foreground'}`} />
+                  <span className={`flex items-center px-4 py-2.5 md:py-2.5 min-h-[48px] md:min-h-0 text-sm font-medium rounded-xl transition-all duration-200 ${isActive ? 'bg-amber-500/10 text-amber-400 shadow-sm' : 'text-muted-foreground hover:bg-muted hover:text-foreground'}`}>
+                    <item.icon className={`h-5 w-5 mr-3 ${isActive ? 'text-amber-400' : 'text-muted-foreground'}`} />
                     {item.name}
                   </span>
                 </Link>

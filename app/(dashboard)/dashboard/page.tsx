@@ -24,6 +24,7 @@ import type { FeedFilter } from '@/types/trending'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { InstallBanner } from '@/components/pwa/install-banner'
+import { useUiStore } from '@/stores/ui-store'
 import { TopPickCard } from '@/components/trending/top-pick-card'
 import { track } from '@/lib/analytics'
 
@@ -76,6 +77,14 @@ export default function DashboardPage() {
       try { sessionStorage.removeItem('va-quick-export') } catch {}
     }
   }, [quickExport])
+
+  // Sync render toast visibility → ui-store (for PWA banner coordination)
+  const setHasActiveRenderToast = useUiStore(s => s.setHasActiveRenderToast)
+  useEffect(() => {
+    const active = !!(quickExport?.status === 'rendering' || renderNotification)
+    setHasActiveRenderToast(active)
+    return () => setHasActiveRenderToast(false)
+  }, [quickExport?.status, renderNotification, setHasActiveRenderToast])
 
   const {
     filteredClips,
@@ -596,7 +605,7 @@ export default function DashboardPage() {
       {/* Tabs + Filters */}
       <div className="space-y-2">
         {/* Feed tabs — segmented control style, compact */}
-        <div className="flex items-center gap-0.5 p-0.5 rounded-lg border border-border bg-card/50 w-fit max-w-full overflow-x-auto -mx-4 px-4 md:mx-0 md:px-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <div className="flex items-center gap-1.5 md:gap-0.5 p-0.5 rounded-lg border border-border bg-card/50 w-fit max-w-full overflow-x-auto -mx-4 px-4 pr-8 md:mx-0 md:px-0.5 md:pr-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden [mask-image:linear-gradient(to_right,black_0%,black_85%,transparent_100%)] md:[mask-image:none]">
           {feedTabs.map(({ key, label, icon: Icon, count, subtle, empty }) => {
             const active = filters.feed === key
             return (

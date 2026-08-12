@@ -29,6 +29,12 @@
   flex-direction: column;
 }
 
+@media (max-width: 767px) {
+  .dist-page {
+    padding: 0 0 48px;
+  }
+}
+
 /* ─── Publish Strip → "Manual override" — moved to bottom of the page ─── */
 /* Visually separated, smaller in prominence: AI core + bank are the wow. Manual is fallback. */
 #publish-strip {

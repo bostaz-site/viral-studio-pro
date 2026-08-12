@@ -22,7 +22,7 @@ const Slider = React.forwardRef<HTMLInputElement, SliderProps>(
     }
 
     return (
-      <div className={cn("relative w-full h-5 flex items-center", className)}>
+      <div className={cn("relative w-full h-5 md:h-5 flex items-center", className)}>
         {/* Rail */}
         <div className="absolute inset-x-0 h-1.5 rounded-full bg-white/10 pointer-events-none" />
         {/* Filled range */}
@@ -30,7 +30,7 @@ const Slider = React.forwardRef<HTMLInputElement, SliderProps>(
           className="absolute left-0 h-1.5 rounded-full bg-gradient-to-r from-amber-400 to-amber-600 pointer-events-none"
           style={{ width: `${pct}%` }}
         />
-        {/* Native input */}
+        {/* Native input — 44px touch target on mobile via padding, visual thumb unchanged */}
         <input
           ref={ref}
           type="range"
@@ -40,7 +40,7 @@ const Slider = React.forwardRef<HTMLInputElement, SliderProps>(
           value={inputValue}
           onChange={handleChange}
           className={cn(
-            "relative w-full h-1.5 appearance-none bg-transparent cursor-pointer z-10",
+            "relative w-full h-11 md:h-1.5 appearance-none bg-transparent cursor-pointer z-10",
             "[&::-webkit-slider-runnable-track]:bg-transparent [&::-webkit-slider-runnable-track]:h-1.5",
             "[&::-moz-range-track]:bg-transparent [&::-moz-range-track]:h-1.5 [&::-moz-range-track]:border-0",
             "[&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-amber-400 [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-amber-950/40 [&::-webkit-slider-thumb]:shadow-[0_0_8px_rgba(245,158,11,0.4)] [&::-webkit-slider-thumb]:cursor-pointer [&::-webkit-slider-thumb]:transition-transform",

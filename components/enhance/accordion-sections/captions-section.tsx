@@ -100,7 +100,7 @@ export function CaptionsSection({
                         )}
                       </span>
                       {style.animLabel && (
-                        <span className="text-[8px] block text-muted-foreground/60 mt-0.5">{style.animLabel}</span>
+                        <span className="text-[10px] md:text-[8px] block text-muted-foreground/60 mt-0.5">{style.animLabel}</span>
                       )}
                     </button>
                   )

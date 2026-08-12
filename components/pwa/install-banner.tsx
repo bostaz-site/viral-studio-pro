@@ -4,16 +4,22 @@ import { useState, useEffect } from 'react'
 import { Download, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { usePwaInstall } from '@/hooks/use-pwa-install'
+import { useUiStore } from '@/stores/ui-store'
 
 const DISMISS_KEY = 'vsp:pwa-dismiss'
+const SESSION_KEY = 'vsp:pwa-sessions'
 const DISMISS_DAYS = 7
+const MIN_SESSIONS = 2
 
 export function InstallBanner() {
   const { canInstall, promptInstall } = usePwaInstall()
+  const hasActiveRenderToast = useUiStore(s => s.hasActiveRenderToast)
   const [visible, setVisible] = useState(false)
 
   useEffect(() => {
     if (!canInstall) return
+
+    // Dismiss cooldown
     try {
       const dismissed = localStorage.getItem(DISMISS_KEY)
       if (dismissed) {
@@ -21,8 +27,26 @@ export function InstallBanner() {
         if (Date.now() < expires) return
       }
     } catch { /* localStorage unavailable */ }
+
+    // Session counter — only show from 2nd session onwards
+    try {
+      const count = Number(localStorage.getItem(SESSION_KEY) || '0') + 1
+      localStorage.setItem(SESSION_KEY, String(count))
+      if (count < MIN_SESSIONS) return
+    } catch { /* ignore */ }
+
     setVisible(true)
   }, [canInstall])
+
+  // Listen for appinstalled → hide permanently
+  useEffect(() => {
+    const handler = () => {
+      setVisible(false)
+      try { localStorage.setItem(DISMISS_KEY, String(Date.now() + 365 * 86400000)) } catch {}
+    }
+    window.addEventListener('appinstalled', handler)
+    return () => window.removeEventListener('appinstalled', handler)
+  }, [])
 
   const handleDismiss = () => {
     setVisible(false)
@@ -36,7 +60,8 @@ export function InstallBanner() {
     setVisible(false)
   }
 
-  if (!visible) return null
+  // Hidden when render toast is active or not visible
+  if (!visible || hasActiveRenderToast) return null
 
   return (
     <div className="fixed bottom-20 left-4 right-4 z-40 md:hidden animate-in slide-in-from-bottom-4 fade-in duration-300 pb-[env(safe-area-inset-bottom)]">

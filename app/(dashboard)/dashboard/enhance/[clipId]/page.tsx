@@ -1656,8 +1656,8 @@ export default function EnhancePage() {
                     <p className="text-sm font-bold text-zinc-100">Rendering your clip</p>
                     <p className="text-[10px] text-zinc-500 mt-0.5">{renderStageIdx >= 0 ? RENDER_STAGES[renderStageIdx] : 'Starting'}...</p>
                   </div>
-                  {/* FFmpeg stage pipeline */}
-                  <div className="flex items-start gap-1 w-full">
+                  {/* FFmpeg stage pipeline — desktop: full labels, mobile: single progress bar */}
+                  <div className="hidden md:flex items-start gap-1 w-full">
                     {RENDER_STAGES.map((stage, i) => (
                       <div key={stage} className="flex flex-col items-center gap-1 flex-1">
                         <div className={cn(
@@ -1676,6 +1676,19 @@ export default function EnhancePage() {
                         </span>
                       </div>
                     ))}
+                  </div>
+                  {/* Mobile: compact progress */}
+                  <div className="md:hidden w-full space-y-1.5">
+                    <div className="flex items-center justify-between text-[12px]">
+                      <span className="text-zinc-400">Rendering — step {Math.max(1, renderStageIdx + 1)}/{RENDER_STAGES.length}</span>
+                      <span className="text-amber-400 font-medium">{renderStageIdx >= 0 ? RENDER_STAGES[renderStageIdx] : 'Starting'}</span>
+                    </div>
+                    <div className="w-full h-1.5 rounded-full bg-zinc-800 overflow-hidden">
+                      <div
+                        className="h-full rounded-full bg-gradient-to-r from-amber-400 to-amber-600 transition-all duration-700"
+                        style={{ width: `${renderStageIdx >= 0 ? Math.round(((renderStageIdx + 1) / RENDER_STAGES.length) * 100) : 5}%` }}
+                      />
+                    </div>
                   </div>
                   {/* Notification opt-in */}
                   {!notifyOnDone && typeof window !== 'undefined' && 'Notification' in window && Notification.permission !== 'denied' && (
@@ -2253,14 +2266,14 @@ export default function EnhancePage() {
                         >
                           <Type className="h-4 w-4 mx-auto mb-1 text-orange-400" />
                           <span className="text-[10px] font-bold text-foreground block">Hook text</span>
-                          <span className="text-[8px] text-muted-foreground block">Overlay at start</span>
+                          <span className="text-[10px] md:text-[8px] text-muted-foreground block">Overlay at start</span>
                         </button>
                         <div
                           className="rounded-xl border border-border p-2.5 text-center opacity-50 cursor-not-allowed"
                         >
                           <Zap className="h-4 w-4 mx-auto mb-1 text-zinc-500" />
                           <span className="text-[10px] font-bold text-foreground block">Peak moment first</span>
-                          <span className="text-[8px] px-1 py-0.5 rounded bg-zinc-700/60 text-zinc-400 font-bold uppercase tracking-wider">Coming Soon</span>
+                          <span className="text-[10px] md:text-[8px] px-1 py-0.5 rounded bg-zinc-700/60 text-zinc-400 font-bold uppercase tracking-wider">Coming Soon</span>
                         </div>
                       </div>
 
@@ -2358,7 +2371,7 @@ export default function EnhancePage() {
                                   )}>
                                     {seg.label === 'hook' ? 'HOOK' : seg.label === 'context' ? 'CONTEXT' : 'PAYOFF'}
                                   </span>
-                                  <span className="text-[8px] text-muted-foreground block">{seg.duration.toFixed(1)}s</span>
+                                  <span className="text-[10px] md:text-[8px] text-muted-foreground block">{seg.duration.toFixed(1)}s</span>
                                 </div>
                               ))}
                             </div>
@@ -2396,7 +2409,7 @@ export default function EnhancePage() {
                                     ) : null
                                   })()}
                                 </span>
-                                <span className="text-[8px] text-muted-foreground block">{style.desc}</span>
+                                <span className="text-[10px] md:text-[8px] text-muted-foreground block">{style.desc}</span>
                               </button>
                             ))}
                           </div>
