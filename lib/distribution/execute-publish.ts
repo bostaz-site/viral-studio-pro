@@ -54,14 +54,17 @@ export async function executePublish(params: ExecutePublishParams): Promise<Exec
   // 1. Find clip storage path (render_jobs first, then clips table)
   const { data: renderJobs } = await admin
     .from('render_jobs')
-    .select('id, clip_id, storage_path, user_id')
+    .select('id, clip_id, storage_path, user_id, render_settings')
     .eq('clip_id', clipId)
     .eq('user_id', userId)
     .eq('status', 'done')
     .order('created_at', { ascending: false })
     .limit(1)
 
-  const renderJob = renderJobs?.[0] ?? null
+  const renderJob = renderJobs?.[0] as {
+    id: string; clip_id: string; storage_path: string | null; user_id: string;
+    render_settings: Record<string, unknown> | null;
+  } | undefined ?? null
   let clipStoragePath: string | null = renderJob?.storage_path ?? null
 
   if (!clipStoragePath) {
@@ -175,6 +178,9 @@ export async function executePublish(params: ExecutePublishParams): Promise<Exec
       .eq('platform', platform)
       .single()
 
+    // Auto-resolve render settings from render_jobs snapshot
+    const rs = renderJob?.render_settings ?? null
+
     const { error: insertError } = await admin.from('published_posts').insert({
       user_id: userId,
       clip_id: clipId,
@@ -185,6 +191,12 @@ export async function executePublish(params: ExecutePublishParams): Promise<Exec
       published_at: publishedAt,
       posted_hour_local: new Date().getHours(),
       posted_weekday: new Date().getDay(),
+      caption_style: (rs?.caption_style as string | null) ?? null,
+      hook_style: (rs?.hook_style as string | null) ?? null,
+      hook_enabled: (rs?.hook_enabled as boolean | null) ?? null,
+      split_screen_enabled: (rs?.split_screen_enabled as boolean | null) ?? null,
+      smart_zoom_mode: (rs?.smart_zoom_mode as string | null) ?? null,
+      clip_mood: (rs?.auto_cut_mood as string | null) ?? null,
       algo_score_at_pick: algoScore,
       source_platform: sourcePlatform,
       source_streamer: sourceStreamer,

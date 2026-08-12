@@ -34,6 +34,7 @@ interface TikTokPublishDialogProps {
   clipTitle?: string
   clipDurationSeconds?: number
   videoPreviewUrl?: string
+  metadata?: Record<string, unknown>
 }
 
 // ── Component ────────────────────────────────────────────────────────────────
@@ -45,6 +46,7 @@ export function TikTokPublishDialog({
   clipTitle,
   clipDurationSeconds,
   videoPreviewUrl,
+  metadata,
 }: TikTokPublishDialogProps) {
   // Creator info
   const [creatorInfo, setCreatorInfo] = useState<TikTokCreatorInfo | null>(null)
@@ -181,6 +183,7 @@ export function TikTokPublishDialog({
             brand_content_toggle: brandContent,
             brand_organic_toggle: brandOrganic,
           },
+          metadata: metadata ?? undefined,
         }),
       })
 

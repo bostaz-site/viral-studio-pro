@@ -84,14 +84,18 @@ export const POST = withAuth(
     // for the same clip (user clicked "Generate" multiple times).
     const { data: renderJobs } = await admin
       .from('render_jobs')
-      .select('id, clip_id, storage_path, clip_url, user_id')
+      .select('id, clip_id, storage_path, clip_url, user_id, render_settings')
       .eq('clip_id', clip_id)
       .eq('user_id', user.id)
       .eq('status', 'done')
       .order('created_at', { ascending: false })
       .limit(1)
 
-    const renderJob = renderJobs?.[0] ?? null
+    const renderJob = renderJobs?.[0] as {
+      id: string; clip_id: string; storage_path: string | null;
+      clip_url: string | null; user_id: string;
+      render_settings: Record<string, unknown> | null;
+    } | undefined ?? null
 
     // Fallback: check clips table
     let clipStoragePath: string | null = null
@@ -250,7 +254,10 @@ export const POST = withAuth(
         })
         .eq('id', publication.id)
 
-      // Log to published_posts for Learning Engine pattern detection
+      // Log to published_posts for Learning Engine pattern detection.
+      // Auto-resolve from render_settings (persisted at render time) when caller doesn't send metadata.
+      const rs = renderJob?.render_settings as Record<string, unknown> | null
+
       // Fetch source metadata from trending_clips if available
       let sourcePlatform: string | null = null
       let sourceStreamer: string | null = null
@@ -272,7 +279,9 @@ export const POST = withAuth(
         durationFromSource = trendingClip.duration_seconds
       }
 
-      void admin
+      // MUST be awaited — in serverless (Netlify), fire-and-forget promises
+      // are killed when the response is sent, causing silent data loss.
+      const { error: ppError } = await admin
         .from('published_posts')
         .insert({
           user_id: user.id,
@@ -285,13 +294,14 @@ export const POST = withAuth(
           published_at: publishedAt,
           posted_hour_local: metadata?.posted_hour_local ?? new Date().getHours(),
           posted_weekday: metadata?.posted_weekday ?? new Date().getDay(),
-          clip_mood: metadata?.clip_mood ?? null,
-          caption_style: metadata?.caption_style ?? null,
+          // Render settings: caller metadata wins, then render_settings snapshot, then null
+          caption_style: metadata?.caption_style ?? (rs?.caption_style as string | null) ?? null,
           caption_tone: metadata?.caption_tone ?? null,
-          hook_style: metadata?.hook_style ?? null,
-          hook_enabled: metadata?.hook_enabled ?? null,
-          split_screen_enabled: metadata?.split_screen_enabled ?? null,
-          smart_zoom_mode: metadata?.smart_zoom_mode ?? null,
+          hook_style: metadata?.hook_style ?? (rs?.hook_style as string | null) ?? null,
+          hook_enabled: metadata?.hook_enabled ?? (rs?.hook_enabled as boolean | null) ?? null,
+          split_screen_enabled: metadata?.split_screen_enabled ?? (rs?.split_screen_enabled as boolean | null) ?? null,
+          smart_zoom_mode: metadata?.smart_zoom_mode ?? (rs?.smart_zoom_mode as string | null) ?? null,
+          clip_mood: metadata?.clip_mood ?? (rs?.auto_cut_mood as string | null) ?? null,
           duration_seconds: metadata?.duration_seconds ?? durationFromSource ?? null,
           blowup_chance_at_render: metadata?.blowup_chance_at_render ?? null,
           algo_score_at_pick: algoScore,
@@ -299,6 +309,10 @@ export const POST = withAuth(
           source_streamer: sourceStreamer,
           niche,
         })
+
+      if (ppError) {
+        logger.error(`[publish] published_posts insert failed: ${ppError.message}`)
+      }
 
       return jsonResponse({
         publicationId: publication.id,

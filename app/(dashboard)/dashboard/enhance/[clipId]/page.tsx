@@ -2680,6 +2680,16 @@ export default function EnhancePage() {
         clipId={clipId}
         clipTitle={clip?.title ?? undefined}
         videoPreviewUrl={videoUrl ?? undefined}
+        metadata={{
+          clip_mood: (selectedMood ?? detectedMood) ?? undefined,
+          caption_style: settings.captionStyle,
+          hook_style: settings.hookStyle,
+          hook_enabled: settings.hookEnabled,
+          split_screen_enabled: settings.splitScreenEnabled,
+          smart_zoom_mode: settings.smartZoomMode,
+          duration_seconds: clip?.duration_seconds ?? undefined,
+          blowup_chance_at_render: currentScore,
+        }}
       />
 
       {/* Paywall modal */}

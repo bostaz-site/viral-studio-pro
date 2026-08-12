@@ -80,6 +80,7 @@ const inputSchema = z.object({
     autoCut: z.object({
       enabled: z.boolean().optional(),
       silenceThreshold: z.number().min(0.3).max(2).optional(),
+      mood: z.string().optional(),
     }).optional(),
   }).optional(),
 })
@@ -315,6 +316,23 @@ export const POST = withAuth(async (request, user) => {
   }
 
   // ── Create render job for tracking ──
+  // Build a lean snapshot of render settings for learning loop (published_posts metadata).
+  // Excludes binary blobs (overlayPng) to keep the JSONB column small.
+  const renderSettingsSnapshot = settings ? {
+    caption_style: settings.captions?.style ?? null,
+    caption_enabled: settings.captions?.enabled ?? null,
+    hook_enabled: settings.hook?.enabled ?? null,
+    hook_style: settings.hook?.style ?? null,
+    split_screen_enabled: settings.splitScreen?.enabled ?? null,
+    smart_zoom_mode: settings.smartZoom?.mode ?? null,
+    smart_zoom_enabled: settings.smartZoom?.enabled ?? null,
+    audio_enhance_enabled: settings.audioEnhance?.enabled ?? null,
+    auto_cut_enabled: settings.autoCut?.enabled ?? null,
+    auto_cut_mood: settings.autoCut?.mood ?? null,
+    video_zoom: settings.format?.videoZoom ?? null,
+    aspect_ratio: settings.format?.aspectRatio ?? null,
+  } : null
+
   const { data: job, error: jobError } = await admin
     .from('render_jobs')
     .insert({
@@ -322,7 +340,8 @@ export const POST = withAuth(async (request, user) => {
       source: foundSource,
       user_id: user.id,
       status: 'pending',
-    })
+      render_settings: renderSettingsSnapshot,
+    } as never)
     .select('id')
     .single()
 
