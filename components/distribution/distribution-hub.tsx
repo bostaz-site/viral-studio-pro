@@ -1599,7 +1599,89 @@ export function DistributionHub() {
         </div>
       </div>
 
-      {/* ═══ CONNECTION MAP ═══ */}
+      {/* ═══ MOBILE STATUS CARD (replaces connection map diagram on small screens) ═══ */}
+      <div className="dist-mobile-status-card">
+        {(() => {
+          const visibleQueuePosts = queue?.posts.filter(p => !removedClipIds.has(p.clip.id)) ?? []
+          const nextQueuePost = visibleQueuePosts[0]
+          return (
+            <div className="rounded-2xl border border-white/[0.06] bg-[rgba(18,18,28,.65)] p-4 space-y-4">
+              {/* Header */}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Zap className="h-4 w-4 text-cyan-400" />
+                  <span className="text-xs font-bold tracking-[0.1em] uppercase text-cyan-400">AI Distribution</span>
+                </div>
+                <span className={cn(
+                  'text-[10px] font-bold px-2 py-0.5 rounded-full',
+                  aiAutoDistribute
+                    ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30'
+                    : 'bg-zinc-800 text-zinc-500 border border-zinc-700'
+                )}>
+                  {aiAutoDistribute ? 'Active' : 'Paused'}
+                </span>
+              </div>
+
+              {/* Next post */}
+              <div className="rounded-xl bg-black/30 border border-white/[0.06] p-3">
+                {nextQueuePost ? (
+                  <div className="flex items-center gap-3">
+                    <div className="h-9 w-9 rounded-lg bg-cyan-500/10 flex items-center justify-center shrink-0">
+                      <Clock className="h-4 w-4 text-cyan-400" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-white truncate">{nextQueuePost.clip.title || 'Untitled clip'}</p>
+                      <p className="text-[11px] text-zinc-400">
+                        {new Date(nextQueuePost.scheduledAt).toLocaleDateString('en-US', { weekday: 'short' })}
+                        {' · '}
+                        {new Date(nextQueuePost.scheduledAt).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
+                        {' · '}
+                        {PLATFORMS.find(pl => pl.id === nextQueuePost.platform)?.label ?? nextQueuePost.platform}
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-center py-2">
+                    <p className="text-sm text-zinc-400">No clip queued</p>
+                    <p className="text-[11px] text-zinc-500">Add one from your bank below</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Platforms */}
+              <div className="flex items-center gap-2">
+                {PLATFORMS.filter(p => ['tiktok', 'youtube', 'instagram'].includes(p.id)).map((p) => {
+                  const isConn = connectedPlatforms.includes(p.id as typeof connectedPlatforms[number])
+                  return (
+                    <span key={p.id} className={cn(
+                      'text-[10px] font-medium px-2.5 py-1 rounded-full border',
+                      isConn && p.supported
+                        ? 'border-cyan-500/30 bg-cyan-500/10 text-cyan-400'
+                        : 'border-zinc-700 bg-zinc-800/50 text-zinc-500'
+                    )}>
+                      {p.icon} {p.label.split(' ')[0]}
+                      {!p.supported && ' · soon'}
+                    </span>
+                  )
+                })}
+              </div>
+
+              {/* CTA */}
+              <button
+                onClick={() => {
+                  const el = document.getElementById('dist-queue-section')
+                  el?.scrollIntoView({ behavior: 'smooth' })
+                }}
+                className="w-full h-9 rounded-lg text-xs font-bold text-cyan-400 border border-cyan-500/30 bg-cyan-500/5 hover:bg-cyan-500/10 transition-colors flex items-center justify-center gap-1.5"
+              >
+                Schedule <ChevronRight className="h-3 w-3" />
+              </button>
+            </div>
+          )
+        })()}
+      </div>
+
+      {/* ═══ CONNECTION MAP (desktop only on >720px) ═══ */}
       <div className="dist-connection-map" ref={connectionMapRef}>
         {/* Flow lines (dynamic paths — actually touch icons) + animated particles */}
         <svg className="dist-map-svg" preserveAspectRatio="none">
@@ -2066,6 +2148,8 @@ export function DistributionHub() {
 
 
       {/* ═══ SMART QUEUE — AI Schedule ═══ */}
+      {/* eslint-disable-next-line react/no-unknown-property */}
+      <div id="dist-queue-section" />
       {(() => {
         // Coherence rules:
         // 1. AI Schedule must match the visible Clip Bank (after user removes clips via X)

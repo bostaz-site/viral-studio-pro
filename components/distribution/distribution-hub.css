@@ -35,6 +35,14 @@
   }
 }
 
+/* Mobile status card: shown on mobile, hidden on desktop */
+.dist-mobile-status-card { display: none; }
+@media (max-width: 720px) {
+  .dist-mobile-status-card { display: block; }
+  .dist-connection-map { display: none !important; }
+  .dist-connector-top { display: none !important; }
+}
+
 /* ─── Publish Strip → "Manual override" — moved to bottom of the page ─── */
 /* Visually separated, smaller in prominence: AI core + bank are the wow. Manual is fallback. */
 #publish-strip {

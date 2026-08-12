@@ -861,7 +861,7 @@ CSS: `landing-v3.css` under `HERO PRODUCT MOCKUP` section.
 
 **Single gutter:** Distribution hub CSS: `@media (max-width: 767px) { .dist-page { padding: 0 } }` — inherits `px-4` from dashboard layout, matching Browse (358px usable on 390px). Desktop keeps `padding: 0 24px 48px`.
 
-**Distribution Core (connection map):** `@media (max-width: 720px)` in `distribution-hub.css` — grid becomes flex column, SVG paths hidden, brain centered at 300px max-width, platform nodes compact (56px icons).
+**Distribution Core (connection map):** `@media (max-width: 720px)` in `distribution-hub.css` — connection map + connector hidden (`display: none`), replaced by `.dist-mobile-status-card`: header (⚡ AI DISTRIBUTION + active/paused badge from `aiAutoDistribute`), next queued post (title + time + platform from `queue.posts[0]`), platform pills (connected vs "soon"), "Schedule →" CTA scrolling to `#dist-queue-section`. Desktop: full brain diagram + SVG paths + platform nodes unchanged.
 
 **Feed tabs fade rail:** Mobile: `mask-image: linear-gradient(to right, black 0%, black 85%, transparent 100%)` on tab container, `pr-8` padding for last-tab reveal, `gap-1.5` spacing. Desktop: no mask, `gap-0.5`, `pr-0.5`. Never wraps to two rows.
 
@@ -871,6 +871,8 @@ CSS: `landing-v3.css` under `HERO PRODUCT MOCKUP` section.
 - **PWA banner timing:** `vsp:pwa-sessions` counter in localStorage, incremented per mount. Banner only appears from session >= 2. Dismiss = 7-day cooldown (`vsp:pwa-dismiss` timestamp). `appinstalled` event = permanent hide (1-year cooldown). `beforeinstallprompt` = required for `canInstall`.
 
 **Fixed bottom stacking:** Render toasts/notifications use `inset-x-4 bottom-4 md:left-auto md:right-6` (full-width mobile, right-anchored desktop). Install banner at `bottom-20 z-40` (below toasts at `z-50`).
+
+**Enhance page — Quick Mode (mobile):** On `< lg`, a Quick Mode block (`lg:hidden`) appears above the accordion: "Make it viral" title + amber CTA button → calls the same `applyBestCombo` handler as the desktop AI Optimize button. After optimization: shows summary (caption style · hook status · split ratio · tag) + score. Below it: "── or customize ──" separator. Accordion starts collapsed on mobile (`defaultValue: []` when `window.innerWidth < 1024`), full on desktop (`['captions']`). Desktop AI Optimize button and accordion are unchanged.
 
 **Enhance page:** Mobile fixed bottom bar (`lg:hidden`) with Generate CTA always reachable during editing. FFmpeg pipeline on mobile: `hidden md:flex` for 6-stage labels, replaced by compact progress bar: "Rendering — step X/4" + amber gradient bar + current stage name (12px). Desktop keeps full pipeline.
 

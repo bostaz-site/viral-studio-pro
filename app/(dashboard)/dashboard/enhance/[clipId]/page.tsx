@@ -1717,6 +1717,71 @@ export default function EnhancePage() {
 
         {/* Right: Actions + Settings — scrollable */}
         <div className="space-y-6">
+
+          {/* ── Quick Mode (mobile only) ── */}
+          <div className="lg:hidden">
+            {(() => {
+              const qmBusy = makeViralLoading || analysisSequenceActive || pendingAutoRenderRef.current || rendering
+              const qmDone = analysisComplete && !qmBusy
+              return (
+                <div className="va-panel p-4 space-y-3">
+                  {!qmDone ? (
+                    <>
+                      <div>
+                        <p className="text-sm font-bold text-foreground">Make it viral</p>
+                        <p className="text-[11px] text-zinc-400">AI picks the optimal setup for this clip</p>
+                      </div>
+                      <button
+                        onClick={applyBestCombo}
+                        disabled={qmBusy}
+                        className="w-full h-12 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-all disabled:opacity-60"
+                        style={{
+                          background: 'linear-gradient(135deg, #fbbf24, #f59e0b 45%, #d97706)',
+                          color: '#451a03',
+                          boxShadow: '0 0 20px rgba(245,158,11,.22)',
+                        }}
+                      >
+                        {qmBusy ? (
+                          <><WolfLoader variant="spinner" size={16} mode="amber" /> Analyzing...</>
+                        ) : (
+                          <><Zap className="h-4 w-4" /> Make it Viral</>
+                        )}
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <div className="flex items-center gap-2">
+                        <div className="h-7 w-7 rounded-lg bg-emerald-500/15 flex items-center justify-center shrink-0">
+                          <Check className="h-4 w-4 text-emerald-400" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-bold text-emerald-400">Optimized</p>
+                          <p className="text-[11px] text-zinc-400 truncate">
+                            {CAPTION_STYLES.find(s => s.id === settings.captionStyle)?.label ?? 'Captions'}
+                            {settings.hookEnabled && ' · Hook on'}
+                            {settings.splitScreenEnabled && ` · Split ${Math.round(settings.splitRatio * 100)}%`}
+                            {settings.tagStyle !== 'none' && ' · Tag'}
+                          </p>
+                        </div>
+                        <div className="text-right shrink-0">
+                          <span className="text-lg font-black text-amber-400">{displayScore}</span>
+                          <span className="text-[10px] text-zinc-500 block">score</span>
+                        </div>
+                      </div>
+                    </>
+                  )}
+                </div>
+              )
+            })()}
+
+            {/* Separator */}
+            <div className="flex items-center gap-3 my-4">
+              <div className="flex-1 h-px bg-zinc-800" />
+              <span className="text-[11px] text-zinc-500 font-medium">or customize</span>
+              <div className="flex-1 h-px bg-zinc-800" />
+            </div>
+          </div>
+
           {/* ── AI Optimize button (hero — recommended action) ── */}
           {(() => {
             const viralBusy = makeViralLoading || analysisSequenceActive || pendingAutoRenderRef.current || rendering
@@ -1873,7 +1938,7 @@ export default function EnhancePage() {
             showBoost={revealedBonuses.has('_total')}
           />
 
-            <Accordion multiple defaultValue={['captions']} className="space-y-3 [&_[data-state]]:outline-none">
+            <Accordion multiple defaultValue={typeof window !== 'undefined' && window.innerWidth < 1024 ? [] : ['captions']} className="space-y-3 [&_[data-state]]:outline-none">
 
             {/* ─── Captions Section ─── */}
             <CaptionsSection
