@@ -3,7 +3,7 @@
 import { useState, useRef, useCallback, useEffect, useMemo, memo } from 'react'
 import Image from 'next/image'
 import { motion } from 'framer-motion'
-import { ExternalLink, Sparkles, Flame, Bookmark, SlidersHorizontal, Zap, CheckCircle2, Archive } from 'lucide-react'
+import { ExternalLink, Sparkles, Flame, Bookmark, SlidersHorizontal, Zap, CheckCircle2, Archive, Film } from 'lucide-react'
 import { WolfLoader } from '@/components/ui/wolf-loader'
 import { getRankTierClass, DiamondCorner } from '@/components/trending/rank-badge'
 import { getClipVerdict, getDynamicCTA, getVerdictColor, type CTAIcon } from '@/lib/browse/clip-verdict'
@@ -44,6 +44,8 @@ interface TrendingCardProps {
   isBanked?: boolean
   /** Clip has been published by the user */
   isPublished?: boolean
+  /** Clip has been rendered (but may not be in bank or published) */
+  isRendered?: boolean
 }
 
 // ── Module-level video URL cache ──
@@ -130,7 +132,7 @@ const LegGemDefs = () => (
 
 // ── Main Card ──
 
-export const TrendingCard = memo(function TrendingCard({ clip, onRemix, onQuickExport, onShowDetail, quickExportState, remixing = false, isSaved = false, onToggleSave, isNew = false, isBanked = false, isPublished = false }: TrendingCardProps) {
+export const TrendingCard = memo(function TrendingCard({ clip, onRemix, onQuickExport, onShowDetail, quickExportState, remixing = false, isSaved = false, onToggleSave, isNew = false, isBanked = false, isPublished = false, isRendered = false }: TrendingCardProps) {
   const [imgError, setImgError] = useState(false)
   const [imgLoaded, setImgLoaded] = useState(false)
   const [hovered, setHovered] = useState(false)
@@ -394,7 +396,7 @@ export const TrendingCard = memo(function TrendingCard({ clip, onRemix, onQuickE
   const tilt = useTilt({ rotateAmplitude: tiltAmplitude, scaleOnHover: 1.0 })
 
   const isExporting = quickExportState?.clipId === clip.id && quickExportState.status === 'rendering'
-  const isExported = (quickExportState?.clipId === clip.id && quickExportState.status === 'done') || isBanked || isPublished
+  const isExported = (quickExportState?.clipId === clip.id && quickExportState.status === 'done') || isBanked || isPublished || isRendered
   // Kick thumbnails serve content-type: application/octet-stream which breaks
   // the Netlify Image CDN / next/image optimizer → bypass with unoptimized
   const isKickThumb = !!clip.thumbnail_url && clip.thumbnail_url.includes('kick.com')
@@ -485,7 +487,7 @@ export const TrendingCard = memo(function TrendingCard({ clip, onRemix, onQuickE
     </button>
   ) : null
 
-  // ── Processing status badge (In bank / Posted) ──
+  // ── Processing status badge (Posted > In bank > Rendered) ──
   const statusBadge = isPublished ? (
     <span className="absolute bottom-2 right-2 z-[7] flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-md bg-emerald-500/20 text-emerald-300 backdrop-blur-sm pointer-events-none">
       <CheckCircle2 className="h-2.5 w-2.5" />
@@ -495,6 +497,11 @@ export const TrendingCard = memo(function TrendingCard({ clip, onRemix, onQuickE
     <span className="absolute bottom-2 right-2 z-[7] flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-md bg-amber-500/15 text-amber-300 backdrop-blur-sm pointer-events-none">
       <Archive className="h-2.5 w-2.5" />
       In bank
+    </span>
+  ) : isRendered ? (
+    <span className="absolute bottom-2 right-2 z-[7] flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-md bg-white/10 text-white/60 backdrop-blur-sm pointer-events-none">
+      <Film className="h-2.5 w-2.5" />
+      Rendered
     </span>
   ) : null
 

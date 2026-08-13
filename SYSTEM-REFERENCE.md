@@ -158,10 +158,20 @@ No render can reach TikTok "naked" — Quick Export ALWAYS includes: karaoke cap
 ### Quick Export (Browse -> Render in Background)
 Primary CTA on each card. Sends `POST /api/render/quick` with `x-idempotency-key` header (UUID, prevents double-clicks). API runs mood detection (best-effort), builds auto settings from preset, goes through render queue, returns `jobId`. Dashboard subscribes via `useRenderSubscription` and shows a completion toast with Download/View buttons. Auto-dismisses after 15s. Only one quick export at a time per user session (button disabled on other cards while rendering). The "Customize" button (sliders icon) still links to the full enhance page.
 
-### Processing Status Badges (In Bank / Posted)
-Persistent indicators on card thumbnails showing whether the user has already processed a clip. Data: `GET /api/clips/my-status` returns `{ banked: string[], published: string[] }` (two lightweight queries on `render_jobs` + `published_posts`). Fetched once via `fetchClipStatus()` in `trending-store.ts` (called from `fetchBootstrap`). Optimistic update on quick export done (`addBankedClip`), publish (`markClipPublished`).
+### Processing Status Badges (Posted / In Bank / Rendered)
+Persistent indicators on card thumbnails showing whether the user has already processed a clip. Data: `GET /api/clips/my-status` returns `{ banked: string[], published: string[], rendered: string[] }` (three lightweight queries on `render_jobs` + `published_posts`). Fetched once via `fetchClipStatus()` in `trending-store.ts` (called from `fetchBootstrap`). Optimistic update on quick export done (`addRenderedClip`), publish (`markClipPublished`).
 
-Badge: small pill bottom-right of thumbnail (below duration, no conflict with score/bookmark/NEW). Published (green `bg-emerald-500/20 text-emerald-300`, `✓ Posted`) takes priority over banked (amber `bg-amber-500/15 text-amber-300`, `Archive` icon + `In bank`). Also drives the quick export button's persistent "In your bank" state across sessions (previously session-only via `exportedClipIds`).
+Badge priority (highest first): Posted (green `bg-emerald-500/20 text-emerald-300`, `✓ Posted`) > In bank (amber `bg-amber-500/15 text-amber-300`, `Archive` icon + `In bank`) > Rendered (grey `bg-white/10 text-white/60`, `Film` icon + `Rendered`). Small pill bottom-right of thumbnail.
+
+### Bank = Explicit Autofarm Queue
+The bank is the autofarm's publish queue. Clips enter ONLY by explicit user action ("Place in bank"). Renders are out-of-bank by default (`removed_from_bank_at = now()` at render_job creation). The semantics: `removed_from_bank_at IS NULL` = in bank.
+
+**Post-render dialog (UnifiedPublishDialog)** — three actions:
+1. **Publish** (primary) — manual publish to selected platforms
+2. **Place in bank** (secondary, amber) — calls `POST /api/distribution/bank`, subtitle "autofarm posts at optimal time"
+3. **Later** + **Download** — render saved, clip out of bank, retrievable via Rendered badge on card or return to Enhance (kill-switch: `localStorage render-done:{clipId}` 24h TTL + server `GET /api/render/status?clip_id=`)
+
+**Quota rule**: consumed at render time (unchanged). Bank/publish/later have no quota impact.
 
 ### Card Value Props
 Each card shows concrete value beyond the raw score:

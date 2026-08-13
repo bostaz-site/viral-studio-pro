@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { Zap, CheckCircle2, Archive } from 'lucide-react'
+import { Zap, CheckCircle2, Archive, Film } from 'lucide-react'
 import { WolfLoader } from '@/components/ui/wolf-loader'
 import { timeAgo } from '@/lib/trending/utils'
 import { getClipInsight } from '@/types/trending'
@@ -17,6 +17,7 @@ interface TopPickCardProps {
   hasHigherOlderClip?: boolean
   isBanked?: boolean
   isPublished?: boolean
+  isRendered?: boolean
 }
 
 /* ── SVG defs (namespaced tp-* to avoid grid conflicts) ── */
@@ -116,9 +117,9 @@ function AnimatedScore({ value }: { value: number }) {
   return <span className="tp-score tp-score-sweep">{display}</span>
 }
 
-export function TopPickCard({ clip, onEnhance, onQuickExport, quickExportState, hasHigherOlderClip = false, isBanked = false, isPublished = false }: TopPickCardProps) {
+export function TopPickCard({ clip, onEnhance, onQuickExport, quickExportState, hasHigherOlderClip = false, isBanked = false, isPublished = false, isRendered = false }: TopPickCardProps) {
   const isExporting = quickExportState?.clipId === clip.id && quickExportState.status === 'rendering'
-  const isExported = (quickExportState?.clipId === clip.id && quickExportState.status === 'done') || isBanked || isPublished
+  const isExported = (quickExportState?.clipId === clip.id && quickExportState.status === 'done') || isBanked || isPublished || isRendered
   const score = Math.round(clip.velocity_score ?? 0)
   const insight = getClipInsight(clip)
   const age = timeAgo(clip.clip_created_at ?? clip.scraped_at)
@@ -181,6 +182,11 @@ export function TopPickCard({ clip, onEnhance, onQuickExport, quickExportState, 
                       <span className="absolute bottom-1.5 right-1.5 z-[7] flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-md bg-amber-500/15 text-amber-300 backdrop-blur-sm pointer-events-none">
                         <Archive className="h-2.5 w-2.5" />
                         In bank
+                      </span>
+                    ) : isRendered ? (
+                      <span className="absolute bottom-1.5 right-1.5 z-[7] flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-md bg-white/10 text-white/60 backdrop-blur-sm pointer-events-none">
+                        <Film className="h-2.5 w-2.5" />
+                        Rendered
                       </span>
                     ) : null}
                   </div>

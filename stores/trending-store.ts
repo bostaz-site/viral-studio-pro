@@ -202,6 +202,7 @@ interface TrendingState {
   // Processing status (persistent across sessions)
   bankedClipIds: Set<string>
   publishedClipIds: Set<string>
+  renderedClipIds: Set<string>
 
   // Stream grouping
   expandedGroups: Set<string>
@@ -244,6 +245,7 @@ interface TrendingState {
   fetchSavedClips: () => Promise<void>
   fetchClipStatus: () => Promise<void>
   addBankedClip: (clipId: string) => void
+  addRenderedClip: (clipId: string) => void
   markClipPublished: (clipId: string) => void
   toggleSaveClip: (clipId: string) => Promise<void>
   toggleGroup: (groupId: string) => void
@@ -267,6 +269,7 @@ export const useTrendingStore = create<TrendingState>((set, get) => ({
   usedClipIds: new Set(),
   bankedClipIds: new Set(),
   publishedClipIds: new Set(),
+  renderedClipIds: new Set(),
   expandedGroups: new Set(),
   userPlan: null,
   monthlyVideosUsed: 0,
@@ -563,11 +566,12 @@ export const useTrendingStore = create<TrendingState>((set, get) => ({
     try {
       const res = await fetch('/api/clips/my-status')
       if (!res.ok) return
-      const json = await res.json() as { data: { banked: string[]; published: string[] } | null; error: string | null }
+      const json = await res.json() as { data: { banked: string[]; published: string[]; rendered?: string[] } | null; error: string | null }
       if (json.error || !json.data) return
       set({
         bankedClipIds: new Set(json.data.banked),
         publishedClipIds: new Set(json.data.published),
+        renderedClipIds: new Set(json.data.rendered ?? []),
       })
     } catch {
       // silent
@@ -576,6 +580,10 @@ export const useTrendingStore = create<TrendingState>((set, get) => ({
 
   addBankedClip: (clipId) => {
     set({ bankedClipIds: new Set(get().bankedClipIds).add(clipId) })
+  },
+
+  addRenderedClip: (clipId) => {
+    set({ renderedClipIds: new Set(get().renderedClipIds).add(clipId) })
   },
 
   markClipPublished: (clipId) => {

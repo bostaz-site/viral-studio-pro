@@ -238,7 +238,7 @@ export default function DashboardPage() {
     // Clear quickExport immediately to stop the subscription (prevents infinite loop)
     setQuickExport(null)
     setExportedClipIds(prev => new Set(prev).add(doneClipId))
-    addBankedClip(doneClipId)
+    addRenderedClip(doneClipId)
     // Fetch signed download URL for the toast
     fetch(`/api/render/status?jobId=${encodeURIComponent(doneJobId)}`)
       .then(r => r.ok ? r.json() : null)
@@ -447,7 +447,8 @@ export default function DashboardPage() {
   const usedClipIds = useTrendingStore(s => s.usedClipIds)
   const bankedClipIds = useTrendingStore(s => s.bankedClipIds)
   const publishedClipIds = useTrendingStore(s => s.publishedClipIds)
-  const addBankedClip = useTrendingStore(s => s.addBankedClip)
+  const renderedClipIds = useTrendingStore(s => s.renderedClipIds)
+  const addRenderedClip = useTrendingStore(s => s.addRenderedClip)
   const topPickClip = useMemo(() => {
     if (filters.feed === 'saved') return null
     const TWELVE_HOURS = 12 * 60 * 60 * 1000
@@ -791,13 +792,14 @@ export default function DashboardPage() {
                 quickExportState={
                   quickExport?.clipId === topPickClip.id
                     ? quickExport
-                    : exportedClipIds.has(topPickClip.id) || bankedClipIds.has(topPickClip.id) || publishedClipIds.has(topPickClip.id)
+                    : exportedClipIds.has(topPickClip.id) || bankedClipIds.has(topPickClip.id) || publishedClipIds.has(topPickClip.id) || renderedClipIds.has(topPickClip.id)
                       ? { clipId: topPickClip.id, jobId: '', status: 'done' }
                       : null
                 }
                 hasHigherOlderClip={hasHigherOlderClip}
                 isBanked={bankedClipIds.has(topPickClip.id)}
                 isPublished={publishedClipIds.has(topPickClip.id)}
+                isRendered={renderedClipIds.has(topPickClip.id)}
               />
             </div>
           )}
@@ -813,7 +815,7 @@ export default function DashboardPage() {
                   quickExportState={
                     quickExport?.clipId === clip.id
                       ? quickExport
-                      : exportedClipIds.has(clip.id) || bankedClipIds.has(clip.id) || publishedClipIds.has(clip.id)
+                      : exportedClipIds.has(clip.id) || bankedClipIds.has(clip.id) || publishedClipIds.has(clip.id) || renderedClipIds.has(clip.id)
                         ? { clipId: clip.id, jobId: '', status: 'done' }
                         : null
                   }
@@ -825,6 +827,7 @@ export default function DashboardPage() {
                   isNew={!!(lastVisit && (clip.clip_created_at ?? clip.scraped_at) && new Date(clip.clip_created_at ?? clip.scraped_at!).getTime() > new Date(lastVisit).getTime())}
                   isBanked={bankedClipIds.has(clip.id)}
                   isPublished={publishedClipIds.has(clip.id)}
+                  isRendered={renderedClipIds.has(clip.id)}
                 />
               </div>
             ))}

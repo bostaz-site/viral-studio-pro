@@ -337,7 +337,7 @@ export function UnifiedPublishDialog({
               {/* Render saved reassurance */}
               <p className="flex items-center gap-1.5 text-xs text-zinc-400">
                 <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-emerald-400/80" />
-                Render saved — publish, bank it, or come back later
+                Render saved — publish, bank it, or come back anytime
               </p>
 
               {/* Platform rows */}
