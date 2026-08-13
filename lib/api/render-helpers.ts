@@ -234,6 +234,7 @@ export async function createRenderJob(
       source: foundSource,
       user_id: userId,
       status: 'pending' satisfies RenderStatus,
+      removed_from_bank_at: new Date().toISOString(),
     })
     .select('id')
     .single()

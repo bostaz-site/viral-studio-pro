@@ -334,6 +334,7 @@ export const POST = withAuth(async (request, user) => {
       user_id: user.id,
       status: 'pending',
       render_settings: renderSettingsSnapshot,
+      removed_from_bank_at: new Date().toISOString(),
     } as never)
     .select('id')
     .single()

@@ -10,6 +10,7 @@ import {
   ChevronRight,
   Send,
   Download,
+  Archive,
 } from 'lucide-react'
 import { WolfLoader } from '@/components/ui/wolf-loader'
 import { Button } from '@/components/ui/button'
@@ -114,6 +115,8 @@ export function UnifiedPublishDialog({
   const [isPublishing, setIsPublishing] = useState(false)
   const [allDone, setAllDone] = useState(false)
   const [downloadUrl, setDownloadUrl] = useState<string | null>(null)
+  const [bankedInDialog, setBankedInDialog] = useState(false)
+  const [bankingInProgress, setBankingInProgress] = useState(false)
 
   // Resolve download URL from localStorage kill switch or API
   useEffect(() => {
@@ -139,6 +142,8 @@ export function UnifiedPublishDialog({
     if (!open) return
     setAllDone(false)
     setIsPublishing(false)
+    setBankedInDialog(false)
+    setBankingInProgress(false)
 
     const fetchAccounts = async () => {
       setLoading(true)
@@ -329,10 +334,10 @@ export function UnifiedPublishDialog({
                 Choose where to share your video
               </p>
 
-              {/* Bank reassurance */}
-              <p className="flex items-center gap-1.5 text-xs text-emerald-400/80">
-                <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
-                Saved to your bank — publish now or come back later
+              {/* Render saved reassurance */}
+              <p className="flex items-center gap-1.5 text-xs text-zinc-400">
+                <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-emerald-400/80" />
+                Render saved — publish, bank it, or come back later
               </p>
 
               {/* Platform rows */}
@@ -464,6 +469,35 @@ export function UnifiedPublishDialog({
                   </>
                 )}
               </Button>
+            )}
+            {/* Place in bank (autofarm queue) */}
+            {!allDone && !bankedInDialog && (
+              <button
+                onClick={async () => {
+                  setBankingInProgress(true)
+                  try {
+                    const res = await fetch('/api/distribution/bank', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ clipId }),
+                    })
+                    if (res.ok) setBankedInDialog(true)
+                  } catch { /* silent */ }
+                  finally { setBankingInProgress(false) }
+                }}
+                disabled={bankingInProgress || isPublishing}
+                className="w-full inline-flex items-center justify-center gap-2 h-9 px-4 text-sm font-medium rounded-md border border-amber-500/30 bg-amber-500/8 text-amber-300 hover:bg-amber-500/15 transition-colors disabled:opacity-50"
+              >
+                {bankingInProgress ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Archive className="h-3.5 w-3.5" />}
+                Place in bank
+                <span className="text-[10px] text-amber-300/60 ml-1">— autofarm posts at optimal time</span>
+              </button>
+            )}
+            {bankedInDialog && (
+              <p className="flex items-center justify-center gap-1.5 text-xs text-emerald-400">
+                <CheckCircle2 className="h-3.5 w-3.5" />
+                Placed in bank — autofarm will schedule it
+              </p>
             )}
             <div className="flex items-center gap-2">
               <Button variant="ghost" onClick={handleClose} disabled={isPublishing}>

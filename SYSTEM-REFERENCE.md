@@ -61,6 +61,16 @@ Upload     -->  videos table    AI mood detect    FFmpeg VPS      Queue engine  
 ### Flow utilisateur principal
 Browse (decouvrir) -> Enhance (transformer) -> Distribution (publier) -> Analytics (progresser)
 
+### Bank = Explicit Autofarm Queue (3-choice model)
+Render creates `render_jobs` with `removed_from_bank_at = now()` (out-of-bank by default). The bank is the autofarm's queue — entering is an explicit user choice.
+
+**Post-render 3 actions** (UnifiedPublishDialog + Enhance page):
+1. **Publish now** (primary) — manual publish via platform dialogs. Published = consumed: `removed_from_bank_at` set.
+2. **Place in bank** (secondary) — `POST /api/distribution/bank` nullifies `removed_from_bank_at`. Clip enters the autofarm queue. Subtitle: "The autofarm will post it at the optimal time".
+3. **Later** / **Download** — render saved but NOT in bank. Re-openable from Enhance page via `localStorage render-done:{clipId}` kill switch.
+
+Semantics unchanged: `removed_from_bank_at IS NULL` = in bank. Only the default flipped (was NULL, now = creation timestamp).
+
 ### Flow post-render (Enhance page)
 1. **Render finit** (poll `/api/render/status` detecte `status=done`)
    - `renderDownloadUrl` est set (signed URL 4h)
@@ -69,7 +79,7 @@ Browse (decouvrir) -> Enhance (transformer) -> Distribution (publier) -> Analyti
    - `UnifiedPublishDialog` s'auto-ouvre (`setShowPublishDialog(true)`)
    - Preview switch auto sur le tab "Rendered"
 2. **Panneau CTA visible** tant que `renderDownloadUrl` existe :
-   - **Place in bank** : `POST /api/distribution/bank` (verifie render_jobs done, restore si removed)
+   - **Place in bank** : `POST /api/distribution/bank` (verifie render_jobs done, nullifie removed_from_bank_at)
    - **Chain farming** : next-best clip via `/api/trending/next-best`
    - **Publish now** : ouvre `UnifiedPublishDialog`
    - **Download MP4** : lien direct signed URL
@@ -83,7 +93,7 @@ Browse (decouvrir) -> Enhance (transformer) -> Distribution (publier) -> Analyti
    - Panneau CTA restaure
 5. **Place in bank** :
    - `POST /api/distribution/bank` avec `{ clipId }`
-   - Verifie `render_jobs.status='done'`, restore `removed_from_bank_at=null` si besoin
+   - Verifie `render_jobs.status='done'`, nullifie `removed_from_bank_at` (clip entre en banque)
    - Le clip apparait dans la Clip Bank rail de `/dashboard/distribution`
    - Bank card play: click play glyph → signed URL from `clips` bucket → `<video controls>` with imperative `play()`. Close via X button. One clip at a time.
    - Triggers chain farming (next-best clip)

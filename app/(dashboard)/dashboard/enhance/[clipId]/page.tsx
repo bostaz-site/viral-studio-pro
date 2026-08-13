@@ -551,7 +551,7 @@ export default function EnhancePage() {
           if (cancelled) return
           if (!json?.data || json.data.status !== 'done' || !json.data.downloadUrl) return
           setRenderDownloadUrl(json.data.downloadUrl)
-          setRenderMessage('✅ Clip rendered — ready to publish or bank.')
+          setRenderMessage('✅ Clip rendered — publish, bank it, or download.')
         })
         .catch(() => { /* silent */ })
     } catch { /* ignore */ }
@@ -1465,7 +1465,7 @@ export default function EnhancePage() {
                             return
                           }
                           setPlacedInBank(true)
-                          setRenderMessage('✓ Clip placed in your bank — Smart Queue will schedule it.')
+                          setRenderMessage('✓ Clip placed in your bank — the autofarm will post it at the optimal time.')
                         } catch {
                           setBankError('Network error — try again')
                         } finally {
@@ -1480,7 +1480,7 @@ export default function EnhancePage() {
                         {bankLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Plus className="h-5 w-5" />}
                         {bankLoading ? 'Placing...' : 'Place in bank'}
                       </span>
-                      <span className="text-[10px] font-medium text-amber-950/70">Smart Queue picks the optimal time + platform</span>
+                      <span className="text-[10px] font-medium text-amber-950/70">The autofarm will post it at the optimal time</span>
                     </button>
                   ) : (
                     <button
