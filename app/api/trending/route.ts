@@ -248,6 +248,31 @@ export async function GET(req: NextRequest) {
     // Apply stream grouping (mutates items in-place, adds group fields)
     applyStreamGrouping(items)
 
+    // 67 easter egg — the meme score floats up near the top (brand joke, matches the landing's permanent 67 card).
+    // The top-50-by-score query usually cuts off around ~73, so a 67 never reaches the client.
+    // If sorting by score on the first page and no 67 is already present, fetch the freshest one.
+    const isScoreSort = sort === 'velocity' && !useDate && !cursor && !rawSearch
+    if (isScoreSort) {
+      const has67 = items.some(c => Math.round(c.velocity_score as number ?? 0) === 67)
+      if (!has67) {
+        const { data: meme67 } = await admin
+          .from('trending_clips')
+          .select('*')
+          .gte('velocity_score', 66.5)
+          .lt('velocity_score', 67.5)
+          .gte('duration_seconds', MIN_CLIP_DURATION_SECONDS)
+          .order('clip_created_at', { ascending: false, nullsFirst: false })
+          .limit(1)
+        if (meme67 && meme67.length > 0) {
+          const clip67 = meme67[0] as Record<string, unknown>
+          // Deduplicate (shouldn't happen since has67 was false, but safety first)
+          if (!items.some(c => c.id === clip67.id)) {
+            items.push(clip67)
+          }
+        }
+      }
+    }
+
     return NextResponse.json({
       data: items,
       error: null,
