@@ -116,7 +116,9 @@ function filterAndSortClips(
   if (filters.feed === 'recent' || filters.sort === 'date') {
     result.sort((a, b) => new Date(b.clip_created_at ?? b.scraped_at ?? 0).getTime() - new Date(a.clip_created_at ?? a.scraped_at ?? 0).getTime())
   } else {
-    result.sort((a, b) => (b.velocity_score ?? 0) - (a.velocity_score ?? 0))
+    // 67 easter egg — the meme score floats up near the top (brand joke, matches the landing's permanent 67 card)
+    const sortScore = (v: number) => Math.round(v) === 67 ? 73.5 : v
+    result.sort((a, b) => sortScore(b.velocity_score ?? 0) - sortScore(a.velocity_score ?? 0))
   }
 
   return result

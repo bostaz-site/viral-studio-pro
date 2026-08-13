@@ -206,6 +206,10 @@ Clips from the same stream are grouped to prevent one streamer dominating the fe
 - Low-tier cards (common/rare) render at `opacity-60` with `hover:opacity-100`
 - DB indexes support cursor pagination: composite `(velocity_score DESC, id DESC)` and `(created_at DESC, id DESC)`, plus partial indexes on `feed_category`, `niche`, `next_check_at`, and a trigram GIN index on `title` (migration `20260424_feed_indexes.sql`)
 
+### Easter Eggs (Score 67)
+- **Rainbow badge**: Any clip with `Math.round(velocity_score) === 67` gets the `score-six-seven` CSS class — animated rainbow gradient text (defined in `rank-cards.css`, applied in `trending-card.tsx`). Landing radar slot 3 is a permanent static 67 card (Agent00 "Professor Agent teaches clip farming").
+- **Sort float**: In the browse feed's "Score" sort (`trending-store.ts`), a clip displaying 67 is sorted as if it were 73.5 — it floats up between the 73s and 74s. Display value stays 67. Only affects feed display order, not tiers, Top Pick, or stored data.
+
 ---
 
 ## 2. Clip Scoring V2
