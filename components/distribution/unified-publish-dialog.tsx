@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import { useRouter } from 'next/navigation'
 import {
   Loader2,
   CheckCircle2,
@@ -105,6 +106,7 @@ export function UnifiedPublishDialog({
   videoPreviewUrl,
   metadata,
 }: UnifiedPublishDialogProps) {
+  const router = useRouter()
   const [loading, setLoading] = useState(true)
   const [platforms, setPlatforms] = useState<Record<Platform, PlatformState>>({
     tiktok: { connected: false, username: null, selected: false, status: 'idle', error: null, tiktokConfigured: false },
@@ -446,62 +448,82 @@ export function UnifiedPublishDialog({
             </>
           )}
 
-          {/* Actions */}
+          {/* Actions footer */}
           <div className="pt-3 border-t border-border/50 space-y-3">
+            {/* ── Primary decisions: Bank + Publish side-by-side ── */}
             {!allDone && (
-              <Button
-                onClick={handlePublish}
-                disabled={selectedCount === 0 || isPublishing || loading}
-                className="w-full sm:w-auto gap-2 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-400 hover:to-amber-400 text-white border-0 sm:float-right"
-              >
-                {isPublishing ? (
-                  <>
-                    <WolfLoader variant="spinner" size={16} mode="amber" />
-                    Publishing...
-                  </>
+              <div className="flex flex-col sm:flex-row-reverse gap-2">
+                {/* Publish (primary) */}
+                <Button
+                  onClick={handlePublish}
+                  disabled={selectedCount === 0 || isPublishing || loading}
+                  className="flex-1 gap-2 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-400 hover:to-amber-400 text-white border-0"
+                >
+                  {isPublishing ? (
+                    <>
+                      <WolfLoader variant="spinner" size={16} mode="amber" />
+                      Publishing...
+                    </>
+                  ) : (
+                    <>
+                      <Send className="h-4 w-4" />
+                      {selectedCount === 0
+                        ? 'Select platforms'
+                        : `Publish to ${selectedCount} platform${selectedCount > 1 ? 's' : ''}`
+                      }
+                    </>
+                  )}
+                </Button>
+
+                {/* Bank / View in bank (secondary) */}
+                {!bankedInDialog ? (
+                  <button
+                    onClick={async () => {
+                      setBankingInProgress(true)
+                      try {
+                        const res = await fetch('/api/distribution/bank', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ clipId }),
+                        })
+                        if (res.ok) setBankedInDialog(true)
+                      } catch { /* silent */ }
+                      finally { setBankingInProgress(false) }
+                    }}
+                    disabled={bankingInProgress || isPublishing}
+                    className="flex-1 inline-flex items-center justify-center gap-2 h-10 px-4 text-sm font-medium rounded-md border border-amber-500/30 bg-amber-500/8 text-amber-300 hover:bg-amber-500/15 transition-colors disabled:opacity-50"
+                  >
+                    {bankingInProgress ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Archive className="h-3.5 w-3.5" />}
+                    Place in bank
+                  </button>
                 ) : (
-                  <>
-                    <Send className="h-4 w-4" />
-                    {selectedCount === 0
-                      ? 'Select platforms'
-                      : `Publish to ${selectedCount} platform${selectedCount > 1 ? 's' : ''}`
-                    }
-                  </>
+                  <button
+                    onClick={() => {
+                      onClose()
+                      router.push(`/dashboard/distribution?scrollTo=bank&highlight=${clipId}`)
+                    }}
+                    className="flex-1 inline-flex items-center justify-center gap-2 h-10 px-4 text-sm font-medium rounded-md border border-emerald-500/30 bg-emerald-500/8 text-emerald-400 hover:bg-emerald-500/15 transition-colors"
+                  >
+                    <CheckCircle2 className="h-3.5 w-3.5" />
+                    View in bank
+                    <ChevronRight className="h-3.5 w-3.5" />
+                  </button>
                 )}
-              </Button>
+              </div>
             )}
-            {/* Place in bank (autofarm queue) */}
-            {!allDone && !bankedInDialog && (
-              <button
-                onClick={async () => {
-                  setBankingInProgress(true)
-                  try {
-                    const res = await fetch('/api/distribution/bank', {
-                      method: 'POST',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({ clipId }),
-                    })
-                    if (res.ok) setBankedInDialog(true)
-                  } catch { /* silent */ }
-                  finally { setBankingInProgress(false) }
-                }}
-                disabled={bankingInProgress || isPublishing}
-                className="w-full inline-flex items-center justify-center gap-2 h-9 px-4 text-sm font-medium rounded-md border border-amber-500/30 bg-amber-500/8 text-amber-300 hover:bg-amber-500/15 transition-colors disabled:opacity-50"
-              >
-                {bankingInProgress ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Archive className="h-3.5 w-3.5" />}
-                Place in bank
-                <span className="text-[10px] text-amber-300/60 ml-1">— autofarm posts at optimal time</span>
-              </button>
-            )}
+
+            {/* Banked confirmation badge */}
             {bankedInDialog && (
               <p className="flex items-center justify-center gap-1.5 text-xs text-emerald-400">
                 <CheckCircle2 className="h-3.5 w-3.5" />
                 Placed in bank — autofarm will schedule it
               </p>
             )}
+
+            {/* ── Secondary: Done + Download ── */}
             <div className="flex items-center gap-2">
               <Button variant="ghost" onClick={handleClose} disabled={isPublishing}>
-                {allDone ? 'Done' : 'Later'}
+                Done
               </Button>
               {downloadUrl && (
                 <a
@@ -514,7 +536,7 @@ export function UnifiedPublishDialog({
                 </a>
               )}
             </div>
-            <p className="text-[10px] text-zinc-600 leading-snug max-w-xs clear-both">
+            <p className="text-[10px] text-zinc-600 leading-snug max-w-xs">
               Raw reposts get removed — always publish enhanced versions with captions and creator credit.
             </p>
           </div>
