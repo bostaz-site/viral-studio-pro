@@ -8,7 +8,7 @@ import {
   ChevronLeft, Loader2, AlertCircle, Sparkles, Download, CheckCircle, Check,
   Type, Wand2, Eye, ExternalLink, Play,
   Monitor, Zap, Send,
-  Flame, Focus, X, Plus, Volume2, Scissors, RotateCcw, Rocket, Bell, SlidersHorizontal, Gift,
+  Flame, Focus, X, Plus, Volume2, Scissors, RotateCcw, Rocket, SlidersHorizontal, Gift,
 } from 'lucide-react'
 import { WolfLoader } from '@/components/ui/wolf-loader'
 import { Button } from '@/components/ui/button'
@@ -92,8 +92,6 @@ export default function EnhancePage() {
   const pollRef = useRef<NodeJS.Timeout | null>(null)
   const hasUserChangedSettings = useRef(false)
   const [renderStageIdx, setRenderStageIdx] = useState<number>(-1)
-  const [notifyOnDone, setNotifyOnDone] = useState(false)
-  const notifyOnDoneRef = useRef(false)
   const renderStageTimerRef = useRef<NodeJS.Timeout | null>(null)
   const [showEnhancements, setShowEnhancements] = useState(false)
   const [hookAnalysis, setHookAnalysis] = useState<HookAnalysis | null>(null)
@@ -462,10 +460,6 @@ export default function EnhancePage() {
           setBankError(null)
           // Auto-open publish dialog (primary CTA post-render)
           setShowPublishDialog(true)
-          // Browser notification (user opted in via Notification API)
-          if (notifyOnDoneRef.current && typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
-            try { new Notification('Your clip is ready! 🎬', { body: 'Click to download or publish your viral clip.', icon: '/favicon.ico' }) } catch { /* silent */ }
-          }
         } else if (json.data.status === 'error') {
           if (pollRef.current) clearInterval(pollRef.current)
           try { sessionStorage.removeItem(`render-job:${clipId}`) } catch { /* ignore */ }
@@ -504,8 +498,6 @@ export default function EnhancePage() {
     }
   }, [])
 
-  // Keep notifyOnDoneRef in sync so startPolling closure can read latest value
-  useEffect(() => { notifyOnDoneRef.current = notifyOnDone }, [notifyOnDone])
 
   // Resume polling on mount if a render is already in flight for this clip
   // (user refreshed the page mid-render, or came back after the previous
@@ -1671,25 +1663,6 @@ export default function EnhancePage() {
                       />
                     </div>
                   </div>
-                  {/* Notification opt-in */}
-                  {!notifyOnDone && typeof window !== 'undefined' && 'Notification' in window && Notification.permission !== 'denied' && (
-                    <button
-                      onClick={async () => {
-                        const perm = await Notification.requestPermission()
-                        if (perm === 'granted') setNotifyOnDone(true)
-                      }}
-                      className="text-[10px] text-zinc-500 hover:text-zinc-300 transition-colors flex items-center gap-1.5"
-                    >
-                      <Bell className="h-3 w-3" />
-                      Notify me when done
-                    </button>
-                  )}
-                  {notifyOnDone && (
-                    <p className="text-[10px] text-emerald-400 flex items-center gap-1">
-                      <Bell className="h-3 w-3" />
-                      You&apos;ll be notified when done
-                    </p>
-                  )}
                 </div>
               )}
             </div>
