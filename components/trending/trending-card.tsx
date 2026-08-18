@@ -550,7 +550,7 @@ export const TrendingCard = memo(function TrendingCard({ clip, onRemix, onQuickE
             <div className="leg-gem br"><LegGoldGem w={22} h={26} /></div>
             <div className="leg-frame-inner-border">
               <div className="leg-frame-inner-gold">
-                <div className="leg-thumb" style={{ height: '150px' }}>
+                <div className="leg-thumb">
                   {showVideo && videoUrl && (
                     <video key={`${clip.id}-${videoUrl}`} ref={videoRef} src={videoUrl?.includes('.m3u8') ? undefined : videoUrl}
                       className="absolute inset-0 w-full h-full object-cover z-[5]"
@@ -590,7 +590,7 @@ export const TrendingCard = memo(function TrendingCard({ clip, onRemix, onQuickE
           </div>
         ) : (
           /* Simple legendary (80-84): gold border, no frame ornaments */
-          <div className="leg-thumb-simple" style={{ height: '150px' }}>
+          <div className="leg-thumb-simple">
             {showVideo && videoUrl && (
               <video key={`${clip.id}-${videoUrl}`} ref={videoRef} src={videoUrl?.includes('.m3u8') ? undefined : videoUrl}
                 className="absolute inset-0 w-full h-full object-cover z-[5]"
@@ -671,7 +671,7 @@ export const TrendingCard = memo(function TrendingCard({ clip, onRemix, onQuickE
               </div>
               {score !== null && (
                 <div className="leg-score-block">
-                  <span className={`leg-score-big${isSixSeven ? ' score-six-seven' : ''}`} style={{ fontSize: '64px' }}>{score}</span>
+                  <span className={`leg-score-big${isSixSeven ? ' score-six-seven' : ''}`}>{score}</span>
                 </div>
               )}
             </div>
@@ -734,7 +734,7 @@ export const TrendingCard = memo(function TrendingCard({ clip, onRemix, onQuickE
       onClick={handleCardClick}
     >
       {/* Thumbnail */}
-      <div className="thumb relative overflow-hidden rounded-t-xl bg-gradient-to-br from-slate-900 to-slate-800" style={{ height: '155px' }}>
+      <div className="thumb relative overflow-hidden rounded-t-xl bg-gradient-to-br from-slate-900 to-slate-800" style={{ aspectRatio: '16/9' }}>
 
         {showVideo && videoUrl && (
           <video

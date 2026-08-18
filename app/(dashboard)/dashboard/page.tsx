@@ -696,7 +696,7 @@ export default function DashboardPage() {
 
       {/* Clip Grid (Remixes tab removed from Browse — clips live in Distribution / Clip Bank) */}
       {loading ? (
-        <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))' }}>
+        <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))' }}>
           {Array.from({ length: 10 }).map((_, i) => (
             <div key={i} className="rounded-xl border border-border bg-card/60 overflow-hidden animate-pulse">
               <div className="aspect-[9/16] max-h-52 bg-gradient-to-br from-muted/40 to-muted/20" />
@@ -837,7 +837,7 @@ export default function DashboardPage() {
             </div>
           )}
 
-          <div className="grid gap-6 py-4" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))' }}>
+          <div className="grid gap-6 py-4" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))' }}>
             {filteredClips.filter(c => !topPickClip || c.id !== topPickClip.id).map((clip) => (
               <div key={clip.id} onClick={() => handleEnhance(clip)} className="cursor-pointer relative overflow-hidden">
                 <TrendingCard
