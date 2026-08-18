@@ -31,18 +31,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [isAdmin, setIsAdmin] = useState(false)
   const [effectiveAuditMode, setEffectiveAuditMode] = useState(isAuditMode)
 
+  // Auth + admin check (once on mount)
   useEffect(() => {
     const supabase = createClient()
     supabase.auth.getUser().then(({ data }) => {
       setUser(data.user)
       if (data.user) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        ;(supabase as any)
-          .from('profiles')
-          .select('plan, monthly_videos_used, bonus_videos, is_comp')
-          .eq('id', data.user.id)
-          .single()
-          .then(({ data: p }: { data: UserProfile | null }) => { if (p) setProfile(p) })
         // Check admin status + effective audit mode server-side
         fetch('/api/auth/me')
           .then(r => r.json())
@@ -62,6 +56,22 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     })
     return () => subscription.unsubscribe()
   }, [])
+
+  // Profile fetch — runs on mount AND on every route change so the quota
+  // counter stays fresh after renders (which increment monthly_videos_used).
+  useEffect(() => {
+    const supabase = createClient()
+    supabase.auth.getUser().then(({ data }) => {
+      if (!data.user) return
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      ;(supabase as any)
+        .from('profiles')
+        .select('plan, monthly_videos_used, bonus_videos, is_comp')
+        .eq('id', data.user.id)
+        .single()
+        .then(({ data: p }: { data: UserProfile | null }) => { if (p) setProfile(p) })
+    })
+  }, [pathname])
 
   // Open sidebar on desktop by default (once, on mount)
   useEffect(() => {
@@ -221,7 +231,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <div className="px-4 pb-2">
           <div className="rounded-xl border border-border bg-muted/30 p-3 space-y-2">
             <div className="flex items-center justify-between">
-              <span className="text-xs text-muted-foreground">Clips this month</span>
+              <span className="text-xs text-muted-foreground flex items-center gap-1.5">
+                Clips this month
+                {isComp && <span className="text-[9px] font-bold px-1 py-px rounded border border-amber-500/40 text-amber-400">PACK</span>}
+              </span>
               <span className="text-xs font-semibold text-foreground">
                 {videosUsed}/{videosLimit === 999 ? '\u221E' : videosLimit}
                 {bonusVideos > 0 && <span className="text-amber-400 ml-1">(+{bonusVideos})</span>}
