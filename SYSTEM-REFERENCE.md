@@ -326,6 +326,17 @@ Filtergraph: scale/crop → eq (4 buckets) → unsharp (HIGH only) → ASS subti
 ### Paywall (contextual conversion)
 Free plan: 3 videos/month. On quota hit (client-side check uses `PLANS[plan].limits.maxVideosPerMonth`) → PaywallModal with 5 options: one-time save (first wall only), upgrade, invite (+5/+2 clips at signup), top-up packs ($5/5, $9/10), wait. Server 402 `quota_exceeded` also opens PaywallModal. Strategy : `docs/research/freemium-paywall-strategy.md`.
 
+### Clip Duration Limits (per-plan)
+Max clip duration: Free 60s, Pro/Studio 120s. Enforced server-side (`checkClipDuration` in `lib/plans.ts`) — API returns 402 `clip_too_long` with `{ currentUsage, limit, plan }`.
+
+**Upfront prevention** (no wasted time configuring a clip that can't render):
+- **Browse cards**: duration badge turns soft red (`text-red-300 bg-red-500/20`) with "Too long for your plan" tooltip when `clip.duration_seconds > maxClipDuration`. `maxClipDuration` derived from `userPlan` in trending store via `getPlanConfig`.
+- **Enhance page**: Generate button disabled with amber explanation block when `clip.duration_seconds > plan limit`. Free plan shows "Upgrade for 2-minute clips" CTA. Pro/Studio shows "Pick a shorter clip".
+
+**Post-render error** (server-side catch, in case duration wasn't known upfront): dedicated amber state (not red ErrorCard), shows exact duration vs limit, same upgrade/pick-shorter logic. No misleading Retry button.
+
+**First clip overlay + Quick Export**: separate `clip_too_long` toast/message (no longer grouped with `quota_exceeded`).
+
 ### Watermark + End-Card (free plan)
 Next.js render routes send `plan` + `watermark: { enabled: plan==='free' }` in the VPS payload. VPS uses the payload plan (fallback: DB lookup). Free plan: `@viralanimal` drawtext watermark (position-alternating top/bottom center, anti-crop) + 1.2s end-card ("clipped with VIRAL ANIMAL"). Pro/Studio/comp: no watermark, no end-card.
 

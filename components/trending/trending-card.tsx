@@ -46,6 +46,8 @@ interface TrendingCardProps {
   isPublished?: boolean
   /** Clip has been rendered (but may not be in bank or published) */
   isRendered?: boolean
+  /** Max clip duration in seconds for the user's plan (for too-long badge) */
+  maxClipDuration?: number
 }
 
 // ── Module-level video URL cache ──
@@ -132,7 +134,8 @@ const LegGemDefs = () => (
 
 // ── Main Card ──
 
-export const TrendingCard = memo(function TrendingCard({ clip, onRemix, onQuickExport, onShowDetail, quickExportState, remixing = false, isSaved = false, onToggleSave, isNew = false, isBanked = false, isPublished = false, isRendered = false }: TrendingCardProps) {
+export const TrendingCard = memo(function TrendingCard({ clip, onRemix, onQuickExport, onShowDetail, quickExportState, remixing = false, isSaved = false, onToggleSave, isNew = false, isBanked = false, isPublished = false, isRendered = false, maxClipDuration }: TrendingCardProps) {
+  const clipTooLong = !!(maxClipDuration && clip.duration_seconds && clip.duration_seconds > maxClipDuration)
   const [imgError, setImgError] = useState(false)
   const [imgLoaded, setImgLoaded] = useState(false)
   const [hovered, setHovered] = useState(false)
@@ -572,7 +575,7 @@ export const TrendingCard = memo(function TrendingCard({ clip, onRemix, onQuickE
                   <div className="leg-shimmer"><div className="leg-shimmer-bar" /></div>
                   {!showVideo && (<span className={cn('absolute top-2 left-2 z-[6] text-xs font-bold px-2 py-1 rounded-lg border backdrop-blur-sm hidden md:inline', platformStyle.colorClass)}>{platformStyle.label}</span>)}
                   {!showVideo && clip.duration_seconds && (
-                    <span className="absolute bottom-2.5 left-2.5 z-[6] text-[13px] text-white bg-black/85 px-2.5 py-1 rounded-lg font-medium" style={{ border: '1px solid rgba(255,255,255,.1)' }}>
+                    <span className={cn('absolute bottom-2.5 left-2.5 z-[6] text-[13px] px-2.5 py-1 rounded-lg font-medium', clipTooLong ? 'text-red-300 bg-red-500/20' : 'text-white bg-black/85')} style={{ border: clipTooLong ? '1px solid rgba(239,68,68,.3)' : '1px solid rgba(255,255,255,.1)' }} title={clipTooLong ? 'Too long for your plan' : undefined}>
                       {formatDuration(clip.duration_seconds)}
                     </span>
                   )}
@@ -610,7 +613,7 @@ export const TrendingCard = memo(function TrendingCard({ clip, onRemix, onQuickE
             <div className="absolute inset-0" style={{ background: 'linear-gradient(to top, rgba(0,0,0,.65), transparent 40%, rgba(0,0,0,.25))' }} />
             {!showVideo && (<span className={cn('absolute top-2 left-2 z-[6] text-xs font-bold px-2 py-1 rounded-lg border backdrop-blur-sm hidden md:inline', platformStyle.colorClass)}>{platformStyle.label}</span>)}
             {!showVideo && clip.duration_seconds && (
-              <span className="absolute bottom-2 left-2 z-[6] text-[10px] text-white/80 bg-black/60 px-1.5 py-0.5 rounded-md backdrop-blur-sm font-medium">
+              <span className={cn('absolute bottom-2 left-2 z-[6] text-[10px] px-1.5 py-0.5 rounded-md backdrop-blur-sm font-medium', clipTooLong ? 'text-red-300 bg-red-500/20' : 'text-white/80 bg-black/60')} title={clipTooLong ? 'Too long for your plan' : undefined}>
                 {formatDuration(clip.duration_seconds)}
               </span>
             )}
@@ -812,7 +815,7 @@ export const TrendingCard = memo(function TrendingCard({ clip, onRemix, onQuickE
 
         {/* Duration pill */}
         {!showVideo && clip.duration_seconds && (
-          <span className="absolute bottom-2 left-2 z-[6] text-[10px] text-white/80 bg-black/60 px-1.5 py-0.5 rounded-md backdrop-blur-sm font-medium">
+          <span className={cn('absolute bottom-2 left-2 z-[6] text-[10px] px-1.5 py-0.5 rounded-md backdrop-blur-sm font-medium', clipTooLong ? 'text-red-300 bg-red-500/20' : 'text-white/80 bg-black/60')} title={clipTooLong ? 'Too long for your plan' : undefined}>
             {formatDuration(clip.duration_seconds)}
           </span>
         )}

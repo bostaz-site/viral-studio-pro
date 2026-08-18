@@ -108,7 +108,9 @@ export function FirstClipOverlay() {
         setLoadingClipId(null)
         // Show contextual error message
         const err = json.error ?? ''
-        if (res.status === 402 || err === 'quota_exceeded' || err === 'clip_too_long') {
+        if (err === 'clip_too_long') {
+          setErrorMsg('This clip is too long for your plan — try a shorter one.')
+        } else if (res.status === 402 || err === 'quota_exceeded') {
           setErrorMsg('Monthly limit reached — upgrade your plan to continue.')
         } else if (res.status === 429 || err === 'queue_full' || err === 'Rate limited') {
           setErrorMsg('Too many requests — try again in a minute.')

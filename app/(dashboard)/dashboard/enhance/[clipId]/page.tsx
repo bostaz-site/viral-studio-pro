@@ -8,7 +8,7 @@ import {
   ChevronLeft, Loader2, AlertCircle, Sparkles, Download, CheckCircle, Check,
   Type, Wand2, Eye, ExternalLink, Play,
   Monitor, Zap, Send,
-  Flame, Focus, X, Plus, Volume2, Scissors, RotateCcw, Rocket, SlidersHorizontal, Gift,
+  Flame, Focus, X, Plus, Volume2, Scissors, RotateCcw, Rocket, SlidersHorizontal, Gift, Clock,
 } from 'lucide-react'
 import { WolfLoader } from '@/components/ui/wolf-loader'
 import { Button } from '@/components/ui/button'
@@ -36,7 +36,7 @@ import { CaptionsSection } from '@/components/enhance/accordion-sections/caption
 import { PageHeader } from '@/components/dashboard/page-header'
 import { UnifiedPublishDialog } from '@/components/distribution/unified-publish-dialog'
 import { PaywallModal } from '@/components/paywall-modal'
-import { PLANS } from '@/lib/plans'
+import { PLANS, getPlanConfig } from '@/lib/plans'
 import { track } from '@/lib/analytics'
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -685,6 +685,16 @@ export default function EnhancePage() {
         if (res.status === 402 && data.error === 'quota_exceeded') {
           setRendering(false)
           setShowPaywall(true)
+          return
+        }
+        if (res.status === 402 && data.error === 'clip_too_long') {
+          const dur = (data.data as Record<string, unknown>)?.currentUsage as number | undefined
+          const lim = (data.data as Record<string, unknown>)?.limit as number | undefined
+          const plan = (data.data as Record<string, unknown>)?.plan as string | undefined
+          const durStr = dur ? `${Math.floor(dur / 60)}:${String(Math.round(dur % 60)).padStart(2, '0')}` : '?'
+          const limStr = lim ? `${Math.floor(lim / 60)}:${String(Math.round(lim % 60)).padStart(2, '0')}` : '?'
+          setRenderMessage(`⏱️ too_long:${durStr}:${limStr}:${plan ?? 'free'}`)
+          setRendering(false)
           return
         }
         setRenderMessage(`❌ ${data.error || data.message || 'Render failed'}`)
@@ -1368,15 +1378,78 @@ export default function EnhancePage() {
           )}
 
           {/* Generate button — hidden when AI flow active or render done */}
-          {!renderDownloadUrl && !makeViralLoading && !analysisSequenceActive && !rendering && (
-            <Button
-              className="w-full h-12 font-bold text-base gap-2 rounded-xl text-amber-950"
-              style={{ background: 'linear-gradient(135deg, #fbbf24, #f59e0b 45%, #d97706)', boxShadow: '0 0 20px rgba(245, 158, 11, 0.22)' }}
-              onClick={handleRender}
-            >
-              <Zap className="h-5 w-5" /> Generate clip
-            </Button>
-          )}
+          {!renderDownloadUrl && !makeViralLoading && !analysisSequenceActive && !rendering && (() => {
+            const maxDur = getPlanConfig(userPlan).limits.maxClipDurationSeconds
+            const clipDur = clip?.duration_seconds ?? 0
+            const tooLong = clipDur > 0 && maxDur > 0 && clipDur > maxDur
+            const durStr = clipDur ? `${Math.floor(clipDur / 60)}:${String(Math.round(clipDur % 60)).padStart(2, '0')}` : null
+            const limStr = `${Math.floor(maxDur / 60)}:${String(Math.round(maxDur % 60)).padStart(2, '0')}`
+            return tooLong ? (
+              <div className="flex flex-col gap-2">
+                <Button
+                  disabled
+                  className="w-full h-12 font-bold text-base gap-2 rounded-xl opacity-50 cursor-not-allowed"
+                  title={`Clip is ${durStr} — your ${getPlanConfig(userPlan).name} plan supports up to ${limStr}`}
+                >
+                  <Zap className="h-5 w-5" /> Generate clip
+                </Button>
+                <div className="flex items-start gap-2.5 p-3 rounded-xl border border-amber-500/25 bg-amber-500/5">
+                  <Clock className="h-4 w-4 shrink-0 text-amber-400 mt-0.5" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-amber-300">
+                      This clip is {durStr} — your plan supports up to {limStr}
+                    </p>
+                    {userPlan === 'free' ? (
+                      <button
+                        onClick={() => setShowPaywall(true)}
+                        className="mt-1.5 text-xs font-semibold text-amber-400 hover:text-amber-300 transition-colors"
+                      >
+                        Upgrade for 2-minute clips &rarr;
+                      </button>
+                    ) : (
+                      <p className="mt-1 text-xs text-zinc-500">Pick a shorter clip or trim it before exporting.</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <Button
+                className="w-full h-12 font-bold text-base gap-2 rounded-xl text-amber-950"
+                style={{ background: 'linear-gradient(135deg, #fbbf24, #f59e0b 45%, #d97706)', boxShadow: '0 0 20px rgba(245, 158, 11, 0.22)' }}
+                onClick={handleRender}
+              >
+                <Zap className="h-5 w-5" /> Generate clip
+              </Button>
+            )
+          })()}
+
+          {/* Clip too long — dedicated state (not a red error) */}
+          {renderMessage?.startsWith('\u23F1\uFE0F too_long:') && (() => {
+            const parts = renderMessage.split(':')
+            const durStr = `${parts[1]}:${parts[2]}`
+            const limStr = `${parts[3]}:${parts[4]}`
+            const plan = parts[5] ?? 'free'
+            return (
+              <div className="flex items-start gap-2.5 p-3 rounded-xl border border-amber-500/25 bg-amber-500/5">
+                <Clock className="h-4 w-4 shrink-0 text-amber-400 mt-0.5" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-amber-300">
+                    This clip is {durStr} — your plan supports up to {limStr} per clip.
+                  </p>
+                  {plan === 'free' ? (
+                    <button
+                      onClick={() => setShowPaywall(true)}
+                      className="mt-1.5 text-xs font-semibold text-amber-400 hover:text-amber-300 transition-colors"
+                    >
+                      Upgrade for 2-minute clips &rarr;
+                    </button>
+                  ) : (
+                    <p className="mt-1 text-xs text-zinc-500">Pick a shorter clip or trim it before exporting.</p>
+                  )}
+                </div>
+              </div>
+            )
+          })()}
 
           {/* Render error messages */}
           {renderMessage && (renderMessage.includes('Error') || renderMessage.includes('❌')) && (() => {
@@ -1413,7 +1486,7 @@ export default function EnhancePage() {
           {(makeViralLoading || analysisSequenceActive || rendering || renderDownloadUrl) && (
             <div className="flex flex-col gap-2">
               {/* Progress / success message */}
-              {renderMessage && !renderMessage.includes('Error') && !renderMessage.includes('❌') && (
+              {renderMessage && !renderMessage.includes('Error') && !renderMessage.includes('❌') && !renderMessage.includes('too_long:') && (
                 <p className={cn(
                   'text-sm font-medium text-center',
                   renderMessage.includes('⚠️') ? 'text-amber-400' :

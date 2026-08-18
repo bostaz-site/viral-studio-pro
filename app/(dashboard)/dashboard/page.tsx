@@ -23,6 +23,7 @@ import { useTrendingStore, type TrendingClip } from '@/stores/trending-store'
 import type { FeedFilter } from '@/types/trending'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
+import { getPlanConfig } from '@/lib/plans'
 import { InstallBanner } from '@/components/pwa/install-banner'
 import { useUiStore } from '@/stores/ui-store'
 import { TopPickCard } from '@/components/trending/top-pick-card'
@@ -205,7 +206,7 @@ export default function DashboardPage() {
           status: 'error',
           errorMessage: msg,
         })
-        toast.error(res.status === 402 ? 'Video limit reached — upgrade your plan' : res.status === 429 ? 'Too many exports — wait a moment' : msg)
+        toast.error(json.error === 'clip_too_long' ? 'Clip too long for your plan — try a shorter one' : res.status === 402 ? 'Video limit reached — upgrade your plan' : res.status === 429 ? 'Too many exports — wait a moment' : msg)
         return
       }
 
@@ -449,6 +450,8 @@ export default function DashboardPage() {
   const publishedClipIds = useTrendingStore(s => s.publishedClipIds)
   const renderedClipIds = useTrendingStore(s => s.renderedClipIds)
   const addRenderedClip = useTrendingStore(s => s.addRenderedClip)
+  const storeUserPlan = useTrendingStore(s => s.userPlan)
+  const maxClipDuration = useMemo(() => getPlanConfig(storeUserPlan).limits.maxClipDurationSeconds, [storeUserPlan])
   const topPickClip = useMemo(() => {
     if (filters.feed === 'saved') return null
     const TWELVE_HOURS = 12 * 60 * 60 * 1000
@@ -828,6 +831,7 @@ export default function DashboardPage() {
                   isBanked={bankedClipIds.has(clip.id)}
                   isPublished={publishedClipIds.has(clip.id)}
                   isRendered={renderedClipIds.has(clip.id)}
+                  maxClipDuration={maxClipDuration}
                 />
               </div>
             ))}
