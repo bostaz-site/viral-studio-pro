@@ -118,17 +118,13 @@ function AnimatedScore({ value }: { value: number }) {
 }
 
 export function TopPickCard({ clip, onEnhance, onQuickExport, quickExportState, hasHigherOlderClip = false, isBanked = false, isPublished = false, isRendered = false }: TopPickCardProps) {
+  const [showScoreTooltip, setShowScoreTooltip] = useState(false)
   const isExporting = quickExportState?.clipId === clip.id && quickExportState.status === 'rendering'
   const isExported = (quickExportState?.clipId === clip.id && quickExportState.status === 'done') || isBanked || isPublished || isRendered
   const score = Math.round(clip.velocity_score ?? 0)
   const insight = getClipInsight(clip)
   const age = timeAgo(clip.clip_created_at ?? clip.scraped_at)
   const niche = clip.niche ?? ''
-
-  // Dynamic explanation line
-  const explanation = hasHigherOlderClip
-    ? 'Higher scores below already peaked \u2014 this one is still early.'
-    : insight?.text ?? 'High momentum \u00b7 detected before peak'
 
   return (
     <>
@@ -194,17 +190,26 @@ export function TopPickCard({ clip, onEnhance, onQuickExport, quickExportState, 
 
                 {/* Center */}
                 <div className="flex-1 min-w-0 flex flex-col justify-center gap-0.5 sm:gap-1">
-                  <span
-                    className="inline-flex items-center gap-1.5 self-start px-2 py-0.5 rounded-full text-[9px] font-extrabold uppercase tracking-[0.14em]"
-                    style={{
-                      color: '#FDE68A',
-                      background: 'rgba(245,158,11,.10)',
-                      border: '1px solid rgba(245,158,11,.28)',
-                    }}
-                  >
-                    <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
-                    Top Pick &middot; {clip.feed_category === 'early_gem' ? 'Early Gem' : 'Surging'}
-                  </span>
+                  {/* Early-catch explanation badge — above title, always visible when relevant */}
+                  {hasHigherOlderClip ? (
+                    <span className="inline-flex items-center gap-1 self-start px-2 py-0.5 rounded-full text-[10px] font-bold"
+                      style={{ color: '#67E8F9', background: 'rgba(34,211,238,.10)', border: '1px solid rgba(34,211,238,.25)' }}
+                    >
+                      {'\uD83D\uDC8E'} EARLY — catch it before it peaks
+                    </span>
+                  ) : (
+                    <span
+                      className="inline-flex items-center gap-1.5 self-start px-2 py-0.5 rounded-full text-[9px] font-extrabold uppercase tracking-[0.14em]"
+                      style={{
+                        color: '#FDE68A',
+                        background: 'rgba(245,158,11,.10)',
+                        border: '1px solid rgba(245,158,11,.28)',
+                      }}
+                    >
+                      <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                      Top Pick &middot; {clip.feed_category === 'early_gem' ? 'Early Gem' : 'Surging'}
+                    </span>
+                  )}
 
                   <p className="text-[14px] sm:text-[15.5px] font-extrabold text-white truncate leading-tight">
                     {clip.title || 'Untitled clip'}
@@ -215,20 +220,45 @@ export function TopPickCard({ clip, onEnhance, onQuickExport, quickExportState, 
                     {niche && ` \u00b7 ${niche}`}
                     {age && (
                       <span style={{ color: '#F59E0B', fontWeight: 700 }}>
-                        {' \u00b7 '}{age} ago {'\u2197'} still climbing
+                        {' \u00b7 '}{age} ago
                       </span>
                     )}
                   </p>
 
-                  <p className="hidden sm:block text-[11px] font-medium text-zinc-500" title="Top Pick = strongest clip detected in the last 12h, before its peak. Older clips keep their score but lose the crown.">
+                  {/* Desktop insight line */}
+                  <p className="hidden sm:block text-[11px] font-medium text-zinc-500">
                     <span style={{ color: '#F59E0B' }}>{insight?.icon ?? '\u26A1'}</span>{' '}
-                    {explanation}
+                    {insight?.text ?? 'High momentum \u00b7 detected before peak'}
                   </p>
                 </div>
 
-                {/* Right — score + CTA */}
+                {/* Right — score + trajectory + CTA */}
                 <div className="flex sm:flex-col items-center sm:items-end justify-between sm:justify-center gap-2 sm:gap-1.5 shrink-0">
-                  <AnimatedScore value={score} />
+                  {/* Score + trajectory badge */}
+                  <div
+                    className="relative flex flex-col items-center sm:items-end"
+                    onMouseEnter={() => setShowScoreTooltip(true)}
+                    onMouseLeave={() => setShowScoreTooltip(false)}
+                    onClick={(e) => { e.stopPropagation(); setShowScoreTooltip(v => !v) }}
+                  >
+                    <AnimatedScore value={score} />
+                    {/* Trajectory indicator */}
+                    <span
+                      className="inline-flex items-center gap-0.5 text-[10px] font-bold animate-pulse"
+                      style={{ color: '#4ADE80' }}
+                    >
+                      {'\u2197'} still climbing
+                    </span>
+                    {/* Score tooltip */}
+                    {showScoreTooltip && (
+                      <div
+                        className="absolute top-full mt-1 right-0 z-50 w-52 px-3 py-2 rounded-lg text-[11px] leading-snug text-zinc-300 pointer-events-none"
+                        style={{ background: 'rgba(15,23,42,.95)', border: '1px solid rgba(255,255,255,.12)', boxShadow: '0 8px 24px rgba(0,0,0,.5)' }}
+                      >
+                        Top Pick = best opportunity right now, not highest score. High scores below already peaked.
+                      </div>
+                    )}
+                  </div>
                   {/* Desktop CTA */}
                   <div className="hidden sm:flex items-center gap-0">
                     <button
