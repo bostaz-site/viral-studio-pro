@@ -678,7 +678,7 @@ export const TrendingCard = memo(function TrendingCard({ clip, onRemix, onQuickE
             <div className="leg-divider hidden md:block" />
             {/* CTA */}
             <div className="flex items-center gap-0 mt-2 md:mt-0">
-              <button className="leg-cta" style={{ flex: 1, borderTopRightRadius: onQuickExport ? 0 : undefined, borderBottomRightRadius: onQuickExport ? 0 : undefined, height: '44px' }}
+              <button className="leg-cta whitespace-nowrap overflow-hidden text-ellipsis" style={{ flex: 1, borderTopRightRadius: onQuickExport ? 0 : undefined, borderBottomRightRadius: onQuickExport ? 0 : undefined, height: '44px' }}
                 onClick={(e) => { e.stopPropagation(); onRemix?.(clip) }}
                 disabled={remixing}>
                 {remixing ? 'Creating...' : `${dynamicCTA.icon === 'Flame' ? '\uD83D\uDD25' : '\u2726'} ${dynamicCTA.label}`}
@@ -907,13 +907,13 @@ export const TrendingCard = memo(function TrendingCard({ clip, onRemix, onQuickE
         <div className="flex items-center gap-1.5 mt-2 md:mt-2.5">
           <div className="flex flex-1 min-w-0">
             <button
-              className="cta-viral flex-1 h-[44px] rounded-l-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all relative z-10"
+              className="cta-viral flex-1 min-w-0 h-[44px] rounded-l-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all relative z-10 overflow-hidden"
               style={{ borderTopRightRadius: onQuickExport ? 0 : undefined, borderBottomRightRadius: onQuickExport ? 0 : undefined }}
               onClick={(e) => { e.stopPropagation(); onRemix?.(clip) }}
               disabled={remixing}
             >
               <CTAIconComponent icon={dynamicCTA.icon} />
-              <span className="relative z-10">{remixing ? 'Creating...' : dynamicCTA.label}</span>
+              <span className="relative z-10 whitespace-nowrap overflow-hidden text-ellipsis">{remixing ? 'Creating...' : dynamicCTA.label}</span>
             </button>
             {onQuickExport && (
               <button

@@ -379,7 +379,7 @@ export function TopPickCard({ clip, onEnhance, onQuickExport, quickExportState, 
                   <div className="hidden sm:flex items-center gap-0">
                     <button
                       onClick={(e) => { e.stopPropagation(); onEnhance(clip) }}
-                      className="leg-cta tp-cta-compact"
+                      className="leg-cta tp-cta-compact whitespace-nowrap"
                       style={{ borderTopRightRadius: onQuickExport ? 0 : undefined, borderBottomRightRadius: onQuickExport ? 0 : undefined }}
                     >
                       Steal this clip<span className="tp-cta-arrow">&nbsp;&rarr;</span>
@@ -410,7 +410,7 @@ export function TopPickCard({ clip, onEnhance, onQuickExport, quickExportState, 
                 <div className="sm:hidden flex items-center gap-0 w-full">
                   <button
                     onClick={(e) => { e.stopPropagation(); onEnhance(clip) }}
-                    className="leg-cta tp-cta-compact"
+                    className="leg-cta tp-cta-compact whitespace-nowrap"
                     style={{ flex: 1, borderTopRightRadius: onQuickExport ? 0 : undefined, borderBottomRightRadius: onQuickExport ? 0 : undefined }}
                   >
                     Steal this clip<span className="tp-cta-arrow">&nbsp;&rarr;</span>
