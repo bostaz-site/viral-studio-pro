@@ -1,9 +1,9 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { Zap, CheckCircle2, Archive, Film } from 'lucide-react'
+import { Zap, CheckCircle2, Archive, Film, Radar } from 'lucide-react'
 import { WolfLoader } from '@/components/ui/wolf-loader'
-import { timeAgo } from '@/lib/trending/utils'
+import { timeAgo, formatCount } from '@/lib/trending/utils'
 import { getClipInsight } from '@/types/trending'
 import type { TrendingClip } from '@/types/trending'
 import type { QuickExportState } from '@/components/trending/trending-card'
@@ -116,6 +116,122 @@ function AnimatedScore({ value }: { value: number }) {
 
   return <span className="tp-score tp-score-sweep">{display}</span>
 }
+
+/* ── Waiting state: no qualifying Top Pick right now ── */
+
+interface TopPickWaitingProps {
+  contender?: TrendingClip | null
+  onEnhance: (clip: TrendingClip) => void
+  onQuickExport?: (clip: TrendingClip) => void
+  quickExportState?: QuickExportState | null
+}
+
+export function TopPickWaiting({ contender, onEnhance, onQuickExport, quickExportState }: TopPickWaitingProps) {
+  const isExporting = contender && quickExportState?.clipId === contender.id && quickExportState.status === 'rendering'
+  const isExported = contender && quickExportState?.clipId === contender.id && quickExportState.status === 'done'
+
+  return (
+    <>
+      <TopPickGemDefs />
+
+      <p className="text-[11px] font-bold tracking-[0.14em] uppercase text-zinc-500 mb-2">
+        Top pick right now
+      </p>
+
+      <div className="tp-royal relative max-w-[680px] overflow-visible" style={{ marginTop: 0 }}>
+        {/* Reduced frame — no crown, no gems */}
+        <div className="leg-frame tp-frame-full relative z-10" style={{ opacity: 0.6 }}>
+          <div className="leg-frame-inner-border tp-frame-full">
+            <div className="leg-frame-inner-gold tp-frame-full">
+              <div
+                className="relative p-3 sm:p-4 tp-content"
+                style={{ background: 'linear-gradient(180deg, rgba(15,23,42,.97), rgba(4,9,24,.95))' }}
+              >
+                {/* Radar watching message */}
+                <div className="flex items-center gap-2.5">
+                  <Radar className="h-5 w-5 text-amber-500/60 shrink-0 animate-pulse" />
+                  <div>
+                    <p className="text-[13px] font-semibold text-zinc-400">
+                      Radar watching — no early gem right now
+                    </p>
+                    <p className="text-[11px] text-zinc-600 mt-0.5">
+                      The crown returns when a fresh clip breaks out
+                    </p>
+                  </div>
+                </div>
+
+                {/* Freshest contender mini-card */}
+                {contender && (
+                  <div
+                    className="mt-3 flex items-center gap-3 p-2 rounded-lg cursor-pointer hover:bg-white/[.03] transition-colors"
+                    style={{ border: '1px solid rgba(255,255,255,.06)' }}
+                    onClick={() => onEnhance(contender)}
+                  >
+                    {contender.thumbnail_url && (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={contender.thumbnail_url}
+                        alt={contender.title ?? ''}
+                        className="w-[72px] h-[48px] rounded object-cover shrink-0"
+                      />
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-zinc-600 mb-0.5">
+                        Freshest contender
+                      </p>
+                      <p className="text-[13px] font-semibold text-white truncate leading-tight">
+                        {contender.title || 'Untitled clip'}
+                      </p>
+                      <p className="text-[10px] text-zinc-500 truncate mt-0.5">
+                        @{contender.author_handle ?? contender.author_name ?? 'unknown'}
+                        {' \u00b7 '}
+                        {Math.round(contender.velocity_score ?? 0)} score
+                        {' \u00b7 '}
+                        {timeAgo(contender.clip_created_at ?? contender.scraped_at)} ago
+                      </p>
+                    </div>
+                    <div className="shrink-0 flex items-center gap-1.5">
+                      <button
+                        onClick={(e) => { e.stopPropagation(); onEnhance(contender) }}
+                        className="h-8 px-3 text-xs font-semibold rounded-lg transition-colors"
+                        style={{
+                          background: 'linear-gradient(180deg, #5C4400 0%, #3A2A00 50%, #2A1E00 100%)',
+                          border: '1.5px solid #DAA520',
+                          color: '#FFE9A8',
+                        }}
+                      >
+                        Steal
+                      </button>
+                      {onQuickExport && (
+                        <button
+                          onClick={(e) => { e.stopPropagation(); onQuickExport(contender) }}
+                          disabled={!!isExporting}
+                          className="h-8 w-8 flex items-center justify-center rounded-lg transition-colors"
+                          style={{
+                            background: isExported
+                              ? 'linear-gradient(180deg, #1a3a1a 0%, #0a2a0a 50%, #052005 100%)'
+                              : 'rgba(255,255,255,.05)',
+                            border: isExported ? '1.5px solid #22c55e' : '1.5px solid rgba(255,255,255,.1)',
+                            color: isExported ? '#4ADE80' : '#a1a1aa',
+                          }}
+                          title="Quick Export"
+                        >
+                          {isExporting ? <WolfLoader variant="spinner" size={12} mode="amber" /> : isExported ? <CheckCircle2 className="h-3.5 w-3.5" /> : <Zap className="h-3.5 w-3.5" />}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </>
+  )
+}
+
+/* ── Full Top Pick card (crowned) ── */
 
 export function TopPickCard({ clip, onEnhance, onQuickExport, quickExportState, hasHigherOlderClip = false, isBanked = false, isPublished = false, isRendered = false }: TopPickCardProps) {
   const [showScoreTooltip, setShowScoreTooltip] = useState(false)

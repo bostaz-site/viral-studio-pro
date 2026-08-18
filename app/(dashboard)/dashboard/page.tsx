@@ -26,7 +26,7 @@ import { cn } from '@/lib/utils'
 import { getPlanConfig } from '@/lib/plans'
 import { InstallBanner } from '@/components/pwa/install-banner'
 import { useUiStore } from '@/stores/ui-store'
-import { TopPickCard } from '@/components/trending/top-pick-card'
+import { TopPickCard, TopPickWaiting } from '@/components/trending/top-pick-card'
 import { track } from '@/lib/analytics'
 
 export default function DashboardPage() {
@@ -488,6 +488,23 @@ export default function DashboardPage() {
     )
   }, [filteredClips, filters.feed, usedClipIds])
 
+  // Freshest contender: best clip <12h (any score) — shown when no top pick qualifies
+  const freshestContender = useMemo(() => {
+    if (topPickClip) return null // not needed when we have a real top pick
+    if (filters.feed === 'saved') return null
+    const TWELVE_HOURS = 12 * 60 * 60 * 1000
+    const now = Date.now()
+    const fresh = filteredClips.filter(c => {
+      const created = c.clip_created_at ?? c.scraped_at
+      if (!created) return false
+      return now - new Date(created).getTime() <= TWELVE_HOURS
+    })
+    if (fresh.length === 0) return null
+    return fresh.reduce((best, c) =>
+      (c.velocity_score ?? 0) > (best.velocity_score ?? 0) ? c : best
+    )
+  }, [topPickClip, filteredClips, filters.feed])
+
   // Check if any clip in the grid has a higher score than the top pick but is older than 12h
   // (this triggers the explanation "Higher scores below already peaked")
   const hasHigherOlderClip = useMemo(() => {
@@ -785,8 +802,8 @@ export default function DashboardPage() {
         })()
       ) : (
         <>
-          {/* Top Pick — compact diamond card (only shown when a clip meets criteria) */}
-          {topPickClip && (
+          {/* Top Pick — crowned card when a clip qualifies, radar waiting state otherwise */}
+          {topPickClip ? (
             <div className="py-4 px-2">
               <TopPickCard
                 clip={topPickClip}
@@ -803,6 +820,19 @@ export default function DashboardPage() {
                 isBanked={bankedClipIds.has(topPickClip.id)}
                 isPublished={publishedClipIds.has(topPickClip.id)}
                 isRendered={renderedClipIds.has(topPickClip.id)}
+              />
+            </div>
+          ) : filters.feed !== 'saved' && filters.feed !== 'remixes' && (
+            <div className="py-4 px-2">
+              <TopPickWaiting
+                contender={freshestContender}
+                onEnhance={handleEnhance}
+                onQuickExport={handleQuickExport}
+                quickExportState={
+                  freshestContender && quickExport?.clipId === freshestContender.id
+                    ? quickExport
+                    : null
+                }
               />
             </div>
           )}
