@@ -688,12 +688,13 @@ export default function EnhancePage() {
           return
         }
         if (res.status === 402 && data.error === 'clip_too_long') {
+          // Sync clip duration from server so the pre-render warning (Block 1)
+          // shows the authoritative value. No renderMessage needed — Block 1
+          // handles the display, avoiding a duplicate warning.
           const dur = (data.data as Record<string, unknown>)?.currentUsage as number | undefined
-          const lim = (data.data as Record<string, unknown>)?.limit as number | undefined
-          const plan = (data.data as Record<string, unknown>)?.plan as string | undefined
-          const durStr = dur ? `${Math.floor(dur / 60)}:${String(Math.round(dur % 60)).padStart(2, '0')}` : '?'
-          const limStr = lim ? `${Math.floor(lim / 60)}:${String(Math.round(lim % 60)).padStart(2, '0')}` : '?'
-          setRenderMessage(`⏱️ too_long:${durStr}:${limStr}:${plan ?? 'free'}`)
+          if (dur && dur > 0) {
+            setClip(prev => prev ? { ...prev, duration_seconds: dur } : prev)
+          }
           setRendering(false)
           return
         }
@@ -1423,34 +1424,6 @@ export default function EnhancePage() {
             )
           })()}
 
-          {/* Clip too long — dedicated state (not a red error) */}
-          {renderMessage?.startsWith('\u23F1\uFE0F too_long:') && (() => {
-            const parts = renderMessage.split(':')
-            const durStr = `${parts[1]}:${parts[2]}`
-            const limStr = `${parts[3]}:${parts[4]}`
-            const plan = parts[5] ?? 'free'
-            return (
-              <div className="flex items-start gap-2.5 p-3 rounded-xl border border-amber-500/25 bg-amber-500/5">
-                <Clock className="h-4 w-4 shrink-0 text-amber-400 mt-0.5" />
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-amber-300">
-                    This clip is {durStr} — your plan supports up to {limStr} per clip.
-                  </p>
-                  {plan === 'free' ? (
-                    <button
-                      onClick={() => setShowPaywall(true)}
-                      className="mt-1.5 text-xs font-semibold text-amber-400 hover:text-amber-300 transition-colors"
-                    >
-                      Upgrade for 2-minute clips &rarr;
-                    </button>
-                  ) : (
-                    <p className="mt-1 text-xs text-zinc-500">Pick a shorter clip or trim it before exporting.</p>
-                  )}
-                </div>
-              </div>
-            )
-          })()}
-
           {/* Render error messages */}
           {renderMessage && (renderMessage.includes('Error') || renderMessage.includes('❌')) && (() => {
             const cleaned = renderMessage.replace(/^❌\s*/, '').replace(/^Error\s*:\s*/, '')
@@ -1486,7 +1459,7 @@ export default function EnhancePage() {
           {(makeViralLoading || analysisSequenceActive || rendering || renderDownloadUrl) && (
             <div className="flex flex-col gap-2">
               {/* Progress / success message */}
-              {renderMessage && !renderMessage.includes('Error') && !renderMessage.includes('❌') && !renderMessage.includes('too_long:') && (
+              {renderMessage && !renderMessage.includes('Error') && !renderMessage.includes('❌') && (
                 <p className={cn(
                   'text-sm font-medium text-center',
                   renderMessage.includes('⚠️') ? 'text-amber-400' :

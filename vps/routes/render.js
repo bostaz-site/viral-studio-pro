@@ -515,6 +515,17 @@ router.post('/', async (req, res) => {
         // real video frame — prevents the "frozen last frame" artifact if
         // the container metadata is still slightly ahead of the stream.
         duration = Math.max(0.1, duration - 0.05);
+
+        // Kick HLS playlists (playlist.m3u8) often cover a much longer
+        // window than the actual clip (e.g. 3 min playlist for a 30s clip).
+        // When the caller provides a trusted clipDuration from the DB,
+        // cap the probed duration so we don't render garbage beyond the
+        // real clip boundary.
+        if (clipDuration > 0 && duration > clipDuration + 2) {
+          trc(`DURATION CAP: probed ${duration.toFixed(2)}s exceeds DB clipDuration ${clipDuration}s — capping`);
+          duration = Math.max(0.1, clipDuration - 0.05);
+        }
+
         clipEndTime = duration;
       } catch (err) {
         console.warn(`[Render ${renderSessionId}] Could not determine duration via ffprobe`);
