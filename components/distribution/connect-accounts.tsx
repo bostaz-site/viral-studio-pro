@@ -88,6 +88,10 @@ export function ConnectAccounts() {
     return accounts.find((a) => a.platform === platform)
   }
 
+  const isDisconnectedAccount = (account: SocialAccount | undefined): boolean => {
+    return !!account?.disconnected_at
+  }
+
   const handleConnect = (platform: string) => {
     // Navigate to OAuth authorize endpoint
     window.location.href = `/api/oauth/${platform}/authorize`
@@ -142,13 +146,18 @@ export function ConnectAccounts() {
         const meta = PLATFORM_META[platform]
         const account = getAccountForPlatform(platform)
         const isConnected = !!account
+        const isDisconnected = isDisconnectedAccount(account)
         const isDisconnecting = disconnecting === platform
 
         return (
           <Card
             key={platform}
             className={`border transition-colors ${
-              isConnected ? meta.borderColor : 'border-border'
+              isDisconnected
+                ? 'border-red-500/40'
+                : isConnected
+                  ? meta.borderColor
+                  : 'border-border'
             }`}
           >
             <CardContent className="p-4">
@@ -156,7 +165,11 @@ export function ConnectAccounts() {
                 <div className="flex items-center gap-3 min-w-0">
                   <div
                     className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${
-                      isConnected ? meta.bgColor : 'bg-muted/40'
+                      isDisconnected
+                        ? 'bg-red-500/10'
+                        : isConnected
+                          ? meta.bgColor
+                          : 'bg-muted/40'
                     }`}
                   >
                     {meta.icon}
@@ -175,7 +188,11 @@ export function ConnectAccounts() {
                         </Badge>
                       )}
                     </div>
-                    {isConnected ? (
+                    {isDisconnected ? (
+                      <p className="text-xs text-red-400">
+                        Disconnected — reconnect to resume posting
+                      </p>
+                    ) : isConnected ? (
                       <p className="text-xs text-muted-foreground truncate">
                         Connected as{' '}
                         <span className="font-medium text-foreground">
@@ -191,6 +208,16 @@ export function ConnectAccounts() {
                 <div className="flex items-center gap-2 shrink-0">
                   {accountsLoading ? (
                     <WolfLoader variant="spinner" size={16} mode="amber" />
+                  ) : isDisconnected ? (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-8 gap-1.5 border-red-500/40 text-red-400 hover:bg-red-500/10"
+                      onClick={() => handleConnect(platform)}
+                    >
+                      <AlertCircle className="h-3.5 w-3.5" />
+                      Reconnect
+                    </Button>
                   ) : isConnected ? (
                     <>
                       <Badge

@@ -9,12 +9,17 @@
  * Before refreshing, acquires `SET lock:token:{platform}:{userId} 1 NX EX 30`.
  * If lock is held by another isolate, waits 2s then re-reads the freshly
  * refreshed token from DB.
+ *
+ * On refresh failure (revoked/expired refresh_token), marks the account
+ * as disconnected (disconnected_at + disconnect_reason) so the UI can
+ * prompt the user to reconnect.
  */
 
 import { createAdminClient } from '@/lib/supabase/admin'
 import { safeEncrypt, safeDecrypt } from '@/lib/crypto'
 import { redis } from '@/lib/upstash'
 import { type Platform, PLATFORM_CONFIGS, getClientCredentials } from './platforms'
+import { logger } from '@/lib/logger'
 
 interface TokenSet {
   accessToken: string
@@ -32,6 +37,7 @@ interface SocialAccountRow {
   token_expires_at: string | null
   username: string | null
   connected_at: string
+  disconnected_at: string | null
   platform_metadata: Record<string, unknown> | null
 }
 
@@ -48,7 +54,8 @@ export function isTokenExpired(expiresAt: string | null): boolean {
 /**
  * Get a valid access token for a user+platform.
  * Refreshes automatically if expired.
- * Returns null if no account is connected.
+ * Returns null if no account is connected OR if the account is disconnected
+ * (refresh_token revoked — user needs to reconnect).
  */
 export async function getValidToken(
   userId: string,
@@ -66,6 +73,9 @@ export async function getValidToken(
   if (error || !account) return null
 
   const row = account as unknown as SocialAccountRow
+
+  // Account was marked disconnected (refresh failed previously) — user must reconnect
+  if (row.disconnected_at) return null
 
   // Check if token needs refresh
   if (isTokenExpired(row.token_expires_at)) {
@@ -86,15 +96,21 @@ export async function getValidToken(
       await new Promise(r => setTimeout(r, 2000))
       const { data: freshRow } = await admin
         .from('social_accounts')
-        .select('access_token, refresh_token, token_expires_at')
+        .select('access_token, refresh_token, token_expires_at, disconnected_at')
         .eq('id', row.id)
         .single()
 
-      if (freshRow && !isTokenExpired(freshRow.token_expires_at as string | null)) {
+      if (!freshRow) return null
+
+      // If the other isolate marked it disconnected, bail
+      const freshAny = freshRow as unknown as Record<string, unknown>
+      if (freshAny.disconnected_at) return null
+
+      if (!isTokenExpired(freshAny.token_expires_at as string | null)) {
         return {
-          accessToken: safeDecrypt(freshRow.access_token as string)!,
-          refreshToken: safeDecrypt(freshRow.refresh_token as string | null),
-          expiresAt: freshRow.token_expires_at ? new Date(freshRow.token_expires_at as string) : null,
+          accessToken: safeDecrypt(freshAny.access_token as string)!,
+          refreshToken: safeDecrypt(freshAny.refresh_token as string | null),
+          expiresAt: freshAny.token_expires_at ? new Date(freshAny.token_expires_at as string) : null,
         }
       }
       // Other isolate failed or took too long — fall through to refresh ourselves
@@ -103,10 +119,12 @@ export async function getValidToken(
     try {
       const decryptedRefresh = safeDecrypt(row.refresh_token)
       if (!decryptedRefresh) {
-        throw new Error(
-          `${PLATFORM_CONFIGS[platform].displayName} token expired and no refresh token available. ` +
-          'Please reconnect your account.'
+        // No refresh token → mark disconnected
+        await markDisconnected(
+          admin, row.id,
+          `${PLATFORM_CONFIGS[platform].displayName} token expired and no refresh token available.`
         )
+        return null
       }
 
       const refreshed = await refreshToken(platform, decryptedRefresh)
@@ -120,12 +138,27 @@ export async function getValidToken(
         updateData.refresh_token = safeEncrypt(refreshed.refreshToken)
       }
 
+      // Backfill username if it's still a placeholder
+      if (platform === 'tiktok' && (!row.username || row.username === 'tiktok_user')) {
+        const realUsername = await fetchTikTokUsername(refreshed.accessToken)
+        if (realUsername && realUsername !== 'tiktok_user') {
+          updateData.username = realUsername
+        }
+      }
+
       await admin
         .from('social_accounts')
         .update(updateData)
         .eq('id', row.id)
 
       return refreshed
+    } catch (err) {
+      // Refresh failed → mark account as disconnected
+      const errMsg = err instanceof Error ? err.message : 'Unknown refresh error'
+      logger.error(`[token-manager] ${platform} refresh failed for user=${userId}: ${errMsg}`)
+
+      await markDisconnected(admin, row.id, errMsg)
+      return null
     } finally {
       // Always release the lock
       if (lockAcquired) {
@@ -139,6 +172,109 @@ export async function getValidToken(
     refreshToken: safeDecrypt(row.refresh_token),
     expiresAt: row.token_expires_at ? new Date(row.token_expires_at) : null,
   }
+}
+
+/**
+ * Mark a social account as disconnected (token refresh failed).
+ * The user must reconnect via OAuth to restore it.
+ */
+async function markDisconnected(
+  admin: ReturnType<typeof createAdminClient>,
+  accountId: string,
+  reason: string,
+) {
+  await admin
+    .from('social_accounts')
+    .update({
+      disconnected_at: new Date().toISOString(),
+      disconnect_reason: reason.slice(0, 500),
+    } as never)
+    .eq('id', accountId)
+}
+
+/**
+ * Fetch the real TikTok username/display_name for backfilling.
+ */
+async function fetchTikTokUsername(accessToken: string): Promise<string | null> {
+  try {
+    const res = await fetch(
+      'https://open.tiktokapis.com/v2/user/info/?fields=display_name,username',
+      { headers: { Authorization: `Bearer ${accessToken}` } }
+    )
+    const data = await res.json() as {
+      data?: { user?: { display_name?: string; username?: string } }
+    }
+    return data.data?.user?.username ?? data.data?.user?.display_name ?? null
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Proactively refresh all tokens expiring within `withinHours` hours.
+ * Used by the refresh-oauth-tokens cron.
+ * Returns a summary of results.
+ */
+export async function refreshExpiringTokens(withinHours: number = 12): Promise<{
+  refreshed: number
+  failed: number
+  skipped: number
+  details: Array<{ accountId: string; platform: string; status: string; error?: string }>
+}> {
+  const admin = createAdminClient()
+  const cutoff = new Date(Date.now() + withinHours * 3600 * 1000).toISOString()
+
+  // Find all non-disconnected accounts with tokens expiring within the window
+  const { data: accounts, error } = await admin
+    .from('social_accounts')
+    .select('*')
+    .is('disconnected_at', null)
+    .not('refresh_token', 'is', null)
+    .not('token_expires_at', 'is', null)
+    .lt('token_expires_at', cutoff)
+
+  if (error || !accounts || accounts.length === 0) {
+    return { refreshed: 0, failed: 0, skipped: 0, details: [] }
+  }
+
+  let refreshed = 0
+  let failed = 0
+  let skipped = 0
+  const details: Array<{ accountId: string; platform: string; status: string; error?: string }> = []
+
+  for (const raw of accounts) {
+    const row = raw as unknown as SocialAccountRow
+
+    // Use getValidToken which handles locking + refresh + disconnect marking
+    const result = await getValidToken(row.user_id, row.platform as Platform)
+
+    if (result) {
+      refreshed++
+      details.push({ accountId: row.id, platform: row.platform, status: 'refreshed' })
+    } else {
+      // Check if it was marked disconnected by the refresh attempt
+      const { data: check } = await admin
+        .from('social_accounts')
+        .select('disconnected_at')
+        .eq('id', row.id)
+        .single()
+
+      if ((check as unknown as { disconnected_at: string | null } | null)?.disconnected_at) {
+        failed++
+        details.push({
+          accountId: row.id,
+          platform: row.platform,
+          status: 'failed',
+          error: 'Refresh token revoked or expired — account marked disconnected',
+        })
+      } else {
+        skipped++
+        details.push({ accountId: row.id, platform: row.platform, status: 'skipped' })
+      }
+    }
+  }
+
+  return { refreshed, failed, skipped, details }
 }
 
 /**
@@ -336,22 +472,8 @@ async function exchangeTikTokCode(code: string): Promise<{
     )
   }
 
-  // Fetch user info
-  let username = 'tiktok_user'
-  try {
-    const userRes = await fetch(
-      'https://open.tiktokapis.com/v2/user/info/?fields=display_name,username',
-      {
-        headers: { Authorization: `Bearer ${data.access_token}` },
-      }
-    )
-    const userData = await userRes.json() as {
-      data?: { user?: { display_name?: string; username?: string } }
-    }
-    username = userData.data?.user?.username ?? userData.data?.user?.display_name ?? 'tiktok_user'
-  } catch {
-    // Non-fatal: keep default username
-  }
+  // Fetch user info — get real username, not placeholder
+  const username = await fetchTikTokUsername(data.access_token) ?? 'tiktok_user'
 
   return {
     accessToken: data.access_token,

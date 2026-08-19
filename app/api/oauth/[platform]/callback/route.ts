@@ -115,6 +115,8 @@ export async function GET(
         token_expires_at: tokens.expiresAt?.toISOString() ?? null,
         username: tokens.username,
         connected_at: new Date().toISOString(),
+        disconnected_at: null,
+        disconnect_reason: null,
       })
       .eq('id', existing.id)
 

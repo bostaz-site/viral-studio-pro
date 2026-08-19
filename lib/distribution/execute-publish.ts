@@ -84,6 +84,21 @@ export async function executePublish(params: ExecutePublishParams): Promise<Exec
   // 2. Get valid OAuth token (auto-refresh)
   const tokenSet = await getValidToken(userId, platform as 'tiktok' | 'youtube' | 'instagram')
   if (!tokenSet) {
+    // Check if account exists but is disconnected (token refresh failed)
+    const { data: acct } = await admin
+      .from('social_accounts')
+      .select('disconnected_at' as '*')
+      .eq('user_id', userId)
+      .eq('platform', platform)
+      .single()
+
+    if ((acct as unknown as { disconnected_at: string | null } | null)?.disconnected_at) {
+      return {
+        success: false,
+        postId: null,
+        error: `${platform} disconnected — reconnect in Settings to resume posting`,
+      }
+    }
     return { success: false, postId: null, error: `No ${platform} account connected` }
   }
 

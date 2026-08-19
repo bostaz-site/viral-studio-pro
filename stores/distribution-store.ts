@@ -6,6 +6,8 @@ export interface SocialAccount {
   platform_user_id: string
   username: string | null
   connected_at: string
+  disconnected_at: string | null
+  disconnect_reason: string | null
 }
 
 export interface PublishTarget {
@@ -77,10 +79,10 @@ export const useDistributionStore = create<DistributionState>((set, get) => ({
       set({
         accounts,
         accountsLoading: false,
-        // Auto-enable publish targets for connected accounts
+        // Auto-enable publish targets for connected (non-disconnected) accounts
         publishTargets: get().publishTargets.map((t) => ({
           ...t,
-          enabled: accounts.some((a) => a.platform === t.platform),
+          enabled: accounts.some((a) => a.platform === t.platform && !a.disconnected_at),
         })),
       })
     } catch (err) {
