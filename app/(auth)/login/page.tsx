@@ -128,17 +128,29 @@ function ForgotPassword() {
   const [resetEmail, setResetEmail] = useState('')
   const [sent, setSent] = useState(false)
   const [sending, setSending] = useState(false)
+  const [resetError, setResetError] = useState<string | null>(null)
 
   const handleReset = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!resetEmail) return
     setSending(true)
-    const supabase = createClient()
-    await supabase.auth.resetPasswordForEmail(resetEmail, {
-      redirectTo: `${window.location.origin}/auth/reset`,
-    })
-    setSent(true)
-    setSending(false)
+    setResetError(null)
+    try {
+      const supabase = createClient()
+      const { error } = await supabase.auth.resetPasswordForEmail(resetEmail, {
+        redirectTo: `${window.location.origin}/auth/reset`,
+      })
+      if (error) {
+        setResetError(error.message)
+        setSending(false)
+        return
+      }
+      setSent(true)
+    } catch {
+      setResetError('Network error — check your connection and try again.')
+    } finally {
+      setSending(false)
+    }
   }
 
   if (!open) {
@@ -154,18 +166,21 @@ function ForgotPassword() {
   }
 
   return (
-    <form onSubmit={handleReset} className="flex gap-2 items-center w-full">
-      <Input
-        type="email"
-        placeholder="your@email.com"
-        value={resetEmail}
-        onChange={e => setResetEmail(e.target.value)}
-        required
-        className="h-8 text-base sm:text-xs flex-1"
-      />
-      <Button type="submit" size="sm" variant="outline" className="h-8 text-xs" disabled={sending}>
-        {sending ? '...' : 'Reset'}
-      </Button>
-    </form>
+    <div className="w-full space-y-1.5">
+      <form onSubmit={handleReset} className="flex gap-2 items-center w-full">
+        <Input
+          type="email"
+          placeholder="your@email.com"
+          value={resetEmail}
+          onChange={e => setResetEmail(e.target.value)}
+          required
+          className="h-8 text-base sm:text-xs flex-1"
+        />
+        <Button type="submit" size="sm" variant="outline" className="h-8 text-xs" disabled={sending}>
+          {sending ? '...' : 'Reset'}
+        </Button>
+      </form>
+      {resetError && <p className="text-xs text-red-400 text-center">{resetError}</p>}
+    </div>
   )
 }

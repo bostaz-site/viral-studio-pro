@@ -239,13 +239,14 @@ const hookGenerationHandler = withAuth(async (req: NextRequest, user) => {
   try {
     // Plan-aware rate limit: 50/day free, 500/day pro/studio
     const admin = createAdminClient()
-    const { data: profile } = await admin
+    const { data: profile } = await (admin
       .from('profiles')
-      .select('plan')
+      .select('plan, is_comp')
       .eq('id', user.id)
-      .single()
-    const plan = profile?.plan ?? 'free'
-    const rlConfig = plan === 'free'
+      .single() as unknown as Promise<{ data: { plan: string | null; is_comp: boolean | null } | null }>)
+    const { resolveEffectivePlan } = await import('@/lib/plans')
+    const effectivePlan = resolveEffectivePlan(profile)
+    const rlConfig = effectivePlan === 'free'
       ? RATE_LIMITS.renderHook
       : RATE_LIMITS.renderHookPro
     const rl = await rateLimit(`render-hook:${user.id}`, rlConfig.limit, rlConfig.windowMs)
@@ -253,7 +254,7 @@ const hookGenerationHandler = withAuth(async (req: NextRequest, user) => {
       return NextResponse.json(
         {
           data: null,
-          error: plan === 'free'
+          error: effectivePlan === 'free'
             ? 'Daily limit reached (50/day). Upgrade to Pro for 500/day.'
             : 'Daily limit reached. Please try again tomorrow.',
           message: 'Rate limited',

@@ -182,9 +182,77 @@ Un clip Kick de 30s passe correctement de bout en bout: 30s en DB → 30s affich
 |---------|------------|
 | `app/(dashboard)/dashboard/enhance/[clipId]/page.tsx` | renderingRef guard + paywall catch |
 | `app/(dashboard)/settings/page.tsx` | handleManageBilling error handling |
-| `app/api/render/hook/route.ts` | Refund failure logging |
+| `app/api/render/hook/route.ts` | Refund failure logging + comp account rate limits |
 | `app/api/render/route.ts` | Refund failure logging |
 | `lib/api/render-helpers.ts` | Refund failure logging |
 | `components/distribution/distribution-hub.tsx` | Remove fake metrics from publish history |
-| `lib/distribution/token-manager.ts` | Type cast fixes for disconnected_at |
-| `lib/distribution/execute-publish.ts` | Type cast fix for disconnected_at |
+| `app/(auth)/login/page.tsx` | Password reset error handling |
+
+---
+
+## BUGS SUPPLEMENTAIRES (rapport des sous-agents, passe 2)
+
+### 7. MAJEUR — Password reset silently succeeds on error (CORRIGE)
+
+**Fichier**: `app/(auth)/login/page.tsx:132-142`
+**Reproduction**: Taper un email invalide dans "Forgot password", cliquer Send. L'appel `resetPasswordForEmail` echoue mais `setSent(true)` est appele quand meme. L'utilisateur voit "Check your email" alors qu'aucun email n'a ete envoye.
+**Fix applique**: Ajout try/catch, verification `error` du retour Supabase, affichage du message d'erreur.
+
+---
+
+### 8. MAJEUR — Comp accounts get free-tier rate limits on hook generation (CORRIGE)
+
+**Fichier**: `app/api/render/hook/route.ts:240-250`
+**Probleme**: Le hook generation endpoint fetch `profile.plan` sans `is_comp`, puis compare directement `plan === 'free'`. Les comp accounts (`is_comp=true`) ont `plan='free'` en DB mais devraient etre traites comme `'pro'`.
+**Impact**: Comp users limites a 50 hooks/jour au lieu de 500.
+**Fix applique**: Ajout de `is_comp` au select, utilisation de `resolveEffectivePlan(profile)`.
+
+---
+
+### 9. MAJEUR — Bank removal after publish is fire-and-forget (BACKLOG)
+
+**Fichier**: `components/distribution/unified-publish-dialog.tsx:219-223, 302-306`
+**Probleme**: Apres publication TikTok (direct mode), le clip est retire de la bank via `fetch(...).catch(() => {})`. Si ca echoue silencieusement, le clip reste en bank et le schedule autofarm pourrait le republier → **double post**.
+**Severite**: MAJEUR — risque de duplication de publication.
+**Recommandation**: Ajouter un retry (1x) ou au minimum un toast d'erreur. Bloquer le schedule autofarm si le clip a deja un `published_posts` entry.
+
+---
+
+### 10. MINEUR — Placeholder usernames on OAuth failure fallback
+
+**Fichier**: `lib/distribution/token-manager.ts:340, 407, 519`
+**Probleme**: Si le fetch user info TikTok/YouTube/Instagram echoue pendant l'OAuth, le username est fallback a `'tiktok_user'`, `'youtube_user'`, `'instagram_user'`. L'utilisateur voit ce placeholder dans Settings et Publish dialog.
+**Severite**: MINEUR — ne casse rien, mais peut confondre l'utilisateur.
+
+---
+
+### 11. MINEUR — Autofarm disable DELETE is fire-and-forget
+
+**Fichier**: `components/distribution/distribution-hub.tsx:1010-1012`
+**Probleme**: Quand l'utilisateur desactive l'autofarm, le DELETE `/api/distribution/autofarm-sync` est envoye avec `.catch(() => {})`. Si ca echoue, l'autofarm continue de tourner en backend meme si l'UI montre "desactive".
+**Severite**: MINEUR (le schedule sera vide donc l'autofarm ne publiera rien).
+
+---
+
+### 12. MINEUR — Remix fetch silent fallback
+
+**Fichier**: `app/(dashboard)/dashboard/page.tsx:143-150`
+**Probleme**: Le fetch des remixes utilisateur echoue silencieusement avec `.catch(() => setRemixes([]))`. L'utilisateur voit un onglet "My remixes" vide sans savoir si c'est une erreur ou s'il n'a pas de remixes.
+**Severite**: MINEUR — pas de perte de donnees.
+
+---
+
+### 13. MINEUR — Sparkline/detail modal fetch silent
+
+**Fichier**: `components/trending/trending-detail-modal.tsx:142-145`
+**Probleme**: Le fetch des donnees sparkline echoue silencieusement. Le graphique ne s'affiche pas sans indication d'erreur.
+**Severite**: MINEUR — donnee supplementaire, pas critique.
+
+---
+
+### 14. MINEUR — Stripe webhook idempotency window
+
+**Fichier**: `app/api/stripe/webhook/route.ts:45-273`
+**Probleme**: L'idempotency check lit `stripe_events` AVANT le traitement mais insere APRES. Il y a une fenetre de race ou 2 webhooks identiques arrivent simultanement, passent le check, et sont tous les deux traites.
+**Severite**: MINEUR — fenetre tres etroite (ms), et Stripe envoie rarement le meme event 2x en parallele.
+**Recommandation**: Inserer dans `stripe_events` avec `ON CONFLICT DO NOTHING` AVANT le traitement. Si l'insert echoue (conflit), c'est un duplicate.
