@@ -1,7 +1,7 @@
 "use client"
 
 import Link from 'next/link'
-import { usePathname, useRouter, useSearchParams } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { cn } from '@/lib/utils'
 import { PLANS, resolveEffectivePlan } from '@/lib/plans'
 import { Settings, Menu, X, LogOut, Zap, Compass, Wand2, Radio, BarChart3, TrendingUp, Handshake, Users, ChevronRight, Mail, Inbox, Webhook, Brain, Film, Cpu, Sparkles, Radar, Beaker, ShieldCheck } from 'lucide-react'
@@ -25,7 +25,6 @@ interface UserProfile {
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
   const router = useRouter()
-  const searchParams = useSearchParams()
   const { sidebarOpen, setSidebarOpen } = useUiStore()
   const [user, setUser] = useState<User | null>(null)
   const [profile, setProfile] = useState<UserProfile | null>(null)
@@ -35,13 +34,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   // Capture mode: ?capture=1 activates, persists in sessionStorage
   useEffect(() => {
-    if (searchParams.get('capture') === '1') {
+    const params = new URLSearchParams(window.location.search)
+    if (params.get('capture') === '1') {
       sessionStorage.setItem('va:capture-mode', '1')
       setCaptureMode(true)
     } else {
       setCaptureMode(sessionStorage.getItem('va:capture-mode') === '1')
     }
-  }, [searchParams])
+  }, [pathname])
 
   // Auth + admin check (once on mount)
   useEffect(() => {
