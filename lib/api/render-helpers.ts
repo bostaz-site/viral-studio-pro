@@ -302,7 +302,8 @@ export function sendToVps(
         .eq('id', jobId)
       // Refund quota and release queue slot on dispatch failure
       if (userId) {
-        (admin.rpc as CallableFunction)('refund_video_usage', { p_user_id: userId, p_count: 1 }).catch(() => {})
+        (admin.rpc as CallableFunction)('refund_video_usage', { p_user_id: userId, p_count: 1 })
+          .catch((e: unknown) => console.error(`[render] refund failed (dispatch) for user ${userId}:`, e))
       }
       releaseJob(jobId).catch(() => {})
     }

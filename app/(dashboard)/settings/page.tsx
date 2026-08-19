@@ -173,9 +173,17 @@ function SettingsPageInner() {
   }
 
   const handleManageBilling = async () => {
-    const res = await fetch('/api/stripe/portal', { method: 'POST' })
-    const data = await res.json() as { data: { url: string } | null }
-    if (data.data?.url) window.location.href = data.data.url
+    try {
+      const res = await fetch('/api/stripe/portal', { method: 'POST' })
+      const data = await res.json() as { data: { url: string } | null; message?: string }
+      if (data.data?.url) {
+        window.location.href = data.data.url
+      } else {
+        toast.error(data.message || 'Could not open billing portal. Try again.')
+      }
+    } catch {
+      toast.error('Network error — check your connection and try again.')
+    }
   }
 
   const isComp = profile?.is_comp === true

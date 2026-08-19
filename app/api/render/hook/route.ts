@@ -225,7 +225,9 @@ async function handleWebhook(req: NextRequest) {
     (admin.rpc as CallableFunction)('refund_video_usage', {
       p_user_id: currentJob.user_id,
       p_count: 1,
-    }).catch(() => {})
+    }).catch((e: unknown) => {
+      logger.error(`[webhook] CRITICAL: refund_video_usage failed for user ${currentJob.user_id}, job ${payload.jobId}:`, e)
+    })
   }
 
   return NextResponse.json({ data: { updated: true, finalStatus }, error: null })

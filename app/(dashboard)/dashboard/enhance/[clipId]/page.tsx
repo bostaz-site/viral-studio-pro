@@ -76,6 +76,7 @@ export default function EnhancePage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [rendering, setRendering] = useState(false)
+  const renderingRef = useRef(false)
   const [placedInBank, setPlacedInBank] = useState(false)
   const [nextBestClip, setNextBestClip] = useState<{ id: string; title: string | null; velocity_score: number | null; thumbnail_url: string | null; tier: string | null } | null>(null)
   const [showPublishDialog, setShowPublishDialog] = useState(searchParams.get('publish') === '1')
@@ -403,7 +404,7 @@ export default function EnhancePage() {
       if (pollCount > maxPolls) {
         if (pollRef.current) clearInterval(pollRef.current)
         setRenderMessage('⚠️ Render is taking more than 10 min — refresh the page to resume tracking, it\'s probably still running.')
-        setRendering(false)
+        setRendering(false); renderingRef.current = false
         return
       }
 
@@ -453,7 +454,7 @@ export default function EnhancePage() {
               ? '✅ Rendered at reduced quality (server load) — re-generate to try full quality.'
               : '✅ Clip rendered with captions! Check the preview above.'
           )
-          setRendering(false)
+          setRendering(false); renderingRef.current = false
           setMonthlyUsed(prev => prev + 1)
           setSettingsChangedSinceRender(false)
           setPlacedInBank(false)
@@ -464,12 +465,12 @@ export default function EnhancePage() {
           if (pollRef.current) clearInterval(pollRef.current)
           try { sessionStorage.removeItem(`render-job:${clipId}`) } catch { /* ignore */ }
           setRenderMessage(`❌ Error: ${json.data.errorMessage || 'Unknown error'}`)
-          setRendering(false)
+          setRendering(false); renderingRef.current = false
         } else if (['failed', 'canceled', 'expired'].includes(json.data.status)) {
           if (pollRef.current) clearInterval(pollRef.current)
           try { sessionStorage.removeItem(`render-job:${clipId}`) } catch { /* ignore */ }
           setRenderMessage(`❌ ${json.message || 'Render failed'}`)
-          setRendering(false)
+          setRendering(false); renderingRef.current = false
         } else if (json.data.status === 'queued') {
           const pos = json.data.queuePosition
           if (typeof pos === 'number' && pos > 0) {
@@ -518,11 +519,11 @@ export default function EnhancePage() {
         }
         if (json.data.status === 'done' || json.data.status === 'error') {
           // Let startPolling handle the terminal state + cleanup in one tick
-          setRendering(true)
+          renderingRef.current = true; setRendering(true)
           setRenderMessage('⏳ Resuming tracking...')
           startPolling(storedJobId!)
         } else {
-          setRendering(true)
+          renderingRef.current = true; setRendering(true)
           setRenderMessage('⏳ Resuming render tracking...')
           startPolling(storedJobId!)
         }
@@ -561,11 +562,15 @@ export default function EnhancePage() {
 
   const handleRender = useCallback(async () => {
     if (!clip) return
+    // Prevent double-click: ref guard fires synchronously before React re-renders
+    if (renderingRef.current) return
+    renderingRef.current = true
 
     // Paywall check: plan quota exceeded on client (server is still source of truth)
     const pw = paywallRef.current
     const planLimit = PLANS[(pw.userPlan as 'free' | 'pro' | 'studio') ?? 'free']?.limits.maxVideosPerMonth ?? 3
     if (pw.monthlyUsed >= planLimit && pw.bonusVideos <= 0) {
+      renderingRef.current = false
       track('paywall_shown', { userId, monthlyUsed: pw.monthlyUsed, bonusVideos: pw.bonusVideos })
       setShowPaywall(true)
       return
@@ -683,7 +688,7 @@ export default function EnhancePage() {
 
       if (!res.ok || !data.data) {
         if (res.status === 402 && data.error === 'quota_exceeded') {
-          setRendering(false)
+          setRendering(false); renderingRef.current = false
           setShowPaywall(true)
           return
         }
@@ -695,28 +700,28 @@ export default function EnhancePage() {
           if (dur && dur > 0) {
             setClip(prev => prev ? { ...prev, duration_seconds: dur } : prev)
           }
-          setRendering(false)
+          setRendering(false); renderingRef.current = false
           return
         }
         setRenderMessage(`❌ ${data.error || data.message || 'Render failed'}`)
-        setRendering(false)
+        setRendering(false); renderingRef.current = false
       } else if (data.data.vpsReady === false) {
         setRenderMessage(`⚠️ ${data.message}`)
         if (data.data.originalUrl) {
           setRenderOriginalUrl(data.data.originalUrl)
         }
-        setRendering(false)
+        setRendering(false); renderingRef.current = false
       } else if (data.data.jobId) {
         // Start polling for job completion
         setRenderMessage('⏳ Rendering... this may take 30-60 seconds.')
         startPolling(data.data.jobId)
       } else {
         setRenderMessage('✅ Render started!')
-        setRendering(false)
+        setRendering(false); renderingRef.current = false
       }
     } catch {
       setRenderMessage('Network error')
-      setRendering(false)
+      setRendering(false); renderingRef.current = false
     }
   }, [clip, settings, startPolling])
 
@@ -1650,7 +1655,7 @@ export default function EnhancePage() {
                       setMakeViralLoading(false)
                       setAnalysisSequenceActive(false)
                       setAnalysisComplete(false)
-                      setRendering(false)
+                      setRendering(false); renderingRef.current = false
                       setShowEnhancements(false)
                       setPlacedInBank(false)
                       setSettingsChangedSinceRender(false)
@@ -2695,8 +2700,12 @@ export default function EnhancePage() {
               paywallRef.current = { ...paywallRef.current, bonusVideos: paywallRef.current.bonusVideos + 1 }
               setShowPaywall(false)
               handleRender()
+            } else {
+              setRenderMessage(json.message || 'Could not apply bonus clip. Try again.')
             }
-          } catch { /* silent */ }
+          } catch {
+            setRenderMessage('Network error — could not apply bonus clip.')
+          }
         }}
         referralLink={referralLink}
         resetDate={(() => {

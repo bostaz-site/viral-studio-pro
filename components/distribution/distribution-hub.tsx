@@ -781,9 +781,9 @@ export function DistributionHub() {
           platforms: published,
           status: 'live' as const,
           timestamp: new Date(),
-          views: initialMetrics.views,
-          likes: initialMetrics.likes,
-          growthPercent: initialMetrics.growthPercent,
+          views: -1,
+          likes: -1,
+          growthPercent: 0,
           tone: clipTone,
         }, ...prev].slice(0, 5))
         setSessionMemory(prev => recordPublish(prev, {
