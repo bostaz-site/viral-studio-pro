@@ -290,3 +290,5 @@ textarea:focus-visible,
 
 /* ── Capture mode (?capture=1) — hides utility UI for promo recordings ── */
 .capture-mode [data-capture-hide] { display: none !important; }
+.capture-mode > aside { display: none !important; }
+.capture-mode > div > header { display: none !important; }
