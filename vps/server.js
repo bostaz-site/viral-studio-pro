@@ -161,8 +161,8 @@ app.listen(PORT, () => {
   if (!process.env.VPS_RENDER_API_KEY && !process.env.API_SECRET) {
     logger.warn('VPS_RENDER_API_KEY / API_SECRET not set — API requests will fail');
   }
-  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
-    logger.warn('SUPABASE_SERVICE_ROLE_KEY not set — database operations will fail');
+  if (!process.env.SUPABASE_SECRET_KEY && !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    logger.warn('SUPABASE_SECRET_KEY / SUPABASE_SERVICE_ROLE_KEY not set — database operations will fail');
   }
 });
 

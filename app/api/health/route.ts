@@ -6,7 +6,7 @@ async function checkSupabase(): Promise<'ok' | 'error'> {
     if (!url) return 'error'
     const res = await fetch(`${url}/rest/v1/`, {
       method: 'HEAD',
-      headers: { apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? '' },
+      headers: { apikey: process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? '' },
       signal: AbortSignal.timeout(5000),
     })
     // Supabase responds 401 to unauthenticated GET on /rest/v1/ root — that's
