@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import * as Sentry from '@sentry/nextjs'
 import { createClient } from '@/lib/supabase/server'
 import type { User } from '@supabase/supabase-js'
 import type { ApiResponse } from '@/types/api'
@@ -24,10 +25,15 @@ export function withAuth(handler: AuthHandler) {
         return errorResponse('Authentication required', 401)
       }
 
+      Sentry.setUser({ id: user.id })
+
       return await handler(req, user)
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Internal server error'
       console.error(`[API ${req.method} ${req.nextUrl.pathname}]`, message)
+      Sentry.captureException(err, {
+        tags: { route: req.nextUrl.pathname },
+      })
       return errorResponse(message, 500)
     }
   }

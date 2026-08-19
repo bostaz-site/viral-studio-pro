@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
+import * as Sentry from '@sentry/nextjs'
 import { cn } from '@/lib/utils'
 import { PLANS, resolveEffectivePlan } from '@/lib/plans'
 import { Settings, Menu, X, LogOut, Zap, Compass, Wand2, Radio, BarChart3, TrendingUp, Handshake, Users, ChevronRight, Mail, Inbox, Webhook, Brain, Film, Cpu, Sparkles, Radar, Beaker, ShieldCheck } from 'lucide-react'
@@ -49,6 +50,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     supabase.auth.getUser().then(({ data }) => {
       setUser(data.user)
       if (data.user) {
+        Sentry.setUser({ id: data.user.id })
         // Check admin status + effective audit mode server-side
         fetch('/api/auth/me')
           .then(r => r.json())

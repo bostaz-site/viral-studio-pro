@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createHmac } from 'crypto'
+import * as Sentry from '@sentry/nextjs'
 import { withAuth } from '@/lib/api/withAuth'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { releaseJob, enqueueRender, cleanupPayload, removeFromQueue } from '@/lib/render-queue'
@@ -177,6 +178,11 @@ async function handleWebhook(req: NextRequest) {
   if (payload.storagePath) updateData.storage_path = payload.storagePath
   if (payload.status === 'error') {
     updateData.error_message = payload.errorMessage || 'Max retries exceeded'
+    Sentry.captureMessage(`Render permanently failed: ${payload.errorMessage ?? 'unknown'}`, {
+      level: 'error',
+      tags: { money_path: 'true', route: '/api/render/hook' },
+      extra: { jobId: payload.jobId, clipId: currentJob.clip_id, userId: currentJob.user_id, retryCount: retryCount },
+    })
   }
 
   const { error } = await admin
