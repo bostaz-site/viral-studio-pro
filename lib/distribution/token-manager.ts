@@ -120,10 +120,8 @@ export async function getValidToken(
       const decryptedRefresh = safeDecrypt(row.refresh_token)
       if (!decryptedRefresh) {
         // No refresh token → mark disconnected
-        await markDisconnected(
-          admin, row.id,
-          `${PLATFORM_CONFIGS[platform].displayName} token expired and no refresh token available.`
-        )
+        const reason = `${PLATFORM_CONFIGS[platform].displayName} token expired and no refresh token available.`
+        await markDisconnected(admin, row.id, reason, userId, platform)
         return null
       }
 
@@ -157,7 +155,7 @@ export async function getValidToken(
       const errMsg = err instanceof Error ? err.message : 'Unknown refresh error'
       logger.error(`[token-manager] ${platform} refresh failed for user=${userId}: ${errMsg}`)
 
-      await markDisconnected(admin, row.id, errMsg)
+      await markDisconnected(admin, row.id, errMsg, userId, platform)
       return null
     } finally {
       // Always release the lock
@@ -182,6 +180,8 @@ async function markDisconnected(
   admin: ReturnType<typeof createAdminClient>,
   accountId: string,
   reason: string,
+  userId?: string,
+  platform?: string,
 ) {
   await admin
     .from('social_accounts')
@@ -190,6 +190,11 @@ async function markDisconnected(
       disconnect_reason: reason.slice(0, 500),
     } as never)
     .eq('id', accountId)
+
+  if (userId && platform) {
+    const { notifyAccountDisconnected } = await import('@/lib/discord/notify')
+    void notifyAccountDisconnected({ platform, userId, reason }).catch(() => {})
+  }
 }
 
 /**

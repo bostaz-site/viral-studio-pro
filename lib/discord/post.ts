@@ -21,7 +21,8 @@ const CHANNEL_ENV_MAP = {
   'promo-codes-sent': 'DISCORD_PROMO_CODES_CHANNEL_ID',
   'conversions': 'DISCORD_CONVERSIONS_CHANNEL_ID',
   'influencer-status': 'DISCORD_INFLUENCER_STATUS_CHANNEL_ID',
-  // Produit (existing)
+  // Produit
+  'activity': 'DISCORD_ACTIVITY_CHANNEL_ID',
   'critical-alerts': 'DISCORD_CRITICAL_ALERTS_CHANNEL_ID',
   'morning-brief': 'DISCORD_MORNING_BRIEF_CHANNEL_ID',
   'production-errors': 'DISCORD_PRODUCTION_ERRORS_CHANNEL_ID',

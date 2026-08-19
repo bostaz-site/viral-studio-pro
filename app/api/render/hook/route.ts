@@ -12,6 +12,7 @@ import { timingSafeCompare } from '@/lib/crypto'
 import { rateLimit, RATE_LIMITS } from '@/lib/rate-limit'
 import type { RenderStatus } from '@/types/enums'
 import { logger } from '@/lib/logger'
+import { notifyRenderFailed, notifyFirstRender, notifyQueueCongestion } from '@/lib/discord/notify'
 
 // ── Hook text generation (frontend → VPS proxy) ──────────────────
 
@@ -183,6 +184,18 @@ async function handleWebhook(req: NextRequest) {
       tags: { money_path: 'true', route: '/api/render/hook' },
       extra: { jobId: payload.jobId, clipId: currentJob.clip_id, userId: currentJob.user_id, retryCount: retryCount },
     })
+
+    // Count consecutive failures to detect VPS outage
+    const failStreak = await redis.incr('render:fail_streak')
+    if (failStreak === 1) await redis.expire('render:fail_streak', 600) // 10 min window
+
+    void notifyRenderFailed({
+      jobId: payload.jobId,
+      clipId: currentJob.clip_id as string,
+      userId: (currentJob.user_id as string) ?? 'unknown',
+      errorMessage: payload.errorMessage || 'Max retries exceeded',
+      consecutiveFailures: failStreak,
+    }).catch(() => {})
   }
 
   const { error } = await admin
@@ -203,8 +216,37 @@ async function handleWebhook(req: NextRequest) {
   await releaseJob(payload.jobId)
   processAndDispatchNext(admin).catch(() => {})
 
+  // Queue congestion check (>10 waiting = alert)
+  redis.llen('render:queue').then(queued => {
+    if (queued > 10) {
+      redis.scard('render:active_jobs').then(active => {
+        void notifyQueueCongestion({ queued, active }).catch(() => {})
+      }).catch(() => {})
+    }
+  }).catch(() => {})
+
   // Increment export_count (idempotent)
   if (payload.status === 'done') {
+    // Reset consecutive failure counter on success
+    redis.del('render:fail_streak').catch(() => {})
+
+    // Check if this is the user's first render (activation milestone)
+    if (currentJob.user_id) {
+      const uid = currentJob.user_id as string
+      Promise.resolve(
+        admin
+          .from('render_jobs')
+          .select('id', { count: 'exact', head: true })
+          .eq('user_id', uid)
+          .eq('status', 'done')
+          .neq('id', payload.jobId)
+      ).then(({ count }) => {
+        if (count === 0) {
+          void notifyFirstRender({ userId: uid }).catch(() => {})
+        }
+      }).catch(() => {})
+    }
+
     if (currentJob.source === 'trending') {
       redis.set(`export_counted:${payload.jobId}`, '1', { nx: true, ex: 86400 })
         .then(result => {

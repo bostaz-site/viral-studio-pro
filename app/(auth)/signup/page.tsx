@@ -114,6 +114,13 @@ function SignupForm() {
     setLoading(false)
     track('signup_completed', { hasReferral: !!referralCode })
 
+    // Discord notification (best-effort, non-blocking)
+    fetch('/api/events/signup', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ source: referralCode ? `ref:${referralCode}` : acquisitionSource || null }),
+    }).catch(() => {})
+
     // Attribute signup to affiliate (best-effort, non-blocking)
     if (referralCode) {
       fetch('/api/affiliate/attribute', {

@@ -7,6 +7,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { getValidToken } from './token-manager'
 import { buildSignedExternalUrl } from './external-url'
 import { logger } from '@/lib/logger'
+import { notifyPublishSuccess, notifyPublishFailed } from '@/lib/discord/notify'
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://viralanimal.com'
 
@@ -222,10 +223,24 @@ export async function executePublish(params: ExecutePublishParams): Promise<Exec
       logger.error(`[execute-publish] published_posts insert failed: ${insertError.message}`)
     }
 
+    void notifyPublishSuccess({
+      platform,
+      mode: 'autofarm',
+      clipTitle: (caption ?? 'untitled').slice(0, 60),
+    }).catch(() => {})
+
     return { success: true, postId }
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'Publishing failed'
     logger.error(`[execute-publish] ${platform} failed for user=${userId} clip=${clipId}: ${msg}`)
+
+    void notifyPublishFailed({
+      platform,
+      reason: msg,
+      userId,
+      mode: 'autofarm',
+    }).catch(() => {})
+
     return { success: false, postId: null, error: msg }
   }
 }

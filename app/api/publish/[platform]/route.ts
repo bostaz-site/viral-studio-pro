@@ -6,6 +6,7 @@ import { isPlatform, PLATFORM_CONFIGS, type Platform } from '@/lib/distribution/
 import { getValidToken } from '@/lib/distribution/token-manager'
 import { buildSignedExternalUrl } from '@/lib/distribution/external-url'
 import { logger } from '@/lib/logger'
+import { notifyPublishSuccess, notifyPublishFailed } from '@/lib/discord/notify'
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://viralanimal.com'
 
@@ -312,6 +313,12 @@ export const POST = withAuth(
         logger.error(`[publish] published_posts insert failed: ${ppError.message}`)
       }
 
+      void notifyPublishSuccess({
+        platform: platformParam,
+        mode: 'manual',
+        clipTitle: clipTitle,
+      }).catch(() => {})
+
       return jsonResponse({
         publicationId: publication.id,
         platform: platformParam,
@@ -324,6 +331,13 @@ export const POST = withAuth(
     } catch (err) {
       const errMsg = err instanceof Error ? err.message : 'Publishing failed'
       logger.error(`[publish] ${platformParam} failed for user=${user.id} clip=${clip_id}: ${errMsg}`)
+
+      void notifyPublishFailed({
+        platform: platformParam,
+        reason: errMsg,
+        userId: user.id,
+        mode: 'manual',
+      }).catch(() => {})
 
       // Update publication record with error
       await admin
