@@ -287,3 +287,6 @@ textarea:focus-visible,
   .hero-word-pop { color: #FBBF24 !important; }
   .hero-badge-pop { opacity: 1 !important; transform: none !important; }
 }
+
+/* ── Capture mode (?capture=1) — hides utility UI for promo recordings ── */
+.capture-mode [data-capture-hide] { display: none !important; }

@@ -802,6 +802,22 @@ Installable web app. **Service worker REMOVED** (2026-08-10) — the old SW caus
 - Dismiss persisted in localStorage `vsp:pwa-dismiss` for 7 days
 - Rendered at the bottom of the dashboard page
 
+## 17. Capture Mode (Promo Recordings)
+
+Activated via `?capture=1` on any dashboard URL. Persists in `sessionStorage` (`va:capture-mode`) so it survives page navigation within the session. Ends on new tab/window or session close.
+
+**Implementation:** Dashboard layout (`app/(dashboard)/layout.tsx`) detects the param, adds `.capture-mode` class to root. Elements tagged with `data-capture-hide` are hidden via `globals.css`: `.capture-mode [data-capture-hide] { display: none !important; }`.
+
+**Hidden elements:**
+- Browse: Upload clip + Refresh buttons (header right slot)
+- Browse: "More filters" toggle button
+- Browse: Refresh indicator (bottom floating pill)
+- Browse: PWA install banner, FirstClipOverlay, ReferralBonusBanner
+- Sidebar: "Clips this month" usage counter + progress bar + upgrade CTA
+- Sidebar: PACK badge (comp accounts)
+
+**Kept visible:** Feed tabs, search bar, Score/Date sort, clip cards, Top Pick, Daily Radar — everything that IS the product.
+
 ---
 
 ## 17. Affiliate System

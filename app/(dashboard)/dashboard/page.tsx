@@ -523,8 +523,8 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
-      <FirstClipOverlay />
-      <ReferralBonusBanner />
+      <div data-capture-hide><FirstClipOverlay /></div>
+      <div data-capture-hide><ReferralBonusBanner /></div>
 
       {/* Header — unified PageHeader pattern (Compass icon + cyan accent) */}
       <PageHeader
@@ -533,7 +533,7 @@ export default function DashboardPage() {
         subtitle="Pick a trending clip. We'll make it TikTok-ready."
         accent="cyan"
         rightSlot={
-          <>
+          <div className="flex items-center gap-2" data-capture-hide>
             <input
               ref={fileInputRef}
               type="file"
@@ -574,7 +574,7 @@ export default function DashboardPage() {
               <RefreshCw className={cn('h-3.5 w-3.5', refreshing && 'animate-spin')} />
               <span className="hidden sm:inline">Refresh</span>
             </Button>
-          </>
+          </div>
         }
       />
 
@@ -970,13 +970,13 @@ export default function DashboardPage() {
 
       {/* Refresh indicator */}
       {refreshing && !quickExport && !renderNotification && (
-        <div className="fixed inset-x-4 bottom-4 md:left-auto md:right-6 md:inset-x-auto z-50 flex items-center gap-2 px-4 py-2 rounded-full bg-card border border-border shadow-lg animate-in slide-in-from-bottom-2 fade-in">
+        <div data-capture-hide className="fixed inset-x-4 bottom-4 md:left-auto md:right-6 md:inset-x-auto z-50 flex items-center gap-2 px-4 py-2 rounded-full bg-card border border-border shadow-lg animate-in slide-in-from-bottom-2 fade-in">
           <WolfLoader variant="spinner" size="sm" mode="amber" />
           <span className="text-xs text-muted-foreground">Refreshing...</span>
         </div>
       )}
 
-      <InstallBanner />
+      <div data-capture-hide><InstallBanner /></div>
 
       {/* Detail modal — "Why this clip?" */}
       <TrendingDetailModal

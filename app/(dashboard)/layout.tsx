@@ -1,7 +1,7 @@
 "use client"
 
 import Link from 'next/link'
-import { usePathname, useRouter } from 'next/navigation'
+import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { cn } from '@/lib/utils'
 import { PLANS, resolveEffectivePlan } from '@/lib/plans'
 import { Settings, Menu, X, LogOut, Zap, Compass, Wand2, Radio, BarChart3, TrendingUp, Handshake, Users, ChevronRight, Mail, Inbox, Webhook, Brain, Film, Cpu, Sparkles, Radar, Beaker, ShieldCheck } from 'lucide-react'
@@ -25,11 +25,23 @@ interface UserProfile {
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { sidebarOpen, setSidebarOpen } = useUiStore()
   const [user, setUser] = useState<User | null>(null)
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [isAdmin, setIsAdmin] = useState(false)
   const [effectiveAuditMode, setEffectiveAuditMode] = useState(isAuditMode)
+  const [captureMode, setCaptureMode] = useState(false)
+
+  // Capture mode: ?capture=1 activates, persists in sessionStorage
+  useEffect(() => {
+    if (searchParams.get('capture') === '1') {
+      sessionStorage.setItem('va:capture-mode', '1')
+      setCaptureMode(true)
+    } else {
+      setCaptureMode(sessionStorage.getItem('va:capture-mode') === '1')
+    }
+  }, [searchParams])
 
   // Auth + admin check (once on mount)
   useEffect(() => {
@@ -153,7 +165,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     : user?.email?.slice(0, 2).toUpperCase() ?? '??'
 
   return (
-    <div className="flex h-screen bg-background text-foreground overflow-hidden">
+    <div className={cn('flex h-screen bg-background text-foreground overflow-hidden', captureMode && 'capture-mode')}>
       {/* Sidebar bg */}
       {sidebarOpen && (
         <div className="fixed inset-0 z-30 bg-black/50 md:hidden" onClick={() => setSidebarOpen(false)} aria-hidden />
@@ -169,7 +181,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <Link href="/" className="flex items-center gap-2">
             <ViralAnimalLogo size={32} />
             {isComp ? (
-              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded border border-amber-500/40 text-amber-400 uppercase">
+              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded border border-amber-500/40 text-amber-400 uppercase" data-capture-hide>
                 PACK
               </span>
             ) : currentPlan !== 'free' && (
@@ -228,7 +240,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </nav>
 
         {/* Usage + Plan */}
-        <div className="px-4 pb-2">
+        <div className="px-4 pb-2" data-capture-hide>
           <div className="rounded-xl border border-border bg-muted/30 p-3 space-y-2">
             <div className="flex items-center justify-between">
               <span className="text-xs text-muted-foreground flex items-center gap-1.5">

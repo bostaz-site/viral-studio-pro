@@ -147,6 +147,7 @@ export function TrendingFilters({
 
         {/* More filters toggle */}
         <button
+          data-capture-hide
           onClick={() => setShowMoreFilters((prev) => !prev)}
           className={cn(
             'h-9 px-3 inline-flex items-center gap-1.5 text-xs font-medium border rounded-lg transition-colors',
