@@ -349,75 +349,94 @@ export const useTrendingStore = create<TrendingState>((set, get) => ({
     else set({ refreshing: true })
     set({ error: null })
 
-    try {
-      const params = buildFilterParams(state.filters)
-      params.set('limit', '50')
-      const res = await fetch(`/api/trending?${params}`)
+    const MAX_RETRIES = 2
+    const RETRY_DELAY_MS = 800
 
-      // Handle non-JSON responses (e.g. Netlify 500 returning plain text)
-      const contentType = res.headers.get('content-type') ?? ''
-      if (!contentType.includes('application/json')) {
-        throw new Error('Server error — clips are loading from cache')
-      }
+    for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+      try {
+        const params = buildFilterParams(get().filters)
+        params.set('limit', '50')
+        const res = await fetch(`/api/trending?${params}`)
 
-      const json = await res.json() as {
-        data: TrendingClip[] | null
-        error: string | null
-        meta?: { total: number; next_cursor: string | null }
-      }
+        // Handle non-JSON responses (e.g. Netlify 500 returning plain text)
+        const contentType = res.headers.get('content-type') ?? ''
+        if (!contentType.includes('application/json')) {
+          throw new Error(`Server error (HTTP ${res.status}) — retrying`)
+        }
 
-      if (!res.ok || json.error) throw new Error(json.error ?? 'Network error')
+        const json = await res.json() as {
+          data: TrendingClip[] | null
+          error: string | null
+          meta?: { total: number; next_cursor: string | null }
+        }
 
-      const prevClips = state.clips
-      const clips = json.data ?? []
+        if (!res.ok || json.error) throw new Error(json.error ?? `HTTP ${res.status}`)
 
-      const totalCount = json.meta?.total ?? clips.length
-      const nextCursor = json.meta?.next_cursor ?? null
+        const prevClips = state.clips
+        const clips = json.data ?? []
 
-      // Detect new viral clips for notifications
-      const newNotifications: ViralNotification[] = []
-      if (prevClips.length > 0) {
-        const prevIds = new Set(prevClips.map((c) => c.id))
-        for (const clip of clips) {
-          if (!prevIds.has(clip.id) && (clip.velocity_score ?? 0) >= 80) {
-            newNotifications.push({
-              id: clip.id,
-              clipTitle: clip.title ?? 'Clip viral',
-              platform: clip.platform,
-              velocityScore: clip.velocity_score ?? 0,
-              timestamp: new Date().toISOString(),
-            })
+        const totalCount = json.meta?.total ?? clips.length
+        const nextCursor = json.meta?.next_cursor ?? null
+
+        // Detect new viral clips for notifications
+        const newNotifications: ViralNotification[] = []
+        if (prevClips.length > 0) {
+          const prevIds = new Set(prevClips.map((c) => c.id))
+          for (const clip of clips) {
+            if (!prevIds.has(clip.id) && (clip.velocity_score ?? 0) >= 80) {
+              newNotifications.push({
+                id: clip.id,
+                clipTitle: clip.title ?? 'Clip viral',
+                platform: clip.platform,
+                velocityScore: clip.velocity_score ?? 0,
+                timestamp: new Date().toISOString(),
+              })
+            }
           }
         }
+
+        set({
+          clips,
+          totalCount,
+          cursor: nextCursor,
+          hasMore: nextCursor !== null,
+          lastRefreshed: new Date().toISOString(),
+          ...(newNotifications.length > 0 ? {
+            notifications: [...newNotifications, ...state.notifications].slice(0, 20),
+            notificationsRead: false,
+          } : {}),
+        })
+
+        get().computeStats()
+        get().applyFilters()
+
+        // Also refresh tab counts (non-blocking)
+        get().fetchTabCounts()
+
+        // Success — exit retry loop
+        set({ loading: false, refreshing: false })
+        return
+      } catch (err) {
+        // If we have retries left, wait and try again (keep loading=true for skeleton)
+        if (attempt < MAX_RETRIES) {
+          await new Promise(r => setTimeout(r, RETRY_DELAY_MS))
+          continue
+        }
+
+        // All retries exhausted — show error, but keep existing clips if we had some
+        const hadClips = get().clips.length > 0
+        set({
+          error: err instanceof Error ? err.message : 'Failed to load clips',
+          ...(!hadClips ? { clips: [] } : {}),
+        })
+        if (!hadClips) {
+          get().computeStats()
+          get().applyFilters()
+        }
       }
-
-      set({
-        clips,
-        totalCount,
-        cursor: nextCursor,
-        hasMore: nextCursor !== null,
-        lastRefreshed: new Date().toISOString(),
-        ...(newNotifications.length > 0 ? {
-          notifications: [...newNotifications, ...state.notifications].slice(0, 20),
-          notificationsRead: false,
-        } : {}),
-      })
-
-      get().computeStats()
-      get().applyFilters()
-
-      // Also refresh tab counts (non-blocking)
-      get().fetchTabCounts()
-    } catch (err) {
-      set({
-        error: err instanceof Error ? err.message : 'Unknown error',
-        clips: [],
-      })
-      get().computeStats()
-      get().applyFilters()
-    } finally {
-      set({ loading: false, refreshing: false })
     }
+
+    set({ loading: false, refreshing: false })
   },
 
   loadMore: async () => {

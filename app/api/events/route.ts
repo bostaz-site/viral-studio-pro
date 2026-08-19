@@ -73,7 +73,7 @@ function rateLimit(key: string, n: number): boolean {
 export async function POST(req: NextRequest) {
   const { getClientIp } = await import('@/lib/api/client-ip')
   const ip = getClientIp(req)
-  const ipRl = await redisRateLimit(`browse:${ip}`, RATE_LIMITS.browse.limit, RATE_LIMITS.browse.windowMs)
+  const ipRl = await redisRateLimit(`events:${ip}`, RATE_LIMITS.browse.limit, RATE_LIMITS.browse.windowMs)
   if (!ipRl.allowed) {
     return NextResponse.json({ data: null, error: 'rate_limited' }, { status: 429 })
   }

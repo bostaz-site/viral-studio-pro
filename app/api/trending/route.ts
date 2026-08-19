@@ -230,8 +230,8 @@ export async function GET(req: NextRequest) {
     const { data, error, count } = await query
 
     if (error) {
-      logger.error('[Trending API] Supabase error:', error)
-      return NextResponse.json({ data: null, error: 'Fetch failed', message: error.message ?? 'Failed to fetch clips' }, { status: 500 })
+      logger.error('[Trending API] Supabase error:', { code: error.code, message: error.message, details: error.details, hint: error.hint })
+      return NextResponse.json({ data: null, error: `Fetch failed: ${error.code ?? 'UNKNOWN'}`, message: error.message ?? 'Failed to fetch clips' }, { status: 500 })
     }
 
     // Build next_cursor from the last item

@@ -685,11 +685,14 @@ export default function DashboardPage() {
       </div>
 
       {/* Error */}
-      {error && (
+      {error && !loading && (
         <Card className="border-destructive/50 bg-destructive/5">
           <CardContent className="p-3 flex items-center gap-3">
             <AlertCircle className="h-4 w-4 text-destructive shrink-0" />
-            <p className="text-sm text-destructive">{error}</p>
+            <p className="text-sm text-destructive flex-1">{error}</p>
+            <Button variant="outline" size="sm" className="shrink-0 h-7 text-xs" onClick={() => fetchClips()}>
+              Retry
+            </Button>
           </CardContent>
         </Card>
       )}
@@ -712,7 +715,7 @@ export default function DashboardPage() {
             </div>
           ))}
         </div>
-      ) : filteredClips.length === 0 ? (
+      ) : filteredClips.length === 0 && !error ? (
         (() => {
           const hasFilters =
             filters.search !== '' ||
