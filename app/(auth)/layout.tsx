@@ -1,6 +1,5 @@
-import { Scissors } from 'lucide-react'
+import Image from 'next/image'
 import type { Metadata } from 'next'
-import { AuthClipsPanel } from '@/components/auth/clips-panel'
 
 export const metadata: Metadata = {
   robots: { index: false },
@@ -9,16 +8,53 @@ export const metadata: Metadata = {
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen bg-background flex">
-      {/* Left panel — Clips showcase (hidden on mobile) */}
-      <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-amber-950 via-yellow-950 to-slate-950 relative overflow-hidden">
-        {/* Subtle grid pattern */}
-        <div className="absolute inset-0 bg-[linear-gradient(rgba(245,158,11,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(245,158,11,0.03)_1px,transparent_1px)] bg-[size:60px_60px]" />
+      {/* Left panel — Wolf pattern (hidden on mobile) */}
+      <div
+        className="hidden lg:flex lg:w-1/2 relative overflow-hidden flex-col items-center justify-center"
+        style={{ backgroundColor: '#020617' }}
+      >
+        {/* Wolf tile pattern */}
+        <div
+          className="absolute inset-0 opacity-[0.07]"
+          style={{
+            backgroundImage: 'url(/wolf-pattern-tile.png)',
+            backgroundRepeat: 'repeat',
+            backgroundSize: '260px 260px',
+          }}
+        />
 
-        {/* Glow orbs */}
-        <div className="absolute top-1/4 left-1/4 w-64 h-64 bg-amber-500/10 rounded-full blur-3xl" />
-        <div className="absolute bottom-1/3 right-1/4 w-48 h-48 bg-yellow-500/10 rounded-full blur-3xl" />
+        {/* Subtle amber vignette at bottom */}
+        <div
+          className="absolute inset-0 pointer-events-none"
+          style={{
+            background: 'radial-gradient(ellipse 80% 50% at 50% 100%, rgba(245,158,11,0.08) 0%, transparent 70%)',
+          }}
+        />
 
-        <AuthClipsPanel />
+        {/* Content — centered wolf + wordmark */}
+        <div className="relative z-10 flex flex-col items-center text-center px-8 animate-in fade-in duration-700">
+          <Image
+            src="/viral_animal_wolf_trace.svg"
+            alt="Viral Animal"
+            width={180}
+            height={180}
+            className="mb-8 drop-shadow-[0_0_40px_rgba(245,158,11,0.15)]"
+            priority
+          />
+
+          <h1 className="text-3xl font-black tracking-tight leading-none mb-1">
+            <span className="text-white">VIRAL</span>{' '}
+            <span className="text-amber-400">ANIMAL</span>
+          </h1>
+
+          <p className="text-lg font-bold text-white/70 mt-3">
+            More viral clips. Faster.
+          </p>
+
+          <p className="text-xs text-white/30 mt-6">
+            No credit card &middot; 3 free clips per month
+          </p>
+        </div>
       </div>
 
       {/* Right panel — Form */}
@@ -26,15 +62,19 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
         <div className="w-full max-w-sm">
           {/* Mobile-only logo */}
           <div className="text-center mb-8 lg:hidden">
-            <div className="flex items-center justify-center gap-2.5 mb-2">
-              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-amber-500 to-yellow-600 flex items-center justify-center">
-                <Scissors className="h-4 w-4 text-white" />
-              </div>
-              <span className="text-xl font-black tracking-tight bg-gradient-to-r from-amber-400 to-yellow-500 bg-clip-text text-transparent">
-                VIRAL ANIMAL
+            <div className="flex items-center justify-center gap-3 mb-2">
+              <Image
+                src="/viral_animal_wolf_trace.svg"
+                alt="Viral Animal"
+                width={36}
+                height={36}
+              />
+              <span className="text-xl font-black tracking-tight">
+                <span className="text-white">VIRAL</span>{' '}
+                <span className="text-amber-400">ANIMAL</span>
               </span>
             </div>
-            <p className="text-sm text-muted-foreground">Create viral clips with AI</p>
+            <p className="text-sm text-muted-foreground">More viral clips. Faster.</p>
           </div>
           {children}
         </div>

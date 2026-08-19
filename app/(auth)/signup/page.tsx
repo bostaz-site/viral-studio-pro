@@ -11,7 +11,6 @@ import { track } from '@/lib/analytics'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card'
 import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/ui/select'
 
 const REFERRAL_STORAGE_KEY = 'vsp:referral_code'
@@ -26,11 +25,11 @@ export default function SignupPage() {
 
 function SignupSkeleton() {
   return (
-    <Card className="bg-card/80 border-border backdrop-blur-sm shadow-xl shadow-black/5">
-      <CardContent className="pt-8 pb-8 flex items-center justify-center">
+    <div className="rounded-2xl border border-white/10 bg-[#0f172a] shadow-xl shadow-black/20 overflow-hidden">
+      <div className="pt-8 pb-8 flex items-center justify-center">
         <WolfLoader variant="spinner" size={24} mode="amber" />
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   )
 }
 
@@ -136,40 +135,40 @@ function SignupForm() {
 
   if (success) {
     return (
-      <Card className="bg-card/80 border-border backdrop-blur-sm shadow-xl shadow-black/5">
-        <CardContent className="pt-8 pb-8 text-center space-y-4">
+      <div className="rounded-2xl border border-white/10 bg-[#0f172a] shadow-xl shadow-black/20 overflow-hidden">
+        <div className="pt-8 pb-8 text-center space-y-4 px-6">
           <div className="w-14 h-14 rounded-full bg-green-500/10 border border-green-500/20 flex items-center justify-center mx-auto">
             <CheckCircle2 className="h-7 w-7 text-green-400" />
           </div>
           <div className="space-y-1">
-            <p className="text-xl font-bold text-foreground">Account created!</p>
-            <p className="text-sm text-muted-foreground max-w-xs mx-auto">
+            <p className="text-xl font-bold text-white">Account created!</p>
+            <p className="text-sm text-white/50 max-w-xs mx-auto">
               Check your email to confirm your account, then sign in to get started.
             </p>
           </div>
           <Link href="/login">
-            <Button variant="outline" className="mt-2 gap-2">
+            <Button variant="outline" className="mt-2 gap-2 border-white/10 hover:bg-white/5">
               Go to sign in <ArrowRight className="h-4 w-4" />
             </Button>
           </Link>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     )
   }
 
   return (
-    <Card className="bg-card/80 border-border backdrop-blur-sm shadow-xl shadow-black/5">
-      <CardHeader className="space-y-1 pb-2">
-        <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 w-fit mb-2">
-          <span className="text-xs font-medium text-emerald-400">3 free clips per month</span>
+    <div className="rounded-2xl border border-white/10 bg-[#0f172a] shadow-xl shadow-black/20 overflow-hidden">
+      <div className="p-6 sm:p-8 space-y-1 pb-4">
+        <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-500/10 border border-amber-500/20 w-fit mb-2">
+          <span className="text-xs font-medium text-amber-400">3 free clips per month</span>
         </div>
-        <h2 className="text-2xl font-bold tracking-tight">Create your studio</h2>
-        <p className="text-sm text-muted-foreground">No card · No installation · Cancel anytime</p>
-      </CardHeader>
+        <h2 className="text-2xl font-bold tracking-tight text-white">Create your studio</h2>
+        <p className="text-sm text-white/50">No card · No installation · Cancel anytime</p>
+      </div>
       <form onSubmit={handleSignup}>
-        <CardContent className="space-y-4">
+        <div className="px-6 sm:px-8 space-y-4">
           {referralCode && (
-            <div className="text-xs bg-primary/10 border border-primary/20 text-primary rounded-lg px-3 py-2.5 flex items-center gap-2">
+            <div className="text-xs bg-amber-500/10 border border-amber-500/20 text-amber-400 rounded-xl px-3 py-2.5 flex items-center gap-2">
               <Gift className="h-3.5 w-3.5 shrink-0" />
               <span>
                 Referred by <span className="font-bold font-mono">{referralCode}</span> — welcome&nbsp;!
@@ -177,15 +176,15 @@ function SignupForm() {
             </div>
           )}
           {error && (
-            <div className="text-sm text-destructive bg-destructive/10 border border-destructive/20 rounded-lg px-3 py-2.5 flex items-start gap-2">
+            <div className="text-sm text-red-300 bg-red-500/10 border border-red-500/20 rounded-xl px-3 py-2.5 flex items-start gap-2">
               <span className="shrink-0 mt-0.5">!</span>
               <span>{error}</span>
             </div>
           )}
           <div className="space-y-1.5">
-            <Label htmlFor="fullName" className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Full Name</Label>
+            <Label htmlFor="fullName" className="text-xs font-medium text-white/40 uppercase tracking-wider">Full Name</Label>
             <div className="relative">
-              <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-white/30" />
               <Input
                 id="fullName"
                 type="text"
@@ -195,14 +194,14 @@ function SignupForm() {
                 required
                 disabled={loading}
                 autoComplete="name"
-                className="pl-10 h-11"
+                className="pl-10 h-11 text-base bg-black/30 border-white/10 focus:border-amber-500/50 focus:ring-amber-500/20"
               />
             </div>
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="email" className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Email</Label>
+            <Label htmlFor="email" className="text-xs font-medium text-white/40 uppercase tracking-wider">Email</Label>
             <div className="relative">
-              <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-white/30" />
               <Input
                 id="email"
                 type="email"
@@ -212,14 +211,14 @@ function SignupForm() {
                 required
                 disabled={loading}
                 autoComplete="email"
-                className="pl-10 h-11"
+                className="pl-10 h-11 text-base bg-black/30 border-white/10 focus:border-amber-500/50 focus:ring-amber-500/20"
               />
             </div>
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="password" className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Password</Label>
+            <Label htmlFor="password" className="text-xs font-medium text-white/40 uppercase tracking-wider">Password</Label>
             <div className="relative">
-              <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-white/30" />
               <Input
                 id="password"
                 type="password"
@@ -229,7 +228,7 @@ function SignupForm() {
                 required
                 disabled={loading}
                 autoComplete="new-password"
-                className="pl-10 h-11"
+                className="pl-10 h-11 text-base bg-black/30 border-white/10 focus:border-amber-500/50 focus:ring-amber-500/20"
               />
             </div>
           </div>
@@ -244,9 +243,9 @@ function SignupForm() {
                     ? password.length >= 12
                       ? 'bg-green-500'
                       : password.length >= 8
-                        ? 'bg-yellow-500'
+                        ? 'bg-amber-500'
                         : 'bg-red-500'
-                    : 'bg-muted'
+                    : 'bg-white/10'
                 }`}
               />
             ))}
@@ -254,11 +253,11 @@ function SignupForm() {
 
           {/* Acquisition source (optional, skippable) */}
           <div className="space-y-1.5">
-            <Label htmlFor="acquisitionSource" className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-              How did you hear about us? <span className="text-zinc-600 normal-case">(optional)</span>
+            <Label htmlFor="acquisitionSource" className="text-xs font-medium text-white/40 uppercase tracking-wider">
+              How did you hear about us? <span className="text-white/20 normal-case">(optional)</span>
             </Label>
             <Select value={acquisitionSource} onValueChange={setAcquisitionSource}>
-              <SelectTrigger id="acquisitionSource" disabled={loading} className="h-11">
+              <SelectTrigger id="acquisitionSource" disabled={loading} className="h-11 bg-black/30 border-white/10">
                 <span className="line-clamp-1">
                   {{ '': 'Skip', tiktok_watermark: 'TikTok watermark', friend_invited: 'A friend invited me', saw_ad: 'Saw an ad', creator_follow: 'A creator I follow', other: 'Other' }[acquisitionSource] ?? 'Skip'}
                 </span>
@@ -273,11 +272,11 @@ function SignupForm() {
               </SelectContent>
             </Select>
           </div>
-        </CardContent>
-        <CardFooter className="flex flex-col gap-4 pt-2">
+        </div>
+        <div className="p-6 sm:p-8 pt-6 flex flex-col gap-4">
           <Button
             type="submit"
-            className="w-full h-11 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-semibold shadow-lg shadow-blue-500/20"
+            className="w-full h-11 bg-gradient-to-r from-amber-400 via-amber-500 to-amber-600 hover:from-amber-500 hover:via-amber-600 hover:to-amber-700 text-amber-950 font-semibold shadow-lg shadow-amber-500/20 rounded-xl"
             disabled={loading}
           >
             {loading ? (
@@ -286,14 +285,14 @@ function SignupForm() {
               <>Create my free account <ArrowRight className="ml-2 h-4 w-4" /></>
             )}
           </Button>
-          <p className="text-sm text-muted-foreground text-center">
+          <p className="text-sm text-white/50 text-center">
             Already have an account?{' '}
-            <Link href="/login" className="text-primary hover:underline font-semibold">
+            <Link href="/login" className="text-amber-400 hover:text-amber-300 font-semibold transition-colors">
               Sign in
             </Link>
           </p>
-        </CardFooter>
+        </div>
       </form>
-    </Card>
+    </div>
   )
 }

@@ -10,7 +10,6 @@ import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card'
 
 export default function LoginPage() {
   return (
@@ -50,23 +49,23 @@ function LoginForm() {
   }
 
   return (
-    <Card className="bg-card/80 border-border backdrop-blur-sm shadow-xl shadow-black/5">
-      <CardHeader className="space-y-1 pb-2">
-        <h2 className="text-2xl font-bold tracking-tight">Welcome back</h2>
-        <p className="text-sm text-muted-foreground">Sign in to access your studio</p>
-      </CardHeader>
+    <div className="rounded-2xl border border-white/10 bg-[#0f172a] shadow-xl shadow-black/20 overflow-hidden">
+      <div className="p-6 sm:p-8 space-y-1 pb-4">
+        <h2 className="text-2xl font-bold tracking-tight text-white">Welcome back</h2>
+        <p className="text-sm text-white/50">Sign in to access your studio</p>
+      </div>
       <form onSubmit={handleLogin}>
-        <CardContent className="space-y-4">
+        <div className="px-6 sm:px-8 space-y-4">
           {error && (
-            <div className="text-sm text-destructive bg-destructive/10 border border-destructive/20 rounded-lg px-3 py-2.5 flex items-start gap-2">
+            <div className="text-sm text-red-300 bg-red-500/10 border border-red-500/20 rounded-xl px-3 py-2.5 flex items-start gap-2">
               <span className="shrink-0 mt-0.5">!</span>
               <span>{error}</span>
             </div>
           )}
           <div className="space-y-1.5">
-            <Label htmlFor="email" className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Email</Label>
+            <Label htmlFor="email" className="text-xs font-medium text-white/40 uppercase tracking-wider">Email</Label>
             <div className="relative">
-              <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-white/30" />
               <Input
                 id="email"
                 type="email"
@@ -76,14 +75,14 @@ function LoginForm() {
                 required
                 disabled={loading}
                 autoComplete="email"
-                className="pl-10 h-11"
+                className="pl-10 h-11 text-base bg-black/30 border-white/10 focus:border-amber-500/50 focus:ring-amber-500/20"
               />
             </div>
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="password" className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Password</Label>
+            <Label htmlFor="password" className="text-xs font-medium text-white/40 uppercase tracking-wider">Password</Label>
             <div className="relative">
-              <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-white/30" />
               <Input
                 id="password"
                 type="password"
@@ -93,15 +92,15 @@ function LoginForm() {
                 required
                 disabled={loading}
                 autoComplete="current-password"
-                className="pl-10 h-11"
+                className="pl-10 h-11 text-base bg-black/30 border-white/10 focus:border-amber-500/50 focus:ring-amber-500/20"
               />
             </div>
           </div>
-        </CardContent>
-        <CardFooter className="flex flex-col gap-4 pt-2">
+        </div>
+        <div className="p-6 sm:p-8 pt-6 flex flex-col gap-4">
           <Button
             type="submit"
-            className="w-full h-11 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-semibold shadow-lg shadow-blue-500/20"
+            className="w-full h-11 bg-gradient-to-r from-amber-400 via-amber-500 to-amber-600 hover:from-amber-500 hover:via-amber-600 hover:to-amber-700 text-amber-950 font-semibold shadow-lg shadow-amber-500/20 rounded-xl"
             disabled={loading}
           >
             {loading ? (
@@ -110,16 +109,16 @@ function LoginForm() {
               <>Sign in <ArrowRight className="ml-2 h-4 w-4" /></>
             )}
           </Button>
-          <p className="text-sm text-muted-foreground text-center">
+          <p className="text-sm text-white/50 text-center">
             No account yet?{' '}
-            <Link href="/signup" className="text-primary hover:underline font-semibold">
+            <Link href="/signup" className="text-amber-400 hover:text-amber-300 font-semibold transition-colors">
               Create free account
             </Link>
           </p>
           <ForgotPassword />
-        </CardFooter>
+        </div>
       </form>
-    </Card>
+    </div>
   )
 }
 
@@ -155,7 +154,7 @@ function ForgotPassword() {
 
   if (!open) {
     return (
-      <button type="button" onClick={() => setOpen(true)} className="text-xs text-muted-foreground hover:text-primary transition-colors">
+      <button type="button" onClick={() => setOpen(true)} className="text-xs text-white/30 hover:text-amber-400 transition-colors">
         Forgot your password?
       </button>
     )
@@ -174,9 +173,9 @@ function ForgotPassword() {
           value={resetEmail}
           onChange={e => setResetEmail(e.target.value)}
           required
-          className="h-8 text-base sm:text-xs flex-1"
+          className="h-8 text-base sm:text-xs flex-1 bg-black/30 border-white/10 focus:border-amber-500/50 focus:ring-amber-500/20"
         />
-        <Button type="submit" size="sm" variant="outline" className="h-8 text-xs" disabled={sending}>
+        <Button type="submit" size="sm" variant="outline" className="h-8 text-xs border-white/10 hover:bg-white/5" disabled={sending}>
           {sending ? '...' : 'Reset'}
         </Button>
       </form>
