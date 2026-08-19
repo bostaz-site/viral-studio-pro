@@ -4,7 +4,9 @@ import { createAdminClient } from '@/lib/supabase/admin'
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://viralanimal.com'
 
 function getStripe() {
-  return new Stripe(process.env.STRIPE_SECRET_KEY ?? 'sk_test_placeholder_build')
+  const key = process.env.STRIPE_SECRET_KEY
+  if (!key) throw new Error('Stripe not configured: STRIPE_SECRET_KEY missing')
+  return new Stripe(key)
 }
 
 /**

@@ -6,12 +6,20 @@ import { withAuth } from '@/lib/api/withAuth'
 import { logger } from '@/lib/logger'
 
 function getStripe() {
-  return new Stripe(process.env.STRIPE_SECRET_KEY ?? 'sk_test_placeholder_build')
+  const key = process.env.STRIPE_SECRET_KEY
+  if (!key) throw new Error('Stripe not configured: STRIPE_SECRET_KEY missing')
+  return new Stripe(key)
 }
 
-const PACK_PRICES: Record<string, { priceId: string; clips: number }> = {
-  pack5:  { priceId: process.env.STRIPE_PRICE_PACK5  ?? 'price_pack5_placeholder',  clips: 5  },
-  pack10: { priceId: process.env.STRIPE_PRICE_PACK10 ?? 'price_pack10_placeholder', clips: 10 },
+function getPackPrices(): Record<string, { priceId: string; clips: number }> {
+  const pack5 = process.env.STRIPE_PRICE_PACK5
+  const pack10 = process.env.STRIPE_PRICE_PACK10
+  if (!pack5) throw new Error('Stripe not configured: STRIPE_PRICE_PACK5 missing')
+  if (!pack10) throw new Error('Stripe not configured: STRIPE_PRICE_PACK10 missing')
+  return {
+    pack5:  { priceId: pack5,  clips: 5  },
+    pack10: { priceId: pack10, clips: 10 },
+  }
 }
 
 const bodySchema = z.object({
@@ -32,7 +40,7 @@ export const POST = withAuth(async (req, user) => {
   }
 
   const { pack } = parsed.data
-  const packConfig = PACK_PRICES[pack]
+  const packConfig = getPackPrices()[pack]
   const stripe = getStripe()
   const admin = createAdminClient()
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'

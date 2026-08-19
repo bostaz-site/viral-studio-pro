@@ -6,12 +6,17 @@ import { withAuth } from '@/lib/api/withAuth'
 import { logger } from '@/lib/logger'
 
 function getStripe() {
-  return new Stripe(process.env.STRIPE_SECRET_KEY ?? 'sk_test_placeholder_build')
+  const key = process.env.STRIPE_SECRET_KEY
+  if (!key) throw new Error('Stripe not configured: STRIPE_SECRET_KEY missing')
+  return new Stripe(key)
 }
 
-const PRICE_IDS: Record<string, string> = {
-  pro:    process.env.STRIPE_PRICE_PRO    ?? 'price_pro_placeholder',
-  studio: process.env.STRIPE_PRICE_STUDIO ?? 'price_studio_placeholder',
+function getPriceIds(): Record<string, string> {
+  const pro = process.env.STRIPE_PRICE_PRO
+  const studio = process.env.STRIPE_PRICE_STUDIO
+  if (!pro) throw new Error('Stripe not configured: STRIPE_PRICE_PRO missing')
+  if (!studio) throw new Error('Stripe not configured: STRIPE_PRICE_STUDIO missing')
+  return { pro, studio }
 }
 
 const bodySchema = z.object({
@@ -98,11 +103,12 @@ export const POST = withAuth(async (req, user) => {
       }
     }
 
+    const priceIds = getPriceIds()
     const session = await stripe.checkout.sessions.create({
       mode: 'subscription',
       customer: customerId,
       payment_method_types: ['card', 'link'],
-      line_items: [{ price: PRICE_IDS[plan], quantity: 1 }],
+      line_items: [{ price: priceIds[plan], quantity: 1 }],
       ...(discounts ? { discounts } : { allow_promotion_codes: true }),
       success_url: `${appUrl}/settings?checkout=success&plan=${plan}`,
       cancel_url: `${appUrl}/settings?checkout=cancel`,

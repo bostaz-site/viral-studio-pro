@@ -5,7 +5,9 @@ const MINIMUM_PAYOUT_CENTS = 5000 // $50
 const MANUAL_REVIEW_THRESHOLD_CENTS = 50000 // $500
 
 function getStripe() {
-  return new Stripe(process.env.STRIPE_SECRET_KEY ?? 'sk_test_placeholder_build')
+  const key = process.env.STRIPE_SECRET_KEY
+  if (!key) throw new Error('Stripe not configured: STRIPE_SECRET_KEY missing')
+  return new Stripe(key)
 }
 
 interface FraudCheckResult {

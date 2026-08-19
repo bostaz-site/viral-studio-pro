@@ -6,7 +6,9 @@ import { logger } from '@/lib/logger'
 import { postToDiscord } from '@/lib/discord/post'
 
 function getStripe() {
-  return new Stripe(process.env.STRIPE_SECRET_KEY ?? 'sk_test_placeholder_build')
+  const key = process.env.STRIPE_SECRET_KEY
+  if (!key) throw new Error('Stripe not configured: STRIPE_SECRET_KEY missing')
+  return new Stripe(key)
 }
 
 export async function POST(req: NextRequest) {
@@ -22,9 +24,15 @@ export async function POST(req: NextRequest) {
   if (!webhookSecret) {
     return NextResponse.json({ error: 'STRIPE_WEBHOOK_SECRET not configured' }, { status: 500 })
   }
+  const pricePro = process.env.STRIPE_PRICE_PRO
+  const priceStudio = process.env.STRIPE_PRICE_STUDIO
+  if (!pricePro || !priceStudio) {
+    logger.error('[webhook] STRIPE_PRICE_PRO or STRIPE_PRICE_STUDIO not configured')
+    return NextResponse.json({ error: 'Price IDs not configured' }, { status: 500 })
+  }
   const PLAN_BY_PRICE: Record<string, string> = {
-    [process.env.STRIPE_PRICE_PRO    ?? 'price_pro_placeholder']:    'pro',
-    [process.env.STRIPE_PRICE_STUDIO ?? 'price_studio_placeholder']: 'studio',
+    [pricePro]:    'pro',
+    [priceStudio]: 'studio',
   }
   const body = await req.text()
   const sig = req.headers.get('stripe-signature') ?? ''

@@ -14,7 +14,9 @@ import {
 } from '@/lib/admin/stripe/connect-webhooks'
 
 function getStripe() {
-  return new Stripe(process.env.STRIPE_SECRET_KEY ?? 'sk_test_placeholder_build')
+  const key = process.env.STRIPE_SECRET_KEY
+  if (!key) throw new Error('Stripe not configured: STRIPE_SECRET_KEY missing')
+  return new Stripe(key)
 }
 
 // POST — Stripe webhook endpoint (public, no auth — signature verified)
