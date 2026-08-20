@@ -33,15 +33,15 @@ export function PaywallModal({
   const [checkoutError, setCheckoutError] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
 
-  const handleUpgrade = useCallback(async () => {
-    track('paywall_upgrade_clicked', { userId })
-    setLoadingCheckout('pro')
+  const handleUpgrade = useCallback(async (plan: 'pro' | 'studio' = 'pro') => {
+    track('paywall_upgrade_clicked', { userId, plan })
+    setLoadingCheckout(plan)
     setCheckoutError(null)
     try {
       const res = await fetch('/api/stripe/checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ plan: 'pro' }),
+        body: JSON.stringify({ plan, ...(plan === 'studio' ? { promo_code: 'BETA40' } : {}) }),
       })
       const json = await res.json()
       if (json.data?.url) {
@@ -139,18 +139,42 @@ export function PaywallModal({
             </button>
           )}
 
-          {/* Primary: Upgrade */}
+          {/* Primary: Upgrade Pro */}
           <div>
             <Button
-              onClick={handleUpgrade}
+              onClick={() => handleUpgrade('pro')}
               disabled={loadingCheckout !== null}
               className="w-full h-12 bg-amber-500 hover:bg-amber-600 text-amber-950 font-bold text-base gap-2 rounded-xl"
             >
               <Zap className="h-5 w-5" />
-              {loadingCheckout === 'pro' ? 'Redirecting...' : 'Upgrade & render this clip'}
+              {loadingCheckout === 'pro' ? 'Redirecting...' : 'Go Pro — $19/mo'}
             </Button>
             <p className="text-xs text-zinc-500 text-center mt-1.5">
               30 clips/month · no watermark · faster renders
+            </p>
+          </div>
+
+          {/* Studio with beta promo */}
+          <div>
+            <div className="px-2 py-1 rounded-md bg-amber-500/10 border border-amber-500/20 mb-1.5">
+              <p className="text-[10px] font-bold text-amber-400 uppercase tracking-wider text-center">
+                Beta — 40% off first 3 months
+              </p>
+            </div>
+            <Button
+              onClick={() => handleUpgrade('studio')}
+              disabled={loadingCheckout !== null}
+              variant="outline"
+              className="w-full h-10 gap-2 border-amber-500/30 hover:border-amber-500/50 hover:bg-amber-500/5 text-zinc-200 font-semibold rounded-xl"
+            >
+              {loadingCheckout === 'studio' ? 'Redirecting...' : (
+                <>
+                  Go Studio — <span className="line-through text-zinc-500 text-xs mr-0.5">$24</span> $14.40/mo
+                </>
+              )}
+            </Button>
+            <p className="text-[10px] text-zinc-500 text-center mt-1">
+              120 clips/month · for 3 months, then $24/mo · First 50 members
             </p>
             {checkoutError && (
               <p className="text-xs text-red-400 text-center mt-1">{checkoutError}</p>

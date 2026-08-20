@@ -6,7 +6,6 @@ import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { AnimatedSection } from '@/components/landing/animated-section'
 import { track } from '@/lib/analytics'
-import { isStudioLaunchActive } from '@/lib/plans'
 
 interface PlanConfig {
   id: string
@@ -17,10 +16,9 @@ interface PlanConfig {
   tagline: string
   features: string[]
   highlighted?: boolean
+  betaPromo?: boolean
   cta: string
 }
-
-const launchActive = isStudioLaunchActive()
 
 const PLANS: PlanConfig[] = [
   {
@@ -56,10 +54,11 @@ const PLANS: PlanConfig[] = [
   {
     id: 'studio',
     name: 'Studio',
-    price: launchActive ? '$24' : '$29',
-    ...(launchActive ? { priceOriginal: '$29' } : {}),
+    price: '$14.40',
+    priceOriginal: '$24',
     priceNote: '/mo',
     tagline: 'For serious farmers',
+    betaPromo: true,
     features: [
       '120 videos/month',
       'Everything in Pro',
@@ -95,8 +94,16 @@ export function PricingSection() {
                 {plan.highlighted && (
                   <div className="absolute -top-3 left-1/2 -translate-x-1/2">
                     <span className="text-[9px] font-extrabold uppercase tracking-widest px-3 py-1 rounded-full bg-amber-500 text-amber-950">
-                      {launchActive ? 'Best value \u00B7 Founding launch price' : 'Best value'}
+                      Best value
                     </span>
+                  </div>
+                )}
+
+                {plan.betaPromo && (
+                  <div className="mb-2 -mx-1 px-2 py-1 rounded-md bg-amber-500/10 border border-amber-500/20">
+                    <p className="text-[10px] font-bold text-amber-400 uppercase tracking-wider text-center">
+                      Beta — 40% off first 3 months
+                    </p>
                   </div>
                 )}
 
@@ -108,6 +115,11 @@ export function PricingSection() {
                   <span className="text-3xl font-black text-foreground">{plan.price}</span>
                   <span className="text-xs text-zinc-500">{plan.priceNote}</span>
                 </div>
+                {plan.betaPromo && (
+                  <p className="text-[10px] text-zinc-500 mt-0.5">
+                    for 3 months, then $24/mo · code <span className="font-semibold text-amber-400/80">BETA40</span>
+                  </p>
+                )}
                 <h3 className="text-lg font-bold text-foreground mt-1">{plan.name}</h3>
 
                 <div className="flex-1 mt-4 space-y-2">
@@ -134,6 +146,9 @@ export function PricingSection() {
                     {plan.cta}
                   </Button>
                 </Link>
+                {plan.betaPromo && (
+                  <p className="text-[10px] text-zinc-600 text-center mt-1.5">First 50 members</p>
+                )}
               </div>
             ))}
           </div>

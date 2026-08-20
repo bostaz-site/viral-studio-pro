@@ -17,9 +17,6 @@ import {
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
-import { LaunchCountdown } from '@/components/landing/launch-countdown'
-import { isStudioLaunchActive } from '@/lib/plans'
-
 interface PricingTier {
   id: string
   name: string
@@ -31,11 +28,10 @@ interface PricingTier {
   features: string[]
   highlighted: boolean
   trialNote?: string
+  betaPromo?: boolean
   cta: string
   accentColor: string
 }
-
-const launchActive = isStudioLaunchActive()
 
 const TIERS: PricingTier[] = [
   {
@@ -80,8 +76,8 @@ const TIERS: PricingTier[] = [
   {
     id: 'studio',
     name: 'Studio',
-    price: launchActive ? 24 : 29,
-    ...(launchActive ? { priceOriginal: 29 } : {}),
+    price: 14.40,
+    priceOriginal: 24,
     period: '/mo',
     description: 'The complete arsenal for agencies and power users.',
     icon: Crown,
@@ -92,7 +88,8 @@ const TIERS: PricingTier[] = [
       'Priority support',
     ],
     highlighted: false,
-    cta: launchActive ? 'Go Studio — $24/mo' : 'Go Studio — $29/mo',
+    betaPromo: true,
+    cta: 'Go Studio — $14.40/mo',
     accentColor: 'from-amber-600 to-amber-700',
   },
 ]
@@ -213,6 +210,15 @@ export default function PricingPage() {
                     </div>
                   </div>
 
+                  {/* Beta promo banner */}
+                  {tier.betaPromo && (
+                    <div className="mb-3 -mx-1 px-3 py-1.5 rounded-lg bg-amber-500/10 border border-amber-500/20">
+                      <p className="text-[11px] font-bold text-amber-400 uppercase tracking-wider text-center">
+                        Beta — 40% off first 3 months
+                      </p>
+                    </div>
+                  )}
+
                   {/* Price */}
                   <div className="mb-4">
                     <div className="flex items-baseline gap-2">
@@ -222,13 +228,11 @@ export default function PricingPage() {
                       <span className="text-4xl font-black tracking-tight">${tier.price}</span>
                       <span className="text-muted-foreground ml-1">{tier.period}</span>
                     </div>
-                    {tier.priceOriginal && (
-                      <div className="mt-1 flex flex-col gap-0.5">
-                        <p className="text-xs text-amber-400 font-semibold">Founding price — locked in while you stay subscribed</p>
-                        <LaunchCountdown />
-                      </div>
+                    {tier.betaPromo && (
+                      <p className="text-xs text-zinc-400 mt-1">
+                        for 3 months, then $24/mo · code <span className="font-semibold text-amber-400/80">BETA40</span>
+                      </p>
                     )}
-                    {/* trialNote removed — freemium without trial */}
                   </div>
 
                   {/* Description */}
@@ -260,6 +264,9 @@ export default function PricingPage() {
                     {loadingPlan === tier.id ? 'Loading...' : tier.cta}
                     <ArrowRight className="h-4 w-4" />
                   </Button>
+                  {tier.betaPromo && (
+                    <p className="text-[11px] text-zinc-500 text-center mt-2">First 50 members</p>
+                  )}
                   {tier.id === 'free' && (
                     <div className="mt-2 space-y-1 text-center">
                       <p className="text-xs text-zinc-500">No card needed</p>
