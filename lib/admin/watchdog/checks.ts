@@ -409,5 +409,45 @@ export async function runAllChecks(admin: SupabaseClient): Promise<AlertCandidat
     console.error('[watchdog] Mailbox health check failed:', err)
   }
 
+  // Silence detection: alert if automation systems haven't heartbeated in 48h
+  try {
+    const silenceAlerts = await checkAutomationSilence(admin)
+    alerts.push(...silenceAlerts)
+  } catch (err) {
+    console.error('[watchdog] Automation silence check failed:', err)
+  }
+
+  return alerts
+}
+
+/**
+ * Check if nightly audits or lab agent have gone silent (no heartbeat in 48h).
+ * Uses lab_agent_status table where both systems write heartbeats.
+ */
+async function checkAutomationSilence(admin: SupabaseClient): Promise<AlertCandidate[]> {
+  const alerts: AlertCandidate[] = []
+  const cutoff = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString()
+
+  const { data: statuses } = await admin
+    .from('lab_agent_status')
+    .select('id, status, last_heartbeat_at, last_error')
+
+  for (const row of statuses ?? []) {
+    const lastBeat = row.last_heartbeat_at ? new Date(row.last_heartbeat_at) : null
+    if (!lastBeat || lastBeat.toISOString() < cutoff) {
+      const silentDays = lastBeat
+        ? Math.round((Date.now() - lastBeat.getTime()) / (24 * 60 * 60 * 1000))
+        : 999
+      const systemName = row.id === 'singleton' ? 'Lab Agent' : row.id === 'nightly-audits' ? 'Nightly Audits' : row.id
+      alerts.push({
+        severity: 'critical',
+        category: 'automation',
+        title: `${systemName} silent for ${silentDays} days`,
+        description: `No heartbeat since ${lastBeat?.toISOString().slice(0, 16) ?? 'never'}. Status: ${row.status}. Last error: ${(row.last_error ?? 'none').slice(0, 200)}`,
+        metadata: { system: row.id, silentDays, lastStatus: row.status },
+      })
+    }
+  }
+
   return alerts
 }

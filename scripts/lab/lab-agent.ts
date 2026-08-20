@@ -114,6 +114,35 @@ async function ensurePromptFileExists(dive: Record<string, unknown>): Promise<st
   return filepath
 }
 
+// ── Git lock cleanup ─────────────────────────────────────────────────────────
+
+/**
+ * Remove stale .lock files in .git/ that block git operations.
+ * A lock older than 5 minutes is considered stale (orphaned by a crashed process).
+ */
+async function cleanGitLocks() {
+  const gitDir = path.join(REPO_PATH, '.git')
+  const lockFiles = [
+    'index.lock', 'ORIG_HEAD.lock', 'HEAD.lock',
+    'refs/heads/master.lock', 'config.lock',
+  ]
+  for (const lockFile of lockFiles) {
+    const lockPath = path.join(gitDir, lockFile)
+    try {
+      const stat = await fs.stat(lockPath)
+      const ageMs = Date.now() - stat.mtimeMs
+      if (ageMs > 5 * 60_000) {
+        await fs.unlink(lockPath)
+        console.log(`[agent] Removed stale git lock: ${lockFile} (age: ${Math.round(ageMs / 60_000)}min)`)
+      } else {
+        console.warn(`[agent] Git lock exists but is recent (${Math.round(ageMs / 1000)}s): ${lockFile} — skipping`)
+      }
+    } catch {
+      // File doesn't exist — good
+    }
+  }
+}
+
 // ── Shell execution ───────────────────────────────────────────────────────────
 
 // Resolve claude.exe full path once (shell:false needs it on Windows)
@@ -304,7 +333,8 @@ async function processOneDive(dive: Record<string, unknown>) {
     const promptPath = await ensurePromptFileExists(dive)
     if (!promptPath) throw new Error('Could not find or generate prompt file')
 
-    // 2. Git: checkout fresh branch from latest master
+    // 2. Git: cleanup stale locks, checkout fresh branch from latest master
+    await cleanGitLocks()
     await execCapture('git', ['checkout', 'master'])
     await execCapture('git', ['pull', 'origin', 'master'])
     const branch = `lab/${featureArea}-${Date.now()}`
@@ -510,7 +540,34 @@ async function shutdown() {
 process.on('SIGINT', shutdown)
 process.on('SIGTERM', shutdown)
 
-mainLoop().catch((err) => {
+// Crash guard: log + notify on unhandled exceptions instead of dying silently
+process.on('uncaughtException', async (err) => {
+  console.error('[agent] UNCAUGHT EXCEPTION:', err)
+  await supabase
+    .from('lab_agent_status')
+    .update({
+      status: 'offline',
+      last_error: `UNCAUGHT: ${err.message}`.slice(0, 1000),
+      last_error_at: new Date().toISOString(),
+      current_dive_id: null,
+    })
+    .eq('id', 'singleton')
+  await notifyDiscord({
+    title: 'Lab Agent CRASHED',
+    description: `Uncaught exception on ${HOSTNAME}:\n\`\`\`${err.message.slice(0, 300)}\`\`\``,
+    color: 0xFF0000,
+    footer: `Lab Agent v${AGENT_VERSION}`,
+  })
+  process.exit(1)
+})
+
+mainLoop().catch(async (err) => {
   console.error('[agent] Fatal:', err)
+  await notifyDiscord({
+    title: 'Lab Agent CRASHED',
+    description: `Fatal error on ${HOSTNAME}:\n\`\`\`${err instanceof Error ? err.message.slice(0, 300) : String(err)}\`\`\``,
+    color: 0xFF0000,
+    footer: `Lab Agent v${AGENT_VERSION}`,
+  }).catch(() => {})
   process.exit(1)
 })
