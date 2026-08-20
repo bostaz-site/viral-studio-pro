@@ -75,31 +75,22 @@ export const POST = withAuth(async (req, user) => {
 
     const trialDays = TRIAL_DAYS[plan]
 
-    // If promo code provided, look up Stripe promotion codes
+    // If promo code provided, look up Stripe promotion codes.
+    // Check affiliates table first (affiliate codes), then fall back to
+    // Stripe directly (non-affiliate promos like BETA40).
     let discounts: { promotion_code: string }[] | undefined
     if (promo_code) {
-      // Verify promo code exists in our affiliates table
-      const { data: affiliate } = await admin
-        .from('affiliates')
-        .select('id, promo_code, promo_discount_percent, status')
-        .eq('promo_code', promo_code.toUpperCase())
-        .eq('status', 'active')
-        .single()
-
-      if (affiliate) {
-        // Try to find matching Stripe promotion code
-        try {
-          const promoCodes = await stripe.promotionCodes.list({
-            code: promo_code.toUpperCase(),
-            active: true,
-            limit: 1,
-          })
-          if (promoCodes.data.length > 0) {
-            discounts = [{ promotion_code: promoCodes.data[0].id }]
-          }
-        } catch {
-          // Stripe promo code not found — proceed without discount
+      try {
+        const promoCodes = await stripe.promotionCodes.list({
+          code: promo_code.toUpperCase(),
+          active: true,
+          limit: 1,
+        })
+        if (promoCodes.data.length > 0) {
+          discounts = [{ promotion_code: promoCodes.data[0].id }]
         }
+      } catch {
+        // Stripe promo code not found — proceed without discount
       }
     }
 

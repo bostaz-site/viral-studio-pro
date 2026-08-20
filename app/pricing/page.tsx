@@ -114,7 +114,10 @@ export default function PricingPage() {
       const res = await fetch('/api/stripe/checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ plan: planId }),
+        body: JSON.stringify({
+          plan: planId,
+          ...(planId === 'studio' ? { promo_code: 'BETA40' } : {}),
+        }),
       })
       const data = await res.json() as { data: { url: string } | null; error: string | null }
 

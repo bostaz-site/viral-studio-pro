@@ -6,7 +6,6 @@ import { WolfLoader } from '@/components/ui/wolf-loader'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
-import { isStudioLaunchActive } from '@/lib/plans'
 
 type Plan = 'free' | 'pro' | 'studio'
 
@@ -27,9 +26,8 @@ interface PlanConfig {
   features: string[]
   cta: string
   highlighted?: boolean
+  betaPromo?: boolean
 }
-
-const launchActive = isStudioLaunchActive()
 
 const PLANS: PlanConfig[] = [
   {
@@ -70,11 +68,12 @@ const PLANS: PlanConfig[] = [
   {
     id: 'studio',
     name: 'Studio',
-    price: launchActive ? '$24' : '$29',
-    ...(launchActive ? { priceOriginal: '$29' } : {}),
+    price: '$14.40',
+    priceOriginal: '$24',
     priceNote: '/month',
     icon: Sparkles,
     color: 'text-amber-500',
+    betaPromo: true,
     features: [
       '120 videos/month (90 + 30 bonus)',
       'Everything in Pro',
@@ -143,6 +142,13 @@ export function PricingCard({ currentPlan, onUpgrade, onManageBilling }: Pricing
                   </span>
                 )}
               </div>
+              {plan.betaPromo && (
+                <div className="mb-2 -mx-1 px-2 py-1 rounded-md bg-amber-500/10 border border-amber-500/20">
+                  <p className="text-[10px] font-bold text-amber-400 uppercase tracking-wider text-center">
+                    Beta — 40% off first 3 months
+                  </p>
+                </div>
+              )}
               <div className="flex items-baseline gap-2">
                 {plan.priceOriginal && (
                   <span className="text-lg text-muted-foreground/60 line-through">{plan.priceOriginal}</span>
@@ -150,8 +156,10 @@ export function PricingCard({ currentPlan, onUpgrade, onManageBilling }: Pricing
                 <span className="text-3xl font-black text-foreground">{plan.price}</span>
                 <CardDescription>{plan.priceNote}</CardDescription>
               </div>
-              {plan.priceOriginal && (
-                <p className="text-[11px] text-amber-400 font-medium">Launch price</p>
+              {plan.betaPromo && (
+                <p className="text-[10px] text-zinc-400 mt-0.5">
+                  for 3 months, then $24/mo · code <span className="font-semibold text-amber-400/80">BETA40</span> · First 50 members
+                </p>
               )}
             </CardHeader>
 

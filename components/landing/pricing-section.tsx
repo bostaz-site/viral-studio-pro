@@ -131,7 +131,10 @@ export function PricingSection() {
                   ))}
                 </div>
 
-                <Link href="/signup" className="mt-5">
+                <Link
+                  href={plan.id === 'studio' ? '/signup?plan=studio' : '/signup'}
+                  className="mt-5"
+                >
                   <Button
                     size="sm"
                     className={cn(
@@ -141,7 +144,7 @@ export function PricingSection() {
                         : ''
                     )}
                     variant={plan.highlighted ? 'default' : 'outline'}
-                    onClick={() => track('landing_cta_clicked', { placement: 'pricing' })}
+                    onClick={() => track('landing_cta_clicked', { placement: 'pricing', plan: plan.id })}
                   >
                     {plan.cta}
                   </Button>

@@ -159,7 +159,10 @@ function SettingsPageInner() {
       const res = await fetch('/api/stripe/checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ plan }),
+        body: JSON.stringify({
+          plan,
+          ...(plan === 'studio' ? { promo_code: 'BETA40' } : {}),
+        }),
       })
       const data = await res.json() as { data: { url: string } | null; message?: string }
       if (data.data?.url) {
