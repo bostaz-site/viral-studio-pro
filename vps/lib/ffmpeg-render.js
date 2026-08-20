@@ -61,19 +61,19 @@ function buildCommand(args) {
 
 const RENDER_TIERS = {
   HIGH_60: {
-    preset: 'faster', crf: 19, maxrate: '12M', bufsize: '24M',
+    preset: 'fast', crf: 17, maxrate: '15M', bufsize: '30M',
     fps: 60, profile: 'high', level: '4.2',
-    audioBitrate: '192k', unsharp: true, hd: true,
+    audioBitrate: '256k', unsharp: true, hd: true,
   },
   HIGH_30: {
-    preset: 'faster', crf: 20, maxrate: '8M', bufsize: '16M',
+    preset: 'fast', crf: 18, maxrate: '10M', bufsize: '20M',
     fps: 30, profile: 'high', level: '4.2',
-    audioBitrate: '192k', unsharp: true, hd: true,
+    audioBitrate: '256k', unsharp: true, hd: true,
   },
   SAFE: {
-    preset: 'veryfast', crf: 23, maxrate: '5M', bufsize: '10M',
+    preset: 'faster', crf: 22, maxrate: '6M', bufsize: '12M',
     fps: 30, profile: 'high', level: '4.1',
-    audioBitrate: '160k', unsharp: false, hd: false,
+    audioBitrate: '192k', unsharp: false, hd: false,
   },
   LAST_RESORT: {
     preset: 'ultrafast', crf: 26, maxrate: '4M', bufsize: '8M',
@@ -440,7 +440,7 @@ function buildSmartZoomFilter(inLabel, outLabel, canvasW, canvasH, clipDuration,
   if (mode === 'dynamic' && Array.isArray(peaks) && peaks.length > 0) {
     // ── SUBTLE PUNCH ZOOM ──
     // Inspired by CapCut/pro editors but toned down for natural feel:
-    //   - Zoom amount: 8% (just enough to feel the hit, not distracting)
+    //   - Zoom amount: 5% (subtle, capped at 1.08 total amplitude)
     //   - Zoom-in: 200ms ease-out (fast start, smooth stop)
     //   - Hold: 100ms at peak
     //   - Zoom-out: 400ms slow ease-out (smooth return, no snap)
@@ -448,7 +448,7 @@ function buildSmartZoomFilter(inLabel, outLabel, canvasW, canvasH, clipDuration,
     //   - Max 3 punches per clip (less = more pro)
     //   - No baseline breathing (stays still between punches)
     const D = clipDuration.toFixed(3);
-    const ZOOM_AMOUNT = 0.08;       // 8% punch zoom (subtle)
+    const ZOOM_AMOUNT = 0.05;       // 5% punch zoom (safe — capped at 1.08 total)
     const RAMP_IN = 0.20;           // 200ms zoom-in
     const HOLD = 0.10;              // 100ms hold at peak
     const RAMP_OUT = 0.40;          // 400ms smooth zoom-out
@@ -473,22 +473,22 @@ function buildSmartZoomFilter(inLabel, outLabel, canvasW, canvasH, clipDuration,
     const scaledW = `trunc(${canvasW}*${zExpr}/2)*2`;
     const scaledH = `trunc(${canvasH}*${zExpr}/2)*2`;
 
-    console.log(`[FFmpeg] Smart Zoom dynamic: ${limited.length} peaks, 8% punch, smooth ease`);
+    console.log(`[FFmpeg] Smart Zoom dynamic: ${limited.length} peaks, ${Math.round(ZOOM_AMOUNT*100)}% punch, smooth ease`);
 
     return `${inLabel}scale=w='${scaledW}':h='${scaledH}':eval=frame:flags=lanczos,crop=${canvasW}:${canvasH},setsar=1${outLabel}`;
   }
 
   if (mode === 'micro') {
     // ── SLOW CINEMATIC PUSH ──
-    // Single slow push-in 1.0 → 1.05 over the entire clip.
-    // No oscillation/breathing — just a clean, barely noticeable drift.
-    // This is what Netflix/documentary editors use on talking heads.
+    // Single slow push-in 1.0 → 1.06 over the entire clip.
+    // Subtle, barely noticeable drift — Netflix/documentary talking-head style.
+    // Max amplitude capped at 1.08 to prevent noticeable crop.
     const D = clipDuration.toFixed(3);
-    const zExpr = `(1+0.05*min(t/${D}\\,1))`;
+    const zExpr = `(1+0.06*min(t/${D}\\,1))`;
     const scaledW = `trunc(${canvasW}*${zExpr}/2)*2`;
     const scaledH = `trunc(${canvasH}*${zExpr}/2)*2`;
 
-    console.log(`[FFmpeg] Smart Zoom micro: slow push 0→5%, duration=${D}s`);
+    console.log(`[FFmpeg] Smart Zoom micro: slow push 0→6%, duration=${D}s`);
 
     return `${inLabel}scale=w='${scaledW}':h='${scaledH}':eval=frame:flags=lanczos,crop=${canvasW}:${canvasH},setsar=1${outLabel}`;
   }
@@ -532,8 +532,9 @@ function buildFollowFaceFilter(inLabel, outLabel, canvasW, canvasH, keyframes, c
     return null;
   }
 
-  // ── Zoom factor: scale video up 20% so we have pan room ──
-  const ZOOM = 1.20;
+  // ── Zoom factor: scale video up 8% so we have pan room ──
+  // Capped at 1.08 to keep it subtle (was 1.20 which cut too much of the frame)
+  const ZOOM = 1.08;
   const scaledW = Math.round(canvasW * ZOOM);
   const scaledH = Math.round(canvasH * ZOOM);
   // Max pan range (how far the crop window can move)

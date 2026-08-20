@@ -141,7 +141,7 @@ export default function EnhancePage() {
     autoCutThreshold: 0.7,
     hookEnabled: false,
     hookTextEnabled: true,
-    hookReorderEnabled: false, // frozen (COMING_SOON_FEATURES)
+    hookReorderEnabled: false, // disabled (cuts mid-word)
     hookText: '',
     hookStyle: 'suspense',
     hookTextPosition: 15,
@@ -659,7 +659,7 @@ export default function EnhancePage() {
               videoZoom: settings.videoZoom,
             },
             smartZoom: {
-              enabled: false, // frozen (COMING_SOON_FEATURES)
+              enabled: settings.smartZoomEnabled,
               mode: settings.smartZoomMode,
             },
             audioEnhance: {
@@ -951,14 +951,14 @@ export default function EnhancePage() {
       tagStyle,
       tagSize: preset.tagSize,
       aspectRatio: preset.aspectRatio,
-      smartZoomEnabled: false, // frozen (COMING_SOON_FEATURES)
+      smartZoomEnabled: preset.smartZoomEnabled ?? true,
       smartZoomMode: preset.smartZoomMode,
       audioEnhanceEnabled: preset.audioEnhanceEnabled,
       autoCutEnabled: preset.autoCutEnabled,
       autoCutThreshold: preset.autoCutThreshold,
       hookEnabled: preset.hookEnabled,
       hookTextEnabled: preset.hookTextEnabled,
-      hookReorderEnabled: false, // frozen (COMING_SOON_FEATURES)
+      hookReorderEnabled: false, // disabled (cuts mid-word)
       hookStyle: preset.hookStyle,
       hookTextPosition: preset.hookTextPosition,
       hookLength: preset.hookLength,
@@ -1015,16 +1015,16 @@ export default function EnhancePage() {
             emphasisEffect: preset.emphasisEffect,
             emphasisColor: preset.emphasisColor,
           }
-        case 3: // Next: "Crafting viral hook..." → hook text boost (zoom+reorder frozen)
+        case 3: // Next: "Crafting viral hook..." → hook text + smart zoom boost
           return {
             ...s,
             hookEnabled: preset.hookEnabled,
             hookTextEnabled: preset.hookTextEnabled,
-            hookReorderEnabled: false, // frozen (COMING_SOON_FEATURES)
+            hookReorderEnabled: false, // disabled (cuts mid-word)
             hookStyle: preset.hookStyle,
             hookTextPosition: preset.hookTextPosition,
             hookLength: preset.hookLength,
-            smartZoomEnabled: false, // frozen (COMING_SOON_FEATURES)
+            smartZoomEnabled: preset.smartZoomEnabled ?? true,
             smartZoomMode: preset.smartZoomMode,
           }
         case 4: // Next: "Finalizing parameters..." → tag + audio + autocut remaining
@@ -1139,7 +1139,7 @@ export default function EnhancePage() {
             hookText: bestHook.text,
             hookStyle: bestHook.style as 'shock' | 'curiosity' | 'suspense',
           } : {}),
-          hookReorder: null, // reorder frozen (COMING_SOON_FEATURES)
+          hookReorder: null, // reorder disabled (cuts mid-word)
           hookReorderEnabled: false,
         }))
       }
@@ -1770,7 +1770,8 @@ export default function EnhancePage() {
                           <p className="text-sm font-bold text-emerald-400">Optimized</p>
                           <p className="text-[11px] text-zinc-400 truncate">
                             {CAPTION_STYLES.find(s => s.id === settings.captionStyle)?.label ?? 'Captions'}
-                            {settings.hookEnabled && ' · Hook on'}
+                            {settings.hookEnabled && ' · Hook'}
+                            {settings.smartZoomEnabled && ' · Zoom'}
                             {settings.tagStyle !== 'none' && ' · Tag'}
                           </p>
                         </div>
@@ -2013,12 +2014,11 @@ export default function EnhancePage() {
             {/* Format is locked to 9:16 — no UI selector */}
 
             {/* ─── Smart Zoom Section ─── */}
-            <AccordionItem value="smartzoom" className="scroll-mt-32 va-panel px-4 overflow-hidden va-panel-muted" style={{ opacity: 0.5, pointerEvents: 'none' }}>
+            <AccordionItem value="smartzoom" className="scroll-mt-32 va-panel px-4 overflow-hidden">
               <AccordionTrigger className="text-zinc-400 hover:text-white">
                 <span className="flex items-center gap-2 text-sm font-medium text-foreground">
                   <Focus className="h-4 w-4 text-zinc-500" />
                   Smart Zoom
-                  <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-zinc-700/60 text-zinc-400 border border-zinc-600/40">Coming Soon</span>
                 </span>
               </AccordionTrigger>
               <AccordionContent>

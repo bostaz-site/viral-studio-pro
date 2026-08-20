@@ -149,7 +149,8 @@ export const POST = withAuth(async (request: NextRequest, user) => {
       videoZoom: 'fill',
     },
     smartZoom: {
-      enabled: false,
+      enabled: true,
+      mode: 'micro',
     },
     audioEnhance: {
       enabled: true,

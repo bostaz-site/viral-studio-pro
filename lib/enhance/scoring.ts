@@ -380,13 +380,13 @@ export function computeCurrentScore(
   // Poids calibres sur la recherche 2026-07 — voir docs/research/viralite-calibration.md.
   // Hook=#1 (TikTok officiel), captions=preuve forte, split reduit (preuve anecdotique
   // + risque plateforme), bassBoost retire (inaudible sur telephone).
-  // Weights rebalanced: hookReorder (0.07) and smartZoom (0.03+0.02+0.02) removed,
-  // redistributed to remaining features so max total stays equivalent (~0.95+).
-  if (settings.captionsEnabled && settings.captionStyle !== 'none') totalWeight += 0.17
-  if (settings.emphasisEffect !== 'none') totalWeight += 0.08
+  // Weights calibrated 2026-08 — hookReorder frozen, smartZoom unfrozen.
+  if (settings.captionsEnabled && settings.captionStyle !== 'none') totalWeight += 0.15
+  if (settings.emphasisEffect !== 'none') totalWeight += 0.07
   if (settings.tagStyle !== 'none') totalWeight += 0.05
-  if (settings.hookEnabled) totalWeight += 0.15
-  // hookReorder + smartZoom: frozen (COMING_SOON_FEATURES) — weight 0
+  if (settings.hookEnabled) totalWeight += 0.14
+  // hookReorder: disabled (cuts mid-word)
+  if (settings.smartZoomEnabled) totalWeight += 0.05
   if (settings.audioEnhanceEnabled) totalWeight += 0.07
   if (settings.speedRamp === 'subtle') totalWeight += 0.03
   else if (settings.speedRamp === 'dynamic') totalWeight += 0.03
@@ -443,10 +443,10 @@ export function computeScoreBreakdown(
   // Define per-section weights (same calibrated weights as computeCurrentScore)
   const sections: { key: keyof Omit<ScoreBreakdown, 'total'>; weight: number }[] = []
 
-  // Captions (rebalanced — zoom/reorder weights redistributed)
+  // Captions
   let captionWeight = 0
-  if (settings.captionsEnabled && settings.captionStyle !== 'none') captionWeight += 0.17
-  if (settings.emphasisEffect !== 'none') captionWeight += 0.08
+  if (settings.captionsEnabled && settings.captionStyle !== 'none') captionWeight += 0.15
+  if (settings.emphasisEffect !== 'none') captionWeight += 0.07
   if (detectedMood && MOOD_PRESETS[detectedMood]) {
     const preset = MOOD_PRESETS[detectedMood]
     if (settings.captionsEnabled && settings.captionStyle === preset.captionStyle) captionWeight += 0.07
@@ -460,10 +460,12 @@ export function computeScoreBreakdown(
   if (settings.tagStyle !== 'none') tagWeight += 0.05
   sections.push({ key: 'tag', weight: tagWeight })
 
-  // Smart Zoom — frozen (COMING_SOON_FEATURES), always 0
-  sections.push({ key: 'smartZoom', weight: 0 })
+  // Smart Zoom
+  let zoomWeight = 0
+  if (settings.smartZoomEnabled) zoomWeight += 0.05
+  sections.push({ key: 'smartZoom', weight: zoomWeight })
 
-  // Audio (rebalanced — zoom/reorder weights redistributed)
+  // Audio
   let audioWeight = 0
   if (settings.audioEnhanceEnabled) audioWeight += 0.07
   if (settings.speedRamp === 'subtle') audioWeight += 0.03
@@ -480,10 +482,10 @@ export function computeScoreBreakdown(
   }
   sections.push({ key: 'autoCut', weight: cutWeight })
 
-  // Hook — reorder frozen (COMING_SOON_FEATURES), only hook text contributes
+  // Hook — hookReorder disabled (cuts mid-word), only hook text contributes
   let hookWeight = 0
   if (settings.hookEnabled) {
-    hookWeight += 0.15
+    hookWeight += 0.14
   }
   sections.push({ key: 'hook', weight: hookWeight })
 
