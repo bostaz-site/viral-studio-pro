@@ -420,47 +420,57 @@ export default function EnhancePage() {
             qualityTier?: string | null
             reducedQuality?: boolean
             queuePosition?: number | null
+            serverDoneAt?: string | null
           } | null
           message: string
         }
 
         if (!json.data) return
 
-        if (json.data.status === 'done' && json.data.downloadUrl) {
-          if (pollRef.current) clearInterval(pollRef.current)
-          // Persist render-done before removing render-job (kill switch for refresh)
-          try {
-            localStorage.setItem(`render-done:${clipId}`, JSON.stringify({
-              url: json.data.downloadUrl,
-              timestamp: Date.now(),
-            }))
-          } catch { /* ignore */ }
-          try { sessionStorage.removeItem(`render-job:${clipId}`) } catch { /* ignore */ }
-          setRenderDownloadUrl(json.data.downloadUrl)
-          // Save rendered video URL and AUTO-SWITCH to the Rendered tab
-          // (Enhanced CSS preview becomes redundant once we have the actual MP4)
-          if (json.data.publicUrl) {
-            setOriginalVideoUrl(videoUrl)
-            setVideoUrl(json.data.publicUrl)
-            if (json.data.thumbnailUrl) {
-              setRenderedThumbnailUrl(json.data.thumbnailUrl)
-            }
+        if (json.data.status === 'done') {
+          // Latency measurement: server done → client detection
+          if (json.data.serverDoneAt) {
+            const serverMs = new Date(json.data.serverDoneAt).getTime()
+            const latencyMs = Date.now() - serverMs
+            console.info(`[render] Done detected — server→client latency: ${(latencyMs / 1000).toFixed(1)}s`)
           }
-          // Auto-switch to Rendered view
-          setIsRenderedVideo(true)
-          setShowEnhancements(true)
-          setRenderMessage(
-            json.data.reducedQuality
-              ? '✅ Rendered at reduced quality (server load) — re-generate to try full quality.'
-              : '✅ Clip rendered with captions! Check the preview above.'
-          )
-          setRendering(false); renderingRef.current = false
-          setMonthlyUsed(prev => prev + 1)
-          setSettingsChangedSinceRender(false)
-          setPlacedInBank(false)
-          setBankError(null)
-          // Auto-open publish dialog (primary CTA post-render)
-          setShowPublishDialog(true)
+
+          if (json.data.downloadUrl) {
+            // Full completion: download URL is ready
+            if (pollRef.current) clearInterval(pollRef.current)
+            try {
+              localStorage.setItem(`render-done:${clipId}`, JSON.stringify({
+                url: json.data.downloadUrl,
+                timestamp: Date.now(),
+              }))
+            } catch { /* ignore */ }
+            try { sessionStorage.removeItem(`render-job:${clipId}`) } catch { /* ignore */ }
+            setRenderDownloadUrl(json.data.downloadUrl)
+            if (json.data.publicUrl) {
+              setOriginalVideoUrl(videoUrl)
+              setVideoUrl(json.data.publicUrl)
+              if (json.data.thumbnailUrl) {
+                setRenderedThumbnailUrl(json.data.thumbnailUrl)
+              }
+            }
+            setIsRenderedVideo(true)
+            setShowEnhancements(true)
+            setRenderMessage(
+              json.data.reducedQuality
+                ? '✅ Rendered at reduced quality (server load) — re-generate to try full quality.'
+                : '✅ Clip rendered with captions! Check the preview above.'
+            )
+            setRendering(false); renderingRef.current = false
+            setMonthlyUsed(prev => prev + 1)
+            setSettingsChangedSinceRender(false)
+            setPlacedInBank(false)
+            setBankError(null)
+            setShowPublishDialog(true)
+          } else {
+            // Done but downloadUrl not yet available (transient storage delay).
+            // Show completion message and keep polling for the URL — don't silently drop.
+            setRenderMessage('✅ Render complete — loading preview...')
+          }
         } else if (json.data.status === 'error') {
           if (pollRef.current) clearInterval(pollRef.current)
           try { sessionStorage.removeItem(`render-job:${clipId}`) } catch { /* ignore */ }
@@ -474,17 +484,14 @@ export default function EnhancePage() {
         } else if (json.data.status === 'queued') {
           const pos = json.data.queuePosition
           if (typeof pos === 'number' && pos > 0) {
-            setRenderMessage(`⏳ In queue — position ${pos}. Your clip will be processed soon.`)
+            setRenderMessage(`⏳ In queue — position ${pos}`)
           } else {
             setRenderMessage('⏳ Queued — waiting for a render slot...')
           }
         } else if (json.data.status === 'rendering') {
-          const pos = json.data.queuePosition
-          if (typeof pos === 'number' && pos > 0) {
-            setRenderMessage(`⏳ In queue — position ${pos}. Your clip will be processed soon.`)
-          } else {
-            setRenderMessage('⏳ Rendering... this may take 30-60 seconds.')
-          }
+          setRenderMessage('⏳ Rendering — transcribing & adding captions...')
+        } else if (json.data.status === 'pending') {
+          setRenderMessage('⏳ Preparing render...')
         }
       } catch {
         // Silently retry on network errors

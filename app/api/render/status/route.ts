@@ -67,15 +67,15 @@ export const GET = withAuth(async (request: NextRequest, user) => {
     )
   }
 
-  // If the job is still pending/rendering, ask the VPS queue where it sits.
-  // 0 = "your turn, running right now", N = N-th in line, -1 = unknown.
+  // Queue position: only check for queued jobs, NOT rendering (avoids 2.5s
+  // blocking VPS call on every poll that was delaying done detection).
   let queuePosition: number | null = null
-  if (job.status === 'pending' || job.status === 'rendering') {
+  if (job.status === 'queued') {
     try {
       const vpsUrl = process.env.VPS_RENDER_URL
       if (vpsUrl) {
         const controller = new AbortController()
-        const timer = setTimeout(() => controller.abort(), 2500)
+        const timer = setTimeout(() => controller.abort(), 1500)
         const res = await fetch(
           `${vpsUrl.replace(/\/$/, '')}/api/health/queue?jobId=${encodeURIComponent(job.id)}`,
           { signal: controller.signal, cache: 'no-store' },
@@ -87,7 +87,7 @@ export const GET = withAuth(async (request: NextRequest, user) => {
         }
       }
     } catch {
-      // Swallow — queue position is a nice-to-have, not required for correctness.
+      // Swallow — queue position is a nice-to-have.
     }
   }
 
@@ -190,6 +190,8 @@ export const GET = withAuth(async (request: NextRequest, user) => {
       queuePosition,
       createdAt: job.created_at,
       updatedAt: job.updated_at,
+      // Server timestamp for latency measurement: when the job reached terminal state
+      serverDoneAt: ['done', 'failed', 'error'].includes(job.status) ? job.updated_at : null,
     },
     error: null,
     message,
