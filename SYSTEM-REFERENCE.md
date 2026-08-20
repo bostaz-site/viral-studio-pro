@@ -308,10 +308,10 @@ Frontend passes `mood` in `settings.autoCut.mood`. If user sets an explicit slid
 
 ### Render Quality (4-tier ladder)
 Env var `RENDER_QUALITY` (default `high`). Auto-fallback on OOM (exit code null/137):
-- **HIGH_60**: 1080p60, faster, crf 19, maxrate 12M
-- **HIGH_30**: 1080p30, faster, crf 20, maxrate 8M
-- **SAFE**: 720p30, veryfast, crf 23, maxrate 5M
-- **LAST_RESORT**: 720p30, ultrafast, crf 26, maxrate 4M
+- **HIGH_60**: 1080p60, fast, crf 17, maxrate 15M, audio 256k — target ≤120s for 30s clip
+- **HIGH_30**: 1080p30, fast, crf 18, maxrate 10M, audio 256k
+- **SAFE**: 720p30, faster, crf 22, maxrate 6M, audio 192k
+- **LAST_RESORT**: 720p30, ultrafast, crf 26, maxrate 4M, audio 160k
 
 Quality tier is stored in `render_jobs.quality_tier` and exposed via `/api/render/status` as `qualityTier` + `reducedQuality` boolean. If tier < HIGH_30, the Enhance page shows a "Rendered at reduced quality" warning. `execRender()` receives `tierName` as 4th param from both `renderClip` and `renderSplitScreen` loops.
 

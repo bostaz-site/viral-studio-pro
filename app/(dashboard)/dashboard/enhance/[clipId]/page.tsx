@@ -28,7 +28,7 @@ import {
   type TrendingClipData, type EnhanceSettings, type ScoredOption, type ScoreBreakdown,
 } from '@/lib/enhance/scoring'
 import { LivePreview, ScoreBadge } from '@/components/enhance/live-preview'
-import { COMING_SOON_FEATURES } from '@/lib/enhance/feature-flags'
+
 import { AIAnalysisSequence } from '@/components/enhance/ai-analysis-sequence'
 import { TagPanel } from '@/components/enhance/tag-panel'
 import { BlowupChanceBar } from '@/components/enhance/blowup-chance-bar'
@@ -674,7 +674,7 @@ export default function EnhancePage() {
               return {
               enabled: settings.hookEnabled,
               textEnabled: settings.hookTextEnabled,
-              reorderEnabled: false, // frozen (COMING_SOON_FEATURES)
+              reorderEnabled: false, // disabled (cuts mid-word)
               text: settings.hookText,
               style: (['shock', 'curiosity', 'suspense'].includes(settings.hookStyle) ? settings.hookStyle : 'suspense') as 'shock' | 'curiosity' | 'suspense',
               textPosition: settings.hookTextPosition,

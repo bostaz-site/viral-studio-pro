@@ -527,9 +527,9 @@ currentScore = min(99, round((baseline + boost) * 10) / 10)
 ### Feature Weights (base) — rebalanced 2026-08
 
 > Poids calibres par recherche — source : `docs/research/viralite-calibration.md` (~70 sources verifiees).
-> Hook Reorder + Smart Zoom frozen behind `COMING_SOON_FEATURES` (`lib/enhance/feature-flags.ts`).
-> Their weights (0.07 + 0.03+0.02+0.02 = 0.14) redistributed to remaining features.
-> To re-enable: remove the key from the `COMING_SOON_FEATURES` array and restore weights.
+> 2026-08: Smart Zoom unfrozen (micro default, amplitude ≤1.08). Hook text unfrozen.
+> Hook Reorder stays disabled (cuts mid-word) — weight 0.
+> Smart Zoom restored at 0.05. Captions/hook weights rebalanced.
 
 | Feature | Weight | Condition | Justification |
 |---|---|---|---|
@@ -541,8 +541,8 @@ currentScore = min(99, round((baseline + boost) * 10) / 10)
 | Auto-Cut | 0.07 | `autoCutEnabled` | Inference forte (densite + orienting response, Lang) |
 | Tag | 0.05 | `tagStyle !== 'none'` | Zero preuve virale (garde sa valeur relationnelle streamer) |
 | Speed Ramp | 0.03 | subtle=0.03, dynamic=0.03 | Aucune donnee dans les deux sens |
-| ~~Hook Reorder~~ | 0.00 | _COMING SOON_ | Gele — qualite insuffisante au launch |
-| ~~Smart Zoom~~ | 0.00 | _COMING SOON_ | Gele — qualite insuffisante au launch |
+| ~~Hook Reorder~~ | 0.00 | _disabled_ | Cuts mid-word — stays off by design |
+| Smart Zoom | 0.05 | `smartZoomEnabled` | Unfrozen 2026-08, micro default, amplitude ≤1.08 |
 | ~~Bass Boost~~ | 0.00 | _retire du scoring_ | Contre-productif : telephone coupe <150-200Hz, gaspille headroom |
 
 **Total max** : ~0.71 (tout active, sans mood bonuses)
