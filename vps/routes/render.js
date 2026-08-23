@@ -743,13 +743,13 @@ router.post('/', async (req, res) => {
     // IMPORTANT: also skip when style='none' — user explicitly chose no captions.
     let assFilePath = null;
     let captionWordTimestamps = []; // hoisted so reorder can remap them
+    let wordTimestamps = providedWordTimestamps || []; // hoisted — used by captions + voiceover
     let detectedLanguage = null; // Whisper-detected language
     let whisperFullText = ''; // Full transcript text for smart hook
     const captionStyleRequested = settings.captions?.style || 'hormozi';
     const captionsRequested = settings.captions?.enabled && captionStyleRequested !== 'none';
     if (captionsRequested) {
       try {
-        let wordTimestamps = providedWordTimestamps || [];
 
         // For user clips, fetch transcription from DB
         if (source !== 'trending' && videoId && wordTimestamps.length === 0) {
@@ -1194,16 +1194,16 @@ router.post('/', async (req, res) => {
 
     // ─── AI Voiceover (TTS synthesis) ───
     // Generates commentary MP3 lines via ElevenLabs, timed to silence gaps.
-    // Graceful: if anything fails, render continues without voiceover.
+    // Graceful: if ANYTHING fails (including scope/reference errors), render
+    // continues without voiceover. The entire block is wrapped in try/catch.
     let voiceoverPaths = null;
-    const voiceoverEnabled = settings.voiceover?.enabled !== false; // default ON
-    if (voiceoverEnabled && wordTimestamps.length > 0 && duration > 5) {
-      try {
+    try {
+      const voiceoverEnabled = settings.voiceover?.enabled !== false; // default ON
+      if (voiceoverEnabled && wordTimestamps.length > 0 && duration > 5) {
         trc('VOICEOVER: generating script + TTS...');
 
         // Use the voiceover script from settings if provided (user-edited),
-        // otherwise the VPS would need to call Claude — but the script is
-        // generated client-side or by the Next.js API and sent in settings.
+        // otherwise generate via Claude on-the-fly.
         let voLines = settings.voiceover?.lines;
 
         // If no pre-generated lines, generate script via Claude on-the-fly
@@ -1235,12 +1235,12 @@ router.post('/', async (req, res) => {
         } else {
           trc('VOICEOVER: no lines available, skipping');
         }
-      } catch (voErr) {
-        trc(`VOICEOVER FAILED (non-fatal): ${voErr.message}`);
-        voiceoverPaths = null;
+      } else {
+        trc(`VOICEOVER: skipped (enabled=${settings.voiceover?.enabled !== false}, words=${wordTimestamps.length}, dur=${duration.toFixed(1)}s)`);
       }
-    } else {
-      trc(`VOICEOVER: disabled (enabled=${voiceoverEnabled}, words=${wordTimestamps.length}, dur=${duration.toFixed(1)}s)`);
+    } catch (voErr) {
+      trc(`VOICEOVER FAILED (non-fatal): ${voErr.message}`);
+      voiceoverPaths = null;
     }
 
     // Render clip with FFmpeg (entire pipeline is already serialized by the outer enqueueRender)
