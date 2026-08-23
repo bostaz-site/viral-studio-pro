@@ -59,28 +59,36 @@ function buildCommand(args) {
 // Render Quality Tiers (4-level retry ladder)
 // ─────────────────────────────────────────────────────────────────────────────
 
+// Bitrate targets: TikTok re-encodes everything to ~6-8 Mbps. Anything above
+// ~10 Mbps is wasted bytes (no visible quality gain, bloated file size).
+// A 60s clip at 8 Mbps + 192k audio = ~62 MB. With CRF the actual size is
+// usually lower, but maxrate caps the peaks.
 const RENDER_TIERS = {
   HIGH_60: {
-    preset: 'fast', crf: 17, maxrate: '15M', bufsize: '30M',
+    preset: 'fast', crf: 20, maxrate: '8M', bufsize: '16M',
     fps: 60, profile: 'high', level: '4.2',
-    audioBitrate: '256k', unsharp: true, hd: true,
+    audioBitrate: '192k', unsharp: true, hd: true,
   },
   HIGH_30: {
-    preset: 'fast', crf: 18, maxrate: '10M', bufsize: '20M',
+    preset: 'fast', crf: 20, maxrate: '8M', bufsize: '16M',
     fps: 30, profile: 'high', level: '4.2',
-    audioBitrate: '256k', unsharp: true, hd: true,
+    audioBitrate: '192k', unsharp: true, hd: true,
   },
   SAFE: {
-    preset: 'faster', crf: 22, maxrate: '6M', bufsize: '12M',
-    fps: 30, profile: 'high', level: '4.1',
-    audioBitrate: '192k', unsharp: false, hd: false,
-  },
-  LAST_RESORT: {
-    preset: 'ultrafast', crf: 26, maxrate: '4M', bufsize: '8M',
+    preset: 'faster', crf: 23, maxrate: '5M', bufsize: '10M',
     fps: 30, profile: 'high', level: '4.1',
     audioBitrate: '160k', unsharp: false, hd: false,
   },
+  LAST_RESORT: {
+    preset: 'ultrafast', crf: 26, maxrate: '3M', bufsize: '6M',
+    fps: 30, profile: 'high', level: '4.1',
+    audioBitrate: '128k', unsharp: false, hd: false,
+  },
 };
+
+// Hard file size limit (bytes). Supabase free tier = 50 MB/file.
+// We target 45 MB to leave headroom for the end-card concat.
+const MAX_OUTPUT_BYTES = 45 * 1024 * 1024;
 
 function getTierSequence(quality) {
   switch (quality) {
@@ -1210,7 +1218,49 @@ export async function renderClip(inputPath, outputPath, options = {}) {
       args.push('-max_muxing_queue_size', '512');
       args.push(outputPath);
 
-      const result = await execRender(args, outputPath, timeout, tierName);
+      let result = await execRender(args, outputPath, timeout, tierName);
+
+      // ── Post-render size check ──
+      // If the file exceeds MAX_OUTPUT_BYTES, re-encode with a calculated
+      // bitrate that targets 90% of the limit. This ensures the upload to
+      // Supabase Storage never fails due to file size.
+      try {
+        const stat = await fs.promises.stat(outputPath);
+        const sizeMB = stat.size / (1024 * 1024);
+        const bitrateMbps = (stat.size * 8) / (clipDuration * 1000000);
+        console.log(`[FFmpeg] Output size: ${sizeMB.toFixed(1)}MB (${bitrateMbps.toFixed(1)}Mbps, ${clipDuration.toFixed(1)}s)`);
+        result.outputSizeMB = Math.round(sizeMB * 10) / 10;
+        result.outputBitrateMbps = Math.round(bitrateMbps * 10) / 10;
+
+        if (stat.size > MAX_OUTPUT_BYTES) {
+          console.log(`[FFmpeg] Output too large (${sizeMB.toFixed(1)}MB > ${MAX_OUTPUT_BYTES / 1024 / 1024}MB) — re-encoding with lower bitrate`);
+          const targetBytes = MAX_OUTPUT_BYTES * 0.9; // 90% of limit for safety margin
+          const targetBitrate = Math.round((targetBytes * 8) / clipDuration); // bits/sec
+          const targetBitrateK = Math.round(targetBitrate / 1000); // kbps
+          const reEncodePath = outputPath.replace(/\.mp4$/, '_resized.mp4');
+
+          await execFileAsync(process.env.FFMPEG_PATH || 'ffmpeg', [
+            '-y', '-i', outputPath,
+            '-c:v', 'libx264', '-preset', 'fast',
+            '-b:v', `${targetBitrateK}k`, '-maxrate', `${targetBitrateK}k`, '-bufsize', `${targetBitrateK * 2}k`,
+            '-c:a', 'copy', // keep audio as-is
+            '-movflags', '+faststart',
+            reEncodePath,
+          ], { timeout: 120000 });
+
+          // Replace original
+          await fs.promises.rename(reEncodePath, outputPath);
+          const newStat = await fs.promises.stat(outputPath);
+          const newSizeMB = newStat.size / (1024 * 1024);
+          console.log(`[FFmpeg] Re-encoded: ${sizeMB.toFixed(1)}MB → ${newSizeMB.toFixed(1)}MB (target ${targetBitrateK}kbps)`);
+          result.outputSizeMB = Math.round(newSizeMB * 10) / 10;
+          result.outputBitrateMbps = Math.round((newStat.size * 8) / (clipDuration * 1000000) * 10) / 10;
+          result.reEncoded = true;
+        }
+      } catch (sizeErr) {
+        console.warn(`[FFmpeg] Size check failed (non-fatal): ${sizeErr.message}`);
+      }
+
       result.openingLuma = openingLuma;
       result.openingDark = openingDark;
       return maybeAppendEndCard(result);

@@ -1497,6 +1497,8 @@ router.post('/', async (req, res) => {
     if (renderResult?.openingLuma !== undefined) {
       trc(`BRIGHT_FIRST_FRAME: openingLuma=${renderResult.openingLuma !== null ? renderResult.openingLuma.toFixed(1) : 'N/A'}, dark=${renderResult.openingDark} (threshold=${16}), action=${renderResult.openingDark ? 'exposure_lift_0.5s' : 'none'}`);
     }
+    // Log output file size (visible in debug_log for monitoring)
+    trc(`OUTPUT: ${renderResult.outputSizeMB ?? '?'}MB, ${renderResult.outputBitrateMbps ?? '?'}Mbps${renderResult.reEncoded ? ' (re-encoded to fit size limit)' : ''}`);
 
     // Upload rendered clip to Supabase Storage (unique path per render to avoid CDN cache)
     const renderTs = Date.now();
