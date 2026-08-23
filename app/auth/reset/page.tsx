@@ -1,16 +1,26 @@
 "use client"
 
-import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
-import { Lock, CheckCircle2 } from 'lucide-react'
+import { Suspense, useState, useEffect } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
+import { Lock, CheckCircle2, AlertCircle } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
+import Link from 'next/link'
 
 export default function ResetPasswordPage() {
+  return (
+    <Suspense fallback={null}>
+      <ResetPasswordForm />
+    </Suspense>
+  )
+}
+
+function ResetPasswordForm() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [password, setPassword] = useState('')
   const [confirm, setConfirm] = useState('')
   const [loading, setLoading] = useState(false)
@@ -18,20 +28,41 @@ export default function ResetPasswordPage() {
   const [success, setSuccess] = useState(false)
   const [ready, setReady] = useState(false)
 
-  // Supabase exchanges the PKCE code automatically when the page loads with the hash fragment
   useEffect(() => {
     const supabase = createClient()
-    // The auth callback sets the session from the URL hash/code
-    supabase.auth.onAuthStateChange((event) => {
+
+    // 1. Listen for PASSWORD_RECOVERY event FIRST (before any async work)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
       if (event === 'PASSWORD_RECOVERY') {
         setReady(true)
       }
     })
-    // Also check if we already have a session (page refreshed after recovery)
-    supabase.auth.getSession().then(({ data }) => {
-      if (data.session) setReady(true)
-    })
-  }, [])
+
+    // 2. Fallback: if there's a ?code= param (direct PKCE, not via /auth/callback),
+    //    exchange it client-side
+    const code = searchParams?.get('code')
+    if (code) {
+      supabase.auth.exchangeCodeForSession(code).then(({ error: exchangeError }) => {
+        if (exchangeError) {
+          console.error('[reset] Code exchange failed:', exchangeError.message)
+          setError('This reset link is invalid or has expired. Please request a new one.')
+        }
+        // PASSWORD_RECOVERY event will fire from the exchange above → sets ready
+      })
+    } else {
+      // 3. No code param — we arrived here from /auth/callback (session already set).
+      //    Check if we have a valid session.
+      supabase.auth.getSession().then(({ data }) => {
+        if (data.session) {
+          setReady(true)
+        } else {
+          setError('No active reset session. Please request a new password reset link.')
+        }
+      })
+    }
+
+    return () => subscription.unsubscribe()
+  }, [searchParams])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -50,6 +81,7 @@ export default function ResetPasswordPage() {
     const { error: updateError } = await supabase.auth.updateUser({ password })
 
     if (updateError) {
+      console.error('[reset] Password update failed:', updateError.message)
       setError(updateError.message)
       setLoading(false)
       return
@@ -71,6 +103,17 @@ export default function ResetPasswordPage() {
               <CheckCircle2 className="h-8 w-8 text-emerald-400" />
               <p className="text-sm text-muted-foreground">Password updated. Redirecting...</p>
             </div>
+          ) : error && !ready ? (
+            <div className="flex flex-col items-center gap-3 py-4">
+              <AlertCircle className="h-8 w-8 text-red-400" />
+              <p className="text-sm text-red-400 text-center">{error}</p>
+              <Link
+                href="/login"
+                className="text-sm text-amber-400 hover:text-amber-300 font-semibold transition-colors"
+              >
+                Back to login
+              </Link>
+            </div>
           ) : !ready ? (
             <p className="text-sm text-muted-foreground py-4">Verifying your reset link...</p>
           ) : (
@@ -82,14 +125,14 @@ export default function ResetPasswordPage() {
                 <Label htmlFor="password" className="text-xs">New password</Label>
                 <div className="relative">
                   <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input id="password" type="password" value={password} onChange={e => setPassword(e.target.value)} required minLength={8} className="pl-10 h-11" placeholder="At least 8 characters" />
+                  <Input id="password" type="password" value={password} onChange={e => setPassword(e.target.value)} required minLength={8} className="pl-10 h-11" placeholder="At least 8 characters" autoComplete="new-password" />
                 </div>
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="confirm" className="text-xs">Confirm password</Label>
                 <div className="relative">
                   <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input id="confirm" type="password" value={confirm} onChange={e => setConfirm(e.target.value)} required minLength={8} className="pl-10 h-11" placeholder="Same password again" />
+                  <Input id="confirm" type="password" value={confirm} onChange={e => setConfirm(e.target.value)} required minLength={8} className="pl-10 h-11" placeholder="Same password again" autoComplete="new-password" />
                 </div>
               </div>
               <Button type="submit" className="w-full h-11" disabled={loading}>

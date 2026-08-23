@@ -25,7 +25,9 @@ function LoginForm() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(
+    searchParams?.get('error') ?? null
+  )
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -137,7 +139,7 @@ function ForgotPassword() {
     try {
       const supabase = createClient()
       const { error } = await supabase.auth.resetPasswordForEmail(resetEmail, {
-        redirectTo: `${window.location.origin}/auth/reset`,
+        redirectTo: `${window.location.origin}/auth/callback?next=/auth/reset`,
       })
       if (error) {
         setResetError(error.message)
@@ -145,8 +147,11 @@ function ForgotPassword() {
         return
       }
       setSent(true)
-    } catch {
-      setResetError('Network error — check your connection and try again.')
+    } catch (err) {
+      console.error('[ForgotPassword] Reset request failed:', err)
+      setResetError(
+        err instanceof Error ? err.message : 'Network error — check your connection and try again.'
+      )
     } finally {
       setSending(false)
     }

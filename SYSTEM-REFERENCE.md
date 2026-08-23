@@ -737,6 +737,8 @@ Supabase Auth with email/password + Google OAuth, protected routes, welcome moda
 ### Files
 - `app/(auth)/login/page.tsx` — `signInWithPassword()`, redirect to `/dashboard`
 - `app/(auth)/signup/page.tsx` — referral code capture (URL param -> cookie -> localStorage)
+- `app/auth/callback/route.ts` — server-side PKCE code exchange (password recovery, email confirm, magic links). Reads `?code=` + `?next=`, exchanges via `supabase.auth.exchangeCodeForSession()`, redirects to `next` (default `/dashboard`). Errors redirect to `/login?error=`.
+- `app/auth/reset/page.tsx` — password reset form. Session set by `/auth/callback` (server-side) or client-side code exchange fallback. Listens for `PASSWORD_RECOVERY` event + checks existing session. Shows new password form → `updateUser({ password })` → redirects to `/dashboard`.
 - `middleware.ts` — protects `/dashboard`, `/settings`; redirects authed users from `/login`
 - `lib/supabase/client.ts` (browser), `lib/supabase/server.ts` (SSR)
 - `components/onboarding/welcome-modal.tsx` — 3-step onboarding (localStorage `vsp.onboarding.welcome.v1`)
@@ -943,8 +945,9 @@ Derived from user's `full_name` or email prefix (sanitized to alphanumeric). If 
 ### Funnel Tracking & Auth
 - **Events whitelist:** `app/api/events/route.ts` accepts `landing_cta_clicked`, `page_view`, `signup_started`, `signup_completed` + all existing events. Unknown events are filtered (warn-logged) instead of rejecting the whole batch.
 - **Signup tracking:** `signup_started` fired at form submit, `signup_completed` after successful signUp.
-- **Login redirect:** reads `?redirectTo=` from searchParams, validates it starts with `/` (prevents open redirect). Forgot password flow: inline form → `resetPasswordForEmail()` → `/auth/reset` page exchanges PKCE code + `updateUser({password})`.
-- **Password reset page:** `app/auth/reset/page.tsx` — listens for `PASSWORD_RECOVERY` auth state event, shows new password form, updates user, redirects to `/dashboard`.
+- **Login redirect:** reads `?redirectTo=` from searchParams, validates it starts with `/` (prevents open redirect). Shows `?error=` from URL params (e.g. expired reset links). Forgot password flow: inline form → `resetPasswordForEmail(email, { redirectTo: /auth/callback?next=/auth/reset })` → email link → `/auth/callback` exchanges PKCE code server-side → redirects to `/auth/reset` with session set → `updateUser({password})`.
+- **Password reset page:** `app/auth/reset/page.tsx` — checks session (set by `/auth/callback`) or exchanges `?code=` client-side as fallback. Shows new password form on valid session, error + "Back to login" link on invalid/expired. Redirects to `/dashboard` after success.
+- **Auth callback route:** `app/auth/callback/route.ts` — server-side PKCE exchange. Required because `@supabase/ssr` uses PKCE flow and the code_verifier cookie must be exchanged server-side for cross-device reliability.
 
 ### Security Hardening
 - **Upload IDOR:** `DELETE /api/upload/sign` requires auth + `eq('user_id', userId)`. No anonymous deletion.
