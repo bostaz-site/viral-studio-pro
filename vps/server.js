@@ -20,6 +20,7 @@ import renderRouter from './routes/render.js';
 import healthRouter from './routes/health.js';
 import downloadRouter from './routes/download.js';
 import { logger } from './lib/logger.js';
+import { checkOpenCV } from './lib/opencv-check.js';
 
 // Setup
 const __filename = fileURLToPath(import.meta.url);
@@ -164,6 +165,9 @@ app.listen(PORT, () => {
   if (!process.env.SUPABASE_SECRET_KEY && !process.env.SUPABASE_SERVICE_ROLE_KEY) {
     logger.warn('SUPABASE_SECRET_KEY / SUPABASE_SERVICE_ROLE_KEY not set — database operations will fail');
   }
+
+  // Run OpenCV self-test after server starts (non-blocking)
+  checkOpenCV();
 });
 
 export default app;

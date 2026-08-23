@@ -5,6 +5,7 @@ import { checkFfmpegAvailability } from '../lib/ffmpeg-render.js';
 import { checkYtdlpAvailability } from '../lib/yt-dlp-wrapper.js';
 import { checkSupabaseHealth } from '../lib/supabase-client.js';
 import { getQueueStatus, getJobPosition } from '../lib/render-queue.js';
+import { getOpenCVStatus } from '../lib/opencv-check.js';
 
 const router = express.Router();
 const startTime = Date.now();
@@ -64,6 +65,10 @@ router.get('/', async (req, res) => {
         fonts: {
           dejavuBold: fontAvailable,
           path: fontPath,
+        },
+        opencv: {
+          healthy: getOpenCVStatus(),
+          error: getOpenCVStatus() === false ? 'CascadeClassifier or haarcascades unavailable — crop advisor and face tracking disabled' : null,
         },
         openaiKey: {
           configured: !!(process.env.OPENAI_API_KEY || process.env.OPENAI_KEY),

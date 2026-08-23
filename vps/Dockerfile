@@ -18,12 +18,15 @@ RUN apt-get update && \
       python3 \
       python3-pip \
       curl \
-      ca-certificates && \
+      ca-certificates \
+      libglib2.0-0 \
+      libgl1-mesa-glx && \
     fc-cache -f -v && \
     curl -L "https://github.com/yt-dlp/yt-dlp/releases/download/${YT_DLP_VERSION}/yt-dlp" -o /usr/local/bin/yt-dlp && \
     chmod a+rx /usr/local/bin/yt-dlp && \
     /usr/local/bin/yt-dlp --version && \
-    pip3 install --no-cache-dir --break-system-packages opencv-python-headless numpy && \
+    pip3 install --no-cache-dir --break-system-packages opencv-python-headless==4.10.0.84 numpy && \
+    python3 -c "import cv2; cc = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml'); assert not cc.empty(), 'Haar cascade failed to load'; print('BUILD CHECK: OpenCV OK — CascadeClassifier + haarcascades verified')" && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Create app directory and broll directory
