@@ -126,39 +126,81 @@ function detectLanguageFromStreamer(authorName) {
 // Voiceover script generation via Claude Haiku (VPS-side)
 // ─────────────────────────────────────────────────────────────────────────────
 
+// Track consecutive voiceover failures for Discord alerts
+let consecutiveVoiceoverFailures = 0;
+
+function trackVoiceoverFailure(trc) {
+  consecutiveVoiceoverFailures++;
+  trc(`VOICEOVER: consecutive failures: ${consecutiveVoiceoverFailures}`);
+  if (consecutiveVoiceoverFailures >= 3) {
+    alertDiscordVoiceoverFailure(consecutiveVoiceoverFailures).catch(() => {});
+  }
+}
+
+function resetVoiceoverFailures() {
+  consecutiveVoiceoverFailures = 0;
+}
+
+async function alertDiscordVoiceoverFailure(count) {
+  const webhookUrl = process.env.DISCORD_AUDIT_WEBHOOK_URL;
+  if (!webhookUrl) return;
+  try {
+    await fetch(webhookUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        content: `**[CRITICAL] Voiceover generation failing** — ${count} consecutive renders without voiceover. Check ANTHROPIC_API_KEY and ELEVENLABS_API_KEY on Railway VPS.`,
+      }),
+    });
+  } catch { /* non-critical */ }
+}
+
 /**
  * Generate voiceover commentary lines using Claude Haiku.
  * Finds silence gaps in word timestamps and places lines there.
  * Returns array of {text, startTime, estimatedDuration, role} or null.
+ *
+ * Every exit path logs a distinct reason via trc() for debug_log tracing.
  */
 async function generateVoiceoverScriptOnVps({ wordTimestamps, clipTitle, streamerName, niche, clipDuration, trc }) {
   const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) { trc('VOICEOVER SCRIPT: no ANTHROPIC_API_KEY'); return null; }
+  if (!apiKey) {
+    trc('VOICEOVER SCRIPT: ABORT reason=no_ANTHROPIC_API_KEY — env var not set on VPS');
+    return null;
+  }
 
   const transcript = wordTimestamps.map(w => w.word).join(' ').trim();
-  if (!transcript || transcript.length < 10) { trc('VOICEOVER SCRIPT: transcript too short'); return null; }
+  if (!transcript || transcript.length < 10) {
+    trc(`VOICEOVER SCRIPT: ABORT reason=transcript_too_short (${transcript.length} chars, need >=10)`);
+    return null;
+  }
 
-  // Find silence gaps
+  trc(`VOICEOVER SCRIPT: transcript="${transcript.slice(0, 80)}..." (${transcript.length} chars)`);
+
+  // Find silence gaps — use 0.4s threshold (was 0.6s, too strict for fast-talking streamers)
+  const MIN_GAP = 0.4;
   const gaps = [];
-  if (wordTimestamps.length > 0 && wordTimestamps[0].start >= 0.6) {
+  if (wordTimestamps.length > 0 && wordTimestamps[0].start >= MIN_GAP) {
     gaps.push({ start: 0, end: wordTimestamps[0].start, duration: wordTimestamps[0].start });
   }
   for (let i = 0; i < wordTimestamps.length - 1; i++) {
     const gapDur = wordTimestamps[i + 1].start - wordTimestamps[i].end;
-    if (gapDur >= 0.6) {
+    if (gapDur >= MIN_GAP) {
       gaps.push({ start: wordTimestamps[i].end, end: wordTimestamps[i + 1].start, duration: gapDur });
     }
   }
   if (wordTimestamps.length > 0) {
     const lastEnd = wordTimestamps[wordTimestamps.length - 1].end;
-    if (clipDuration - lastEnd >= 0.6) {
+    if (clipDuration - lastEnd >= MIN_GAP) {
       gaps.push({ start: lastEnd, end: clipDuration, duration: clipDuration - lastEnd });
     }
   }
 
   const gapsDesc = gaps.length > 0
     ? gaps.map(g => `${g.start.toFixed(1)}-${g.end.toFixed(1)}s`).join(', ')
-    : 'No clear gaps';
+    : 'No clear gaps — place lines at start/end anyway';
+
+  trc(`VOICEOVER SCRIPT: found ${gaps.length} silence gaps (threshold=${MIN_GAP}s): ${gapsDesc}`);
 
   const prompt = `Write voiceover commentary for a TikTok clip.
 
@@ -167,16 +209,19 @@ TRANSCRIPT: "${transcript.slice(0, 1500)}"
 SILENCE GAPS: ${gapsDesc}
 
 Write 2-4 SHORT lines (5-10 words, max 12). Each has role "hook"/"reaction"/"closer".
-- 1 hook at 0.0-1.5s (anticipation)
-- 1-2 reactions near peaks or in gaps (never over key streamer dialogue)
-- Optional closer in last 2s
+- 1 hook at startTime 0.2 (builds anticipation for what's about to happen)
+- 1-2 reactions placed at or near the silence gaps listed above
+- Optional closer in the last 2s of the clip
+- If no silence gaps exist, place the hook at 0.2s and closer at the end
 - Tone: casual clipper. No "you won't believe", no "this will go viral"
-- Add context/anticipation, never describe what's visible
+- Reference the actual clip content (the action, the streamer, what happens)
 
-Return ONLY JSON array:
+Return ONLY a JSON array:
 [{"text":"watch this closely","startTime":0.2,"role":"hook","estimatedDuration":1.3}]`;
 
   try {
+    trc('VOICEOVER SCRIPT: calling Claude Haiku API...');
+    const startMs = Date.now();
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
@@ -186,18 +231,43 @@ Return ONLY JSON array:
         messages: [{ role: 'user', content: prompt }],
       }),
     });
-    if (!response.ok) { trc(`VOICEOVER SCRIPT: Claude ${response.status}`); return null; }
+    const latencyMs = Date.now() - startMs;
+
+    if (!response.ok) {
+      const errBody = await response.text().catch(() => '');
+      trc(`VOICEOVER SCRIPT: ABORT reason=claude_api_error status=${response.status} body="${errBody.slice(0, 150)}" (${latencyMs}ms)`);
+      return null;
+    }
 
     const result = await response.json();
     const text = result.content?.[0]?.text || '';
-    const jsonMatch = text.match(/\[[\s\S]*\]/);
-    if (!jsonMatch) { trc('VOICEOVER SCRIPT: no JSON in response'); return null; }
+    trc(`VOICEOVER SCRIPT: Claude response (${latencyMs}ms, ${text.length} chars): "${text.slice(0, 200)}"`);
 
-    const lines = JSON.parse(jsonMatch[0]);
+    const jsonMatch = text.match(/\[[\s\S]*\]/);
+    if (!jsonMatch) {
+      trc(`VOICEOVER SCRIPT: ABORT reason=no_json_array_in_response — Claude response didn't contain a JSON array`);
+      return null;
+    }
+
+    let lines;
+    try {
+      lines = JSON.parse(jsonMatch[0]);
+    } catch (parseErr) {
+      trc(`VOICEOVER SCRIPT: ABORT reason=json_parse_error — ${parseErr.message}`);
+      return null;
+    }
+
+    if (!Array.isArray(lines)) {
+      trc(`VOICEOVER SCRIPT: ABORT reason=not_an_array — parsed value is ${typeof lines}`);
+      return null;
+    }
+
     const valid = lines
       .filter(l => l.text && l.text.length <= 80 && typeof l.startTime === 'number' && l.startTime >= 0 && l.startTime < clipDuration)
       .slice(0, 4)
       .map(l => ({ text: l.text, startTime: l.startTime, estimatedDuration: l.estimatedDuration || 1.5, role: l.role || 'reaction' }));
+
+    trc(`VOICEOVER SCRIPT: parsed ${lines.length} lines, ${valid.length} valid after filtering`);
 
     // Log cost (fire-and-forget)
     try {
@@ -205,13 +275,19 @@ Return ONLY JSON array:
         model: 'claude-haiku-4-5-20251001', feature: 'voiceover_script',
         tokens_input: result.usage?.input_tokens, tokens_output: result.usage?.output_tokens,
         cost_usd: ((result.usage?.input_tokens || 0) / 1e6) * 1.0 + ((result.usage?.output_tokens || 0) / 1e6) * 5.0,
+        latency_ms: latencyMs,
         success: valid.length > 0,
       });
     } catch { /* non-critical */ }
 
-    return valid.length > 0 ? valid : null;
+    if (valid.length === 0) {
+      trc(`VOICEOVER SCRIPT: ABORT reason=all_lines_filtered — ${lines.length} lines from Claude, 0 passed validation (check startTime bounds and text length)`);
+      return null;
+    }
+
+    return valid;
   } catch (err) {
-    trc(`VOICEOVER SCRIPT error: ${err.message}`);
+    trc(`VOICEOVER SCRIPT: ABORT reason=exception — ${err.message}`);
     return null;
   }
 }
@@ -1262,24 +1338,42 @@ router.post('/', async (req, res) => {
 
     // ─── AI Voiceover (TTS synthesis) ───
     // Generates commentary MP3 lines via ElevenLabs, timed to silence gaps.
-    // Graceful: if ANYTHING fails (including scope/reference errors), render
-    // continues without voiceover. The entire block is wrapped in try/catch.
+    // Graceful: if ANYTHING fails, render continues without voiceover.
     let voiceoverPaths = null;
     try {
       const voiceoverEnabled = settings.voiceover?.enabled !== false; // default ON
-      if (voiceoverEnabled && wordTimestamps.length > 0 && duration > 5) {
-        trc('VOICEOVER: generating script + TTS...');
+      const hasTranscript = wordTimestamps.length > 0;
+      const hasAnthropicKey = !!process.env.ANTHROPIC_API_KEY;
+      const hasElevenLabsKey = !!process.env.ELEVENLABS_API_KEY;
+      trc(`VOICEOVER CHECK: enabled=${voiceoverEnabled} words=${wordTimestamps.length} dur=${duration.toFixed(1)}s anthropicKey=${hasAnthropicKey} elevenLabsKey=${hasElevenLabsKey}`);
+
+      if (!voiceoverEnabled) {
+        trc('VOICEOVER SKIPPED: reason=disabled_by_user');
+      } else if (!hasTranscript) {
+        trc('VOICEOVER SKIPPED: reason=no_word_timestamps (Whisper returned empty or captions disabled)');
+      } else if (duration <= 5) {
+        trc(`VOICEOVER SKIPPED: reason=clip_too_short (${duration.toFixed(1)}s <= 5s)`);
+      } else if (!hasAnthropicKey) {
+        trc('VOICEOVER SKIPPED: reason=no_ANTHROPIC_API_KEY — cannot generate script. Set this env var on Railway.');
+      } else if (!hasElevenLabsKey) {
+        trc('VOICEOVER SKIPPED: reason=no_ELEVENLABS_API_KEY — cannot synthesize TTS. Set this env var on Railway.');
+      } else {
+        trc('VOICEOVER: starting script generation + TTS pipeline...');
 
         // Use the voiceover script from settings if provided (user-edited),
         // otherwise generate via Claude on-the-fly.
         let voLines = settings.voiceover?.lines;
+        if (voLines && voLines.length > 0) {
+          trc(`VOICEOVER: using ${voLines.length} pre-generated lines from settings`);
+        }
 
-        // If no pre-generated lines, generate script via Claude on-the-fly
+        // If no pre-generated lines, generate script via Claude
         if (!voLines || voLines.length === 0) {
-          trc('VOICEOVER: no lines in settings, generating script via Claude...');
+          const voWordTimestamps = captionWordTimestamps.length > 0 ? captionWordTimestamps : wordTimestamps;
+          trc(`VOICEOVER: no pre-generated lines, calling Claude (${voWordTimestamps.length} words, title="${(clipTitle || '').slice(0, 40)}")...`);
           try {
             const scriptResult = await generateVoiceoverScriptOnVps({
-              wordTimestamps: captionWordTimestamps.length > 0 ? captionWordTimestamps : wordTimestamps,
+              wordTimestamps: voWordTimestamps,
               clipTitle: clipTitle || '',
               streamerName: settings.tag?.authorHandle || settings.tag?.authorName || '',
               niche: settings.sourcePlatform || 'gaming',
@@ -1288,7 +1382,9 @@ router.post('/', async (req, res) => {
             });
             if (scriptResult && scriptResult.length > 0) {
               voLines = scriptResult;
-              trc(`VOICEOVER: Claude generated ${voLines.length} lines`);
+              trc(`VOICEOVER: Claude generated ${voLines.length} lines: ${voLines.map(l => `[${l.role}@${l.startTime.toFixed(1)}s] "${l.text}"`).join(' | ')}`);
+            } else {
+              trc('VOICEOVER: Claude returned null/empty — see VOICEOVER SCRIPT logs above for reason');
             }
           } catch (scriptErr) {
             trc(`VOICEOVER SCRIPT FAILED: ${scriptErr.message}`);
@@ -1296,15 +1392,19 @@ router.post('/', async (req, res) => {
         }
 
         if (voLines && voLines.length > 0) {
-          trc(`VOICEOVER: ${voLines.length} lines, synthesizing TTS...`);
+          trc(`VOICEOVER TTS: synthesizing ${voLines.length} lines via ElevenLabs...`);
           const voiceKey = settings.voiceover?.voice || 'default';
           voiceoverPaths = await synthesizeVoiceover(voLines, tempDir, voiceKey, userId);
-          trc(`VOICEOVER: ${voiceoverPaths.length}/${voLines.length} lines synthesized`);
+          if (voiceoverPaths.length > 0) {
+            trc(`VOICEOVER TTS: ${voiceoverPaths.length}/${voLines.length} MP3s created — will mix into render`);
+            resetVoiceoverFailures(); // success resets the consecutive counter
+          } else {
+            trc(`VOICEOVER TTS: all ${voLines.length} lines failed synthesis — ELEVENLABS_API_KEY may be invalid or rate-limited`);
+          }
         } else {
-          trc('VOICEOVER: no lines available, skipping');
+          trc('VOICEOVER SKIPPED: reason=no_lines_generated (Claude could not produce a script)');
+          trackVoiceoverFailure(trc);
         }
-      } else {
-        trc(`VOICEOVER: skipped (enabled=${settings.voiceover?.enabled !== false}, words=${wordTimestamps.length}, dur=${duration.toFixed(1)}s)`);
       }
     } catch (voErr) {
       trc(`VOICEOVER FAILED (non-fatal): ${voErr.message}`);
@@ -1313,6 +1413,8 @@ router.post('/', async (req, res) => {
 
     // Render clip with FFmpeg (entire pipeline is already serialized by the outer enqueueRender)
     const outputPath = path.join(tempDir, 'output.mp4');
+    trc(`AUDIO SHIFT: +3% asetrate/atempo anti-fingerprint will be applied (always-on)`);
+    trc(`RENDER START: voiceover=${voiceoverPaths ? voiceoverPaths.length + ' MP3s' : 'none'} smartZoom=${settings.smartZoom?.mode || 'micro'} videoZoom=${settings.format?.videoZoom || 'auto'}`);
     console.log(`[Render ${renderSessionId}] Starting FFmpeg render...`);
 
     // Use plan from Next.js payload (source of truth); fall back to DB lookup

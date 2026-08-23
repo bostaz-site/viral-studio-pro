@@ -567,14 +567,23 @@ TikTok's originality policy cites "original voiceover" as an acceptable creative
 
 **Chain**: Word timestamps (Whisper) -> Script generation (Claude Haiku) -> TTS synthesis (ElevenLabs) -> FFmpeg audio mix with ducking.
 
-**Script generation** (`lib/ai/voiceover-writer.ts` + VPS inline `generateVoiceoverScriptOnVps`):
+**Prerequisites** (all must be true for voiceover to produce output):
+1. `settings.voiceover.enabled !== false` (default ON)
+2. `wordTimestamps.length > 0` — requires Whisper transcription to have run (inside `captionsRequested` block)
+3. `duration > 5` — clips under 5s skip voiceover
+4. `ANTHROPIC_API_KEY` env var set on Railway VPS — needed for script generation
+5. `ELEVENLABS_API_KEY` env var set on Railway VPS — needed for TTS synthesis
+
+If any prerequisite fails, the render job's `debug_log` shows a `VOICEOVER SKIPPED: reason=...` or `VOICEOVER SCRIPT: ABORT reason=...` line identifying the exact cause.
+
+**Script generation** (`vps/routes/render.js` > `generateVoiceoverScriptOnVps`):
 - Claude Haiku writes 2-4 short commentary lines (5-10 words each)
-- 1 hook line at 0-1.5s (builds anticipation), 1-2 reactions near audio peaks or silence gaps, optional closer
-- Uses word timestamps to find silence gaps (>= 0.6s) — never places VO over key streamer dialogue
-- Rules: casual clipper tone, no promises ("this will go viral"), no screen description
+- 1 hook at 0.2s (anticipation), 1-2 reactions near silence gaps, optional closer
+- Uses word timestamps to find silence gaps (>= 0.4s) — never places VO over key streamer dialogue
+- If no silence gaps found, places hook at start and closer at end anyway
 
 **TTS synthesis** (`vps/lib/elevenlabs-client.js`):
-- ElevenLabs `eleven_turbo_v2_5` model, stability 0.4 (energetic), speaker boost ON
+- ElevenLabs `eleven_turbo_v2_5` model, stability 0.4, speaker boost ON
 - 3 voice options: default (energetic male), female (clear), deep (deep male)
 - Cost: ~$0.01-0.03/clip ($0.15/1K chars), logged to `ai_calls` with `feature: voiceover_elevenlabs`
 - 15s timeout per line; any failure → render continues without voiceover
@@ -583,13 +592,19 @@ TikTok's originality policy cites "original voiceover" as an acceptable creative
 - VO MP3s added as extra FFmpeg inputs, delayed to their `startTime` via `adelay`
 - Ducking via `sidechaincompress`: original audio drops to ~35% during VO (threshold=0.02, ratio=4:1, attack/release=200ms)
 - Final `amix` merges ducked original + voiceover track
+- Audio fingerprint shift (+3% asetrate/atempo) always applied on all renders, logged as `AUDIO SHIFT` in debug_log
 
 **UI** (Enhance page accordion "AI Voiceover"):
 - Toggle (ON by default), voice selector (3 options), editable script preview
 - Script populated after AI Optimize runs or during render
-- Available on ALL plans (Free, Pro, Studio) — this is what makes clips publishable
+- Available on ALL plans (Free, Pro, Studio)
 
-**Graceful degradation**: If ELEVENLABS_API_KEY is missing, API fails, or Claude can't generate a script, the render succeeds without voiceover. No TTS failure blocks a render.
+**Failure tracking**:
+- Every skip/failure logs a distinct reason in `debug_log`: `disabled_by_user`, `no_word_timestamps`, `clip_too_short`, `no_ANTHROPIC_API_KEY`, `no_ELEVENLABS_API_KEY`, `transcript_too_short`, `claude_api_error`, `no_json_array_in_response`, `json_parse_error`, `all_lines_filtered`, `exception`
+- 3+ consecutive render failures → Discord alert to `#critical-alerts`
+- Success resets the consecutive counter
+
+**Graceful degradation**: render always succeeds without voiceover. No TTS failure blocks a render.
 
 ### Gotchas
 - VPS POST has 15s timeout but VPS continues processing (fire-and-forget)
