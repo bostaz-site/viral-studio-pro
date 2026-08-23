@@ -39,6 +39,33 @@ interface TikTokPublishDialogProps {
 
 // ── Component ────────────────────────────────────────────────────────────────
 
+// ── Sensible defaults (public, interactions ON, no commercial) ───────────────
+const TIKTOK_PUBLISH_DEFAULTS = {
+  privacy_level: 'PUBLIC_TO_EVERYONE' as TikTokPrivacyLevel,
+  allowComment: true,
+  allowDuet: true,
+  allowStitch: true,
+  commercialEnabled: false,
+  brandOrganic: false,
+  brandContent: false,
+}
+
+const LOCALSTORAGE_KEY = 'va:tiktok-publish-prefs'
+
+function loadSavedPrefs(): Partial<typeof TIKTOK_PUBLISH_DEFAULTS> {
+  try {
+    const raw = localStorage.getItem(LOCALSTORAGE_KEY)
+    if (!raw) return {}
+    return JSON.parse(raw) as Partial<typeof TIKTOK_PUBLISH_DEFAULTS>
+  } catch { return {} }
+}
+
+function savePrefs(prefs: typeof TIKTOK_PUBLISH_DEFAULTS) {
+  try {
+    localStorage.setItem(LOCALSTORAGE_KEY, JSON.stringify(prefs))
+  } catch { /* quota or SSR — ignore */ }
+}
+
 export function TikTokPublishDialog({
   open,
   onClose,
@@ -53,17 +80,17 @@ export function TikTokPublishDialog({
   const [creatorInfoLoading, setCreatorInfoLoading] = useState(false)
   const [creatorInfoError, setCreatorInfoError] = useState<string | null>(null)
 
-  // Form fields
+  // Form fields — sensible defaults, overridden by saved user prefs
   const [title, setTitle] = useState('')
-  const [privacyLevel, setPrivacyLevel] = useState<TikTokPrivacyLevel | null>(null)
-  const [allowComment, setAllowComment] = useState(false)
-  const [allowDuet, setAllowDuet] = useState(false)
-  const [allowStitch, setAllowStitch] = useState(false)
+  const [privacyLevel, setPrivacyLevel] = useState<TikTokPrivacyLevel>(TIKTOK_PUBLISH_DEFAULTS.privacy_level)
+  const [allowComment, setAllowComment] = useState(TIKTOK_PUBLISH_DEFAULTS.allowComment)
+  const [allowDuet, setAllowDuet] = useState(TIKTOK_PUBLISH_DEFAULTS.allowDuet)
+  const [allowStitch, setAllowStitch] = useState(TIKTOK_PUBLISH_DEFAULTS.allowStitch)
 
   // Commercial content disclosure
-  const [commercialEnabled, setCommercialEnabled] = useState(false)
-  const [brandOrganic, setBrandOrganic] = useState(false) // "Your Brand"
-  const [brandContent, setBrandContent] = useState(false) // "Branded Content"
+  const [commercialEnabled, setCommercialEnabled] = useState(TIKTOK_PUBLISH_DEFAULTS.commercialEnabled)
+  const [brandOrganic, setBrandOrganic] = useState(TIKTOK_PUBLISH_DEFAULTS.brandOrganic)
+  const [brandContent, setBrandContent] = useState(TIKTOK_PUBLISH_DEFAULTS.brandContent)
 
   // Publish state
   const [isPublishing, setIsPublishing] = useState(false)
@@ -83,15 +110,16 @@ export function TikTokPublishDialog({
   useEffect(() => {
     if (!open) return
 
-    // Reset state
+    // Reset state — load saved user preferences (localStorage) or sensible defaults
+    const saved = loadSavedPrefs()
     setTitle(clipTitle ?? '')
-    setPrivacyLevel(null)
-    setAllowComment(false)
-    setAllowDuet(false)
-    setAllowStitch(false)
-    setCommercialEnabled(false)
-    setBrandOrganic(false)
-    setBrandContent(false)
+    setPrivacyLevel(saved.privacy_level ?? TIKTOK_PUBLISH_DEFAULTS.privacy_level)
+    setAllowComment(saved.allowComment ?? TIKTOK_PUBLISH_DEFAULTS.allowComment)
+    setAllowDuet(saved.allowDuet ?? TIKTOK_PUBLISH_DEFAULTS.allowDuet)
+    setAllowStitch(saved.allowStitch ?? TIKTOK_PUBLISH_DEFAULTS.allowStitch)
+    setCommercialEnabled(saved.commercialEnabled ?? TIKTOK_PUBLISH_DEFAULTS.commercialEnabled)
+    setBrandOrganic(saved.brandOrganic ?? TIKTOK_PUBLISH_DEFAULTS.brandOrganic)
+    setBrandContent(saved.brandContent ?? TIKTOK_PUBLISH_DEFAULTS.brandContent)
     setPublishId(null)
     setPublishStatus(null)
     setPublishError(null)
@@ -154,7 +182,7 @@ export function TikTokPublishDialog({
     !isPublishing &&
     !publishId &&
     creatorInfo &&
-    privacyLevel !== null &&
+    !!privacyLevel &&
     title.trim().length > 0 &&
     !durationExceedsMax &&
     !brandedConflict &&
@@ -167,6 +195,17 @@ export function TikTokPublishDialog({
 
     setIsPublishing(true)
     setPublishError(null)
+
+    // Save user preferences for next publish
+    savePrefs({
+      privacy_level: privacyLevel,
+      allowComment,
+      allowDuet,
+      allowStitch,
+      commercialEnabled,
+      brandOrganic,
+      brandContent,
+    })
 
     try {
       const res = await fetch('/api/publish/tiktok', {
@@ -559,15 +598,15 @@ export function TikTokPublishDialog({
               </div>
             </div>
 
-            {/* 4. Privacy dropdown — NO DEFAULT */}
+            {/* 4. Privacy dropdown — defaults to Public */}
             <div>
               <label htmlFor="tiktok-privacy" className="text-sm font-medium text-foreground mb-1.5 block">
                 Who can view this video
               </label>
-              <Select value={privacyLevel ?? ''} onValueChange={(val) => setPrivacyLevel((val || null) as TikTokPrivacyLevel | null)}>
+              <Select value={privacyLevel} onValueChange={(val) => setPrivacyLevel(val as TikTokPrivacyLevel)}>
                 <SelectTrigger id="tiktok-privacy" disabled={isPublishing} className="h-10">
-                  <span className={cn("line-clamp-1", !privacyLevel && "text-white/50")}>
-                    {privacyLevel ? (PRIVACY_LEVEL_LABELS[privacyLevel] ?? privacyLevel) : "Select privacy"}
+                  <span className="line-clamp-1">
+                    {PRIVACY_LEVEL_LABELS[privacyLevel] ?? privacyLevel}
                   </span>
                 </SelectTrigger>
                 <SelectContent>
@@ -578,14 +617,9 @@ export function TikTokPublishDialog({
                   ))}
                 </SelectContent>
               </Select>
-              {!privacyLevel && (
-                <p className="text-xs text-amber-400 mt-1">
-                  You must select a privacy setting before publishing.
-                </p>
-              )}
             </div>
 
-            {/* 5. Interaction toggles — OFF by default, greyed if disabled by creator */}
+            {/* 5. Interaction toggles — ON by default, greyed if disabled by creator */}
             <div className="space-y-3">
               <label className="text-sm font-medium text-foreground block">
                 Allow users to

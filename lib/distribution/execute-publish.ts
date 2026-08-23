@@ -122,21 +122,26 @@ export async function executePublish(params: ExecutePublishParams): Promise<Exec
     return { success: false, postId: null, error: `Platform ${platform} not supported for auto-post` }
   }
 
-  if (!tiktokOptions) {
-    return { success: false, postId: null, error: 'TikTok options missing — configure auto-post defaults' }
+  // Sensible defaults: public, interactions on, no commercial content.
+  // User-configured auto_post_defaults override these if set.
+  const opts = tiktokOptions ?? {
+    privacy_level: 'PUBLIC_TO_EVERYONE',
+    disable_comment: false,
+    disable_duet: false,
+    disable_stitch: false,
   }
 
   try {
     const postInfo: Record<string, unknown> = {
       title: fullCaption.slice(0, 2200),
-      privacy_level: tiktokOptions.privacy_level,
-      disable_comment: tiktokOptions.disable_comment,
-      disable_duet: tiktokOptions.disable_duet,
-      disable_stitch: tiktokOptions.disable_stitch,
+      privacy_level: opts.privacy_level,
+      disable_comment: opts.disable_comment,
+      disable_duet: opts.disable_duet,
+      disable_stitch: opts.disable_stitch,
       video_cover_timestamp_ms: 1000,
     }
-    if (tiktokOptions.brand_content_toggle) postInfo.brand_content_toggle = true
-    if (tiktokOptions.brand_organic_toggle) postInfo.brand_organic_toggle = true
+    if (opts.brand_content_toggle) postInfo.brand_content_toggle = true
+    if (opts.brand_organic_toggle) postInfo.brand_organic_toggle = true
 
     const initRes = await fetch('https://open.tiktokapis.com/v2/post/publish/video/init/', {
       method: 'POST',
