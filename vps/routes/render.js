@@ -542,6 +542,12 @@ router.post('/', async (req, res) => {
         ]);
         const [srcW, srcH] = probeRes.stdout.trim().split(',').map(Number);
         console.log(`[Render ${renderSessionId}] Source resolution: ${srcW}x${srcH} (${srcW > srcH ? 'horizontal' : 'vertical'})`);
+        // Quality gate: warn on low-res sources that will produce visible upscale
+        const minDim = Math.min(srcW || 0, srcH || 0);
+        if (minDim > 0 && minDim < 720) {
+          trc(`LOW_RES_WARNING: source ${srcW}x${srcH} is below 720p — output may show visible upscale artifacts`);
+          console.warn(`[Render ${renderSessionId}] LOW QUALITY SOURCE: ${srcW}x${srcH} — render will upscale`);
+        }
       } catch { /* non-critical */ }
 
     // ── USER CLIP FLOW (original) ──

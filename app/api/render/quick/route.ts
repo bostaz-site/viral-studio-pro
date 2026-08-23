@@ -146,7 +146,7 @@ export const POST = withAuth(async (request: NextRequest, user) => {
     },
     format: {
       aspectRatio: '9:16',
-      videoZoom: 'fill',
+      videoZoom: 'fullframe',
     },
     smartZoom: {
       enabled: true,
@@ -159,7 +159,7 @@ export const POST = withAuth(async (request: NextRequest, user) => {
       enabled: false,
     },
     tag: {
-      style: (platform === 'kick') ? 'kick-minimal' : 'twitch-minimal',
+      style: 'credit-text',
       size: 100,
       authorName: authorName ?? null,
       authorHandle: resolved.authorHandle ?? null,

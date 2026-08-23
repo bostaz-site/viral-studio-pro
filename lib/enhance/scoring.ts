@@ -19,7 +19,7 @@ export interface EnhanceSettings {
   customImportantWords: string[]
   captionPosition: number
   wordsPerLine: number
-  videoZoom: 'contain' | 'fill' | 'immersive'
+  videoZoom: 'contain' | 'fill' | 'immersive' | 'fullframe'
   tagStyle: string
   tagSize: number
   aspectRatio: '9:16' | '1:1' | '16:9'
@@ -188,11 +188,19 @@ export const EMPHASIS_COLORS: EmphasisColor[] = [
 
 export const TAG_STYLES: TagStyle[] = [
   {
+    id: 'credit-text',
+    label: 'Credit Text',
+    description: 'Plain text credit, no badge — TikTok safe',
+    icon: '✓',
+    baseScore: 18,
+    position: 'bottom-left',
+  },
+  {
     id: 'viral-glow',
     label: 'Viral Glow',
     description: 'Black capsule + neon purple border + glow',
     icon: '🔥',
-    baseScore: 16,
+    baseScore: 14,
     position: 'bottom-left',
   },
   {
@@ -200,7 +208,7 @@ export const TAG_STYLES: TagStyle[] = [
     label: 'Kick Glow',
     description: 'Black capsule + neon green border + glow',
     icon: '💚',
-    baseScore: 16,
+    baseScore: 14,
     position: 'bottom-left',
   },
   {
@@ -297,7 +305,8 @@ export function computeScores(clip: TrendingClipData): ComputedScores {
       return { id: t.id, score: 0, isBest: false }
     }
     let score = t.baseScore
-    if (t.id === 'viral-glow' && clip.author_handle) score += 5
+    if (t.id === 'credit-text' && clip.author_handle) score += 5
+    if (t.id === 'viral-glow' && clip.author_handle) score += 3
     if (t.id === 'twitch-minimal' || t.id === 'kick-minimal') score += 2
     return { id: t.id, score, isBest: false }
   })

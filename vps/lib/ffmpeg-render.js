@@ -339,6 +339,33 @@ async function prepareHookOverlay(hookText, hookLength, canvasW, canvasH, textPo
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Audio Pitch Shift (anti-fingerprint)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Build FFmpeg audio filters for imperceptible pitch/tempo shift.
+ * Changes the audio fingerprint without audible difference (±2-4%).
+ * Uses asetrate to shift pitch, then atempo to correct duration.
+ *
+ * @param {number} sampleRate - Source sample rate (default 48000)
+ * @returns {{ filters: string[], outputRate: number }}
+ */
+function buildAudioShiftFilters(sampleRate = 48000) {
+  // Deterministic but per-render variation: shift by +3% (imperceptible)
+  // asetrate changes playback rate (pitch+speed), atempo corrects speed back
+  const shiftFactor = 1.03;
+  const shiftedRate = Math.round(sampleRate * shiftFactor);
+  return {
+    filters: [
+      `asetrate=${shiftedRate}`,
+      `atempo=${(1 / shiftFactor).toFixed(6)}`,
+      `aresample=${sampleRate}`,
+    ],
+    outputRate: sampleRate,
+  };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Audio Enhancement (bass boost + compression)
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -792,25 +819,37 @@ export async function renderClip(inputPath, outputPath, options = {}) {
       // ── Build filter_complex for this tier ─────────────────────────────
       const isWordPopAnimation = captions && captions.animation === 'word-pop';
       const smartZoomActive = smartZoom && smartZoom.enabled;
-      const zoomFactor = videoZoom === 'immersive' ? 1.35 : videoZoom === 'fill' ? 1.15 : 1.0;
+      const isFullFrame = videoZoom === 'fullframe';
+      const zoomFactor = isFullFrame ? 1.0 : videoZoom === 'immersive' ? 1.35 : videoZoom === 'fill' ? 1.15 : 1.0;
+
+      // Source UI removal: aggressive border crop to strip Twitch/Kick overlays
+      // (chat, alerts, counters, streamer logos). 100px on 1080p sources ≈ 5% per side.
+      const borderCrop = isFullFrame ? 100 : 60;
 
       let filterComplex;
       let mapVideo;
 
       // ── Step 1: Scale/Crop compositing ─────────────────────────────────
-      if (isWordPopAnimation) {
+      if (isFullFrame) {
+        // FULL-FRAME MODE: center crop directly to 9:16 (no blurred padding).
+        // Scales source to fill the canvas vertically, crops sides to exact width.
+        // This eliminates the blurred-background signature that TikTok flags as repost.
+        filterComplex = `[0:v]fps=${fps},crop=in_w-${borderCrop*2}:in_h-${borderCrop*2}:${borderCrop}:${borderCrop},scale=${canvasW}:${canvasH}:force_original_aspect_ratio=increase:flags=lanczos,crop=${canvasW}:${canvasH}:(iw-${canvasW})/2:(ih-${canvasH})/2,setsar=1[composed]`;
+        mapVideo = '[composed]';
+        console.log(`[FFmpeg] Full-frame crop: ${canvasW}x${canvasH}, border trim ${borderCrop}px`);
+      } else if (isWordPopAnimation) {
         if (zoomFactor > 1.0) {
           const bigW = Math.round(canvasW * zoomFactor);
           const bigH = Math.round(canvasH * zoomFactor);
           filterComplex = [
-            `[0:v]fps=${fps},crop=in_w-60:in_h-60:30:30,split=2[wpfg][wpbg]`,
+            `[0:v]fps=${fps},crop=in_w-${borderCrop*2}:in_h-${borderCrop*2}:${borderCrop}:${borderCrop},split=2[wpfg][wpbg]`,
             `[wpbg]scale=${Math.round(canvasW/4)}:${Math.round(canvasH/4)}:force_original_aspect_ratio=increase,crop=${Math.round(canvasW/4)}:${Math.round(canvasH/4)}:(iw-${Math.round(canvasW/4)})/2:(ih-${Math.round(canvasH/4)})/2,gblur=sigma=6,eq=brightness=-0.45,hue=s=0.85,scale=${canvasW}:${canvasH}:flags=bilinear,setsar=1[wpbgout]`,
             `[wpfg]scale=${bigW}:${bigH}:force_original_aspect_ratio=decrease:flags=lanczos,setsar=1[wpfgscaled]`,
             `[wpbgout][wpfgscaled]overlay=(W-w)/2:(H-h)/2[composed]`,
           ].join(';');
         } else {
           filterComplex = [
-            `[0:v]fps=${fps},crop=in_w-60:in_h-60:30:30,split=2[wpfg2][wpbg2]`,
+            `[0:v]fps=${fps},crop=in_w-${borderCrop*2}:in_h-${borderCrop*2}:${borderCrop}:${borderCrop},split=2[wpfg2][wpbg2]`,
             `[wpbg2]scale=${Math.round(canvasW/4)}:${Math.round(canvasH/4)}:force_original_aspect_ratio=increase,crop=${Math.round(canvasW/4)}:${Math.round(canvasH/4)}:(iw-${Math.round(canvasW/4)})/2:(ih-${Math.round(canvasH/4)})/2,gblur=sigma=6,eq=brightness=-0.45,hue=s=0.85,scale=${canvasW}:${canvasH}:flags=bilinear,setsar=1[wpbgout2]`,
             `[wpfg2]scale=${canvasW}:${canvasH}:force_original_aspect_ratio=decrease:flags=lanczos,setsar=1[wpfgout2]`,
             `[wpbgout2][wpfgout2]overlay=(W-w)/2:(H-h)/2[composed]`,
@@ -818,7 +857,7 @@ export async function renderClip(inputPath, outputPath, options = {}) {
         }
         mapVideo = '[composed]';
       } else if (smartZoomActive) {
-        filterComplex = `[0:v]fps=${fps},crop=in_w-60:in_h-60:30:30,scale=${canvasW}:${canvasH}:force_original_aspect_ratio=increase:flags=lanczos,crop=${canvasW}:${canvasH}:(iw-${canvasW})/2:(ih-${canvasH})/2,setsar=1[composed]`;
+        filterComplex = `[0:v]fps=${fps},crop=in_w-${borderCrop*2}:in_h-${borderCrop*2}:${borderCrop}:${borderCrop},scale=${canvasW}:${canvasH}:force_original_aspect_ratio=increase:flags=lanczos,crop=${canvasW}:${canvasH}:(iw-${canvasW})/2:(ih-${canvasH})/2,setsar=1[composed]`;
         mapVideo = '[composed]';
       } else {
         const fgW = Math.round(canvasW * zoomFactor);
@@ -828,7 +867,7 @@ export async function renderClip(inputPath, outputPath, options = {}) {
           ? `[srcbg]scale=${Math.round(canvasW/4)}:${Math.round(canvasH/4)}:force_original_aspect_ratio=increase,crop=${Math.round(canvasW/4)}:${Math.round(canvasH/4)}:(iw-${Math.round(canvasW/4)})/2:(ih-${Math.round(canvasH/4)})/2,gblur=sigma=6,eq=brightness=-0.45,hue=s=0.85,scale=${canvasW}:${canvasH}:flags=bilinear,setsar=1[bg]`
           : `[srcbg]scale=${canvasW}:${canvasH}:force_original_aspect_ratio=increase,crop=${canvasW}:${canvasH}:(iw-${canvasW})/2:(ih-${canvasH})/2,drawbox=x=0:y=0:w=${canvasW}:h=${canvasH}:color=black:t=fill,setsar=1[bg]`;
         filterComplex = [
-          `[0:v]fps=${fps},crop=in_w-60:in_h-60:30:30,split=2[srcfg][srcbg]`,
+          `[0:v]fps=${fps},crop=in_w-${borderCrop*2}:in_h-${borderCrop*2}:${borderCrop}:${borderCrop},split=2[srcfg][srcbg]`,
           bgChain,
           `[srcfg]scale=${fgW}:${fgH}:force_original_aspect_ratio=decrease:flags=lanczos,setsar=1[fg]`,
           `[bg][fg]overlay=(W-w)/2:(H-h)/2[composed]`,
@@ -1006,6 +1045,13 @@ export async function renderClip(inputPath, outputPath, options = {}) {
 
       // ── Audio filter chain ──
       const audioFilters = [];
+
+      // Audio fingerprint shift: always applied to change the audio signature.
+      // ±3% pitch+tempo shift is imperceptible but defeats duplicate detection.
+      const audioShift = buildAudioShiftFilters(48000);
+      audioFilters.push(...audioShift.filters);
+      console.log('[FFmpeg] Audio fingerprint shift: +3% asetrate/atempo (anti-duplicate)');
+
       if (audioEnhance) {
         audioFilters.push('highpass=f=80', 'afftdn=nf=-25', 'loudnorm=I=-14:LRA=11:TP=-1.5:linear=false:dual_mono=true');
         console.log('[FFmpeg] Audio enhancement enabled: highpass + denoise + loudnorm');
@@ -1149,10 +1195,14 @@ function buildPngCaptionChain(overlays, inputLabel, firstInputIdx) {
 
 /**
  * Build FFmpeg drawtext filter for streamer tag/credit overlay.
- * Supports 3 styles:
- *   - badge-top:       Rounded badge in top-right corner
- *   - watermark-center: Semi-transparent text in center
- *   - banner-bottom:   Dark banner bar at bottom with credit text
+ *
+ * IMPORTANT: TikTok explicitly flags permanent badges/logos/watermarks as
+ * "unoriginal content". The default `credit-text` style uses plain text with
+ * a thin shadow — no box, no badge, no logo. This looks like a native TikTok
+ * text overlay, not a third-party watermark.
+ *
+ * Legacy badge styles (viral-glow, twitch-minimal, kick-minimal) are kept
+ * for users who explicitly select them, but are no longer the default.
  *
  * @param {Object} tagConfig - {style, authorName, authorHandle}
  * @param {number} canvasW - Canvas width
@@ -1179,28 +1229,29 @@ function buildTagFilter(tagConfig, canvasW = 720, canvasH = 1280, inputLabel = n
   const marginY = Math.round(canvasH * 0.015);
   const boxPad = Math.round(fontSize * 0.50);
   const logoGap = Math.round(fontSize * 0.40);
-  // boxborderw only supports a single uniform value in FFmpeg
-  // We use boxPad as uniform padding, and position text further right to leave logo room
   const logoSpace = logoH + logoGap;
-  // If split-screen, position badge above the broll area; else at bottom of canvas
   const bottomEdge = contentAreaH || canvasH;
   const badgeY = bottomEdge - marginY - logoH - boxPad * 2;
   const textX = marginX + boxPad + logoSpace;
   const textY = badgeY + boxPad + Math.round((logoH - fontSize) / 2);
   const logoX = marginX + boxPad;
   const logoY = badgeY + boxPad;
-
-  // Badge dimensions: drawbox for background, then drawtext on top, then logo overlay
-  // This avoids boxborderw multi-value issues (FFmpeg only supports single value)
   const badgeX = marginX;
-  // Badge width: logo + gap + text approx + padding. We use a generous fixed width.
-  // Text width is unknown, so we make the box wide enough and let it extend right.
-  // drawbox is drawn first, then text and logo on top.
   const badgeH = logoH + boxPad * 2;
 
   switch (tagConfig.style) {
+    // ── NEW DEFAULT: plain text credit, no badge/box/logo ──
+    // Looks like a native TikTok text overlay. Not flagged as watermark.
+    // Shows "@handle" in small semi-transparent white text, bottom-left,
+    // with a thin dark shadow for readability. Fades out after 4s.
+    case 'credit-text': {
+      const creditFontSize = Math.round(canvasW * 0.030 * sizeScale);
+      const creditMarginX = Math.round(canvasW * 0.04);
+      const creditY = bottomEdge - Math.round(canvasH * 0.06);
+      return `drawtext=text='${displayText}':fontfile=${fontFile}:fontcolor=white@0.70:fontsize=${creditFontSize}:x=${creditMarginX}:y=${creditY}:shadowcolor=black@0.50:shadowx=1:shadowy=1:enable='lte(t\\,4)'`;
+    }
+
     case 'viral-glow': {
-      // Capsule noire 75% + bordure violet néon #9146FF + glow
       const chain = [
         `movie=${twitchLogoFile},scale=-1:${logoH},format=yuva420p[twvg]`,
         `${inputLabel}drawtext=text='${displayText}':fontfile=${fontFile}:fontcolor=white:fontsize=${fontSize}:x=${textX}:y=${textY}:box=1:boxcolor=0x000000@0.75:boxborderw=${boxPad}:borderw=1:bordercolor=0x9146FF@0.9:shadowcolor=0x9146FF@0.5:shadowx=0:shadowy=0,drawbox=x=${badgeX}:y=${badgeY}:w=${logoSpace + boxPad}:h=${badgeH}:color=0x000000@0.75:t=fill[vgtxt]`,
@@ -1209,8 +1260,16 @@ function buildTagFilter(tagConfig, canvasW = 720, canvasH = 1280, inputLabel = n
       return { chain, complex: true };
     }
 
+    case 'kick-glow': {
+      const chain = [
+        `movie=${twitchLogoFile},scale=-1:${logoH},format=yuva420p[twkg]`,
+        `${inputLabel}drawtext=text='${displayText}':fontfile=${fontFile}:fontcolor=white:fontsize=${fontSize}:x=${textX}:y=${textY}:box=1:boxcolor=0x000000@0.75:boxborderw=${boxPad}:borderw=1:bordercolor=0x53FC18@0.9:shadowcolor=0x53FC18@0.5:shadowx=0:shadowy=0,drawbox=x=${badgeX}:y=${badgeY}:w=${logoSpace + boxPad}:h=${badgeH}:color=0x000000@0.75:t=fill[kgtxt]`,
+        `[kgtxt][twkg]overlay=${logoX}:${logoY}:format=auto`,
+      ].join(';');
+      return { chain, complex: true };
+    }
+
     case 'twitch-minimal': {
-      // Clean black bg, subtle purple border, no glow
       const chain = [
         `movie=${twitchLogoFile},scale=-1:${logoH},format=yuva420p,colorlevels=rimin=0.3:gimin=0.3:bimin=0.3[twtm]`,
         `${inputLabel}drawtext=text='${displayText}':fontfile=${fontFile}:fontcolor=white@0.85:fontsize=${fontSize}:x=${textX}:y=${textY}:box=1:boxcolor=0x000000@0.70:boxborderw=${boxPad}:borderw=1:bordercolor=0x9146FF@0.40,drawbox=x=${badgeX}:y=${badgeY}:w=${logoSpace + boxPad}:h=${badgeH}:color=0x000000@0.70:t=fill[tmtxt]`,
@@ -1220,7 +1279,6 @@ function buildTagFilter(tagConfig, canvasW = 720, canvasH = 1280, inputLabel = n
     }
 
     case 'kick-minimal': {
-      // Clean black bg, subtle green border, no glow
       const chain = [
         `movie=${twitchLogoFile},scale=-1:${logoH},format=yuva420p,colorlevels=rimin=0.3:gimin=0.3:bimin=0.3[twkm]`,
         `${inputLabel}drawtext=text='${displayText}':fontfile=${fontFile}:fontcolor=white@0.85:fontsize=${fontSize}:x=${textX}:y=${textY}:box=1:boxcolor=0x000000@0.70:boxborderw=${boxPad}:borderw=1:bordercolor=0x53FC18@0.40,drawbox=x=${badgeX}:y=${badgeY}:w=${logoSpace + boxPad}:h=${badgeH}:color=0x000000@0.70:t=fill[kmtxt]`,

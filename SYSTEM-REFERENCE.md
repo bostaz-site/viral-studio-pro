@@ -113,7 +113,7 @@ Dashboard page displaying ranked streamer clips with feed tabs, filters, infinit
 6. **Quick Export** (secondary CTA): Zap icon on every card. `POST /api/render/quick` -> polls via `useRenderSubscription` (Realtime + polling fallback, adaptive backoff 3s-30s). State persisted in sessionStorage (survives grid re-render/F5). Done: toast with [Publish now] + [View bank]. Error: toast with [Retry]. Card shows green CheckCircle2 for exported clips (`exportedClipIds` Set).
 
 ### Safe Publish Floor
-No render can reach TikTok "naked" — Quick Export ALWAYS includes: karaoke captions (mood-based style) + creator credit tag (twitch-minimal/kick-minimal with @handle). Caption engine (`lib/distribution/caption-engine.ts`): max 3-4 hashtags, niche-specific only. Blacklisted spam tags: #fyp, #foryou, #viral, #mustwatch, #watchthis, #explore, #trending, #goviral, #blowup, #algorithm, #foryoupage. Creator credit line (`🎥 @handle`) appended to every generated caption when `authorHandle` is provided. Publish dialog shows guidance: "Raw reposts get removed — always publish enhanced versions with captions and creator credit." Audio fingerprint shift option: queued in improvement_backlog (ffmpeg asetrate/atempo ~2-3%).
+No render can reach TikTok "naked" — Quick Export ALWAYS includes: full-frame crop (no blurred padding), karaoke captions (mood-based style), creator credit tag (credit-text style with @handle), audio fingerprint shift (+3% asetrate/atempo, always-on), smart zoom micro (active by default). Caption engine (`lib/distribution/caption-engine.ts`): max 3-4 hashtags, niche-specific only. Blacklisted spam tags: #fyp, #foryou, #viral, #mustwatch, #watchthis, #explore, #trending, #goviral, #blowup, #algorithm, #foryoupage. Creator credit line appended to every generated caption when `authorHandle` is provided. Publish dialog shows guidance: "Raw reposts get removed — always publish enhanced versions with captions and creator credit."
 7. **Top Pick** card (`top-pick-card.tsx`): best clip with `score >= 75, feed_category in (early_gem, hot_now), age < 12h`. Selected from `filteredClips` (respects all active filters incl. platform). Excluded from grid to prevent duplicate card. Score = `clip.velocity_score` (single source of truth, same as grid). Age shown in amber bold with "\u2197 still climbing". Dynamic explanation: if grid contains a higher-scoring clip older than 12h → "Higher scores below already peaked — this one is still early."
 8. "Load more" -> `GET /api/trending?cursor={score}_{id}&limit=50` with same filter params
 
@@ -248,8 +248,19 @@ Clips from the same stream are grouped to prevent one streamer dominating the fe
 
 Video enhancement page with AI mood detection, hook generation, live CSS preview and render trigger.
 
-### Vertical Format (single style)
-Split-screen / b-roll is permanently removed (2026-08-12). The only vertical format: clip centered with `object-contain` on a deep-blur background pad. VPS blur pipeline: downscale /4 → `gblur=sigma=6` (effective sigma 24) → `eq=brightness=-0.45` → `hue=s=0.85` → upscale bilinear. CSS preview mirrors: `blur(14px) brightness(0.55) saturate(0.85)`. `videoZoom` (contain/fill/immersive) still controls the clip scale inside the pad. If an old client sends `settings.splitScreen`, the VPS ignores it silently.
+### Vertical Format & Crop Modes
+Split-screen / b-roll is permanently removed (2026-08-12). Four `videoZoom` crop modes:
+
+| Mode | Behavior | Default? |
+|---|---|---|
+| **fullframe** | Center crop to 9:16 — no blurred padding. Scales source to fill canvas vertically, crops sides. Eliminates the repost-signature blurred bars. | YES (all mood presets) |
+| **fill** | Clip scaled 115% over blurred-pad background. Some blur visible at edges. | No |
+| **immersive** | Clip scaled 135% over blurred-pad. Minimal blur visible. | No |
+| **contain** | Clip fit inside canvas with deep-blur background pad (old default). | No |
+
+Blurred-pad pipeline (for non-fullframe modes): downscale /4 → `gblur=sigma=6` (effective sigma 24) → `eq=brightness=-0.45` → `hue=s=0.85` → upscale bilinear. CSS preview mirrors: `blur(14px) brightness(0.55) saturate(0.85)`. Fullframe CSS preview: `object-cover` (no blurred background rendered).
+
+Source UI removal: all modes apply a border crop (100px for fullframe, 60px for others) to strip Twitch/Kick stream overlays (chat, alerts, counters, streamer logos) from the output.
 
 ### UI — Sliders
 All 7 sliders (caption position, words/line, tag size, split ratio, hook position, silence threshold, auto-cut) use the unified `components/ui/slider.tsx` (shadcn-style). Single branded style: `bg-white/10` rail, amber gradient fill (`from-amber-400 to-amber-600`), amber thumb with glow + `hover:scale-110`, accessible focus outline. No per-instance overrides.
@@ -443,6 +454,26 @@ VPS probes average luma of source video and applies eq filter: <65 luma (dark: b
 ### Bright First Frame (TikTok thumbnail fix)
 TikTok profile thumbnail = frame 1 of the video. Dark openings → invisible thumbnails → no clicks from profile.
 VPS probes the opening luma (first 10 frames via `signalstats`). If average Y < 16/255, applies a progressive exposure lift on the first 0.5s only: `eq=brightness='0.25*(1-min(t/0.5,1))':eval=frame:enable='lte(t,0.5)'`. Frame 1 gets +0.25 brightness, fading to 0 by t=0.5s. Rest of clip untouched. Decision logged in `debug_log` via `BRIGHT_FIRST_FRAME` trace line. Applies in both standard and split-screen render paths, after global exposure correction (Step 3b).
+
+### TikTok Originality — What the Pipeline Transforms
+
+TikTok flags videos as "Unoriginal, low-quality content" when they appear to be imported/copied without creative edits. The render pipeline applies multiple real transformations to produce genuinely new content:
+
+| Layer | What it does | Why it matters |
+|---|---|---|
+| **Full-frame crop** (default) | Center-crops 16:9 source to 9:16 — no blurred padding bars | Blurred top/bottom bars are the #1 repost signature TikTok detects |
+| **Source UI removal** | 100px border crop strips Twitch/Kick overlays (chat, alerts, logos) | Platform UI is a clear signal of copied content |
+| **Audio fingerprint shift** | +3% asetrate/atempo on all renders (imperceptible to ear) | Changes audio hash — defeats audio duplicate detection |
+| **Karaoke captions** | ASS subtitles burned at render time (word-pop, bounce, glow, highlight) | Major creative edit — changes the visual frame entirely |
+| **Smart Zoom** (active by default, mode: micro) | Slow cinematic push 1.0 → 1.06 over clip duration | Camera movement = creative edit, not present in source |
+| **Hook text overlay** | Animated capsule with fade in/out | Adds original text content to the frame |
+| **Exposure correction** | Adaptive eq filter based on source luma | Alters the color grading of every frame |
+| **Credit tag** (credit-text style) | Plain "@handle" text with shadow, fades after 4s | NOT a watermark — looks like native TikTok text overlay |
+| **Quality re-encode** | 1080x1920, CRF 17, libx264 high profile, bt709 color | Full re-encode — every frame is regenerated |
+
+**Honest disclaimer**: these transformations produce genuinely edited content, but TikTok's Community Guidelines compliance also depends on the user's clip choice (e.g. music copyright, content rights). The pipeline does not guarantee For You feed eligibility for every clip. Users re-posting content they don't own should add significant creative value.
+
+**Quality gate**: VPS logs a `LOW_RES_WARNING` when source resolution is below 720p. Output is always 1080x1920 (HIGH tier) or 720x1280 (SAFE/LAST_RESORT fallback), never upscaled from a visibly low-quality source without logging.
 
 ### Gotchas
 - VPS POST has 15s timeout but VPS continues processing (fire-and-forget)

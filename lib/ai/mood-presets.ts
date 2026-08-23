@@ -24,7 +24,7 @@ export interface MoodPreset {
   emphasisEffect: string
   emphasisColor: string
 
-  videoZoom: 'contain' | 'fill' | 'immersive'
+  videoZoom: 'contain' | 'fill' | 'immersive' | 'fullframe'
 
   tagStyle: string
   tagSize: number
@@ -68,9 +68,9 @@ export const BASE_SETTINGS = {
 // ── Platform theme (tag + hook glow colors by platform) ─────────────────────
 
 export const PLATFORM_THEME = {
-  twitch: { tagStyle: 'viral-glow', hookGlowColor: '#C77DFF' },
-  kick: { tagStyle: 'kick-glow', hookGlowColor: '#00E701' },
-  youtube: { tagStyle: 'viral-glow', hookGlowColor: '#FF0000' },
+  twitch: { tagStyle: 'credit-text', hookGlowColor: '#C77DFF' },
+  kick: { tagStyle: 'credit-text', hookGlowColor: '#00E701' },
+  youtube: { tagStyle: 'credit-text', hookGlowColor: '#FF0000' },
 } as const
 
 // ── Mood presets (BASE_SETTINGS + mood-specific overrides) ──────────────────
@@ -82,12 +82,12 @@ export const MOOD_PRESETS: Record<ClipMood, MoodPreset> = {
     emoji: '🔥',
     description: 'Max retention on raw shock — screaming, slamming, intense moments',
     ...BASE_SETTINGS,
-    tagStyle: 'viral-glow',
+    tagStyle: 'credit-text',
     captionStyle: 'word-pop',
     wordsPerLine: 1,
     emphasisEffect: 'scale',
     emphasisColor: 'red',
-    videoZoom: 'fill',
+    videoZoom: 'fullframe',
     smartZoomMode: 'dynamic',
     bassBoost: 'off',
     speedRamp: 'dynamic',
@@ -104,12 +104,12 @@ export const MOOD_PRESETS: Record<ClipMood, MoodPreset> = {
     emoji: '😂',
     description: 'Instant laughs — jokes, fails, funny reactions',
     ...BASE_SETTINGS,
-    tagStyle: 'viral-glow',
+    tagStyle: 'credit-text',
     captionStyle: 'bounce',
     wordsPerLine: 2,
     emphasisEffect: 'bounce',
     emphasisColor: 'yellow',
-    videoZoom: 'fill',
+    videoZoom: 'fullframe',
     smartZoomMode: 'micro',
     speedRamp: 'subtle',
     autoCutEnabled: false,
@@ -125,12 +125,12 @@ export const MOOD_PRESETS: Record<ClipMood, MoodPreset> = {
     emoji: '🎭',
     description: 'Tension and confrontation — beef, accusations, intense moments',
     ...BASE_SETTINGS,
-    tagStyle: 'viral-glow',
+    tagStyle: 'credit-text',
     captionStyle: 'highlight',
     wordsPerLine: 2,
     emphasisEffect: 'glow',
     emphasisColor: 'purple',
-    videoZoom: 'immersive',
+    videoZoom: 'fullframe',
     smartZoomMode: 'follow',
     bassBoost: 'off',
     autoCutEnabled: false,
@@ -146,12 +146,12 @@ export const MOOD_PRESETS: Record<ClipMood, MoodPreset> = {
     emoji: '✨',
     description: 'Touching moments — donations, gratitude, emotional reactions',
     ...BASE_SETTINGS,
-    tagStyle: 'viral-glow',
+    tagStyle: 'credit-text',
     captionStyle: 'glow',
     wordsPerLine: 4,
     emphasisEffect: 'none',
     emphasisColor: 'cyan',
-    videoZoom: 'contain',
+    videoZoom: 'fullframe',
     smartZoomMode: 'micro',
     autoCutEnabled: false,
     autoCutThreshold: 0.7,
@@ -166,12 +166,12 @@ export const MOOD_PRESETS: Record<ClipMood, MoodPreset> = {
     emoji: '🏆',
     description: 'Pure adrenaline — victories, epic moments, crowd going wild',
     ...BASE_SETTINGS,
-    tagStyle: 'viral-glow',
+    tagStyle: 'credit-text',
     captionStyle: 'word-pop',
     wordsPerLine: 1,
     emphasisEffect: 'scale',
     emphasisColor: 'orange',
-    videoZoom: 'fill',
+    videoZoom: 'fullframe',
     smartZoomMode: 'dynamic',
     bassBoost: 'off',
     speedRamp: 'dynamic',
@@ -188,12 +188,12 @@ export const MOOD_PRESETS: Record<ClipMood, MoodPreset> = {
     emoji: '🗣️',
     description: 'Narration and monologues — stories, rants, explanations',
     ...BASE_SETTINGS,
-    tagStyle: 'viral-glow',
+    tagStyle: 'credit-text',
     captionStyle: 'highlight',
     wordsPerLine: 5,
     emphasisEffect: 'none',
     emphasisColor: 'white',
-    videoZoom: 'contain',
+    videoZoom: 'fullframe',
     smartZoomMode: 'micro',
     bassBoost: 'off',
     autoCutEnabled: true,

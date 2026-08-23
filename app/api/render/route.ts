@@ -62,7 +62,7 @@ const inputSchema = z.object({
     }).optional(),
     format: z.object({
       aspectRatio: z.string().optional(),
-      videoZoom: z.enum(['contain', 'fill', 'immersive']).optional(),
+      videoZoom: z.enum(['contain', 'fill', 'immersive', 'fullframe']).optional(),
     }).optional(),
     smartZoom: z.object({
       enabled: z.boolean().optional(),

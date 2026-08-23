@@ -268,7 +268,8 @@ export function LivePreview({
         {clip.thumbnail_url || videoUrl ? (
           <>
             {/* Blurred background fill — matches FFmpeg gblur sigma=24 + eq(brightness=-0.45) + hue(s=0.85) */}
-            {(
+            {/* Hidden in fullframe mode (no blurred padding — full crop to 9:16) */}
+            {settings.videoZoom !== 'fullframe' && (
               videoUrl ? (
                 <video
                   key={videoUrl}
@@ -293,18 +294,19 @@ export function LivePreview({
             )}
             {/* Main video layer — zoom makes the element LARGER than container with object-contain */}
             {/* Parent overflow-hidden clips the excess. Video stays landscape, just bigger. */}
-            {/* Contenir: 100%, Remplir: 115%, Immersif: 135% */}
+            {/* Fullframe: object-cover crops to fill (no padding), others: object-contain + zoom */}
             {(() => {
-              // Zoom: element bigger than container, object-contain keeps video landscape
-              // 115% = subtle zoom, video ~15% bigger, still lots of blur
-              // 135% = noticeable zoom, video ~35% bigger, less blur
-              const sizePct = showEnhancements && settings.videoZoom !== 'contain'
-                ? (settings.videoZoom === 'immersive' ? 135 : 115)
-                : 100
+              const isFullFrame = settings.videoZoom === 'fullframe'
+              // Fullframe uses object-cover to center-crop to 9:16 (no blurred bg)
+              // Other modes: element bigger than container, object-contain keeps video landscape
+              const sizePct = isFullFrame ? 100
+                : showEnhancements && settings.videoZoom !== 'contain'
+                  ? (settings.videoZoom === 'immersive' ? 135 : 115)
+                  : 100
               const baseZoom = sizePct / 100
               const hasSmartZoom = showEnhancements && settings.smartZoomEnabled
-              const objectFit = 'object-contain'
-              const isZoomed = sizePct > 100
+              const objectFit = isFullFrame ? 'object-cover' : 'object-contain'
+              const isZoomed = sizePct > 100 || isFullFrame
               const needsAbsolute = isZoomed || hasSmartZoom
 
               // Build style: cadrage (static scale) + optional smart zoom (animated scale)
@@ -486,6 +488,16 @@ export function LivePreview({
               <span className="text-[12px] font-black text-[#53FC18] flex-shrink-0 leading-none opacity-70">K</span>
               <span className="text-[11px] font-medium text-white/85 tracking-wide">{streamerName}</span>
             </div>
+          )}
+
+          {/* CREDIT TEXT — plain text, no badge/box/logo (TikTok-safe) */}
+          {tagStyle.id === 'credit-text' && (
+            <span
+              className="text-[10px] font-bold text-white/70 animate-in fade-in duration-300"
+              style={{ textShadow: '1px 1px 2px rgba(0,0,0,0.5)' }}
+            >
+              {streamerName}
+            </span>
           )}
         </div>
       )}

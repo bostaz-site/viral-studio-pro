@@ -55,9 +55,9 @@ export const TagPanel = forwardRef<HTMLDivElement, TagPanelProps>(function TagPa
     return { impact, isMoodPick }
   }
 
-  // Filter tags by platform
+  // Filter tags by platform — credit-text is platform-agnostic
   const filteredTags = TAG_STYLES.filter((tag) => {
-    if (tag.id === 'none') return true
+    if (tag.id === 'none' || tag.id === 'credit-text') return true
     const p = (platform ?? '').toLowerCase()
     if (p === 'twitch') return tag.id === 'viral-glow' || tag.id === 'twitch-minimal'
     if (p === 'kick') return tag.id === 'kick-glow' || tag.id === 'kick-minimal'
