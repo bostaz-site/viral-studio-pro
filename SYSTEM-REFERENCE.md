@@ -249,19 +249,43 @@ Clips from the same stream are grouped to prevent one streamer dominating the fe
 Video enhancement page with AI mood detection, hook generation, live CSS preview and render trigger.
 
 ### Vertical Format & Crop Modes
-Split-screen / b-roll is permanently removed (2026-08-12). Four `videoZoom` crop modes:
+Split-screen / b-roll is permanently removed (2026-08-12). Default is `auto` — smart crop selection based on content analysis. Six `videoZoom` modes:
 
-| Mode | Behavior | Default? |
+| Mode | Behavior | When used |
 |---|---|---|
-| **fullframe** | Center crop to 9:16 — no blurred padding. Scales source to fill canvas vertically, crops sides. Eliminates the repost-signature blurred bars. | YES (all mood presets) |
-| **reaction** | Auto-detected: facecam top (~32%), content bottom (~68%), both full width. Webcam region cropped and scaled separately. | Auto (when reaction layout detected) |
-| **fill** | Clip scaled 115% over blurred-pad background. Some blur visible at edges. | No |
-| **immersive** | Clip scaled 135% over blurred-pad. Minimal blur visible. | No |
-| **contain** | Clip fit inside canvas with deep-blur background pad (old default). | No |
+| **auto** | Runs crop advisor: face analysis → picks fullframe, fit, or reaction automatically. | DEFAULT (all mood presets, enhance page) |
+| **fullframe** | Center crop to 9:16 — no blurred padding. Scales source to fill canvas vertically, crops sides. Best for talking heads. | Auto-selected when dominant centered face detected |
+| **fit** | Full image preserved, scaled to width. Deep cinematic blurred padding top/bottom (sigma=24, brightness=-0.45, saturation=0.5). Best for gameplay, IRL wide. | Auto-selected when no dominant face / wide content |
+| **reaction** | Facecam top (~32%), content bottom (~68%), both full width. Webcam region cropped and scaled separately. | Auto-selected when reaction layout detected |
+| **fill** | Clip scaled 115% over blurred-pad background. Some blur visible at edges. | Manual only |
+| **immersive** | Clip scaled 135% over blurred-pad. Minimal blur visible. | Manual only |
+| **contain** | Clip fit inside canvas with light-blur background pad (old default). | Manual only |
 
-Blurred-pad pipeline (for non-fullframe modes): downscale /4 → `gblur=sigma=6` (effective sigma 24) → `eq=brightness=-0.45` → `hue=s=0.85` → upscale bilinear. CSS preview mirrors: `blur(14px) brightness(0.55) saturate(0.85)`. Fullframe CSS preview: `object-cover` (no blurred background rendered). Reaction CSS preview: two stacked `<div>` zones with `object-cover` and `object-right-top` for the facecam.
+#### Smart Crop Selection (`vps/lib/crop-advisor.js`)
+Runs on trending clips when `videoZoom=auto`. Uses face-detect.py (every 20 frames, 12s timeout):
 
-Source UI removal: all modes apply a border crop (100px for fullframe/reaction, 60px for others) to strip Twitch/Kick stream overlays (chat, alerts, counters, streamer logos) from the output.
+| Condition | Result |
+|---|---|
+| Reaction layout detected (webcam in corner) | → `reaction` |
+| Source already vertical (h >= w) | → `fullframe` (natural fit) |
+| No face detected (<15% detection rate) | → `fit` (gameplay, wide content) |
+| Face detected, large + centered (score >= 0.55, centering >= 0.4) | → `fullframe` |
+| Face detected but not dominant enough | → `fit` |
+| Analysis failure / timeout | → `fit` (safe fallback) |
+
+Face score (0-1) = face size (up to 0.35) + centering (up to 0.25) + detection rate (up to 0.2) + stability (up to 0.2).
+
+#### Blurred padding styles
+- **fit mode**: deep cinematic — downscale /4 → `gblur=sigma=24` → `eq=brightness=-0.45` → `hue=s=0.5` → upscale bilinear. CSS preview: `blur(20px) brightness(0.45) saturate(0.5)`. Neutral texture, not recognizable content.
+- **contain/fill/immersive**: lighter — `gblur=sigma=6` → `eq=brightness=-0.45` → `hue=s=0.85`. CSS preview: `blur(14px) brightness(0.55) saturate(0.85)`.
+
+Source UI removal: all modes apply a border crop (100px for fullframe/reaction, 60px for others) to strip Twitch/Kick stream overlays.
+
+#### Originality on fit clips
+Fit mode loses the fullframe crop originality signal. Compensated by ensuring smart zoom (micro/dynamic), voiceover, and audio fingerprint shift (+3%) are all active on the fit path — same pipeline, different composition step.
+
+#### Enhance UI
+Framing section (Crop icon) in the enhance accordion shows 3 options: Auto (recommended), Full frame, Fit (padded). Auto shows the VPS-chosen mode after render. User can force any mode to override.
 
 ### Reaction Layout Detection
 Automatically detects "reaction" clip layouts (small webcam overlay in a corner over main content) and recomposes them as a vertical stack: facecam on top (~32%), content on bottom (~68%), both at full canvas width.
@@ -271,9 +295,9 @@ Automatically detects "reaction" clip layouts (small webcam overlay in a corner 
 - Only applies to horizontal sources (16:9) — vertical sources skip detection
 - Heuristic scoring (0-1 confidence) based on: face in corner quadrant (+0.5), moderate detection rate (+0.2), widescreen aspect (+0.15), low positional variance (+0.15)
 - Threshold: confidence >= 0.6 → reaction layout confirmed
-- On failure or low confidence → falls back to fullframe (safe default)
+- On failure or low confidence → crop advisor continues to fullframe/fit decision
 
-**Auto-switching**: when a trending clip is set to `fullframe` (default), the VPS runs layout detection before rendering. If reaction layout is detected, `videoZoom` is auto-switched to `reaction`. User can force `fullframe` in the Enhance UI to override.
+**Auto-switching**: when `videoZoom=auto`, the VPS runs layout detection first, then crop advisor. If reaction layout is detected, crop advisor returns `reaction`. If not, it analyzes face dominance to pick `fullframe` vs `fit`. User can force any mode in the Enhance UI.
 
 **FFmpeg composition** (`vps/lib/ffmpeg-render.js`):
 - Facecam region: cropped from detected face corner, scaled to fill canvas width, cropped to 32% of canvas height
@@ -480,7 +504,7 @@ TikTok flags videos as "Unoriginal, low-quality content" when they appear to be 
 
 | Layer | What it does | Why it matters |
 |---|---|---|
-| **Full-frame crop** (default) | Center-crops 16:9 source to 9:16 — no blurred padding bars | Blurred top/bottom bars are the #1 repost signature TikTok detects |
+| **Smart crop** (auto default) | Crop advisor picks fullframe (face), fit (gameplay), or reaction — never blindly center-crops wide content | Fullframe avoids blurred bars (repost signature); fit preserves content with deep neutral blur (sigma=24, sat=0.5) |
 | **Source UI removal** | 100px border crop strips Twitch/Kick overlays (chat, alerts, logos) | Platform UI is a clear signal of copied content |
 | **Audio fingerprint shift** | +3% asetrate/atempo on all renders (imperceptible to ear) | Changes audio hash — defeats audio duplicate detection |
 | **Karaoke captions** | ASS subtitles burned at render time (word-pop, bounce, glow, highlight) | Major creative edit — changes the visual frame entirely |
