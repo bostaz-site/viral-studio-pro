@@ -565,10 +565,21 @@ router.post('/', async (req, res) => {
   let clipId = null;
   let tempDir = null;
   const trace = [];
+  let lastFlushAt = 0;
+  const FLUSH_INTERVAL_MS = 10000; // flush debug_log to DB every 10s
+
   const trc = (msg) => {
     const line = `[${((Date.now() - startTime) / 1000).toFixed(2)}s] ${msg}`;
     trace.push(line);
     console.log(`[Render ${renderSessionId}] TRACE: ${line}`);
+
+    // Progressive flush: write trace to DB periodically so debug_log is
+    // never NULL during a multi-minute render. Non-blocking, fire-and-forget.
+    const now = Date.now();
+    if (now - lastFlushAt >= FLUSH_INTERVAL_MS && req.body?.jobId) {
+      lastFlushAt = now;
+      updateRenderJob(req.body.jobId, { debug_log: trace.join('\n') }).catch(() => {});
+    }
   };
 
   try {
@@ -598,6 +609,12 @@ router.post('/', async (req, res) => {
     const envHasOpenAI = !!process.env.OPENAI_API_KEY;
     const envHasOpenAIKey = !!process.env.OPENAI_KEY;
     trc(`env OPENAI_API_KEY=${envHasOpenAI} OPENAI_KEY=${envHasOpenAIKey}`);
+
+    // ── Initial flush: write trace to DB immediately so debug_log is never NULL ──
+    if (jobId) {
+      updateRenderJob(jobId, { debug_log: trace.join('\n') }).catch(() => {});
+      lastFlushAt = Date.now();
+    }
 
     // ── Build render contract (tracks requested vs applied features) ──
     const contract = createContract(settings);
@@ -1631,6 +1648,31 @@ router.post('/', async (req, res) => {
       });
     }
   } finally {
+    // ── Safety net: guarantee the job reaches a terminal status ──
+    // If the process crashed, OOM'd, or an unhandled error slipped through,
+    // this ensures the job is never left as a zombie in 'rendering' state.
+    if (req.body?.jobId) {
+      try {
+        const { data: jobCheck } = await supabase
+          .from('render_jobs')
+          .select('status')
+          .eq('id', req.body.jobId)
+          .single();
+        if (jobCheck && !['done', 'degraded', 'error', 'failed', 'canceled', 'expired'].includes(jobCheck.status)) {
+          console.error(`[Render ${renderSessionId}] SAFETY NET: job ${req.body.jobId} still in "${jobCheck.status}" after pipeline — forcing error`);
+          trace.push(`[SAFETY NET] Job stuck in "${jobCheck.status}" — forced to error`);
+          await updateRenderJob(req.body.jobId, {
+            status: 'error',
+            error_message: 'Render pipeline exited without setting terminal status (possible OOM or crash)',
+            debug_log: trace.join('\n'),
+          });
+          sendWebhookCallback(req.body.jobId, 'error', null, 'Pipeline crash — safety net activated').catch(() => {});
+        }
+      } catch (safetyErr) {
+        console.error(`[Render ${renderSessionId}] Safety net DB check failed:`, safetyErr.message);
+      }
+    }
+
     // Cleanup temp files
     if (tempDir) {
       try {
@@ -1639,6 +1681,11 @@ router.post('/', async (req, res) => {
       } catch (err) {
         console.warn(`[Render ${renderSessionId}] Warning: Failed to cleanup temp dir:`, err.message);
       }
+    }
+
+    // Final flush of trace to debug_log (in case last flush was >10s ago)
+    if (req.body?.jobId && trace.length > 0) {
+      updateRenderJob(req.body.jobId, { debug_log: trace.join('\n') }).catch(() => {});
     }
   }
 

@@ -1239,16 +1239,21 @@ export async function renderClip(inputPath, outputPath, options = {}) {
           const targetBitrateK = Math.round(targetBitrate / 1000); // kbps
           const reEncodePath = outputPath.replace(/\.mp4$/, '_resized.mp4');
 
+          // Use 'ultrafast' preset + 1 thread to minimize memory footprint.
+          // The source is already a high-quality render — re-encode is just
+          // a bitrate reduction, not a quality improvement.
           await execFileAsync(process.env.FFMPEG_PATH || 'ffmpeg', [
             '-y', '-i', outputPath,
-            '-c:v', 'libx264', '-preset', 'fast',
+            '-c:v', 'libx264', '-preset', 'ultrafast',
             '-b:v', `${targetBitrateK}k`, '-maxrate', `${targetBitrateK}k`, '-bufsize', `${targetBitrateK * 2}k`,
-            '-c:a', 'copy', // keep audio as-is
+            '-c:a', 'copy',
+            '-threads', '1',
             '-movflags', '+faststart',
             reEncodePath,
-          ], { timeout: 120000 });
+          ], { timeout: 180000, maxBuffer: 10 * 1024 * 1024 });
 
-          // Replace original
+          // Delete the oversized original BEFORE renaming (free memory/disk)
+          await fs.promises.unlink(outputPath).catch(() => {});
           await fs.promises.rename(reEncodePath, outputPath);
           const newStat = await fs.promises.stat(outputPath);
           const newSizeMB = newStat.size / (1024 * 1024);

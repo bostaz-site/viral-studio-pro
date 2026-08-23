@@ -170,4 +170,45 @@ app.listen(PORT, () => {
   checkOpenCV();
 });
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Process-level crash handlers — mark running jobs as error before dying
+// ─────────────────────────────────────────────────────────────────────────────
+
+import { createClient } from '@supabase/supabase-js';
+import { getQueueStatus } from './lib/render-queue.js';
+
+async function emergencyMarkRunningJobs(reason) {
+  try {
+    const qs = getQueueStatus();
+    if (qs.runningJobIds.length === 0) return;
+    logger.error(`[CRASH] Marking ${qs.runningJobIds.length} running jobs as error: ${reason}`);
+    const crashDb = createClient(
+      process.env.SUPABASE_URL || '',
+      process.env.SUPABASE_SECRET_KEY ?? process.env.SUPABASE_SERVICE_ROLE_KEY ?? ''
+    );
+    for (const jobId of qs.runningJobIds) {
+      await crashDb.from('render_jobs').update({
+        status: 'error',
+        error_message: `VPS process crash: ${reason}`.substring(0, 2000),
+        updated_at: new Date().toISOString(),
+      }).eq('id', jobId);
+    }
+  } catch (e) {
+    logger.error(`[CRASH] Failed to mark jobs: ${e.message}`);
+  }
+}
+
+process.on('uncaughtException', async (err) => {
+  logger.error({ err }, 'uncaughtException — marking running jobs as error');
+  await emergencyMarkRunningJobs(`uncaughtException: ${err.message}`);
+  process.exit(1);
+});
+
+process.on('unhandledRejection', async (reason) => {
+  const msg = reason instanceof Error ? reason.message : String(reason);
+  logger.error(`unhandledRejection: ${msg}`);
+  await emergencyMarkRunningJobs(`unhandledRejection: ${msg}`);
+  process.exit(1);
+});
+
 export default app;
