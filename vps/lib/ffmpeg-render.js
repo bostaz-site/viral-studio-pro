@@ -559,9 +559,12 @@ function buildFollowFaceFilter(inLabel, outLabel, canvasW, canvasH, keyframes, c
     return null;
   }
 
-  // ── Zoom factor: scale video up 8% so we have pan room ──
-  // Capped at 1.08 to keep it subtle (was 1.20 which cut too much of the frame)
-  const ZOOM = 1.08;
+  // ── Zoom factor: scale video up 20% for real pan room ──
+  // 1.20 gives ±10% pan range on each axis — enough to follow a face
+  // that moves across the frame without the camera feeling stuck.
+  // The Python smoother's dead zone + max speed ensure the pan is smooth,
+  // so the extra crop is worth the tracking quality.
+  const ZOOM = 1.20;
   const scaledW = Math.round(canvasW * ZOOM);
   const scaledH = Math.round(canvasH * ZOOM);
   // Max pan range (how far the crop window can move)

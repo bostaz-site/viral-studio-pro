@@ -127,11 +127,16 @@ def detect_faces_in_video(video_path, every_n=8, canvas_w=720, canvas_h=1280):
 
 def smooth_keyframes(keyframes, fps, canvas_w, canvas_h):
     """
-    Apply intelligent smoothing to raw face detections:
-    1. Fill gaps (no-detection frames) with last known position
-    2. Lerp with inertia (slow follow for small movements, faster for big jumps)
-    3. Offset face center down ~10% (rule of thirds — leave room for captions up top)
-    4. Clamp to safe zone (never cut eyes/mouth)
+    Apply intelligent smoothing to raw face detections.
+    Goal: calm cameraman feel — no jitter, no snaps, no nausea.
+
+    Pipeline:
+    1. Fill gaps with last known position (face disappears = camera holds)
+    2. Dead zone: camera doesn't move unless face exits center 20%
+    3. Max speed limit: camera never moves faster than 3% of canvas per sample
+    4. Heavy inertia lerp (0.92-0.96) for velvet-smooth motion
+    5. Rule of thirds offset (face in upper third)
+    6. Safe zone clamp (never cuts face)
     """
     if not keyframes:
         return []
@@ -149,7 +154,7 @@ def smooth_keyframes(keyframes, fps, canvas_w, canvas_h):
             last_known = {"t": kf["t"], "cx": cx, "cy": cy, "fw": fw, "fh": fh}
             filled.append(dict(last_known))
         elif last_known:
-            # Use last known position
+            # Face lost — camera holds at last known position (no drift)
             filled.append({"t": kf["t"], "cx": last_known["cx"], "cy": last_known["cy"],
                            "fw": last_known["fw"], "fh": last_known["fh"]})
         else:
@@ -160,54 +165,73 @@ def smooth_keyframes(keyframes, fps, canvas_w, canvas_h):
     if not filled:
         return []
 
-    # ─── Step 2: Lerp with inertia ───
-    # Small movements (< 5% of canvas) → camera barely moves (inertia = 0.92)
-    # Medium movements (5-15%) → moderate follow (inertia = 0.80)
-    # Big jumps (> 15%) → fast follow (inertia = 0.60)
-    smoothed_cx = filled[0]["cx"]
-    smoothed_cy = filled[0]["cy"]
+    # ─── Step 2-4: Dead zone + speed limit + heavy inertia ───
+    # Dead zone: face must move >10% from camera center before camera starts tracking
+    # Max speed: camera moves at most 3% of canvas per sample (prevents snaps)
+    # Inertia: 0.94 base (very heavy — calm cameraman)
+    DEAD_ZONE = 0.10       # 10% of canvas before camera reacts
+    MAX_SPEED = 0.03       # 3% of canvas per frame sample
+    INERTIA = 0.94         # very heavy smoothing (higher = smoother)
+
+    cam_cx = filled[0]["cx"]
+    cam_cy = filled[0]["cy"]
     result = []
 
     for i, pt in enumerate(filled):
         target_cx = pt["cx"]
         target_cy = pt["cy"]
 
-        # Calculate movement distance as % of canvas diagonal
-        dx = abs(target_cx - smoothed_cx) / canvas_w
-        dy = abs(target_cy - smoothed_cy) / canvas_h
-        dist = (dx ** 2 + dy ** 2) ** 0.5
+        # Distance from camera center to face center (normalized)
+        dx_norm = (target_cx - cam_cx) / canvas_w
+        dy_norm = (target_cy - cam_cy) / canvas_h
+        dist_norm = (dx_norm ** 2 + dy_norm ** 2) ** 0.5
 
-        # Adaptive inertia: bigger movement = less inertia (faster follow)
-        if dist < 0.05:
-            inertia = 0.92  # Almost stationary — camera barely moves
-        elif dist < 0.15:
-            inertia = 0.80  # Moderate movement
+        # Dead zone: only start moving if face is outside center zone
+        if dist_norm < DEAD_ZONE:
+            # Face is close to camera center — don't move
+            effective_target_cx = cam_cx
+            effective_target_cy = cam_cy
         else:
-            inertia = 0.55  # Big jump — follow faster
+            # Move toward face, but only the distance beyond the dead zone
+            # This makes the camera "lag" slightly behind the face (natural feel)
+            pull_factor = (dist_norm - DEAD_ZONE) / dist_norm
+            effective_target_cx = cam_cx + (target_cx - cam_cx) * pull_factor
+            effective_target_cy = cam_cy + (target_cy - cam_cy) * pull_factor
 
-        smoothed_cx = smoothed_cx * inertia + target_cx * (1 - inertia)
-        smoothed_cy = smoothed_cy * inertia + target_cy * (1 - inertia)
+        # Apply inertia (heavy smoothing)
+        new_cx = cam_cx * INERTIA + effective_target_cx * (1 - INERTIA)
+        new_cy = cam_cy * INERTIA + effective_target_cy * (1 - INERTIA)
 
-        # ─── Step 3: Rule of thirds offset ───
-        # Push the face center DOWN by ~10% of canvas height
-        # so the face sits at ~upper third, leaving room for captions/hooks at top
-        offset_cy = smoothed_cy + canvas_h * 0.08
+        # Max speed clamp: limit per-sample movement
+        move_dx = new_cx - cam_cx
+        move_dy = new_cy - cam_cy
+        move_dist = (move_dx ** 2 + move_dy ** 2) ** 0.5
+        max_move = MAX_SPEED * ((canvas_w ** 2 + canvas_h ** 2) ** 0.5)
 
-        # ─── Step 4: Safe zone clamp ───
-        # Ensure the crop window doesn't cut the face
-        # Crop center must be at least face_height/2 away from edges
-        margin_x = canvas_w * 0.15  # 15% margin from edges
-        margin_top = canvas_h * 0.10  # 10% from top
-        margin_bot = canvas_h * 0.12  # 12% from bottom
+        if move_dist > max_move and move_dist > 0:
+            scale = max_move / move_dist
+            new_cx = cam_cx + move_dx * scale
+            new_cy = cam_cy + move_dy * scale
 
-        clamped_cx = max(margin_x, min(canvas_w - margin_x, smoothed_cx))
+        cam_cx = new_cx
+        cam_cy = new_cy
+
+        # ─── Step 5: Rule of thirds offset ───
+        offset_cy = cam_cy + canvas_h * 0.08
+
+        # ─── Step 6: Safe zone clamp ───
+        margin_x = canvas_w * 0.15
+        margin_top = canvas_h * 0.10
+        margin_bot = canvas_h * 0.12
+
+        clamped_cx = max(margin_x, min(canvas_w - margin_x, cam_cx))
         clamped_cy = max(margin_top, min(canvas_h - margin_bot, offset_cy))
 
         result.append({
             "t": round(pt["t"], 4),
             "cx": round(clamped_cx),
             "cy": round(clamped_cy),
-            "zoom": 1.0,  # Base zoom, can be enhanced later
+            "zoom": 1.0,
         })
 
     return result

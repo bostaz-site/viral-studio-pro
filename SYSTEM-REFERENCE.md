@@ -377,6 +377,34 @@ Filtergraph: scale/crop → eq (4 buckets) → unsharp (HIGH only) → ASS subti
 ### Peak Detection (spike + positional prior)
 `vps/lib/hook-generator.js` > `detectPeakMoment()`. Combines audio spikes (x8), viral keywords (+3/+2/+1), ALL CAPS (+2), positional prior (Twitch/Kick clips: last 1/3 boosted x1.3), anti-edge. Word-boundary snapping for hook reorder.
 
+### Smart Zoom — Face Follow vs Micro Push
+
+Two modes, auto-selected based on face detection results:
+
+| Mode | When | What it does |
+|---|---|---|
+| **follow** | Face detected on >=60% of sampled frames | Real face tracking — 1.20x zoom, smooth pan following the subject. Dead zone (10% center), max speed limit (3%/sample), 0.94 inertia. Camera feels like a calm cameraman. |
+| **micro** | No stable face, or face tracking disabled | Slow cinematic push 1.0 → 1.06 over clip duration. Barely noticeable drift. |
+| **dynamic** | Explicit user selection | Punch zooms on audio peaks (5% amplitude, 3 max). |
+
+**Auto-selection flow** (VPS render route):
+1. Crop advisor runs face detection (every 20 frames) for framing decision
+2. If crop recommends `fullframe` or `fit` (face present), face tracker runs again at full resolution (every 10 frames, 15s timeout)
+3. If detection rate >= 60% → auto-upgrade to `follow` mode with pre-computed keyframes
+4. If detection rate < 60% or error → stay on `micro`
+
+**Python smoother** (`vps/lib/face-detect.py`):
+- Dead zone: camera ignores face movement within 10% of canvas center (prevents jitter)
+- Max speed: camera moves at most 3% of canvas diagonal per sample (prevents snaps)
+- Heavy inertia: 0.94 (very smooth — higher = slower response)
+- Gap fill: face disappears → camera holds at last position (no drift)
+- Rule of thirds: face offset down 8% (room for captions/hooks at top)
+
+**FFmpeg filter** (`buildFollowFaceFilter`):
+- 1.20x scale-up → piecewise linear crop pan with up to 20 keyframes
+- Keyframes downsampled from full detection set to keep FFmpeg expression sane
+- Fallback: if <2 keyframes → micro push
+
 ### Hook Text Generation (content-aware)
 `vps/lib/hook-generator.js` > `generateHookTexts()`. Claude Haiku writes 3 hooks (shock/curiosity/suspense) that reference the specific clip content. **No generic templates** — generic phrases like "nobody expected this", "wait for it", "legendary moment" are explicitly banned in the prompt.
 
@@ -521,7 +549,7 @@ TikTok flags videos as "Unoriginal, low-quality content" when they appear to be 
 | **Source UI removal** | 100px border crop strips Twitch/Kick overlays (chat, alerts, logos) | Platform UI is a clear signal of copied content |
 | **Audio fingerprint shift** | +3% asetrate/atempo on all renders (imperceptible to ear) | Changes audio hash — defeats audio duplicate detection |
 | **Karaoke captions** | ASS subtitles burned at render time (word-pop, bounce, glow, highlight) | Major creative edit — changes the visual frame entirely |
-| **Smart Zoom** (active by default, mode: micro) | Slow cinematic push 1.0 → 1.06 over clip duration | Camera movement = creative edit, not present in source |
+| **Smart Zoom** (auto: face follow or micro push) | Follow mode: real face tracking with 1.20x zoom + smooth pan. Micro: cinematic push 1→1.06. Auto-selected based on face presence. | Camera movement = creative edit, not present in source |
 | **Hook text overlay** | Animated capsule with fade in/out | Adds original text content to the frame |
 | **Exposure correction** | Adaptive eq filter based on source luma | Alters the color grading of every frame |
 | **Credit tag** (credit-text style) | Plain "@handle" text with shadow, fades after 4s | NOT a watermark — looks like native TikTok text overlay |

@@ -927,26 +927,47 @@ router.post('/', async (req, res) => {
       }
     }
 
-    // ─── Face Detection (for follow mode) ───
+    // ─── Face Detection (auto-follow when face is dominant) ───
+    // Runs when: (a) user explicitly requested follow mode, OR
+    // (b) smartZoom is enabled AND crop advisor found a dominant face (fullframe).
+    // If a stable face is found (>60% of frames), auto-upgrades smartZoom to follow.
+    // Timeout 15s max, every 10 frames for speed. On failure → micro fallback.
     let faceKeyframes = null;
-    if (settings.smartZoom?.enabled && settings.smartZoom?.mode === 'follow') {
+    const resolvedZoom = settings.format?.videoZoom || 'auto';
+    const smartZoomOn = settings.smartZoom?.enabled !== false; // default true
+    const wantFollow = settings.smartZoom?.mode === 'follow';
+    const autoFollowCandidate = smartZoomOn && (resolvedZoom === 'fullframe' || resolvedZoom === 'fit');
+
+    if (wantFollow || autoFollowCandidate) {
       try {
-        trc('FACE DETECTION starting...');
+        trc(`FACE TRACKING starting (reason=${wantFollow ? 'explicit_follow' : 'auto_detect'})...`);
         const faceResult = await detectFaces(inputPath, {
           canvasW: 720,
           canvasH: 1280,
-          everyN: 8,
-          timeoutMs: 25000,
+          everyN: 10,
+          timeoutMs: 15000,
         });
-        if (faceResult.smoothed && faceResult.smoothed.length >= 2 && faceResult.detected_count > 0) {
+        const detectedCount = faceResult.detected_count || 0;
+        const totalFrames = faceResult.raw_keyframes || 1;
+        const detectionRate = detectedCount / totalFrames;
+
+        if (faceResult.smoothed && faceResult.smoothed.length >= 2 && detectionRate >= 0.60) {
           faceKeyframes = faceResult.smoothed;
-          trc(`FACE DETECTION done: ${faceResult.detected_count} detections → ${faceKeyframes.length} smoothed keyframes`);
+          // Auto-upgrade to follow mode
+          settings.smartZoom = settings.smartZoom || {};
+          settings.smartZoom.enabled = true;
+          settings.smartZoom.mode = 'follow';
+          trc(`FACE TRACKING: stable face (${detectedCount}/${totalFrames} = ${Math.round(detectionRate * 100)}%) → auto follow with ${faceKeyframes.length} keyframes`);
+        } else if (faceResult.smoothed && faceResult.smoothed.length >= 2 && detectedCount > 0) {
+          trc(`FACE TRACKING: intermittent face (${detectedCount}/${totalFrames} = ${Math.round(detectionRate * 100)}%) → keeping micro zoom`);
         } else {
-          trc(`FACE DETECTION: no faces found or too few keyframes (${faceResult.detected_count || 0} detections), falling back to micro zoom`);
+          trc(`FACE TRACKING: no stable face (${detectedCount}/${totalFrames}) → no follow`);
         }
       } catch (faceErr) {
-        trc(`FACE DETECTION error: ${faceErr.message}, falling back to micro zoom`);
+        trc(`FACE TRACKING error (non-fatal): ${faceErr.message} → micro fallback`);
       }
+    } else {
+      trc(`FACE TRACKING: skipped (smartZoom=${smartZoomOn}, zoom=${resolvedZoom})`);
     }
 
     // ─── Smart Hook Trim (pre-processing) ───
