@@ -39,7 +39,7 @@ const inputSchema = z.object({
 
 const webhookSchema = z.object({
   jobId: z.string().uuid(),
-  status: z.enum(['done', 'error']),
+  status: z.enum(['done', 'degraded', 'error']),
   storagePath: z.string().nullable().optional(),
   errorMessage: z.string().nullable().optional(),
   timestamp: z.number().optional(),
@@ -170,8 +170,9 @@ async function handleWebhook(req: NextRequest) {
     return NextResponse.json({ data: { retried: true, attempt: retryCount + 1 }, error: null })
   }
 
-  // ── Final status update (done OR permanent failure) ──
-  const finalStatus: RenderStatus = payload.status === 'error' ? 'failed' : payload.status
+  // ── Final status update (done, degraded, OR permanent failure) ──
+  // 'degraded' = clip produced but a critical feature was missing → treat as success + refund
+  const finalStatus: RenderStatus = payload.status === 'error' ? 'failed' : (payload.status as RenderStatus)
   const updateData: Record<string, unknown> = {
     status: finalStatus,
     updated_at: new Date().toISOString(),
@@ -225,8 +226,8 @@ async function handleWebhook(req: NextRequest) {
     }
   }).catch(() => {})
 
-  // Increment export_count (idempotent)
-  if (payload.status === 'done') {
+  // Increment export_count (idempotent) — both 'done' and 'degraded' count as success
+  if (payload.status === 'done' || payload.status === 'degraded') {
     // Reset consecutive failure counter on success
     redis.del('render:fail_streak').catch(() => {})
 
@@ -268,14 +269,18 @@ async function handleWebhook(req: NextRequest) {
     }
   }
 
-  // Refund quota when render permanently fails (not user's fault)
-  if (finalStatus === 'failed' && currentJob.user_id) {
+  // Refund quota when render permanently fails OR is degraded (not user's fault)
+  // Degraded = clip produced but critical feature missing — user shouldn't pay for broken output
+  if ((finalStatus === 'failed' || finalStatus === 'degraded') && currentJob.user_id) {
     (admin.rpc as CallableFunction)('refund_video_usage', {
       p_user_id: currentJob.user_id,
       p_count: 1,
     }).catch((e: unknown) => {
       logger.error(`[webhook] CRITICAL: refund_video_usage failed for user ${currentJob.user_id}, job ${payload.jobId}:`, e)
     })
+    if (finalStatus === 'degraded') {
+      logger.info(`[webhook] Degraded render ${payload.jobId} — quota refunded for user ${currentJob.user_id}`)
+    }
   }
 
   return NextResponse.json({ data: { updated: true, finalStatus }, error: null })

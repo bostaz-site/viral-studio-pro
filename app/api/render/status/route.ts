@@ -14,6 +14,7 @@ interface RenderJob {
   storage_path: string | null
   error_message: string | null
   quality_tier: string | null
+  contract: { feature: string; requested: boolean; applied: boolean; reason?: string }[] | null
   created_at: string
   updated_at: string
 }
@@ -47,13 +48,13 @@ export const GET = withAuth(async (request: NextRequest, user) => {
       .single() as { data: RenderJob | null; error: unknown }
     job = data
   } else {
-    // clip_id mode: return the latest done job for this clip (server-side kill switch)
+    // clip_id mode: return the latest done/degraded job for this clip (server-side kill switch)
     const { data } = await admin
       .from('render_jobs')
       .select('*')
       .eq('clip_id', clipIdParam!)
       .eq('user_id', user.id)
-      .eq('status', 'done')
+      .in('status', ['done', 'degraded'])
       .order('created_at', { ascending: false })
       .limit(1)
       .single() as { data: RenderJob | null; error: unknown }
@@ -91,12 +92,12 @@ export const GET = withAuth(async (request: NextRequest, user) => {
     }
   }
 
-  if (['done', 'error', 'failed', 'canceled', 'expired'].includes(job.status)) {
+  if (['done', 'degraded', 'error', 'failed', 'canceled', 'expired'].includes(job.status)) {
     // Job finished — release slot (idempotent) and dispatch next queued render
     releaseJob(job.id).then(() => processAndDispatchNext(admin)).catch(() => {})
 
     // Increment export_count on trending clip (idempotent: only once per job)
-    if (job.status === 'done' && job.source === 'trending') {
+    if ((job.status === 'done' || job.status === 'degraded') && job.source === 'trending') {
       redis.set(`export_counted:${job.id}`, '1', { nx: true, ex: 86400 })
         .then(async (result) => {
           if (result === 'OK') {
@@ -131,7 +132,7 @@ export const GET = withAuth(async (request: NextRequest, user) => {
   let downloadUrl: string | null = null
   let publicUrl: string | null = null
   let thumbnailUrl: string | null = null
-  if ((job.status === 'done') && job.storage_path) {
+  if ((job.status === 'done' || job.status === 'degraded') && job.storage_path) {
     const { data: signedData } = await admin.storage
       .from('clips')
       .createSignedUrl(job.storage_path, 14400) // 4 hours
@@ -154,7 +155,14 @@ export const GET = withAuth(async (request: NextRequest, user) => {
 
   // Contextual message that reflects queue position when available
   let message: string
-  if (job.status === 'done') {
+  if (job.status === 'degraded') {
+    // Extract missing features from contract for user-facing message
+    const contract = job.contract as { feature: string; requested: boolean; applied: boolean }[] | null
+    const missing = contract?.filter(e => e.requested && !e.applied).map(e => e.feature.replace(/_/g, ' ')) ?? []
+    message = missing.length > 0
+      ? `Rendered without ${missing.join(', ')} — credit refunded`
+      : 'Render complete (some features unavailable) — credit refunded'
+  } else if (job.status === 'done') {
     message = 'Render complete!'
   } else if (job.status === 'failed') {
     message = `Failed after retries: ${job.error_message}`
@@ -190,8 +198,9 @@ export const GET = withAuth(async (request: NextRequest, user) => {
       queuePosition,
       createdAt: job.created_at,
       updatedAt: job.updated_at,
+      contract: job.contract ?? null,
       // Server timestamp for latency measurement: when the job reached terminal state
-      serverDoneAt: ['done', 'failed', 'error'].includes(job.status) ? job.updated_at : null,
+      serverDoneAt: ['done', 'degraded', 'failed', 'error'].includes(job.status) ? job.updated_at : null,
     },
     error: null,
     message,

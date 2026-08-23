@@ -77,7 +77,7 @@ export function useRenderSubscription({
           if (doneRef.current) return
           const row = payload.new as RenderUpdate
 
-          if (row.status === 'done' && row.storage_path) {
+          if ((row.status === 'done' || row.status === 'degraded') && row.storage_path) {
             doneRef.current = true
             clearPolling()
             onDoneRef.current({ storagePath: row.storage_path })
@@ -106,7 +106,7 @@ export function useRenderSubscription({
         const d = json.data
         if (!d || doneRef.current) return
 
-        if (d.status === 'done' && d.storagePath) {
+        if ((d.status === 'done' || d.status === 'degraded') && d.storagePath) {
           doneRef.current = true
           clearPolling()
           onDoneRef.current({ storagePath: d.storagePath })

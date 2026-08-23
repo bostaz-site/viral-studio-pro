@@ -365,6 +365,27 @@ Pro/Studio: no end-card, no watermark (paid advantage preserved).
 ### Viral Score Formula
 `currentScore = baseline + (headroom * totalWeight)`. Baseline = `max(30, clip.velocity_score)`. Weight accumulates per enabled feature (captions 0.14, hook 0.13, split-screen 0.07, etc.) with mood-match bonuses (~0.19 max). Cap at 99. Poids calibres par recherche — voir `docs/research/viralite-calibration.md`.
 
+### Render Contract & Degraded Status
+
+Every render builds a **contract** (`vps/lib/render-contract.js`): a list of features the user requested and what was actually applied. Stored in `render_jobs.contract` (JSONB column, migration `20260824_render_contract.sql`).
+
+**Feature classification:**
+- **Critical** (trigger `degraded` + refund): `voiceover`, `captions`, `hook_text`
+- **Cosmetic** (logged but no refund): `audio_shift`, `smart_zoom`, `audio_enhance`, `crop_mode`, `auto_cut`
+
+**Flow:**
+1. `createContract(settings)` at render start — builds entries from settings
+2. Each pipeline step calls `contract.record(feature, applied, reason)`
+3. `contract.evaluate()` at end — if any critical feature was requested but not applied → `isDegraded: true`
+4. VPS sets status to `degraded` instead of `done` and sends webhook
+5. Next.js webhook handler: `degraded` → clip delivered + quota refunded + user sees warning ("Rendered without AI voiceover — credit refunded")
+
+**Consecutive failure tracking:** if the same feature fails on 3+ consecutive renders, Discord `#critical-alerts` fires with the feature name and reason. Success resets the counter.
+
+**Admin API:** `GET /api/admin/render-contracts` — 7-day feature application rates, sorted worst-first. Shows total/degraded job counts. Admin-only.
+
+**Golden Render Test:** `scripts/audits/golden-render-test.ts` — nightly audit that checks the 3 most recent renders for contract compliance + 7-day feature rates. Posts to Discord, stores in `audit_metric_snapshots`.
+
 ### Render Quality (4-tier ladder)
 Env var `RENDER_QUALITY` (default `high`). Auto-fallback on OOM (exit code null/137):
 - **HIGH_60**: 1080p60, fast, crf 17, maxrate 15M, audio 256k — target ≤120s for 30s clip

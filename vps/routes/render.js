@@ -16,6 +16,7 @@ import { applyAutoCut, classifyIntensity, getAdaptiveThreshold } from '../lib/au
 import { synthesizeVoiceover } from '../lib/elevenlabs-client.js';
 import { detectReactionLayout } from '../lib/layout-detector.js';
 import { adviseCrop } from '../lib/crop-advisor.js';
+import { createContract, trackFeatureFailure, resetFeatureStreak } from '../lib/render-contract.js';
 import { enqueueRender, getQueueStatus } from '../lib/render-queue.js';
 import {
   getClip,
@@ -598,6 +599,9 @@ router.post('/', async (req, res) => {
     const envHasOpenAIKey = !!process.env.OPENAI_KEY;
     trc(`env OPENAI_API_KEY=${envHasOpenAI} OPENAI_KEY=${envHasOpenAIKey}`);
 
+    // ── Build render contract (tracks requested vs applied features) ──
+    const contract = createContract(settings);
+
     if (!reqClipId) {
       return res.status(400).json({
         success: false,
@@ -933,12 +937,17 @@ router.post('/', async (req, res) => {
           trc(`CAPTIONS ASS header lines (first 5): ${assLines.slice(0, 5).join(' | ')}`);
           const dialogueLines = assLines.filter(l => l.startsWith('Dialogue:'));
           trc(`CAPTIONS ASS dialogue events: ${dialogueLines.length} events (first: ${dialogueLines[0]?.substring(0, 100) || 'none'})`);
+          contract.record('captions', true);
+        } else {
+          contract.record('captions', false, 'no word timestamps and no title for fallback');
         }
       } catch (err) {
         trc(`CAPTIONS ERROR: ${err.message}`);
+        contract.record('captions', false, `error: ${err.message}`);
       }
     } else {
       trc(`CAPTIONS disabled (enabled=${settings.captions?.enabled}, style=${captionStyleRequested})`);
+      contract.record('captions', false, 'disabled by user');
     }
 
     // Prepare tag/credit config
@@ -1305,6 +1314,7 @@ router.post('/', async (req, res) => {
           clipEndTime = cutResult.cutDuration;
           captionWordTimestamps = cutResult.wordTimestamps;
           trc(`AUTO-CUT: applied — new duration=${duration}s, new input=${inputPath}`);
+          contract.record('auto_cut', true, null, { originalDuration: cutResult.segments[0]?.start !== undefined ? duration : null });
 
           // Regenerate ASS file with remapped timestamps
           if (assFilePath && captionWordTimestamps.length > 0) {
@@ -1332,6 +1342,7 @@ router.post('/', async (req, res) => {
         }
       } catch (cutErr) {
         trc(`AUTO-CUT FAILED: ${cutErr.message} — using original clip`);
+        contract.record('auto_cut', false, cutErr.message);
       }
     }
 
@@ -1349,14 +1360,19 @@ router.post('/', async (req, res) => {
 
       if (!voiceoverEnabled) {
         trc('VOICEOVER SKIPPED: reason=disabled_by_user');
+        contract.record('voiceover', false, 'disabled by user');
       } else if (!hasTranscript) {
         trc('VOICEOVER SKIPPED: reason=no_word_timestamps (Whisper returned empty or captions disabled)');
+        contract.record('voiceover', false, 'no word timestamps');
       } else if (duration <= 5) {
         trc(`VOICEOVER SKIPPED: reason=clip_too_short (${duration.toFixed(1)}s <= 5s)`);
+        contract.record('voiceover', false, 'clip too short');
       } else if (!hasAnthropicKey) {
         trc('VOICEOVER SKIPPED: reason=no_ANTHROPIC_API_KEY — cannot generate script. Set this env var on Railway.');
+        contract.record('voiceover', false, 'no ANTHROPIC_API_KEY');
       } else if (!hasElevenLabsKey) {
         trc('VOICEOVER SKIPPED: reason=no_ELEVENLABS_API_KEY — cannot synthesize TTS. Set this env var on Railway.');
+        contract.record('voiceover', false, 'no ELEVENLABS_API_KEY');
       } else {
         trc('VOICEOVER: starting script generation + TTS pipeline...');
 
@@ -1397,22 +1413,36 @@ router.post('/', async (req, res) => {
           voiceoverPaths = await synthesizeVoiceover(voLines, tempDir, voiceKey, userId);
           if (voiceoverPaths.length > 0) {
             trc(`VOICEOVER TTS: ${voiceoverPaths.length}/${voLines.length} MP3s created — will mix into render`);
-            resetVoiceoverFailures(); // success resets the consecutive counter
+            contract.record('voiceover', true);
+            resetVoiceoverFailures();
+            resetFeatureStreak('voiceover');
           } else {
             trc(`VOICEOVER TTS: all ${voLines.length} lines failed synthesis — ELEVENLABS_API_KEY may be invalid or rate-limited`);
           }
         } else {
           trc('VOICEOVER SKIPPED: reason=no_lines_generated (Claude could not produce a script)');
+          contract.record('voiceover', false, 'no lines generated');
           trackVoiceoverFailure(trc);
+          trackFeatureFailure('voiceover', 'no lines generated').catch(() => {});
         }
       }
     } catch (voErr) {
       trc(`VOICEOVER FAILED (non-fatal): ${voErr.message}`);
+      contract.record('voiceover', false, voErr.message);
       voiceoverPaths = null;
     }
 
     // Render clip with FFmpeg (entire pipeline is already serialized by the outer enqueueRender)
     const outputPath = path.join(tempDir, 'output.mp4');
+    // Record remaining contract features before render
+    contract.record('audio_shift', true); // always-on
+    contract.record('audio_enhance', settings.audioEnhance?.enabled || false);
+    contract.record('smart_zoom', settings.smartZoom?.enabled !== false, null, { mode: settings.smartZoom?.mode || 'micro' });
+    contract.record('crop_mode', true, null, { applied_mode: settings.format?.videoZoom || 'auto' });
+    // Hook text: recorded based on whether the hook text overlay will actually be in the render
+    const hookHasText = settings.hook?.enabled && settings.hook?.textEnabled !== false && settings.hook?.text;
+    contract.record('hook_text', !!hookHasText, hookHasText ? null : 'no hook text available');
+
     trc(`AUDIO SHIFT: +3% asetrate/atempo anti-fingerprint will be applied (always-on)`);
     trc(`RENDER START: voiceover=${voiceoverPaths ? voiceoverPaths.length + ' MP3s' : 'none'} smartZoom=${settings.smartZoom?.mode || 'micro'} videoZoom=${settings.format?.videoZoom || 'auto'}`);
     console.log(`[Render ${renderSessionId}] Starting FFmpeg render...`);
@@ -1510,19 +1540,39 @@ router.post('/', async (req, res) => {
     const elapsedSeconds = (Date.now() - startTime) / 1000;
     console.log(`[Render ${renderSessionId}] Render completed in ${elapsedSeconds.toFixed(1)}s`);
 
-    trc(`DONE elapsed=${elapsedSeconds.toFixed(1)}s captions=${assFilePath ? 'ASS' : 'none'} tag=${tagConfig?.style || 'none'} quality_tier=${qualityTier || 'unknown'}`);
+    // ── Evaluate render contract ──
+    const contractResult = contract.evaluate();
+    const finalStatus = contractResult.isDegraded ? 'degraded' : 'done';
 
-    // Mark render job as done
+    if (contractResult.isDegraded) {
+      trc(`CONTRACT DEGRADED: missing critical features: ${contractResult.missing.join(', ')} — ${contractResult.summary}`);
+      // Track each missing feature for consecutive failure alerts
+      for (const feat of contractResult.missing) {
+        const entry = contract.toJSON().find(e => e.feature === feat);
+        trackFeatureFailure(feat, entry?.reason || 'unknown').catch(() => {});
+      }
+    } else {
+      trc(`CONTRACT OK: all requested features applied`);
+      // Reset streaks for features that succeeded
+      for (const entry of contract.toJSON()) {
+        if (entry.applied) resetFeatureStreak(entry.feature);
+      }
+    }
+
+    trc(`DONE elapsed=${elapsedSeconds.toFixed(1)}s status=${finalStatus} captions=${assFilePath ? 'ASS' : 'none'} tag=${tagConfig?.style || 'none'} quality_tier=${qualityTier || 'unknown'}`);
+
+    // Mark render job as done or degraded (with contract)
     await updateRenderJob(req.body.jobId, {
-      status: 'done',
+      status: finalStatus,
       storage_path: clipStoragePath,
       clip_url: uploadResult.url,
       debug_log: trace.join('\n'),
       quality_tier: qualityTier,
+      contract: contract.toJSON(),
     });
 
     // Send HMAC-signed webhook callback to Next.js (queue management + export tracking)
-    sendWebhookCallback(req.body.jobId, 'done', clipStoragePath, null).catch(() => {});
+    sendWebhookCallback(req.body.jobId, finalStatus, clipStoragePath, null).catch(() => {});
 
     res.json({
       success: true,
