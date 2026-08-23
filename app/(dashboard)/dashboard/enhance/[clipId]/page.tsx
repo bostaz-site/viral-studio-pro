@@ -1123,11 +1123,13 @@ export default function EnhancePage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          transcript: clip.description || '',
+          // Title is the strongest signal for trending clips — always send it
           title: clip.title || '',
+          // Description is secondary context (often empty for trending clips)
+          transcript: clip.description || clip.title || '',
           wordTimestamps: [],
           audioPeaks: [],
-          duration: 30,
+          duration: clip.duration_seconds || 30,
           streamerName: clip.author_name || clip.author_handle || '',
           niche: clip.niche || 'irl',
           hookLength: preset.hookLength,
@@ -1140,8 +1142,10 @@ export default function EnhancePage() {
       if (res.ok && !json.error && json.data) {
         setHookAnalysis(json.data)
         // Auto-select the hook matching the mood's hookStyle
-        const matchedHook = json.data.hooks.find((h: HookVariant) => h.style === preset.hookStyle)
-        const bestHook = matchedHook || json.data.hooks[0]
+        // hooks may be null if no content-aware hook was possible
+        const hooks = json.data.hooks || []
+        const matchedHook = hooks.find((h: HookVariant) => h.style === preset.hookStyle)
+        const bestHook = matchedHook || hooks[0] || null
         setSettings((s) => ({
           ...s,
           ...(bestHook ? {
@@ -1200,11 +1204,11 @@ export default function EnhancePage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          transcript: clip.description || '',
           title: clip.title || '',
+          transcript: clip.description || clip.title || '',
           wordTimestamps: [],
           audioPeaks: [],
-          duration: 30,
+          duration: clip.duration_seconds || 30,
           streamerName: clip.author_name || clip.author_handle || '',
           niche: clip.niche || 'irl',
           hookLength: settings.hookLength,
@@ -1219,9 +1223,9 @@ export default function EnhancePage() {
         return
       }
       setHookAnalysis(json.data)
-      // Always store reorder data (even if no matching hook text)
-      const matchingHook = json.data.hooks.find((h: HookVariant) => h.style === settings.hookStyle)
-      const bestHook = matchingHook || json.data.hooks?.[0]
+      const hooks = json.data.hooks || []
+      const matchingHook = hooks.find((h: HookVariant) => h.style === settings.hookStyle)
+      const bestHook = matchingHook || hooks[0] || null
       setSettings((s) => ({
         ...s,
         ...(bestHook ? { hookText: bestHook.text } : {}),

@@ -70,26 +70,22 @@ export function detectPeakMoment(opts = {}) {
 
   // ── Audio SPIKE scoring (jump vs local baseline, not absolute volume) ──
   if (audioPeaks.length > 0) {
-    // Compute local baseline per peak using a rolling window of ~3s
-    const baselineWindow = 3.0; // seconds
+    const baselineWindow = 3.0;
     for (const peak of audioPeaks) {
       const t = peak.time || peak.t || 0;
       const amp = peak.amplitude || peak.a || 0;
       const windowIdx = Math.min(Math.floor(t / windowSize), numWindows - 1);
 
-      // Compute local baseline: average amplitude within ±baselineWindow
       const nearby = audioPeaks.filter(p => {
         const pt = p.time || p.t || 0;
         return Math.abs(pt - t) <= baselineWindow && pt !== t;
       });
       const baseline = nearby.length > 0
         ? nearby.reduce((s, p) => s + (p.amplitude || p.a || 0), 0) / nearby.length
-        : amp * 0.5; // fallback: assume baseline is half the current
+        : amp * 0.5;
 
-      // Spike score: how much this peak exceeds local baseline
-      // A sudden shout in silence scores much higher than constant loud music
       const spike = baseline > 0.001 ? (amp - baseline) / baseline : 0;
-      scores[windowIdx] += Math.max(0, spike) * 8; // scale factor for spike detection
+      scores[windowIdx] += Math.max(0, spike) * 8;
     }
   }
 
@@ -113,7 +109,6 @@ export function detectPeakMoment(opts = {}) {
         }
       }
 
-      // ALL CAPS = shouting = high energy
       if (wt.word === wt.word?.toUpperCase() && wt.word?.length > 2) {
         scores[windowIdx] += 2;
       }
@@ -133,7 +128,7 @@ export function detectPeakMoment(opts = {}) {
     });
   }
 
-  // ── Smooth scores (running average over 3 windows = 1.5s) ──
+  // ── Smooth scores ──
   const smoothed = scores.map((_, i) => {
     const start = Math.max(0, i - 1);
     const end = Math.min(numWindows, i + 2);
@@ -142,21 +137,16 @@ export function detectPeakMoment(opts = {}) {
     return sum / (end - start);
   });
 
-  // ── Positional prior for Twitch/Kick viewer clips ──
-  // Viewers clip AFTER the moment → peak biased to last third
+  // ── Positional prior ──
   if (isViewerClip) {
     const oneThird = Math.floor(numWindows / 3);
     for (let i = 0; i < numWindows; i++) {
-      if (i < oneThird) {
-        smoothed[i] *= 0.8;        // first third: slightly penalized
-      } else if (i >= oneThird * 2) {
-        smoothed[i] *= 1.3;        // last third: boosted
-      }
-      // middle third: unchanged (×1.0)
+      if (i < oneThird) smoothed[i] *= 0.8;
+      else if (i >= oneThird * 2) smoothed[i] *= 1.3;
     }
   }
 
-  // ── Bias against first/last 1s (anti-edge, applied after positional prior) ──
+  // ── Anti-edge bias ──
   const biasWindows = Math.ceil(1.0 / windowSize);
   for (let i = 0; i < biasWindows && i < smoothed.length; i++) {
     smoothed[i] *= 0.3;
@@ -176,8 +166,6 @@ export function detectPeakMoment(opts = {}) {
   }
 
   const peakTime = peakIdx * windowSize;
-
-  // ── Extract transcript around peak (5s window for hook context) ──
   const peakTranscript = extractTranscriptAroundTime(wordTimestamps, peakTime, 5.0);
 
   return {
@@ -190,7 +178,7 @@ export function detectPeakMoment(opts = {}) {
 }
 
 /**
- * Extract the transcript text around a specific time (±half of windowSec).
+ * Extract the transcript text around a specific time.
  */
 function extractTranscriptAroundTime(wordTimestamps, time, windowSec) {
   if (!wordTimestamps || wordTimestamps.length === 0) return '';
@@ -208,22 +196,14 @@ function extractTranscriptAroundTime(wordTimestamps, time, windowSec) {
 
 /**
  * Get the top N scoring windows from a detectPeakMoment result.
- * Used by ffmpeg-render for dynamic zoom targeting.
- *
- * @param {Object} peakResult - Result from detectPeakMoment
- * @param {number} n - Number of top windows to return
- * @param {number} cooldownSec - Min seconds between returned peaks
- * @returns {number[]} Array of peak timestamps
  */
 export function getTopPeakWindows(peakResult, n = 3, cooldownSec = 2.5) {
   if (!peakResult?.scores?.length) return [];
   const { scores, windowSize } = peakResult;
 
-  // Sort windows by score descending
   const indexed = scores.map((score, i) => ({ score, time: i * windowSize }));
   indexed.sort((a, b) => b.score - a.score);
 
-  // Pick top N with cooldown
   const picked = [];
   for (const entry of indexed) {
     if (entry.score <= 0) break;
@@ -233,76 +213,60 @@ export function getTopPeakWindows(peakResult, n = 3, cooldownSec = 2.5) {
     if (picked.length >= n) break;
   }
 
-  return picked.sort((a, b) => a - b); // chronological
+  return picked.sort((a, b) => a - b);
 }
 
-// ─── Fallback Templates (used when Claude API is unavailable) ───────────────
-const FALLBACK_HOOKS = {
-  shock: [
-    'HE ACTUALLY DID THAT 💀',
-    'NOBODY EXPECTED THIS 😱',
-    'IT WENT WRONG SO FAST 🤯',
-    'LEGENDARY MOMENT 🔥',
-    'I\'M LITERALLY DEAD 😂💀',
-  ],
-  curiosity: [
-    'WAIT FOR WHAT HAPPENS NEXT... 👀',
-    'YOU WON\'T BELIEVE THIS',
-    'NOBODY SAW THIS COMING 😳',
-    'WHAT HAPPENS NEXT IS INSANE',
-    'THIS IS WHERE IT GETS CRAZY 🤯',
-  ],
-  suspense: [
-    'WAIT FOR THE END... 👀',
-    'IT GOES OFF THE RAILS',
-    'NOBODY SAW THIS COMING 💀',
-    'WATCH WHAT HAPPENS NEXT...',
-    'THE TIMING IS PERFECT 😭',
-  ],
-};
+// ─── Consecutive fallback counter (for Discord alerts) ────────────────────
+let consecutiveFallbacks = 0;
 
 /**
  * Generate 3 contextual hook text variants using Claude API.
- * Hooks reference the actual peak moment transcript when available.
- * Falls back to generic templates if Claude API is unavailable.
+ *
+ * Every hook MUST reference the specific clip content (title, transcript,
+ * or peak moment). Generic hooks are explicitly banned in the prompt.
+ *
+ * If Claude fails: returns title-based hooks or null (caller decides whether
+ * to show a hook at all). NEVER returns generic template hooks.
  *
  * @param {Object} opts
- * @param {string} opts.transcript     - Clip transcript
+ * @param {string} opts.transcript     - Full Whisper transcript (or clip description)
  * @param {string} opts.streamerName   - Streamer display name
  * @param {string} opts.niche          - Content niche (gaming, irl, etc.)
- * @param {string} opts.title          - Clip title
+ * @param {string} opts.title          - Clip title (strongest signal for trending clips)
  * @param {string} opts.peakTranscript - Transcript of the 5s around the peak moment
- * @returns {Promise<Array>} [{style, label, text}]
+ * @returns {Promise<Array|null>} [{style, label, text}] or null if no content-aware hook possible
  */
 export async function generateHookTexts(opts = {}) {
   const { transcript = '', streamerName = '', niche = '', title = '', peakTranscript = '' } = opts;
 
   const apiKey = process.env.ANTHROPIC_API_KEY;
 
-  // If no API key or no content to analyze, use fallback templates
-  if (!apiKey || (!transcript && !title)) {
-    console.log('[Hook] No API key or content — using fallback templates');
-    return generateFallbackHooks(streamerName);
+  // ── Fallback point 1: no API key ──
+  if (!apiKey) {
+    console.warn('[Hook] fallback reason: no_api_key — ANTHROPIC_API_KEY not set on VPS');
+    return buildTitleFallback(title, streamerName);
+  }
+
+  // ── Fallback point 2: no content at all ──
+  if (!transcript && !title && !peakTranscript) {
+    console.warn('[Hook] fallback reason: no_content — no transcript, title, or peak transcript available');
+    return null; // no hook is better than a generic hook
   }
 
   try {
-    console.log(`[Hook] Calling Claude API for contextual hooks (transcript: ${transcript.length} chars, title: "${title}", peakTranscript: "${peakTranscript.slice(0, 80)}")`);
+    console.log(`[Hook] Calling Claude API for content-aware hooks (title: "${title}", transcript: ${transcript.length} chars, peak: "${peakTranscript.slice(0, 60)}")`);
     const hookStartMs = Date.now();
 
     const contentParts = [
       title ? `CLIP TITLE: "${title}"` : '',
-      transcript ? `FULL TRANSCRIPT: "${transcript.slice(0, 500)}"` : '',
       streamerName ? `STREAMER: ${streamerName}` : '',
       niche ? `CATEGORY: ${niche}` : '',
+      transcript ? `FULL TRANSCRIPT: "${transcript.slice(0, 800)}"` : '',
+      peakTranscript ? `PEAK MOMENT (the exact viral moment): "${peakTranscript.slice(0, 300)}"` : '',
     ].filter(Boolean).join('\n');
 
-    // Peak moment context for the prompt
-    const peakSection = peakTranscript
-      ? `\n\nPEAK MOMENT (the exact 5 seconds the algorithm detected as the viral moment):\n"${peakTranscript.slice(0, 300)}"\n\nThe hook MUST reference this specific moment. Quote or tease what actually happens at the peak. NEVER write a generic hook. The hook must deliver its promise in under 3 seconds of reading.`
-      : '';
-
     const claudeAbort = new AbortController();
-    const claudeTimeout = setTimeout(() => claudeAbort.abort(), 30_000); // 30s timeout
+    const claudeTimeout = setTimeout(() => claudeAbort.abort(), 30_000);
     let response;
     try {
       response = await fetch('https://api.anthropic.com/v1/messages', {
@@ -314,47 +278,53 @@ export async function generateHookTexts(opts = {}) {
         },
         signal: claudeAbort.signal,
         body: JSON.stringify({
-        model: 'claude-haiku-4-5-20251001',
-        max_tokens: 300,
-        messages: [{
-          role: 'user',
-          content: `You generate hooks for TikTok/Reels clips of streamers. Here is the clip:
+          model: 'claude-haiku-4-5-20251001',
+          max_tokens: 300,
+          messages: [{
+            role: 'user',
+            content: `You write hooks for TikTok clips of streamers. The hook appears as text overlay in the first 2 seconds.
 
-${contentParts}${peakSection}
+${contentParts}
 
-MISSION: Write 3 short hooks IN ENGLISH that SUMMARIZE what happens in the clip. The hook must make people want to watch.
+Write 3 short hooks that SPECIFICALLY describe what happens in THIS clip. The hook must reference the actual content — the action, the person, the situation.
 
-EXAMPLES of good hooks based on content:
-- Clip title "He sends his friend to Dagestan" → "HE SENT HIS FRIEND TO DAGESTAN 💀🔥"
-- Clip title "Speed breaks his TV again" → "HE BROKE HIS TV AGAIN ON STREAM 😭💀"
-- Clip title "Kai Cenat meets a crazy fan" → "THIS FAN JUMPED ON HIM 😱🔥"
-- Clip title "xQc rage quits ranked" → "HE RAGE QUIT IN RANKED 💀😂"
+MANDATORY RULES:
+1. Each hook MUST mention something specific from the title or transcript (a name, an action, a situation)
+2. BANNED PHRASES (instant reject): "nobody expected", "you won't believe", "this is insane", "wait for it", "what happens next", "gone wrong", "goes crazy", "watch till the end", "legendary moment", "I'm dead". These are generic clickbait — NEVER use them.
+3. The hook must be UNUSABLE on any other clip. If you could put it on a random clip and it still makes sense, it's too generic — rewrite it.
+4. ALL CAPS, max 45 characters, 1-2 emojis from: 💀🔥😱👀🤯😂⚡😭
+5. English, casual TikTok tone
 
-RULES:
-- BASED ON THE CLIP TITLE/CONTENT (not generic!!)
-- English casual, TikTok style
-- MAX 45 characters
-- 1-2 emojis (💀🔥😱👀🤯😂⚡😭)
-- ALL CAPS
-- "shock" = brutal summary, "curiosity" = tease what's next, "suspense" = build anticipation
+GOOD EXAMPLES (specific to content):
+- Title "He sends his friend to Dagestan" → "HE SENT HIM TO DAGESTAN 💀"
+- Title "Speed breaks his TV again" → "SPEED BROKE HIS TV AGAIN 😭"
+- Title "xQc rage quits ranked" → "XQC RAGE QUIT MID-GAME 💀"
+- Transcript mentions "triple kill" → "THAT TRIPLE KILL THO 🔥"
 
-JSON only, no text around it:
+BAD EXAMPLES (generic, would work on any clip):
+- "NOBODY EXPECTED THIS 😱" ← banned, generic
+- "LEGENDARY MOMENT 🔥" ← banned, generic
+- "WAIT FOR THE END 👀" ← banned, says nothing about clip
+
+Return ONLY JSON:
 [
-  {"style": "shock", "label": "Shock", "text": "HOOK BASED ON THE CLIP 💀"},
-  {"style": "curiosity", "label": "Curiosity", "text": "HOOK BASED ON THE CLIP 👀"},
-  {"style": "suspense", "label": "Suspense", "text": "HOOK BASED ON THE CLIP 😱"}
+  {"style": "shock", "label": "Shock", "text": "YOUR SPECIFIC HOOK 💀"},
+  {"style": "curiosity", "label": "Curiosity", "text": "YOUR SPECIFIC HOOK 👀"},
+  {"style": "suspense", "label": "Suspense", "text": "YOUR SPECIFIC HOOK 😱"}
 ]`
-        }],
-      }),
+          }],
+        }),
       });
     } finally {
       clearTimeout(claudeTimeout);
     }
 
+    // ── Fallback point 3: API error ──
     if (!response.ok) {
       const errText = await response.text();
-      console.warn(`[Hook] Claude API error ${response.status}: ${errText.slice(0, 200)}`);
-      return generateFallbackHooks(streamerName);
+      console.warn(`[Hook] fallback reason: api_error — Claude API ${response.status}: ${errText.slice(0, 200)}`);
+      trackFallback('api_error');
+      return buildTitleFallback(title, streamerName);
     }
 
     const hookLatencyMs = Date.now() - hookStartMs;
@@ -378,88 +348,123 @@ JSON only, no text around it:
       });
     } catch { /* never block render */ }
 
-    // Parse JSON from response — handle potential markdown wrapping
+    // ── Fallback point 4: parse error ──
     const jsonMatch = text.match(/\[[\s\S]*\]/);
     if (!jsonMatch) {
-      console.warn('[Hook] Could not parse JSON from Claude response:', text.slice(0, 200));
-      return generateFallbackHooks(streamerName);
+      console.warn(`[Hook] fallback reason: parse_error — no JSON array in Claude response: "${text.slice(0, 200)}"`);
+      trackFallback('parse_error');
+      return buildTitleFallback(title, streamerName);
     }
 
-    const hooks = JSON.parse(jsonMatch[0]);
+    let hooks;
+    try {
+      hooks = JSON.parse(jsonMatch[0]);
+    } catch (parseErr) {
+      console.warn(`[Hook] fallback reason: json_parse_error — ${parseErr.message}`);
+      trackFallback('json_parse_error');
+      return buildTitleFallback(title, streamerName);
+    }
 
-    // Validate structure
+    // ── Fallback point 5: invalid structure ──
     if (!Array.isArray(hooks) || hooks.length < 3) {
-      console.warn('[Hook] Invalid hooks array from Claude');
-      return generateFallbackHooks(streamerName);
+      console.warn(`[Hook] fallback reason: invalid_structure — got ${Array.isArray(hooks) ? hooks.length : typeof hooks} hooks`);
+      trackFallback('invalid_structure');
+      return buildTitleFallback(title, streamerName);
     }
 
-    // Ensure proper structure and truncate if needed
+    // Reset consecutive fallback counter on success
+    consecutiveFallbacks = 0;
+
     const result = hooks.slice(0, 3).map(h => ({
       style: h.style || 'shock',
       label: h.label || h.style || 'Hook',
       text: (h.text || '').slice(0, 60),
     }));
 
-    console.log(`[Hook] Claude generated: ${result.map(h => `[${h.style}] ${h.text}`).join(' | ')}`);
+    console.log(`[Hook] Claude generated content-aware hooks: ${result.map(h => `[${h.style}] "${h.text}"`).join(' | ')}`);
     return result;
 
   } catch (err) {
-    console.warn('[Hook] Claude API call failed:', err.message);
-    return generateFallbackHooks(streamerName);
+    // ── Fallback point 6: network/timeout ──
+    const reason = err.name === 'AbortError' ? 'timeout' : 'network_error';
+    console.warn(`[Hook] fallback reason: ${reason} — ${err.message}`);
+    trackFallback(reason);
+    return buildTitleFallback(title, streamerName);
   }
 }
 
 /**
- * Fallback: pick random templates when Claude API is unavailable
+ * Build a hook from the clip title when Claude is unavailable.
+ * Returns null if even the title is empty — no hook is better than a generic one.
  */
-function generateFallbackHooks(streamerName = '') {
-  const pickRandom = (arr) => arr[Math.floor(Math.random() * arr.length)];
+function buildTitleFallback(title, streamerName = '') {
+  if (!title || title.trim().length < 5) {
+    console.log('[Hook] No title available for fallback — returning null (no hook)');
+    return null;
+  }
 
+  // Format title as hook: uppercase, truncate, add emoji
+  let hookBase = title.trim().toUpperCase();
+  if (hookBase.length > 42) hookBase = hookBase.slice(0, 39) + '...';
+
+  console.log(`[Hook] Using title-based fallback: "${hookBase}"`);
   return [
-    { style: 'shock', label: 'Shock', text: pickRandom(FALLBACK_HOOKS.shock) },
-    { style: 'curiosity', label: 'Curiosity', text: pickRandom(FALLBACK_HOOKS.curiosity) },
-    { style: 'suspense', label: 'Suspense', text: pickRandom(FALLBACK_HOOKS.suspense) },
+    { style: 'shock', label: 'Shock', text: `${hookBase} 💀` },
+    { style: 'curiosity', label: 'Curiosity', text: `${hookBase} 👀` },
+    { style: 'suspense', label: 'Suspense', text: `${hookBase} 😱` },
   ];
 }
 
 /**
+ * Track consecutive fallbacks and alert Discord if threshold exceeded.
+ */
+function trackFallback(reason) {
+  consecutiveFallbacks++;
+  console.warn(`[Hook] Consecutive fallbacks: ${consecutiveFallbacks} (reason: ${reason})`);
+
+  if (consecutiveFallbacks >= 3) {
+    alertDiscordHookFailure(reason, consecutiveFallbacks).catch(() => {});
+  }
+}
+
+/**
+ * Send Discord alert when hook generation fails repeatedly.
+ */
+async function alertDiscordHookFailure(reason, count) {
+  const webhookUrl = process.env.DISCORD_AUDIT_WEBHOOK_URL;
+  if (!webhookUrl) return;
+
+  try {
+    await fetch(webhookUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        content: `**[CRITICAL] Hook generation failing** — ${count} consecutive fallbacks (last reason: \`${reason}\`). Check VPS ANTHROPIC_API_KEY and Claude API status.`,
+      }),
+    });
+  } catch { /* non-critical */ }
+}
+
+/**
  * Calculate reorder timestamps for hook-first looping structure.
- * Snaps segment boundaries to word boundaries (never cuts mid-word).
- *
- * Output: [Peak segment with 2-4s context] → [Full clip from start]
- *
- * @param {number} peakTime       - Start of the peak moment (seconds)
- * @param {number} duration       - Total clip duration (seconds)
- * @param {number} hookLength     - Length of the hook segment (default: 1.5s)
- * @param {number} maxContext     - Max context duration before peak (default: 8s)
- * @param {Array}  wordTimestamps - [{word, start, end}] for word-boundary snapping
- * @returns {Object} { segments: [{start, end, label}], totalDuration }
  */
 export function calculateReorderTimestamps(peakTime, duration, hookLength = 1.5, maxContext = 8, wordTimestamps = []) {
   const peak = Math.max(0, Math.min(peakTime, duration - hookLength));
 
-  // If peak is near the start (< 3s), reorder is pointless — return empty
   if (peak < 3) {
-    return {
-      segments: [],
-      totalDuration: duration,
-      peakTime: 0,
-    };
+    return { segments: [], totalDuration: duration, peakTime: 0 };
   }
 
-  // Hook teaser: 2-4s context before peak + peak moment
-  const contextBefore = Math.min(3, peak); // 2-3s before peak
+  const contextBefore = Math.min(3, peak);
   let teaserStart = Math.max(0, peak - contextBefore);
   const teaserLength = Math.min(4, duration - teaserStart);
   let teaserEnd = Math.min(duration, teaserStart + teaserLength);
 
-  // ── Snap to word boundaries ──
   if (wordTimestamps.length > 0) {
     teaserStart = snapToWordBoundary(teaserStart, wordTimestamps, 'before');
     teaserEnd = snapToWordBoundary(teaserEnd, wordTimestamps, 'after');
   }
 
-  // Safety: ensure start < end and reasonable length
   if (teaserEnd - teaserStart < 1.5) teaserEnd = Math.min(duration, teaserStart + 2);
   if (teaserEnd - teaserStart > 5) teaserEnd = teaserStart + 5;
 
@@ -484,54 +489,31 @@ export function calculateReorderTimestamps(peakTime, duration, hookLength = 1.5,
 
 /**
  * Snap a timestamp to the nearest word boundary.
- * 'before' = snap to the END of the word before/at this time (no mid-word cut)
- * 'after' = snap to the END of the word at/after this time
  */
 function snapToWordBoundary(time, wordTimestamps, direction) {
   if (!wordTimestamps || wordTimestamps.length === 0) return time;
 
-  // Find sentence breaks (punctuation or gap > 0.5s)
   const breakpoints = [];
   for (let i = 0; i < wordTimestamps.length; i++) {
     const wt = wordTimestamps[i];
     const end = wt.end || wt.e || (wt.start || wt.s || 0) + 0.3;
     const word = wt.word || '';
 
-    // Punctuation at end of word = sentence boundary
-    if (/[.!?]$/.test(word)) {
-      breakpoints.push(end);
-    }
-    // Gap > 0.5s to next word = natural break
+    if (/[.!?]$/.test(word)) breakpoints.push(end);
     if (i < wordTimestamps.length - 1) {
       const nextStart = wordTimestamps[i + 1].start || wordTimestamps[i + 1].s || 0;
-      if (nextStart - end > 0.5) {
-        breakpoints.push(end);
-      }
+      if (nextStart - end > 0.5) breakpoints.push(end);
     }
-    // Also add every word end as a fallback
     breakpoints.push(end);
   }
 
-  // Prefer sentence breaks within 0.8s, else nearest word end within 0.4s
-  const sentenceBreaks = breakpoints.filter(bp => {
-    const wt = wordTimestamps.find(w => {
-      const end = w.end || w.e || 0;
-      return Math.abs(end - bp) < 0.01;
-    });
-    if (!wt) return false;
-    const word = wt.word || '';
-    return /[.!?]$/.test(word) || breakpoints.indexOf(bp) < breakpoints.length; // gap-based
-  });
-
   if (direction === 'before') {
-    // Find the nearest break AT or BEFORE this time
     const candidates = breakpoints.filter(bp => bp <= time + 0.4);
     if (candidates.length > 0) return candidates[candidates.length - 1];
   } else {
-    // Find the nearest break AT or AFTER this time
     const candidates = breakpoints.filter(bp => bp >= time - 0.4);
     if (candidates.length > 0) return candidates[0];
   }
 
-  return time; // no snap possible
+  return time;
 }

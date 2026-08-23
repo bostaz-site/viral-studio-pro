@@ -1742,12 +1742,13 @@ router.post('/hook', async (req, res) => {
       duration,
     });
 
-    // 2. Generate 3 hook text variants (Claude API — contextual, French, emojis)
+    // 2. Generate 3 hook text variants (Claude API — content-aware)
     const hooks = await generateHookTexts({
       transcript,
       streamerName,
       niche,
       title,
+      peakTranscript: peak.peakTranscript || '',
     });
 
     // 3. Calculate reorder timestamps
@@ -1763,7 +1764,7 @@ router.post('/hook', async (req, res) => {
     res.json({
       data: {
         peak,
-        hooks,
+        hooks: hooks || [], // null = no content-aware hook possible
         reorder,
       },
       error: null,

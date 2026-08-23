@@ -375,7 +375,20 @@ Filtergraph: scale/crop → eq (4 buckets) → unsharp (HIGH only) → ASS subti
 `vps/lib/ffmpeg-render.js`: the hook capsule overlay is anchored by its **top** edge at `posPct%` of the video height — matching the CSS preview (`top: posPct%`). The 116 px glow padding baked into the browser-captured PNG is offset so the visible capsule aligns. On downgraded tiers (SAFE / LAST_RESORT = 720p), the browser PNG is rescaled proportionally instead of being placed at its native 1080p size.
 
 ### Peak Detection (spike + positional prior)
-`vps/lib/hook-generator.js` > `detectPeakMoment()`. Combines audio spikes (×8), viral keywords (+3/+2/+1), ALL CAPS (+2), positional prior (Twitch/Kick clips: last ⅓ boosted ×1.3), anti-edge. Word-boundary snapping for hook reorder. `settings.sourcePlatform` is wired from both `POST /api/render` and `POST /api/render/quick` (derived from `trending_clips.platform`), enabling the positional prior for viewer clips. Details : `SYSTEM-REFERENCE-ENHANCE.md` section "Peak Detection v2".
+`vps/lib/hook-generator.js` > `detectPeakMoment()`. Combines audio spikes (x8), viral keywords (+3/+2/+1), ALL CAPS (+2), positional prior (Twitch/Kick clips: last 1/3 boosted x1.3), anti-edge. Word-boundary snapping for hook reorder.
+
+### Hook Text Generation (content-aware)
+`vps/lib/hook-generator.js` > `generateHookTexts()`. Claude Haiku writes 3 hooks (shock/curiosity/suspense) that reference the specific clip content. **No generic templates** — generic phrases like "nobody expected this", "wait for it", "legendary moment" are explicitly banned in the prompt.
+
+**Data flow**: Enhance page sends `title` (strongest signal for trending clips) + `clip.description` + `streamerName` + `niche` to VPS `/hook` endpoint. VPS runs peak detection first, then passes `peakTranscript` (5s around the detected peak) to Claude alongside the title. Claude must produce hooks that mention something from the actual content.
+
+**Fallback strategy** (no generic templates):
+1. Claude succeeds: content-aware hooks referencing clip title/transcript
+2. Claude fails (API error, parse error, timeout): title-based fallback — clip title uppercased + emoji. Still specific to this clip.
+3. No title and no transcript available: returns `null` — hook is disabled entirely. No hook is better than a generic hook.
+4. Consecutive fallback tracking: if >= 3 fallbacks in a row, Discord alert to `#critical-alerts` (likely ANTHROPIC_API_KEY issue on VPS)
+
+Each fallback logs a distinct reason: `no_api_key`, `no_content`, `api_error`, `parse_error`, `json_parse_error`, `invalid_structure`, `timeout`, `network_error`.
 
 ### Paywall (contextual conversion)
 Free plan: 3 videos/month. On quota hit (client-side check uses `PLANS[plan].limits.maxVideosPerMonth`) → PaywallModal with 5 options: one-time save (first wall only), upgrade, invite (+5/+2 clips at signup), top-up packs ($5/5, $9/10), wait. Server 402 `quota_exceeded` also opens PaywallModal. Strategy : `docs/research/freemium-paywall-strategy.md`.
