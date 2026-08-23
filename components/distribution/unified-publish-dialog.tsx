@@ -17,6 +17,7 @@ import { WolfLoader } from '@/components/ui/wolf-loader'
 import { Button } from '@/components/ui/button'
 import { Dialog } from '@/components/ui/dialog'
 import { TikTokPublishDialog } from './tiktok-publish-dialog'
+import { useTrendingStore } from '@/stores/trending-store'
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -119,6 +120,13 @@ export function UnifiedPublishDialog({
   const [downloadUrl, setDownloadUrl] = useState<string | null>(null)
   const [bankedInDialog, setBankedInDialog] = useState(false)
   const [bankingInProgress, setBankingInProgress] = useState(false)
+  const [hasDownloaded, setHasDownloaded] = useState(false)
+  const [publishedAt, setPublishedAt] = useState<string | null>(null)
+
+  // Read persisted clip status from trending store + localStorage
+  const bankedClipIds = useTrendingStore(s => s.bankedClipIds)
+  const publishedClipIds = useTrendingStore(s => s.publishedClipIds)
+  const markClipPublished = useTrendingStore(s => s.markClipPublished)
 
   // Resolve download URL from localStorage kill switch or API
   useEffect(() => {
@@ -139,13 +147,29 @@ export function UnifiedPublishDialog({
       .catch(() => {})
   }, [open, clipId])
 
-  // Fetch connected accounts on mount
+  // Fetch connected accounts + restore persisted clip state on open
   useEffect(() => {
     if (!open) return
-    setAllDone(false)
     setIsPublishing(false)
-    setBankedInDialog(false)
     setBankingInProgress(false)
+
+    // Restore persisted state from store + localStorage
+    const wasBanked = bankedClipIds.has(clipId)
+    const wasPublished = publishedClipIds.has(clipId)
+    setBankedInDialog(wasBanked)
+    setAllDone(wasPublished)
+    if (wasPublished) {
+      // Restore published timestamp from localStorage if available
+      try {
+        const ts = localStorage.getItem(`published-at:${clipId}`)
+        setPublishedAt(ts)
+      } catch { setPublishedAt(null) }
+    } else {
+      setPublishedAt(null)
+    }
+    try {
+      setHasDownloaded(localStorage.getItem(`downloaded:${clipId}`) === '1')
+    } catch { setHasDownloaded(false) }
 
     const fetchAccounts = async () => {
       setLoading(true)
@@ -178,7 +202,8 @@ export function UnifiedPublishDialog({
     }
 
     fetchAccounts()
-  }, [open])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, clipId])
 
   const togglePlatform = (p: Platform) => {
     if (isComingSoonPlatform(p) || !platforms[p].connected || isPublishing) return
@@ -214,6 +239,11 @@ export function UnifiedPublishDialog({
       }))
       setIsPublishing(false)
       setAllDone(true)
+      // Persist published state
+      const now = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      setPublishedAt(now)
+      markClipPublished(clipId)
+      try { localStorage.setItem(`published-at:${clipId}`, now) } catch {}
       // Direct mode: remove clip from bank + cancel autofarm schedule (no double post)
       if (mode === 'direct') {
         fetch(`/api/distribution/bank/${clipId}`, {
@@ -297,8 +327,12 @@ export function UnifiedPublishDialog({
         return next
       })
 
-      // Published = consumed: remove from bank + cancel pending schedule
+      // Published = consumed: remove from bank + cancel pending schedule + persist state
       if (anyNonTiktokSuccess) {
+        const now = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        setPublishedAt(now)
+        markClipPublished(clipId)
+        try { localStorage.setItem(`published-at:${clipId}`, now) } catch {}
         fetch(`/api/distribution/bank/${clipId}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
@@ -336,10 +370,13 @@ export function UnifiedPublishDialog({
                 Choose where to share your video
               </p>
 
-              {/* Render saved reassurance */}
+              {/* Status banner — reflects what has already happened */}
               <p className="flex items-center gap-1.5 text-xs text-zinc-400">
                 <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-emerald-400/80" />
-                Render saved — publish, bank it, or come back anytime
+                {publishedAt
+                  ? `Published — ${publishedAt}`
+                  : 'Render saved — publish, bank it, or come back anytime'
+                }
               </p>
 
               {/* Platform rows */}
@@ -366,7 +403,7 @@ export function UnifiedPublishDialog({
                           ? colors
                           : 'border-border bg-muted/20'
                       } ${state.connected && !isPublishing ? 'cursor-pointer' : ''}`}
-                      onClick={() => !isComingSoon && state.connected && !allDone && togglePlatform(id)}
+                      onClick={() => !isComingSoon && state.connected && togglePlatform(id)}
                     >
                       <div className="flex items-center gap-3">
                         {/* Checkbox / status */}
@@ -451,69 +488,79 @@ export function UnifiedPublishDialog({
           {/* Actions footer */}
           <div className="pt-3 border-t border-border/50 space-y-3">
             {/* ── Primary decisions: Bank + Publish side-by-side ── */}
-            {!allDone && (
-              <div className="flex flex-col sm:flex-row-reverse gap-2">
-                {/* Publish (primary) */}
-                <Button
-                  onClick={handlePublish}
-                  disabled={selectedCount === 0 || isPublishing || loading}
-                  className="flex-1 gap-2 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-400 hover:to-amber-400 text-white border-0"
-                >
-                  {isPublishing ? (
-                    <>
-                      <WolfLoader variant="spinner" size={16} mode="amber" />
-                      Publishing...
-                    </>
-                  ) : (
-                    <>
-                      <Send className="h-4 w-4" />
-                      {selectedCount === 0
-                        ? 'Select platforms'
-                        : `Publish to ${selectedCount} platform${selectedCount > 1 ? 's' : ''}`
-                      }
-                    </>
-                  )}
-                </Button>
-
-                {/* Bank / View in bank (secondary) */}
-                {!bankedInDialog ? (
-                  <button
-                    onClick={async () => {
-                      setBankingInProgress(true)
-                      try {
-                        const res = await fetch('/api/distribution/bank', {
-                          method: 'POST',
-                          headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({ clipId }),
-                        })
-                        if (res.ok) setBankedInDialog(true)
-                      } catch { /* silent */ }
-                      finally { setBankingInProgress(false) }
-                    }}
-                    disabled={bankingInProgress || isPublishing}
-                    className="flex-1 inline-flex items-center justify-center gap-2 h-10 px-4 text-sm font-medium rounded-md border border-amber-500/30 bg-amber-500/8 text-amber-300 hover:bg-amber-500/15 transition-colors disabled:opacity-50"
-                  >
-                    {bankingInProgress ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Archive className="h-3.5 w-3.5" />}
-                    Place in bank
-                  </button>
+            <div className="flex flex-col sm:flex-row-reverse gap-2">
+              {/* Publish button — reflects published state but stays actionable */}
+              <Button
+                onClick={() => { setAllDone(false); handlePublish() }}
+                disabled={selectedCount === 0 || isPublishing || loading}
+                className={`flex-1 gap-2 text-white border-0 ${
+                  allDone
+                    ? 'bg-emerald-600 hover:bg-emerald-500'
+                    : 'bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-400 hover:to-amber-400'
+                }`}
+              >
+                {isPublishing ? (
+                  <>
+                    <WolfLoader variant="spinner" size={16} mode="amber" />
+                    Publishing...
+                  </>
+                ) : allDone ? (
+                  <>
+                    <CheckCircle2 className="h-4 w-4" />
+                    Published — Publish again
+                  </>
                 ) : (
-                  <button
-                    onClick={() => {
-                      onClose()
-                      router.push(`/dashboard/distribution?scrollTo=bank&highlight=${clipId}`)
-                    }}
-                    className="flex-1 inline-flex items-center justify-center gap-2 h-10 px-4 text-sm font-medium rounded-md border border-emerald-500/30 bg-emerald-500/8 text-emerald-400 hover:bg-emerald-500/15 transition-colors"
-                  >
-                    <CheckCircle2 className="h-3.5 w-3.5" />
-                    View in bank
-                    <ChevronRight className="h-3.5 w-3.5" />
-                  </button>
+                  <>
+                    <Send className="h-4 w-4" />
+                    {selectedCount === 0
+                      ? 'Select platforms'
+                      : `Publish to ${selectedCount} platform${selectedCount > 1 ? 's' : ''}`
+                    }
+                  </>
                 )}
-              </div>
-            )}
+              </Button>
+
+              {/* Bank button — reflects banked state */}
+              {!bankedInDialog ? (
+                <button
+                  onClick={async () => {
+                    setBankingInProgress(true)
+                    try {
+                      const res = await fetch('/api/distribution/bank', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ clipId }),
+                      })
+                      if (res.ok) {
+                        setBankedInDialog(true)
+                        useTrendingStore.getState().bankedClipIds.add(clipId)
+                      }
+                    } catch { /* silent */ }
+                    finally { setBankingInProgress(false) }
+                  }}
+                  disabled={bankingInProgress || isPublishing}
+                  className="flex-1 inline-flex items-center justify-center gap-2 h-10 px-4 text-sm font-medium rounded-md border border-amber-500/30 bg-amber-500/8 text-amber-300 hover:bg-amber-500/15 transition-colors disabled:opacity-50"
+                >
+                  {bankingInProgress ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Archive className="h-3.5 w-3.5" />}
+                  Place in bank
+                </button>
+              ) : (
+                <button
+                  onClick={() => {
+                    onClose()
+                    router.push(`/dashboard/distribution?scrollTo=bank&highlight=${clipId}`)
+                  }}
+                  className="flex-1 inline-flex items-center justify-center gap-2 h-10 px-4 text-sm font-medium rounded-md border border-emerald-500/30 bg-emerald-500/8 text-emerald-400 hover:bg-emerald-500/15 transition-colors"
+                >
+                  <CheckCircle2 className="h-3.5 w-3.5" />
+                  In bank — View
+                  <ChevronRight className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </div>
 
             {/* Banked confirmation badge */}
-            {bankedInDialog && (
+            {bankedInDialog && !allDone && (
               <p className="flex items-center justify-center gap-1.5 text-xs text-emerald-400">
                 <CheckCircle2 className="h-3.5 w-3.5" />
                 Placed in bank — autofarm will schedule it
@@ -529,10 +576,14 @@ export function UnifiedPublishDialog({
                 <a
                   href={downloadUrl}
                   download
+                  onClick={() => {
+                    setHasDownloaded(true)
+                    try { localStorage.setItem(`downloaded:${clipId}`, '1') } catch {}
+                  }}
                   className="inline-flex items-center gap-1.5 h-9 px-3 text-xs font-medium rounded-md border border-border bg-background text-foreground hover:bg-muted transition-colors"
                 >
                   <Download className="h-3.5 w-3.5" />
-                  Download
+                  {hasDownloaded ? 'Downloaded — Download again' : 'Download MP4'}
                 </a>
               )}
             </div>
