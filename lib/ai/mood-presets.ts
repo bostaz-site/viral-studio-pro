@@ -47,6 +47,8 @@ export interface MoodPreset {
   hookStyle: 'shock' | 'curiosity' | 'suspense'
   hookTextPosition: number
   hookLength: number
+
+  voiceoverEnabled: boolean
 }
 
 // ── Base settings (shared by ALL moods) ─────────────────────────────────────
@@ -63,6 +65,7 @@ export const BASE_SETTINGS = {
   hookTextPosition: 15,
   hookLength: 0,
   smartZoomEnabled: true,
+  voiceoverEnabled: true,
 }
 
 // ── Platform theme (tag + hook glow colors by platform) ─────────────────────

@@ -38,6 +38,9 @@ export interface EnhanceSettings {
   hookTextPosition: number
   hookLength: number
   hookReorder: { segments: { start: number; end: number; duration: number; label: string }[]; totalDuration: number; peakTime: number } | null
+  voiceoverEnabled: boolean
+  voiceoverVoice: 'default' | 'female' | 'deep'
+  voiceoverLines: { text: string; startTime: number; estimatedDuration: number; role: 'hook' | 'reaction' | 'closer' }[]
 }
 
 /**

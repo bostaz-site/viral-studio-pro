@@ -76,6 +76,16 @@ const inputSchema = z.object({
       silenceThreshold: z.number().min(0.3).max(2).optional(),
       mood: z.string().optional(),
     }).optional(),
+    voiceover: z.object({
+      enabled: z.boolean().optional(),
+      voice: z.enum(['default', 'female', 'deep']).optional(),
+      lines: z.array(z.object({
+        text: z.string(),
+        startTime: z.number(),
+        estimatedDuration: z.number(),
+        role: z.enum(['hook', 'reaction', 'closer']),
+      })).optional(),
+    }).optional(),
   }).optional(),
 })
 
@@ -379,6 +389,7 @@ export const POST = withAuth(async (request, user) => {
       smartZoom: settings?.smartZoom ?? { enabled: false, mode: 'micro' },
       audioEnhance: settings?.audioEnhance ?? { enabled: false },
       autoCut: settings?.autoCut ?? { enabled: false },
+      voiceover: settings?.voiceover ?? { enabled: true },
       sourcePlatform: clipPlatform ?? undefined,
     },
   }

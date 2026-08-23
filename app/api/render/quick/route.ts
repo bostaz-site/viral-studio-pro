@@ -158,6 +158,10 @@ export const POST = withAuth(async (request: NextRequest, user) => {
     autoCut: {
       enabled: false,
     },
+    voiceover: {
+      enabled: true,
+      voice: 'default',
+    },
     tag: {
       style: 'credit-text',
       size: 100,

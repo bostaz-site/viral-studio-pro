@@ -710,6 +710,7 @@ export async function renderClip(inputPath, outputPath, options = {}) {
     audioEnhance = false,
     bassBoost = 'off',
     speedRamp = 'off',
+    voiceoverPaths = null, // [{path, startTime, estimatedDuration}]
   } = options;
 
   if (!inputPath || !outputPath) {
@@ -1038,16 +1039,14 @@ export async function renderClip(inputPath, outputPath, options = {}) {
       args.push('-t', String(clipDuration));
       args.push('-filter_complex', filterComplex);
       args.push('-map', mapVideo);
-      args.push('-map', '0:a?');
 
       // ── Encoding: tier-based quality params ──
       args.push(...buildCommonEncodingArgs(tier, fps));
 
-      // ── Audio filter chain ──
+      // ── Audio chain: base filters ──
       const audioFilters = [];
 
       // Audio fingerprint shift: always applied to change the audio signature.
-      // ±3% pitch+tempo shift is imperceptible but defeats duplicate detection.
       const audioShift = buildAudioShiftFilters(48000);
       audioFilters.push(...audioShift.filters);
       console.log('[FFmpeg] Audio fingerprint shift: +3% asetrate/atempo (anti-duplicate)');
@@ -1064,12 +1063,97 @@ export async function renderClip(inputPath, outputPath, options = {}) {
       if (speedFilters.audio.length > 0) {
         audioFilters.push(...speedFilters.audio);
       }
-      if (audioFilters.length > 0) {
-        args.push('-af', audioFilters.join(','));
+
+      // ── Voiceover mixing with ducking ──
+      const hasVoiceover = Array.isArray(voiceoverPaths) && voiceoverPaths.length > 0;
+
+      if (hasVoiceover) {
+        // Strategy: add each VO MP3 as extra input, build an audio filter_complex
+        // that: (1) processes original audio, (2) delays each VO to its timestamp,
+        // (3) ducks the original to 35% during VO, (4) mixes everything.
+        //
+        // We use the sidechaincompress approach: build a VO mix track, use it to
+        // duck the original via volume envelope, then amix all together.
+        const voInputIdxStart = inputIdx; // after video + PNG overlay inputs
+        for (const vo of voiceoverPaths) {
+          args.push('-i', vo.path);
+          inputIdx++;
+        }
+
+        // Build audio filter graph in the filter_complex
+        // Step 1: Process original audio with base filters
+        const origChain = audioFilters.length > 0
+          ? `[0:a]${audioFilters.join(',')}[abase]`
+          : `[0:a]acopy[abase]`;
+
+        // Step 2: For each VO, delay it to its startTime and normalize
+        const voLabels = [];
+        const voFilters = [];
+        for (let vi = 0; vi < voiceoverPaths.length; vi++) {
+          const vo = voiceoverPaths[vi];
+          const delayMs = Math.round(vo.startTime * 1000);
+          const idx = voInputIdxStart + vi;
+          const label = `vo${vi}`;
+          // Pad the VO with silence before (adelay) and normalize volume
+          voFilters.push(`[${idx}:a]adelay=${delayMs}|${delayMs},volume=1.8,apad=whole_dur=${clipDuration}[${label}]`);
+          voLabels.push(`[${label}]`);
+        }
+
+        // Step 3: Mix all VO tracks into one combined VO track
+        let voMixLabel;
+        if (voLabels.length === 1) {
+          voMixLabel = voLabels[0].replace('[', '').replace(']', '');
+        } else {
+          voFilters.push(`${voLabels.join('')}amix=inputs=${voLabels.length}:duration=longest:normalize=0[vomix]`);
+          voMixLabel = 'vomix';
+        }
+
+        // Step 4: Duck original audio when VO is playing
+        // Use sidechaincompress: the VO signal compresses (ducks) the original.
+        // threshold=-30dB so any VO speech triggers ducking, ratio 4:1 → ~35% volume,
+        // attack 200ms (smooth fade down), release 200ms (smooth fade up).
+        const duckFilter = `[abase][${voMixLabel}]sidechaincompress=threshold=0.02:ratio=4:attack=200:release=200:level_sc=1[ducked]`;
+
+        // Step 5: Mix ducked original + VO
+        const mixFilter = `[ducked][${voMixLabel}copy]amix=inputs=2:duration=first:dropout_transition=0:normalize=0[aout]`;
+        // Need a copy of VO for mixing (sidechaincompress consumed it)
+        const voCopyFilter = `[${voMixLabel}]asplit=2[${voMixLabel}sc][${voMixLabel}copy]`;
+
+        // Rebuild: VO processing → split VO → duck → mix
+        // Rewrite filter_complex to include audio
+        let audioFC = origChain;
+        audioFC += ';' + voFilters.join(';');
+        // Split the VO mix for sidechain + mix
+        if (voLabels.length === 1) {
+          const singleLabel = voLabels[0].replace('[', '').replace(']', '');
+          // Re-do: we already created [vo0], split it
+          audioFC += `;[${singleLabel}]asplit=2[${singleLabel}sc][${singleLabel}copy]`;
+          audioFC += `;[abase][${singleLabel}sc]sidechaincompress=threshold=0.02:ratio=4:attack=200:release=200:level_sc=1[ducked]`;
+          audioFC += `;[ducked][${singleLabel}copy]amix=inputs=2:duration=first:dropout_transition=0:normalize=0[aout]`;
+        } else {
+          audioFC += `;[vomix]asplit=2[vomixsc][vomixcopy]`;
+          audioFC += `;[abase][vomixsc]sidechaincompress=threshold=0.02:ratio=4:attack=200:release=200:level_sc=1[ducked]`;
+          audioFC += `;[ducked][vomixcopy]amix=inputs=2:duration=first:dropout_transition=0:normalize=0[aout]`;
+        }
+
+        // Append audio filter graph to the existing video filter_complex
+        const fcIdx = args.indexOf('-filter_complex');
+        if (fcIdx !== -1) {
+          args[fcIdx + 1] = args[fcIdx + 1] + ';' + audioFC;
+        }
+        args.push('-map', '[aout]');
         args.push('-c:a', 'aac', '-b:a', tier.audioBitrate, '-ar', '48000', '-ac', '2');
+
+        console.log(`[FFmpeg] Voiceover mix: ${voiceoverPaths.length} lines with sidechaincompress ducking`);
       } else {
+        // No voiceover — simple audio filter chain
+        args.push('-map', '0:a?');
+        if (audioFilters.length > 0) {
+          args.push('-af', audioFilters.join(','));
+        }
         args.push('-c:a', 'aac', '-b:a', tier.audioBitrate, '-ar', '48000', '-ac', '2');
       }
+
       if (speedFilters.video.length > 0) {
         const vfIdx = args.lastIndexOf('-vf');
         if (vfIdx !== -1 && args[vfIdx + 1]) {

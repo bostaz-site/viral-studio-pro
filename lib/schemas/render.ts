@@ -71,6 +71,16 @@ export const renderSettingsSchema = z.object({
     silenceThreshold: z.number().min(0.2).max(1.0).optional(),
     mood: z.string().optional(),
   }).optional(),
+  voiceover: z.object({
+    enabled: z.boolean().optional(),
+    voice: z.enum(['default', 'female', 'deep']).optional(),
+    lines: z.array(z.object({
+      text: z.string().max(80),
+      startTime: z.number().min(0),
+      estimatedDuration: z.number().min(0.3).max(4),
+      role: z.enum(['hook', 'reaction', 'closer']),
+    })).optional(),
+  }).optional(),
 })
 
 export type RenderSettings = z.infer<typeof renderSettingsSchema>

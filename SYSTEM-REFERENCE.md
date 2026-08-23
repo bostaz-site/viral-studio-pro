@@ -469,11 +469,42 @@ TikTok flags videos as "Unoriginal, low-quality content" when they appear to be 
 | **Hook text overlay** | Animated capsule with fade in/out | Adds original text content to the frame |
 | **Exposure correction** | Adaptive eq filter based on source luma | Alters the color grading of every frame |
 | **Credit tag** (credit-text style) | Plain "@handle" text with shadow, fades after 4s | NOT a watermark — looks like native TikTok text overlay |
+| **AI Voiceover** (active by default) | Original commentary lines synthesized via ElevenLabs, mixed with ducking | TikTok explicitly accepts "original voiceover" as creative transformation |
 | **Quality re-encode** | 1080x1920, CRF 17, libx264 high profile, bt709 color | Full re-encode — every frame is regenerated |
 
 **Honest disclaimer**: these transformations produce genuinely edited content, but TikTok's Community Guidelines compliance also depends on the user's clip choice (e.g. music copyright, content rights). The pipeline does not guarantee For You feed eligibility for every clip. Users re-posting content they don't own should add significant creative value.
 
 **Quality gate**: VPS logs a `LOW_RES_WARNING` when source resolution is below 720p. Output is always 1080x1920 (HIGH tier) or 720x1280 (SAFE/LAST_RESORT fallback), never upscaled from a visibly low-quality source without logging.
+
+### AI Voiceover — Original Commentary Layer
+
+TikTok's originality policy cites "original voiceover" as an acceptable creative transformation. The pipeline generates and mixes AI commentary:
+
+**Chain**: Word timestamps (Whisper) -> Script generation (Claude Haiku) -> TTS synthesis (ElevenLabs) -> FFmpeg audio mix with ducking.
+
+**Script generation** (`lib/ai/voiceover-writer.ts` + VPS inline `generateVoiceoverScriptOnVps`):
+- Claude Haiku writes 2-4 short commentary lines (5-10 words each)
+- 1 hook line at 0-1.5s (builds anticipation), 1-2 reactions near audio peaks or silence gaps, optional closer
+- Uses word timestamps to find silence gaps (>= 0.6s) — never places VO over key streamer dialogue
+- Rules: casual clipper tone, no promises ("this will go viral"), no screen description
+
+**TTS synthesis** (`vps/lib/elevenlabs-client.js`):
+- ElevenLabs `eleven_turbo_v2_5` model, stability 0.4 (energetic), speaker boost ON
+- 3 voice options: default (energetic male), female (clear), deep (deep male)
+- Cost: ~$0.01-0.03/clip ($0.15/1K chars), logged to `ai_calls` with `feature: voiceover_elevenlabs`
+- 15s timeout per line; any failure → render continues without voiceover
+
+**Audio mixing** (`vps/lib/ffmpeg-render.js`):
+- VO MP3s added as extra FFmpeg inputs, delayed to their `startTime` via `adelay`
+- Ducking via `sidechaincompress`: original audio drops to ~35% during VO (threshold=0.02, ratio=4:1, attack/release=200ms)
+- Final `amix` merges ducked original + voiceover track
+
+**UI** (Enhance page accordion "AI Voiceover"):
+- Toggle (ON by default), voice selector (3 options), editable script preview
+- Script populated after AI Optimize runs or during render
+- Available on ALL plans (Free, Pro, Studio) — this is what makes clips publishable
+
+**Graceful degradation**: If ELEVENLABS_API_KEY is missing, API fails, or Claude can't generate a script, the render succeeds without voiceover. No TTS failure blocks a render.
 
 ### Gotchas
 - VPS POST has 15s timeout but VPS continues processing (fire-and-forget)

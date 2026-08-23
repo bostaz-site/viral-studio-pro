@@ -8,7 +8,7 @@ import {
   ChevronLeft, Loader2, AlertCircle, Sparkles, Download, CheckCircle, Check,
   Type, Wand2, Eye, ExternalLink, Play,
   Monitor, Zap, Send,
-  Flame, Focus, X, Plus, Volume2, Scissors, RotateCcw, Rocket, SlidersHorizontal, Gift, Clock,
+  Flame, Focus, X, Plus, Volume2, Scissors, RotateCcw, Rocket, SlidersHorizontal, Gift, Clock, Mic,
 } from 'lucide-react'
 import { WolfLoader } from '@/components/ui/wolf-loader'
 import { Button } from '@/components/ui/button'
@@ -147,6 +147,9 @@ export default function EnhancePage() {
     hookTextPosition: 15,
     hookLength: 0,
     hookReorder: null,
+    voiceoverEnabled: true,
+    voiceoverVoice: 'default',
+    voiceoverLines: [],
   }
 
   const [settings, setSettings] = useState<EnhanceSettings>({ ...DEFAULT_SETTINGS })
@@ -684,6 +687,11 @@ export default function EnhancePage() {
               overlayCapsuleW: hookOverlayData?.capsuleW || null,
               overlayCapsuleH: hookOverlayData?.capsuleH || null,
             }})(),
+            voiceover: {
+              enabled: settings.voiceoverEnabled,
+              voice: settings.voiceoverVoice,
+              lines: settings.voiceoverLines.length > 0 ? settings.voiceoverLines : undefined,
+            },
           },
         }),
       })
@@ -962,6 +970,7 @@ export default function EnhancePage() {
       hookStyle: preset.hookStyle,
       hookTextPosition: preset.hookTextPosition,
       hookLength: preset.hookLength,
+      voiceoverEnabled: preset.voiceoverEnabled ?? true,
     }))
   }, [clip?.platform])
 
@@ -2166,6 +2175,118 @@ export default function EnhancePage() {
                       <p>• High-pass filter (80Hz) — removes rumble & background noise</p>
                       <p>• FFT denoising — cleans up residual noise</p>
                       <p>• Loudness normalization — constant broadcast-style volume</p>
+                    </div>
+                  )}
+                </div>
+              </AccordionContent>
+            </AccordionItem>
+
+            {/* ─── AI Voiceover Section ─── */}
+            <AccordionItem value="voiceover" className={cn("scroll-mt-32 va-panel px-4 overflow-hidden", settings.voiceoverEnabled ? 'va-panel-active' : 'va-panel-muted')}>
+              <AccordionTrigger className="text-zinc-400 hover:text-white">
+                <span className="flex items-center gap-2 text-sm font-medium text-foreground">
+                  <Mic className={cn("h-4 w-4", settings.voiceoverEnabled ? 'text-amber-400' : 'text-zinc-500')} />
+                  AI Voiceover
+                  <span className="text-xs text-zinc-500 font-normal">
+                    {settings.voiceoverEnabled ? '· On' : '· Off'}
+                  </span>
+                  {hasAiAnalyzed && settings.voiceoverEnabled && (
+                    <span className="ml-auto text-[11px] font-bold text-emerald-400 animate-[scorePop_0.4s_ease-out]">+{getOptionPts(0.06)} pts</span>
+                  )}
+                </span>
+              </AccordionTrigger>
+              <AccordionContent>
+                <div className="space-y-4">
+                  <button
+                    onClick={() => updateSetting('voiceoverEnabled', !settings.voiceoverEnabled)}
+                    className={cn(
+                      'w-full rounded-xl border p-3 text-left transition-all flex items-center justify-between',
+                      settings.voiceoverEnabled
+                        ? 'border-primary bg-primary/10 ring-1 ring-primary/30'
+                        : 'border-border hover:border-primary/40'
+                    )}
+                  >
+                    <div>
+                      <span className="text-sm font-semibold text-foreground block">
+                        {settings.voiceoverEnabled ? 'Enabled' : 'Disabled'}
+                      </span>
+                      <span className="text-[10px] text-muted-foreground block mt-0.5">
+                        AI-generated commentary adds original content (required by TikTok)
+                      </span>
+                    </div>
+                    <div className={cn(
+                      'w-10 h-5 rounded-full relative transition-all',
+                      settings.voiceoverEnabled ? 'bg-emerald-500' : 'bg-border'
+                    )}>
+                      <div className={cn(
+                        'absolute top-0.5 w-4 h-4 rounded-full bg-white transition-all',
+                        settings.voiceoverEnabled ? 'left-[22px]' : 'left-0.5'
+                      )} />
+                    </div>
+                  </button>
+
+                  {settings.voiceoverEnabled && (
+                    <div className="space-y-3 animate-in fade-in slide-in-from-top-1">
+                      {/* Voice selection */}
+                      <div className="space-y-1.5">
+                        <span className="text-xs text-muted-foreground uppercase tracking-wider">Voice</span>
+                        <div className="grid grid-cols-3 gap-2">
+                          {([
+                            { id: 'default' as const, label: 'Energetic', desc: 'Male narrator' },
+                            { id: 'female' as const, label: 'Clear', desc: 'Female narrator' },
+                            { id: 'deep' as const, label: 'Deep', desc: 'Deep male' },
+                          ]).map(v => (
+                            <button
+                              key={v.id}
+                              onClick={() => updateSetting('voiceoverVoice', v.id)}
+                              className={cn(
+                                'rounded-lg border p-2 text-center transition-all text-xs',
+                                settings.voiceoverVoice === v.id
+                                  ? 'border-primary bg-primary/10 ring-1 ring-primary/30'
+                                  : 'border-border hover:border-primary/40'
+                              )}
+                            >
+                              <div className="font-semibold">{v.label}</div>
+                              <div className="text-[9px] text-muted-foreground">{v.desc}</div>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Script preview / editor */}
+                      {settings.voiceoverLines.length > 0 && (
+                        <div className="space-y-1.5">
+                          <span className="text-xs text-muted-foreground uppercase tracking-wider">Script (editable)</span>
+                          <div className="space-y-1">
+                            {settings.voiceoverLines.map((line, i) => (
+                              <div key={i} className="flex items-center gap-2 bg-muted/50 rounded-lg p-2">
+                                <span className="text-[9px] text-amber-400 font-bold uppercase w-12 flex-shrink-0">{line.role}</span>
+                                <input
+                                  value={line.text}
+                                  onChange={(e) => {
+                                    const newLines = [...settings.voiceoverLines]
+                                    newLines[i] = { ...newLines[i], text: e.target.value }
+                                    updateSetting('voiceoverLines', newLines)
+                                  }}
+                                  className="flex-1 bg-transparent text-xs text-foreground border-none outline-none"
+                                  maxLength={80}
+                                />
+                                <span className="text-[9px] text-muted-foreground flex-shrink-0">{line.startTime.toFixed(1)}s</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {settings.voiceoverLines.length === 0 && (
+                        <div className="text-[10px] text-muted-foreground bg-muted/50 rounded-lg p-3 space-y-1">
+                          <p className="font-medium text-foreground text-xs">How it works:</p>
+                          <p>• AI writes 2-4 short commentary lines timed to silence gaps</p>
+                          <p>• Commentary is synthesized as voiceover and mixed with ducking</p>
+                          <p>• Original clip audio drops to ~35% during voiceover lines</p>
+                          <p>• Script is generated during render — you can edit it here after AI Optimize</p>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
