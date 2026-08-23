@@ -24,7 +24,7 @@ export interface MoodPreset {
   emphasisEffect: string
   emphasisColor: string
 
-  videoZoom: 'contain' | 'fill' | 'immersive' | 'fullframe'
+  videoZoom: 'auto' | 'contain' | 'fill' | 'immersive' | 'fullframe' | 'fit' | 'reaction'
 
   tagStyle: string
   tagSize: number
@@ -90,7 +90,7 @@ export const MOOD_PRESETS: Record<ClipMood, MoodPreset> = {
     wordsPerLine: 1,
     emphasisEffect: 'scale',
     emphasisColor: 'red',
-    videoZoom: 'fullframe',
+    videoZoom: 'auto',
     smartZoomMode: 'dynamic',
     bassBoost: 'off',
     speedRamp: 'dynamic',
@@ -112,7 +112,7 @@ export const MOOD_PRESETS: Record<ClipMood, MoodPreset> = {
     wordsPerLine: 2,
     emphasisEffect: 'bounce',
     emphasisColor: 'yellow',
-    videoZoom: 'fullframe',
+    videoZoom: 'auto',
     smartZoomMode: 'micro',
     speedRamp: 'subtle',
     autoCutEnabled: false,
@@ -133,7 +133,7 @@ export const MOOD_PRESETS: Record<ClipMood, MoodPreset> = {
     wordsPerLine: 2,
     emphasisEffect: 'glow',
     emphasisColor: 'purple',
-    videoZoom: 'fullframe',
+    videoZoom: 'auto',
     smartZoomMode: 'follow',
     bassBoost: 'off',
     autoCutEnabled: false,
@@ -154,7 +154,7 @@ export const MOOD_PRESETS: Record<ClipMood, MoodPreset> = {
     wordsPerLine: 4,
     emphasisEffect: 'none',
     emphasisColor: 'cyan',
-    videoZoom: 'fullframe',
+    videoZoom: 'auto',
     smartZoomMode: 'micro',
     autoCutEnabled: false,
     autoCutThreshold: 0.7,
@@ -174,7 +174,7 @@ export const MOOD_PRESETS: Record<ClipMood, MoodPreset> = {
     wordsPerLine: 1,
     emphasisEffect: 'scale',
     emphasisColor: 'orange',
-    videoZoom: 'fullframe',
+    videoZoom: 'auto',
     smartZoomMode: 'dynamic',
     bassBoost: 'off',
     speedRamp: 'dynamic',
@@ -196,7 +196,7 @@ export const MOOD_PRESETS: Record<ClipMood, MoodPreset> = {
     wordsPerLine: 5,
     emphasisEffect: 'none',
     emphasisColor: 'white',
-    videoZoom: 'fullframe',
+    videoZoom: 'auto',
     smartZoomMode: 'micro',
     bassBoost: 'off',
     autoCutEnabled: true,

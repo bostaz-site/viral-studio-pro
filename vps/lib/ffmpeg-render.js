@@ -711,6 +711,7 @@ export async function renderClip(inputPath, outputPath, options = {}) {
     bassBoost = 'off',
     speedRamp = 'off',
     voiceoverPaths = null, // [{path, startTime, estimatedDuration}]
+    reactionLayout = null, // {faceRegion: {x,y,w,h}, contentRegion: {x,y,w,h}}
   } = options;
 
   if (!inputPath || !outputPath) {
@@ -820,24 +821,62 @@ export async function renderClip(inputPath, outputPath, options = {}) {
       // ── Build filter_complex for this tier ─────────────────────────────
       const isWordPopAnimation = captions && captions.animation === 'word-pop';
       const smartZoomActive = smartZoom && smartZoom.enabled;
+      const isReaction = videoZoom === 'reaction' && reactionLayout;
       const isFullFrame = videoZoom === 'fullframe';
-      const zoomFactor = isFullFrame ? 1.0 : videoZoom === 'immersive' ? 1.35 : videoZoom === 'fill' ? 1.15 : 1.0;
+      // 'auto' should be resolved by crop-advisor in render.js; if it leaks here, treat as fit (safe)
+      const isFit = videoZoom === 'fit' || videoZoom === 'auto';
+      const zoomFactor = (isFullFrame || isReaction || isFit) ? 1.0 : videoZoom === 'immersive' ? 1.35 : videoZoom === 'fill' ? 1.15 : 1.0;
 
       // Source UI removal: aggressive border crop to strip Twitch/Kick overlays
       // (chat, alerts, counters, streamer logos). 100px on 1080p sources ≈ 5% per side.
-      const borderCrop = isFullFrame ? 100 : 60;
+      const borderCrop = (isFullFrame || isReaction) ? 100 : 60;
 
       let filterComplex;
       let mapVideo;
 
       // ── Step 1: Scale/Crop compositing ─────────────────────────────────
-      if (isFullFrame) {
+      if (isReaction) {
+        // REACTION MODE: facecam top (~32%), content bottom (~68%), full width.
+        // Crops the webcam region and the content region separately from the
+        // source, scales each to fill canvas width, stacks vertically.
+        const face = reactionLayout.faceRegion;
+        const facePct = 0.32; // facecam gets 32% of canvas height
+        const contentPct = 1 - facePct;
+        const faceH = Math.round(canvasH * facePct);
+        const contentH = canvasH - faceH;
+
+        // Divider line: 2px dark line at the junction
+        const divH = 2;
+
+        filterComplex = [
+          // Crop face region from source, scale to fill canvas width, crop to exact faceH
+          `[0:v]fps=${fps},crop=${face.w}:${face.h}:${face.x}:${face.y},scale=${canvasW}:${faceH}:force_original_aspect_ratio=increase:flags=lanczos,crop=${canvasW}:${faceH}:(iw-${canvasW})/2:(ih-${faceH})/2,setsar=1[facecam]`,
+          // Crop content: full source minus border, scale to fill canvas width, crop to contentH
+          `[0:v]fps=${fps},crop=in_w-${borderCrop*2}:in_h-${borderCrop*2}:${borderCrop}:${borderCrop},scale=${canvasW}:${contentH}:force_original_aspect_ratio=increase:flags=lanczos,crop=${canvasW}:${contentH}:(iw-${canvasW})/2:(ih-${contentH})/2,setsar=1[content]`,
+          // Stack: facecam on top, content on bottom
+          `[facecam][content]vstack=inputs=2[composed]`,
+        ].join(';');
+        mapVideo = '[composed]';
+        console.log(`[FFmpeg] Reaction layout: face(${face.x},${face.y},${face.w}x${face.h}) → ${canvasW}x${faceH} top, content → ${canvasW}x${contentH} bottom`);
+      } else if (isFullFrame) {
         // FULL-FRAME MODE: center crop directly to 9:16 (no blurred padding).
         // Scales source to fill the canvas vertically, crops sides to exact width.
         // This eliminates the blurred-background signature that TikTok flags as repost.
         filterComplex = `[0:v]fps=${fps},crop=in_w-${borderCrop*2}:in_h-${borderCrop*2}:${borderCrop}:${borderCrop},scale=${canvasW}:${canvasH}:force_original_aspect_ratio=increase:flags=lanczos,crop=${canvasW}:${canvasH}:(iw-${canvasW})/2:(ih-${canvasH})/2,setsar=1[composed]`;
         mapVideo = '[composed]';
         console.log(`[FFmpeg] Full-frame crop: ${canvasW}x${canvasH}, border trim ${borderCrop}px`);
+      } else if (isFit) {
+        // FIT MODE: preserve full image, scale to fill width, cinematic blurred padding.
+        // Deep blur (sigma=24), dark (-0.45), heavily desaturated (s=0.5) → neutral texture.
+        // Used for gameplay, IRL wide shots — content stays fully visible.
+        filterComplex = [
+          `[0:v]fps=${fps},crop=in_w-${borderCrop*2}:in_h-${borderCrop*2}:${borderCrop}:${borderCrop},split=2[fitfg][fitbg]`,
+          `[fitbg]scale=${Math.round(canvasW/4)}:${Math.round(canvasH/4)}:force_original_aspect_ratio=increase,crop=${Math.round(canvasW/4)}:${Math.round(canvasH/4)}:(iw-${Math.round(canvasW/4)})/2:(ih-${Math.round(canvasH/4)})/2,gblur=sigma=24,eq=brightness=-0.45,hue=s=0.5,scale=${canvasW}:${canvasH}:flags=bilinear,setsar=1[fitbgout]`,
+          `[fitfg]scale=${canvasW}:${canvasH}:force_original_aspect_ratio=decrease:flags=lanczos,setsar=1[fitfgout]`,
+          `[fitbgout][fitfgout]overlay=(W-w)/2:(H-h)/2[composed]`,
+        ].join(';');
+        mapVideo = '[composed]';
+        console.log(`[FFmpeg] Fit mode: full content + cinematic blurred padding (sigma=24)`);
       } else if (isWordPopAnimation) {
         if (zoomFactor > 1.0) {
           const bigW = Math.round(canvasW * zoomFactor);

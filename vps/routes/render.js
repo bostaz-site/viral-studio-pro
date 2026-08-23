@@ -14,6 +14,8 @@ import { detectBurnedCaptions } from '../lib/caption-detector.js';
 import { transcribeWithWhisper } from '../lib/whisper-client.js';
 import { applyAutoCut, classifyIntensity, getAdaptiveThreshold } from '../lib/auto-cut.js';
 import { synthesizeVoiceover } from '../lib/elevenlabs-client.js';
+import { detectReactionLayout } from '../lib/layout-detector.js';
+import { adviseCrop } from '../lib/crop-advisor.js';
 import { enqueueRender, getQueueStatus } from '../lib/render-queue.js';
 import {
   getClip,
@@ -880,6 +882,51 @@ router.post('/', async (req, res) => {
       trc(`TAG skipped (style=${settings.tag?.style || 'undefined'})`);
     }
 
+    // ─── Smart Crop Selection ───
+    // For 'auto' mode: detect content type and pick the best framing.
+    //   - Reaction layout (webcam in corner) → reaction
+    //   - Dominant centered face (talking head) → fullframe
+    //   - Gameplay / wide content / no face → fit (padded)
+    // For explicit modes: still detect reaction layout when fullframe/reaction.
+    let reactionLayout = null;
+    const requestedZoom = settings.format?.videoZoom || 'auto';
+    const isAutoMode = requestedZoom === 'auto';
+
+    if (source === 'trending' && (isAutoMode || requestedZoom === 'fullframe' || requestedZoom === 'reaction')) {
+      try {
+        trc('LAYOUT DETECTION starting...');
+        const layoutResult = await detectReactionLayout(inputPath, { timeoutMs: 10000 });
+        if (layoutResult.isReactionLayout) {
+          reactionLayout = layoutResult;
+          trc(`LAYOUT DETECTION: reaction layout detected (confidence=${layoutResult.confidence.toFixed(2)})`);
+        } else {
+          trc(`LAYOUT DETECTION: not a reaction layout (confidence=${layoutResult.confidence.toFixed(2)})`);
+        }
+      } catch (layoutErr) {
+        trc(`LAYOUT DETECTION error (non-fatal): ${layoutErr.message}`);
+      }
+
+      // Auto mode: run crop advisor to pick the best framing
+      if (isAutoMode) {
+        try {
+          trc('CROP ADVISOR starting...');
+          const advice = await adviseCrop(inputPath, { reactionLayout, timeoutMs: 12000 });
+          settings.format = settings.format || {};
+          settings.format.videoZoom = advice.recommended;
+          trc(`CROP ADVISOR: ${advice.recommended} (faceScore=${advice.faceScore.toFixed(2)}, reason=${advice.reason})`);
+        } catch (cropErr) {
+          trc(`CROP ADVISOR error (non-fatal): ${cropErr.message} — defaulting to fit`);
+          settings.format = settings.format || {};
+          settings.format.videoZoom = 'fit';
+        }
+      } else if (requestedZoom === 'fullframe' && reactionLayout?.isReactionLayout) {
+        // Explicit fullframe but reaction detected → auto-switch
+        settings.format = settings.format || {};
+        settings.format.videoZoom = 'reaction';
+        trc(`Auto-switching fullframe → reaction (reaction layout detected)`);
+      }
+    }
+
     // ─── Face Detection (for follow mode) ───
     let faceKeyframes = null;
     if (settings.smartZoom?.enabled && settings.smartZoom?.mode === 'follow') {
@@ -1271,7 +1318,7 @@ router.post('/', async (req, res) => {
       tag: tagConfig,
       cropAnchor: settings.format?.cropAnchor || 'center',
       backgroundBlur: settings.format?.backgroundBlur !== false,
-      videoZoom: settings.format?.videoZoom || 'contain',
+      videoZoom: settings.format?.videoZoom || 'auto',
       smartZoom: settings.smartZoom?.enabled ? {
         enabled: true,
         mode: settings.smartZoom.mode || 'micro',
@@ -1290,6 +1337,7 @@ router.post('/', async (req, res) => {
       } : null,
       audioEnhance: settings.audioEnhance?.enabled || false,
       voiceoverPaths: voiceoverPaths && voiceoverPaths.length > 0 ? voiceoverPaths : null,
+      reactionLayout: reactionLayout && reactionLayout.isReactionLayout ? reactionLayout : null,
     });
 
     const qualityTier = renderResult?.qualityTier || null;
@@ -1567,7 +1615,7 @@ router.post('/preview', async (req, res) => {
       tag: tagConfig,
       cropAnchor: settings.format?.cropAnchor || 'center',
       backgroundBlur: settings.format?.backgroundBlur || false,
-      videoZoom: settings.format?.videoZoom || 'contain',
+      videoZoom: settings.format?.videoZoom || 'auto',
       crf: 30, // Lower quality for speed
       smartZoom: null, // Skip smart zoom for preview
       hook: settings.hook?.enabled ? {

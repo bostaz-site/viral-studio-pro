@@ -254,13 +254,32 @@ Split-screen / b-roll is permanently removed (2026-08-12). Four `videoZoom` crop
 | Mode | Behavior | Default? |
 |---|---|---|
 | **fullframe** | Center crop to 9:16 — no blurred padding. Scales source to fill canvas vertically, crops sides. Eliminates the repost-signature blurred bars. | YES (all mood presets) |
+| **reaction** | Auto-detected: facecam top (~32%), content bottom (~68%), both full width. Webcam region cropped and scaled separately. | Auto (when reaction layout detected) |
 | **fill** | Clip scaled 115% over blurred-pad background. Some blur visible at edges. | No |
 | **immersive** | Clip scaled 135% over blurred-pad. Minimal blur visible. | No |
 | **contain** | Clip fit inside canvas with deep-blur background pad (old default). | No |
 
-Blurred-pad pipeline (for non-fullframe modes): downscale /4 → `gblur=sigma=6` (effective sigma 24) → `eq=brightness=-0.45` → `hue=s=0.85` → upscale bilinear. CSS preview mirrors: `blur(14px) brightness(0.55) saturate(0.85)`. Fullframe CSS preview: `object-cover` (no blurred background rendered).
+Blurred-pad pipeline (for non-fullframe modes): downscale /4 → `gblur=sigma=6` (effective sigma 24) → `eq=brightness=-0.45` → `hue=s=0.85` → upscale bilinear. CSS preview mirrors: `blur(14px) brightness(0.55) saturate(0.85)`. Fullframe CSS preview: `object-cover` (no blurred background rendered). Reaction CSS preview: two stacked `<div>` zones with `object-cover` and `object-right-top` for the facecam.
 
-Source UI removal: all modes apply a border crop (100px for fullframe, 60px for others) to strip Twitch/Kick stream overlays (chat, alerts, counters, streamer logos) from the output.
+Source UI removal: all modes apply a border crop (100px for fullframe/reaction, 60px for others) to strip Twitch/Kick stream overlays (chat, alerts, counters, streamer logos) from the output.
+
+### Reaction Layout Detection
+Automatically detects "reaction" clip layouts (small webcam overlay in a corner over main content) and recomposes them as a vertical stack: facecam on top (~32%), content on bottom (~68%), both at full canvas width.
+
+**Detection** (`vps/lib/layout-detector.js`):
+- Runs `face-detect.py` (OpenCV Haar cascade) on the source with coarse sampling (every 30 frames), 10s timeout
+- Only applies to horizontal sources (16:9) — vertical sources skip detection
+- Heuristic scoring (0-1 confidence) based on: face in corner quadrant (+0.5), moderate detection rate (+0.2), widescreen aspect (+0.15), low positional variance (+0.15)
+- Threshold: confidence >= 0.6 → reaction layout confirmed
+- On failure or low confidence → falls back to fullframe (safe default)
+
+**Auto-switching**: when a trending clip is set to `fullframe` (default), the VPS runs layout detection before rendering. If reaction layout is detected, `videoZoom` is auto-switched to `reaction`. User can force `fullframe` in the Enhance UI to override.
+
+**FFmpeg composition** (`vps/lib/ffmpeg-render.js`):
+- Facecam region: cropped from detected face corner, scaled to fill canvas width, cropped to 32% of canvas height
+- Content region: full source with border crop, scaled to fill canvas width, cropped to 68% of canvas height
+- Stacked via FFmpeg `vstack=inputs=2`
+- Captions render on the content zone (bottom), never over the face
 
 ### UI — Sliders
 All 7 sliders (caption position, words/line, tag size, split ratio, hook position, silence threshold, auto-cut) use the unified `components/ui/slider.tsx` (shadcn-style). Single branded style: `bg-white/10` rail, amber gradient fill (`from-amber-400 to-amber-600`), amber thumb with glow + `hover:scale-110`, accessible focus outline. No per-instance overrides.
@@ -469,6 +488,7 @@ TikTok flags videos as "Unoriginal, low-quality content" when they appear to be 
 | **Hook text overlay** | Animated capsule with fade in/out | Adds original text content to the frame |
 | **Exposure correction** | Adaptive eq filter based on source luma | Alters the color grading of every frame |
 | **Credit tag** (credit-text style) | Plain "@handle" text with shadow, fades after 4s | NOT a watermark — looks like native TikTok text overlay |
+| **Reaction layout recomposition** (auto-detected) | Detects webcam overlay, restacks facecam top + content bottom at full width | Complete spatial recomposition — fundamentally different frame than source |
 | **AI Voiceover** (active by default) | Original commentary lines synthesized via ElevenLabs, mixed with ducking | TikTok explicitly accepts "original voiceover" as creative transformation |
 | **Quality re-encode** | 1080x1920, CRF 17, libx264 high profile, bt709 color | Full re-encode — every frame is regenerated |
 

@@ -267,15 +267,19 @@ export function LivePreview({
       >
         {clip.thumbnail_url || videoUrl ? (
           <>
-            {/* Blurred background fill — matches FFmpeg gblur sigma=24 + eq(brightness=-0.45) + hue(s=0.85) */}
-            {/* Hidden in fullframe mode (no blurred padding — full crop to 9:16) */}
-            {settings.videoZoom !== 'fullframe' && (
-              videoUrl ? (
+            {/* Blurred background fill — visible in fit/contain/fill modes, hidden in fullframe/reaction */}
+            {settings.videoZoom !== 'fullframe' && settings.videoZoom !== 'reaction' && (() => {
+              // fit/auto: deep cinematic blur (sigma=24 equiv), dark, desaturated
+              const isFitLike = settings.videoZoom === 'fit' || settings.videoZoom === 'auto'
+              const blurFilter = isFitLike
+                ? 'blur(20px) brightness(0.45) saturate(0.5)'
+                : 'blur(14px) brightness(0.55) saturate(0.85)'
+              return videoUrl ? (
                 <video
                   key={videoUrl}
                   src={videoUrl}
                   className="absolute inset-0 w-full h-full object-cover scale-110"
-                  style={{ filter: 'blur(14px) brightness(0.55) saturate(0.85)' }}
+                  style={{ filter: blurFilter }}
                   aria-hidden="true"
                   autoPlay loop muted playsInline
                 />
@@ -287,16 +291,77 @@ export function LivePreview({
                   unoptimized={clip.thumbnail_url!.includes('kick.com')}
                   sizes="310px"
                   className="object-cover scale-110"
-                  style={{ filter: 'blur(14px) brightness(0.55) saturate(0.85)' }}
+                  style={{ filter: blurFilter }}
                   aria-hidden="true"
                 />
               )
-            )}
-            {/* Main video layer — zoom makes the element LARGER than container with object-contain */}
-            {/* Parent overflow-hidden clips the excess. Video stays landscape, just bigger. */}
-            {/* Fullframe: object-cover crops to fill (no padding), others: object-contain + zoom */}
+            })()}
+            {/* Main video layer */}
             {(() => {
               const isFullFrame = settings.videoZoom === 'fullframe'
+              const isReaction = settings.videoZoom === 'reaction'
+
+              // Reaction mode: stacked layout preview (facecam top, content bottom)
+              if (isReaction) {
+                const videoSrc = videoUrl && !videoLoadFailed ? videoUrl : null
+                const thumbSrc = clip.thumbnail_url
+                return (
+                  <div className="relative w-full h-full flex flex-col z-[1]">
+                    {/* Top: facecam (~32%) — zoomed crop of corner */}
+                    <div className="relative w-full overflow-hidden" style={{ height: '32%' }}>
+                      {videoSrc ? (
+                        <video
+                          src={videoSrc}
+                          className="absolute inset-0 w-full h-full object-cover object-right-top"
+                          style={{ transform: 'scale(2.5)', transformOrigin: 'top right' }}
+                          autoPlay loop muted playsInline
+                        />
+                      ) : thumbSrc ? (
+                        <Image
+                          src={thumbSrc}
+                          alt=""
+                          fill
+                          unoptimized={thumbSrc.includes('kick.com')}
+                          sizes="310px"
+                          className="object-cover object-right-top"
+                          style={{ transform: 'scale(2.5)', transformOrigin: 'top right' }}
+                        />
+                      ) : (
+                        <div className="w-full h-full bg-zinc-800" />
+                      )}
+                    </div>
+                    {/* Divider line */}
+                    <div className="w-full h-[2px] bg-zinc-900 flex-shrink-0" />
+                    {/* Bottom: content (~68%) — full width center crop */}
+                    <div className="relative flex-1 overflow-hidden">
+                      {videoSrc ? (
+                        <video
+                          src={videoSrc}
+                          className="absolute inset-0 w-full h-full object-cover"
+                          autoPlay loop muted playsInline
+                          onCanPlay={() => { videoLoadStartedRef.current = true; setVideoLoadFailed(false) }}
+                          onError={() => setVideoLoadFailed(true)}
+                          onTimeUpdate={(e) => setVideoTime(e.currentTarget.currentTime)}
+                        />
+                      ) : thumbSrc ? (
+                        <Image
+                          src={thumbSrc}
+                          alt={clip.title ?? 'Clip'}
+                          fill
+                          unoptimized={thumbSrc.includes('kick.com')}
+                          sizes="310px"
+                          className="object-cover"
+                        />
+                      ) : (
+                        <div className="w-full h-full bg-zinc-800 flex items-center justify-center">
+                          <Play className="h-5 w-5 text-zinc-600" />
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )
+              }
+
               // Fullframe uses object-cover to center-crop to 9:16 (no blurred bg)
               // Other modes: element bigger than container, object-contain keeps video landscape
               const sizePct = isFullFrame ? 100

@@ -55,7 +55,7 @@ export const renderSettingsSchema = z.object({
   }).optional(),
   format: z.object({
     aspectRatio: z.string().optional(),
-    videoZoom: z.enum(['contain', 'fill', 'immersive', 'fullframe']).optional(),
+    videoZoom: z.enum(['auto', 'contain', 'fill', 'immersive', 'fullframe', 'fit', 'reaction']).optional(),
   }).optional(),
   smartZoom: z.object({
     enabled: z.boolean().optional(),

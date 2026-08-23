@@ -146,7 +146,7 @@ export const POST = withAuth(async (request: NextRequest, user) => {
     },
     format: {
       aspectRatio: '9:16',
-      videoZoom: 'fullframe',
+      videoZoom: 'auto',
     },
     smartZoom: {
       enabled: true,

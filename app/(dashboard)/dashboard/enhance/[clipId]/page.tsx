@@ -8,7 +8,7 @@ import {
   ChevronLeft, Loader2, AlertCircle, Sparkles, Download, CheckCircle, Check,
   Type, Wand2, Eye, ExternalLink, Play,
   Monitor, Zap, Send,
-  Flame, Focus, X, Plus, Volume2, Scissors, RotateCcw, Rocket, SlidersHorizontal, Gift, Clock, Mic,
+  Flame, Focus, X, Plus, Volume2, Scissors, RotateCcw, Rocket, SlidersHorizontal, Gift, Clock, Mic, Crop,
 } from 'lucide-react'
 import { WolfLoader } from '@/components/ui/wolf-loader'
 import { Button } from '@/components/ui/button'
@@ -128,7 +128,7 @@ export default function EnhancePage() {
     customImportantWords: [],
     captionPosition: 72,
     wordsPerLine: 4,
-    videoZoom: 'fullframe',
+    videoZoom: 'auto',
     tagStyle: 'credit-text',
     tagSize: 100,
     aspectRatio: '9:16',
@@ -2020,7 +2020,66 @@ export default function EnhancePage() {
               </AccordionContent>
             </AccordionItem>
 
-            {/* Format is locked to 9:16 — no UI selector */}
+            {/* ─── Framing / Crop Mode Section ─── */}
+            <AccordionItem value="framing" className="scroll-mt-32 va-panel px-4 overflow-hidden">
+              <AccordionTrigger className="text-zinc-400 hover:text-white">
+                <span className="flex items-center gap-2 text-sm font-medium text-foreground">
+                  <Crop className="h-4 w-4 text-zinc-500" />
+                  Framing
+                  <span className="text-xs text-zinc-500 font-normal">
+                    · {settings.videoZoom === 'auto' ? 'Auto' : settings.videoZoom === 'fullframe' ? 'Full frame' : settings.videoZoom === 'fit' ? 'Fit (padded)' : settings.videoZoom}
+                  </span>
+                </span>
+              </AccordionTrigger>
+              <AccordionContent>
+                <div className="space-y-2">
+                  <Label className="text-xs uppercase tracking-wider text-muted-foreground">Crop mode</Label>
+                  <div className="grid grid-cols-1 gap-2">
+                    {([
+                      {
+                        id: 'auto' as const,
+                        label: 'Auto',
+                        desc: 'Detects content: full frame for face cam, padded fit for gameplay/wide shots.',
+                        badge: 'Recommended',
+                      },
+                      {
+                        id: 'fullframe' as const,
+                        label: 'Full frame',
+                        desc: 'Center crop to 9:16. Best for talking heads and facecam streamers.',
+                        badge: null,
+                      },
+                      {
+                        id: 'fit' as const,
+                        label: 'Fit (padded)',
+                        desc: 'Full image preserved, scaled to width with cinematic blurred padding top/bottom.',
+                        badge: null,
+                      },
+                    ] as const).map((mode) => (
+                      <button
+                        key={mode.id}
+                        onClick={() => updateSetting('videoZoom', mode.id)}
+                        className={cn(
+                          'rounded-xl border p-3 text-left transition-all',
+                          settings.videoZoom === mode.id
+                            ? 'border-primary bg-primary/10 ring-1 ring-primary/30'
+                            : 'border-border hover:border-primary/40'
+                        )}
+                      >
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="text-xs font-semibold text-foreground flex-1">{mode.label}</span>
+                          {mode.badge && (
+                            <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/20">
+                              {mode.badge}
+                            </span>
+                          )}
+                        </div>
+                        <span className="text-[10px] text-muted-foreground">{mode.desc}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </AccordionContent>
+            </AccordionItem>
 
             {/* ─── Smart Zoom Section ─── */}
             <AccordionItem value="smartzoom" className="scroll-mt-32 va-panel px-4 overflow-hidden">

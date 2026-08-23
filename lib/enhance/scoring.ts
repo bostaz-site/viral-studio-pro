@@ -19,7 +19,7 @@ export interface EnhanceSettings {
   customImportantWords: string[]
   captionPosition: number
   wordsPerLine: number
-  videoZoom: 'contain' | 'fill' | 'immersive' | 'fullframe'
+  videoZoom: 'auto' | 'contain' | 'fill' | 'immersive' | 'fullframe' | 'fit' | 'reaction'
   tagStyle: string
   tagSize: number
   aspectRatio: '9:16' | '1:1' | '16:9'
