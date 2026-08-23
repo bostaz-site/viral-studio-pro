@@ -388,7 +388,7 @@ export const POST = withAuth(async (request, user) => {
       },
       smartZoom: settings?.smartZoom ?? { enabled: false, mode: 'micro' },
       audioEnhance: settings?.audioEnhance ?? { enabled: false },
-      autoCut: settings?.autoCut ?? { enabled: false },
+      autoCut: settings?.autoCut ?? { enabled: true, silenceThreshold: 1.2 },
       voiceover: settings?.voiceover ?? { enabled: true },
       sourcePlatform: clipPlatform ?? undefined,
     },

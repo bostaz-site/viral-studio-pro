@@ -156,7 +156,8 @@ export const POST = withAuth(async (request: NextRequest, user) => {
       enabled: true,
     },
     autoCut: {
-      enabled: false,
+      enabled: true,
+      silenceThreshold: 1.2,
     },
     voiceover: {
       enabled: true,

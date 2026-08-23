@@ -137,8 +137,8 @@ export default function EnhancePage() {
     audioEnhanceEnabled: false,
     bassBoost: 'off',
     speedRamp: 'off',
-    autoCutEnabled: false,
-    autoCutThreshold: 0.7,
+    autoCutEnabled: true,
+    autoCutThreshold: 1.2,
     hookEnabled: false,
     hookTextEnabled: true,
     hookReorderEnabled: false, // disabled (cuts mid-word)
@@ -2361,9 +2361,11 @@ export default function EnhancePage() {
               <AccordionTrigger className="text-zinc-400 hover:text-white">
                 <span className="flex items-center gap-2 text-sm font-medium text-foreground">
                   <Scissors className={cn("h-4 w-4", settings.autoCutEnabled ? 'text-amber-400' : 'text-zinc-500')} />
-                  Auto-Cut Silences
+                  Silence Cut
                   <span className="text-xs text-zinc-500 font-normal">
-                    {settings.autoCutEnabled ? `· On · ${settings.autoCutThreshold.toFixed(1)}s threshold` : '· Off'}
+                    {settings.autoCutEnabled
+                      ? `· On · cuts gaps > ${settings.autoCutThreshold.toFixed(1)}s`
+                      : '· Off'}
                   </span>
                   {revealedBonuses.has('autoCut') && scoreBreakdown.autoCut > 0 && (
                     <span className="ml-auto text-[11px] font-bold text-emerald-400 animate-[scorePop_0.4s_ease-out]">+{Math.round(scoreBreakdown.autoCut)} pts</span>
@@ -2392,7 +2394,7 @@ export default function EnhancePage() {
                         {hasAiAnalyzed && <span className="text-[10px] font-bold text-emerald-400 ml-2">+{getOptionPts(0.03)} pts</span>}
                       </span>
                       <span className="text-[10px] text-muted-foreground block mt-0.5">
-                        Automatically removes silences for a punchier clip
+                        Cuts silences longer than {settings.autoCutThreshold.toFixed(1)}s for a punchier clip (max 40% removed)
                       </span>
                     </div>
                     <div className={cn(

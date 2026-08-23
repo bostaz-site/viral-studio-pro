@@ -800,7 +800,7 @@ export async function renderClip(inputPath, outputPath, options = {}) {
       await fs.promises.unlink(endCard.endCardPath).catch(() => {});
       await fs.promises.unlink(listPath).catch(() => {});
 
-      console.log('[FFmpeg] End-card appended (1.2s)');
+      console.log('[FFmpeg] End-card appended (1.5s, free plan)');
     } catch (err) {
       console.warn('[FFmpeg] End-card failed (non-fatal):', err.message);
     }
@@ -1008,7 +1008,10 @@ export async function renderClip(inputPath, outputPath, options = {}) {
       }
 
       // ── Step 8: Watermark ──
-      if (watermark && (plan === 'free' || (plan !== 'free' && watermark.logoPath))) {
+      // Free plan: NO persistent watermark (TikTok flags logos as "unoriginal").
+      // Attribution moved to end-card only (appended after render).
+      // Custom logos (Pro/Studio) still applied if provided.
+      if (watermark && plan !== 'free' && watermark.logoPath) {
         const watermarkFilter = buildWatermarkFilter(watermark, watermarkPosition, plan, clipDuration);
         if (watermarkFilter) {
           filterComplex += `;${mapVideo}${watermarkFilter}[watermarked]`;
@@ -1434,49 +1437,42 @@ function buildTagFilter(tagConfig, canvasW = 720, canvasH = 1280, inputLabel = n
 // ─────────────────────────────────────────────────────────────────────────────
 
 function buildWatermarkFilter(watermark, position, plan, clipDuration) {
-  if (plan !== 'free' && !watermark.logoPath) {
-    return null;
-  }
-
-  if (plan === 'free') {
-    // Position-alternating watermark: top-center first half, bottom-center second half (anti-crop)
-    const halfDuration = (clipDuration || 30) / 2;
-    const topY = 'H*0.06';  // below TikTok safe zone
-    const botY = 'H-th-H*0.06';
-    const centerX = '(W-tw)/2';
-
-    // @viralanimal text with subtle outline for readability on light and dark
-    return `drawtext=text='\\@viralanimal':fontsize=28:fontcolor=white@0.6:borderw=1:bordercolor=black@0.4:x=${centerX}:y=${topY}:enable='lt(t\\,${halfDuration})',drawtext=text='\\@viralanimal':fontsize=28:fontcolor=white@0.6:borderw=1:bordercolor=black@0.4:x=${centerX}:y=${botY}:enable='gte(t\\,${halfDuration})'`;
-  }
-
-  return null;
+  // Free plan: no persistent watermark (replaced by end-card).
+  // Only custom logo watermarks for Pro/Studio users who upload one.
+  if (!watermark.logoPath) return null;
+  return null; // custom logo rendering not yet implemented
 }
 
 /**
- * Build FFmpeg end-card filter for free plan.
- * 1.2s card after the clip: "clipped with VIRAL ANIMAL" on dark bg.
- * Returns null for non-free plans.
+ * Build FFmpeg end-card for free plan.
+ * 1.5s card after the clip: dark bg with branding.
+ * This REPLACES the persistent watermark — attribution without penalizing
+ * the content during playback (TikTok flags persistent logos as unoriginal).
+ * Pro/Studio: no end-card (paid advantage).
  */
 function buildEndCardArgs(outputPath, plan, canvasW, canvasH) {
   if (plan !== 'free') return null;
 
-  // Generate end-card as a 1.2s video with drawtext on solid bg
   const endCardPath = outputPath.replace(/\.mp4$/, '_endcard.mp4');
-  const fontSize = Math.round(canvasW * 0.055);
-  const subFontSize = Math.round(canvasW * 0.032);
+  const titleSize = Math.round(canvasW * 0.06);
+  const subSize = Math.round(canvasW * 0.032);
+  const urlSize = Math.round(canvasW * 0.028);
 
   return {
     endCardPath,
     args: [
       '-y',
       '-f', 'lavfi',
-      '-i', `color=c=0x1a1a2e:s=${canvasW}x${canvasH}:d=1.2:r=30`,
+      '-i', `color=c=0x0f172a:s=${canvasW}x${canvasH}:d=1.5:r=30`,
       '-vf', [
-        `drawtext=text='clipped with':fontsize=${subFontSize}:fontcolor=0xd4d4d8@0.7:x=(w-tw)/2:y=(h/2)-${fontSize}-10`,
-        `drawtext=text='VIRAL ANIMAL':fontsize=${fontSize}:fontcolor=0xf59e0b:x=(w-tw)/2:y=(h/2)-${Math.round(fontSize * 0.3)}`,
-        `drawtext=text='viralanimal.com':fontsize=${subFontSize}:fontcolor=0xa1a1aa@0.6:x=(w-tw)/2:y=(h/2)+${fontSize}+5`,
+        // "Made with" subtitle
+        `drawtext=text='Made with':fontsize=${subSize}:fontcolor=0x94a3b8@0.8:x=(w-tw)/2:y=(h/2)-${titleSize}-15`,
+        // "VIRAL ANIMAL" title in amber
+        `drawtext=text='VIRAL ANIMAL':fontsize=${titleSize}:fontcolor=0xf59e0b:x=(w-tw)/2:y=(h/2)-${Math.round(titleSize * 0.35)}`,
+        // URL
+        `drawtext=text='viralanimal.com':fontsize=${urlSize}:fontcolor=0x64748b@0.6:x=(w-tw)/2:y=(h/2)+${titleSize}+5`,
       ].join(','),
-      '-t', '1.2',
+      '-t', '1.5',
       '-an',
       '-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '23',
       endCardPath,

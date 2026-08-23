@@ -346,16 +346,21 @@ Explicit state machine in `enhanceState` + `enhanceError`:
 - **Speed ramp subtle**: `setpts=PTS/1.03` (video) + `atempo=1.03` (audio). Dynamic: 1.05x. Changes clip duration — subtitle timestamps must be divided by the speed factor.
 - Scoring: mild bass = +0.03, heavy = +0.05; subtle speed = +0.02, dynamic = +0.03
 
-### Adaptive Auto-Cut
-**VPS files:** `vps/lib/auto-cut.js` (`classifyIntensity`, `getAdaptiveThreshold`, `applyAutoCut`), `vps/lib/audio-peaks.js`
+### Silence Cut (auto-cut, enabled by default)
+**VPS files:** `vps/lib/auto-cut.js` (`computeSpeechSegments`, `applyAutoCut`), `vps/lib/audio-peaks.js`
 
-When auto-cut is enabled and no explicit `silenceThreshold` is provided, the VPS computes an adaptive threshold:
-1. Analyze audio peaks via `analyzeAudioPeaks()` (~1-2s)
-2. Classify intensity: `high` (>= 0.5 peaks/s), `medium` (>= 0.2), `low`
-3. Get base threshold from mood: rage=0.35s, hype=0.40s, funny=0.45s, drama=0.55s, wholesome=0.60s, story=0.70s
-4. Adjust by intensity: high=-0.1s, low=+0.1s (clamped 0.3-0.8s)
+Enabled by default on all mood presets and Quick Export. Detects silences > 1.2s in the Whisper word timestamps and cuts them, with 150ms padding on each side to avoid cutting mid-word.
 
-Frontend passes `mood` in `settings.autoCut.mood`. If user sets an explicit slider value, it overrides the adaptive calculation. UI shows "AI suggests Xs (energy level — mood)" when mood is detected.
+**Safety**: never removes more than 40% of the clip. Never produces a result shorter than 3s. If either limit is hit, auto-cut is skipped entirely (original clip preserved).
+
+**Sync**: after cutting, all timestamps are remapped — captions (ASS file regenerated), voiceover lines, and the clip timeline all stay synchronized.
+
+**UI**: "Silence Cut" accordion in Enhance page. Toggle + threshold slider (default 1.2s). Shows "cuts gaps > 1.2s" in the header.
+
+### Free Plan: End-Card (replaces persistent watermark)
+Free plan no longer has a persistent `@viralanimal` watermark during playback — TikTok flags permanent logos/watermarks as "unoriginal content". Instead, a 1.5s end-card is appended after the clip (dark bg, "Made with VIRAL ANIMAL", viralanimal.com). Same attribution, zero penalty during content.
+
+Pro/Studio: no end-card, no watermark (paid advantage preserved).
 
 ### Viral Score Formula
 `currentScore = baseline + (headroom * totalWeight)`. Baseline = `max(30, clip.velocity_score)`. Weight accumulates per enabled feature (captions 0.14, hook 0.13, split-screen 0.07, etc.) with mood-match bonuses (~0.19 max). Cap at 99. Poids calibres par recherche — voir `docs/research/viralite-calibration.md`.
