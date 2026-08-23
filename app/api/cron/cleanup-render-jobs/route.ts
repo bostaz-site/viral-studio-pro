@@ -57,7 +57,27 @@ export async function POST(req: NextRequest) {
       .lt('updated_at', renderCutoff)
       .limit(25)
 
-    const zombies = [...(pendingZombies ?? []), ...(renderingZombies ?? [])]
+    // Find dispatch-failed zombies: rendering >10 min but debug_log is still NULL
+    // (VPS never started processing — dispatch was silently swallowed)
+    const { data: dispatchZombies } = await admin
+      .from('render_jobs')
+      .select('id, user_id, status, created_at')
+      .eq('status', 'rendering')
+      .lt('created_at', pendingCutoff)
+      .is('debug_log', null)
+      .limit(25)
+
+    if (dispatchZombies && dispatchZombies.length > 0) {
+      const dispatchIds = dispatchZombies.map(j => j.id)
+      await admin.from('render_jobs').update({
+        status: 'error',
+        error_message: 'VPS never received this job — dispatch failure (debug_log NULL after 10 min)',
+        updated_at: new Date().toISOString(),
+      }).in('id', dispatchIds)
+      logger.warn(`[cleanup-render-jobs] Found ${dispatchIds.length} dispatch-failed zombies (rendering + NULL debug_log)`)
+    }
+
+    const zombies = [...(pendingZombies ?? []), ...(renderingZombies ?? []), ...(dispatchZombies ?? [])]
     const fetchError = null
 
     if (fetchError) throw fetchError

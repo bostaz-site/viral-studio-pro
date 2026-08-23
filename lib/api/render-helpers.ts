@@ -261,6 +261,22 @@ export function sendToVps(
   const vpsUrl = process.env.VPS_RENDER_URL!
   const vpsKey = process.env.VPS_RENDER_API_KEY!
 
+  const markFailed = async (errorMessage: string) => {
+    console.error(`[${label}] VPS dispatch failure: ${errorMessage}`)
+    await admin
+      .from('render_jobs')
+      .update({
+        status: 'error' as RenderStatus,
+        error_message: errorMessage.substring(0, 2000),
+      })
+      .eq('id', jobId)
+    if (userId) {
+      (admin.rpc as CallableFunction)('refund_video_usage', { p_user_id: userId, p_count: 1 })
+        .catch((e: unknown) => console.error(`[${label}] refund failed for user ${userId}:`, e))
+    }
+    releaseJob(jobId).catch(() => {})
+  }
+
   const run = async () => {
     const controller = new AbortController()
     const timeoutId = setTimeout(() => controller.abort(), 15000)
@@ -276,8 +292,22 @@ export function sendToVps(
             body: JSON.stringify(renderPayload),
             signal: controller.signal,
           })
-          if (!r.ok && r.status >= 500) {
-            throw new Error(`VPS ${r.status}`)
+
+          if (!r.ok) {
+            // Read the error body for diagnostics
+            const body = await r.text().catch(() => '')
+            const msg = `VPS rejected ${r.status}: ${body.substring(0, 500)}`
+
+            if (r.status >= 500) {
+              // 5xx: transient server error — throw to trigger retry
+              throw new Error(msg)
+            }
+
+            // 4xx: client error — payload invalid, auth failed, duplicate, etc.
+            // Do NOT retry (the payload won't become valid by retrying).
+            // Mark the job as error immediately + refund + release slot.
+            await markFailed(msg)
+            return // exit retry loop without throwing (no retry)
           }
         },
         { retries: 1, delayMs: 2000, label: `VPS ${label}` },
@@ -289,23 +319,13 @@ export function sendToVps(
         err instanceof Error &&
         (err.name === 'AbortError' || err.name === 'TimeoutError')
       if (isAbort) {
-        console.log(`[${label}] VPS POST body delivered, letting VPS drive the job`)
+        // 15s timeout elapsed — the VPS likely received the body (TCP ACK) and is
+        // processing it. This is expected for renders that take 60-120s. Let VPS drive.
+        console.log(`[${label}] VPS POST timed out (15s) — body likely delivered, letting VPS drive the job`)
         return
       }
-      console.error(`[${label}] VPS unreachable:`, err)
-      await admin
-        .from('render_jobs')
-        .update({
-          status: 'error' as RenderStatus,
-          error_message: `VPS unreachable: ${err instanceof Error ? err.message : 'unknown error'}`,
-        })
-        .eq('id', jobId)
-      // Refund quota and release queue slot on dispatch failure
-      if (userId) {
-        (admin.rpc as CallableFunction)('refund_video_usage', { p_user_id: userId, p_count: 1 })
-          .catch((e: unknown) => console.error(`[render] refund failed (dispatch) for user ${userId}:`, e))
-      }
-      releaseJob(jobId).catch(() => {})
+      // 5xx retries exhausted or network error
+      await markFailed(`VPS unreachable: ${err instanceof Error ? err.message : 'unknown error'}`)
     }
   }
   run()
