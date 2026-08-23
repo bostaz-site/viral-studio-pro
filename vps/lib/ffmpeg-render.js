@@ -1089,17 +1089,9 @@ export async function renderClip(inputPath, outputPath, options = {}) {
       filterComplex += `;${mapVideo}format=yuv420p[vout]`;
       mapVideo = '[vout]';
 
-      args.push('-t', String(clipDuration));
-      args.push('-filter_complex', filterComplex);
-      args.push('-map', mapVideo);
-
-      // ── Encoding: tier-based quality params ──
-      args.push(...buildCommonEncodingArgs(tier, fps));
-
       // ── Audio chain: base filters ──
       const audioFilters = [];
 
-      // Audio fingerprint shift: always applied to change the audio signature.
       const audioShift = buildAudioShiftFilters(48000);
       audioFilters.push(...audioShift.filters);
       console.log('[FFmpeg] Audio fingerprint shift: +3% asetrate/atempo (anti-duplicate)');
@@ -1117,90 +1109,69 @@ export async function renderClip(inputPath, outputPath, options = {}) {
         audioFilters.push(...speedFilters.audio);
       }
 
-      // ── Voiceover mixing with ducking ──
+      // ── Voiceover: add MP3 inputs BEFORE any output options ──
+      // FFmpeg requires ALL -i inputs before -filter_complex/-map/-c:v etc.
       const hasVoiceover = Array.isArray(voiceoverPaths) && voiceoverPaths.length > 0;
+      let voInputIdxStart = inputIdx;
 
       if (hasVoiceover) {
-        // Strategy: add each VO MP3 as extra input, build an audio filter_complex
-        // that: (1) processes original audio, (2) delays each VO to its timestamp,
-        // (3) ducks the original to 35% during VO, (4) mixes everything.
-        //
-        // We use the sidechaincompress approach: build a VO mix track, use it to
-        // duck the original via volume envelope, then amix all together.
-        const voInputIdxStart = inputIdx; // after video + PNG overlay inputs
         for (const vo of voiceoverPaths) {
           args.push('-i', vo.path);
           inputIdx++;
         }
+        console.log(`[FFmpeg] Voiceover: added ${voiceoverPaths.length} MP3 inputs at indices ${voInputIdxStart}-${inputIdx - 1}`);
+      }
 
-        // Build audio filter graph in the filter_complex
-        // Step 1: Process original audio with base filters
+      // ── Now add all OUTPUT options: -t, -filter_complex, -map, codecs ──
+      args.push('-t', String(clipDuration));
+
+      if (hasVoiceover) {
+        // Build audio filter graph and merge it into the video filter_complex
         const origChain = audioFilters.length > 0
           ? `[0:a]${audioFilters.join(',')}[abase]`
           : `[0:a]acopy[abase]`;
 
-        // Step 2: For each VO, delay it to its startTime and normalize
         const voLabels = [];
-        const voFilters = [];
+        const voFilterParts = [];
         for (let vi = 0; vi < voiceoverPaths.length; vi++) {
           const vo = voiceoverPaths[vi];
           const delayMs = Math.round(vo.startTime * 1000);
           const idx = voInputIdxStart + vi;
           const label = `vo${vi}`;
-          // Pad the VO with silence before (adelay) and normalize volume
-          voFilters.push(`[${idx}:a]adelay=${delayMs}|${delayMs},volume=1.8,apad=whole_dur=${clipDuration}[${label}]`);
+          voFilterParts.push(`[${idx}:a]adelay=${delayMs}|${delayMs},volume=1.8,apad=whole_dur=${clipDuration}[${label}]`);
           voLabels.push(`[${label}]`);
         }
 
-        // Step 3: Mix all VO tracks into one combined VO track
-        let voMixLabel;
+        let audioFC = origChain + ';' + voFilterParts.join(';');
+
+        // Sidechain ducking: split VO → compress original → mix
         if (voLabels.length === 1) {
-          voMixLabel = voLabels[0].replace('[', '').replace(']', '');
+          const sl = voLabels[0].replace(/[\[\]]/g, '');
+          audioFC += `;[${sl}]asplit=2[${sl}sc][${sl}copy]`;
+          audioFC += `;[abase][${sl}sc]sidechaincompress=threshold=0.02:ratio=4:attack=200:release=200:level_sc=1[ducked]`;
+          audioFC += `;[ducked][${sl}copy]amix=inputs=2:duration=first:dropout_transition=0:normalize=0[aout]`;
         } else {
-          voFilters.push(`${voLabels.join('')}amix=inputs=${voLabels.length}:duration=longest:normalize=0[vomix]`);
-          voMixLabel = 'vomix';
-        }
-
-        // Step 4: Duck original audio when VO is playing
-        // Use sidechaincompress: the VO signal compresses (ducks) the original.
-        // threshold=-30dB so any VO speech triggers ducking, ratio 4:1 → ~35% volume,
-        // attack 200ms (smooth fade down), release 200ms (smooth fade up).
-        const duckFilter = `[abase][${voMixLabel}]sidechaincompress=threshold=0.02:ratio=4:attack=200:release=200:level_sc=1[ducked]`;
-
-        // Step 5: Mix ducked original + VO
-        const mixFilter = `[ducked][${voMixLabel}copy]amix=inputs=2:duration=first:dropout_transition=0:normalize=0[aout]`;
-        // Need a copy of VO for mixing (sidechaincompress consumed it)
-        const voCopyFilter = `[${voMixLabel}]asplit=2[${voMixLabel}sc][${voMixLabel}copy]`;
-
-        // Rebuild: VO processing → split VO → duck → mix
-        // Rewrite filter_complex to include audio
-        let audioFC = origChain;
-        audioFC += ';' + voFilters.join(';');
-        // Split the VO mix for sidechain + mix
-        if (voLabels.length === 1) {
-          const singleLabel = voLabels[0].replace('[', '').replace(']', '');
-          // Re-do: we already created [vo0], split it
-          audioFC += `;[${singleLabel}]asplit=2[${singleLabel}sc][${singleLabel}copy]`;
-          audioFC += `;[abase][${singleLabel}sc]sidechaincompress=threshold=0.02:ratio=4:attack=200:release=200:level_sc=1[ducked]`;
-          audioFC += `;[ducked][${singleLabel}copy]amix=inputs=2:duration=first:dropout_transition=0:normalize=0[aout]`;
-        } else {
+          audioFC += `;${voLabels.join('')}amix=inputs=${voLabels.length}:duration=longest:normalize=0[vomix]`;
           audioFC += `;[vomix]asplit=2[vomixsc][vomixcopy]`;
           audioFC += `;[abase][vomixsc]sidechaincompress=threshold=0.02:ratio=4:attack=200:release=200:level_sc=1[ducked]`;
           audioFC += `;[ducked][vomixcopy]amix=inputs=2:duration=first:dropout_transition=0:normalize=0[aout]`;
         }
 
-        // Append audio filter graph to the existing video filter_complex
-        const fcIdx = args.indexOf('-filter_complex');
-        if (fcIdx !== -1) {
-          args[fcIdx + 1] = args[fcIdx + 1] + ';' + audioFC;
-        }
+        // Combine video + audio filter graphs into one -filter_complex
+        filterComplex += ';' + audioFC;
+        args.push('-filter_complex', filterComplex);
+        args.push('-map', mapVideo);
         args.push('-map', '[aout]');
+        args.push(...buildCommonEncodingArgs(tier, fps));
         args.push('-c:a', 'aac', '-b:a', tier.audioBitrate, '-ar', '48000', '-ac', '2');
 
         console.log(`[FFmpeg] Voiceover mix: ${voiceoverPaths.length} lines with sidechaincompress ducking`);
       } else {
-        // No voiceover — simple audio filter chain
+        // No voiceover — video filter_complex + simple -af audio chain
+        args.push('-filter_complex', filterComplex);
+        args.push('-map', mapVideo);
         args.push('-map', '0:a?');
+        args.push(...buildCommonEncodingArgs(tier, fps));
         if (audioFilters.length > 0) {
           args.push('-af', audioFilters.join(','));
         }
