@@ -54,7 +54,7 @@ export interface MoodPreset {
 // ── Base settings (shared by ALL moods) ─────────────────────────────────────
 
 export const BASE_SETTINGS = {
-  captionPosition: 60,
+  captionPosition: 75,
   tagSize: 85,
   aspectRatio: '9:16' as const,
   audioEnhanceEnabled: true,
@@ -62,7 +62,7 @@ export const BASE_SETTINGS = {
   speedRamp: 'off' as const,
   hookEnabled: true,
   hookTextEnabled: true,
-  hookTextPosition: 15,
+  hookTextPosition: 18,
   hookLength: 0,
   smartZoomEnabled: true,
   voiceoverEnabled: true,

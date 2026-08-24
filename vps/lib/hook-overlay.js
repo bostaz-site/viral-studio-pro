@@ -26,7 +26,7 @@ import path from 'path';
  * @param {string} opts.outputPath  - Where to save the PNG
  * @returns {Promise<string>} Path to the generated PNG
  */
-export async function generateHookOverlayPNG({ text, canvasW, canvasH, positionPct = 15, outputPath }) {
+export async function generateHookOverlayPNG({ text, canvasW, canvasH, positionPct = 18, outputPath }) {
   // ── Scale ratios ──
   // Preview: ~280px wide container, CSS values in px
   // Scale proportionally to actual video width

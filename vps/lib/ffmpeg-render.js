@@ -343,7 +343,7 @@ function buildBrightFirstFrameFilter(inputLabel, outputLabel) {
  * Uses browser-captured PNG (pixel-perfect match to CSS preview).
  * @returns {Promise<{pngPath: string, hookLength: number, isCapsuleOnly: boolean, capsuleW: number, capsuleH: number, textPosition: number} | null>}
  */
-async function prepareHookOverlay(hookText, hookLength, canvasW, canvasH, textPosition = 15, jobDir, hook = {}) {
+async function prepareHookOverlay(hookText, hookLength, canvasW, canvasH, textPosition = 18, jobDir, hook = {}) {
   if (!hookText || hookLength <= 0) return null;
 
   const pngPath = path.join(jobDir, 'hook-overlay.png');
@@ -1095,7 +1095,7 @@ export async function renderClip(inputPath, outputPath, options = {}) {
         } else {
           const hookStyle = hook.style || 'shock';
           const hookFontColor = hookStyle === 'shock' ? '0xFF4444' : hookStyle === 'curiosity' ? '0xFACC15' : '0xFFFFFF';
-          const posPct = hook.textPosition || 15;
+          const posPct = hook.textPosition || 18;
           const safeText = escapeDrawtext(hook.text);
           const enableExpr = hookDisplayLength < clipDuration
             ? `:enable='between(t\\,0\\,${(hookDisplayLength + 0.3).toFixed(2)})'`
@@ -1161,15 +1161,13 @@ export async function renderClip(inputPath, outputPath, options = {}) {
           : '';
         filterComplex += `;[${hookInputIndex}:v]format=rgba,${hookScaleFilter}${fadeFilters}[hookalpha]`;
         const isCapsule = hookOverlayEntry.isCapsuleOnly;
-        const posPct = hookOverlayEntry.textPosition || 15;
+        const posPct = hookOverlayEntry.textPosition || 18;
         const overlayX = isCapsule ? '(W-w)/2' : '0';
         // Render parity: the live preview anchors the capsule TOP edge at posPct%
         // (CSS `top: pct%`, no translateY — see live-preview.tsx). The browser PNG
-        // has a transparent glow padding of round(30 * 1080/280) = 116px above the
-        // capsule at capture scale — offset it so the visible capsule top lands
-        // exactly at posPct%, like the preview. (Previous H*pct/100-h/2 centered
-        // the capsule → rendered visibly higher than the preview.)
-        const hookGlowPad = Math.round(116 * hookScale);
+        // has ~extraPad transparent padding above the capsule (sticker: round(4*1080/280)=15px,
+        // outline: ~31px). Offset so the visible capsule top lands at posPct%.
+        const hookGlowPad = Math.round(20 * hookScale);
         const overlayY = isCapsule ? `H*${posPct}/100-${hookGlowPad}` : '0';
         filterComplex += `;${mapVideo}[hookalpha]overlay=${overlayX}:${overlayY}:format=auto[hooked]`;
         mapVideo = '[hooked]';

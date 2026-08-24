@@ -256,7 +256,7 @@ function adjustPositioning(styleConfig, { position = 'bottom', canvasWidth = 108
   const numericPos = typeof position === 'number' ? position
     : position === 'top' ? 8
     : position === 'middle' ? 42
-    : 72; // 'bottom' default
+    : 75; // 'bottom' default — lower third, above TikTok dead zone (88%)
 
   // ── Always use \an8 (top-center), marginV = top offset ──
   // This matches CSS `top: X%` exactly — the TOP of the text sits at X% from top.
