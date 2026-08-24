@@ -461,26 +461,44 @@ export function LivePreview({
       </div>
 
       {/* ── Hook text overlay ── */}
-      {showEnhancements && settings.hookEnabled && settings.hookTextEnabled && settings.hookText && (
-        <div
-          className="absolute left-1/2 -translate-x-1/2 z-30 pointer-events-none animate-in fade-in zoom-in-95 duration-300 w-full px-2"
-          style={{ top: `${settings.hookTextPosition}%` }}
-        >
+      {showEnhancements && settings.hookEnabled && settings.hookTextEnabled && settings.hookText && (() => {
+        const vis = settings.hookVisual || 'sticker'
+        return (
           <div
-            className="px-3 py-1.5 rounded-md text-center whitespace-nowrap overflow-hidden mx-auto w-fit"
-            style={{
-              background: 'rgba(0,0,0,0.75)',
-              border: `2px solid ${glowColor}`,
-              boxShadow: `0 0 10px ${glowColor}88, 0 0 24px ${glowColor}44`,
-              maxWidth: '100%',
-            }}
+            className="absolute left-1/2 -translate-x-1/2 z-30 pointer-events-none animate-in fade-in zoom-in-95 duration-300 w-full px-2"
+            style={{ top: `${settings.hookTextPosition}%` }}
           >
-            <span className="text-[10px] font-black text-white uppercase tracking-wide leading-none">
-              {settings.hookText}
-            </span>
+            {vis === 'sticker' ? (
+              <div
+                className="px-3 py-1.5 rounded-lg text-center whitespace-nowrap overflow-hidden mx-auto w-fit shadow-md"
+                style={{ background: '#FFFFFF', maxWidth: '100%' }}
+              >
+                <span className="text-[10px] font-extrabold text-black uppercase tracking-wide leading-none">
+                  {settings.hookText}
+                </span>
+              </div>
+            ) : vis === 'outline' ? (
+              <div className="text-center whitespace-nowrap overflow-hidden mx-auto w-fit" style={{ maxWidth: '100%' }}>
+                <span
+                  className="text-[11px] font-black text-white uppercase tracking-wide leading-none"
+                  style={{ WebkitTextStroke: '2px black', paintOrder: 'stroke fill' }}
+                >
+                  {settings.hookText}
+                </span>
+              </div>
+            ) : (
+              <div
+                className="px-3 py-1.5 rounded-md text-center whitespace-nowrap overflow-hidden mx-auto w-fit"
+                style={{ background: 'rgba(0,0,0,0.75)', border: '1px solid rgba(255,255,255,0.2)', maxWidth: '100%' }}
+              >
+                <span className="text-[10px] font-black text-white uppercase tracking-wide leading-none">
+                  {settings.hookText}
+                </span>
+              </div>
+            )}
           </div>
-        </div>
-      )}
+        )
+      })()}
 
       {/* ── Tag overlays ── */}
       {/* Streamer Tag — 3 viral styles */}

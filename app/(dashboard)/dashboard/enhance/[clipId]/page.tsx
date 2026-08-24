@@ -222,6 +222,7 @@ export default function EnhancePage() {
     hookReorderEnabled: false, // disabled (cuts mid-word)
     hookText: '',
     hookStyle: 'suspense',
+    hookVisual: 'sticker',
     hookTextPosition: 15,
     hookLength: 0,
     hookReorder: null,
@@ -730,7 +731,7 @@ export default function EnhancePage() {
           positionPct: settings.hookTextPosition,
           videoWidth: 1080,
           videoHeight: 1920,
-          glowColor: theme.hookGlowColor,
+          visual: settings.hookVisual || 'sticker',
         })
       }
 
@@ -944,7 +945,7 @@ export default function EnhancePage() {
     audioEnhanceEnabled: 'audio', bassBoost: 'audio', speedRamp: 'audio',
     autoCutEnabled: 'autoCut', autoCutThreshold: 'autoCut',
     hookEnabled: 'hook', hookTextEnabled: 'hook', hookReorderEnabled: 'hook',
-    hookStyle: 'hook', hookTextPosition: 'hook', hookLength: 'hook', hookText: 'hook', hookReorder: 'hook',
+    hookStyle: 'hook', hookVisual: 'hook', hookTextPosition: 'hook', hookLength: 'hook', hookText: 'hook', hookReorder: 'hook',
   }), [])
 
   const updateSetting = useCallback(<K extends keyof EnhanceSettings>(key: K, value: EnhanceSettings[K]) => {
@@ -2698,8 +2699,44 @@ export default function EnhancePage() {
                             </div>
                           </div>
 
-                          {/* Style selector */}
-                          <Label className="text-xs uppercase tracking-wider text-muted-foreground">Hook style</Label>
+                          {/* Visual style selector */}
+                          <Label className="text-xs uppercase tracking-wider text-muted-foreground">Look</Label>
+                          <div className="grid grid-cols-3 gap-2">
+                            {([
+                              { id: 'sticker' as const, label: 'Sticker', desc: 'Native TikTok' },
+                              { id: 'outline' as const, label: 'Bold outline', desc: 'Hormozi style' },
+                              { id: 'capsule' as const, label: 'Capsule', desc: 'Dark pill' },
+                            ] as const).map((v) => (
+                              <button
+                                key={v.id}
+                                onClick={() => updateSetting('hookVisual', v.id)}
+                                className={cn(
+                                  'rounded-xl border p-2 text-center transition-all',
+                                  settings.hookVisual === v.id
+                                    ? 'border-orange-500 bg-orange-500/10 ring-1 ring-orange-500/30'
+                                    : 'border-border hover:border-orange-500/40'
+                                )}
+                              >
+                                {/* Mini preview */}
+                                <div className="h-7 flex items-center justify-center mb-1">
+                                  {v.id === 'sticker' && (
+                                    <span className="px-2 py-0.5 bg-white rounded text-[8px] font-extrabold text-black uppercase leading-tight">HOOK</span>
+                                  )}
+                                  {v.id === 'outline' && (
+                                    <span className="text-[10px] font-black text-white uppercase" style={{ WebkitTextStroke: '1.5px black' }}>HOOK</span>
+                                  )}
+                                  {v.id === 'capsule' && (
+                                    <span className="px-2 py-0.5 bg-black/75 border border-white/20 rounded text-[8px] font-extrabold text-white uppercase leading-tight">HOOK</span>
+                                  )}
+                                </div>
+                                <span className="text-[10px] font-bold text-foreground block">{v.label}</span>
+                                <span className="text-[8px] text-muted-foreground block">{v.desc}</span>
+                              </button>
+                            ))}
+                          </div>
+
+                          {/* Tone selector */}
+                          <Label className="text-xs uppercase tracking-wider text-muted-foreground">Hook tone</Label>
                           <div className="grid grid-cols-3 gap-2">
                             {([
                               { id: 'shock' as const, label: 'Shock', emoji: '💀', desc: 'Max impact' },

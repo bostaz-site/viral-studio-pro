@@ -35,6 +35,7 @@ export interface EnhanceSettings {
   hookReorderEnabled: boolean
   hookText: string
   hookStyle: 'shock' | 'curiosity' | 'suspense'
+  hookVisual: 'sticker' | 'outline' | 'capsule'
   hookTextPosition: number
   hookLength: number
   hookReorder: { segments: { start: number; end: number; duration: number; label: string }[]; totalDuration: number; peakTime: number } | null

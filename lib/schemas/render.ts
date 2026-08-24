@@ -28,6 +28,7 @@ export const renderSettingsSchema = z.object({
     reorderEnabled: z.boolean().optional(),
     text: z.string().optional(),
     style: z.enum(['shock', 'curiosity', 'suspense']).optional(),
+    visual: z.enum(['sticker', 'outline', 'capsule']).optional(),
     length: z.number().optional(),
     textPosition: z.number().optional(),
     overlayPng: z.string().nullable().optional(),
