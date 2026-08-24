@@ -452,12 +452,12 @@ export default function EnhancePage() {
 
         if (!json.data) return
 
-        if (json.data.status === 'done') {
+        if (json.data.status === 'done' || json.data.status === 'degraded') {
           // Latency measurement: server done → client detection
           if (json.data.serverDoneAt) {
             const serverMs = new Date(json.data.serverDoneAt).getTime()
             const latencyMs = Date.now() - serverMs
-            console.info(`[render] Done detected — server→client latency: ${(latencyMs / 1000).toFixed(1)}s`)
+            console.info(`[render] ${json.data.status} detected — server→client latency: ${(latencyMs / 1000).toFixed(1)}s`)
           }
 
           if (json.data.downloadUrl) {
@@ -480,11 +480,16 @@ export default function EnhancePage() {
             }
             setIsRenderedVideo(true)
             setShowEnhancements(true)
-            setRenderMessage(
-              json.data.reducedQuality
-                ? '✅ Rendered at reduced quality (server load) — re-generate to try full quality.'
-                : '✅ Clip rendered with captions! Check the preview above.'
-            )
+            if (json.data.status === 'degraded') {
+              // Show what's missing + refund info
+              setRenderMessage(`⚠️ ${json.message || 'Rendered with missing features'} — credit refunded`)
+            } else {
+              setRenderMessage(
+                json.data.reducedQuality
+                  ? '✅ Rendered at reduced quality (server load) — re-generate to try full quality.'
+                  : '✅ Clip rendered with captions! Check the preview above.'
+              )
+            }
             setRendering(false); renderingRef.current = false
             setMonthlyUsed(prev => prev + 1)
             setSettingsChangedSinceRender(false)

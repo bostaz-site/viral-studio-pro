@@ -95,18 +95,21 @@ export function createContract(settings) {
   return {
     entries,
     /**
-     * Mark a feature as applied.
+     * Mark a feature as applied (or intentionally skipped).
      * @param {string} feature
      * @param {boolean} applied
      * @param {string} [reason] - Why it wasn't applied (if applied=false)
      * @param {object} [meta] - Extra info (e.g. actual mode chosen)
+     * @param {boolean} [intentional] - True if skip was a correct decision (e.g. burned-in captions detected).
+     *   Intentional skips don't trigger degraded status or refund.
      */
-    record(feature, applied, reason, meta) {
+    record(feature, applied, reason, meta, intentional) {
       const entry = entries.find(e => e.feature === feature);
       if (entry) {
         entry.applied = applied;
         if (reason) entry.reason = reason;
         if (meta) entry.meta = { ...(entry.meta || {}), ...meta };
+        if (intentional !== undefined) entry.intentional = intentional;
       }
     },
 
@@ -118,16 +121,18 @@ export function createContract(settings) {
         applied: e.applied,
         reason: e.reason || null,
         meta: e.meta || null,
+        intentional: e.intentional || false,
       }));
     },
 
     /**
      * Check if any critical feature was requested but not applied.
+     * Intentional skips (e.g. burned-in captions) don't count as failures.
      * @returns {{ isDegraded: boolean, missing: string[], summary: string }}
      */
     evaluate() {
       const missing = entries
-        .filter(e => e.requested && !e.applied && CRITICAL_FEATURES.has(e.feature))
+        .filter(e => e.requested && !e.applied && !e.intentional && CRITICAL_FEATURES.has(e.feature))
         .map(e => e.feature);
 
       const summary = entries

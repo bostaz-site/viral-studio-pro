@@ -873,20 +873,25 @@ router.post('/', async (req, res) => {
       }
     }
 
-    // Prepare captions if enabled
-    // IMPORTANT: also skip when style='none' — user explicitly chose no captions.
+    // ─── Transcription (Whisper) — runs when ANY feature needs word timestamps ───
+    // Decoupled from captions: voiceover and auto-cut also need word timestamps.
+    // Without this, disabling captions (e.g. burned-in detection) would kill voiceover + auto-cut.
     let assFilePath = null;
     let captionWordTimestamps = []; // hoisted so reorder can remap them
-    let wordTimestamps = providedWordTimestamps || []; // hoisted — used by captions + voiceover
+    let wordTimestamps = providedWordTimestamps || []; // hoisted — used by captions + voiceover + autoCut
     let detectedLanguage = null; // Whisper-detected language
     let whisperFullText = ''; // Full transcript text for smart hook
+
     const captionStyleRequested = settings.captions?.style || 'hormozi';
     const captionsRequested = settings.captions?.enabled && captionStyleRequested !== 'none';
-    if (captionsRequested) {
-      try {
+    const voiceoverRequested = settings.voiceover?.enabled !== false;
+    const autoCutRequested = settings.autoCut?.enabled === true;
+    const needsWordTimestamps = captionsRequested || voiceoverRequested || autoCutRequested;
 
+    if (needsWordTimestamps && wordTimestamps.length === 0) {
+      try {
         // For user clips, fetch transcription from DB
-        if (source !== 'trending' && videoId && wordTimestamps.length === 0) {
+        if (source !== 'trending' && videoId) {
           const transcription = await getTranscription(videoId);
           if (transcription?.word_timestamps) {
             wordTimestamps = (transcription.word_timestamps || []).filter(
@@ -935,7 +940,18 @@ router.post('/', async (req, res) => {
             trc(`WHISPER ERROR: ${err.message}`);
           }
         }
+      } catch (transcriptionErr) {
+        trc(`TRANSCRIPTION ERROR: ${transcriptionErr.message}`);
+      }
+    }
 
+    trc(`WORD TIMESTAMPS: ${wordTimestamps.length} words available for captions/voiceover/autoCut`);
+
+    // ─── Captions (ASS subtitle generation) ───
+    // Only generates ASS file when captions are explicitly requested.
+    // Whisper already ran above (decoupled).
+    if (captionsRequested) {
+      try {
         const captionStyle = settings.captions.style || 'hormozi';
         const captionPosition = settings.captions.position || 'bottom';
         let assContent = null;
@@ -1000,7 +1016,16 @@ router.post('/', async (req, res) => {
     } else {
       const captionSkipReason = settings.captions?.skippedReason || 'disabled by user';
       trc(`CAPTIONS disabled (enabled=${settings.captions?.enabled}, style=${captionStyleRequested}, reason=${captionSkipReason})`);
-      contract.record('captions', false, captionSkipReason);
+      // Intentional skips (burned-in captions detected, user disabled) don't degrade the render
+      const isIntentional = captionSkipReason === 'source_has_burned_captions'
+        || captionSkipReason === 'disabled by user'
+        || burnedCaptionDetected;
+      contract.record('captions', false, captionSkipReason, null, isIntentional);
+    }
+
+    // Ensure captionWordTimestamps is populated for voiceover/autoCut even when captions are off
+    if (captionWordTimestamps.length === 0 && wordTimestamps.length > 0) {
+      captionWordTimestamps = wordTimestamps;
     }
 
     // Prepare tag/credit config
@@ -1413,13 +1438,13 @@ router.post('/', async (req, res) => {
 
       if (!voiceoverEnabled) {
         trc('VOICEOVER SKIPPED: reason=disabled_by_user');
-        contract.record('voiceover', false, 'disabled by user');
+        contract.record('voiceover', false, 'disabled by user', null, true);
       } else if (!hasTranscript) {
         trc('VOICEOVER SKIPPED: reason=no_word_timestamps (Whisper returned empty or captions disabled)');
         contract.record('voiceover', false, 'no word timestamps');
       } else if (duration <= 5) {
         trc(`VOICEOVER SKIPPED: reason=clip_too_short (${duration.toFixed(1)}s <= 5s)`);
-        contract.record('voiceover', false, 'clip too short');
+        contract.record('voiceover', false, 'clip too short', null, true);
       } else if (!hasAnthropicKey) {
         trc('VOICEOVER SKIPPED: reason=no_ANTHROPIC_API_KEY — cannot generate script. Set this env var on Railway.');
         contract.record('voiceover', false, 'no ANTHROPIC_API_KEY');
