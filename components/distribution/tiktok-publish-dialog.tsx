@@ -246,6 +246,8 @@ export function TikTokPublishDialog({
       if (mode === 'inbox') {
         setPublishStatus('PUBLISH_COMPLETE')
         setIsPublishing(false)
+        // Auto-propagate success to parent immediately
+        onClose({ published: true, mode: 'inbox' })
         return
       }
 
@@ -294,8 +296,12 @@ export function TikTokPublishDialog({
                   clearInterval(pollingRef.current)
                   pollingRef.current = null
                 }
-                if (statusJson.data.status === 'PUBLISH_COMPLETE' && statusJson.data.post_id) {
-                  setPublishedPostId(statusJson.data.post_id)
+                if (statusJson.data.status === 'PUBLISH_COMPLETE') {
+                  if (statusJson.data.post_id) setPublishedPostId(statusJson.data.post_id)
+                  setIsPublishing(false)
+                  // Auto-propagate success to parent immediately
+                  onClose({ published: true, mode: publishMode || 'direct' })
+                  return
                 }
                 if (statusJson.data.status === 'FAILED') {
                   setPublishError(statusJson.data.fail_reason ?? 'Publishing failed')

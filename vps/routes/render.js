@@ -1318,6 +1318,7 @@ router.post('/', async (req, res) => {
         } catch {}
         clipEndTime = duration;
         captionWordTimestamps = remappedWords;
+        wordTimestamps = captionWordTimestamps; // keep in sync for voiceover/hook/auto-cut
         trc(`HOOK REORDER done: ${duration}s reordered clip at ${reorderOutputPath}`);
 
         // Rewrite ASS with remapped timestamps (clipStartTime=0 since already rebased)
@@ -1363,6 +1364,9 @@ router.post('/', async (req, res) => {
     // Runs AFTER Hook Reorder so it operates on the reordered timeline with
     // already-remapped word timestamps.
     t('cut_start');
+    // Final sync: ensure both variables reflect latest data from any upstream step
+    if (captionWordTimestamps.length === 0 && wordTimestamps.length > 0) captionWordTimestamps = wordTimestamps;
+    if (wordTimestamps.length === 0 && captionWordTimestamps.length > 0) wordTimestamps = captionWordTimestamps;
     if (settings.autoCut?.enabled && captionWordTimestamps.length === 0) {
       contract.record('auto_cut', false, noSpeechDetected ? 'no speech in clip' : 'no word timestamps', null, noSpeechDetected);
     }
@@ -1436,10 +1440,10 @@ router.post('/', async (req, res) => {
     let voiceoverPaths = null;
     try {
       const voiceoverEnabled = settings.voiceover?.enabled !== false; // default ON
-      const hasTranscript = wordTimestamps.length > 0;
+      const hasTranscript = wordTimestamps.length > 0 || captionWordTimestamps.length > 0;
       const hasAnthropicKey = !!process.env.ANTHROPIC_API_KEY;
       const hasElevenLabsKey = !!process.env.ELEVENLABS_API_KEY;
-      trc(`VOICEOVER CHECK: enabled=${voiceoverEnabled} words=${wordTimestamps.length} dur=${duration.toFixed(1)}s anthropicKey=${hasAnthropicKey} elevenLabsKey=${hasElevenLabsKey}`);
+      trc(`VOICEOVER CHECK: enabled=${voiceoverEnabled} words=${wordTimestamps.length} captionWords=${captionWordTimestamps.length} dur=${duration.toFixed(1)}s anthropicKey=${hasAnthropicKey} elevenLabsKey=${hasElevenLabsKey}`);
 
       if (!voiceoverEnabled) {
         trc('VOICEOVER SKIPPED: reason=disabled_by_user');

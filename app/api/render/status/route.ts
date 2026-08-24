@@ -180,8 +180,11 @@ export const GET = withAuth(async (request: NextRequest, user) => {
   let message: string
   if (job.status === 'degraded') {
     // Extract missing features from contract for user-facing message
-    const contract = job.contract as { feature: string; requested: boolean; applied: boolean }[] | null
-    const missing = contract?.filter(e => e.requested && !e.applied).map(e => e.feature.replace(/_/g, ' ')) ?? []
+    // Only show non-intentional failures (intentional skips like no-speech are expected)
+    const contract = job.contract as { feature: string; requested: boolean; applied: boolean; intentional?: boolean }[] | null
+    const missing = contract
+      ?.filter(e => e.requested && !e.applied && !e.intentional)
+      .map(e => e.feature.replace(/_/g, ' ')) ?? []
     message = missing.length > 0
       ? `Rendered without ${missing.join(', ')} — credit refunded`
       : 'Render complete (some features unavailable) — credit refunded'
