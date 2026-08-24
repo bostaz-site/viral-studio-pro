@@ -203,22 +203,28 @@ async function generateVoiceoverScriptOnVps({ wordTimestamps, clipTitle, streame
 
   trc(`VOICEOVER SCRIPT: found ${gaps.length} silence gaps (threshold=${MIN_GAP}s): ${gapsDesc}`);
 
-  const prompt = `Write voiceover commentary for a TikTok clip.
+  const prompt = `Write ENERGETIC voiceover commentary for a TikTok gaming/streaming clip. The voice actor reads your lines with high energy — write for PERFORMANCE, not for reading.
 
 CLIP: "${clipTitle}" by ${streamerName || 'streamer'} (${niche || 'gaming'}, ${clipDuration.toFixed(1)}s)
 TRANSCRIPT: "${transcript.slice(0, 1500)}"
 SILENCE GAPS: ${gapsDesc}
 
-Write 2-4 SHORT lines (5-10 words, max 12). Each has role "hook"/"reaction"/"closer".
-- 1 hook at startTime 0.2 (builds anticipation for what's about to happen)
-- 1-2 reactions placed at or near the silence gaps listed above
-- Optional closer in the last 2s of the clip
-- If no silence gaps exist, place the hook at 0.2s and closer at the end
-- Tone: casual clipper. No "you won't believe", no "this will go viral"
-- Reference the actual clip content (the action, the streamer, what happens)
+Write 2-4 SHORT punchy lines (5-10 words, max 12). Each has role "hook"/"reaction"/"closer".
+- 1 hook at startTime 0.2 (hype anticipation!)
+- 1-2 reactions at or near silence gaps
+- Optional closer in last 2s
+
+PERFORMANCE RULES (the TTS reads punctuation as emotion):
+- Use ! for excitement: "he actually DID it!"
+- Use ... for suspense: "wait for it..."
+- Use CAPS for emphasis on 1-2 key words: "that was INSANE!"
+- Keep it punchy — fragments > full sentences: "no WAY!" not "there is no way that happened"
+- Sound like a hyped clip commentator, NOT a narrator
+- NEVER write flat declarative sentences like "he plays well" — write "he's COOKING right now!"
+- Reference the actual clip content (streamer, action, situation)
 
 Return ONLY a JSON array:
-[{"text":"watch this closely","startTime":0.2,"role":"hook","estimatedDuration":1.3}]`;
+[{"text":"yo watch THIS play!","startTime":0.2,"role":"hook","estimatedDuration":1.2}]`;
 
   try {
     trc('VOICEOVER SCRIPT: calling Claude Haiku API...');

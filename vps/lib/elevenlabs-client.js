@@ -1,11 +1,13 @@
 /**
  * ElevenLabs TTS Client — synthesizes voiceover lines via the ElevenLabs API.
  *
- * Graceful degradation: if the API key is missing, the API fails, or any line
- * fails to synthesize, the render continues without voiceover. No TTS failure
- * should ever block a render.
+ * Voices selected for gaming/streaming commentary: energetic, expressive,
+ * social-media-native. Model: eleven_multilingual_v2 for style expressiveness.
  *
- * Cost: ~$0.01-0.03 per clip (2-4 short lines, ~5-15 words total).
+ * Graceful degradation: if the API key is missing, the API fails, or any line
+ * fails to synthesize, the render continues without voiceover.
+ *
+ * Cost: ~$0.01-0.03 per clip (2-4 short lines).
  * Logged to ai_calls table with feature: 'voiceover_elevenlabs'.
  */
 
@@ -13,26 +15,26 @@ import fs from 'fs';
 import path from 'path';
 import { createClient } from '@supabase/supabase-js';
 
-// Supabase client for ai_calls logging (fire-and-forget)
 const supabase = createClient(
   process.env.SUPABASE_URL || '',
   process.env.SUPABASE_SECRET_KEY ?? process.env.SUPABASE_SERVICE_ROLE_KEY ?? ''
 );
 
-// Default voices — energetic, clear, good for commentary
+// Voices optimized for gaming/streaming clip commentary.
+// Selected from ElevenLabs library for energy + clarity at short line lengths.
 const VOICES = {
-  default: 'JBFqnCBsd6RMkjVDRZzb',  // George — energetic male narrator
-  female: 'EXAVITQu4vr4xnSDxMaL',   // Bella — clear female
-  deep: 'VR6AewLTigWG4xSOukaG',      // Arnold — deep male
+  default: 'nPczCjzI2devNBz1zQrb',  // Brian — energetic young male, social media native
+  female: 'cgSgspJ2msm6clMCkdW9',   // Jessica — expressive female, upbeat delivery
+  deep: 'N2lVS1w4EtoT3dr4eOWO',     // Callum — deep male with character, punchy
 };
+
+// Model: eleven_multilingual_v2 — best style expressiveness.
+// The `style` param is most effective on this model (reads punctuation,
+// caps, and emotional cues in the text much better than turbo).
+const MODEL_ID = 'eleven_multilingual_v2';
 
 /**
  * Synthesize a single text line to MP3 via ElevenLabs API.
- *
- * @param {string} text - The line to synthesize
- * @param {string} voiceId - ElevenLabs voice ID
- * @param {string} outputPath - Where to save the MP3
- * @returns {Promise<{success: boolean, durationMs?: number, characters?: number}>}
  */
 async function synthesizeLine(text, voiceId, outputPath) {
   const apiKey = process.env.ELEVENLABS_API_KEY;
@@ -50,15 +52,15 @@ async function synthesizeLine(text, voiceId, outputPath) {
       },
       body: JSON.stringify({
         text,
-        model_id: 'eleven_turbo_v2_5',
+        model_id: MODEL_ID,
         voice_settings: {
-          stability: 0.4,
-          similarity_boost: 0.75,
-          style: 0.3,
+          stability: 0.30,           // low = more expressive intonation variation
+          similarity_boost: 0.75,    // keep voice identity recognizable
+          style: 0.55,               // energetic delivery (reads ! ... CAPS as emotion)
           use_speaker_boost: true,
         },
       }),
-      signal: AbortSignal.timeout(15000), // 15s timeout per line
+      signal: AbortSignal.timeout(15000),
     });
 
     if (!response.ok) {
@@ -70,7 +72,7 @@ async function synthesizeLine(text, voiceId, outputPath) {
     const buffer = Buffer.from(await response.arrayBuffer());
     fs.writeFileSync(outputPath, buffer);
 
-    console.log(`[ElevenLabs] Synthesized "${text.slice(0, 30)}..." → ${buffer.length} bytes`);
+    console.log(`[ElevenLabs] Synthesized "${text.slice(0, 40)}..." → ${buffer.length} bytes (${MODEL_ID})`);
     return { success: true, characters: text.length };
   } catch (err) {
     console.error(`[ElevenLabs] Synthesis failed for "${text.slice(0, 30)}...":`, err.message);
@@ -86,7 +88,6 @@ async function synthesizeLine(text, voiceId, outputPath) {
  * @param {string} voice - Voice key: 'default', 'female', 'deep'
  * @param {string} userId - For cost logging
  * @returns {Promise<Array<{path: string, startTime: number, estimatedDuration: number, role: string}>>}
- *          Only successfully synthesized lines are returned.
  */
 export async function synthesizeVoiceover(lines, outputDir, voice = 'default', userId = null) {
   if (!lines || lines.length === 0) return [];
@@ -100,7 +101,6 @@ export async function synthesizeVoiceover(lines, outputDir, voice = 'default', u
   const startMs = Date.now();
   let totalChars = 0;
 
-  // Synthesize lines sequentially (avoid rate limits)
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
     const mp3Path = path.join(outputDir, `vo_${i}.mp3`);
@@ -119,13 +119,12 @@ export async function synthesizeVoiceover(lines, outputDir, voice = 'default', u
 
   const latencyMs = Date.now() - startMs;
 
-  // Log cost to ai_calls (fire-and-forget)
-  // ElevenLabs Turbo v2.5: ~$0.15/1K chars
-  const cost = (totalChars / 1000) * 0.15;
+  // Log cost — multilingual_v2: ~$0.18/1K chars
+  const cost = (totalChars / 1000) * 0.18;
   try {
     await supabase.from('ai_calls').insert({
       user_id: userId,
-      model: 'eleven_turbo_v2_5',
+      model: MODEL_ID,
       feature: 'voiceover_elevenlabs',
       tokens_input: totalChars,
       tokens_output: 0,
@@ -135,7 +134,7 @@ export async function synthesizeVoiceover(lines, outputDir, voice = 'default', u
     });
   } catch { /* non-critical */ }
 
-  console.log(`[ElevenLabs] ${results.length}/${lines.length} lines synthesized in ${latencyMs}ms ($${cost.toFixed(4)})`);
+  console.log(`[ElevenLabs] ${results.length}/${lines.length} lines synthesized in ${latencyMs}ms ($${cost.toFixed(4)}, ${MODEL_ID})`);
   return results;
 }
 

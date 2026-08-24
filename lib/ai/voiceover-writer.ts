@@ -96,7 +96,7 @@ export async function generateVoiceoverScript(params: {
     ? audioPeakTimes.map(t => `${t.toFixed(1)}s`).join(', ')
     : 'No peaks detected'
 
-  const prompt = `You are writing voiceover commentary for a short clip being posted on TikTok.
+  const prompt = `Write ENERGETIC voiceover for a TikTok gaming/streaming clip. A voice actor performs your lines — write for PERFORMANCE, not reading.
 
 CLIP INFO:
 - Title: "${clipTitle}"
@@ -107,21 +107,25 @@ CLIP INFO:
 - Silence gaps: ${gapsDescription}
 - Audio peaks (hype moments): ${peaksDescription}
 
-RULES:
-1. Write 2-4 SHORT commentary lines (5-10 words each, max 12)
-2. Each line has a role: "hook" (first 0-2s, builds anticipation), "reaction" (on/near a peak), or "closer" (last 2s)
-3. You MUST include exactly 1 hook line placed in the first 1.5 seconds
-4. Place reaction lines NEAR peak times or in silence gaps — NEVER during key streamer dialogue
-5. Tone: casual clipper/commentator. Hype but not cringe. No "you won't believe this", no "this will go viral"
-6. NEVER describe what's visible on screen. Add context, anticipation, or insider reaction
-7. NEVER talk over an important streamer line — use the silence gaps provided
-8. Each line needs a startTime (seconds from clip start) and estimatedDuration (how long to speak it, typically 1.0-2.0s)
+Write 2-4 SHORT punchy lines (5-10 words, max 12). Each has role "hook"/"reaction"/"closer".
+- 1 hook at 0.2s (hype anticipation!)
+- 1-2 reactions NEAR peaks or silence gaps — NEVER over key streamer dialogue
+- Optional closer in last 2s
 
-Return ONLY a JSON array. Example:
+PERFORMANCE RULES (the TTS reads punctuation as emotion):
+- Use ! for excitement: "he actually DID it!"
+- Use ... for suspense: "wait for it..."
+- Use CAPS for emphasis on 1-2 key words: "that was INSANE!"
+- Punchy fragments > full sentences: "no WAY!" not "there is no way"
+- Sound like a hyped clip commentator, NOT a narrator
+- NEVER flat declarative: "he plays well" → "he's COOKING right now!"
+- Reference actual clip content (streamer, action, situation)
+
+Return ONLY a JSON array:
 [
-  {"text": "watch this play closely", "startTime": 0.2, "role": "hook", "estimatedDuration": 1.3},
-  {"text": "no way he hits that", "startTime": 8.5, "role": "reaction", "estimatedDuration": 1.2},
-  {"text": "absolute legend", "startTime": 14.0, "role": "closer", "estimatedDuration": 1.0}
+  {"text": "yo watch THIS play!", "startTime": 0.2, "role": "hook", "estimatedDuration": 1.2},
+  {"text": "BRO... no way!", "startTime": 8.5, "role": "reaction", "estimatedDuration": 1.1},
+  {"text": "ABSOLUTELY insane!", "startTime": 14.0, "role": "closer", "estimatedDuration": 1.0}
 ]`
 
   const startMs = Date.now()

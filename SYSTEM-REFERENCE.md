@@ -609,8 +609,10 @@ If any prerequisite fails, the render job's `debug_log` shows a `VOICEOVER SKIPP
 - If no silence gaps found, places hook at start and closer at end anyway
 
 **TTS synthesis** (`vps/lib/elevenlabs-client.js`):
-- ElevenLabs `eleven_turbo_v2_5` model, stability 0.4, speaker boost ON
-- 3 voice options: default (energetic male), female (clear), deep (deep male)
+- ElevenLabs `eleven_multilingual_v2` model — best style expressiveness (reads punctuation, CAPS, ! as emotion)
+- Voice settings: stability 0.30 (expressive), similarity_boost 0.75, style 0.55, speaker boost ON
+- 3 voices: default = Brian (energetic young male), female = Jessica (upbeat), deep = Callum (punchy deep)
+- Script prompt demands performable text: ! for excitement, ... for suspense, CAPS for emphasis, fragments > sentences
 - Cost: ~$0.01-0.03/clip ($0.15/1K chars), logged to `ai_calls` with `feature: voiceover_elevenlabs`
 - 15s timeout per line; any failure → render continues without voiceover
 
