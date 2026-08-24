@@ -1178,16 +1178,27 @@ export async function renderClip(inputPath, outputPath, options = {}) {
       mapVideo = '[vout]';
 
       // ── Audio chain: base filters ──
+      // Order matters: enhance first (clean source), then shift last (anti-fingerprint).
+      // Previous chain (afftdn=nf=-25 + loudnorm linear=false) caused metallic
+      // echo artifacts and audible pumping on stream audio. New chain uses a gentle
+      // compressor + limiter instead — musical loudness without breathing/artifacts.
       const audioFilters = [];
 
+      if (audioEnhance) {
+        audioFilters.push(
+          'highpass=f=80',
+          'acompressor=threshold=-24dB:ratio=3:attack=10:release=200:knee=6',
+          'alimiter=limit=0.95:level=false',
+          'volume=1.5',
+        );
+        console.log('[FFmpeg] Audio enhancement: highpass + gentle compressor + limiter (no denoiser — stream audio is clean)');
+      }
+
+      // Audio shift LAST — after enhance, before encoding. Shifting first caused
+      // the resampled signal to interact poorly with afftdn/loudnorm.
       const audioShift = buildAudioShiftFilters(48000);
       audioFilters.push(...audioShift.filters);
       console.log('[FFmpeg] Audio fingerprint shift: +3% asetrate/atempo (anti-duplicate)');
-
-      if (audioEnhance) {
-        audioFilters.push('highpass=f=80', 'afftdn=nf=-25', 'loudnorm=I=-14:LRA=11:TP=-1.5:linear=false:dual_mono=true');
-        console.log('[FFmpeg] Audio enhancement enabled: highpass + denoise + loudnorm');
-      }
       const bassFilters = buildBassBoostFilters({ bassBoost });
       if (bassFilters.length > 0) {
         audioFilters.push(...bassFilters);
