@@ -178,6 +178,7 @@ export function UnifiedPublishDialog({
         const json = await res.json() as { data?: ConnectedAccount[] }
         const accounts = json.data ?? []
 
+        const wasPublished = publishedClipIds.has(clipId)
         setPlatforms(prev => {
           const next = { ...prev }
           for (const p of ['tiktok', 'instagram', 'youtube'] as Platform[]) {
@@ -187,9 +188,10 @@ export function UnifiedPublishDialog({
               username: acct?.username ?? null,
               // Never auto-select coming-soon platforms
               selected: !!acct && !isComingSoonPlatform(p),
-              status: 'idle',
+              // Restore published status on re-open so TikTok row shows "Published!"
+              status: wasPublished && !!acct && !isComingSoonPlatform(p) ? 'success' : 'idle',
               error: null,
-              tiktokConfigured: false,
+              tiktokConfigured: wasPublished,
             }
           }
           return next
@@ -206,7 +208,7 @@ export function UnifiedPublishDialog({
   }, [open, clipId])
 
   const togglePlatform = (p: Platform) => {
-    if (isComingSoonPlatform(p) || !platforms[p].connected || isPublishing) return
+    if (isComingSoonPlatform(p) || !platforms[p].connected || isPublishing || allDone) return
     setPlatforms(prev => ({
       ...prev,
       [p]: { ...prev[p], selected: !prev[p].selected },
@@ -371,10 +373,10 @@ export function UnifiedPublishDialog({
               </p>
 
               {/* Status banner — reflects what has already happened */}
-              <p className="flex items-center gap-1.5 text-xs text-zinc-400">
-                <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-emerald-400/80" />
+              <p className={`flex items-center gap-1.5 text-xs ${publishedAt ? 'text-emerald-400' : 'text-zinc-400'}`}>
+                <CheckCircle2 className={`h-3.5 w-3.5 shrink-0 ${publishedAt ? 'text-emerald-400' : 'text-emerald-400/80'}`} />
                 {publishedAt
-                  ? `Published — ${publishedAt}`
+                  ? `Published to TikTok — ${publishedAt}`
                   : 'Render saved — publish, bank it, or come back anytime'
                 }
               </p>
@@ -402,7 +404,7 @@ export function UnifiedPublishDialog({
                         isSelected
                           ? colors
                           : 'border-border bg-muted/20'
-                      } ${state.connected && !isPublishing ? 'cursor-pointer' : ''}`}
+                      } ${state.connected && !isPublishing && !allDone ? 'cursor-pointer' : ''}`}
                       onClick={() => !isComingSoon && state.connected && togglePlatform(id)}
                     >
                       <div className="flex items-center gap-3">
@@ -489,14 +491,14 @@ export function UnifiedPublishDialog({
           <div className="pt-3 border-t border-border/50 space-y-3">
             {/* ── Primary decisions: Bank + Publish side-by-side ── */}
             <div className="flex flex-col sm:flex-row-reverse gap-2">
-              {/* Publish button — reflects published state but stays actionable */}
+              {/* Publish button — greyed out after successful publish */}
               <Button
-                onClick={() => { setAllDone(false); handlePublish() }}
-                disabled={selectedCount === 0 || isPublishing || loading}
-                className={`flex-1 gap-2 text-white border-0 ${
+                onClick={handlePublish}
+                disabled={allDone || selectedCount === 0 || isPublishing || loading}
+                className={`flex-1 gap-2 border-0 ${
                   allDone
-                    ? 'bg-emerald-600 hover:bg-emerald-500'
-                    : 'bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-400 hover:to-amber-400'
+                    ? 'bg-emerald-600/40 text-emerald-300/70 cursor-not-allowed'
+                    : 'text-white bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-400 hover:to-amber-400'
                 }`}
               >
                 {isPublishing ? (
@@ -507,7 +509,7 @@ export function UnifiedPublishDialog({
                 ) : allDone ? (
                   <>
                     <CheckCircle2 className="h-4 w-4" />
-                    Published — Publish again
+                    Published
                   </>
                 ) : (
                   <>
@@ -580,9 +582,16 @@ export function UnifiedPublishDialog({
                     setHasDownloaded(true)
                     try { localStorage.setItem(`downloaded:${clipId}`, '1') } catch {}
                   }}
-                  className="inline-flex items-center gap-1.5 h-9 px-3 text-xs font-medium rounded-md border border-border bg-background text-foreground hover:bg-muted transition-colors"
+                  className={`inline-flex items-center gap-1.5 h-9 px-3 text-xs font-medium rounded-md border transition-colors ${
+                    hasDownloaded
+                      ? 'border-emerald-500/30 bg-emerald-500/8 text-emerald-400 hover:bg-emerald-500/15'
+                      : 'border-border bg-background text-foreground hover:bg-muted'
+                  }`}
                 >
-                  <Download className="h-3.5 w-3.5" />
+                  {hasDownloaded
+                    ? <CheckCircle2 className="h-3.5 w-3.5" />
+                    : <Download className="h-3.5 w-3.5" />
+                  }
                   {hasDownloaded ? 'Downloaded — Download again' : 'Download MP4'}
                 </a>
               )}
