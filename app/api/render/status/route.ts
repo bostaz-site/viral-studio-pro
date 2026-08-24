@@ -13,10 +13,32 @@ interface RenderJob {
   status: string
   storage_path: string | null
   error_message: string | null
+  debug_log: string | null
   quality_tier: string | null
   contract: { feature: string; requested: boolean; applied: boolean; reason?: string }[] | null
   created_at: string
   updated_at: string
+}
+
+// ── Pipeline stage extraction from debug_log ──
+// Ordered from last (most advanced) to first so we find the *latest* reached stage.
+const STAGE_MARKERS: { marker: RegExp; stage: string }[] = [
+  { marker: /^OUTPUT:/m,           stage: 'finalizing' },
+  { marker: /^RENDER START:/m,     stage: 'encoding' },
+  { marker: /^VOICEOVER/m,         stage: 'voiceover' },
+  { marker: /^AUTO-CUT/m,          stage: 'cutting' },
+  { marker: /^(LAYOUT DETECTION|CROP ADVISOR|FACE TRACKING)/m, stage: 'analyzing' },
+  { marker: /^CAPTIONS/m,          stage: 'captions' },
+  { marker: /^WHISPER/m,           stage: 'transcribing' },
+  { marker: /^DOWNLOAD/m,          stage: 'downloading' },
+]
+
+function extractStage(debugLog: string | null): string | null {
+  if (!debugLog) return null
+  for (const { marker, stage } of STAGE_MARKERS) {
+    if (marker.test(debugLog)) return stage
+  }
+  return null
 }
 
 export const GET = withAuth(async (request: NextRequest, user) => {
@@ -199,6 +221,8 @@ export const GET = withAuth(async (request: NextRequest, user) => {
       createdAt: job.created_at,
       updatedAt: job.updated_at,
       contract: job.contract ?? null,
+      // Current pipeline stage (extracted from debug_log markers written by VPS every 10s)
+      stage: job.status === 'rendering' ? extractStage(job.debug_log) : null,
       // Server timestamp for latency measurement: when the job reached terminal state
       serverDoneAt: ['done', 'degraded', 'failed', 'error'].includes(job.status) ? job.updated_at : null,
     },

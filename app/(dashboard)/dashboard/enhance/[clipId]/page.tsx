@@ -59,9 +59,87 @@ interface HookAnalysis {
 
 // ─── Render stages (labeled FFmpeg pipeline steps) ──────────────────────────
 
-const RENDER_STAGES = ['Downloading', 'Applying captions', 'Compositing', 'Uploading'] as const
-// Approximate durations in ms before advancing to next stage (simulated — VPS doesn't report stages)
-const RENDER_STAGE_DURATIONS_MS = [8000, 15000, 20000] // indices 0→1, 1→2, 2→3
+// Real pipeline stages driven by debug_log markers from VPS (flushed every 10s)
+const PIPELINE_STAGES = [
+  { key: 'downloading',  label: 'Downloading clip' },
+  { key: 'transcribing', label: 'Transcription' },
+  { key: 'captions',     label: 'Captions' },
+  { key: 'analyzing',    label: 'Analyzing framing' },
+  { key: 'cutting',      label: 'Removing silences' },
+  { key: 'voiceover',    label: 'Generating voice-over' },
+  { key: 'encoding',     label: 'Encoding' },
+  { key: 'finalizing',   label: 'Uploading' },
+] as const
+
+function formatElapsed(ms: number): string {
+  const totalSec = Math.floor(ms / 1000)
+  if (totalSec < 60) return `${totalSec}s`
+  const m = Math.floor(totalSec / 60)
+  const s = totalSec % 60
+  return `${m}m${s.toString().padStart(2, '0')}s`
+}
+
+function RenderProgressCard({ stage, startedAt }: { stage: string | null; startedAt: number | null }) {
+  const [elapsed, setElapsed] = useState('')
+
+  useEffect(() => {
+    if (!startedAt) return
+    const tick = () => setElapsed(formatElapsed(Date.now() - startedAt))
+    tick()
+    const id = setInterval(tick, 1000)
+    return () => clearInterval(id)
+  }, [startedAt])
+
+  const stageIdx = stage ? PIPELINE_STAGES.findIndex(s => s.key === stage) : -1
+  const currentLabel = stageIdx >= 0 ? PIPELINE_STAGES[stageIdx].label : 'Starting'
+  const progress = stageIdx >= 0 ? Math.round(((stageIdx + 1) / PIPELINE_STAGES.length) * 100) : 5
+
+  return (
+    <div className="va-panel flex flex-col items-center gap-3 text-center">
+      <WolfLoader variant="sequence" mode="amber" size={64} progress={progress} />
+      <div>
+        <p className="text-sm font-bold text-zinc-100">Rendering your clip</p>
+        <p className="text-[10px] text-zinc-500 mt-0.5">
+          {currentLabel}… {elapsed && <span className="text-zinc-400">{elapsed}</span>}
+        </p>
+      </div>
+      {/* Desktop: full stage pipeline */}
+      <div className="hidden md:flex items-start gap-1 w-full">
+        {PIPELINE_STAGES.map(({ key, label }, i) => (
+          <div key={key} className="flex flex-col items-center gap-1 flex-1">
+            <div className={cn(
+              'w-full h-1 rounded-full transition-all duration-700',
+              i < stageIdx ? 'bg-emerald-500' :
+              i === stageIdx ? 'bg-amber-400 animate-pulse' :
+              'bg-zinc-800'
+            )} />
+            <span className={cn(
+              'text-[8px] font-medium text-center leading-tight',
+              i < stageIdx ? 'text-emerald-400' :
+              i === stageIdx ? 'text-amber-400' :
+              'text-zinc-600'
+            )}>
+              {label}
+            </span>
+          </div>
+        ))}
+      </div>
+      {/* Mobile: compact progress */}
+      <div className="md:hidden w-full space-y-1.5">
+        <div className="flex items-center justify-between text-[12px]">
+          <span className="text-zinc-400">{currentLabel}… {elapsed && <span>{elapsed}</span>}</span>
+          <span className="text-amber-400 font-medium">{stageIdx + 1}/{PIPELINE_STAGES.length}</span>
+        </div>
+        <div className="w-full h-1.5 rounded-full bg-zinc-800 overflow-hidden">
+          <div
+            className="h-full rounded-full bg-gradient-to-r from-amber-400 to-amber-600 transition-all duration-700"
+            style={{ width: `${progress}%` }}
+          />
+        </div>
+      </div>
+    </div>
+  )
+}
 
 // ─── Main Page ──────────────────────────────────────────────────────────────
 
@@ -92,8 +170,8 @@ export default function EnhancePage() {
   const [bankError, setBankError] = useState<string | null>(null)
   const pollRef = useRef<NodeJS.Timeout | null>(null)
   const hasUserChangedSettings = useRef(false)
-  const [renderStageIdx, setRenderStageIdx] = useState<number>(-1)
-  const renderStageTimerRef = useRef<NodeJS.Timeout | null>(null)
+  const [renderStage, setRenderStage] = useState<string | null>(null)
+  const [renderStartedAt, setRenderStartedAt] = useState<number | null>(null)
   const [showEnhancements, setShowEnhancements] = useState(false)
   const [hookAnalysis, setHookAnalysis] = useState<HookAnalysis | null>(null)
   const [hookGenerating, setHookGenerating] = useState(false)
@@ -446,11 +524,17 @@ export default function EnhancePage() {
             reducedQuality?: boolean
             queuePosition?: number | null
             serverDoneAt?: string | null
+            stage?: string | null
           } | null
           message: string
         }
 
         if (!json.data) return
+
+        // Update pipeline stage from real debug_log markers
+        if (json.data.stage) {
+          setRenderStage(json.data.stage)
+        }
 
         if (json.data.status === 'done' || json.data.status === 'degraded') {
           // Latency measurement: server done → client detection
@@ -519,7 +603,8 @@ export default function EnhancePage() {
             setRenderMessage('⏳ Queued — waiting for a render slot...')
           }
         } else if (json.data.status === 'rendering') {
-          setRenderMessage('⏳ Rendering — transcribing & adding captions...')
+          const stageLabel = PIPELINE_STAGES.find(s => s.key === json.data!.stage)?.label
+          setRenderMessage(`⏳ ${stageLabel || 'Rendering'}…`)
         } else if (json.data.status === 'pending') {
           setRenderMessage('⏳ Preparing render...')
         }
@@ -557,10 +642,12 @@ export default function EnhancePage() {
         if (json.data.status === 'done' || json.data.status === 'error') {
           // Let startPolling handle the terminal state + cleanup in one tick
           renderingRef.current = true; setRendering(true)
+          setRenderStartedAt(Date.now())
           setRenderMessage('⏳ Resuming tracking...')
           startPolling(storedJobId!)
         } else {
           renderingRef.current = true; setRendering(true)
+          setRenderStartedAt(Date.now())
           setRenderMessage('⏳ Resuming render tracking...')
           startPolling(storedJobId!)
         }
@@ -614,6 +701,8 @@ export default function EnhancePage() {
     }
 
     setRendering(true)
+    setRenderStartedAt(Date.now())
+    setRenderStage(null)
     setRenderMessage('⏳ Starting render...')
     setRenderDownloadUrl(null)
     setRenderOriginalUrl(null)
@@ -778,27 +867,11 @@ export default function EnhancePage() {
   const [ephemeralDelta, setEphemeralDelta] = useState<{ section: string; value: number } | null>(null)
   const ephemeralTimerRef = useRef<NodeJS.Timeout | null>(null)
 
-  // Advance render stages while rendering (simulated — VPS doesn't report stages)
+  // Reset render stage + timer when not rendering
   useEffect(() => {
     if (!rendering || analysisSequenceActive) {
-      setRenderStageIdx(-1)
-      if (renderStageTimerRef.current) clearTimeout(renderStageTimerRef.current)
-      return
-    }
-    setRenderStageIdx(0)
-    let idx = 0
-    function advance() {
-      idx++
-      if (idx < RENDER_STAGES.length) {
-        setRenderStageIdx(idx)
-        if (idx < RENDER_STAGE_DURATIONS_MS.length) {
-          renderStageTimerRef.current = setTimeout(advance, RENDER_STAGE_DURATIONS_MS[idx])
-        }
-      }
-    }
-    renderStageTimerRef.current = setTimeout(advance, RENDER_STAGE_DURATIONS_MS[0])
-    return () => {
-      if (renderStageTimerRef.current) clearTimeout(renderStageTimerRef.current)
+      setRenderStage(null)
+      setRenderStartedAt(null)
     }
   }, [rendering, analysisSequenceActive])
   const pendingAutoRenderRef = useRef(false)
@@ -1724,49 +1797,12 @@ export default function EnhancePage() {
                 </div>
               )}
 
-              {/* During render: single "Rendering your clip" card replaces all actions */}
+              {/* During render: real pipeline stages driven by VPS debug_log */}
               {!renderDownloadUrl && rendering && !analysisSequenceActive && (
-                <div className="va-panel flex flex-col items-center gap-3 text-center">
-                  <WolfLoader variant="sequence" mode="amber" size={64} progress={renderStageIdx >= 0 ? Math.round(((renderStageIdx + 1) / RENDER_STAGES.length) * 100) : 0} />
-                  <div>
-                    <p className="text-sm font-bold text-zinc-100">Rendering your clip</p>
-                    <p className="text-[10px] text-zinc-500 mt-0.5">{renderStageIdx >= 0 ? RENDER_STAGES[renderStageIdx] : 'Starting'}...</p>
-                  </div>
-                  {/* FFmpeg stage pipeline — desktop: full labels, mobile: single progress bar */}
-                  <div className="hidden md:flex items-start gap-1 w-full">
-                    {RENDER_STAGES.map((stage, i) => (
-                      <div key={stage} className="flex flex-col items-center gap-1 flex-1">
-                        <div className={cn(
-                          'w-full h-1 rounded-full transition-all duration-700',
-                          i < renderStageIdx ? 'bg-emerald-500' :
-                          i === renderStageIdx ? 'bg-amber-400 animate-pulse' :
-                          'bg-zinc-800'
-                        )} />
-                        <span className={cn(
-                          'text-[8px] font-medium text-center leading-tight',
-                          i < renderStageIdx ? 'text-emerald-400' :
-                          i === renderStageIdx ? 'text-amber-400' :
-                          'text-zinc-600'
-                        )}>
-                          {stage}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                  {/* Mobile: compact progress */}
-                  <div className="md:hidden w-full space-y-1.5">
-                    <div className="flex items-center justify-between text-[12px]">
-                      <span className="text-zinc-400">Rendering — step {Math.max(1, renderStageIdx + 1)}/{RENDER_STAGES.length}</span>
-                      <span className="text-amber-400 font-medium">{renderStageIdx >= 0 ? RENDER_STAGES[renderStageIdx] : 'Starting'}</span>
-                    </div>
-                    <div className="w-full h-1.5 rounded-full bg-zinc-800 overflow-hidden">
-                      <div
-                        className="h-full rounded-full bg-gradient-to-r from-amber-400 to-amber-600 transition-all duration-700"
-                        style={{ width: `${renderStageIdx >= 0 ? Math.round(((renderStageIdx + 1) / RENDER_STAGES.length) * 100) : 5}%` }}
-                      />
-                    </div>
-                  </div>
-                </div>
+                <RenderProgressCard
+                  stage={renderStage}
+                  startedAt={renderStartedAt}
+                />
               )}
             </div>
           )}
