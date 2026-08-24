@@ -640,7 +640,7 @@ export default function EnhancePage() {
           try { sessionStorage.removeItem(`render-job:${clipId}`) } catch { /* ignore */ }
           return
         }
-        if (json.data.status === 'done' || json.data.status === 'error') {
+        if (json.data.status === 'done' || json.data.status === 'degraded' || json.data.status === 'error') {
           // Let startPolling handle the terminal state + cleanup in one tick
           renderingRef.current = true; setRendering(true)
           setRenderStartedAt(Date.now())
@@ -675,7 +675,7 @@ export default function EnhancePage() {
         .then(r => r.ok ? r.json() : null)
         .then(json => {
           if (cancelled) return
-          if (!json?.data || json.data.status !== 'done' || !json.data.downloadUrl) return
+          if (!json?.data || (json.data.status !== 'done' && json.data.status !== 'degraded') || !json.data.downloadUrl) return
           setRenderDownloadUrl(json.data.downloadUrl)
           setRenderMessage('✅ Clip rendered — publish, bank it, or download.')
         })

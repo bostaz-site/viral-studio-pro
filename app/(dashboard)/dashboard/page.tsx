@@ -64,7 +64,7 @@ export default function DashboardPage() {
     clipId: string
     clipTitle: string | null
     downloadUrl: string | null
-    status: 'done' | 'error'
+    status: 'done' | 'degraded' | 'error'
     errorMessage?: string | null
   } | null>(null)
   const notifTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -907,13 +907,13 @@ export default function DashboardPage() {
       {renderNotification && (
         <div className={cn(
           'fixed inset-x-4 bottom-4 md:left-auto md:right-6 md:inset-x-auto z-50 flex items-center gap-3 px-5 py-3.5 rounded-2xl border shadow-2xl animate-in slide-in-from-bottom-2 fade-in md:max-w-sm backdrop-blur-sm',
-          renderNotification.status === 'done'
+          renderNotification.status === 'done' || renderNotification.status === 'degraded'
             ? 'bg-zinc-900/95 border-amber-500/40'
             : 'bg-zinc-900/95 border-red-500/40'
         )}
-        style={renderNotification.status === 'done' ? { boxShadow: '0 0 25px rgba(245,158,11,.15), 0 8px 32px rgba(0,0,0,.5)' } : undefined}
+        style={renderNotification.status === 'done' || renderNotification.status === 'degraded' ? { boxShadow: '0 0 25px rgba(245,158,11,.15), 0 8px 32px rgba(0,0,0,.5)' } : undefined}
         >
-          {renderNotification.status === 'done' ? (
+          {renderNotification.status === 'done' || renderNotification.status === 'degraded' ? (
             <div className="h-9 w-9 rounded-xl bg-amber-500/15 flex items-center justify-center shrink-0">
               <CheckCircle2 className="h-5 w-5 text-amber-400" />
             </div>
@@ -924,7 +924,7 @@ export default function DashboardPage() {
           )}
           <div className="flex-1 min-w-0">
             <p className="text-sm font-semibold text-white truncate">
-              {renderNotification.status === 'done'
+              {renderNotification.status === 'done' || renderNotification.status === 'degraded'
                 ? '\u2713 Clip ready \u2014 added to your Clip Bank'
                 : renderNotification.errorMessage ?? 'Export failed'}
             </p>
@@ -933,7 +933,7 @@ export default function DashboardPage() {
             )}
           </div>
           <div className="flex items-center gap-2 shrink-0">
-            {renderNotification.status === 'done' && (
+            {renderNotification.status === 'done' || renderNotification.status === 'degraded' && (
               <button
                 onClick={() => router.push(`/dashboard/enhance/${renderNotification.clipId}?source=trending`)}
                 className="px-4 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold transition-colors"
@@ -941,7 +941,7 @@ export default function DashboardPage() {
                 Publish now
               </button>
             )}
-            {renderNotification.status === 'done' && (
+            {renderNotification.status === 'done' || renderNotification.status === 'degraded' && (
               <button
                 onClick={() => router.push('/dashboard/distribution')}
                 className="px-3 py-1.5 rounded-lg border border-zinc-700 hover:border-zinc-500 text-zinc-400 hover:text-white text-xs font-medium transition-all"

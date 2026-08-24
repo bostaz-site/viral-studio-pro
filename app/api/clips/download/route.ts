@@ -37,7 +37,7 @@ export const GET = withAuth(async (request, user) => {
     )
   }
 
-  if (clip.status !== 'done' || !clip.storage_path) {
+  if ((clip.status !== 'done' && clip.status !== 'degraded') || !clip.storage_path) {
     return NextResponse.json(
       {
         data: null,

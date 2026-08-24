@@ -64,14 +64,14 @@ export const GET = withAuth(async (request: NextRequest, user) => {
   // Generate signed download URLs for completed jobs
   const enrichedJobs = await Promise.all((jobs ?? []).map(async (job) => {
     let downloadUrl: string | null = null
-    if (job.status === 'done' && job.storage_path) {
+    if ((job.status === 'done' || job.status === 'degraded') && job.storage_path) {
       const { data: signedData } = await admin.storage
         .from('clips')
         .createSignedUrl(job.storage_path, 14400) // 4 hours
       downloadUrl = signedData?.signedUrl ?? null
     }
 
-    const canDownload = job.status === 'done' && !!job.storage_path && !!downloadUrl
+    const canDownload = (job.status === 'done' || job.status === 'degraded') && !!job.storage_path && !!downloadUrl
 
     return {
       ...job,

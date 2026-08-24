@@ -63,7 +63,7 @@ export const GET = withAuth(async (_req, user) => {
   const doneDurations: number[] = []
 
   for (const j of jobs) {
-    if (j.status === 'done') {
+    if (j.status === 'done' || j.status === 'degraded') {
       counts.done++
       if (j.updated_at) {
         const durMs = new Date(j.updated_at).getTime() - new Date(j.created_at!).getTime()

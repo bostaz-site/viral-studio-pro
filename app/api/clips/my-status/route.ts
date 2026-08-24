@@ -18,7 +18,7 @@ export const GET = withAuth(async (_req, user) => {
       .from('render_jobs')
       .select('clip_id')
       .eq('user_id', user.id)
-      .eq('status', 'done')
+      .in('status', ['done', 'degraded'])
       .is('removed_from_bank_at', null)
       .not('clip_id', 'is', null),
 
@@ -32,7 +32,7 @@ export const GET = withAuth(async (_req, user) => {
       .from('render_jobs')
       .select('clip_id')
       .eq('user_id', user.id)
-      .eq('status', 'done')
+      .in('status', ['done', 'degraded'])
       .not('clip_id', 'is', null),
   ])
 

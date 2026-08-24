@@ -239,7 +239,7 @@ async function handleWebhook(req: NextRequest) {
           .from('render_jobs')
           .select('id', { count: 'exact', head: true })
           .eq('user_id', uid)
-          .eq('status', 'done')
+          .in('status', ['done', 'degraded'])
           .neq('id', payload.jobId)
       ).then(({ count }) => {
         if (count === 0) {

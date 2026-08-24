@@ -34,7 +34,7 @@ export const PATCH = withAuth(async (req, user) => {
       .update({ removed_from_bank_at: new Date().toISOString() } as never)
       .eq('clip_id', clipId)
       .eq('user_id', user.id)
-      .eq('status', 'done')
+      .in('status', ['done', 'degraded'])
 
     if (error) return errorResponse(error.message, 500)
 
@@ -55,7 +55,7 @@ export const PATCH = withAuth(async (req, user) => {
     .update({ removed_from_bank_at: null } as never)
     .eq('clip_id', clipId)
     .eq('user_id', user.id)
-    .eq('status', 'done')
+    .in('status', ['done', 'degraded'])
 
   if (error) return errorResponse(error.message, 500)
   return jsonResponse({ restored: true, clip_id: clipId })

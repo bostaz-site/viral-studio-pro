@@ -87,7 +87,7 @@ export const POST = withAuth(
       .select('id, clip_id, storage_path, clip_url, user_id, render_settings')
       .eq('clip_id', clip_id)
       .eq('user_id', user.id)
-      .eq('status', 'done')
+      .in('status', ['done', 'degraded'])
       .order('created_at', { ascending: false })
       .limit(1)
 

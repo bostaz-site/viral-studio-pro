@@ -58,7 +58,7 @@ export async function executePublish(params: ExecutePublishParams): Promise<Exec
     .select('id, clip_id, storage_path, user_id, render_settings')
     .eq('clip_id', clipId)
     .eq('user_id', userId)
-    .eq('status', 'done')
+    .in('status', ['done', 'degraded'])
     .order('created_at', { ascending: false })
     .limit(1)
 

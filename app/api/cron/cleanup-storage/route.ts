@@ -73,7 +73,7 @@ export async function POST(req: NextRequest) {
       const { data: expired, error: expiredError } = await admin
         .from('render_jobs')
         .select('id, storage_path, user_id')
-        .eq('status', 'done')
+        .in('status', ['done', 'degraded'])
         .not('storage_path', 'is', null)
         .in('user_id', userIds)
         .lt('created_at', cutoff)

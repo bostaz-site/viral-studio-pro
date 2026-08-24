@@ -36,7 +36,7 @@ export const POST = withAuth(async (request: NextRequest, user) => {
     .select('id, clip_id, status, storage_path, removed_from_bank_at, created_at')
     .eq('clip_id', clipId)
     .eq('user_id', user.id)
-    .eq('status', 'done')
+    .in('status', ['done', 'degraded'])
     .order('created_at', { ascending: false })
     .limit(1)
     .single() as { data: BankJob | null; error: unknown }
