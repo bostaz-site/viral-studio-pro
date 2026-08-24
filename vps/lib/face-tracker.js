@@ -82,7 +82,9 @@ export async function detectFaces(videoPath, opts = {}) {
       console.error(`[FaceTracker] Timeout after ${timeoutMs}ms`);
       return { error: 'Face detection timed out', smoothed: [] };
     }
-    console.error(`[FaceTracker] Error:`, err.message);
-    return { error: err.message, smoothed: [] };
+    // Capture stderr for diagnostics (OOM, missing deps, import errors)
+    const stderr = err.stderr ? err.stderr.slice(0, 500) : '';
+    console.error(`[FaceTracker] Error: ${err.message}${stderr ? `\n  stderr: ${stderr}` : ''}`);
+    return { error: `${err.message}${stderr ? ` | stderr: ${stderr}` : ''}`, smoothed: [] };
   }
 }

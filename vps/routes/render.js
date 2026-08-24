@@ -962,7 +962,8 @@ router.post('/', async (req, res) => {
             trc(`LAYOUT DETECTION: not a reaction layout (confidence=${layoutResult.confidence.toFixed(2)})`);
           }
         } catch (layoutErr) {
-          trc(`LAYOUT DETECTION error (non-fatal): ${layoutErr.message}`);
+          const stderr = layoutErr.stderr ? layoutErr.stderr.slice(0, 300) : '';
+          trc(`LAYOUT DETECTION error (non-fatal): ${layoutErr.message}${stderr ? ` | stderr: ${stderr}` : ''}`);
         }
 
         // B2: Crop Advisor (needs layout result)
@@ -974,7 +975,8 @@ router.post('/', async (req, res) => {
             settings.format.videoZoom = advice.recommended;
             trc(`CROP ADVISOR: ${advice.recommended} (faceScore=${advice.faceScore.toFixed(2)}, reason=${advice.reason})`);
           } catch (cropErr) {
-            trc(`CROP ADVISOR error (non-fatal): ${cropErr.message} — defaulting to fit`);
+            const cropStderr = cropErr.stderr ? cropErr.stderr.slice(0, 300) : '';
+          trc(`CROP ADVISOR error (non-fatal): ${cropErr.message}${cropStderr ? ` | stderr: ${cropStderr}` : ''} — defaulting to fit`);
             settings.format = settings.format || {};
             settings.format.videoZoom = 'fit';
           }
@@ -1013,7 +1015,8 @@ router.post('/', async (req, res) => {
             trc(`FACE TRACKING: no stable face (${detectedCount}/${totalFrames}) → no follow`);
           }
         } catch (faceErr) {
-          trc(`FACE TRACKING error (non-fatal): ${faceErr.message} → micro fallback`);
+          const faceStderr = faceErr.stderr ? faceErr.stderr.slice(0, 300) : '';
+          trc(`FACE TRACKING error (non-fatal): ${faceErr.message}${faceStderr ? ` | stderr: ${faceStderr}` : ''} → micro fallback`);
         }
       } else if (!needsVisualAnalysis) {
         // Already logged above
@@ -1026,7 +1029,15 @@ router.post('/', async (req, res) => {
     // ── Wait for both parallel tasks ──
     await Promise.all([whisperTask, analysisTask]);
 
-    trc(`WORD TIMESTAMPS: ${wordTimestamps.length} words available for captions/voiceover/autoCut`);
+    // Detect no-speech clips: Whisper ran but found zero words.
+    // This is a content characteristic, not a failure — features that depend
+    // on speech (voiceover, auto-cut, captions) should be marked intentional.
+    const noSpeechDetected = needsWordTimestamps && wordTimestamps.length === 0 && (source === 'trending' || providedWordTimestamps?.length === 0);
+    if (noSpeechDetected) {
+      trc('NO SPEECH DETECTED: Whisper returned 0 words — speech-dependent features will be skipped (intentional, not degraded)');
+    }
+
+    trc(`WORD TIMESTAMPS: ${wordTimestamps.length} words available for captions/voiceover/autoCut${noSpeechDetected ? ' (no speech)' : ''}`);
 
     // ─── Captions (ASS subtitle generation) — runs after Whisper completes ───
     t('captions_start');
@@ -1074,7 +1085,7 @@ router.post('/', async (req, res) => {
           trc(`CAPTIONS ASS dialogue events: ${dialogueLines.length} events (first: ${dialogueLines[0]?.substring(0, 100) || 'none'})`);
           contract.record('captions', true);
         } else {
-          contract.record('captions', false, 'no word timestamps and no title for fallback');
+          contract.record('captions', false, noSpeechDetected ? 'no speech in clip' : 'no word timestamps and no title for fallback', null, noSpeechDetected);
         }
       } catch (err) {
         trc(`CAPTIONS ERROR: ${err.message}`);
@@ -1352,6 +1363,9 @@ router.post('/', async (req, res) => {
     // Runs AFTER Hook Reorder so it operates on the reordered timeline with
     // already-remapped word timestamps.
     t('cut_start');
+    if (settings.autoCut?.enabled && captionWordTimestamps.length === 0) {
+      contract.record('auto_cut', false, noSpeechDetected ? 'no speech in clip' : 'no word timestamps', null, noSpeechDetected);
+    }
     if (settings.autoCut?.enabled && captionWordTimestamps.length > 0) {
       try {
         let threshold = settings.autoCut.silenceThreshold;
@@ -1431,8 +1445,8 @@ router.post('/', async (req, res) => {
         trc('VOICEOVER SKIPPED: reason=disabled_by_user');
         contract.record('voiceover', false, 'disabled by user', null, true);
       } else if (!hasTranscript) {
-        trc('VOICEOVER SKIPPED: reason=no_word_timestamps (Whisper returned empty or captions disabled)');
-        contract.record('voiceover', false, 'no word timestamps');
+        trc(`VOICEOVER SKIPPED: reason=no_word_timestamps${noSpeechDetected ? ' (no speech in clip — intentional)' : ''}`);
+        contract.record('voiceover', false, noSpeechDetected ? 'no speech in clip' : 'no word timestamps', null, noSpeechDetected);
       } else if (duration <= 5) {
         trc(`VOICEOVER SKIPPED: reason=clip_too_short (${duration.toFixed(1)}s <= 5s)`);
         contract.record('voiceover', false, 'clip too short', null, true);
@@ -1513,7 +1527,8 @@ router.post('/', async (req, res) => {
     contract.record('crop_mode', true, null, { applied_mode: settings.format?.videoZoom || 'auto' });
     // Hook text: recorded based on whether the hook text overlay will actually be in the render
     const hookHasText = settings.hook?.enabled && settings.hook?.textEnabled !== false && settings.hook?.text;
-    contract.record('hook_text', !!hookHasText, hookHasText ? null : 'no hook text available');
+    const hookIntentionalSkip = !hookHasText && (noSpeechDetected || !settings.hook?.enabled);
+    contract.record('hook_text', !!hookHasText, hookHasText ? null : (noSpeechDetected ? 'no speech in clip' : 'no hook text available'), null, hookIntentionalSkip);
 
     trc(`AUDIO SHIFT: +3% asetrate/atempo anti-fingerprint will be applied (always-on)`);
     trc(`RENDER START: voiceover=${voiceoverPaths ? voiceoverPaths.length + ' MP3s' : 'none'} smartZoom=${settings.smartZoom?.mode || 'micro'} videoZoom=${settings.format?.videoZoom || 'auto'}`);

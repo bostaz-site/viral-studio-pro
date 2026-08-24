@@ -214,10 +214,11 @@ export async function detectReactionLayout(videoPath, opts = {}) {
       confidence,
     };
   } catch (err) {
+    const stderr = err.stderr ? err.stderr.slice(0, 500) : '';
     if (err.killed) {
       console.warn(`[LayoutDetector] Timeout after ${timeoutMs}ms`);
     } else {
-      console.warn(`[LayoutDetector] Error: ${err.message}`);
+      console.warn(`[LayoutDetector] Error: ${err.message}${stderr ? `\n  stderr: ${stderr}` : ''}`);
     }
     return NO_REACTION;
   }

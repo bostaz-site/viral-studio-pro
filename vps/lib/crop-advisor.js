@@ -207,12 +207,13 @@ export async function adviseCrop(videoPath, opts = {}) {
     };
 
   } catch (err) {
+    const stderr = err.stderr ? err.stderr.slice(0, 500) : '';
     if (err.killed) {
       console.warn(`[CropAdvisor] Timeout after ${timeoutMs}ms`);
     } else {
-      console.warn(`[CropAdvisor] Error: ${err.message}`);
+      console.warn(`[CropAdvisor] Error: ${err.message}${stderr ? `\n  stderr: ${stderr}` : ''}`);
     }
-    return fallback(`Analysis failed: ${err.message}`);
+    return fallback(`Analysis failed: ${err.message}${stderr ? ` | stderr: ${stderr}` : ''}`);
   }
 }
 
