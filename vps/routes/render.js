@@ -355,7 +355,10 @@ async function detectSmartHookStart(transcript, duration, trc) {
 
     // Sanity checks
     if (!Number.isFinite(peakStart) || peakStart < 0) return 0;
-    if (peakStart >= duration - 2) return Math.max(0, duration - 5); // Don't start too close to the end
+    if (peakStart >= duration - 2) {
+      trc(`SMART HOOK: peak ${peakStart}s is near end (duration=${duration.toFixed(1)}s) — skipping trim`);
+      return null; // Don't trim — leaving only a few seconds is worse than no trim
+    }
     return peakStart;
   } catch (err) {
     trc(`SMART HOOK: error ${err.message}`);
@@ -659,6 +662,7 @@ router.post('/', async (req, res) => {
 
     let inputPath = path.join(tempDir, 'input.mp4');
     let duration = clipDuration || 0;
+    let probedDuration = 0; // original FFprobe duration — reference for mismatch detection
     let userId = reqUserId || 'trending'; // payload userId or default for trending
     let videoId = null;
     let clipStartTime = 0;
@@ -718,6 +722,7 @@ router.post('/', async (req, res) => {
         // real video frame — prevents the "frozen last frame" artifact if
         // the container metadata is still slightly ahead of the stream.
         duration = Math.max(0.1, duration - 0.05);
+        probedDuration = duration; // snapshot for mismatch detection at RENDER START
 
         // Kick HLS playlists (playlist.m3u8) often cover a much longer
         // window than the actual clip (e.g. 3 min playlist for a 30s clip).
@@ -783,6 +788,7 @@ router.post('/', async (req, res) => {
         clipStartTime = clip.start_time;
         clipEndTime = clip.end_time;
         duration = clipEndTime - clipStartTime;
+        probedDuration = duration;
 
         // Update clip status to rendering
         await updateClipStatus(clipId, 'rendering');
@@ -822,6 +828,7 @@ router.post('/', async (req, res) => {
           if (Number.isFinite(streamDur) && streamDur > 0) {
             duration = Math.max(0.1, streamDur - 0.05);
             clipEndTime = duration;
+            probedDuration = duration;
             trc(`videos fallback: probed duration=${duration}s`);
           }
         } catch { /* use clipDuration from payload */ }
@@ -829,6 +836,7 @@ router.post('/', async (req, res) => {
         if (!duration && clipDuration) {
           duration = clipDuration;
           clipEndTime = duration;
+          probedDuration = duration;
         }
       }
     }
@@ -1137,7 +1145,8 @@ router.post('/', async (req, res) => {
     if (source === 'trending' && whisperFullText && !hookReorderEnabled && duration > 10) {
       try {
         const smartStart = await detectSmartHookStart(whisperFullText, duration, trc);
-        if (smartStart !== null && smartStart > 2) {
+        const remainingAfterTrim = smartStart !== null ? duration - smartStart : duration;
+        if (smartStart !== null && smartStart > 2 && remainingAfterTrim >= 8) {
           const oldStart = clipStartTime;
           clipStartTime += smartStart;
           // Cap total duration at 30s
@@ -1178,6 +1187,8 @@ router.post('/', async (req, res) => {
               }
             }
           }
+        } else if (smartStart !== null && smartStart > 2) {
+          trc(`SMART HOOK: would leave only ${remainingAfterTrim.toFixed(1)}s — skipping trim (min 8s)`);
         }
       } catch (hookErr) {
         trc(`SMART HOOK FAILED: ${hookErr.message}`);
@@ -1534,8 +1545,18 @@ router.post('/', async (req, res) => {
     const hookIntentionalSkip = !hookHasText && (noSpeechDetected || !settings.hook?.enabled);
     contract.record('hook_text', !!hookHasText, hookHasText ? null : (noSpeechDetected ? 'no speech in clip' : 'no hook text available'), null, hookIntentionalSkip);
 
+    // ── Duration mismatch guardrail ──
+    // If duration drifted >20% from the probed original (outside legitimate auto-cut),
+    // something upstream clobbered it. Log loudly so we catch regressions instantly.
+    if (probedDuration > 0 && duration > 0) {
+      const drift = Math.abs(duration - probedDuration) / probedDuration;
+      if (drift > 0.20) {
+        trc(`DURATION MISMATCH: probed=${probedDuration.toFixed(2)}s → current=${duration.toFixed(2)}s (${(drift * 100).toFixed(0)}% drift) — possible pipeline bug`);
+      }
+    }
+
     trc(`AUDIO SHIFT: +3% asetrate/atempo anti-fingerprint will be applied (always-on)`);
-    trc(`RENDER START: voiceover=${voiceoverPaths ? voiceoverPaths.length + ' MP3s' : 'none'} smartZoom=${settings.smartZoom?.mode || 'micro'} videoZoom=${settings.format?.videoZoom || 'auto'}`);
+    trc(`RENDER START: duration=${duration.toFixed(2)}s probed=${probedDuration.toFixed(2)}s voiceover=${voiceoverPaths ? voiceoverPaths.length + ' MP3s' : 'none'} smartZoom=${settings.smartZoom?.mode || 'micro'} videoZoom=${settings.format?.videoZoom || 'auto'}`);
     console.log(`[Render ${renderSessionId}] Starting FFmpeg render...`);
 
     // Use plan from Next.js payload (source of truth); fall back to DB lookup
