@@ -561,18 +561,16 @@ function buildSmartZoomFilter(inLabel, outLabel, canvasW, canvasH, clipDuration,
  * @param {number} clipDuration  - Clip duration in seconds
  * @returns {string|null} FFmpeg filter string
  */
-function buildFollowFaceFilter(inLabel, outLabel, canvasW, canvasH, keyframes, clipDuration) {
+function buildFollowFaceFilter(inLabel, outLabel, canvasW, canvasH, keyframes, clipDuration, zoomOverride) {
   if (!keyframes || keyframes.length < 2) {
     console.log('[FFmpeg] Follow face: not enough keyframes, falling back to micro');
     return null;
   }
 
-  // ── Zoom factor: scale video up 20% for real pan room ──
-  // 1.20 gives ±10% pan range on each axis — enough to follow a face
-  // that moves across the frame without the camera feeling stuck.
-  // The Python smoother's dead zone + max speed ensure the pan is smooth,
-  // so the extra crop is worth the tracking quality.
-  const ZOOM = 1.20;
+  // Zoom factor: how much to scale up for pan room.
+  // Default 1.20 (±10% pan range). Caller can override to 1.0 (pan-only,
+  // no additional zoom) when the crop budget is already tight (e.g. fullframe).
+  const ZOOM = zoomOverride || 1.20;
   const scaledW = Math.round(canvasW * ZOOM);
   const scaledH = Math.round(canvasH * ZOOM);
   // Max pan range (how far the crop window can move)
@@ -834,18 +832,93 @@ export async function renderClip(inputPath, outputPath, options = {}) {
       const smartZoomActive = smartZoom && smartZoom.enabled;
       const isReaction = videoZoom === 'reaction' && reactionLayout;
       const isFullFrame = videoZoom === 'fullframe';
-      // 'auto' should be resolved by crop-advisor in render.js; if it leaks here, treat as fit (safe)
       const isFit = videoZoom === 'fit' || videoZoom === 'auto';
       const zoomFactor = (isFullFrame || isReaction || isFit) ? 1.0 : videoZoom === 'immersive' ? 1.35 : videoZoom === 'fill' ? 1.15 : 1.0;
 
-      // Source UI removal: aggressive border crop to strip Twitch/Kick overlays
-      // (chat, alerts, counters, streamer logos). 100px on 1080p sources ≈ 5% per side.
-      const borderCrop = (isFullFrame || isReaction) ? 100 : 60;
+      // ── ZOOM BUDGET ──
+      // Compute the effective crop zoom from the aspect ratio conversion so we
+      // can cap the total magnification. A 1920x1080 (16:9) source going to
+      // 1080x1920 (9:16) canvas needs to scale height from 1080→1920 (1.78x),
+      // which crops ~44% of the width. Adding border crop + face-follow zoom
+      // on top makes it unreadable.
+      //
+      // We probe the source dimensions to know the actual crop ratio, then
+      // decide how much room is left for border crop and face-follow zoom.
+      let sourceW = 1920, sourceH = 1080; // defaults, overridden by probe
+      try {
+        const { stdout } = await execFileAsync('ffprobe', [
+          '-v', 'error', '-select_streams', 'v:0',
+          '-show_entries', 'stream=width,height', '-of', 'csv=p=0', inputPath,
+        ], { timeout: 5000 });
+        const [pw, ph] = stdout.trim().split(',').map(Number);
+        if (pw > 0 && ph > 0) { sourceW = pw; sourceH = ph; }
+      } catch { /* use defaults */ }
+
+      // Effective crop zoom from aspect conversion (how much the source is
+      // magnified to fill the canvas). For 16:9→9:16 this is ~1.78x.
+      const sourceAspect = sourceW / sourceH;
+      const canvasAspect = canvasW / canvasH;
+      let cropZoom;
+      if (isFullFrame || isFit) {
+        // Fullframe: source is scaled so its SHORT dimension fills the canvas.
+        // For landscape→portrait: scale by canvasH/sourceH, then crop width.
+        if (sourceAspect > canvasAspect) {
+          // Landscape source → portrait canvas: height is the binding dimension
+          cropZoom = canvasH / sourceH;
+        } else {
+          cropZoom = canvasW / sourceW;
+        }
+      } else {
+        cropZoom = 1.0;
+      }
+
+      // Border crop: reduce when crop zoom is already high to stay within budget
+      const MAX_TOTAL_ZOOM = 3.2;
+      let borderCrop;
+      if (isFullFrame || isReaction) {
+        // With high crop zoom, reduce border crop to avoid losing too much content
+        const borderBudget = MAX_TOTAL_ZOOM / Math.max(cropZoom, 1);
+        borderCrop = borderBudget < 1.15 ? 40 : 80; // 40px if tight, 80px otherwise
+      } else {
+        borderCrop = 50;
+      }
+
+      // Face-follow zoom: only allowed if we have budget left
+      const borderZoom = sourceW > 0 ? sourceW / (sourceW - borderCrop * 2) : 1.0;
+      const zoomBeforeFollow = cropZoom * borderZoom * zoomFactor;
+      // How much room is left for face follow (min 1.0 = pan only, no zoom)
+      const followZoomBudget = Math.max(1.0, Math.min(1.20, MAX_TOTAL_ZOOM / zoomBeforeFollow));
+
+      const totalZoom = zoomBeforeFollow * followZoomBudget;
+      const visiblePct = Math.round((1 / (totalZoom * totalZoom)) * 100 * (sourceAspect / canvasAspect > 1 ? canvasAspect / sourceAspect * 100 : 100)) || 100;
+
+      // Sanity check: if fullframe would show less than 25% of the source
+      // width, downgrade to fit (full image + blurred padding) automatically.
+      // Better to show bands than an unreadable extreme close-up.
+      let effectiveVideoZoom = videoZoom;
+      if (isFullFrame && sourceAspect > canvasAspect) {
+        // How much of the source width is visible after crop
+        const afterBorderW = sourceW - borderCrop * 2;
+        const scaleToFillH = canvasH / (sourceH - borderCrop * 2);
+        const scaledW = afterBorderW * scaleToFillH;
+        const visibleWidthPct = Math.round((canvasW / scaledW) * 100);
+        if (visibleWidthPct < 25) {
+          console.log(`[FFmpeg] SANITY CHECK: fullframe would show only ${visibleWidthPct}% of source width — downgrading to fit`);
+          // Mutate the mode flags for this render pass
+          effectiveVideoZoom = 'fit';
+        }
+      }
+
+      console.log(`[FFmpeg] ZOOM BUDGET: source=${sourceW}x${sourceH} crop=${cropZoom.toFixed(2)}x border=${borderZoom.toFixed(2)}x (${borderCrop}px) follow=${followZoomBudget.toFixed(2)}x total=${totalZoom.toFixed(2)}x mode=${effectiveVideoZoom}`);
 
       let filterComplex;
       let mapVideo;
 
       // ── Step 1: Scale/Crop compositing ─────────────────────────────────
+      // Use effectiveVideoZoom (may have been downgraded by sanity check)
+      const useFullFrame = effectiveVideoZoom === 'fullframe';
+      const useFit = effectiveVideoZoom === 'fit' || effectiveVideoZoom === 'auto';
+
       if (isReaction) {
         // REACTION MODE: facecam top (~32%), content bottom (~68%), full width.
         // Crops the webcam region and the content region separately from the
@@ -869,14 +942,12 @@ export async function renderClip(inputPath, outputPath, options = {}) {
         ].join(';');
         mapVideo = '[composed]';
         console.log(`[FFmpeg] Reaction layout: face(${face.x},${face.y},${face.w}x${face.h}) → ${canvasW}x${faceH} top, content → ${canvasW}x${contentH} bottom`);
-      } else if (isFullFrame) {
+      } else if (useFullFrame) {
         // FULL-FRAME MODE: center crop directly to 9:16 (no blurred padding).
-        // Scales source to fill the canvas vertically, crops sides to exact width.
-        // This eliminates the blurred-background signature that TikTok flags as repost.
         filterComplex = `[0:v]fps=${fps},crop=in_w-${borderCrop*2}:in_h-${borderCrop*2}:${borderCrop}:${borderCrop},scale=${canvasW}:${canvasH}:force_original_aspect_ratio=increase:flags=lanczos,crop=${canvasW}:${canvasH}:(iw-${canvasW})/2:(ih-${canvasH})/2,setsar=1[composed]`;
         mapVideo = '[composed]';
         console.log(`[FFmpeg] Full-frame crop: ${canvasW}x${canvasH}, border trim ${borderCrop}px`);
-      } else if (isFit) {
+      } else if (useFit) {
         // FIT MODE: preserve full image, scale to fill width, cinematic blurred padding.
         // Deep blur (sigma=24), dark (-0.45), heavily desaturated (s=0.5) → neutral texture.
         // Used for gameplay, IRL wide shots — content stays fully visible.
@@ -930,7 +1001,9 @@ export async function renderClip(inputPath, outputPath, options = {}) {
       if (smartZoom && smartZoom.enabled) {
         let zoomChain = null;
         if (smartZoom.mode === 'follow' && Array.isArray(smartZoom.faceKeyframes) && smartZoom.faceKeyframes.length >= 2) {
-          zoomChain = buildFollowFaceFilter(mapVideo, '[zoomed]', canvasW, canvasH, smartZoom.faceKeyframes, clipDuration);
+          // Pass the zoom budget so follow doesn't add zoom when crop is already tight
+          zoomChain = buildFollowFaceFilter(mapVideo, '[zoomed]', canvasW, canvasH, smartZoom.faceKeyframes, clipDuration, followZoomBudget);
+          console.log(`[FFmpeg] Face follow: zoom=${followZoomBudget.toFixed(2)}x (${followZoomBudget <= 1.01 ? 'PAN ONLY' : 'pan+zoom'})`);
         }
         if (!zoomChain) {
           const fallbackMode = (smartZoom.mode === 'follow') ? 'micro' : (smartZoom.mode || 'micro');
