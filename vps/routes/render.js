@@ -844,6 +844,35 @@ router.post('/', async (req, res) => {
     const canvasSizes = { '9:16': { w: 1080, h: 1920 }, '1:1': { w: 1080, h: 1080 }, '16:9': { w: 1920, h: 1080 } };
     const { w: canvasW, h: canvasH } = canvasSizes[targetAspectRatio] || canvasSizes['9:16'];
 
+    // ─── Burned-in caption safety net ───
+    // If captions are requested but the source already has burned-in captions,
+    // detect and auto-disable to prevent doubling. Runs on trending clips only.
+    // The frontend usually handles this, but quick export and edge cases bypass it.
+    let burnedCaptionDetected = false;
+    if (settings.captions?.enabled && settings.captions?.style !== 'none' && source === 'trending') {
+      // Skip if frontend already flagged via skippedReason
+      if (settings.captions?.skippedReason !== 'source_has_burned_captions') {
+        try {
+          trc('BURNED CAPTION CHECK starting...');
+          const burnedResult = await detectBurnedCaptions(inputPath, duration, tempDir, trc);
+          if (burnedResult.burned_captions && burnedResult.confidence >= 0.7) {
+            burnedCaptionDetected = true;
+            settings.captions.enabled = false;
+            settings.captions.style = 'none';
+            settings.captions.skippedReason = 'source_has_burned_captions';
+            trc(`BURNED CAPTION CHECK: detected (confidence=${burnedResult.confidence.toFixed(2)}) → captions auto-disabled`);
+          } else {
+            trc(`BURNED CAPTION CHECK: not detected (confidence=${(burnedResult.confidence || 0).toFixed(2)})`);
+          }
+        } catch (burnedErr) {
+          trc(`BURNED CAPTION CHECK error (non-fatal): ${burnedErr.message}`);
+        }
+      } else {
+        burnedCaptionDetected = true;
+        trc('BURNED CAPTION CHECK: already flagged by frontend (skippedReason=source_has_burned_captions)');
+      }
+    }
+
     // Prepare captions if enabled
     // IMPORTANT: also skip when style='none' — user explicitly chose no captions.
     let assFilePath = null;
@@ -969,8 +998,9 @@ router.post('/', async (req, res) => {
         contract.record('captions', false, `error: ${err.message}`);
       }
     } else {
-      trc(`CAPTIONS disabled (enabled=${settings.captions?.enabled}, style=${captionStyleRequested})`);
-      contract.record('captions', false, 'disabled by user');
+      const captionSkipReason = settings.captions?.skippedReason || 'disabled by user';
+      trc(`CAPTIONS disabled (enabled=${settings.captions?.enabled}, style=${captionStyleRequested}, reason=${captionSkipReason})`);
+      contract.record('captions', false, captionSkipReason);
     }
 
     // Prepare tag/credit config

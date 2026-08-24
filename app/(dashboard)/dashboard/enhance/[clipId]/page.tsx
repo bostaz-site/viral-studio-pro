@@ -253,10 +253,25 @@ export default function EnhancePage() {
   }, [clipId, storeClips, sourceParam])
 
   // Detect burned-in captions when clip loads (fire-and-forget, non-blocking)
+  // Cached per clip URL in localStorage to avoid re-detecting on every editor open.
   useEffect(() => {
     if (!clip?.external_url) return
-    // Only detect for trending clips (uploads are user's own content — less likely to have burned captions)
     if (sourceParam === 'upload') return
+
+    // Check localStorage cache first
+    const cacheKey = `va:burned-captions:${clip.external_url}`
+    try {
+      const cached = localStorage.getItem(cacheKey)
+      if (cached) {
+        const parsed = JSON.parse(cached) as { detected: boolean; position: string | null; confidence: number }
+        setBurnedCaptions(parsed)
+        // If burned captions detected, disable ours immediately (before user can click anything)
+        if (parsed.detected && parsed.confidence >= 0.7) {
+          setSettings(s => s.captionsEnabled ? { ...s, captionsEnabled: false, captionStyle: 'none' } : s)
+        }
+        return
+      }
+    } catch { /* cache miss — detect fresh */ }
 
     let cancelled = false
     async function detect() {
@@ -276,11 +291,18 @@ export default function EnhancePage() {
         if (cancelled) return
         const json = await res.json()
         if (json.data) {
-          setBurnedCaptions({
+          const result = {
             detected: !!json.data.burned_captions,
             position: json.data.position ?? null,
             confidence: json.data.confidence ?? 0,
-          })
+          }
+          setBurnedCaptions(result)
+          // Cache result for this clip (24h TTL via convention — no expiry needed, clips don't change)
+          try { localStorage.setItem(cacheKey, JSON.stringify(result)) } catch { /* quota */ }
+          // If burned captions detected, disable ours immediately
+          if (result.detected && result.confidence >= 0.7) {
+            setSettings(s => s.captionsEnabled ? { ...s, captionsEnabled: false, captionStyle: 'none' } : s)
+          }
         }
       } catch {
         // Silent failure — detection is assistive, never blocking
@@ -647,6 +669,8 @@ export default function EnhancePage() {
               emphasisColor: settings.emphasisColor,
               customImportantWords: settings.customImportantWords,
               position: settings.captionPosition,
+              ...(burnedCaptions?.detected && burnedCaptions.confidence >= 0.7 && !settings.captionsEnabled
+                ? { skippedReason: 'source_has_burned_captions' } : {}),
             },
             tag: {
               style: settings.tagStyle,
@@ -796,8 +820,9 @@ export default function EnhancePage() {
   const currentScore = useMemo(() => {
     if (!scores) return baselineScore
     const activeMood = selectedMood ?? detectedMood
-    return computeCurrentScore(settings, scores, baselineScore, activeMood)
-  }, [settings, scores, baselineScore, selectedMood, detectedMood])
+    const hasBurned = burnedCaptions?.detected && burnedCaptions.confidence >= 0.7
+    return computeCurrentScore(settings, scores, baselineScore, activeMood, hasBurned)
+  }, [settings, scores, baselineScore, selectedMood, detectedMood, burnedCaptions])
 
   // ── Animated score count-up ──
   const [displayScore, setDisplayScore] = useState(currentScore)
@@ -828,8 +853,9 @@ export default function EnhancePage() {
   // Per-section score breakdown for "+X pts" labels
   const scoreBreakdown = useMemo(() => {
     const activeMood = selectedMood ?? detectedMood
-    return computeScoreBreakdown(settings, baselineScore, activeMood)
-  }, [settings, baselineScore, selectedMood, detectedMood])
+    const hasBurned = burnedCaptions?.detected && burnedCaptions.confidence >= 0.7
+    return computeScoreBreakdown(settings, baselineScore, activeMood, hasBurned)
+  }, [settings, baselineScore, selectedMood, detectedMood, burnedCaptions])
 
   // ── updateSetting with ephemeral delta (defined here because it depends on state above) ──
   const SETTING_TO_SECTION: Record<string, keyof Omit<ScoreBreakdown, 'total'>> = useMemo(() => ({
@@ -851,8 +877,9 @@ export default function EnhancePage() {
         const activeMood = selectedMood ?? detectedMood
         setSettings((prev) => {
           const newSettings = { ...prev, [key]: value }
-          const oldBreakdown = computeScoreBreakdown(prev, baselineScore, activeMood)
-          const newBreakdown = computeScoreBreakdown(newSettings, baselineScore, activeMood)
+          const hasBurned = burnedCaptions?.detected && burnedCaptions.confidence >= 0.7
+          const oldBreakdown = computeScoreBreakdown(prev, baselineScore, activeMood, hasBurned)
+          const newBreakdown = computeScoreBreakdown(newSettings, baselineScore, activeMood, hasBurned)
           const delta = Math.round((newBreakdown[section] - oldBreakdown[section]) * 10) / 10
           if (delta !== 0) {
             setEphemeralDelta({ section, value: delta })

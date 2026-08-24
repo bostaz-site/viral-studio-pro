@@ -383,7 +383,8 @@ export function computeCurrentScore(
   settings: EnhanceSettings,
   scores: ComputedScores,
   baseline = 0,
-  detectedMood?: ClipMood | null
+  detectedMood?: ClipMood | null,
+  burnedCaptionsDetected?: boolean
 ): number {
   const CAP = 99.0
   const headroom = Math.max(0, CAP - baseline)
@@ -393,7 +394,8 @@ export function computeCurrentScore(
   // Hook=#1 (TikTok officiel), captions=preuve forte, split reduit (preuve anecdotique
   // + risque plateforme), bassBoost retire (inaudible sur telephone).
   // Weights calibrated 2026-08 — hookReorder frozen, smartZoom unfrozen.
-  if (settings.captionsEnabled && settings.captionStyle !== 'none') totalWeight += 0.15
+  // If source has burned-in captions, count them as "captions present" even if ours are off.
+  if (burnedCaptionsDetected || (settings.captionsEnabled && settings.captionStyle !== 'none')) totalWeight += 0.15
   if (settings.emphasisEffect !== 'none') totalWeight += 0.07
   if (settings.tagStyle !== 'none') totalWeight += 0.05
   if (settings.hookEnabled) totalWeight += 0.14
@@ -447,7 +449,8 @@ export interface ScoreBreakdown {
 export function computeScoreBreakdown(
   settings: EnhanceSettings,
   baseline: number,
-  detectedMood?: ClipMood | null
+  detectedMood?: ClipMood | null,
+  burnedCaptionsDetected?: boolean
 ): ScoreBreakdown {
   const CAP = 99.0
   const headroom = Math.max(0, CAP - baseline)
@@ -455,9 +458,9 @@ export function computeScoreBreakdown(
   // Define per-section weights (same calibrated weights as computeCurrentScore)
   const sections: { key: keyof Omit<ScoreBreakdown, 'total'>; weight: number }[] = []
 
-  // Captions
+  // Captions — burned-in captions count as "present" even if ours are off
   let captionWeight = 0
-  if (settings.captionsEnabled && settings.captionStyle !== 'none') captionWeight += 0.15
+  if (burnedCaptionsDetected || (settings.captionsEnabled && settings.captionStyle !== 'none')) captionWeight += 0.15
   if (settings.emphasisEffect !== 'none') captionWeight += 0.07
   if (detectedMood && MOOD_PRESETS[detectedMood]) {
     const preset = MOOD_PRESETS[detectedMood]
