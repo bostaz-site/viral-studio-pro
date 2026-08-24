@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 
-export const revalidate = 900 // ISR: 15 minutes
+export const dynamic = 'force-dynamic'
 
 /** Static fallback when DB is unreachable */
 const FALLBACK = {
@@ -22,7 +22,7 @@ export async function GET() {
   try {
     const admin = createAdminClient()
 
-    // Top 4 clips eligible for radar (same criteria as Top Pick + next 3)
+    // Top 4 clips eligible for radar — with timeout to prevent landing page stalls
     const twelveHoursAgo = new Date(Date.now() - 12 * 3600_000).toISOString()
     const { data: clips } = await admin
       .from('trending_clips')
@@ -32,19 +32,21 @@ export async function GET() {
       .gte('duration_seconds', 8)
       .order('velocity_score', { ascending: false })
       .limit(4)
+      .abortSignal(AbortSignal.timeout(8000)) // 8s max — fallback on slow DB
 
     // Total clips analyzed (rounded down to nearest 100)
     const { count } = await admin
       .from('trending_clips')
       .select('id', { count: 'exact', head: true })
+      .abortSignal(AbortSignal.timeout(5000))
 
     const totalAnalyzed = count ? Math.floor(count / 100) * 100 : FALLBACK.totalAnalyzed
 
     if (!clips || clips.length === 0) {
-      return NextResponse.json({ data: { ...FALLBACK, totalAnalyzed } })
+      return jsonWithCache({ data: { ...FALLBACK, totalAnalyzed } })
     }
 
-    return NextResponse.json({
+    return jsonWithCache({
       data: {
         clips: clips.map((c) => ({
           title: c.title,
@@ -58,6 +60,13 @@ export async function GET() {
       },
     })
   } catch {
-    return NextResponse.json({ data: FALLBACK })
+    return jsonWithCache({ data: FALLBACK })
   }
+}
+
+/** Return JSON with a short CDN cache (60s fresh, 5min stale-while-revalidate) */
+function jsonWithCache(body: unknown) {
+  return NextResponse.json(body, {
+    headers: { 'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=300' },
+  })
 }

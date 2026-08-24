@@ -4,6 +4,8 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { logger } from '@/lib/logger'
 import { generateExternalUrlHmac } from '@/lib/distribution/external-url'
 
+export const dynamic = 'force-dynamic'
+
 /**
  * GET /api/clips/external?path=<storage_path>&exp=<unix_ts>&sig=<hmac>
  *
