@@ -125,6 +125,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     ? [
         { name: 'My Clips', href: '/upload', icon: Compass },
         { name: 'Enhance', href: '/dashboard/enhance', icon: Wand2 },
+        { name: 'Analytics', href: '/dashboard/analytics', icon: BarChart3 },
         { name: 'Settings', href: '/settings', icon: Settings },
       ]
     : [
