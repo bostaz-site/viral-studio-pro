@@ -198,19 +198,37 @@ async function markDisconnected(
 }
 
 /**
- * Fetch the real TikTok username/display_name for backfilling.
+ * Fetch the real TikTok username/display_name via user.info.basic.
+ * TikTok v2 requires POST (GET returns 405).
  */
 async function fetchTikTokUsername(accessToken: string): Promise<string | null> {
   try {
     const res = await fetch(
-      'https://open.tiktokapis.com/v2/user/info/?fields=display_name,username',
-      { headers: { Authorization: `Bearer ${accessToken}` } }
+      'https://open.tiktokapis.com/v2/user/info/?fields=display_name,username,avatar_url',
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+      }
     )
-    const data = await res.json() as {
-      data?: { user?: { display_name?: string; username?: string } }
+    if (!res.ok) {
+      logger.warn(`[token-manager] TikTok user.info failed: HTTP ${res.status} ${res.statusText}`)
+      return null
     }
-    return data.data?.user?.username ?? data.data?.user?.display_name ?? null
-  } catch {
+    const body = await res.json() as {
+      data?: { user?: { display_name?: string; username?: string; avatar_url?: string } }
+      error?: { code?: string; message?: string }
+    }
+    if (body.error?.code && body.error.code !== 'ok') {
+      logger.warn(`[token-manager] TikTok user.info error: ${body.error.code} — ${body.error.message}`)
+      return null
+    }
+    const user = body.data?.user
+    return user?.username ?? user?.display_name ?? null
+  } catch (err) {
+    logger.warn(`[token-manager] TikTok user.info fetch error: ${err instanceof Error ? err.message : 'unknown'}`)
     return null
   }
 }

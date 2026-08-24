@@ -155,13 +155,14 @@ export async function GET(
 
   const { data: existing } = await admin
     .from('social_accounts')
-    .select('id')
+    .select('id, platform_user_id, username')
     .eq('user_id', user.id)
     .eq('platform', platformParam)
     .single()
 
+  const newPlatformUserId = igPlatformUserId || tokens.platformUserId
   const accountData: Record<string, unknown> = {
-    platform_user_id: igPlatformUserId || tokens.platformUserId,
+    platform_user_id: newPlatformUserId,
     access_token: encryptedAccess,
     refresh_token: encryptedRefresh,
     token_expires_at: tokens.expiresAt?.toISOString() ?? null,
@@ -175,6 +176,20 @@ export async function GET(
   }
 
   if (existing) {
+    // Detect account switch (different platform user ID)
+    const oldPlatformUserId = (existing as unknown as { platform_user_id: string | null }).platform_user_id
+    if (oldPlatformUserId && newPlatformUserId && oldPlatformUserId !== newPlatformUserId) {
+      console.log(`[oauth] TIKTOK ACCOUNT SWITCHED: user=${user.id} old_id=${oldPlatformUserId} new_id=${newPlatformUserId} old_username=${(existing as unknown as { username: string | null }).username} new_username=${tokens.username}`)
+      // Tag publication stats tied to the old account — they belong to a different TikTok identity
+      try {
+        await admin
+          .from('published_posts')
+          .update({ notes: `orphaned: account switched from ${oldPlatformUserId}` } as never)
+          .eq('user_id', user.id)
+          .eq('platform', platformParam)
+      } catch { /* best-effort */ }
+    }
+
     const { error: updateError } = await admin
       .from('social_accounts')
       .update(accountData)

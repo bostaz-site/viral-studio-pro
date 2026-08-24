@@ -196,7 +196,11 @@ export function ConnectAccounts() {
                       <p className="text-xs text-muted-foreground truncate">
                         Connected as{' '}
                         <span className="font-medium text-foreground">
-                          {account.username ?? account.platform_user_id}
+                          {account.username && account.username !== 'tiktok_user'
+                            ? `@${account.username}`
+                            : account.platform_user_id
+                              ? account.platform_user_id.slice(0, 12) + '...'
+                              : 'connected'}
                         </span>
                       </p>
                     ) : (

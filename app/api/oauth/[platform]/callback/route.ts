@@ -100,12 +100,25 @@ export async function GET(
 
   const { data: existing } = await admin
     .from('social_accounts')
-    .select('id')
+    .select('id, platform_user_id, username')
     .eq('user_id', user.id)
     .eq('platform', platformParam)
     .single()
 
   if (existing) {
+    // Detect account switch (different platform user ID)
+    const oldPlatformUserId = (existing as unknown as { platform_user_id: string | null }).platform_user_id
+    if (oldPlatformUserId && tokens.platformUserId && oldPlatformUserId !== tokens.platformUserId) {
+      console.log(`[oauth] TIKTOK ACCOUNT SWITCHED: user=${user.id} old_id=${oldPlatformUserId} new_id=${tokens.platformUserId} old_username=${(existing as unknown as { username: string | null }).username} new_username=${tokens.username}`)
+      try {
+        await admin
+          .from('published_posts')
+          .update({ notes: `orphaned: account switched from ${oldPlatformUserId}` } as never)
+          .eq('user_id', user.id)
+          .eq('platform', platformParam)
+      } catch { /* best-effort */ }
+    }
+
     const { error: updateError } = await admin
       .from('social_accounts')
       .update({
