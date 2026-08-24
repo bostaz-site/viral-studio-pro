@@ -337,7 +337,10 @@ export function TikTokPublishDialog({
       clearInterval(pollingRef.current)
       pollingRef.current = null
     }
-    if (publishStatus === 'PUBLISH_COMPLETE' && publishMode) {
+    // If a publishId exists, the API accepted the post — it's published
+    // (even if polling hasn't confirmed PUBLISH_COMPLETE yet).
+    // TikTok processes it asynchronously; closing during PROCESSING is safe.
+    if (publishId && publishMode) {
       onClose({ published: true, mode: publishMode })
     } else {
       onClose()

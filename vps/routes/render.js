@@ -1090,10 +1090,16 @@ router.post('/', async (req, res) => {
     }
     t('captions_end');
 
-    // Ensure captionWordTimestamps is populated for voiceover/autoCut even when captions are off
+    // Sync wordTimestamps ↔ captionWordTimestamps: both must reflect the latest data.
+    // Captions may have set captionWordTimestamps while wordTimestamps came from Whisper.
+    // Voiceover, auto-cut, and hook all need word timestamps regardless of captions being on/off.
     if (captionWordTimestamps.length === 0 && wordTimestamps.length > 0) {
       captionWordTimestamps = wordTimestamps;
     }
+    if (wordTimestamps.length === 0 && captionWordTimestamps.length > 0) {
+      wordTimestamps = captionWordTimestamps;
+    }
+    trc(`TIMESTAMPS SYNC: wordTimestamps=${wordTimestamps.length}, captionWordTimestamps=${captionWordTimestamps.length}`);
 
     // Prepare tag/credit config
     let tagConfig = null;
@@ -1134,6 +1140,7 @@ router.post('/', async (req, res) => {
             captionWordTimestamps = captionWordTimestamps
               .filter(w => w.start >= smartStart && w.start < smartStart + duration)
               .map(w => ({ ...w, start: w.start - smartStart, end: w.end - smartStart }));
+            wordTimestamps = captionWordTimestamps; // keep in sync for voiceover/hook
             trc(`SMART HOOK: remapped ${captionWordTimestamps.length} word timestamps`);
 
             // Regenerate ASS file with trimmed timestamps
@@ -1371,6 +1378,7 @@ router.post('/', async (req, res) => {
           duration = cutResult.cutDuration;
           clipEndTime = cutResult.cutDuration;
           captionWordTimestamps = cutResult.wordTimestamps;
+          wordTimestamps = captionWordTimestamps; // keep in sync for voiceover
           trc(`AUTO-CUT: applied — new duration=${duration}s, new input=${inputPath}`);
           contract.record('auto_cut', true, null, { originalDuration: cutResult.segments[0]?.start !== undefined ? duration : null });
 

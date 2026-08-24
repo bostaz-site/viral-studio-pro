@@ -566,8 +566,8 @@ export default function EnhancePage() {
             setIsRenderedVideo(true)
             setShowEnhancements(true)
             if (json.data.status === 'degraded') {
-              // Show what's missing + refund info
-              setRenderMessage(`⚠️ ${json.message || 'Rendered with missing features'} — credit refunded`)
+              // Show what's missing — message from API already includes refund note
+              setRenderMessage(`⚠️ ${json.message || 'Rendered with missing features — credit refunded'}`)
             } else {
               setRenderMessage(
                 json.data.reducedQuality
