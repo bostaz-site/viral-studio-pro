@@ -137,14 +137,31 @@ async function probeSourceFps(inputPath) {
   }
 }
 
-function buildCommonEncodingArgs(tier, fps) {
+/**
+ * Compute a duration-aware maxrate so the first encode stays under 45 MB.
+ * Formula: min(tierMaxrate, 45MB × 8 / duration).
+ * Short clips keep the full tier maxrate; long clips get a cap.
+ */
+function clampMaxrate(tierMaxrate, clipDuration) {
+  if (!clipDuration || clipDuration <= 0) return tierMaxrate;
+  const tierBps = parseInt(tierMaxrate) * 1_000_000; // e.g. '8M' → 8_000_000
+  const targetBps = Math.floor((MAX_OUTPUT_BYTES * 8) / clipDuration);
+  if (targetBps >= tierBps) return tierMaxrate; // short clip — tier cap is fine
+  const cappedM = Math.max(2, Math.floor(targetBps / 1_000_000)); // floor to whole Mbps, min 2M
+  return `${cappedM}M`;
+}
+
+function buildCommonEncodingArgs(tier, fps, clipDuration) {
   const gop = fps === 60 ? 120 : 60;
+  const maxrate = clampMaxrate(tier.maxrate, clipDuration);
+  // bufsize = 2× maxrate to keep VBV responsive
+  const bufsizeM = parseInt(maxrate) * 2;
   return [
     '-c:v', 'libx264',
     '-preset', tier.preset,
     '-crf', String(tier.crf),
-    '-maxrate', tier.maxrate,
-    '-bufsize', tier.bufsize,
+    '-maxrate', maxrate,
+    '-bufsize', `${bufsizeM}M`,
     '-profile:v', tier.profile,
     '-level:v', tier.level,
     '-pix_fmt', 'yuv420p',
@@ -1235,7 +1252,7 @@ export async function renderClip(inputPath, outputPath, options = {}) {
         args.push('-filter_complex', filterComplex);
         args.push('-map', mapVideo);
         args.push('-map', '[aout]');
-        args.push(...buildCommonEncodingArgs(tier, fps));
+        args.push(...buildCommonEncodingArgs(tier, fps, clipDuration));
         args.push('-c:a', 'aac', '-b:a', tier.audioBitrate, '-ar', '48000', '-ac', '2');
 
         console.log(`[FFmpeg] Voiceover mix: ${voiceoverPaths.length} lines with sidechaincompress ducking`);
@@ -1244,7 +1261,7 @@ export async function renderClip(inputPath, outputPath, options = {}) {
         args.push('-filter_complex', filterComplex);
         args.push('-map', mapVideo);
         args.push('-map', '0:a?');
-        args.push(...buildCommonEncodingArgs(tier, fps));
+        args.push(...buildCommonEncodingArgs(tier, fps, clipDuration));
         if (audioFilters.length > 0) {
           args.push('-af', audioFilters.join(','));
         }

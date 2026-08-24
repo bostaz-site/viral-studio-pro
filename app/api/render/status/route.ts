@@ -22,15 +22,16 @@ interface RenderJob {
 
 // ── Pipeline stage extraction from debug_log ──
 // Ordered from last (most advanced) to first so we find the *latest* reached stage.
+// Lines are prefixed with "[X.XXs] ", so markers match after the timestamp prefix.
 const STAGE_MARKERS: { marker: RegExp; stage: string }[] = [
-  { marker: /^OUTPUT:/m,           stage: 'finalizing' },
-  { marker: /^RENDER START:/m,     stage: 'encoding' },
-  { marker: /^VOICEOVER/m,         stage: 'voiceover' },
-  { marker: /^AUTO-CUT/m,          stage: 'cutting' },
-  { marker: /^(LAYOUT DETECTION|CROP ADVISOR|FACE TRACKING)/m, stage: 'analyzing' },
-  { marker: /^CAPTIONS/m,          stage: 'captions' },
-  { marker: /^WHISPER/m,           stage: 'transcribing' },
-  { marker: /^DOWNLOAD/m,          stage: 'downloading' },
+  { marker: /\] OUTPUT:/m,           stage: 'finalizing' },
+  { marker: /\] RENDER START:/m,     stage: 'encoding' },
+  { marker: /\] VOICEOVER/m,         stage: 'voiceover' },
+  { marker: /\] AUTO-CUT/m,          stage: 'cutting' },
+  { marker: /\] (LAYOUT DETECTION|CROP ADVISOR|FACE TRACKING)/m, stage: 'analyzing' },
+  { marker: /\] CAPTIONS/m,          stage: 'captions' },
+  { marker: /\] WHISPER/m,           stage: 'transcribing' },
+  { marker: /\] DOWNLOAD/m,          stage: 'downloading' },
 ]
 
 function extractStage(debugLog: string | null): string | null {

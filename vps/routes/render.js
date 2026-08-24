@@ -573,6 +573,8 @@ router.post('/', async (req, res) => {
   const trace = [];
   let lastFlushAt = 0;
   const FLUSH_INTERVAL_MS = 10000; // flush debug_log to DB every 10s
+  const timings = {};
+  const t = (key) => { timings[key] = Date.now(); };
 
   const trc = (msg) => {
     const line = `[${((Date.now() - startTime) / 1000).toFixed(2)}s] ${msg}`;
@@ -663,6 +665,7 @@ router.post('/', async (req, res) => {
     let clipEndTime = duration;
 
     // ── DIRECT URL FLOW (trending clips + user-uploaded videos with signed URL) ──
+    t('download_start');
     if (videoUrl && videoUrl.startsWith('http')) {
       console.log(`[Render ${renderSessionId}] Downloading trending clip from: ${videoUrl}`);
       const dlResult = await downloadFromUrl(videoUrl, inputPath, fallbackUrl || null);
@@ -873,24 +876,33 @@ router.post('/', async (req, res) => {
       }
     }
 
-    // ─── Transcription (Whisper) — runs when ANY feature needs word timestamps ───
-    // Decoupled from captions: voiceover and auto-cut also need word timestamps.
-    // Without this, disabling captions (e.g. burned-in detection) would kill voiceover + auto-cut.
+    t('download_end');
+
+    // ─── PARALLEL ANALYSIS PHASE ───
+    // Whisper transcription and visual analysis (layout/crop/face) are independent
+    // of each other. Running them in parallel saves ~30s on a typical render.
     let assFilePath = null;
-    let captionWordTimestamps = []; // hoisted so reorder can remap them
-    let wordTimestamps = providedWordTimestamps || []; // hoisted — used by captions + voiceover + autoCut
-    let detectedLanguage = null; // Whisper-detected language
-    let whisperFullText = ''; // Full transcript text for smart hook
+    let captionWordTimestamps = [];
+    let wordTimestamps = providedWordTimestamps || [];
+    let detectedLanguage = null;
+    let whisperFullText = '';
+    let reactionLayout = null;
+    let faceKeyframes = null;
 
     const captionStyleRequested = settings.captions?.style || 'hormozi';
     const captionsRequested = settings.captions?.enabled && captionStyleRequested !== 'none';
     const voiceoverRequested = settings.voiceover?.enabled !== false;
     const autoCutRequested = settings.autoCut?.enabled === true;
     const needsWordTimestamps = captionsRequested || voiceoverRequested || autoCutRequested;
+    const requestedZoom = settings.format?.videoZoom || 'auto';
+    const isAutoMode = requestedZoom === 'auto';
+    const needsVisualAnalysis = source === 'trending' && (isAutoMode || requestedZoom === 'fullframe' || requestedZoom === 'reaction');
 
-    if (needsWordTimestamps && wordTimestamps.length === 0) {
+    // ── Task A: Whisper transcription ──
+    const whisperTask = (async () => {
+      if (!needsWordTimestamps || wordTimestamps.length > 0) return;
+      t('whisper_start');
       try {
-        // For user clips, fetch transcription from DB
         if (source !== 'trending' && videoId) {
           const transcription = await getTranscription(videoId);
           if (transcription?.word_timestamps) {
@@ -898,83 +910,140 @@ router.post('/', async (req, res) => {
               w => w.start >= clipStartTime && w.start < clipEndTime
             );
           }
-          if (transcription?.language) {
-            detectedLanguage = transcription.language;
-          }
+          if (transcription?.language) detectedLanguage = transcription.language;
         }
-
-        // For trending clips, try Whisper transcription to get real word timestamps
         if (source === 'trending' && wordTimestamps.length === 0) {
           const hasWhisperKey = !!(process.env.OPENAI_API_KEY || process.env.OPENAI_KEY);
           const keySource = process.env.OPENAI_API_KEY ? 'OPENAI_API_KEY' : (process.env.OPENAI_KEY ? 'OPENAI_KEY' : 'NONE');
           trc(`WHISPER key present=${hasWhisperKey} source=${keySource}`);
-          if (!hasWhisperKey) {
-            trc(`WHISPER SKIPPED - no key`);
-          }
-          try {
-            // Language: detect from streamer name, otherwise let Whisper auto-detect
-            const streamerLang = detectLanguageFromStreamer(clipTitle);
-            const whisperLang = streamerLang || undefined; // undefined = auto-detect
-            trc(`WHISPER language: streamer=${streamerLang || 'auto'}, using=${whisperLang || 'auto-detect'}`);
-
-            trc(`WHISPER calling transcribeWithWhisper...`);
-            const whisperResult = await transcribeWithWhisper(inputPath, {
-              tempDir,
-              language: whisperLang,
-              contextPrompt: clipTitle || '', // Use clip title as context for better vocab
-              clipDuration: duration, // For timestamp sanity check
-            });
-            wordTimestamps = whisperResult.words || [];
-            detectedLanguage = whisperResult.language || whisperLang || 'en';
-            whisperFullText = whisperResult.fullText || '';
-            trc(`WHISPER returned ${wordTimestamps.length} word timestamps, lang=${detectedLanguage}`);
-            // Log first & last word timestamps for debugging subtitle timing
-            if (wordTimestamps.length > 0) {
-              const first = wordTimestamps[0];
-              const last = wordTimestamps[wordTimestamps.length - 1];
-              trc(`WHISPER first="${first.word}" start=${first.start} end=${first.end}`);
-              trc(`WHISPER last="${last.word}" start=${last.start} end=${last.end}`);
-              trc(`WHISPER clipDuration=${duration} clipStartTime=${clipStartTime}`);
-            }
-          } catch (err) {
-            trc(`WHISPER ERROR: ${err.message}`);
+          if (!hasWhisperKey) { trc(`WHISPER SKIPPED - no key`); return; }
+          const streamerLang = detectLanguageFromStreamer(clipTitle);
+          const whisperLang = streamerLang || undefined;
+          trc(`WHISPER language: streamer=${streamerLang || 'auto'}, using=${whisperLang || 'auto-detect'}`);
+          trc(`WHISPER calling transcribeWithWhisper...`);
+          const whisperResult = await transcribeWithWhisper(inputPath, {
+            tempDir, language: whisperLang,
+            contextPrompt: clipTitle || '', clipDuration: duration,
+          });
+          wordTimestamps = whisperResult.words || [];
+          detectedLanguage = whisperResult.language || whisperLang || 'en';
+          whisperFullText = whisperResult.fullText || '';
+          trc(`WHISPER returned ${wordTimestamps.length} word timestamps, lang=${detectedLanguage}`);
+          if (wordTimestamps.length > 0) {
+            const first = wordTimestamps[0], last = wordTimestamps[wordTimestamps.length - 1];
+            trc(`WHISPER first="${first.word}" start=${first.start} end=${first.end}`);
+            trc(`WHISPER last="${last.word}" start=${last.start} end=${last.end}`);
+            trc(`WHISPER clipDuration=${duration} clipStartTime=${clipStartTime}`);
           }
         }
-      } catch (transcriptionErr) {
-        trc(`TRANSCRIPTION ERROR: ${transcriptionErr.message}`);
+      } catch (err) {
+        trc(`WHISPER ERROR: ${err.message}`);
       }
-    }
+      t('whisper_end');
+    })();
+
+    // ── Task B: Layout Detection → Crop Advisor → Face Tracking (chained) ──
+    const analysisTask = (async () => {
+      if (!needsVisualAnalysis && settings.smartZoom?.mode !== 'follow') {
+        trc(`FACE TRACKING: skipped (smartZoom=${settings.smartZoom?.enabled !== false}, zoom=${requestedZoom})`);
+        return;
+      }
+      t('analysis_start');
+
+      // B1: Layout Detection
+      if (needsVisualAnalysis) {
+        try {
+          trc('LAYOUT DETECTION starting...');
+          const layoutResult = await detectReactionLayout(inputPath, { timeoutMs: 10000 });
+          if (layoutResult.isReactionLayout) {
+            reactionLayout = layoutResult;
+            trc(`LAYOUT DETECTION: reaction layout detected (confidence=${layoutResult.confidence.toFixed(2)})`);
+          } else {
+            trc(`LAYOUT DETECTION: not a reaction layout (confidence=${layoutResult.confidence.toFixed(2)})`);
+          }
+        } catch (layoutErr) {
+          trc(`LAYOUT DETECTION error (non-fatal): ${layoutErr.message}`);
+        }
+
+        // B2: Crop Advisor (needs layout result)
+        if (isAutoMode) {
+          try {
+            trc('CROP ADVISOR starting...');
+            const advice = await adviseCrop(inputPath, { reactionLayout, timeoutMs: 12000 });
+            settings.format = settings.format || {};
+            settings.format.videoZoom = advice.recommended;
+            trc(`CROP ADVISOR: ${advice.recommended} (faceScore=${advice.faceScore.toFixed(2)}, reason=${advice.reason})`);
+          } catch (cropErr) {
+            trc(`CROP ADVISOR error (non-fatal): ${cropErr.message} — defaulting to fit`);
+            settings.format = settings.format || {};
+            settings.format.videoZoom = 'fit';
+          }
+        } else if (requestedZoom === 'fullframe' && reactionLayout?.isReactionLayout) {
+          settings.format = settings.format || {};
+          settings.format.videoZoom = 'reaction';
+          trc(`Auto-switching fullframe → reaction (reaction layout detected)`);
+        }
+      }
+
+      // B3: Face Tracking (needs resolved zoom from crop advisor)
+      const resolvedZoom = settings.format?.videoZoom || 'auto';
+      const smartZoomOn = settings.smartZoom?.enabled !== false;
+      const wantFollow = settings.smartZoom?.mode === 'follow';
+      const autoFollowCandidate = smartZoomOn && (resolvedZoom === 'fullframe' || resolvedZoom === 'fit');
+
+      if (wantFollow || autoFollowCandidate) {
+        try {
+          trc(`FACE TRACKING starting (reason=${wantFollow ? 'explicit_follow' : 'auto_detect'})...`);
+          const faceResult = await detectFaces(inputPath, {
+            canvasW: 720, canvasH: 1280, everyN: 10, timeoutMs: 15000,
+          });
+          const detectedCount = faceResult.detected_count || 0;
+          const totalFrames = faceResult.raw_keyframes || 1;
+          const detectionRate = detectedCount / totalFrames;
+
+          if (faceResult.smoothed && faceResult.smoothed.length >= 2 && detectionRate >= 0.60) {
+            faceKeyframes = faceResult.smoothed;
+            settings.smartZoom = settings.smartZoom || {};
+            settings.smartZoom.enabled = true;
+            settings.smartZoom.mode = 'follow';
+            trc(`FACE TRACKING: stable face (${detectedCount}/${totalFrames} = ${Math.round(detectionRate * 100)}%) → auto follow with ${faceKeyframes.length} keyframes`);
+          } else if (faceResult.smoothed && faceResult.smoothed.length >= 2 && detectedCount > 0) {
+            trc(`FACE TRACKING: intermittent face (${detectedCount}/${totalFrames} = ${Math.round(detectionRate * 100)}%) → keeping micro zoom`);
+          } else {
+            trc(`FACE TRACKING: no stable face (${detectedCount}/${totalFrames}) → no follow`);
+          }
+        } catch (faceErr) {
+          trc(`FACE TRACKING error (non-fatal): ${faceErr.message} → micro fallback`);
+        }
+      } else if (!needsVisualAnalysis) {
+        // Already logged above
+      } else {
+        trc(`FACE TRACKING: skipped (smartZoom=${smartZoomOn}, zoom=${resolvedZoom})`);
+      }
+      t('analysis_end');
+    })();
+
+    // ── Wait for both parallel tasks ──
+    await Promise.all([whisperTask, analysisTask]);
 
     trc(`WORD TIMESTAMPS: ${wordTimestamps.length} words available for captions/voiceover/autoCut`);
 
-    // ─── Captions (ASS subtitle generation) ───
-    // Only generates ASS file when captions are explicitly requested.
-    // Whisper already ran above (decoupled).
+    // ─── Captions (ASS subtitle generation) — runs after Whisper completes ───
+    t('captions_start');
     if (captionsRequested) {
       try {
         const captionStyle = settings.captions.style || 'hormozi';
         const captionPosition = settings.captions.position || 'bottom';
         let assContent = null;
-
-        // Common subtitle options — canvas-aware positioning
-        const subtitleOpts = {
-          style: captionStyle,
-          position: captionPosition,
-          canvasWidth: canvasW,
-          canvasHeight: canvasH,
-        };
+        const subtitleOpts = { style: captionStyle, position: captionPosition, canvasWidth: canvasW, canvasHeight: canvasH };
 
         if (wordTimestamps.length > 0) {
           validateWordTimestamps(wordTimestamps);
-          captionWordTimestamps = wordTimestamps; // save for potential reorder remap
+          captionWordTimestamps = wordTimestamps;
           const captionAnim = settings.captions.animation || 'highlight';
-
-          // ── ALL animations use ASS subtitles (reliable, single-file, like CapCut/Opus) ──
           trc(`CAPTIONS generating ASS file for animation="${captionAnim}" style="${captionStyle}"`);
           assContent = generateASS(wordTimestamps, {
-            ...subtitleOpts,
-            animation: captionAnim,
-            clipStartTime,
+            ...subtitleOpts, animation: captionAnim, clipStartTime,
             wordsPerLine: settings.captions.wordsPerLine || 4,
             customColors: settings.captions.customColors,
             customImportantWords: settings.captions.customImportantWords || [],
@@ -983,13 +1052,11 @@ router.post('/', async (req, res) => {
           });
           trc(`CAPTIONS ASS generated: ${assContent ? assContent.length : 0} bytes`);
         } else {
-          // No word timestamps — use static ASS from title (with animation support)
           const captionAnim = settings.captions.animation || 'highlight';
           if (clipTitle && duration > 0) {
             trc(`CAPTIONS FALLBACK: static ASS from title "${clipTitle.substring(0, 40)}" animation="${captionAnim}"`);
             assContent = generateStaticASS(clipTitle, duration, {
-              ...subtitleOpts,
-              animation: captionAnim,
+              ...subtitleOpts, animation: captionAnim,
               wordsPerLine: settings.captions.wordsPerLine || 4,
             });
           } else {
@@ -1016,12 +1083,12 @@ router.post('/', async (req, res) => {
     } else {
       const captionSkipReason = settings.captions?.skippedReason || 'disabled by user';
       trc(`CAPTIONS disabled (enabled=${settings.captions?.enabled}, style=${captionStyleRequested}, reason=${captionSkipReason})`);
-      // Intentional skips (burned-in captions detected, user disabled) don't degrade the render
       const isIntentional = captionSkipReason === 'source_has_burned_captions'
         || captionSkipReason === 'disabled by user'
         || burnedCaptionDetected;
       contract.record('captions', false, captionSkipReason, null, isIntentional);
     }
+    t('captions_end');
 
     // Ensure captionWordTimestamps is populated for voiceover/autoCut even when captions are off
     if (captionWordTimestamps.length === 0 && wordTimestamps.length > 0) {
@@ -1043,94 +1110,6 @@ router.post('/', async (req, res) => {
       trc(`TAG applied style=${tagConfig.style} author=${tagConfig.authorHandle || tagConfig.authorName || 'none'}`);
     } else {
       trc(`TAG skipped (style=${settings.tag?.style || 'undefined'})`);
-    }
-
-    // ─── Smart Crop Selection ───
-    // For 'auto' mode: detect content type and pick the best framing.
-    //   - Reaction layout (webcam in corner) → reaction
-    //   - Dominant centered face (talking head) → fullframe
-    //   - Gameplay / wide content / no face → fit (padded)
-    // For explicit modes: still detect reaction layout when fullframe/reaction.
-    let reactionLayout = null;
-    const requestedZoom = settings.format?.videoZoom || 'auto';
-    const isAutoMode = requestedZoom === 'auto';
-
-    if (source === 'trending' && (isAutoMode || requestedZoom === 'fullframe' || requestedZoom === 'reaction')) {
-      try {
-        trc('LAYOUT DETECTION starting...');
-        const layoutResult = await detectReactionLayout(inputPath, { timeoutMs: 10000 });
-        if (layoutResult.isReactionLayout) {
-          reactionLayout = layoutResult;
-          trc(`LAYOUT DETECTION: reaction layout detected (confidence=${layoutResult.confidence.toFixed(2)})`);
-        } else {
-          trc(`LAYOUT DETECTION: not a reaction layout (confidence=${layoutResult.confidence.toFixed(2)})`);
-        }
-      } catch (layoutErr) {
-        trc(`LAYOUT DETECTION error (non-fatal): ${layoutErr.message}`);
-      }
-
-      // Auto mode: run crop advisor to pick the best framing
-      if (isAutoMode) {
-        try {
-          trc('CROP ADVISOR starting...');
-          const advice = await adviseCrop(inputPath, { reactionLayout, timeoutMs: 12000 });
-          settings.format = settings.format || {};
-          settings.format.videoZoom = advice.recommended;
-          trc(`CROP ADVISOR: ${advice.recommended} (faceScore=${advice.faceScore.toFixed(2)}, reason=${advice.reason})`);
-        } catch (cropErr) {
-          trc(`CROP ADVISOR error (non-fatal): ${cropErr.message} — defaulting to fit`);
-          settings.format = settings.format || {};
-          settings.format.videoZoom = 'fit';
-        }
-      } else if (requestedZoom === 'fullframe' && reactionLayout?.isReactionLayout) {
-        // Explicit fullframe but reaction detected → auto-switch
-        settings.format = settings.format || {};
-        settings.format.videoZoom = 'reaction';
-        trc(`Auto-switching fullframe → reaction (reaction layout detected)`);
-      }
-    }
-
-    // ─── Face Detection (auto-follow when face is dominant) ───
-    // Runs when: (a) user explicitly requested follow mode, OR
-    // (b) smartZoom is enabled AND crop advisor found a dominant face (fullframe).
-    // If a stable face is found (>60% of frames), auto-upgrades smartZoom to follow.
-    // Timeout 15s max, every 10 frames for speed. On failure → micro fallback.
-    let faceKeyframes = null;
-    const resolvedZoom = settings.format?.videoZoom || 'auto';
-    const smartZoomOn = settings.smartZoom?.enabled !== false; // default true
-    const wantFollow = settings.smartZoom?.mode === 'follow';
-    const autoFollowCandidate = smartZoomOn && (resolvedZoom === 'fullframe' || resolvedZoom === 'fit');
-
-    if (wantFollow || autoFollowCandidate) {
-      try {
-        trc(`FACE TRACKING starting (reason=${wantFollow ? 'explicit_follow' : 'auto_detect'})...`);
-        const faceResult = await detectFaces(inputPath, {
-          canvasW: 720,
-          canvasH: 1280,
-          everyN: 10,
-          timeoutMs: 15000,
-        });
-        const detectedCount = faceResult.detected_count || 0;
-        const totalFrames = faceResult.raw_keyframes || 1;
-        const detectionRate = detectedCount / totalFrames;
-
-        if (faceResult.smoothed && faceResult.smoothed.length >= 2 && detectionRate >= 0.60) {
-          faceKeyframes = faceResult.smoothed;
-          // Auto-upgrade to follow mode
-          settings.smartZoom = settings.smartZoom || {};
-          settings.smartZoom.enabled = true;
-          settings.smartZoom.mode = 'follow';
-          trc(`FACE TRACKING: stable face (${detectedCount}/${totalFrames} = ${Math.round(detectionRate * 100)}%) → auto follow with ${faceKeyframes.length} keyframes`);
-        } else if (faceResult.smoothed && faceResult.smoothed.length >= 2 && detectedCount > 0) {
-          trc(`FACE TRACKING: intermittent face (${detectedCount}/${totalFrames} = ${Math.round(detectionRate * 100)}%) → keeping micro zoom`);
-        } else {
-          trc(`FACE TRACKING: no stable face (${detectedCount}/${totalFrames}) → no follow`);
-        }
-      } catch (faceErr) {
-        trc(`FACE TRACKING error (non-fatal): ${faceErr.message} → micro fallback`);
-      }
-    } else {
-      trc(`FACE TRACKING: skipped (smartZoom=${smartZoomOn}, zoom=${resolvedZoom})`);
     }
 
     // ─── Smart Hook Trim (pre-processing) ───
@@ -1365,6 +1344,7 @@ router.post('/', async (req, res) => {
     // ─── Auto-Cut Silences (pre-processing) ───
     // Runs AFTER Hook Reorder so it operates on the reordered timeline with
     // already-remapped word timestamps.
+    t('cut_start');
     if (settings.autoCut?.enabled && captionWordTimestamps.length > 0) {
       try {
         let threshold = settings.autoCut.silenceThreshold;
@@ -1425,9 +1405,12 @@ router.post('/', async (req, res) => {
     }
 
 
+    t('cut_end');
+
     // ─── AI Voiceover (TTS synthesis) ───
     // Generates commentary MP3 lines via ElevenLabs, timed to silence gaps.
     // Graceful: if ANYTHING fails, render continues without voiceover.
+    t('vo_start');
     let voiceoverPaths = null;
     try {
       const voiceoverEnabled = settings.voiceover?.enabled !== false; // default ON
@@ -1510,7 +1493,10 @@ router.post('/', async (req, res) => {
       voiceoverPaths = null;
     }
 
+    t('vo_end');
+
     // Render clip with FFmpeg (entire pipeline is already serialized by the outer enqueueRender)
+    t('encode_start');
     const outputPath = path.join(tempDir, 'output.mp4');
     // Record remaining contract features before render
     contract.record('audio_shift', true); // always-on
@@ -1578,7 +1564,10 @@ router.post('/', async (req, res) => {
     // Log output file size (visible in debug_log for monitoring)
     trc(`OUTPUT: ${renderResult.outputSizeMB ?? '?'}MB, ${renderResult.outputBitrateMbps ?? '?'}Mbps${renderResult.reEncoded ? ' (re-encoded to fit size limit)' : ''}`);
 
+    t('encode_end');
+
     // Upload rendered clip to Supabase Storage (unique path per render to avoid CDN cache)
+    t('upload_start');
     const renderTs = Date.now();
     const clipStoragePath = source === 'trending' ? `trending/${clipId}_${renderTs}.mp4` : `${userId}/${clipId}_${renderTs}.mp4`;
     console.log(`[Render ${renderSessionId}] Uploading rendered clip...`);
@@ -1617,6 +1606,8 @@ router.post('/', async (req, res) => {
       if (videoId) await maybeMarkVideoComplete(videoId);
     }
 
+    t('upload_end');
+
     const elapsedSeconds = (Date.now() - startTime) / 1000;
     console.log(`[Render ${renderSessionId}] Render completed in ${elapsedSeconds.toFixed(1)}s`);
 
@@ -1626,18 +1617,20 @@ router.post('/', async (req, res) => {
 
     if (contractResult.isDegraded) {
       trc(`CONTRACT DEGRADED: missing critical features: ${contractResult.missing.join(', ')} — ${contractResult.summary}`);
-      // Track each missing feature for consecutive failure alerts
       for (const feat of contractResult.missing) {
         const entry = contract.toJSON().find(e => e.feature === feat);
         trackFeatureFailure(feat, entry?.reason || 'unknown').catch(() => {});
       }
     } else {
       trc(`CONTRACT OK: all requested features applied`);
-      // Reset streaks for features that succeeded
       for (const entry of contract.toJSON()) {
         if (entry.applied) resetFeatureStreak(entry.feature);
       }
     }
+
+    // ── Per-stage timing breakdown ──
+    const dur = (a, b) => timings[b] && timings[a] ? Math.round((timings[b] - timings[a]) / 1000) : 0;
+    trc(`TIMING: download=${dur('download_start','download_end')}s whisper=${dur('whisper_start','whisper_end')}s analysis=${dur('analysis_start','analysis_end')}s captions=${dur('captions_start','captions_end')}s cut=${dur('cut_start','cut_end')}s vo=${dur('vo_start','vo_end')}s encode=${dur('encode_start','encode_end')}s upload=${dur('upload_start','upload_end')}s total=${elapsedSeconds.toFixed(0)}s`);
 
     trc(`DONE elapsed=${elapsedSeconds.toFixed(1)}s status=${finalStatus} captions=${assFilePath ? 'ASS' : 'none'} tag=${tagConfig?.style || 'none'} quality_tier=${qualityTier || 'unknown'}`);
 
