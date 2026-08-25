@@ -24,7 +24,7 @@ export interface MoodPreset {
   emphasisEffect: string
   emphasisColor: string
 
-  videoZoom: 'auto' | 'contain' | 'fill' | 'immersive' | 'fullframe' | 'fit' | 'reaction'
+  videoZoom: 'auto' | 'contain' | 'fill' | 'immersive' | 'fullframe' | 'fit' | 'reaction' | 'duo'
 
   tagStyle: string
   tagSize: number

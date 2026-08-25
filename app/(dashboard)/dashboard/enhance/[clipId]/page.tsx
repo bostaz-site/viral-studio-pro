@@ -2100,7 +2100,7 @@ export default function EnhancePage() {
                   <Crop className="h-4 w-4 text-zinc-500" />
                   Framing
                   <span className="text-xs text-zinc-500 font-normal">
-                    · {settings.videoZoom === 'auto' ? 'Auto' : settings.videoZoom === 'fullframe' ? 'Full frame' : settings.videoZoom === 'fit' ? 'Fit (padded)' : settings.videoZoom}
+                    · {settings.videoZoom === 'auto' ? 'Auto' : settings.videoZoom === 'fullframe' ? 'Full frame' : settings.videoZoom === 'fit' ? 'Fit (padded)' : settings.videoZoom === 'duo' ? 'Duo (split)' : settings.videoZoom}
                   </span>
                 </span>
               </AccordionTrigger>
@@ -2125,6 +2125,12 @@ export default function EnhancePage() {
                         id: 'fit' as const,
                         label: 'Fit (padded)',
                         desc: 'Full image preserved, scaled to width with cinematic blurred padding top/bottom.',
+                        badge: null,
+                      },
+                      {
+                        id: 'duo' as const,
+                        label: 'Duo (split)',
+                        desc: 'Two speakers stacked — each face cropped into its own half. Best for podcasts & dual reactions.',
                         badge: null,
                       },
                     ] as const).map((mode) => (

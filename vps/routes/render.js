@@ -14,7 +14,7 @@ import { detectBurnedCaptions } from '../lib/caption-detector.js';
 import { transcribeWithWhisper } from '../lib/whisper-client.js';
 import { applyAutoCut, classifyIntensity, getAdaptiveThreshold } from '../lib/auto-cut.js';
 import { synthesizeVoiceover } from '../lib/elevenlabs-client.js';
-import { detectReactionLayout } from '../lib/layout-detector.js';
+import { detectReactionLayout, detectDuoLayout } from '../lib/layout-detector.js';
 import { adviseCrop } from '../lib/crop-advisor.js';
 import { createContract, trackFeatureFailure, resetFeatureStreak } from '../lib/render-contract.js';
 import { enqueueRender, getQueueStatus } from '../lib/render-queue.js';
@@ -895,6 +895,7 @@ router.post('/', async (req, res) => {
     let detectedLanguage = null;
     let whisperFullText = '';
     let reactionLayout = null;
+    let duoLayout = null;
     let faceKeyframes = null;
 
     const captionStyleRequested = settings.captions?.style || 'hormozi';
@@ -904,7 +905,7 @@ router.post('/', async (req, res) => {
     const needsWordTimestamps = captionsRequested || voiceoverRequested || autoCutRequested;
     const requestedZoom = settings.format?.videoZoom || 'auto';
     const isAutoMode = requestedZoom === 'auto';
-    const needsVisualAnalysis = source === 'trending' && (isAutoMode || requestedZoom === 'fullframe' || requestedZoom === 'reaction');
+    const needsVisualAnalysis = source === 'trending' && (isAutoMode || requestedZoom === 'fullframe' || requestedZoom === 'reaction' || requestedZoom === 'duo');
 
     // ── Task A: Whisper transcription ──
     const whisperTask = (async () => {
@@ -958,7 +959,7 @@ router.post('/', async (req, res) => {
       }
       t('analysis_start');
 
-      // B1: Layout Detection
+      // B1: Layout Detection (reaction + duo)
       if (needsVisualAnalysis) {
         try {
           trc('LAYOUT DETECTION starting...');
@@ -974,11 +975,28 @@ router.post('/', async (req, res) => {
           trc(`LAYOUT DETECTION error (non-fatal): ${layoutErr.message}${stderr ? ` | stderr: ${stderr}` : ''}`);
         }
 
+        // B1b: Duo Layout Detection (only if not already a reaction layout)
+        if (!reactionLayout?.isReactionLayout) {
+          try {
+            trc('DUO DETECTION starting...');
+            const duoResult = await detectDuoLayout(inputPath, { timeoutMs: 12000 });
+            if (duoResult.isDuoLayout) {
+              duoLayout = duoResult;
+              trc(`DUO DETECTION: duo layout detected (confidence=${duoResult.confidence.toFixed(2)}, faceA=${JSON.stringify(duoResult.faceA)}, faceB=${JSON.stringify(duoResult.faceB)})`);
+            } else {
+              trc(`DUO DETECTION: not a duo layout (confidence=${duoResult.confidence.toFixed(2)})`);
+            }
+          } catch (duoErr) {
+            const duoStderr = duoErr.stderr ? duoErr.stderr.slice(0, 300) : '';
+            trc(`DUO DETECTION error (non-fatal): ${duoErr.message}${duoStderr ? ` | stderr: ${duoStderr}` : ''}`);
+          }
+        }
+
         // B2: Crop Advisor (needs layout result)
         if (isAutoMode) {
           try {
             trc('CROP ADVISOR starting...');
-            const advice = await adviseCrop(inputPath, { reactionLayout, timeoutMs: 12000 });
+            const advice = await adviseCrop(inputPath, { reactionLayout, duoLayout, timeoutMs: 12000 });
             settings.format = settings.format || {};
             settings.format.videoZoom = advice.recommended;
             trc(`CROP ADVISOR: ${advice.recommended} (faceScore=${advice.faceScore.toFixed(2)}, reason=${advice.reason})`);
@@ -1603,6 +1621,7 @@ router.post('/', async (req, res) => {
       audioEnhance: settings.audioEnhance?.enabled || false,
       voiceoverPaths: voiceoverPaths && voiceoverPaths.length > 0 ? voiceoverPaths : null,
       reactionLayout: reactionLayout && reactionLayout.isReactionLayout ? reactionLayout : null,
+      duoLayout: duoLayout && duoLayout.isDuoLayout ? duoLayout : null,
     });
 
     const qualityTier = renderResult?.qualityTier || null;

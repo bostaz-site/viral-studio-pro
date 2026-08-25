@@ -26,6 +26,7 @@ const __dirname = path.dirname(__filename);
 const FACE_DETECT_SCRIPT = path.join(__dirname, 'face-detect.py');
 
 const NO_REACTION = { isReactionLayout: false, faceRegion: null, contentRegion: null, confidence: 0 };
+const NO_DUO = { isDuoLayout: false, faceA: null, faceB: null, confidence: 0 };
 
 /**
  * Probe source video dimensions via ffprobe.
@@ -221,5 +222,159 @@ export async function detectReactionLayout(videoPath, opts = {}) {
       console.warn(`[LayoutDetector] Error: ${err.message}${stderr ? `\n  stderr: ${stderr}` : ''}`);
     }
     return NO_REACTION;
+  }
+}
+
+/**
+ * Detect if the video has a duo layout (two people side by side, e.g. podcast,
+ * dual reaction). Uses face-detect.py multi-face output.
+ *
+ * Criteria:
+ *   - ≥40% of sampled frames have 2+ faces detected
+ *   - The two largest faces are horizontally separated by >35% of frame width
+ *   - Both faces are stable (low position variance)
+ *
+ * @param {string} videoPath
+ * @param {{ timeoutMs?: number }} opts
+ * @returns {Promise<{
+ *   isDuoLayout: boolean,
+ *   faceA: { cx: number, cy: number, w: number, h: number } | null,
+ *   faceB: { cx: number, cy: number, w: number, h: number } | null,
+ *   confidence: number
+ * }>}
+ */
+export async function detectDuoLayout(videoPath, opts = {}) {
+  const { timeoutMs = 12000 } = opts;
+
+  if (!fs.existsSync(FACE_DETECT_SCRIPT) || !fs.existsSync(videoPath)) {
+    return NO_DUO;
+  }
+
+  const dims = await probeVideoDimensions(videoPath);
+  if (!dims) return NO_DUO;
+
+  const { w: vidW, h: vidH } = dims;
+
+  // Only analyze horizontal sources — vertical clips rarely have side-by-side faces
+  if (vidW < vidH) return NO_DUO;
+
+  try {
+    console.log(`[LayoutDetector] Duo analysis ${vidW}x${vidH}...`);
+    const startMs = Date.now();
+
+    const { stdout, stderr } = await execFileAsync('python3', [
+      FACE_DETECT_SCRIPT,
+      videoPath,
+      '--every', '20',
+      '--width', String(vidW),
+      '--height', String(vidH),
+    ], {
+      timeout: timeoutMs,
+      maxBuffer: 5 * 1024 * 1024,
+    });
+
+    if (stderr) {
+      console.warn(`[LayoutDetector] Duo stderr: ${stderr.slice(0, 200)}`);
+    }
+
+    const result = JSON.parse(stdout);
+    const elapsed = Date.now() - startMs;
+
+    if (result.error || !result.keyframes || result.keyframes.length < 3) {
+      return NO_DUO;
+    }
+
+    // Count frames with 2+ faces and collect the two largest faces per frame
+    const duoPairs = []; // [{a: {cx,cy,w,h}, b: {cx,cy,w,h}}]
+    let twoFaceCount = 0;
+
+    for (const kf of result.keyframes) {
+      if (!kf.detected || !kf.faces || kf.faces.length < 2) continue;
+
+      twoFaceCount++;
+      const f1 = kf.faces[0]; // largest
+      const f2 = kf.faces[1]; // second largest
+
+      // Sort left-to-right by center x so A is always the left face
+      const [left, right] = (f1.x + f1.w / 2) < (f2.x + f2.w / 2) ? [f1, f2] : [f2, f1];
+
+      duoPairs.push({
+        a: { cx: left.x + left.w / 2, cy: left.y + left.h / 2, w: left.w, h: left.h },
+        b: { cx: right.x + right.w / 2, cy: right.y + right.h / 2, w: right.w, h: right.h },
+      });
+    }
+
+    const totalFrames = result.keyframes.length;
+    const duoRate = twoFaceCount / totalFrames;
+
+    if (duoRate < 0.40) {
+      console.log(`[LayoutDetector] Duo: too few 2-face frames (${twoFaceCount}/${totalFrames} = ${Math.round(duoRate * 100)}%) [${elapsed}ms]`);
+      return NO_DUO;
+    }
+
+    // Average positions of face A (left) and face B (right)
+    let sumAcx = 0, sumAcy = 0, sumAw = 0, sumAh = 0;
+    let sumBcx = 0, sumBcy = 0, sumBw = 0, sumBh = 0;
+    for (const p of duoPairs) {
+      sumAcx += p.a.cx; sumAcy += p.a.cy; sumAw += p.a.w; sumAh += p.a.h;
+      sumBcx += p.b.cx; sumBcy += p.b.cy; sumBw += p.b.w; sumBh += p.b.h;
+    }
+    const n = duoPairs.length;
+    const avgA = { cx: sumAcx / n, cy: sumAcy / n, w: sumAw / n, h: sumAh / n };
+    const avgB = { cx: sumBcx / n, cy: sumBcy / n, w: sumBw / n, h: sumBh / n };
+
+    // Horizontal separation: distance between face centers / frame width
+    const hSep = Math.abs(avgB.cx - avgA.cx) / vidW;
+
+    if (hSep < 0.35) {
+      console.log(`[LayoutDetector] Duo: faces too close (sep=${(hSep * 100).toFixed(1)}% < 35%) [${elapsed}ms]`);
+      return NO_DUO;
+    }
+
+    // Stability: low variance in face positions
+    let varAx = 0, varBx = 0;
+    for (const p of duoPairs) {
+      varAx += Math.pow((p.a.cx - avgA.cx) / vidW, 2);
+      varBx += Math.pow((p.b.cx - avgB.cx) / vidW, 2);
+    }
+    varAx = Math.sqrt(varAx / n);
+    varBx = Math.sqrt(varBx / n);
+    const isStable = varAx < 0.10 && varBx < 0.10;
+
+    // Confidence
+    let confidence = 0;
+    confidence += Math.min(duoRate, 1) * 0.35;       // duo detection rate: up to 0.35
+    confidence += (hSep > 0.35 ? 0.30 : 0);          // horizontal separation: 0.30
+    confidence += isStable ? 0.20 : 0;                // stability: 0.20
+    // Both faces are reasonably sized (not tiny overlay)
+    const avgFaceW = ((avgA.w + avgB.w) / 2) / vidW;
+    confidence += avgFaceW > 0.08 ? 0.15 : 0;        // face size: 0.15
+    confidence = Math.min(1.0, confidence);
+
+    const isDuo = confidence >= 0.55;
+
+    console.log(`[LayoutDetector] Duo: rate=${Math.round(duoRate * 100)}% sep=${(hSep * 100).toFixed(1)}% stable=${isStable} faceW=${(avgFaceW * 100).toFixed(1)}% conf=${confidence.toFixed(2)} → ${isDuo ? 'DUO' : 'normal'} [${elapsed}ms]`);
+
+    if (!isDuo) return NO_DUO;
+
+    // Round face regions for FFmpeg
+    const faceA = {
+      cx: Math.round(avgA.cx), cy: Math.round(avgA.cy),
+      w: Math.round(avgA.w), h: Math.round(avgA.h),
+    };
+    const faceB = {
+      cx: Math.round(avgB.cx), cy: Math.round(avgB.cy),
+      w: Math.round(avgB.w), h: Math.round(avgB.h),
+    };
+
+    return { isDuoLayout: true, faceA, faceB, confidence };
+  } catch (err) {
+    const stderr = err.stderr ? err.stderr.slice(0, 500) : '';
+    if (err.killed) {
+      console.warn(`[LayoutDetector] Duo timeout after ${timeoutMs}ms`);
+    } else {
+      console.warn(`[LayoutDetector] Duo error: ${err.message}${stderr ? `\n  stderr: ${stderr}` : ''}`);
+    }
+    return NO_DUO;
   }
 }

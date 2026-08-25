@@ -41,7 +41,7 @@ async function probeVideoDimensions(videoPath) {
 }
 
 /**
- * @typedef {'fullframe' | 'fit' | 'reaction'} CropAdvice
+ * @typedef {'fullframe' | 'fit' | 'reaction' | 'duo'} CropAdvice
  *
  * @typedef {Object} CropAdvisorResult
  * @property {CropAdvice} recommended - The recommended zoom mode
@@ -54,11 +54,21 @@ async function probeVideoDimensions(videoPath) {
  * Analyze the video and recommend a crop mode.
  *
  * @param {string} videoPath - Path to the source video file
- * @param {{ reactionLayout?: { isReactionLayout: boolean } | null, timeoutMs?: number }} opts
+ * @param {{ reactionLayout?: { isReactionLayout: boolean } | null, duoLayout?: { isDuoLayout: boolean } | null, timeoutMs?: number }} opts
  * @returns {Promise<CropAdvisorResult>}
  */
 export async function adviseCrop(videoPath, opts = {}) {
-  const { reactionLayout = null, timeoutMs = 12000 } = opts;
+  const { reactionLayout = null, duoLayout = null, timeoutMs = 12000 } = opts;
+
+  // If layout detector already flagged duo, trust it (checked first — duo is more specific than reaction)
+  if (duoLayout && duoLayout.isDuoLayout) {
+    return {
+      recommended: 'duo',
+      reason: 'Duo layout detected (two speakers side by side)',
+      faceScore: 0,
+      details: { detectionRate: 0, avgSizeRatio: 0, centeredness: 0 },
+    };
+  }
 
   // If layout detector already flagged reaction, trust it
   if (reactionLayout && reactionLayout.isReactionLayout) {

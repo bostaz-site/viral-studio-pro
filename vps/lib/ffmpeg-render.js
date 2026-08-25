@@ -738,6 +738,7 @@ export async function renderClip(inputPath, outputPath, options = {}) {
     speedRamp = 'off',
     voiceoverPaths = null, // [{path, startTime, estimatedDuration}]
     reactionLayout = null, // {faceRegion: {x,y,w,h}, contentRegion: {x,y,w,h}}
+    duoLayout = null,     // {faceA: {cx,cy,w,h}, faceB: {cx,cy,w,h}}
   } = options;
 
   if (!inputPath || !outputPath) {
@@ -848,9 +849,10 @@ export async function renderClip(inputPath, outputPath, options = {}) {
       const isWordPopAnimation = captions && captions.animation === 'word-pop';
       const smartZoomActive = smartZoom && smartZoom.enabled;
       const isReaction = videoZoom === 'reaction' && reactionLayout;
+      const isDuo = videoZoom === 'duo' && duoLayout;
       const isFullFrame = videoZoom === 'fullframe';
       const isFit = videoZoom === 'fit' || videoZoom === 'auto';
-      const zoomFactor = (isFullFrame || isReaction || isFit) ? 1.0 : videoZoom === 'immersive' ? 1.35 : videoZoom === 'fill' ? 1.15 : 1.0;
+      const zoomFactor = (isFullFrame || isReaction || isDuo || isFit) ? 1.0 : videoZoom === 'immersive' ? 1.35 : videoZoom === 'fill' ? 1.15 : 1.0;
 
       // ── ZOOM BUDGET ──
       // Compute the effective crop zoom from the aspect ratio conversion so we
@@ -892,7 +894,7 @@ export async function renderClip(inputPath, outputPath, options = {}) {
       // Border crop: reduce when crop zoom is already high to stay within budget
       const MAX_TOTAL_ZOOM = 3.2;
       let borderCrop;
-      if (isFullFrame || isReaction) {
+      if (isFullFrame || isReaction || isDuo) {
         // With high crop zoom, reduce border crop to avoid losing too much content
         const borderBudget = MAX_TOTAL_ZOOM / Math.max(cropZoom, 1);
         borderCrop = borderBudget < 1.15 ? 40 : 80; // 40px if tight, 80px otherwise
@@ -959,6 +961,45 @@ export async function renderClip(inputPath, outputPath, options = {}) {
         ].join(';');
         mapVideo = '[composed]';
         console.log(`[FFmpeg] Reaction layout: face(${face.x},${face.y},${face.w}x${face.h}) → ${canvasW}x${faceH} top, content → ${canvasW}x${contentH} bottom`);
+      } else if (isDuo) {
+        // DUO MODE: two speakers stacked — face A top 50%, face B bottom 50%.
+        // Each half crops a 9:8 region around its face from the source, then
+        // scales to fill canvas width. 2px dark divider line at the junction.
+        const fA = duoLayout.faceA;
+        const fB = duoLayout.faceB;
+        const halfH = Math.round(canvasH / 2);
+        const divH = 2; // divider line height
+        const slotH = halfH - Math.round(divH / 2); // each face slot (minus half divider)
+
+        // Compute crop region for each face: 9:8 aspect centered on face.
+        // We want to grab a horizontal slice of the source centered on each face.
+        // Target aspect per slot is canvasW:slotH (e.g. 1080:958 ≈ 9:8).
+        const slotAspect = canvasW / slotH;
+
+        // Face A crop region (in source pixels)
+        const cropAH = Math.min(sourceH, Math.round(sourceW / slotAspect));
+        const cropAW = Math.round(cropAH * slotAspect);
+        const cropAX = Math.max(0, Math.min(sourceW - cropAW, Math.round(fA.cx - cropAW / 2)));
+        const cropAY = Math.max(0, Math.min(sourceH - cropAH, Math.round(fA.cy - cropAH / 2)));
+
+        // Face B crop region
+        const cropBH = cropAH; // same dimensions for uniform look
+        const cropBW = cropAW;
+        const cropBX = Math.max(0, Math.min(sourceW - cropBW, Math.round(fB.cx - cropBW / 2)));
+        const cropBY = Math.max(0, Math.min(sourceH - cropBH, Math.round(fB.cy - cropBH / 2)));
+
+        filterComplex = [
+          // Face A: crop around face, scale to fill slot
+          `[0:v]fps=${fps},crop=${cropAW}:${cropAH}:${cropAX}:${cropAY},scale=${canvasW}:${slotH}:flags=lanczos,setsar=1[duoA]`,
+          // Face B: crop around face, scale to fill slot
+          `[0:v]fps=${fps},crop=${cropBW}:${cropBH}:${cropBX}:${cropBY},scale=${canvasW}:${slotH}:flags=lanczos,setsar=1[duoB]`,
+          // Dark divider line (2px)
+          `color=c=0x1a1a1a:s=${canvasW}x${divH}:r=${fps},format=yuv420p[duoDiv]`,
+          // Stack: A on top, divider, B on bottom
+          `[duoA][duoDiv][duoB]vstack=inputs=3[composed]`,
+        ].join(';');
+        mapVideo = '[composed]';
+        console.log(`[FFmpeg] Duo layout: faceA(${cropAX},${cropAY},${cropAW}x${cropAH}) top, faceB(${cropBX},${cropBY},${cropBW}x${cropBH}) bottom, div=${divH}px`);
       } else if (useFullFrame) {
         // FULL-FRAME MODE: center crop directly to 9:16 (no blurred padding).
         filterComplex = `[0:v]fps=${fps},crop=in_w-${borderCrop*2}:in_h-${borderCrop*2}:${borderCrop}:${borderCrop},scale=${canvasW}:${canvasH}:force_original_aspect_ratio=increase:flags=lanczos,crop=${canvasW}:${canvasH}:(iw-${canvasW})/2:(ih-${canvasH})/2,setsar=1[composed]`;

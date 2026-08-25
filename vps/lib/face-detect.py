@@ -80,10 +80,21 @@ def detect_faces_in_video(video_path, every_n=8, canvas_w=720, canvas_h=1280):
             )
 
             if len(faces) > 0:
-                # Pick the largest face (most likely the main subject)
-                areas = [w * h for (x, y, w, h) in faces]
-                best_idx = np.argmax(areas)
-                fx, fy, fw, fh = faces[best_idx]
+                # Sort faces by area descending (largest first)
+                face_list = sorted(faces, key=lambda f: f[2] * f[3], reverse=True)
+
+                # Primary face (largest)
+                fx, fy, fw, fh = face_list[0]
+
+                # All faces scaled to canvas coordinates
+                all_faces = []
+                for af_x, af_y, af_w, af_h in face_list:
+                    all_faces.append({
+                        "x": round(af_x * scale_x),
+                        "y": round(af_y * scale_y),
+                        "w": round(af_w * scale_x),
+                        "h": round(af_h * scale_y),
+                    })
 
                 # Scale to canvas coordinates
                 kf = {
@@ -94,6 +105,7 @@ def detect_faces_in_video(video_path, every_n=8, canvas_w=720, canvas_h=1280):
                     "w": round(fw * scale_x),
                     "h": round(fh * scale_y),
                     "detected": True,
+                    "faces": all_faces,
                 }
                 keyframes.append(kf)
             else:
@@ -121,6 +133,7 @@ def detect_faces_in_video(video_path, every_n=8, canvas_w=720, canvas_h=1280):
         "canvas_h": canvas_h,
         "raw_keyframes": len(keyframes),
         "detected_count": sum(1 for kf in keyframes if kf.get("detected")),
+        "keyframes": keyframes,
         "smoothed": smoothed,
     }
 
