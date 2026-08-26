@@ -209,7 +209,7 @@ Clips from the same stream are grouped to prevent one streamer dominating the fe
 ### Easter Eggs (Score 67)
 - **Rainbow badge**: Any clip with `Math.round(velocity_score) === 67` gets the `score-six-seven` CSS class — animated rainbow gradient text (defined in `rank-cards.css`, applied in `trending-card.tsx`). Landing radar slot 3 is a permanent static 67 card (Agent00 "Professor Agent teaches clip farming").
 - **Server inclusion**: `GET /api/trending` — on first page of score sort (no cursor, no search), if no clip rounds to 67 in the result, a supplemental query fetches the freshest 67 (`velocity_score >= 66.5 AND < 67.5, ORDER BY clip_created_at DESC LIMIT 1`) and appends it (deduplicated by id). One lightweight extra query, score-sort only.
-- **Sort**: (2026-08-25) The old "sort float" hack (67 sorted as ~73.5/79) is REMOVED — the browse feed sorts by real score, descending. The injected 67 card sits at the bottom of page 1, i.e. at its natural position between 68 and 66 as more pages load. Client pagination dedupes by id, so only one instance of the 67 clip ever renders.
+- **Sort float**: In the browse feed's "Score" sort (`trending-store.ts`), a clip displaying 67 is sorted as if it were 79 — it floats up near the top. Display value stays 67. (2026-08-25) **Disabled in capture mode** (`?capture=1` / sessionStorage `va:capture-mode`): promo recordings sort by real score, so the 67 sits at its natural position in the descending order. Client pagination dedupes by id — only one instance of the injected 67 ever renders.
 
 ---
 
