@@ -248,9 +248,11 @@ export async function GET(req: NextRequest) {
     // Apply stream grouping (mutates items in-place, adds group fields)
     applyStreamGrouping(items)
 
-    // 67 easter egg — the meme score floats up near the top (brand joke, matches the landing's permanent 67 card).
+    // 67 easter egg — brand joke, matches the landing's permanent 67 card.
     // The top-50-by-score query usually cuts off around ~73, so a 67 never reaches the client.
     // If sorting by score on the first page and no 67 is already present, fetch the freshest one.
+    // Note: the client sorts by real score (no float hack), so this card sits at the BOTTOM
+    // of page 1 — at its natural place in the descending order, only ever one instance.
     const isScoreSort = sort === 'velocity' && !useDate && !cursor && !rawSearch
     if (isScoreSort) {
       const has67 = items.some(c => Math.round(c.velocity_score as number ?? 0) === 67)
