@@ -4,8 +4,9 @@
  * Required OAuth scope: video.list
  * API: https://developers.tiktok.com/doc/content-posting-api-get-video-status
  *
- * STATUS: API scope pending approval. This tracker implements the expected
- * contract but will throw if the scope is not yet available.
+ * STATUS: video.list APPROVED by TikTok on 2026-08-28 (app 7629746100858095637).
+ * Activation requires: (1) TIKTOK_VIDEO_LIST_APPROVED=true in Netlify env,
+ * (2) users must RECONNECT their TikTok account so the token includes video.list.
  */
 
 export interface PostStats {
