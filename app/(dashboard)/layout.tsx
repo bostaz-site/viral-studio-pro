@@ -242,7 +242,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           )}
         </nav>
 
-        {/* Usage + Plan */}
+        {/* Usage + Plan — hidden until profile loads to avoid flashing the free-plan default */}
+        {profile && (
         <div className="px-4 pb-2" data-capture-hide>
           <div className="rounded-xl border border-border bg-muted/30 p-3 space-y-2">
             <div className="flex items-center justify-between">
@@ -274,6 +275,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             )}
           </div>
         </div>
+        )}
 
         {/* User footer */}
         {user && (

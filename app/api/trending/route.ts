@@ -136,7 +136,9 @@ export async function GET(req: NextRequest) {
     const cursor   = searchParams.get('cursor') // format: "{sortValue}_{id}"
 
     const admin = createAdminClient()
-    let query = admin.from('trending_clips').select('*', { count: 'exact' })
+    // 'estimated' count (planner stats) — 'exact' forced a full scan of all
+    // matching rows on every feed request just to display the total badge.
+    let query = admin.from('trending_clips').select('*', { count: 'estimated' })
 
     // Exclude ultra-short clips (< 8s) — unusable for enhance pipeline
     query = query.gte('duration_seconds', MIN_CLIP_DURATION_SECONDS)
