@@ -26,7 +26,7 @@ export default function PrivacyPage() {
 
       <main className="max-w-4xl mx-auto px-6 py-16">
         <h1 className="text-3xl font-bold mb-2">Privacy Policy</h1>
-        <p className="text-sm text-muted-foreground mb-10">Last updated: March 26, 2026</p>
+        <p className="text-sm text-muted-foreground mb-10">Last updated: August 28, 2026</p>
 
         <div className="prose prose-invert prose-sm max-w-none space-y-8">
           <section>
@@ -73,14 +73,33 @@ export default function PrivacyPage() {
           </section>
 
           <section>
-            <h2 className="text-xl font-semibold text-foreground mb-3">5. Storage and Security</h2>
+            <h2 className="text-xl font-semibold text-foreground mb-3">5. YouTube API Services</h2>
+            <p className="text-muted-foreground leading-relaxed mb-3">
+              Viral Animal uses <strong className="text-foreground">YouTube API Services</strong> to let you connect your own YouTube channel, upload the videos you create through our service to your channel, and view your own channel and video statistics inside the app. By using these features, you also agree to the{' '}
+              <a href="https://www.youtube.com/t/terms" target="_blank" rel="noopener noreferrer" className="text-foreground underline">YouTube Terms of Service</a> and the{' '}
+              <a href="http://www.google.com/policies/privacy" target="_blank" rel="noopener noreferrer" className="text-foreground underline">Google Privacy Policy</a>.
+            </p>
+            <ul className="list-disc list-inside space-y-1.5 text-muted-foreground mb-3">
+              <li><strong className="text-foreground">Data we access</strong>: your basic channel information (name, ID) and the public statistics of videos you published through Viral Animal (views, likes, comments, shares).</li>
+              <li><strong className="text-foreground">How we use it</strong>: to publish videos to your channel at your request and to display your own performance statistics to you inside the app.</li>
+              <li><strong className="text-foreground">Storage and retention</strong>: OAuth tokens are encrypted at rest and deleted when you disconnect your YouTube account. Public video statistics may be stored for up to 36 calendar months in accordance with YouTube&apos;s policies; other YouTube data is refreshed or deleted within 30 days.</li>
+              <li><strong className="text-foreground">Sharing</strong>: we never share your YouTube data with third parties; it is only displayed to you.</li>
+            </ul>
+            <p className="text-muted-foreground leading-relaxed">
+              You can revoke Viral Animal&apos;s access to your YouTube data at any time from your app Settings, or via the{' '}
+              <a href="https://security.google.com/settings/security/permissions" target="_blank" rel="noopener noreferrer" className="text-foreground underline">Google security settings page</a>.
+            </p>
+          </section>
+
+          <section>
+            <h2 className="text-xl font-semibold text-foreground mb-3">6. Storage and Security</h2>
             <p className="text-muted-foreground leading-relaxed">
               Your data is stored securely via Supabase with encryption at rest and in transit. Passwords are hashed. Uploaded videos are stored in private buckets with row-level security controls. We never share your videos with third parties without your explicit consent.
             </p>
           </section>
 
           <section>
-            <h2 className="text-xl font-semibold text-foreground mb-3">6. Your Rights</h2>
+            <h2 className="text-xl font-semibold text-foreground mb-3">7. Your Rights</h2>
             <p className="text-muted-foreground leading-relaxed mb-3">Under GDPR, you have the right to:</p>
             <ul className="list-disc list-inside space-y-1.5 text-muted-foreground">
               <li>Access your personal data</li>
@@ -92,14 +111,14 @@ export default function PrivacyPage() {
           </section>
 
           <section>
-            <h2 className="text-xl font-semibold text-foreground mb-3">7. Cookies</h2>
+            <h2 className="text-xl font-semibold text-foreground mb-3">8. Cookies</h2>
             <p className="text-muted-foreground leading-relaxed">
               We use essential cookies only to maintain your authentication session. We do not use advertising tracking cookies.
             </p>
           </section>
 
           <section>
-            <h2 className="text-xl font-semibold text-foreground mb-3">8. Contact</h2>
+            <h2 className="text-xl font-semibold text-foreground mb-3">9. Contact</h2>
             <p className="text-muted-foreground leading-relaxed">
               For any questions about this Privacy Policy or to exercise your rights, contact us at: <strong className="text-foreground">privacy@viralanimal.com</strong>
             </p>
