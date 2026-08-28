@@ -30,7 +30,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     },
     {
       url: `${baseUrl}/privacy`,
-      lastModified: new Date('2026-03-26'),
+      lastModified: new Date('2026-08-28'),
       changeFrequency: 'yearly',
       priority: 0.3,
     },
@@ -46,11 +46,13 @@ export default function sitemap(): MetadataRoute.Sitemap {
       changeFrequency: 'monthly',
       priority: 0.8,
     },
+    // /changelog retiré — la page n'existe pas encore (dossier vide → 404).
+    // La remettre ici quand elle sera construite.
     {
-      url: `${baseUrl}/changelog`,
+      url: `${baseUrl}/about`,
       lastModified: new Date(),
-      changeFrequency: 'weekly',
-      priority: 0.5,
+      changeFrequency: 'monthly',
+      priority: 0.4,
     },
   ]
 }
