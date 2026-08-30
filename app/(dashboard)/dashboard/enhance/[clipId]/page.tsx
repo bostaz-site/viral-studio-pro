@@ -523,6 +523,7 @@ export default function EnhancePage() {
             errorMessage?: string | null
             qualityTier?: string | null
             reducedQuality?: boolean
+            burnedCaptionsSkipped?: boolean
             queuePosition?: number | null
             serverDoneAt?: string | null
             stage?: string | null
@@ -568,6 +569,8 @@ export default function EnhancePage() {
             if (json.data.status === 'degraded') {
               // Single source: API message already includes "credit refunded"
               setRenderMessage(`⚠️ ${json.message}`)
+            } else if (json.data.burnedCaptionsSkipped) {
+              setRenderMessage('⚠️ Le clip source contient déjà des sous-titres — ton style de captions n\'a pas été appliqué pour éviter le doublon.')
             } else {
               setRenderMessage(
                 json.data.reducedQuality

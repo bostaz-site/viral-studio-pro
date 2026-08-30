@@ -210,6 +210,12 @@ export const GET = withAuth(async (request: NextRequest, user) => {
   const qualityTier = job.quality_tier ?? null
   const reducedQuality = qualityTier !== null && qualityTier !== 'HIGH_60' && qualityTier !== 'HIGH_30'
 
+  // Burned captions: user captions were skipped because source has burned-in subs
+  const contractArr = job.contract as { feature: string; requested: boolean; applied: boolean; reason?: string; intentional?: boolean }[] | null
+  const burnedCaptionsSkipped = contractArr?.some(
+    e => e.feature === 'captions' && !e.applied && e.reason === 'source_has_burned_captions'
+  ) ?? false
+
   return NextResponse.json({
     data: {
       jobId: job.id,
@@ -221,6 +227,7 @@ export const GET = withAuth(async (request: NextRequest, user) => {
       errorMessage: job.error_message,
       qualityTier,
       reducedQuality,
+      burnedCaptionsSkipped,
       queuePosition,
       createdAt: job.created_at,
       updatedAt: job.updated_at,

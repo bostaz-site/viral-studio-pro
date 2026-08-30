@@ -860,6 +860,7 @@ router.post('/', async (req, res) => {
     // detect and auto-disable to prevent doubling. Runs on trending clips only.
     // The frontend usually handles this, but quick export and edge cases bypass it.
     let burnedCaptionDetected = false;
+    let burnedCaptionPosition = null; // 'bottom' | 'top' | 'center' | null
     if (settings.captions?.enabled && settings.captions?.style !== 'none' && source === 'trending') {
       // Skip if frontend already flagged via skippedReason
       if (settings.captions?.skippedReason !== 'source_has_burned_captions') {
@@ -868,10 +869,11 @@ router.post('/', async (req, res) => {
           const burnedResult = await detectBurnedCaptions(inputPath, duration, tempDir, trc);
           if (burnedResult.burned_captions && burnedResult.confidence >= 0.7) {
             burnedCaptionDetected = true;
+            burnedCaptionPosition = burnedResult.position || 'bottom';
             settings.captions.enabled = false;
             settings.captions.style = 'none';
             settings.captions.skippedReason = 'source_has_burned_captions';
-            trc(`BURNED CAPTION CHECK: detected (confidence=${burnedResult.confidence.toFixed(2)}) → captions auto-disabled`);
+            trc(`BURNED CAPTION CHECK: detected (confidence=${burnedResult.confidence.toFixed(2)}, pos=${burnedCaptionPosition}) → captions auto-disabled`);
           } else {
             trc(`BURNED CAPTION CHECK: not detected (confidence=${(burnedResult.confidence || 0).toFixed(2)})`);
           }
@@ -880,8 +882,17 @@ router.post('/', async (req, res) => {
         }
       } else {
         burnedCaptionDetected = true;
+        burnedCaptionPosition = settings.captions?.burnedPosition || 'bottom';
         trc('BURNED CAPTION CHECK: already flagged by frontend (skippedReason=source_has_burned_captions)');
       }
+    }
+
+    // Anchor crop to preserve burned captions in the source
+    if (burnedCaptionDetected && burnedCaptionPosition) {
+      const anchor = burnedCaptionPosition === 'top' ? 'top' : 'bottom';
+      settings.format = settings.format || {};
+      settings.format.cropAnchor = anchor;
+      trc(`BURNED CAPTIONS: anchoring crop to ${anchor}, source captions shown in full`);
     }
 
     t('download_end');

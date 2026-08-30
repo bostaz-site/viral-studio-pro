@@ -197,23 +197,26 @@ export async function applyAutoCut(inputPath, tempDir, wordTimestamps, duration,
 
   trc(`AUTO-CUT: done — ${outputPath} (${stat.size} bytes)`);
 
-  // Remap word timestamps to new timeline (remove gaps)
+  // Remap word timestamps to new timeline (remove gaps).
+  // Words and segments are in the SAME coordinate system (both derived from
+  // the wordTimestamps array). Do NOT subtract clipStartTime — that offset
+  // is only for FFmpeg seek positions, not for word-to-segment matching.
   const remappedWords = [];
   let newOffset = 0;
   for (const seg of segments) {
     for (const w of wordTimestamps) {
-      // Word relative to clip (not file)
-      const wStart = w.start - clipStartTime;
-      if (wStart >= seg.start && wStart < seg.end) {
+      if (w.start >= seg.start && w.start < seg.end) {
         remappedWords.push({
           ...w,
-          start: Math.round((newOffset + (wStart - seg.start)) * 100) / 100,
-          end: Math.round((newOffset + (w.end - clipStartTime - seg.start)) * 100) / 100,
+          start: Math.round((newOffset + (w.start - seg.start)) * 100) / 100,
+          end: Math.round((newOffset + (w.end - seg.start)) * 100) / 100,
         });
       }
     }
     newOffset += (seg.end - seg.start);
   }
+
+  trc(`AUTOCUT REMAP: ${wordTimestamps.length} words in → ${remappedWords.length} words out`);
 
   // Cleanup
   for (const f of segFiles) {

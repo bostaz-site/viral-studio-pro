@@ -353,7 +353,7 @@ Enabled by default on all mood presets and Quick Export. Detects silences > 1.2s
 
 **Safety**: never removes more than 40% of the clip. Never produces a result shorter than 3s. If either limit is hit, auto-cut is skipped entirely (original clip preserved).
 
-**Sync**: after cutting, all timestamps are remapped — captions (ASS file regenerated), voiceover lines, and the clip timeline all stay synchronized.
+**Sync**: after cutting, all timestamps are remapped to the new compressed timeline — captions (ASS file regenerated), voiceover lines, and the clip timeline all stay synchronized. The remap matches words to kept segments in the same coordinate system (no clipStartTime adjustment — both words and segments are derived from the same Whisper timestamps). Log: `AUTOCUT REMAP: X words in → Y words out`.
 
 **UI**: "Silence Cut" accordion in Enhance page. Toggle + threshold slider (default 1.2s). Shows "cuts gaps > 1.2s" in the header.
 
@@ -593,6 +593,22 @@ TikTok flags videos as "Unoriginal, low-quality content" when they appear to be 
 **Honest disclaimer**: these transformations produce genuinely edited content, but TikTok's Community Guidelines compliance also depends on the user's clip choice (e.g. music copyright, content rights). The pipeline does not guarantee For You feed eligibility for every clip. Users re-posting content they don't own should add significant creative value.
 
 **Quality gate**: VPS logs a `LOW_RES_WARNING` when source resolution is below 720p. Output is always 1080x1920 (HIGH tier) or 720x1280 (SAFE/LAST_RESORT fallback), never upscaled from a visibly low-quality source without logging.
+
+### Burned-In Caption Detection & Crop Anchoring
+
+**VPS files:** `vps/lib/caption-detector.js` (Haiku vision), `vps/routes/render.js` (detection + anchor logic), `vps/lib/ffmpeg-render.js` (anchor in all crop modes)
+
+**Detection:** extracts 3 frames (25/50/75% of duration), crops bottom third + center third of each, sends to Claude Haiku vision to detect burned-in subtitles. Returns `{burned_captions, position, confidence}`. Runs on trending clips only when user captions are enabled.
+
+**When burned captions detected (conf >= 0.7):**
+1. **User captions disabled** — `settings.captions.enabled = false`, prevents doubling. Contract records `reason: 'source_has_burned_captions'` with `intentional: true` (no degraded status, no refund).
+2. **Crop anchored to preserve source captions** — `cropAnchor` set to `'bottom'` (or `'top'` if pos=top). Affects ALL crop stages:
+   - **Border crop:** vertical crop shifted to the opposite edge (e.g., bottom anchor → all vertical border crop from top, Y offset = `borderCrop * 2`)
+   - **Fullframe/smartZoom final crop:** anchored Y (`ih-canvasH` for bottom, `0` for top)
+   - **Smart zoom (dynamic/micro):** crop Y expression anchored
+   - **Follow-face:** Y fixed to anchor edge (horizontal tracking only), prevents vertical pan from cutting source captions
+3. **UI warning** — Enhance page shows: "Le clip source contient déjà des sous-titres — ton style de captions n'a pas été appliqué pour éviter le doublon." via `burnedCaptionsSkipped` flag in render status API response.
+4. **Blowup Chance scoring** — Base 0.15 for "captions present" still awarded (source captions count). Style/mood-match bonuses (emphasisEffect, captionStyle, emphasisColor) NOT awarded since our captions aren't rendered.
 
 ### AI Voiceover — Original Commentary Layer
 

@@ -396,8 +396,10 @@ export function computeCurrentScore(
   // + risque plateforme), bassBoost retire (inaudible sur telephone).
   // Weights calibrated 2026-08 — hookReorder frozen, smartZoom unfrozen.
   // If source has burned-in captions, count them as "captions present" even if ours are off.
-  if (burnedCaptionsDetected || (settings.captionsEnabled && settings.captionStyle !== 'none')) totalWeight += 0.15
-  if (settings.emphasisEffect !== 'none') totalWeight += 0.07
+  // But don't add style/mood-match bonuses — our captions won't be rendered.
+  const ourCaptionsApplied = !burnedCaptionsDetected && settings.captionsEnabled && settings.captionStyle !== 'none'
+  if (burnedCaptionsDetected || ourCaptionsApplied) totalWeight += 0.15
+  if (ourCaptionsApplied && settings.emphasisEffect !== 'none') totalWeight += 0.07
   if (settings.tagStyle !== 'none') totalWeight += 0.05
   if (settings.hookEnabled) totalWeight += 0.14
   // hookReorder: disabled (cuts mid-word)
@@ -410,15 +412,16 @@ export function computeCurrentScore(
   // Mood-match bonus weights (up to ~0.16 extra)
   if (detectedMood && MOOD_PRESETS[detectedMood]) {
     const preset = MOOD_PRESETS[detectedMood]
-    if (settings.captionsEnabled && settings.captionStyle === preset.captionStyle) totalWeight += 0.07
-    if (settings.emphasisEffect === preset.emphasisEffect) totalWeight += 0.05
-    if (settings.emphasisColor === preset.emphasisColor) totalWeight += 0.04
+    // Only award caption style bonuses if our captions are actually applied
+    if (ourCaptionsApplied && settings.captionStyle === preset.captionStyle) totalWeight += 0.07
+    if (ourCaptionsApplied && settings.emphasisEffect === preset.emphasisEffect) totalWeight += 0.05
+    if (ourCaptionsApplied && settings.emphasisColor === preset.emphasisColor) totalWeight += 0.04
     if (settings.videoZoom === preset.videoZoom) totalWeight += 0.03
     if (settings.autoCutEnabled === preset.autoCutEnabled) totalWeight += 0.03
   } else {
     // Fallback generic best-option bonus when no mood detected
-    if (settings.captionStyle === scores.best.captionStyle) totalWeight += 0.02
-    if (settings.emphasisEffect === scores.best.emphasisEffect) totalWeight += 0.02
+    if (ourCaptionsApplied && settings.captionStyle === scores.best.captionStyle) totalWeight += 0.02
+    if (ourCaptionsApplied && settings.emphasisEffect === scores.best.emphasisEffect) totalWeight += 0.02
     if (settings.tagStyle === scores.best.tagStyle) totalWeight += 0.02
   }
 
@@ -460,14 +463,16 @@ export function computeScoreBreakdown(
   const sections: { key: keyof Omit<ScoreBreakdown, 'total'>; weight: number }[] = []
 
   // Captions — burned-in captions count as "present" even if ours are off
+  // But style/mood-match bonuses only apply when our captions are actually rendered
+  const ourCaptionsApplied2 = !burnedCaptionsDetected && settings.captionsEnabled && settings.captionStyle !== 'none'
   let captionWeight = 0
-  if (burnedCaptionsDetected || (settings.captionsEnabled && settings.captionStyle !== 'none')) captionWeight += 0.15
-  if (settings.emphasisEffect !== 'none') captionWeight += 0.07
+  if (burnedCaptionsDetected || ourCaptionsApplied2) captionWeight += 0.15
+  if (ourCaptionsApplied2 && settings.emphasisEffect !== 'none') captionWeight += 0.07
   if (detectedMood && MOOD_PRESETS[detectedMood]) {
     const preset = MOOD_PRESETS[detectedMood]
-    if (settings.captionsEnabled && settings.captionStyle === preset.captionStyle) captionWeight += 0.07
-    if (settings.emphasisEffect === preset.emphasisEffect) captionWeight += 0.05
-    if (settings.emphasisColor === preset.emphasisColor) captionWeight += 0.04
+    if (ourCaptionsApplied2 && settings.captionStyle === preset.captionStyle) captionWeight += 0.07
+    if (ourCaptionsApplied2 && settings.emphasisEffect === preset.emphasisEffect) captionWeight += 0.05
+    if (ourCaptionsApplied2 && settings.emphasisColor === preset.emphasisColor) captionWeight += 0.04
   }
   sections.push({ key: 'captions', weight: captionWeight })
 

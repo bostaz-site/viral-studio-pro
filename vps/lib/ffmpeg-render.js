@@ -482,7 +482,7 @@ function buildSpeedRampFilters(settings) {
  * @param {number} clipDuration - Duration in seconds (for time-based expressions)
  * @param {string} mode         - 'micro' | 'dynamic' | 'follow'
  */
-function buildSmartZoomFilter(inLabel, outLabel, canvasW, canvasH, clipDuration, mode = 'micro', peaks = []) {
+function buildSmartZoomFilter(inLabel, outLabel, canvasW, canvasH, clipDuration, mode = 'micro', peaks = [], cropAnchor = 'center') {
   if (!clipDuration || clipDuration <= 0) return null;
 
   // All modes use scale(eval=frame)+crop — the only reliable way to do
@@ -525,9 +525,10 @@ function buildSmartZoomFilter(inLabel, outLabel, canvasW, canvasH, clipDuration,
     const scaledW = `trunc(${canvasW}*${zExpr}/2)*2`;
     const scaledH = `trunc(${canvasH}*${zExpr}/2)*2`;
 
-    console.log(`[FFmpeg] Smart Zoom dynamic: ${limited.length} peaks, ${Math.round(ZOOM_AMOUNT*100)}% punch, smooth ease`);
+    console.log(`[FFmpeg] Smart Zoom dynamic: ${limited.length} peaks, ${Math.round(ZOOM_AMOUNT*100)}% punch, smooth ease, anchor=${cropAnchor}`);
 
-    return `${inLabel}scale=w='${scaledW}':h='${scaledH}':eval=frame:flags=lanczos,crop=${canvasW}:${canvasH},setsar=1${outLabel}`;
+    const dynCropY = cropAnchor === 'bottom' ? `ih-${canvasH}` : cropAnchor === 'top' ? '0' : `(ih-${canvasH})/2`;
+    return `${inLabel}scale=w='${scaledW}':h='${scaledH}':eval=frame:flags=lanczos,crop=${canvasW}:${canvasH}:(iw-${canvasW})/2:${dynCropY},setsar=1${outLabel}`;
   }
 
   if (mode === 'micro') {
@@ -540,19 +541,20 @@ function buildSmartZoomFilter(inLabel, outLabel, canvasW, canvasH, clipDuration,
     const scaledW = `trunc(${canvasW}*${zExpr}/2)*2`;
     const scaledH = `trunc(${canvasH}*${zExpr}/2)*2`;
 
-    console.log(`[FFmpeg] Smart Zoom micro: slow push 0→6%, duration=${D}s`);
+    console.log(`[FFmpeg] Smart Zoom micro: slow push 0→6%, duration=${D}s, anchor=${cropAnchor}`);
 
-    return `${inLabel}scale=w='${scaledW}':h='${scaledH}':eval=frame:flags=lanczos,crop=${canvasW}:${canvasH},setsar=1${outLabel}`;
+    const microCropY = cropAnchor === 'bottom' ? `ih-${canvasH}` : cropAnchor === 'top' ? '0' : `(ih-${canvasH})/2`;
+    return `${inLabel}scale=w='${scaledW}':h='${scaledH}':eval=frame:flags=lanczos,crop=${canvasW}:${canvasH}:(iw-${canvasW})/2:${microCropY},setsar=1${outLabel}`;
   }
 
   // Dynamic requested but no peaks → fall back to micro.
   if (mode === 'dynamic') {
-    return buildSmartZoomFilter(inLabel, outLabel, canvasW, canvasH, clipDuration, 'micro');
+    return buildSmartZoomFilter(inLabel, outLabel, canvasW, canvasH, clipDuration, 'micro', [], cropAnchor);
   }
 
   // Follow mode without face data → fall back to micro.
   if (mode === 'follow') {
-    return buildSmartZoomFilter(inLabel, outLabel, canvasW, canvasH, clipDuration, 'micro');
+    return buildSmartZoomFilter(inLabel, outLabel, canvasW, canvasH, clipDuration, 'micro', [], cropAnchor);
   }
 
   return null;
@@ -582,7 +584,7 @@ function buildSmartZoomFilter(inLabel, outLabel, canvasW, canvasH, clipDuration,
  * @param {number} zoomOverride  - Zoom factor (1.0 = pan only)
  * @returns {string|null} FFmpeg filter string
  */
-function buildFollowFaceFilter(inLabel, outLabel, canvasW, canvasH, keyframes, clipDuration, zoomOverride) {
+function buildFollowFaceFilter(inLabel, outLabel, canvasW, canvasH, keyframes, clipDuration, zoomOverride, cropAnchor = 'center') {
   if (!keyframes || keyframes.length < 2) {
     console.log('[FFmpeg] Follow face: not enough keyframes, falling back to micro');
     return null;
@@ -708,9 +710,17 @@ function buildFollowFaceFilter(inLabel, outLabel, canvasW, canvasH, keyframes, c
   }
 
   const xExpr = buildLerpExpr(kf, 'cx');
-  const yExpr = buildLerpExpr(kf, 'cy');
+  // When burned captions anchor the crop, fix Y to preserve that edge
+  let yExpr;
+  if (cropAnchor === 'bottom') {
+    yExpr = String(maxPanY); // anchor to bottom — no vertical pan
+  } else if (cropAnchor === 'top') {
+    yExpr = '0'; // anchor to top — no vertical pan
+  } else {
+    yExpr = buildLerpExpr(kf, 'cy');
+  }
 
-  console.log(`[FFmpeg] Follow face: ${kf.length} keyframes, ${ZOOM}x zoom, nested-lerp continuous pan`);
+  console.log(`[FFmpeg] Follow face: ${kf.length} keyframes, ${ZOOM}x zoom, nested-lerp continuous pan, anchor=${cropAnchor}`);
 
   // Scale up → crop with moving window → set SAR
   return `${inLabel}scale=${scaledW}:${scaledH}:flags=lanczos,crop=${canvasW}:${canvasH}:x='${xExpr}':y='${yExpr}':exact=1,setsar=1${outLabel}`;
@@ -951,6 +961,12 @@ export async function renderClip(inputPath, outputPath, options = {}) {
         borderCrop = 50;
       }
 
+      // Burned captions anchor: shift vertical border crop to preserve the edge
+      // where source captions live. 'bottom' → all vertical crop from top.
+      let borderCropY = borderCrop; // default: symmetric (center)
+      if (cropAnchor === 'bottom') borderCropY = borderCrop * 2;
+      else if (cropAnchor === 'top') borderCropY = 0;
+
       // Face-follow zoom: only allowed if we have budget left
       const borderZoom = sourceW > 0 ? sourceW / (sourceW - borderCrop * 2) : 1.0;
       const zoomBeforeFollow = cropZoom * borderZoom * zoomFactor;
@@ -1051,15 +1067,16 @@ export async function renderClip(inputPath, outputPath, options = {}) {
         console.log(`[FFmpeg] Duo layout: faceA(${cropAX},${cropAY},${cropAW}x${cropAH}) top, faceB(${cropBX},${cropBY},${cropBW}x${cropBH}) bottom, div=${divH}px`);
       } else if (useFullFrame) {
         // FULL-FRAME MODE: center crop directly to 9:16 (no blurred padding).
-        filterComplex = `[0:v]fps=${fps},crop=in_w-${borderCrop*2}:in_h-${borderCrop*2}:${borderCrop}:${borderCrop},scale=${canvasW}:${canvasH}:force_original_aspect_ratio=increase:flags=lanczos,crop=${canvasW}:${canvasH}:(iw-${canvasW})/2:(ih-${canvasH})/2,setsar=1[composed]`;
+        const ffCropY = cropAnchor === 'bottom' ? `ih-${canvasH}` : cropAnchor === 'top' ? '0' : `(ih-${canvasH})/2`;
+        filterComplex = `[0:v]fps=${fps},crop=in_w-${borderCrop*2}:in_h-${borderCrop*2}:${borderCrop}:${borderCropY},scale=${canvasW}:${canvasH}:force_original_aspect_ratio=increase:flags=lanczos,crop=${canvasW}:${canvasH}:(iw-${canvasW})/2:${ffCropY},setsar=1[composed]`;
         mapVideo = '[composed]';
-        console.log(`[FFmpeg] Full-frame crop: ${canvasW}x${canvasH}, border trim ${borderCrop}px`);
+        console.log(`[FFmpeg] Full-frame crop: ${canvasW}x${canvasH}, border trim ${borderCrop}px, anchor=${cropAnchor}`);
       } else if (useFit) {
         // FIT MODE: preserve full image, scale to fill width, cinematic blurred padding.
         // Deep blur (sigma=24), dark (-0.45), heavily desaturated (s=0.5) → neutral texture.
         // Used for gameplay, IRL wide shots — content stays fully visible.
         filterComplex = [
-          `[0:v]fps=${fps},crop=in_w-${borderCrop*2}:in_h-${borderCrop*2}:${borderCrop}:${borderCrop},split=2[fitfg][fitbg]`,
+          `[0:v]fps=${fps},crop=in_w-${borderCrop*2}:in_h-${borderCrop*2}:${borderCrop}:${borderCropY},split=2[fitfg][fitbg]`,
           `[fitbg]scale=${Math.round(canvasW/4)}:${Math.round(canvasH/4)}:force_original_aspect_ratio=increase,crop=${Math.round(canvasW/4)}:${Math.round(canvasH/4)}:(iw-${Math.round(canvasW/4)})/2:(ih-${Math.round(canvasH/4)})/2,gblur=sigma=24,eq=brightness=-0.45,hue=s=0.5,scale=${canvasW}:${canvasH}:flags=bilinear,setsar=1[fitbgout]`,
           `[fitfg]scale=${canvasW}:${canvasH}:force_original_aspect_ratio=decrease:flags=lanczos,setsar=1[fitfgout]`,
           `[fitbgout][fitfgout]overlay=(W-w)/2:(H-h)/2[composed]`,
@@ -1071,14 +1088,14 @@ export async function renderClip(inputPath, outputPath, options = {}) {
           const bigW = Math.round(canvasW * zoomFactor);
           const bigH = Math.round(canvasH * zoomFactor);
           filterComplex = [
-            `[0:v]fps=${fps},crop=in_w-${borderCrop*2}:in_h-${borderCrop*2}:${borderCrop}:${borderCrop},split=2[wpfg][wpbg]`,
+            `[0:v]fps=${fps},crop=in_w-${borderCrop*2}:in_h-${borderCrop*2}:${borderCrop}:${borderCropY},split=2[wpfg][wpbg]`,
             `[wpbg]scale=${Math.round(canvasW/4)}:${Math.round(canvasH/4)}:force_original_aspect_ratio=increase,crop=${Math.round(canvasW/4)}:${Math.round(canvasH/4)}:(iw-${Math.round(canvasW/4)})/2:(ih-${Math.round(canvasH/4)})/2,gblur=sigma=6,eq=brightness=-0.45,hue=s=0.85,scale=${canvasW}:${canvasH}:flags=bilinear,setsar=1[wpbgout]`,
             `[wpfg]scale=${bigW}:${bigH}:force_original_aspect_ratio=decrease:flags=lanczos,setsar=1[wpfgscaled]`,
             `[wpbgout][wpfgscaled]overlay=(W-w)/2:(H-h)/2[composed]`,
           ].join(';');
         } else {
           filterComplex = [
-            `[0:v]fps=${fps},crop=in_w-${borderCrop*2}:in_h-${borderCrop*2}:${borderCrop}:${borderCrop},split=2[wpfg2][wpbg2]`,
+            `[0:v]fps=${fps},crop=in_w-${borderCrop*2}:in_h-${borderCrop*2}:${borderCrop}:${borderCropY},split=2[wpfg2][wpbg2]`,
             `[wpbg2]scale=${Math.round(canvasW/4)}:${Math.round(canvasH/4)}:force_original_aspect_ratio=increase,crop=${Math.round(canvasW/4)}:${Math.round(canvasH/4)}:(iw-${Math.round(canvasW/4)})/2:(ih-${Math.round(canvasH/4)})/2,gblur=sigma=6,eq=brightness=-0.45,hue=s=0.85,scale=${canvasW}:${canvasH}:flags=bilinear,setsar=1[wpbgout2]`,
             `[wpfg2]scale=${canvasW}:${canvasH}:force_original_aspect_ratio=decrease:flags=lanczos,setsar=1[wpfgout2]`,
             `[wpbgout2][wpfgout2]overlay=(W-w)/2:(H-h)/2[composed]`,
@@ -1086,7 +1103,8 @@ export async function renderClip(inputPath, outputPath, options = {}) {
         }
         mapVideo = '[composed]';
       } else if (smartZoomActive) {
-        filterComplex = `[0:v]fps=${fps},crop=in_w-${borderCrop*2}:in_h-${borderCrop*2}:${borderCrop}:${borderCrop},scale=${canvasW}:${canvasH}:force_original_aspect_ratio=increase:flags=lanczos,crop=${canvasW}:${canvasH}:(iw-${canvasW})/2:(ih-${canvasH})/2,setsar=1[composed]`;
+        const szCropY = cropAnchor === 'bottom' ? `ih-${canvasH}` : cropAnchor === 'top' ? '0' : `(ih-${canvasH})/2`;
+        filterComplex = `[0:v]fps=${fps},crop=in_w-${borderCrop*2}:in_h-${borderCrop*2}:${borderCrop}:${borderCropY},scale=${canvasW}:${canvasH}:force_original_aspect_ratio=increase:flags=lanczos,crop=${canvasW}:${canvasH}:(iw-${canvasW})/2:${szCropY},setsar=1[composed]`;
         mapVideo = '[composed]';
       } else {
         const fgW = Math.round(canvasW * zoomFactor);
@@ -1096,7 +1114,7 @@ export async function renderClip(inputPath, outputPath, options = {}) {
           ? `[srcbg]scale=${Math.round(canvasW/4)}:${Math.round(canvasH/4)}:force_original_aspect_ratio=increase,crop=${Math.round(canvasW/4)}:${Math.round(canvasH/4)}:(iw-${Math.round(canvasW/4)})/2:(ih-${Math.round(canvasH/4)})/2,gblur=sigma=6,eq=brightness=-0.45,hue=s=0.85,scale=${canvasW}:${canvasH}:flags=bilinear,setsar=1[bg]`
           : `[srcbg]scale=${canvasW}:${canvasH}:force_original_aspect_ratio=increase,crop=${canvasW}:${canvasH}:(iw-${canvasW})/2:(ih-${canvasH})/2,drawbox=x=0:y=0:w=${canvasW}:h=${canvasH}:color=black:t=fill,setsar=1[bg]`;
         filterComplex = [
-          `[0:v]fps=${fps},crop=in_w-${borderCrop*2}:in_h-${borderCrop*2}:${borderCrop}:${borderCrop},split=2[srcfg][srcbg]`,
+          `[0:v]fps=${fps},crop=in_w-${borderCrop*2}:in_h-${borderCrop*2}:${borderCrop}:${borderCropY},split=2[srcfg][srcbg]`,
           bgChain,
           `[srcfg]scale=${fgW}:${fgH}:force_original_aspect_ratio=decrease:flags=lanczos,setsar=1[fg]`,
           `[bg][fg]overlay=(W-w)/2:(H-h)/2[composed]`,
@@ -1109,12 +1127,12 @@ export async function renderClip(inputPath, outputPath, options = {}) {
         let zoomChain = null;
         if (smartZoom.mode === 'follow' && Array.isArray(smartZoom.faceKeyframes) && smartZoom.faceKeyframes.length >= 2) {
           // Pass the zoom budget so follow doesn't add zoom when crop is already tight
-          zoomChain = buildFollowFaceFilter(mapVideo, '[zoomed]', canvasW, canvasH, smartZoom.faceKeyframes, clipDuration, followZoomBudget);
+          zoomChain = buildFollowFaceFilter(mapVideo, '[zoomed]', canvasW, canvasH, smartZoom.faceKeyframes, clipDuration, followZoomBudget, cropAnchor);
           console.log(`[FFmpeg] Face follow: zoom=${followZoomBudget.toFixed(2)}x (${followZoomBudget <= 1.01 ? 'PAN ONLY' : 'pan+zoom'})`);
         }
         if (!zoomChain) {
           const fallbackMode = (smartZoom.mode === 'follow') ? 'micro' : (smartZoom.mode || 'micro');
-          zoomChain = buildSmartZoomFilter(mapVideo, '[zoomed]', canvasW, canvasH, clipDuration, fallbackMode, audioPeaks);
+          zoomChain = buildSmartZoomFilter(mapVideo, '[zoomed]', canvasW, canvasH, clipDuration, fallbackMode, audioPeaks, cropAnchor);
         }
         if (zoomChain) {
           filterComplex += `;${zoomChain}`;
