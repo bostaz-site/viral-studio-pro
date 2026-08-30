@@ -104,7 +104,7 @@ export interface TagStyle {
 export type TrendingClipData = Pick<TrendingClip,
   'id' | 'external_url' | 'platform' | 'author_name' | 'author_handle' |
   'title' | 'description' | 'niche' | 'view_count' | 'like_count' |
-  'velocity_score' | 'thumbnail_url' | 'duration_seconds'
+  'velocity_score' | 'thumbnail_url' | 'duration_seconds' | 'content_risk'
 >
 
 /**

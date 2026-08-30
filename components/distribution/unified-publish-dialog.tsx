@@ -58,6 +58,7 @@ interface UnifiedPublishDialogProps {
   clipTitle?: string
   videoPreviewUrl?: string
   metadata?: PublishMetadata
+  contentRisk?: string | null
 }
 
 // ── Platform config ──────────────────────────────────────────────────────────
@@ -106,6 +107,7 @@ export function UnifiedPublishDialog({
   clipTitle,
   videoPreviewUrl,
   metadata,
+  contentRisk,
 }: UnifiedPublishDialogProps) {
   const router = useRouter()
   const [loading, setLoading] = useState(true)
@@ -485,6 +487,23 @@ export function UnifiedPublishDialog({
                 })}
               </div>
             </>
+          )}
+
+          {/* Content risk warning */}
+          {contentRisk && !allDone && (
+            <div className="flex items-start gap-2.5 p-3 rounded-lg border border-amber-500/30 bg-amber-500/5">
+              <span className="text-amber-400 shrink-0 mt-0.5">⚠️</span>
+              <div>
+                <p className="text-xs font-medium text-amber-400">TikTok restreint souvent ce type de contenu</p>
+                <p className="text-[10px] text-muted-foreground mt-0.5">
+                  {contentRisk === 'gambling'
+                    ? 'Regulated Goods — jeux d\'argent. La vidéo risque d\'être exclue du For You feed et d\'affecter la réputation du compte.'
+                    : contentRisk === 'violence'
+                      ? 'Contenu violent. La vidéo risque d\'être restreinte ou supprimée par TikTok.'
+                      : 'Contenu mature. La vidéo risque d\'être restreinte par TikTok.'}
+                </p>
+              </div>
+            </div>
           )}
 
           {/* Actions footer */}

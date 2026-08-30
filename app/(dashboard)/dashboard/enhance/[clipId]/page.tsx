@@ -2989,6 +2989,7 @@ export default function EnhancePage() {
           duration_seconds: clip?.duration_seconds ?? undefined,
           blowup_chance_at_render: currentScore,
         }}
+        contentRisk={clip?.content_risk}
       />
 
       {/* Paywall modal */}

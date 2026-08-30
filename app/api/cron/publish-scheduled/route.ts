@@ -102,6 +102,39 @@ export async function POST(req: NextRequest) {
       continue
     }
 
+    // 2c. Guard: content risk — never auto-publish risky content unless user opted in
+    if (row.clip_id) {
+      const { data: clipRow } = await (admin
+        .from('trending_clips')
+        .select('content_risk' as '*')
+        .eq('id', row.clip_id)
+        .single() as unknown as Promise<{ data: { content_risk: string | null } | null }>)
+
+      if (clipRow?.content_risk) {
+        // Check if user allows risky content
+        const { data: distSettings } = await admin
+          .from('distribution_settings')
+          .select('allow_risky_content')
+          .eq('user_id', row.user_id)
+          .single()
+
+        const allowRisky = (distSettings as { allow_risky_content?: boolean } | null)?.allow_risky_content
+        if (!allowRisky) {
+          await admin
+            .from('scheduled_publications')
+            .update({
+              status: 'canceled',
+              error_message: `content_risk=${clipRow.content_risk} — auto-publish blocked`,
+              updated_at: new Date().toISOString(),
+            } as never)
+            .eq('id', row.id)
+
+          results.push({ id: row.id, status: 'canceled', error: 'content_risk_blocked' })
+          continue
+        }
+      }
+    }
+
     // 3. Execute publish
     const tiktokOptions = row.tiktok_options as {
       privacy_level: string

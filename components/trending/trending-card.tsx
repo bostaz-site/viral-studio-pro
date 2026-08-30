@@ -508,6 +508,16 @@ export const TrendingCard = memo(function TrendingCard({ clip, onRemix, onQuickE
     </span>
   ) : null
 
+  // ── Content risk badge (TikTok policy) ──
+  const riskBadge = clip.content_risk ? (
+    <span
+      className="absolute top-2 left-2 z-[7] flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-md bg-amber-500/20 text-amber-300 backdrop-blur-sm pointer-events-none"
+      title="Ce type de contenu (jeux d'argent / violence) est souvent restreint du For You feed par TikTok"
+    >
+      ⚠ TikTok risk
+    </span>
+  ) : null
+
   // ── Legendary rendering path (80-99) — 2 intensities ──
   if (isLegendary) {
 
@@ -583,6 +593,7 @@ export const TrendingCard = memo(function TrendingCard({ clip, onRemix, onQuickE
                   {mobileBookmark}
                   {newBadge}
                   {statusBadge}
+                  {riskBadge}
                   {overlayCTA}
                 </div>
               </div>
@@ -621,6 +632,7 @@ export const TrendingCard = memo(function TrendingCard({ clip, onRemix, onQuickE
             {mobileBookmark}
             {newBadge}
             {statusBadge}
+            {riskBadge}
             {overlayCTA}
           </div>
         )}
@@ -825,6 +837,7 @@ export const TrendingCard = memo(function TrendingCard({ clip, onRemix, onQuickE
 
         {/* Processing status */}
         {statusBadge}
+        {riskBadge}
 
         {overlayCTA}
 

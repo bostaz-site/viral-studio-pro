@@ -112,6 +112,11 @@ function filterAndSortClips(
     )
   }
 
+  // Content risk filter — hide gambling/violence/mature clips
+  if (filters.hideRisky) {
+    result = result.filter((c) => !c.content_risk)
+  }
+
   // Sort (server sorts too, but we re-sort for client-side combined data / saved tab)
   if (filters.feed === 'recent' || filters.sort === 'date') {
     result.sort((a, b) => new Date(b.clip_created_at ?? b.scraped_at ?? 0).getTime() - new Date(a.clip_created_at ?? a.scraped_at ?? 0).getTime())

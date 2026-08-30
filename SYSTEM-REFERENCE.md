@@ -206,6 +206,24 @@ Clips from the same stream are grouped to prevent one streamer dominating the fe
 - Low-tier cards (common/rare) render at `opacity-60` with `hover:opacity-100`
 - DB indexes support cursor pagination: composite `(velocity_score DESC, id DESC)` and `(created_at DESC, id DESC)`, plus partial indexes on `feed_category`, `niche`, `next_check_at`, and a trigram GIN index on `title` (migration `20260424_feed_indexes.sql`)
 
+### TikTok-Safe Content Filter
+
+**Migration:** `20260830_content_risk_filter.sql` — adds `content_risk TEXT NULL` to `trending_clips` + `streamers`, and `allow_risky_content BOOLEAN DEFAULT FALSE` to `distribution_settings`.
+
+**Detection** (`lib/scoring/content-risk.ts`): 3 layers, runs at clip import + re-score:
+1. **Title keywords** (case-insensitive, word-boundary for short words): gambling (casino, slots, baccarat, blackjack, roulette, jackpot, stake, gamba, poker, parlay, degen, bonus buy, max win, pokies…), violence (fight, knockout, ko'd, brawl, beat up…), mature (strip, onlyfans, 18+, nsfw…)
+2. **Streamer niche**: `streamers.niche` = 'gambling'/'slots'/'casino' → all clips inherit `content_risk = 'gambling'`
+3. **Auto-learn**: if ≥60% of a streamer's last 20 clips are flagged by keywords → `streamers.content_risk` is set, future clips inherit the flag even without keywords
+
+**3 protection layers:**
+| Layer | Where | Behavior |
+|---|---|---|
+| **Browse UI** | `trending-card.tsx` | Amber badge "⚠ TikTok risk" + tooltip. "Hide risky clips" toggle in filters (client-side, `filters.hideRisky` in trending store) |
+| **Publish dialog** | `unified-publish-dialog.tsx` | Warning before confirm: "TikTok restreint souvent ce type de contenu…" (user can proceed) |
+| **Autofarm** | `cron/publish-scheduled` | Clips with `content_risk IS NOT NULL` are auto-canceled unless `distribution_settings.allow_risky_content = true`. Autofarm NEVER auto-posts risky content without explicit opt-in |
+
+**Backfill:** `POST /api/admin/backfill-content-risk` (admin-only, batch 500) or direct SQL regex. Initial backfill: 20 gambling + 51 violence + 4 mature flagged out of ~19k clips.
+
 ### Easter Eggs (Score 67)
 - **Rainbow badge**: Any clip with `Math.round(velocity_score) === 67` gets the `score-six-seven` CSS class — animated rainbow gradient text (defined in `rank-cards.css`, applied in `trending-card.tsx`). Landing radar slot 3 is a permanent static 67 card (Agent00 "Professor Agent teaches clip farming").
 - **Server inclusion**: `GET /api/trending` — on first page of score sort (no cursor, no search), if no clip rounds to 67 in the result, a supplemental query fetches the freshest 67 (`velocity_score >= 66.5 AND < 67.5, ORDER BY clip_created_at DESC LIMIT 1`) and appends it (deduplicated by id). One lightweight extra query, score-sort only.

@@ -12,6 +12,7 @@ import {
   type TwitchClip,
 } from '@/lib/twitch/client'
 import { scoreClip, MIN_CLIP_DURATION_SECONDS } from '@/lib/scoring/clip-scorer'
+import { detectContentRisk, shouldFlagStreamer } from '@/lib/scoring/content-risk'
 import { logger } from '@/lib/logger'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@/lib/supabase/types'
@@ -25,6 +26,8 @@ interface Streamer {
   priority: number
   avg_clip_views: number
   avg_clip_velocity: number
+  niche: string | null
+  content_risk: string | null
 }
 
 interface StreamerFetchResult {
@@ -165,7 +168,7 @@ export async function fetchAndScoreStreamerClips(
   // Staggered selection: oldest-fetched first so every streamer gets covered across invocations
   const { data: streamersRaw, error: loadErr } = await admin
     .from('streamers')
-    .select('id, display_name, twitch_login, twitch_id, kick_slug, priority, avg_clip_views, avg_clip_velocity' as '*')
+    .select('id, display_name, twitch_login, twitch_id, kick_slug, priority, avg_clip_views, avg_clip_velocity, niche, content_risk' as '*')
     .eq('active', true)
     .not('twitch_login', 'is', null)
     .order('last_fetched_at', { ascending: true, nullsFirst: true })
@@ -298,6 +301,9 @@ export async function fetchAndScoreStreamerClips(
         // Fresh clip → recheck in 15 minutes
         const nextCheckAt = new Date(Date.now() + 15 * 60_000).toISOString()
 
+        // Content risk detection (title keywords + streamer niche/history)
+        const contentRisk = detectContentRisk(clip.title, streamer.niche, streamer.content_risk)
+
         await admin
           .from('trending_clips')
           .update({
@@ -316,12 +322,30 @@ export async function fetchAndScoreStreamerClips(
             format_score: scores.format_score,
             saturation_score: scores.saturation_score,
             next_check_at: nextCheckAt,
-          })
+            content_risk: contentRisk,
+          } as never)
           .eq('id', clipId)
       }
 
       // Update streamer averages
       await updateStreamerAverages(admin, streamer.id)
+
+      // Auto-learn streamer risk from clip history
+      if (!streamer.content_risk) {
+        const { data: recentClips } = await (admin
+          .from('trending_clips')
+          .select('content_risk' as '*')
+          .eq('streamer_id', streamer.id)
+          .order('clip_created_at', { ascending: false })
+          .limit(20) as unknown as Promise<{ data: { content_risk: string | null }[] | null }>)
+        if (recentClips && recentClips.length >= 5) {
+          const streamerRisk = shouldFlagStreamer((recentClips as { content_risk: string | null }[]).map(c => c.content_risk))
+          if (streamerRisk) {
+            await admin.from('streamers').update({ content_risk: streamerRisk } as never).eq('id', streamer.id)
+            logger.info(`[fetch-clips] Auto-flagged streamer ${streamer.display_name} as ${streamerRisk}`)
+          }
+        }
+      }
 
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)

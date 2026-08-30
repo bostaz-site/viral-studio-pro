@@ -37,6 +37,8 @@ export interface TrendingClip {
   saturation_score: number | null
   // Momentum decay/acceleration
   prev_momentum_score?: number | null
+  // Content risk (TikTok policy)
+  content_risk?: string | null
   // Social proof
   export_count?: number | null
   // Stream grouping (added by API, not in DB)
@@ -104,6 +106,7 @@ export interface TrendingFiltersState {
   duration: DurationFilter
   feed: FeedFilter
   streamer?: string  // streamer name filter, '' = all
+  hideRisky?: boolean // hide content_risk clips
 }
 
 export interface ViralNotification {
