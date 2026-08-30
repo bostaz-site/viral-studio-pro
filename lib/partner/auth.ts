@@ -69,11 +69,12 @@ export async function getPartnerSession(): Promise<PartnerSession | null> {
   if (!session) return null
   if (new Date(session.expires_at) < new Date()) return null
 
-  // Touch last_used_at (fire-and-forget)
-  void admin
+  // Touch last_used_at
+  const { error: touchErr } = await admin
     .from('partner_sessions')
     .update({ last_used_at: new Date().toISOString() })
     .eq('id', session.id)
+  if (touchErr) console.error('[partner/auth] touch last_used_at error:', touchErr)
 
   return {
     sessionId: session.id,

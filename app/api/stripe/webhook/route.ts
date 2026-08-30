@@ -74,18 +74,13 @@ export async function POST(req: NextRequest) {
         if (session.metadata?.type === 'topup' && userId) {
           const bonusClips = parseInt(session.metadata.bonus_clips ?? '0', 10)
           if (bonusClips > 0) {
-            const { data: topupProfile } = await admin
-              .from('profiles')
-              .select('bonus_videos')
-              .eq('id', userId)
-              .single()
+            const { error: topupErr } = await admin.rpc('add_bonus_videos' as never, { p_user_id: userId, p_count: bonusClips } as never)
+            if (topupErr) {
+              logger.error('[webhook] CRITICAL: add_bonus_videos failed for topup:', topupErr)
+              return NextResponse.json({ error: 'Topup grant failed' }, { status: 500 })
+            }
 
-            await admin
-              .from('profiles')
-              .update({ bonus_videos: (topupProfile?.bonus_videos ?? 0) + bonusClips })
-              .eq('id', userId)
-
-            postToDiscord({
+            await postToDiscord({
               channel: 'stripe-events',
               embed: {
                 title: 'Top-up purchased',
@@ -101,7 +96,7 @@ export async function POST(req: NextRequest) {
         }
 
         if (userId && plan && (plan === 'pro' || plan === 'studio')) {
-          await admin
+          const { error: planErr } = await admin
             .from('profiles')
             .update({
               plan,
@@ -109,6 +104,10 @@ export async function POST(req: NextRequest) {
               subscription_amount_cents: session.amount_total ?? null,
             } as never)
             .eq('id', userId)
+          if (planErr) {
+            logger.error('[webhook] CRITICAL: plan update failed:', planErr)
+            return NextResponse.json({ error: 'Plan update failed' }, { status: 500 })
+          }
 
           // Get user email for Discord
           const { data: profile } = await admin
@@ -118,7 +117,7 @@ export async function POST(req: NextRequest) {
             .single()
 
           // Discord: new paid user
-          postToDiscord({
+          await postToDiscord({
             channel: 'new-paid',
             embed: {
               title: 'New paid user',
@@ -155,7 +154,7 @@ export async function POST(req: NextRequest) {
             const commission = priceAmount * commissionRate
 
             // Update referral to converted
-            await admin
+            const { error: refConvErr } = await admin
               .from('referrals')
               .update({
                 status: 'converted',
@@ -164,22 +163,24 @@ export async function POST(req: NextRequest) {
                 commission_amount: commission,
               })
               .eq('id', referral.id)
+            if (refConvErr) {
+              logger.error('[webhook] CRITICAL: referral conversion update failed:', refConvErr)
+              return NextResponse.json({ error: 'Referral update failed' }, { status: 500 })
+            }
 
-            // Update affiliate totals
-            if (affiliate) {
-              await admin
-                .from('affiliates')
-                .update({
-                  total_conversions: (affiliate.total_conversions ?? 0) + 1,
-                  total_revenue: (affiliate.total_revenue ?? 0) + priceAmount,
-                  total_commission_earned: (affiliate.total_commission_earned ?? 0) + commission,
-                  updated_at: new Date().toISOString(),
-                })
-                .eq('id', affiliateId)
+            // Update affiliate totals (atomic)
+            const { error: affErr } = await admin.rpc('increment_affiliate_conversion' as never, {
+              p_affiliate_id: affiliateId,
+              p_revenue: priceAmount,
+              p_commission: commission,
+            } as never)
+            if (affErr) {
+              logger.error('[webhook] CRITICAL: increment_affiliate_conversion failed:', affErr)
+              return NextResponse.json({ error: 'Affiliate totals update failed' }, { status: 500 })
             }
 
             // Discord: conversion via affiliate
-            postToDiscord({
+            await postToDiscord({
               channel: 'conversions',
               embed: {
                 title: 'Conversion via affiliate',
@@ -206,13 +207,17 @@ export async function POST(req: NextRequest) {
         const isActive = ['active', 'trialing'].includes(subscription.status)
         const amountCents = subscription.items.data[0]?.price.unit_amount ?? null
 
-        await admin
+        const { error: subUpdErr } = await admin
           .from('profiles')
           .update({
             plan: isActive ? plan : 'free',
             subscription_amount_cents: isActive ? amountCents : null,
           } as never)
           .eq('id', userId)
+        if (subUpdErr) {
+          logger.error('[webhook] CRITICAL: subscription update failed:', subUpdErr)
+          return NextResponse.json({ error: 'Subscription update failed' }, { status: 500 })
+        }
         break
       }
 
@@ -228,10 +233,14 @@ export async function POST(req: NextRequest) {
             .single()
           const previousPlan = churnProfile?.plan ?? 'unknown'
 
-          await admin.from('profiles').update({ plan: 'free' }).eq('id', userId)
+          const { error: churnErr } = await admin.from('profiles').update({ plan: 'free' }).eq('id', userId)
+          if (churnErr) {
+            logger.error('[webhook] CRITICAL: churn downgrade failed:', churnErr)
+            return NextResponse.json({ error: 'Churn downgrade failed' }, { status: 500 })
+          }
 
           // Discord: churn alert
-          postToDiscord({
+          await postToDiscord({
             channel: 'churn-alerts',
             embed: {
               title: 'User cancelled',
@@ -254,7 +263,7 @@ export async function POST(req: NextRequest) {
           logger.error(`[Stripe] Payment failed for customer ${failedCustomerId}, attempt ${failedInvoice.attempt_count ?? '?'}`)
 
           // Discord: payment failed
-          postToDiscord({
+          await postToDiscord({
             channel: 'stripe-events',
             embed: {
               title: 'Payment failed',
@@ -275,10 +284,14 @@ export async function POST(req: NextRequest) {
     }
 
     // ── Record event as processed (idempotency) ─────────────────────────────
-    await admin.from('stripe_events').insert({
+    const { error: eventInsertErr } = await admin.from('stripe_events').insert({
       event_id: event.id,
       event_type: event.type,
     })
+    if (eventInsertErr) {
+      logger.error('[webhook] CRITICAL: stripe_events insert failed:', eventInsertErr)
+      return NextResponse.json({ error: 'Event recording failed' }, { status: 500 })
+    }
 
     return NextResponse.json({ received: true })
   } catch (err) {

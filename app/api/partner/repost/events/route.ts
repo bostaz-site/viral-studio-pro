@@ -51,10 +51,11 @@ export async function POST(req: NextRequest) {
     }
 
     // Touch session last_activity_at
-    void admin
+    const { error: touchErr } = await admin
       .from('repost_kit_sessions' as never)
       .update({ last_activity_at: new Date().toISOString() } as never)
       .eq('id' as never, sessionId as never)
+    if (touchErr) console.error('[repost/events] touch last_activity_at error:', touchErr)
 
     return NextResponse.json({ ok: true, count: validEvents.length })
   } catch {

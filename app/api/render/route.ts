@@ -298,8 +298,8 @@ export const POST = withAuth(async (request, user) => {
 
   if (!vpsUrl || !vpsKey) {
     // Refund quota — no render will happen
-    (admin.rpc as CallableFunction)('refund_video_usage', { p_user_id: user.id, p_count: 1 })
-      .catch((e: unknown) => logger.error(`[render] refund failed (vps not configured) for user ${user.id}:`, e))
+    const { error: refundErr } = await admin.rpc('refund_video_usage' as never, { p_user_id: user.id, p_count: 1 } as never)
+    if (refundErr) logger.error(`[render] refund failed (vps not configured) for user ${user.id}:`, refundErr)
     return NextResponse.json({
       data: { clip_id, rendered: false, source: foundSource, vpsReady: false, originalUrl: videoUrl },
       error: null,
@@ -352,8 +352,8 @@ export const POST = withAuth(async (request, user) => {
 
   if (jobError || !job) {
     // Refund quota — no render will happen
-    (admin.rpc as CallableFunction)('refund_video_usage', { p_user_id: user.id, p_count: 1 })
-      .catch((e: unknown) => logger.error(`[render] refund failed (job creation) for user ${user.id}:`, e))
+    const { error: refundErr2 } = await admin.rpc('refund_video_usage' as never, { p_user_id: user.id, p_count: 1 } as never)
+    if (refundErr2) logger.error(`[render] refund failed (job creation) for user ${user.id}:`, refundErr2)
     return NextResponse.json(
       { data: null, error: 'Job creation failed', message: 'Unable to start the render' },
       { status: 500 }
@@ -399,8 +399,8 @@ export const POST = withAuth(async (request, user) => {
 
   if (!queueResult.accepted) {
     // Queue full — refund, mark job as error
-    (admin.rpc as CallableFunction)('refund_video_usage', { p_user_id: user.id, p_count: 1 })
-      .catch((e: unknown) => logger.error(`[render] refund failed (queue full) for user ${user.id}:`, e))
+    const { error: refundErr3 } = await admin.rpc('refund_video_usage' as never, { p_user_id: user.id, p_count: 1 } as never)
+    if (refundErr3) logger.error(`[render] refund failed (queue full) for user ${user.id}:`, refundErr3)
     await admin.from('render_jobs').update({
       status: 'error',
       error_message: queueResult.reason ?? 'Queue full',

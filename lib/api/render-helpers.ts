@@ -271,10 +271,10 @@ export function sendToVps(
       })
       .eq('id', jobId)
     if (userId) {
-      (admin.rpc as CallableFunction)('refund_video_usage', { p_user_id: userId, p_count: 1 })
-        .catch((e: unknown) => console.error(`[${label}] refund failed for user ${userId}:`, e))
+      const { error: refundErr } = await admin.rpc('refund_video_usage' as never, { p_user_id: userId, p_count: 1 } as never)
+      if (refundErr) console.error(`[${label}] refund failed for user ${userId}:`, refundErr)
     }
-    releaseJob(jobId).catch(() => {})
+    await releaseJob(jobId).catch(() => {})
   }
 
   const run = async () => {

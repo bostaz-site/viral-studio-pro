@@ -125,7 +125,7 @@ export const POST = withAdmin(async (req, user) => {
     if (influencer) {
       // Save contact point with provenance
       if (result.email_source_url) {
-        await db.from('public_contact_points').insert({
+        const { error: cpErr } = await db.from('public_contact_points').insert({
           discovery_result_id: result.id,
           influencer_id: influencer.id,
           type: 'email',
@@ -134,18 +134,20 @@ export const POST = withAdmin(async (req, user) => {
           source_context: 'YouTube channel About page',
           is_business_contact: true,
           confidence: 0.90,
-        }).catch(() => {}) // ignore duplicates
+        })
+        if (cpErr && !cpErr.message?.includes('duplicate')) console.error('[import] contact point insert error:', cpErr)
       }
 
       // Save promoted products
       if (result.promoted_products?.length) {
         for (const product of result.promoted_products) {
-          await db.from('promoted_products').insert({
+          const { error: ppErr } = await db.from('promoted_products').insert({
             influencer_id: influencer.id,
             discovery_result_id: result.id,
             product_name: product,
             evidence_url: result.profile_url,
-          }).catch(() => {}) // ignore duplicates
+          })
+          if (ppErr && !ppErr.message?.includes('duplicate')) console.error('[import] promoted product insert error:', ppErr)
         }
       }
 

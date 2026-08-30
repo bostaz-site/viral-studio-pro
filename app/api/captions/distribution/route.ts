@@ -92,8 +92,8 @@ export const POST = withAuth(async (req, user) => {
   // Cache result
   cache.set(cacheKey, { result: cleanResult, ts: Date.now() })
 
-  // Persist to DB (best-effort, don't block response)
-  void admin
+  // Persist to DB (best-effort)
+  const { error: persistErr } = await admin
     .from('distribution_captions')
     .insert({
       clip_id: clipId,
@@ -102,6 +102,7 @@ export const POST = withAuth(async (req, user) => {
       variants: JSON.parse(JSON.stringify(cleanResult)),
       tokens_used: tokensUsed,
     })
+  if (persistErr) console.error('[captions/distribution] persist error:', persistErr)
 
   return jsonResponse(cleanResult)
 })

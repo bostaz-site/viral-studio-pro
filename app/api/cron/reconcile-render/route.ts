@@ -78,7 +78,8 @@ export async function POST(req: NextRequest) {
       if (uid) userCounts.set(uid, (userCounts.get(uid) ?? 0) + 1)
     }
     for (const [uid, count] of userCounts) {
-      (admin.rpc as CallableFunction)('refund_video_usage', { p_user_id: uid, p_count: count }).catch(() => {})
+      const { error: refundErr } = await admin.rpc('refund_video_usage' as never, { p_user_id: uid, p_count: count } as never)
+      if (refundErr) logger.error(`[reconcile] refund failed for user ${uid}:`, refundErr)
     }
 
     logger.info(`[reconcile] Cancelled ${stuckQueued.length} stuck queued jobs, refunded ${userCounts.size} users`)

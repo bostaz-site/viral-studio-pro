@@ -72,30 +72,22 @@ export async function grantReferralRewardOnFirstRender(userId: string): Promise<
 
   if (insertError) return false // likely unique constraint = already rewarded
 
-  // Grant bonus to both
-  await admin
-    .from('profiles')
-    .update({
-      bonus_videos: (profile.bonus_videos as number || 0) + BONUS_VIDEOS,
-      referral_rewarded_at: new Date().toISOString(),
-    })
-    .eq('id', userId)
-
-  // Grant bonus to inviter
-  const { data: inviterProfile } = await admin
-    .from('profiles')
-    .select('bonus_videos')
-    .eq('id', inviterId)
-    .single()
-
-  if (inviterProfile) {
-    await admin
-      .from('profiles')
-      .update({
-        bonus_videos: (inviterProfile.bonus_videos as number || 0) + BONUS_VIDEOS,
-      })
-      .eq('id', inviterId)
+  // Grant bonus to invitee (atomic)
+  const { error: inviteeErr } = await admin.rpc('add_bonus_videos' as never, { p_user_id: userId, p_count: BONUS_VIDEOS } as never)
+  if (inviteeErr) {
+    console.error('[referral] add_bonus_videos failed for invitee:', inviteeErr)
+    return false
   }
+  // Mark as rewarded
+  const { error: markErr } = await admin
+    .from('profiles')
+    .update({ referral_rewarded_at: new Date().toISOString() } as never)
+    .eq('id', userId)
+  if (markErr) console.error('[referral] mark rewarded failed:', markErr)
+
+  // Grant bonus to inviter (atomic)
+  const { error: inviterErr } = await admin.rpc('add_bonus_videos' as never, { p_user_id: inviterId, p_count: BONUS_VIDEOS } as never)
+  if (inviterErr) console.error('[referral] add_bonus_videos failed for inviter:', inviterErr)
 
   return true
 }

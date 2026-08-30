@@ -541,7 +541,14 @@ When the VPS webhook (`hook/route.ts`) reports `status: 'error'`:
   - Zombie cleanup (pending/queued/rendering timeout) → refund
   - Stuck in queue >30min (reconciler) → refund
   - Max retries exhausted (finalStatus=failed) → refund
+  - Degraded render (critical feature missing) → refund
+- All `refund_video_usage` calls are `await`ed with error checks (no fire-and-forget `.catch()`)
 - UI: `monthlyUsed` counter incremented client-side on render done
+
+### Atomic RPC Functions (migration `20260830_atomic_bonus_and_affiliate.sql`)
+- `add_bonus_videos(p_user_id, p_count)` — atomic `bonus_videos += p_count` (used by Stripe webhook top-up, referral rewards)
+- `increment_affiliate_conversion(p_affiliate_id, p_revenue, p_commission)` — atomic affiliate totals update (used by Stripe webhook on conversion)
+- `grant_paywall_save(p_user_id)` — atomic one-time paywall save: `UPDATE ... WHERE paywall_save_used IS NOT TRUE`, returns boolean (used by `POST /api/paywall/save`)
 
 ### Unified Queue Dispatch
 - All 4 call sites (status, hook, reconcile, cleanup) use `processAndDispatchNext(admin)` from `lib/api/dispatch-render.ts`

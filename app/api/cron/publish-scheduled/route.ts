@@ -152,10 +152,11 @@ export async function POST(req: NextRequest) {
       }).catch(() => {})
     } else {
       // 4b. Failure — retry logic
-      const retryCount = (row.retry_count ?? 0) + 1
+      const currentRetries = row.retry_count ?? 0
       const maxRetries = 2
 
-      if (retryCount < maxRetries) {
+      if (currentRetries < maxRetries) {
+        const retryCount = currentRetries + 1
         const retryAt = new Date(Date.now() + 10 * 60 * 1000).toISOString()
         await admin
           .from('scheduled_publications')
@@ -174,7 +175,7 @@ export async function POST(req: NextRequest) {
           .from('scheduled_publications')
           .update({
             status: 'failed',
-            retry_count: retryCount,
+            retry_count: currentRetries,
             error_message: result.error ?? 'Unknown error',
             updated_at: new Date().toISOString(),
           } as never)
@@ -186,7 +187,7 @@ export async function POST(req: NextRequest) {
           channel: 'stripe-events',
           embed: {
             title: '❌ Auto-post failed',
-            description: `${result.error?.slice(0, 200)} (${retryCount} retries)`,
+            description: `${result.error?.slice(0, 200)} (${currentRetries} retries)`,
             color: 0xef4444,
           },
         }).catch(() => {})

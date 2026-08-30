@@ -101,8 +101,8 @@ export const POST = withAuth(async (request: NextRequest, user) => {
   const vpsUrl = process.env.VPS_RENDER_URL
   const vpsKey = process.env.VPS_RENDER_API_KEY
   if (!vpsUrl || !vpsKey) {
-    (admin.rpc as CallableFunction)('refund_video_usage', { p_user_id: user.id, p_count: 1 })
-      .catch((e: unknown) => console.error('[quick] refund failed (vps not configured):', e))
+    const { error: refundErr } = await admin.rpc('refund_video_usage' as never, { p_user_id: user.id, p_count: 1 } as never)
+    if (refundErr) console.error('[quick] refund failed (vps not configured):', refundErr)
     return NextResponse.json({
       data: { clip_id, rendered: false, source: foundSource, vpsReady: false },
       error: null,
@@ -175,8 +175,8 @@ export const POST = withAuth(async (request: NextRequest, user) => {
   // ── Create render job ──
   const jobResult = await createRenderJob(admin, clip_id, user.id, foundSource)
   if (jobResult instanceof NextResponse) {
-    (admin.rpc as CallableFunction)('refund_video_usage', { p_user_id: user.id, p_count: 1 })
-      .catch((e: unknown) => console.error('[quick] refund failed (job creation):', e))
+    const { error: refundErr2 } = await admin.rpc('refund_video_usage' as never, { p_user_id: user.id, p_count: 1 } as never)
+    if (refundErr2) console.error('[quick] refund failed (job creation):', refundErr2)
     return jobResult
   }
   const job = jobResult
@@ -205,8 +205,8 @@ export const POST = withAuth(async (request: NextRequest, user) => {
 
   if (!queueResult.accepted) {
     await admin.from('render_jobs').update({ status: 'error', error_message: queueResult.reason ?? 'Queue full' }).eq('id', job.id)
-    ;(admin.rpc as CallableFunction)('refund_video_usage', { p_user_id: user.id, p_count: 1 })
-      .catch((e: unknown) => console.error('[quick] refund failed (queue full):', e))
+    const { error: refundErr3 } = await admin.rpc('refund_video_usage' as never, { p_user_id: user.id, p_count: 1 } as never)
+    if (refundErr3) console.error('[quick] refund failed (queue full):', refundErr3)
     return NextResponse.json(
       { data: null, error: 'queue_full', message: queueResult.reason ?? 'Too many renders in progress. Try again later.' },
       { status: 429 },

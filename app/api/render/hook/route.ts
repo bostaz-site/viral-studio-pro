@@ -272,12 +272,13 @@ async function handleWebhook(req: NextRequest) {
   // Refund quota when render permanently fails OR is degraded (not user's fault)
   // Degraded = clip produced but critical feature missing — user shouldn't pay for broken output
   if ((finalStatus === 'failed' || finalStatus === 'degraded') && currentJob.user_id) {
-    (admin.rpc as CallableFunction)('refund_video_usage', {
+    const { error: refundErr } = await admin.rpc('refund_video_usage' as never, {
       p_user_id: currentJob.user_id,
       p_count: 1,
-    }).catch((e: unknown) => {
-      logger.error(`[webhook] CRITICAL: refund_video_usage failed for user ${currentJob.user_id}, job ${payload.jobId}:`, e)
-    })
+    } as never)
+    if (refundErr) {
+      logger.error(`[webhook] CRITICAL: refund_video_usage failed for user ${currentJob.user_id}, job ${payload.jobId}:`, refundErr)
+    }
     if (finalStatus === 'degraded') {
       logger.info(`[webhook] Degraded render ${payload.jobId} — quota refunded for user ${currentJob.user_id}`)
     }

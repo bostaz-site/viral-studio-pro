@@ -462,7 +462,7 @@ async function publishToTikTok(
       error?: { code?: string; message?: string; log_id?: string }
     }
 
-    logger.error('[TikTok Direct Post] Response:', JSON.stringify({ status: initRes.status, body: initData }))
+    logger.info('[TikTok Direct Post] Response:', JSON.stringify({ status: initRes.status, body: initData }))
 
     if (!initRes.ok || (initData.error?.code && initData.error.code !== 'ok')) {
       // If Direct Post is rejected (scope not approved yet), fall back to inbox mode
@@ -510,7 +510,7 @@ async function publishToTikTok(
     error?: { code?: string; message?: string; log_id?: string }
   }
 
-  logger.error('[TikTok Inbox] Response:', JSON.stringify({ status: initRes.status, body: initData }))
+  logger.info('[TikTok Inbox] Response:', JSON.stringify({ status: initRes.status, body: initData }))
 
   if (!initRes.ok || (initData.error?.code && initData.error.code !== 'ok')) {
     const code = initData.error?.code ?? ''
