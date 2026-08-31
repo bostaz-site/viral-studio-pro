@@ -131,8 +131,7 @@ function ForgotPassword() {
   const [sending, setSending] = useState(false)
   const [resetError, setResetError] = useState<string | null>(null)
 
-  const handleReset = async (e: React.FormEvent) => {
-    e.preventDefault()
+  const handleReset = async () => {
     if (!resetEmail) return
     setSending(true)
     setResetError(null)
@@ -171,19 +170,19 @@ function ForgotPassword() {
 
   return (
     <div className="w-full space-y-1.5">
-      <form onSubmit={handleReset} className="flex gap-2 items-center w-full">
+      <div className="flex gap-2 items-center w-full">
         <Input
           type="email"
           placeholder="your@email.com"
           value={resetEmail}
           onChange={e => setResetEmail(e.target.value)}
-          required
+          onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleReset() } }}
           className="h-8 text-base sm:text-xs flex-1 bg-black/30 border-white/10 focus:border-amber-500/50 focus:ring-amber-500/20"
         />
-        <Button type="submit" size="sm" variant="outline" className="h-8 text-xs border-white/10 hover:bg-white/5" disabled={sending}>
+        <Button type="button" size="sm" variant="outline" className="h-8 text-xs border-white/10 hover:bg-white/5" disabled={sending || !resetEmail} onClick={handleReset}>
           {sending ? '...' : 'Reset'}
         </Button>
-      </form>
+      </div>
       {resetError && <p className="text-xs text-red-400 text-center">{resetError}</p>}
     </div>
   )
