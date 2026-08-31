@@ -13,6 +13,7 @@ import { promises as fs } from 'fs';
 import path from 'path';
 import { execFile } from 'child_process';
 import { promisify } from 'util';
+import { detectPeakMoment } from './hook-generator.js';
 
 const execFileAsync = promisify(execFile);
 
@@ -146,7 +147,69 @@ export async function applyAutoCut(inputPath, tempDir, wordTimestamps, duration,
   const MAX_REMOVAL_RATIO = 0.40; // never cut more than 40%
   const minAllowed = originalDuration * (1 - MAX_REMOVAL_RATIO);
   if (cutDuration < MIN_CUT_DURATION || cutDuration < minAllowed) {
-    trc(`AUTO-CUT: ABORTED — result too short (${cutDuration.toFixed(1)}s = ${((cutDuration / originalDuration) * 100).toFixed(0)}% of ${originalDuration.toFixed(1)}s, min=${Math.max(MIN_CUT_DURATION, minAllowed).toFixed(1)}s). Keeping original.`);
+    trc(`AUTO-CUT: ABORTED — result too short (${cutDuration.toFixed(1)}s = ${((cutDuration / originalDuration) * 100).toFixed(0)}% of ${originalDuration.toFixed(1)}s, min=${Math.max(MIN_CUT_DURATION, minAllowed).toFixed(1)}s).`);
+
+    // ── Fallback: trim a 25-40s window around the peak moment ──
+    // Instead of keeping the full original, use the Smart Hook peak detector
+    // to find the most intense moment and trim around it.
+    const PEAK_WIN_MIN = 25;
+    const PEAK_WIN_MAX = 40;
+    if (originalDuration > PEAK_WIN_MIN) {
+      try {
+        const peak = detectPeakMoment({
+          wordTimestamps,
+          transcript: wordTimestamps.map(w => w.word).join(' '),
+          duration: originalDuration,
+        });
+        const peakTime = peak.peakTime > 0 ? peak.peakTime : originalDuration * 0.4;
+        const winLen = Math.min(PEAK_WIN_MAX, Math.max(PEAK_WIN_MIN, originalDuration * 0.7));
+        // Peak sits at 1/3 of the window (front-loaded hook)
+        let winStart = Math.max(0, peakTime - winLen / 3);
+        if (winStart + winLen > originalDuration) winStart = Math.max(0, originalDuration - winLen);
+        const winEnd = Math.min(originalDuration, winStart + winLen);
+        const actualLen = winEnd - winStart;
+
+        trc(`AUTO-CUT FALLBACK: peak=${peakTime.toFixed(1)}s, window=${winStart.toFixed(1)}s-${winEnd.toFixed(1)}s (${actualLen.toFixed(1)}s)`);
+
+        const ffmpegPath = process.env.FFMPEG_PATH || 'ffmpeg';
+        const fallbackPath = path.join(tempDir, 'autocut_peak.mp4');
+        await execFileAsync(ffmpegPath, [
+          '-y',
+          '-ss', String(clipStartTime + winStart),
+          '-i', inputPath,
+          '-t', String(actualLen),
+          '-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '18',
+          '-c:a', 'aac', '-b:a', '128k',
+          '-threads', '1',
+          '-movflags', '+faststart',
+          fallbackPath,
+        ], { timeout: 60000, maxBuffer: 10 * 1024 * 1024 });
+
+        const stat = await fs.stat(fallbackPath);
+        if (stat.size < 1000) throw new Error(`Peak trim output too small: ${stat.size} bytes`);
+
+        // Remap word timestamps to the trimmed window
+        const remappedWords = wordTimestamps
+          .filter(w => w.start >= winStart && w.end <= winEnd)
+          .map(w => ({
+            ...w,
+            start: Math.round((w.start - winStart) * 100) / 100,
+            end: Math.round((w.end - winStart) * 100) / 100,
+          }));
+
+        trc(`AUTO-CUT FALLBACK: trimmed to peak window ${winStart.toFixed(1)}s-${winEnd.toFixed(1)}s (${remappedWords.length} words kept)`);
+
+        return {
+          outputPath: fallbackPath,
+          cutDuration: Math.round(actualLen * 100) / 100,
+          segments: [{ start: winStart, end: winEnd }],
+          wordTimestamps: remappedWords,
+        };
+      } catch (peakErr) {
+        trc(`AUTO-CUT FALLBACK FAILED: ${peakErr.message} — keeping original`);
+      }
+    }
+
     return null;
   }
 

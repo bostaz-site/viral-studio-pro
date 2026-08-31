@@ -358,6 +358,16 @@ Explicit state machine in `enhanceState` + `enhanceError`:
 ### Shared Render Schema
 **File:** `lib/schemas/render.ts` — Zod schema `renderSettingsSchema` + `renderInputSchema`. Single source of truth used by `/api/render`, `/api/render/quick`, and the frontend `handleRender()`. Mirrors the VPS contract. Includes `audioEnhance.bassBoost` (`off`/`mild`/`heavy`) and `audioEnhance.speedRamp` (`off`/`subtle`/`dynamic`).
 
+### Caption Font Size (Render Parity)
+**VPS file:** `vps/lib/subtitle-generator.js` — `CAPTION_STYLES` object + `adjustPositioning()`.
+
+Base font sizes are calibrated against the UI live-preview (`components/enhance/live-preview.tsx`):
+- Preview container: 310px wide (9:16 ratio). Highlight = `text-sm` (14px), Word-Pop = `text-lg` (18px).
+- VPS canvas: 1080×1920. Highlight (hormozi) = 78px, **Word-Pop = 100px** (dedicated style, 1.29× highlight matching the UI 18/14 ratio).
+- `adjustPositioning()` scales fontsize by `max(0.75, canvasHeight/1920)` — keeps proportions on 720p fallback tiers.
+
+The `word-pop` style now has its own entry in `CAPTION_STYLES` (previously fell back to `hormozi` silently, losing the size differential).
+
 ### Bass Boost & Speed Ramp
 **VPS file:** `vps/lib/ffmpeg-render.js` (`buildBassBoostFilters`, `buildSpeedRampFilters`)
 - **Bass boost mild**: `bass=g=4:f=80:w=100` + `acompressor` + `alimiter`. Heavy: `bass=g=8:f=60:w=120` + stronger compression + limiter. Always ends chain with `alimiter=limit=0.95` to prevent clipping.
@@ -369,7 +379,7 @@ Explicit state machine in `enhanceState` + `enhanceError`:
 
 Enabled by default on all mood presets and Quick Export. Detects silences > 1.2s in the Whisper word timestamps and cuts them, with 150ms padding on each side to avoid cutting mid-word.
 
-**Safety**: never removes more than 40% of the clip. Never produces a result shorter than 3s. If either limit is hit, auto-cut is skipped entirely (original clip preserved).
+**Safety**: never removes more than 40% of the clip. Never produces a result shorter than 3s. If either limit is hit, auto-cut falls back to **peak-window trimming**: uses `detectPeakMoment` (Smart Hook) to find the most intense moment, then trims a 25-40s window around it (peak positioned at 1/3 of the window for a front-loaded hook). Word timestamps are remapped to the trimmed window. Only if the clip is <=25s or peak detection fails does the original clip survive uncut. Log: `AUTO-CUT FALLBACK: trimmed to peak window Xs-Ys`.
 
 **Sync**: after cutting, all timestamps are remapped to the new compressed timeline — captions (ASS file regenerated), voiceover lines, and the clip timeline all stay synchronized. The remap matches words to kept segments in the same coordinate system (no clipStartTime adjustment — both words and segments are derived from the same Whisper timestamps). Log: `AUTOCUT REMAP: X words in → Y words out`.
 
@@ -609,7 +619,7 @@ TikTok flags videos as "Unoriginal, low-quality content" when they appear to be 
 | **Audio fingerprint shift** | +3% asetrate/atempo on all renders (imperceptible to ear) | Changes audio hash — defeats audio duplicate detection |
 | **Karaoke captions** | ASS subtitles burned at render time (word-pop, bounce, glow, highlight) | Major creative edit — changes the visual frame entirely |
 | **Smart Zoom** (auto: face follow or micro push) | Follow mode: real face tracking with 1.20x zoom + smooth pan. Micro: cinematic push 1→1.06. Auto-selected based on face presence. | Camera movement = creative edit, not present in source |
-| **Hook text overlay** | Animated capsule with fade in/out | Adds original text content to the frame |
+| **Hook text overlay** | Animated capsule with fade in (0.3s) + auto-hide after 4s (0.3s fade out) | Adds original text content to the frame |
 | **Exposure correction** | Adaptive eq filter based on source luma | Alters the color grading of every frame |
 | **Credit tag** (credit-text style) | Plain "@handle" text with shadow, fades after 4s | NOT a watermark — looks like native TikTok text overlay |
 | **Reaction layout recomposition** (auto-detected) | Detects webcam overlay, restacks facecam top + content bottom at full width | Complete spatial recomposition — fundamentally different frame than source |

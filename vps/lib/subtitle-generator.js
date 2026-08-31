@@ -151,6 +151,27 @@ const CAPTION_STYLES = {
     marginV: 115,
   },
 
+  // Word-pop: single-word-at-a-time display needs a larger font.
+  // UI preview uses text-lg (18px) vs text-sm (14px) for highlight — 1.29x ratio.
+  // 78 * 1.29 ≈ 100. This matches the UI proportion and ensures single words
+  // feel impactful on a full 1080×1920 canvas.
+  'word-pop': {
+    fontname: 'Inter',
+    fontsize: 100,
+    fontweight: true,
+    primaryColor: '&H00FFFFFF', // white
+    secondaryColor: '&H00FFFFFF',
+    outlineColor: '&H00000000',
+    backColor: '&H80000000',
+    bold: -1,
+    italic: 0,
+    outline: 6,
+    shadow: 2,
+    borderStyle: 1,
+    alignment: 2,
+    marginV: 120,
+  },
+
   default: {
     fontname: 'Inter',
     fontsize: 70,

@@ -1197,7 +1197,9 @@ export async function renderClip(inputPath, outputPath, options = {}) {
 
       // ── Step 7: Hook overlay ──
       let hookOverlayData = null;
-      const hookDisplayLength = (hook && hook.length > 0) ? hook.length : clipDuration;
+      // Hook auto-hides after 4s with 0.3s fade-out — never stays the whole video
+      const HOOK_MAX_DISPLAY = 4;
+      const hookDisplayLength = Math.min(HOOK_MAX_DISPLAY, (hook && hook.length > 0) ? hook.length : clipDuration);
       if (hook && hook.enabled && hook.textEnabled !== false && hook.text) {
         const jobDir = path.dirname(outputPath);
         hookOverlayData = await prepareHookOverlay(hook.text, hookDisplayLength, canvasW, canvasH, hook.textPosition || 15, jobDir, hook);
