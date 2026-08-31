@@ -95,6 +95,17 @@ export async function GET(
   const encryptedAccess = safeEncrypt(tokens.accessToken)
   const encryptedRefresh = safeEncrypt(tokens.refreshToken)
 
+  // Build platform_metadata (Instagram stores account_type, Facebook stores page info)
+  const rawMeta = (tokens as Record<string, unknown>).platformMetadata as Record<string, unknown> | undefined
+  let platformMetadata: Record<string, unknown> | null = null
+  if (rawMeta) {
+    platformMetadata = { ...rawMeta }
+    // Encrypt page_access_token if present (Facebook)
+    if (typeof platformMetadata.page_access_token === 'string') {
+      platformMetadata.page_access_token = safeEncrypt(platformMetadata.page_access_token as string)
+    }
+  }
+
   // Upsert social account
   const admin = createAdminClient()
 
@@ -119,36 +130,42 @@ export async function GET(
       } catch { /* best-effort */ }
     }
 
+    const updatePayload: Record<string, unknown> = {
+      platform_user_id: tokens.platformUserId,
+      access_token: encryptedAccess,
+      refresh_token: encryptedRefresh,
+      token_expires_at: tokens.expiresAt?.toISOString() ?? null,
+      username: tokens.username,
+      connected_at: new Date().toISOString(),
+      disconnected_at: null,
+      disconnect_reason: null,
+    }
+    if (platformMetadata) updatePayload.platform_metadata = platformMetadata
+
     const { error: updateError } = await admin
       .from('social_accounts')
-      .update({
-        platform_user_id: tokens.platformUserId,
-        access_token: encryptedAccess,
-        refresh_token: encryptedRefresh,
-        token_expires_at: tokens.expiresAt?.toISOString() ?? null,
-        username: tokens.username,
-        connected_at: new Date().toISOString(),
-        disconnected_at: null,
-        disconnect_reason: null,
-      })
+      .update(updatePayload)
       .eq('id', existing.id)
 
     if (updateError) {
       return redirectWithError(`Failed to update account: ${updateError.message}`)
     }
   } else {
+    const insertPayload: Record<string, unknown> = {
+      user_id: user.id,
+      platform: platformParam,
+      platform_user_id: tokens.platformUserId,
+      access_token: encryptedAccess,
+      refresh_token: encryptedRefresh,
+      token_expires_at: tokens.expiresAt?.toISOString() ?? null,
+      username: tokens.username,
+      connected_at: new Date().toISOString(),
+    }
+    if (platformMetadata) insertPayload.platform_metadata = platformMetadata
+
     const { error: insertError } = await admin
       .from('social_accounts')
-      .insert({
-        user_id: user.id,
-        platform: platformParam,
-        platform_user_id: tokens.platformUserId,
-        access_token: encryptedAccess,
-        refresh_token: encryptedRefresh,
-        token_expires_at: tokens.expiresAt?.toISOString() ?? null,
-        username: tokens.username,
-        connected_at: new Date().toISOString(),
-      })
+      .insert(insertPayload as never)
 
     if (insertError) {
       return redirectWithError(`Failed to save account: ${insertError.message}`)

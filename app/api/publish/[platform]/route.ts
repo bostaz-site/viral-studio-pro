@@ -57,8 +57,9 @@ export const POST = withAuth(
     }
 
     // Hard gate: only active platforms allowed — block even if client state is corrupted.
-    const { LAUNCH_ACTIVE_PLATFORMS: activePlatforms } = await import('@/lib/distribution/launch-platforms')
-    if (!activePlatforms.includes(platformParam as never)) {
+    // META_PREVIEW_EMAILS can override for instagram/facebook (App Review screencasts).
+    const { isComingSoonPlatform } = await import('@/lib/distribution/launch-platforms')
+    if (isComingSoonPlatform(platformParam, user.email ?? undefined)) {
       return errorResponse(
         `${PLATFORM_CONFIGS[platformParam].displayName} publishing is coming soon.`,
         403
@@ -150,31 +151,30 @@ export const POST = withAuth(
       )
     }
 
-    // For Instagram: fetch platform_metadata (IG Business Account ID + page token)
-    let igMetadata: { ig_business_account_id: string; page_access_token: string } | null = null
-    if (platformParam === 'instagram') {
+    // For Facebook: fetch page_id + page_access_token from platform_metadata
+    let fbPageMeta: { page_id: string; page_access_token: string } | null = null
+    if (platformParam === 'facebook') {
       const { data: socialAcct } = await (admin
         .from('social_accounts')
         .select('platform_metadata')
         .eq('user_id', user.id)
-        .eq('platform', 'instagram')
+        .eq('platform', 'facebook')
         .limit(1)
         .single() as unknown as Promise<{ data: { platform_metadata: Record<string, string> | null } | null }>)
 
       const meta = socialAcct?.platform_metadata
-      if (!meta?.ig_business_account_id || !meta?.page_access_token) {
+      if (!meta?.page_id || !meta?.page_access_token) {
         return errorResponse(
-          'Instagram Business account not fully configured. Please reconnect Instagram in Settings.',
+          'No Facebook Page configured. Please reconnect Facebook in Settings.',
           400
         )
       }
-      // Decrypt the page access token
       const { safeDecrypt } = await import('@/lib/crypto')
       const pageToken = safeDecrypt(meta.page_access_token)
       if (!pageToken) {
-        return errorResponse('Failed to decrypt Instagram page token. Please reconnect.', 500)
+        return errorResponse('Failed to decrypt Facebook page token. Please reconnect.', 500)
       }
-      igMetadata = { ig_business_account_id: meta.ig_business_account_id, page_access_token: pageToken }
+      fbPageMeta = { page_id: meta.page_id, page_access_token: pageToken }
     }
 
     // Build a signed external URL served VIA viralanimal.com domain.
@@ -241,7 +241,7 @@ export const POST = withAuth(
         fullCaption,
         clipTitle ?? 'Viral Animal Clip',
         tiktok_options,
-        igMetadata,
+        fbPageMeta,
         youtube_privacy,
       )
 
@@ -372,8 +372,8 @@ interface TikTokOptions {
   brand_organic_toggle?: boolean
 }
 
-interface InstagramMeta {
-  ig_business_account_id: string
+interface FacebookPageMeta {
+  page_id: string
   page_access_token: string
 }
 
@@ -384,7 +384,7 @@ async function publishToPlatform(
   caption: string,
   title: string,
   tiktokOptions?: TikTokOptions,
-  instagramMeta?: InstagramMeta | null,
+  facebookPageMeta?: FacebookPageMeta | null,
   youtubePrivacy?: 'public' | 'unlisted' | 'private',
 ): Promise<PublishResult> {
   switch (platform) {
@@ -393,10 +393,11 @@ async function publishToPlatform(
     case 'youtube':
       return publishToYouTube(accessToken, videoUrl, caption, title, youtubePrivacy)
     case 'instagram':
-      if (!instagramMeta) throw new Error('Instagram metadata missing')
-      return publishToInstagram(instagramMeta, videoUrl, caption)
+      // Instagram Login flow: uses the user's IG token directly with graph.instagram.com
+      return publishToInstagram(accessToken, videoUrl, caption)
     case 'facebook':
-      throw new Error('Facebook Reels publishing is coming soon.')
+      if (!facebookPageMeta) throw new Error('Facebook Page metadata missing')
+      return publishToFacebook(facebookPageMeta, videoUrl, caption)
     default:
       throw new Error(`Publishing not supported for platform: ${platform}`)
   }
@@ -628,109 +629,137 @@ async function publishToYouTube(
   }
 }
 
-// ── Instagram Reels Publish ──────────────────────────────────────────────────
+// ── Instagram Reels Publish (Instagram Login flow) ──────────────────────────
 //
-// Two-step container flow as required by Meta Graph API v21.0:
-// 1. POST /{ig-user-id}/media → creates container (returns id)
-// 2. Poll /{container_id}?fields=status_code until FINISHED
-// 3. POST /{ig-user-id}/media_publish → publishes the container
+// Uses the Instagram API with Instagram Login (graph.instagram.com).
+// Three-step container flow:
+// 1. GET /me → resolve IG user ID
+// 2. POST /{ig_user_id}/media → creates container
+// 3. Poll /{container_id}?fields=status_code until FINISHED (5 min, backoff)
+// 4. POST /{ig_user_id}/media_publish → publishes the container
 //
-// Requirements per Meta docs:
-// - Instagram BUSINESS account (Creator accounts NOT supported)
-// - Video URL must be publicly accessible to Meta's fetcher
-// - Reels: 9:16 aspect ratio, 3-90 seconds, H.264 or HEVC
+// Requirements:
+// - Instagram Business or Creator account
+// - Token with instagram_business_content_publish scope
+// - Video URL publicly accessible, 9:16, 3-90s, H.264/HEVC
 // - Caption <= 2200 chars
-// - Page access token required (NOT user access token)
-//
-// Required scope: instagram_content_publish
-// See: https://developers.facebook.com/docs/instagram-platform/instagram-api-with-facebook-login/content-publishing
 
 async function publishToInstagram(
-  igMeta: InstagramMeta,
+  accessToken: string,
   videoUrl: string,
   caption: string,
 ): Promise<PublishResult> {
-  const { ig_business_account_id: igUserId, page_access_token: pageToken } = igMeta
+  const BASE = 'https://graph.instagram.com/v21.0'
 
-  // Step 1: Create media container
-  const containerRes = await fetch(
-    `https://graph.facebook.com/v21.0/${igUserId}/media`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        media_type: 'REELS',
-        video_url: videoUrl,
-        caption: caption.slice(0, 2200),
-        share_to_feed: true,
-        access_token: pageToken,
-      }),
-    }
-  )
+  // Resolve IG user ID from token
+  const meRes = await fetch(`${BASE}/me?fields=user_id&access_token=${encodeURIComponent(accessToken)}`)
+  const meData = await meRes.json() as { user_id?: string; id?: string; error?: { message?: string } }
+  const igUserId = meData.user_id ?? meData.id
+  if (!igUserId) {
+    throw new Error(`Instagram /me failed: ${meData.error?.message ?? 'Could not resolve user ID'}`)
+  }
 
+  // Step 1: Create Reel container
+  const containerRes = await fetch(`${BASE}/${igUserId}/media`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      media_type: 'REELS',
+      video_url: videoUrl,
+      caption: caption.slice(0, 2200),
+      share_to_feed: true,
+      access_token: accessToken,
+    }),
+  })
   const containerData = await containerRes.json() as {
     id?: string
     error?: { message?: string; code?: number }
   }
-
   if (!containerRes.ok || !containerData.id) {
     throw new Error(
       `Instagram container creation failed: ${containerData.error?.message ?? 'Unknown error'}`
     )
   }
-
   const containerId = containerData.id
 
-  // Step 2: Poll container status until FINISHED (max 60s)
-  const maxWait = 60_000
-  const pollInterval = 3_000
+  // Step 2: Poll container status (max 5 min, exponential backoff)
+  const maxWait = 300_000
+  let pollDelay = 3_000
   const start = Date.now()
 
   while (Date.now() - start < maxWait) {
-    await new Promise(r => setTimeout(r, pollInterval))
+    await new Promise(r => setTimeout(r, pollDelay))
+    pollDelay = Math.min(pollDelay * 1.3, 10_000) // backoff up to 10s
 
     const statusRes = await fetch(
-      `https://graph.facebook.com/v21.0/${containerId}?fields=status_code,status&access_token=${encodeURIComponent(pageToken)}`
+      `${BASE}/${containerId}?fields=status_code,status&access_token=${encodeURIComponent(accessToken)}`,
     )
     const statusData = await statusRes.json() as {
       status_code?: string
       status?: string
-      error?: { message?: string }
     }
-
     if (statusData.status_code === 'FINISHED') break
     if (statusData.status_code === 'ERROR') {
       throw new Error(`Instagram container processing failed: ${statusData.status ?? 'unknown'}`)
     }
-    // IN_PROGRESS — keep polling
   }
 
-  // Step 3: Publish the container
-  const publishRes = await fetch(
-    `https://graph.facebook.com/v21.0/${igUserId}/media_publish`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        creation_id: containerId,
-        access_token: pageToken,
-      }),
-    }
-  )
-
+  // Step 3: Publish
+  const publishRes = await fetch(`${BASE}/${igUserId}/media_publish`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      creation_id: containerId,
+      access_token: accessToken,
+    }),
+  })
   const publishData = await publishRes.json() as {
     id?: string
     error?: { message?: string }
   }
-
   if (!publishRes.ok || !publishData.id) {
-    throw new Error(
-      `Instagram publish failed: ${publishData.error?.message ?? 'Unknown error'}`
-    )
+    throw new Error(`Instagram publish failed: ${publishData.error?.message ?? 'Unknown error'}`)
   }
 
   return {
     postId: publishData.id,
-    trackingUrl: `https://www.instagram.com/reel/${publishData.id}/`,
+    trackingUrl: null,
+  }
+}
+
+// ── Facebook Page Video Publish ─────────────────────────────────────────────
+//
+// Simple one-step upload via file_url. Sufficient for pages_manage_posts review.
+// Full Reels 3-phase upload can be added later.
+
+async function publishToFacebook(
+  pageMeta: FacebookPageMeta,
+  videoUrl: string,
+  caption: string,
+): Promise<PublishResult> {
+  const { page_id, page_access_token } = pageMeta
+
+  const res = await fetch(`https://graph.facebook.com/v25.0/${page_id}/videos`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      file_url: videoUrl,
+      description: caption.slice(0, 2200),
+      access_token: page_access_token,
+    }),
+  })
+
+  const data = await res.json() as {
+    id?: string
+    error?: { message?: string; code?: number }
+  }
+
+  if (!res.ok || !data.id) {
+    throw new Error(`Facebook video upload failed: ${data.error?.message ?? 'Unknown error'}`)
+  }
+
+  return {
+    postId: data.id,
+    trackingUrl: `https://www.facebook.com/${page_id}/videos/${data.id}`,
   }
 }

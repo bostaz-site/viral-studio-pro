@@ -56,14 +56,12 @@ export const PLATFORM_CONFIGS: Record<Platform, PlatformConfig> = {
   instagram: {
     name: 'instagram',
     displayName: 'Instagram',
-    authUrl: 'https://www.facebook.com/v21.0/dialog/oauth',
-    tokenUrl: 'https://graph.facebook.com/v21.0/oauth/access_token',
+    // Instagram API with Instagram Login (NOT Facebook Login)
+    authUrl: 'https://www.instagram.com/oauth/authorize',
+    tokenUrl: 'https://api.instagram.com/oauth/access_token',
     scopes: [
-      'instagram_basic',
-      'instagram_content_publish',
-      'pages_show_list',
-      'pages_read_engagement',
-      'instagram_manage_insights',
+      'instagram_business_basic',
+      'instagram_business_content_publish',
     ],
     redirectUri: `${APP_URL}/api/auth/callback/instagram`,
     clientIdEnv: 'INSTAGRAM_APP_ID',
@@ -75,15 +73,21 @@ export const PLATFORM_CONFIGS: Record<Platform, PlatformConfig> = {
   facebook: {
     name: 'facebook',
     displayName: 'Facebook Reels',
-    authUrl: 'https://www.facebook.com/v21.0/dialog/oauth',
-    tokenUrl: 'https://graph.facebook.com/v21.0/oauth/access_token',
-    scopes: [], // To define when Meta approves Facebook Reels publishing
+    // Facebook Login for Business
+    authUrl: 'https://www.facebook.com/v25.0/dialog/oauth',
+    tokenUrl: 'https://graph.facebook.com/v25.0/oauth/access_token',
+    scopes: [
+      'pages_show_list',
+      'pages_manage_posts',
+      'pages_read_engagement',
+      'business_management',
+    ],
     redirectUri: `${APP_URL}/api/auth/callback/facebook`,
     clientIdEnv: 'FACEBOOK_APP_ID',
     clientSecretEnv: 'FACEBOOK_APP_SECRET',
     color: '#1877F2',
     icon: 'facebook',
-    supportsPublish: false,
+    supportsPublish: true,
   },
 }
 
@@ -151,15 +155,24 @@ export function buildAuthUrl(
       return `${config.authUrl}?${params.toString()}`
 
     case 'instagram':
+      // Instagram API with Instagram Login — comma-separated scopes
+      params.set('client_id', clientId)
+      params.set('response_type', 'code')
+      params.set('scope', config.scopes.join(','))
+      params.set('redirect_uri', config.redirectUri)
+      params.set('state', state)
+      params.set('enable_fb_login', '0')
+      params.set('force_authentication', '0')
+      return `${config.authUrl}?${params.toString()}`
+
+    case 'facebook':
+      // Facebook Login for Business — comma-separated scopes
       params.set('client_id', clientId)
       params.set('response_type', 'code')
       params.set('scope', config.scopes.join(','))
       params.set('redirect_uri', config.redirectUri)
       params.set('state', state)
       return `${config.authUrl}?${params.toString()}`
-
-    case 'facebook':
-      throw new Error('Facebook Reels publishing is coming soon.')
 
     default:
       throw new Error(`Unsupported platform: ${platform}`)

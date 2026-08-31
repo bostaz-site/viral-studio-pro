@@ -314,6 +314,10 @@ async function refreshToken(
       return refreshYouTubeToken(refreshTokenValue)
     case 'instagram':
       return refreshInstagramToken(refreshTokenValue)
+    case 'facebook':
+      // Facebook page tokens don't expire — no refresh needed.
+      // The refresh_token stores the page token itself.
+      return { accessToken: refreshTokenValue, refreshToken: refreshTokenValue, expiresAt: null }
     default:
       throw new Error(`Token refresh not supported for platform: ${platform}`)
   }
@@ -451,6 +455,8 @@ export async function exchangeCodeForTokens(
       return exchangeYouTubeCode(code)
     case 'instagram':
       return exchangeInstagramCode(code)
+    case 'facebook':
+      return exchangeFacebookCode(code)
     default:
       throw new Error(`Code exchange not supported for platform: ${platform}`)
   }
@@ -579,7 +585,7 @@ async function exchangeYouTubeCode(code: string): Promise<{
   }
 }
 
-// ── Instagram Code Exchange ────────────────────────────────────────────────────
+// ── Instagram Code Exchange (Instagram Login flow) ───────────────────────────
 
 async function exchangeInstagramCode(code: string): Promise<{
   accessToken: string
@@ -587,67 +593,55 @@ async function exchangeInstagramCode(code: string): Promise<{
   expiresAt: Date | null
   platformUserId: string
   username: string
+  platformMetadata?: Record<string, unknown>
 }> {
   const { clientId, clientSecret } = getClientCredentials('instagram')
   const config = PLATFORM_CONFIGS.instagram
 
-  // Step 1: Exchange code for short-lived token
-  // Facebook Graph API uses GET with query params for token exchange
-  const tokenUrl = new URL(config.tokenUrl)
-  tokenUrl.searchParams.set('client_id', clientId)
-  tokenUrl.searchParams.set('client_secret', clientSecret)
-  tokenUrl.searchParams.set('code', code)
-  tokenUrl.searchParams.set('redirect_uri', config.redirectUri)
-  tokenUrl.searchParams.set('grant_type', 'authorization_code')
-
-  const tokenRes = await fetch(tokenUrl.toString(), { method: 'GET' })
+  // Step 1: Exchange code for short-lived token (POST to api.instagram.com)
+  const tokenRes = await fetch(config.tokenUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      client_id: clientId,
+      client_secret: clientSecret,
+      code,
+      grant_type: 'authorization_code',
+      redirect_uri: config.redirectUri,
+    }),
+  })
   const tokenData = await tokenRes.json() as {
     access_token?: string
-    error?: { message?: string }
+    user_id?: number
+    error_type?: string
+    error_message?: string
   }
 
   if (!tokenRes.ok || !tokenData.access_token) {
-    // If using Facebook Login flow, try POST
-    const postRes = await fetch(config.tokenUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams({
-        client_id: clientId,
-        client_secret: clientSecret,
-        code,
-        redirect_uri: config.redirectUri,
-        grant_type: 'authorization_code',
-      }),
-    })
-    const postData = await postRes.json() as {
-      access_token?: string
-      error?: { message?: string }
+    const msg = tokenData.error_message ?? tokenData.error_type ?? 'Unknown error'
+    if (msg.includes('not a Business') || msg.includes('not a Creator')) {
+      throw new Error('Your Instagram account must be a Business or Creator account. Switch in Instagram Settings → Account type.')
     }
-
-    if (!postRes.ok || !postData.access_token) {
-      throw new Error(
-        `Instagram code exchange failed: ${postData.error?.message ?? tokenData.error?.message ?? 'Unknown error'}`
-      )
-    }
-
-    tokenData.access_token = postData.access_token
+    throw new Error(`Instagram code exchange failed: ${msg}`)
   }
 
-  const shortLivedToken = tokenData.access_token!
+  const shortLivedToken = tokenData.access_token
+  const igUserId = String(tokenData.user_id ?? '')
 
-  // Step 2: Exchange for long-lived token
+  // Step 2: Exchange for long-lived token (60 days)
+  // GET graph.instagram.com/access_token?grant_type=ig_exchange_token
   let longLivedToken = shortLivedToken
   let expiresAt: Date | null = null
   try {
     const longRes = await fetch(
-      `https://graph.facebook.com/v21.0/oauth/access_token?` +
-      `grant_type=fb_exchange_token&client_id=${clientId}` +
-      `&client_secret=${clientSecret}&fb_exchange_token=${shortLivedToken}`,
-      { method: 'GET' }
+      `https://graph.instagram.com/access_token?` +
+      `grant_type=ig_exchange_token&client_secret=${clientSecret}` +
+      `&access_token=${encodeURIComponent(shortLivedToken)}`,
     )
     const longData = await longRes.json() as {
       access_token?: string
       expires_in?: number
+      error?: { message?: string }
     }
     if (longData.access_token) {
       longLivedToken = longData.access_token
@@ -659,25 +653,124 @@ async function exchangeInstagramCode(code: string): Promise<{
     // Keep short-lived token
   }
 
-  // Step 3: Get Facebook user info (IG business account resolved in OAuth callback)
-  let platformUserId = ''
+  // Step 3: Get IG profile info
   let username = 'instagram_user'
+  let accountType = ''
   try {
     const meRes = await fetch(
-      `https://graph.facebook.com/v21.0/me?fields=id,name&access_token=${encodeURIComponent(longLivedToken)}`
+      `https://graph.instagram.com/v21.0/me?fields=user_id,username,account_type` +
+      `&access_token=${encodeURIComponent(longLivedToken)}`,
     )
-    const meData = await meRes.json() as { id?: string; name?: string }
-    platformUserId = meData.id ?? ''
-    username = meData.name ?? 'instagram_user'
+    const meData = await meRes.json() as {
+      user_id?: string
+      username?: string
+      account_type?: string
+    }
+    username = meData.username ?? 'instagram_user'
+    accountType = meData.account_type ?? ''
   } catch {
     // Non-fatal
   }
 
   return {
     accessToken: longLivedToken,
-    refreshToken: longLivedToken, // FB uses the token itself for refresh
+    refreshToken: longLivedToken, // IG long-lived token is used as its own refresh token
     expiresAt,
-    platformUserId,
+    platformUserId: igUserId,
     username,
+    platformMetadata: { account_type: accountType },
+  }
+}
+
+// ── Facebook Code Exchange ───────────────────────────────────────────────────
+
+async function exchangeFacebookCode(code: string): Promise<{
+  accessToken: string
+  refreshToken: string | null
+  expiresAt: Date | null
+  platformUserId: string
+  username: string
+  platformMetadata?: Record<string, unknown>
+}> {
+  const { clientId, clientSecret } = getClientCredentials('facebook')
+  const config = PLATFORM_CONFIGS.facebook
+
+  // Step 1: Exchange code for short-lived user token
+  const tokenUrl = new URL(config.tokenUrl)
+  tokenUrl.searchParams.set('client_id', clientId)
+  tokenUrl.searchParams.set('client_secret', clientSecret)
+  tokenUrl.searchParams.set('code', code)
+  tokenUrl.searchParams.set('redirect_uri', config.redirectUri)
+
+  const tokenRes = await fetch(tokenUrl.toString())
+  const tokenData = await tokenRes.json() as {
+    access_token?: string
+    error?: { message?: string }
+  }
+
+  if (!tokenRes.ok || !tokenData.access_token) {
+    throw new Error(
+      `Facebook code exchange failed: ${tokenData.error?.message ?? 'Unknown error'}`
+    )
+  }
+
+  // Step 2: Exchange for long-lived user token
+  let userToken = tokenData.access_token
+  try {
+    const longRes = await fetch(
+      `https://graph.facebook.com/v25.0/oauth/access_token?` +
+      `grant_type=fb_exchange_token&client_id=${clientId}` +
+      `&client_secret=${clientSecret}&fb_exchange_token=${encodeURIComponent(userToken)}`,
+    )
+    const longData = await longRes.json() as { access_token?: string }
+    if (longData.access_token) userToken = longData.access_token
+  } catch { /* keep short-lived */ }
+
+  // Step 3: Get user info
+  let fbUserId = ''
+  let fbName = 'facebook_user'
+  try {
+    const meRes = await fetch(
+      `https://graph.facebook.com/v25.0/me?fields=id,name&access_token=${encodeURIComponent(userToken)}`,
+    )
+    const meData = await meRes.json() as { id?: string; name?: string }
+    fbUserId = meData.id ?? ''
+    fbName = meData.name ?? 'facebook_user'
+  } catch { /* non-fatal */ }
+
+  // Step 4: Fetch Pages — get never-expiring page token
+  let pages: Array<{ id: string; name: string; access_token: string }> = []
+  try {
+    const pagesRes = await fetch(
+      `https://graph.facebook.com/v25.0/me/accounts?fields=id,name,access_token` +
+      `&access_token=${encodeURIComponent(userToken)}`,
+    )
+    const pagesData = await pagesRes.json() as {
+      data?: Array<{ id: string; name: string; access_token: string }>
+      error?: { message?: string }
+    }
+    pages = pagesData.data ?? []
+  } catch { /* non-fatal */ }
+
+  if (pages.length === 0) {
+    throw new Error('No Facebook Pages found. You need at least one Page to publish videos.')
+  }
+
+  // Use the first page (user can switch later via platform_metadata)
+  const page = pages[0]
+
+  return {
+    accessToken: page.access_token, // Page token (never expires)
+    refreshToken: page.access_token,
+    expiresAt: null, // Page tokens don't expire
+    platformUserId: fbUserId,
+    username: fbName,
+    platformMetadata: {
+      page_id: page.id,
+      page_name: page.name,
+      page_access_token: page.access_token,
+      // Store all pages so user can switch
+      available_pages: pages.map(p => ({ id: p.id, name: p.name })),
+    },
   }
 }

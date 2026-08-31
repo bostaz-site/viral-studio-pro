@@ -20,18 +20,18 @@ export async function GET(
     return NextResponse.redirect(redirectUrl.toString())
   }
 
-  if (isComingSoonPlatform(platformParam)) {
-    const redirectUrl = new URL('/settings', APP_URL)
-    redirectUrl.searchParams.set('oauth_error', `${PLATFORM_CONFIGS[platformParam].displayName} is coming soon.`)
-    return NextResponse.redirect(redirectUrl.toString())
-  }
-
-  // Verify user is authenticated
+  // Verify user is authenticated (needed before gating check for META_PREVIEW_EMAILS)
   const supabase = createClient()
   const { data: { user }, error: authError } = await supabase.auth.getUser()
 
   if (authError || !user) {
     return NextResponse.redirect(new URL('/login', APP_URL).toString())
+  }
+
+  if (isComingSoonPlatform(platformParam, user.email ?? undefined)) {
+    const redirectUrl = new URL('/settings', APP_URL)
+    redirectUrl.searchParams.set('oauth_error', `${PLATFORM_CONFIGS[platformParam].displayName} is coming soon.`)
+    return NextResponse.redirect(redirectUrl.toString())
   }
 
   // Build state with user_id + nonce for CSRF protection
