@@ -782,9 +782,16 @@ Multi-platform publishing to TikTok, YouTube, Instagram with OAuth token managem
 - **TikTok**: Direct post via `/v2/post/publish/video/init/` (pull-from-URL). Privacy chosen per-post by user in `TikTokPublishDialog`. Falls back to inbox mode if Direct Post scope rejected.
 - **YouTube**: Resumable upload (download video -> start session -> upload bytes). Privacy: user-selectable in `UnifiedPublishDialog` (Public / Unlisted / Private, default Public), sent as `youtube_privacy` in publish body. **ACTIVE** since 2026-08-31. Scopes: `youtube.upload`, `youtube.readonly`. OAuth: `access_type=offline&prompt=consent` for refresh token.
 - **Instagram**: Reels via Graph API v21.0 container flow. **COMING SOON** — gated client+server.
+- **Facebook Reels**: Meta Graph API. **COMING SOON** — placeholder config in `platforms.ts`, gated client+server. OAuth blocked server-side (`isComingSoonPlatform` check in authorize route).
+
+### Platform Lists
+- **`SUPPORTED_PLATFORMS`** (`lib/distribution/platforms.ts`): All platforms with UI presence = `['tiktok', 'youtube', 'instagram', 'facebook']`. Controls what APPEARS in the UI.
+- **`LAUNCH_ACTIVE_PLATFORMS`** (`lib/distribution/launch-platforms.ts`): Platforms approved for publishing = `['tiktok', 'youtube']`. Controls what can PUBLISH. `isComingSoonPlatform()` = not in this list.
+- **`Platform` type**: Single definition in `platforms.ts`, re-exported by `launch-platforms.ts`. Currently `'tiktok' | 'youtube' | 'instagram' | 'facebook'`.
+- To enable a new platform: add it to `LAUNCH_ACTIVE_PLATFORMS` in `launch-platforms.ts`.
 
 ### Launch Gating (TikTok + YouTube)
-TikTok and YouTube are approved for publishing. Instagram is hard-gated:
+TikTok and YouTube are approved for publishing. Instagram and Facebook are hard-gated:
 - **Server**: `app/api/publish/[platform]/route.ts` rejects any platform not in `LAUNCH_ACTIVE_PLATFORMS` with 403 "coming soon". Even corrupted client state cannot publish elsewhere.
 - **Client (UnifiedPublishDialog)**: `isComingSoonPlatform()` prevents auto-select, toggle, counting, and publishing for non-active platforms. `selectedCount` excludes them. Render shows "Coming soon" badge. Post-render footer: two primary buttons side-by-side ("Place in bank" secondary amber + "Publish to N platform" primary amber gradient), "Done" + Download below. After bank click: badge "✓ Placed in bank — autofarm will schedule it", button becomes "View in bank →" (emerald, navigates to `/dashboard/distribution?scrollTo=bank&highlight={clipId}`), Publish still available. Mobile (390px): primary buttons stack full-width (Publish on top), Done/Download below. No auto-bank — clip is NOT banked until user explicitly clicks.
 - **Client (DistributionHub)**: `activePlatformCount` only counts platforms with `supported: true` in PLATFORMS config. Button text reflects real publishable count.
