@@ -28,6 +28,9 @@ import type { QueueClip, MoodType } from '@/lib/distribution/smart-queue-engine'
 import { getConfidenceLabel } from '@/types/learning'
 import type { LearnedDistributionProfile } from '@/types/learning'
 import ElectricBorder from '@/components/ui/ElectricBorder'
+import { usePlatformAccess } from '@/lib/hooks/use-platform-access'
+import { formatPlatformList } from '@/lib/distribution/format-platforms'
+import type { Platform } from '@/lib/distribution/launch-platforms'
 import { PlatformPickerModal } from './platform-picker-modal'
 import { ClipPickerModal } from './clip-picker-modal'
 import { TikTokPublishDialog } from './tiktok-publish-dialog'
@@ -82,18 +85,15 @@ interface PlatformConfig {
   label: string
   icon: string
   gradient: string
-  supported: boolean
   optimalHours: string[]
 }
 
-const IG_ENABLED = process.env.NEXT_PUBLIC_INSTAGRAM_ENABLED === 'true'
-
 const PLATFORMS: PlatformConfig[] = [
-  { id: 'tiktok', label: 'TikTok', icon: '♪', gradient: 'from-zinc-900 to-zinc-700', supported: true, optimalHours: ['7 PM', '9 PM', '11 AM'] },
-  { id: 'youtube', label: 'YouTube Shorts', icon: '▶', gradient: 'from-red-600 to-red-500', supported: false, optimalHours: ['12 PM', '3 PM', '6 PM'] },
-  { id: 'instagram', label: 'Instagram Reels', icon: '◎', gradient: 'from-pink-600 to-purple-600', supported: IG_ENABLED, optimalHours: ['11 AM', '1 PM', '7 PM'] },
-  { id: 'facebook', label: 'Facebook Reels', icon: 'f', gradient: 'from-blue-600 to-blue-500', supported: false, optimalHours: ['1 PM', '4 PM', '8 PM'] },
-  { id: 'x', label: 'X / Twitter', icon: '𝕏', gradient: 'from-zinc-800 to-zinc-600', supported: false, optimalHours: ['9 AM', '12 PM', '5 PM'] },
+  { id: 'tiktok', label: 'TikTok', icon: '♪', gradient: 'from-zinc-900 to-zinc-700', optimalHours: ['7 PM', '9 PM', '11 AM'] },
+  { id: 'youtube', label: 'YouTube Shorts', icon: '▶', gradient: 'from-red-600 to-red-500', optimalHours: ['12 PM', '3 PM', '6 PM'] },
+  { id: 'instagram', label: 'Instagram Reels', icon: '◎', gradient: 'from-pink-600 to-purple-600', optimalHours: ['11 AM', '1 PM', '7 PM'] },
+  { id: 'facebook', label: 'Facebook Reels', icon: 'f', gradient: 'from-blue-600 to-blue-500', optimalHours: ['1 PM', '4 PM', '8 PM'] },
+  { id: 'x', label: 'X / Twitter', icon: '𝕏', gradient: 'from-zinc-800 to-zinc-600', optimalHours: ['9 AM', '12 PM', '5 PM'] },
 ]
 
 const CAPTION_STEPS = [
@@ -448,6 +448,7 @@ export function DistributionHub() {
   const router = useRouter()
   const { accounts, fetchAccounts, publishTargets, togglePublishTarget, publishClip, publishProgress, isPublishing, resetPublishProgress } = useDistributionStore()
   const { queue, init: initQueue, setClipBank: setQueueClipBank, updateSettings: updateQueueSettings } = useQueueStore()
+  const { isComingSoon: isComingSoonPlatform } = usePlatformAccess()
 
   const [clipBank, setClipBank] = useState<ClipBankItem[]>([])
   const [bankLoading, setBankLoading] = useState(true)
@@ -1201,11 +1202,14 @@ export function DistributionHub() {
   }, [selectedClip, selectedClipId, clipBank, captionText, isPublishing, publishClip, publishSequenceActive, publishTargets])
 
   const connectedPlatforms = accounts.map((a) => a.platform)
-  // Only count platforms that are actually supported (not "coming soon")
+  // Only count platforms that are actually active (not "coming soon")
   const activePlatformCount = publishTargets.filter(
     (t) => t.enabled && connectedPlatforms.includes(t.platform)
-      && PLATFORMS.find(p => p.id === t.platform)?.supported
+      && !isComingSoonPlatform(t.platform as Platform)
   ).length
+  const activePlatformNames = publishTargets
+    .filter(t => t.enabled && connectedPlatforms.includes(t.platform) && !isComingSoonPlatform(t.platform as Platform))
+    .map(t => t.platform)
 
   // Core state machine (replaces binary on/off)
   type CoreState = 'paused' | 'running' | 'publishing' | 'success'
@@ -1559,7 +1563,7 @@ export function DistributionHub() {
                   Posting to{' '}
                   <strong>
                     {activePlatformCount > 0
-                      ? `${activePlatformCount} platform${activePlatformCount !== 1 ? 's' : ''}`
+                      ? formatPlatformList(activePlatformNames)
                       : 'no platform yet'}
                   </strong>
                 </span>
@@ -1657,7 +1661,7 @@ export function DistributionHub() {
                     return (
                       <span key={p.id} className={cn(
                         'dist-mbf-pill',
-                        isConn && p.supported ? 'active' : 'dim'
+                        isConn && !isComingSoonPlatform(p.id as Platform) ? 'active' : 'dim'
                       )}>
                         {p.icon} {p.label.split(' ')[0]}
                       </span>
@@ -1770,7 +1774,7 @@ export function DistributionHub() {
         {/* Platform nodes — compact icon style */}
         {PLATFORMS.filter(p => ['tiktok', 'youtube', 'instagram', 'facebook'].includes(p.id)).map((p) => {
           const isConn = connectedPlatforms.includes(p.id as typeof connectedPlatforms[number])
-          const isComingSoon = !p.supported
+          const isComingSoon = isComingSoonPlatform(p.id as Platform)
           const isEnabled = publishTargets.find(t => t.platform === p.id)?.enabled ?? false
           const isActive = isConn && isEnabled && aiAutoDistribute
           const posClass = p.id === 'tiktok' ? 'pos-tl' : p.id === 'youtube' ? 'pos-bl' : p.id === 'instagram' ? 'pos-tr' : 'pos-br'

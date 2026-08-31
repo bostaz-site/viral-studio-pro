@@ -4,13 +4,15 @@ import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import { Check, Send } from 'lucide-react'
 import type { PublishTarget } from '@/stores/distribution-store'
+import { usePlatformAccess } from '@/lib/hooks/use-platform-access'
+import { formatPlatformList } from '@/lib/distribution/format-platforms'
+import type { Platform } from '@/lib/distribution/launch-platforms'
 
 interface PlatformConfig {
   id: string
   label: string
   icon: string
   gradient: string
-  supported: boolean
 }
 
 interface SelectedClip {
@@ -44,6 +46,12 @@ export function PlatformPickerModal({
   onPublish,
 }: PlatformPickerModalProps) {
   const router = useRouter()
+  const { isComingSoon } = usePlatformAccess()
+
+  // Build display list of selected platform names for the button
+  const selectedNames = publishTargets
+    .filter(t => t.enabled && connectedPlatforms.includes(t.platform))
+    .map(t => t.platform)
 
   return (
     <div className="dist-modal-overlay" onClick={() => !publishSequenceActive && onClose()} role="dialog" aria-modal="true" aria-labelledby="platform-picker-title">
@@ -84,10 +92,10 @@ export function PlatformPickerModal({
         <div className="dist-modal-platforms">
           {platforms.filter(p => ['tiktok', 'youtube', 'instagram', 'facebook'].includes(p.id)).map((p) => {
             const isConn = connectedPlatforms.includes(p.id)
-            const isComingSoon = !p.supported
+            const isSoon = isComingSoon(p.id as Platform)
             const isEnabled = publishTargets.find(t => t.platform === p.id)?.enabled ?? false
 
-            if (isComingSoon) {
+            if (isSoon) {
               return (
                 <div key={p.id} className="dist-modal-platform soon">
                   <div className="plat-icon">{p.icon}</div>
@@ -157,7 +165,7 @@ export function PlatformPickerModal({
             <Send size={13} />
             {activePlatformCount === 0
               ? 'Pick at least one platform'
-              : `Post to ${activePlatformCount} platform${activePlatformCount !== 1 ? 's' : ''}`}
+              : `Post to ${formatPlatformList(selectedNames)}`}
           </button>
         </div>
       </div>

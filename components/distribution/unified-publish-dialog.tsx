@@ -64,6 +64,7 @@ interface UnifiedPublishDialogProps {
 // ── Platform config ──────────────────────────────────────────────────────────
 
 import { usePlatformAccess } from '@/lib/hooks/use-platform-access'
+import { formatPlatformList } from '@/lib/distribution/format-platforms'
 
 const PLATFORMS: { id: Platform; name: string; icon: React.ReactNode; colors: string }[] = [
   {
@@ -230,8 +231,10 @@ export function UnifiedPublishDialog({
     }))
   }
 
-  const selectedCount = (Object.entries(platforms) as [Platform, PlatformState][])
-    .filter(([id, s]) => s.selected && s.connected && !isComingSoonPlatform(id)).length
+  const selectedPlatformIds = (Object.entries(platforms) as [Platform, PlatformState][])
+    .filter(([id, s]) => s.selected && s.connected && !isComingSoonPlatform(id))
+    .map(([id]) => id)
+  const selectedCount = selectedPlatformIds.length
 
   const handleConnect = (platform: Platform) => {
     const returnUrl = window.location.pathname + window.location.search
@@ -389,13 +392,21 @@ export function UnifiedPublishDialog({
               </p>
 
               {/* Status banner — reflects what has already happened */}
-              <p className={`flex items-center gap-1.5 text-xs ${publishedAt ? 'text-emerald-400' : 'text-zinc-400'}`}>
-                <CheckCircle2 className={`h-3.5 w-3.5 shrink-0 ${publishedAt ? 'text-emerald-400' : 'text-emerald-400/80'}`} />
-                {publishedAt
-                  ? `Published to TikTok — ${publishedAt}`
-                  : 'Render saved — publish, bank it, or come back anytime'
-                }
-              </p>
+              {(() => {
+                const publishedPlatformIds = (Object.entries(platforms) as [Platform, PlatformState][])
+                  .filter(([, s]) => s.status === 'success' || s.status === 'inbox')
+                  .map(([id]) => id)
+                const publishedLabel = formatPlatformList(publishedPlatformIds, '')
+                return (
+                  <p className={`flex items-center gap-1.5 text-xs ${publishedAt ? 'text-emerald-400' : 'text-zinc-400'}`}>
+                    <CheckCircle2 className={`h-3.5 w-3.5 shrink-0 ${publishedAt ? 'text-emerald-400' : 'text-emerald-400/80'}`} />
+                    {publishedAt && publishedLabel
+                      ? `Published to ${publishedLabel} — ${publishedAt}`
+                      : 'Render saved — publish, bank it, or come back anytime'
+                    }
+                  </p>
+                )
+              })()}
 
               {/* Platform rows */}
               <div className="space-y-2.5">
@@ -569,7 +580,7 @@ export function UnifiedPublishDialog({
                     <Send className="h-4 w-4" />
                     {selectedCount === 0
                       ? 'Select platforms'
-                      : `Publish to ${selectedCount} platform${selectedCount > 1 ? 's' : ''}`
+                      : `Publish to ${formatPlatformList(selectedPlatformIds)}`
                     }
                   </>
                 )}
