@@ -13,7 +13,8 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { useDistributionStore, type SocialAccount } from '@/stores/distribution-store'
-import { isComingSoonPlatform, type Platform } from '@/lib/distribution/launch-platforms'
+import { type Platform } from '@/lib/distribution/launch-platforms'
+import { usePlatformAccess } from '@/lib/hooks/use-platform-access'
 
 const PLATFORM_META: Record<
   string,
@@ -86,6 +87,7 @@ export function ConnectAccounts() {
     fetchAccounts,
     disconnectAccount,
   } = useDistributionStore()
+  const { isComingSoon: isComingSoonPlatform } = usePlatformAccess()
 
   const searchParams = useSearchParams()
   const connectedPlatform = searchParams.get('connected')

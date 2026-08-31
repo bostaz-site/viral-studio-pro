@@ -823,7 +823,7 @@ Multi-platform publishing to TikTok, YouTube, Instagram with OAuth token managem
 ### Platform Lists
 - **`SUPPORTED_PLATFORMS`** (`lib/distribution/platforms.ts`): All platforms with UI presence = `['tiktok', 'youtube', 'instagram', 'facebook']`. Controls what APPEARS in the UI.
 - **`LAUNCH_ACTIVE_PLATFORMS`** (`lib/distribution/launch-platforms.ts`): Platforms approved for publishing = `['tiktok', 'youtube']`. Controls what can PUBLISH. `isComingSoonPlatform(p, userEmail?)` = not in this list, UNLESS `userEmail` is in `META_PREVIEW_EMAILS` and platform is instagram/facebook.
-- **`META_PREVIEW_EMAILS`** (env var): comma-separated emails that bypass the coming-soon gate for instagram/facebook. Used to film Meta App Review screencasts on production without exposing users. Checked server-side only (authorize + publish routes).
+- **`META_PREVIEW_EMAILS`** (env var): comma-separated emails that bypass the coming-soon gate for instagram/facebook. Server: authorize + publish routes pass `user.email` to `isComingSoonPlatform`. Client: `GET /api/me/platform-access` returns `{ previewPlatforms: ['instagram','facebook'] }` (no email exposed) → `usePlatformAccess()` hook provides `isComingSoon(p)` used by `unified-publish-dialog.tsx`, `connect-accounts.tsx`, `platform-connection-map.tsx`. Module-level cache — fetched once per session.
 - **`Platform` type**: Single definition in `platforms.ts`, re-exported by `launch-platforms.ts`. Currently `'tiktok' | 'youtube' | 'instagram' | 'facebook'`.
 - To enable a new platform: add it to `LAUNCH_ACTIVE_PLATFORMS` in `launch-platforms.ts`.
 

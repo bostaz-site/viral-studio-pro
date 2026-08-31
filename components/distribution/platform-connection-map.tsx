@@ -5,7 +5,8 @@ import { ViralAnimalLogo } from '@/components/brand/viral-animal-logo'
 import { Switch } from '@/components/ui/switch'
 import { ExternalLink, Check, AlertCircle, Clock } from 'lucide-react'
 import { WolfLoader } from '@/components/ui/wolf-loader'
-import { isComingSoonPlatform, type Platform } from '@/lib/distribution/launch-platforms'
+import { type Platform } from '@/lib/distribution/launch-platforms'
+import { usePlatformAccess } from '@/lib/hooks/use-platform-access'
 
 interface PlatformNode {
   id: string
@@ -46,6 +47,7 @@ export function PlatformConnectionMap({
   aiAutoDistribute = false,
   publishProgress = {},
 }: PlatformConnectionMapProps) {
+  const { isComingSoon: isComingSoonPlatform } = usePlatformAccess()
   return (
     <div className="relative w-full max-w-[580px] mx-auto" style={{ height: 360 }}>
       {/* CSS animations */}

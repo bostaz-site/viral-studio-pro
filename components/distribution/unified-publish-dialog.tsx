@@ -63,7 +63,7 @@ interface UnifiedPublishDialogProps {
 
 // ── Platform config ──────────────────────────────────────────────────────────
 
-import { LAUNCH_ACTIVE_PLATFORMS, isComingSoonPlatform } from '@/lib/distribution/launch-platforms'
+import { usePlatformAccess } from '@/lib/hooks/use-platform-access'
 
 const PLATFORMS: { id: Platform; name: string; icon: React.ReactNode; colors: string }[] = [
   {
@@ -120,6 +120,7 @@ export function UnifiedPublishDialog({
   contentRisk,
 }: UnifiedPublishDialogProps) {
   const router = useRouter()
+  const { isComingSoon: isComingSoonPlatform } = usePlatformAccess()
   const [loading, setLoading] = useState(true)
   const [platforms, setPlatforms] = useState<Record<Platform, PlatformState>>({
     tiktok: { connected: false, username: null, selected: false, status: 'idle', error: null, tiktokConfigured: false },
