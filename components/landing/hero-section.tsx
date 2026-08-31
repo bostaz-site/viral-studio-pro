@@ -167,7 +167,7 @@ export function HeroSection() {
               {/* Platform column */}
               <div className="h3c-z3-platforms">
                 <span className="h3c-z3-plat h3c-z3-plat-tt">TikTok</span>
-                <span className="h3c-z3-plat h3c-z3-plat-soon">YouTube <span className="h3c-soon">Soon</span></span>
+                <span className="h3c-z3-plat h3c-z3-plat-tt">YouTube</span>
                 <span className="h3c-z3-plat h3c-z3-plat-soon">Instagram <span className="h3c-soon">Soon</span></span>
               </div>
             </div>

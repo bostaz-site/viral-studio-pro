@@ -771,11 +771,11 @@ Multi-platform publishing to TikTok, YouTube, Instagram with OAuth token managem
 
 ### Platform Details
 - **TikTok**: Direct post via `/v2/post/publish/video/init/` (pull-from-URL). Privacy chosen per-post by user in `TikTokPublishDialog`. Falls back to inbox mode if Direct Post scope rejected.
-- **YouTube**: Resumable upload (download video -> start session -> upload bytes). Privacy: `private`. **COMING SOON** — gated client+server.
+- **YouTube**: Resumable upload (download video -> start session -> upload bytes). Privacy: `private`. **ACTIVE** since 2026-08-31. Scopes: `youtube.upload`, `youtube.readonly`. OAuth: `access_type=offline&prompt=consent` for refresh token.
 - **Instagram**: Reels via Graph API v21.0 container flow. **COMING SOON** — gated client+server.
 
-### Launch Gating (TikTok-only)
-At launch, only TikTok is approved for publishing. YouTube and Instagram are hard-gated:
+### Launch Gating (TikTok + YouTube)
+TikTok and YouTube are approved for publishing. Instagram is hard-gated:
 - **Server**: `app/api/publish/[platform]/route.ts` rejects any platform not in `LAUNCH_ACTIVE_PLATFORMS` with 403 "coming soon". Even corrupted client state cannot publish elsewhere.
 - **Client (UnifiedPublishDialog)**: `isComingSoonPlatform()` prevents auto-select, toggle, counting, and publishing for non-active platforms. `selectedCount` excludes them. Render shows "Coming soon" badge. Post-render footer: two primary buttons side-by-side ("Place in bank" secondary amber + "Publish to N platform" primary amber gradient), "Done" + Download below. After bank click: badge "✓ Placed in bank — autofarm will schedule it", button becomes "View in bank →" (emerald, navigates to `/dashboard/distribution?scrollTo=bank&highlight={clipId}`), Publish still available. Mobile (390px): primary buttons stack full-width (Publish on top), Done/Download below. No auto-bank — clip is NOT banked until user explicitly clicks.
 - **Client (DistributionHub)**: `activePlatformCount` only counts platforms with `supported: true` in PLATFORMS config. Button text reflects real publishable count.
@@ -819,7 +819,7 @@ Queue-based auto-posting pipeline: user enables Auto-Distribute toggle → clien
 
 **Bank route**: `POST /api/distribution/bank` (restore clip to bank), `PATCH /api/distribution/bank/[clipId]` (remove/restore).
 
-Toggle OFF cancels all pending autofarm rows. Launch: TikTok only. Details : `SYSTEM-REFERENCE-DISTRIBUTION.md`.
+Toggle OFF cancels all pending autofarm rows. Launch: TikTok + YouTube. Details : `SYSTEM-REFERENCE-DISTRIBUTION.md`.
 
 ### Gotchas
 - TikTok `publish_id` returns immediately but posting is async

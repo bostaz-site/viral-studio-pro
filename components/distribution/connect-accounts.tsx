@@ -13,6 +13,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { useDistributionStore, type SocialAccount } from '@/stores/distribution-store'
+import { isComingSoonPlatform, type Platform } from '@/lib/distribution/launch-platforms'
 
 const PLATFORM_META: Record<
   string,
@@ -179,7 +180,7 @@ export function ConnectAccounts() {
                       <p className="text-sm font-semibold text-foreground">
                         {meta.displayName}
                       </p>
-                      {(platform === 'youtube' || platform === 'instagram') && (
+                      {isComingSoonPlatform(platform as Platform) && (
                         <Badge
                           variant="outline"
                           className="text-[10px] px-1.5 py-0 text-amber-400 border-amber-400/40"
@@ -251,10 +252,10 @@ export function ConnectAccounts() {
                       variant="outline"
                       className="h-8 gap-1.5"
                       onClick={() => handleConnect(platform)}
-                      disabled={platform === 'youtube' || platform === 'instagram'}
+                      disabled={isComingSoonPlatform(platform as Platform)}
                     >
                       <ExternalLink className="h-3.5 w-3.5" />
-                      {platform === 'youtube' || platform === 'instagram' ? 'Coming soon' : 'Connect'}
+                      {isComingSoonPlatform(platform as Platform) ? 'Coming soon' : 'Connect'}
                     </Button>
                   )}
                 </div>

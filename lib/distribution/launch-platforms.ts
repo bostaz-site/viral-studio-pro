@@ -6,7 +6,7 @@
  */
 export type Platform = 'tiktok' | 'youtube' | 'instagram' | 'facebook' | 'x'
 
-export const LAUNCH_ACTIVE_PLATFORMS: Platform[] = ['tiktok']
+export const LAUNCH_ACTIVE_PLATFORMS: Platform[] = ['tiktok', 'youtube']
 
 export function isComingSoonPlatform(p: Platform): boolean {
   return !LAUNCH_ACTIVE_PLATFORMS.includes(p)

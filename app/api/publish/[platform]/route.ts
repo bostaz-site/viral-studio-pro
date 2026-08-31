@@ -56,9 +56,9 @@ export const POST = withAuth(
 
     // Hard gate: only active platforms allowed — block even if client state is corrupted.
     const { LAUNCH_ACTIVE_PLATFORMS: activePlatforms } = await import('@/lib/distribution/launch-platforms')
-    if (!activePlatforms.includes(platformParam as 'tiktok')) {
+    if (!activePlatforms.includes(platformParam as never)) {
       return errorResponse(
-        `${PLATFORM_CONFIGS[platformParam].displayName} publishing is coming soon. Only TikTok is available right now.`,
+        `${PLATFORM_CONFIGS[platformParam].displayName} publishing is coming soon.`,
         403
       )
     }

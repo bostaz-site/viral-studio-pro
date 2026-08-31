@@ -5,6 +5,7 @@ import { ViralAnimalLogo } from '@/components/brand/viral-animal-logo'
 import { Switch } from '@/components/ui/switch'
 import { ExternalLink, Check, AlertCircle, Clock } from 'lucide-react'
 import { WolfLoader } from '@/components/ui/wolf-loader'
+import { isComingSoonPlatform, type Platform } from '@/lib/distribution/launch-platforms'
 
 interface PlatformNode {
   id: string
@@ -15,14 +16,13 @@ interface PlatformNode {
   /** Position as percentage of container */
   px: number
   py: number
-  comingSoon?: boolean
 }
 
 const NODES: PlatformNode[] = [
   { id: 'tiktok',    label: 'TikTok',          icon: '♪', color: '#E4E4E7', gradient: 'from-zinc-900 to-zinc-700',     px: 12,  py: 8   },
   { id: 'youtube',   label: 'YouTube Shorts',  icon: '▶', color: '#EF4444', gradient: 'from-red-600 to-red-500',       px: 72,  py: 8   },
   { id: 'instagram', label: 'Instagram Reels', icon: '◎', color: '#D946EF', gradient: 'from-pink-600 to-purple-600',   px: 12,  py: 68  },
-  { id: 'facebook',  label: 'Facebook Reels',  icon: 'f', color: '#3B82F6', gradient: 'from-blue-600 to-blue-500',     px: 72,  py: 68, comingSoon: true },
+  { id: 'facebook',  label: 'Facebook Reels',  icon: 'f', color: '#3B82F6', gradient: 'from-blue-600 to-blue-500',     px: 72,  py: 68  },
 ]
 
 /* Center of container in percent */
@@ -108,6 +108,7 @@ export function PlatformConnectionMap({
           const cx = (CX / 100) * 580
           const cy = (CY / 100) * 360
 
+          const comingSoon = isComingSoonPlatform(node.id as Platform)
           if (connected) {
             return (
               <g key={node.id}>
@@ -125,7 +126,7 @@ export function PlatformConnectionMap({
             <line key={node.id}
               x1={nx} y1={ny} x2={cx} y2={cy}
               stroke="#52525B" strokeWidth="1.5" strokeLinecap="round"
-              strokeDasharray="4 6" strokeOpacity={node.comingSoon ? 0.12 : 0.25} />
+              strokeDasharray="4 6" strokeOpacity={comingSoon ? 0.12 : 0.25} />
           )
         })}
       </svg>
@@ -150,7 +151,7 @@ export function PlatformConnectionMap({
         const connected = connectedPlatforms.includes(node.id)
         const isActive = (publishTargets.find(t => t.platform === node.id)?.enabled ?? false) && connected
         const progress = publishProgress[node.id]
-        const comingSoon = node.comingSoon
+        const comingSoon = isComingSoonPlatform(node.id as Platform)
 
         return (
           <div key={node.id}

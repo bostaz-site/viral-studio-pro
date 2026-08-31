@@ -133,9 +133,10 @@ export function FeaturesGrid() {
             </div>
             <div className="farm-app farm-app-active farm-app-r2">
               <span className="farm-app-ic">{'\u25B6'}</span>
-              <span>YouTube <span style={{ fontSize: 7, fontWeight: 800, color: '#64748B', background: 'rgba(100,116,139,.15)', padding: '1px 4px', borderRadius: 3, marginLeft: 3 }}>SOON</span></span>
+              <span>YouTube</span>
               <span className="farm-posted farm-posted-2">PUBLISHED {'\u2713'}</span>
             </div>
+
             <div className="farm-app farm-app-active farm-app-r3">
               <span className="farm-app-ic">{'\u25CE'}</span>
               <span>Instagram <span style={{ fontSize: 7, fontWeight: 800, color: '#64748B', background: 'rgba(100,116,139,.15)', padding: '1px 4px', borderRadius: 3, marginLeft: 3 }}>SOON</span></span>
@@ -147,7 +148,7 @@ export function FeaturesGrid() {
               <span className="farm-posted farm-posted-4">PUBLISHED {'\u2713'}</span>
             </div>
           </div>
-          <p className="farm-soon-note" style={{ marginTop: 10, marginBottom: 0 }}>TikTok live today. YouTube, Instagram &amp; Facebook coming soon.</p>
+          <p className="farm-soon-note" style={{ marginTop: 10, marginBottom: 0 }}>TikTok &amp; YouTube live today. Instagram &amp; Facebook coming soon.</p>
         </div>
 
         {/* NEXT POST panel */}
