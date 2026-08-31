@@ -817,7 +817,7 @@ Multi-platform publishing to TikTok, YouTube, Instagram with OAuth token managem
 ### Platform Details
 - **TikTok**: Direct post via `/v2/post/publish/video/init/` (pull-from-URL). Privacy chosen per-post by user in `TikTokPublishDialog`. Falls back to inbox mode if Direct Post scope rejected.
 - **YouTube**: Resumable upload (download video -> start session -> upload bytes). Privacy: user-selectable in `UnifiedPublishDialog` (Public / Unlisted / Private, default Public), sent as `youtube_privacy` in publish body. **ACTIVE** since 2026-08-31. Scopes: `youtube.upload`, `youtube.readonly`. OAuth: `access_type=offline&prompt=consent` for refresh token.
-- **Instagram**: Reels via Graph API v21.0 container flow. **COMING SOON** — gated client+server.
+- **Instagram**: Reels via Instagram API v21.0 (`graph.instagram.com`) container flow. **COMING SOON** — gated client+server. API tested 2026-08-31 — `instagram_business_basic` (GET /me, GET /me/media) and `instagram_business_content_publish` (POST container + poll + POST media_publish) all OK. Test account: @samycloutier30 (IG user ID 17841413453773071). Test script: `scripts/meta/test-instagram-api.ts`. Token in `.env.local` as `INSTAGRAM_TEST_ACCESS_TOKEN`.
 - **Facebook Reels**: Meta Graph API. **COMING SOON** — placeholder config in `platforms.ts`, gated client+server. OAuth blocked server-side (`isComingSoonPlatform` check in authorize route).
 
 ### Platform Lists
