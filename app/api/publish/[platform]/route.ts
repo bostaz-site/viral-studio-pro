@@ -395,6 +395,8 @@ async function publishToPlatform(
     case 'instagram':
       if (!instagramMeta) throw new Error('Instagram metadata missing')
       return publishToInstagram(instagramMeta, videoUrl, caption)
+    case 'facebook':
+      throw new Error('Facebook Reels publishing is coming soon.')
     default:
       throw new Error(`Publishing not supported for platform: ${platform}`)
   }

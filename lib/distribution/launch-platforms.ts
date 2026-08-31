@@ -3,8 +3,12 @@
  * Import this everywhere instead of hardcoding platform arrays.
  *
  * To enable a new platform: add it here. Client + server both read this.
+ *
+ * Platform type is defined in platforms.ts — this file re-exports it.
  */
-export type Platform = 'tiktok' | 'youtube' | 'instagram' | 'facebook' | 'x'
+import type { Platform } from './platforms'
+
+export type { Platform }
 
 export const LAUNCH_ACTIVE_PLATFORMS: Platform[] = ['tiktok', 'youtube']
 

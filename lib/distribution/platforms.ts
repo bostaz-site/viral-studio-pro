@@ -5,7 +5,7 @@
  * and publish endpoints used by the distribution module.
  */
 
-export type Platform = 'tiktok' | 'youtube' | 'instagram'
+export type Platform = 'tiktok' | 'youtube' | 'instagram' | 'facebook'
 
 export interface PlatformConfig {
   name: string
@@ -72,9 +72,22 @@ export const PLATFORM_CONFIGS: Record<Platform, PlatformConfig> = {
     icon: 'instagram',
     supportsPublish: true,
   },
+  facebook: {
+    name: 'facebook',
+    displayName: 'Facebook Reels',
+    authUrl: 'https://www.facebook.com/v21.0/dialog/oauth',
+    tokenUrl: 'https://graph.facebook.com/v21.0/oauth/access_token',
+    scopes: [], // To define when Meta approves Facebook Reels publishing
+    redirectUri: `${APP_URL}/api/auth/callback/facebook`,
+    clientIdEnv: 'FACEBOOK_APP_ID',
+    clientSecretEnv: 'FACEBOOK_APP_SECRET',
+    color: '#1877F2',
+    icon: 'facebook',
+    supportsPublish: false,
+  },
 }
 
-export const SUPPORTED_PLATFORMS: Platform[] = ['tiktok', 'youtube', 'instagram']
+export const SUPPORTED_PLATFORMS: Platform[] = ['tiktok', 'youtube', 'instagram', 'facebook']
 
 /**
  * Validate that a string is a supported platform.
@@ -144,6 +157,9 @@ export function buildAuthUrl(
       params.set('redirect_uri', config.redirectUri)
       params.set('state', state)
       return `${config.authUrl}?${params.toString()}`
+
+    case 'facebook':
+      throw new Error('Facebook Reels publishing is coming soon.')
 
     default:
       throw new Error(`Unsupported platform: ${platform}`)

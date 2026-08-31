@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { safeEncrypt } from '@/lib/crypto'
-import { isPlatform, buildAuthUrl } from '@/lib/distribution/platforms'
+import { isPlatform, buildAuthUrl, PLATFORM_CONFIGS } from '@/lib/distribution/platforms'
+import { isComingSoonPlatform } from '@/lib/distribution/launch-platforms'
 import { randomBytes } from 'crypto'
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://viralanimal.com'
@@ -16,6 +17,12 @@ export async function GET(
   if (!platformParam || !isPlatform(platformParam)) {
     const redirectUrl = new URL('/settings', APP_URL)
     redirectUrl.searchParams.set('oauth_error', `Unsupported platform: ${platformParam}`)
+    return NextResponse.redirect(redirectUrl.toString())
+  }
+
+  if (isComingSoonPlatform(platformParam)) {
+    const redirectUrl = new URL('/settings', APP_URL)
+    redirectUrl.searchParams.set('oauth_error', `${PLATFORM_CONFIGS[platformParam].displayName} is coming soon.`)
     return NextResponse.redirect(redirectUrl.toString())
   }
 
