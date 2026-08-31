@@ -375,10 +375,10 @@ async function prepareHookOverlay(hookText, hookLength, canvasW, canvasH, textPo
  * @param {number} sampleRate - Source sample rate (default 48000)
  * @returns {{ filters: string[], outputRate: number }}
  */
-function buildAudioShiftFilters(sampleRate = 48000) {
-  // Deterministic but per-render variation: shift by +3% (imperceptible)
-  // asetrate changes playback rate (pitch+speed), atempo corrects speed back
-  const shiftFactor = 1.03;
+function buildAudioShiftFilters(sampleRate = 48000, shiftPct = 3) {
+  // Imperceptible pitch/tempo shift — anti-fingerprint.
+  // shiftPct is diversified per render (1.8-4.2%, default 3%).
+  const shiftFactor = 1 + shiftPct / 100;
   const shiftedRate = Math.round(sampleRate * shiftFactor);
   return {
     filters: [
@@ -387,6 +387,7 @@ function buildAudioShiftFilters(sampleRate = 48000) {
       `aresample=${sampleRate}`,
     ],
     outputRate: sampleRate,
+    shiftPct,
   };
 }
 
@@ -482,7 +483,7 @@ function buildSpeedRampFilters(settings) {
  * @param {number} clipDuration - Duration in seconds (for time-based expressions)
  * @param {string} mode         - 'micro' | 'dynamic' | 'follow'
  */
-function buildSmartZoomFilter(inLabel, outLabel, canvasW, canvasH, clipDuration, mode = 'micro', peaks = [], cropAnchor = 'center') {
+function buildSmartZoomFilter(inLabel, outLabel, canvasW, canvasH, clipDuration, mode = 'micro', peaks = [], cropAnchor = 'center', diversify = null) {
   if (!clipDuration || clipDuration <= 0) return null;
 
   // All modes use scale(eval=frame)+crop — the only reliable way to do
@@ -500,7 +501,8 @@ function buildSmartZoomFilter(inLabel, outLabel, canvasW, canvasH, clipDuration,
     //   - Max 3 punches per clip (less = more pro)
     //   - No baseline breathing (stays still between punches)
     const D = clipDuration.toFixed(3);
-    const ZOOM_AMOUNT = 0.05;       // 5% punch zoom (safe — capped at 1.08 total)
+    const ampMult = diversify?.zoomAmpMult ?? 1.0;
+    const ZOOM_AMOUNT = 0.05 * ampMult;  // 5% base ±15% via diversify
     const RAMP_IN = 0.20;           // 200ms zoom-in
     const HOLD = 0.10;              // 100ms hold at peak
     const RAMP_OUT = 0.40;          // 400ms smooth zoom-out
@@ -537,11 +539,16 @@ function buildSmartZoomFilter(inLabel, outLabel, canvasW, canvasH, clipDuration,
     // Subtle, barely noticeable drift — Netflix/documentary talking-head style.
     // Max amplitude capped at 1.08 to prevent noticeable crop.
     const D = clipDuration.toFixed(3);
-    const zExpr = `(1+0.06*min(t/${D}\\,1))`;
+    const ampMicro = diversify?.zoomAmpMult ?? 1.0;
+    const phase = diversify?.zoomPhase ?? 0;
+    const baseAmp = (0.06 * ampMicro).toFixed(4);
+    // Phase offset: shift the zoom curve start (0 = normal, 0.15 = start 15% into the ramp)
+    const tExpr = phase > 0.001 ? `min((t/${D}+${phase.toFixed(4)})\\,1)` : `min(t/${D}\\,1)`;
+    const zExpr = `(1+${baseAmp}*${tExpr})`;
     const scaledW = `trunc(${canvasW}*${zExpr}/2)*2`;
     const scaledH = `trunc(${canvasH}*${zExpr}/2)*2`;
 
-    console.log(`[FFmpeg] Smart Zoom micro: slow push 0→6%, duration=${D}s, anchor=${cropAnchor}`);
+    console.log(`[FFmpeg] Smart Zoom micro: slow push 0→${(parseFloat(baseAmp)*100).toFixed(1)}%, phase=${(phase*100).toFixed(0)}%, duration=${D}s, anchor=${cropAnchor}`);
 
     const microCropY = cropAnchor === 'bottom' ? `ih-${canvasH}` : cropAnchor === 'top' ? '0' : `(ih-${canvasH})/2`;
     return `${inLabel}scale=w='${scaledW}':h='${scaledH}':eval=frame:flags=lanczos,crop=${canvasW}:${canvasH}:(iw-${canvasW})/2:${microCropY},setsar=1${outLabel}`;
@@ -549,12 +556,12 @@ function buildSmartZoomFilter(inLabel, outLabel, canvasW, canvasH, clipDuration,
 
   // Dynamic requested but no peaks → fall back to micro.
   if (mode === 'dynamic') {
-    return buildSmartZoomFilter(inLabel, outLabel, canvasW, canvasH, clipDuration, 'micro', [], cropAnchor);
+    return buildSmartZoomFilter(inLabel, outLabel, canvasW, canvasH, clipDuration, 'micro', [], cropAnchor, diversify);
   }
 
   // Follow mode without face data → fall back to micro.
   if (mode === 'follow') {
-    return buildSmartZoomFilter(inLabel, outLabel, canvasW, canvasH, clipDuration, 'micro', [], cropAnchor);
+    return buildSmartZoomFilter(inLabel, outLabel, canvasW, canvasH, clipDuration, 'micro', [], cropAnchor, diversify);
   }
 
   return null;
@@ -798,6 +805,7 @@ export async function renderClip(inputPath, outputPath, options = {}) {
     voiceoverPaths = null, // [{path, startTime, estimatedDuration}]
     reactionLayout = null, // {faceRegion: {x,y,w,h}, contentRegion: {x,y,w,h}}
     duoLayout = null,     // {faceA: {cx,cy,w,h}, faceB: {cx,cy,w,h}}
+    diversify = null,     // {audioShiftPct, zoomAmpMult, zoomPhase, grainStrength, hookDelayS, hookPosPct, hookSizePct}
   } = options;
 
   if (!inputPath || !outputPath) {
@@ -1140,7 +1148,7 @@ export async function renderClip(inputPath, outputPath, options = {}) {
         }
         if (!zoomChain) {
           const fallbackMode = (smartZoom.mode === 'follow') ? 'micro' : (smartZoom.mode || 'micro');
-          zoomChain = buildSmartZoomFilter(mapVideo, '[zoomed]', canvasW, canvasH, clipDuration, fallbackMode, audioPeaks, cropAnchor);
+          zoomChain = buildSmartZoomFilter(mapVideo, '[zoomed]', canvasW, canvasH, clipDuration, fallbackMode, audioPeaks, cropAnchor, diversify);
         }
         if (zoomChain) {
           filterComplex += `;${zoomChain}`;
@@ -1263,32 +1271,43 @@ export async function renderClip(inputPath, outputPath, options = {}) {
       }
 
       if (hookOverlayEntry && hookInputIndex >= 0) {
+        const hookDelay = diversify?.hookDelayS ?? 0;
         const fadeIn = 0.3;
         const fadeOut = 0.3;
         const hLen = hookOverlayEntry.hookLength || clipDuration;
-        let fadeFilters = `fade=t=in:st=0:d=${fadeIn}:alpha=1`;
+        let fadeFilters = `fade=t=in:st=${hookDelay.toFixed(2)}:d=${fadeIn}:alpha=1`;
         if (hLen < clipDuration) {
-          fadeFilters += `,fade=t=out:st=${hLen.toFixed(2)}:d=${fadeOut}:alpha=1`;
+          fadeFilters += `,fade=t=out:st=${(hLen + hookDelay).toFixed(2)}:d=${fadeOut}:alpha=1`;
         }
         // Browser overlays are always captured at 1080x1920 — rescale to the
         // active tier canvas so the capsule stays proportional on 720p fallbacks.
         const CAPTURE_W = 1080;
         const hookScale = canvasW / CAPTURE_W;
-        const hookScaleFilter = hookScale !== 1
-          ? `scale=trunc(iw*${hookScale.toFixed(4)}/2)*2:-2:flags=lanczos,`
-          : '';
+        // Diversify: hook size ±5%
+        const hookSizeMult = 1 + (diversify?.hookSizePct ?? 0) / 100;
+        const effectiveHookScale = hookScale * hookSizeMult;
+        const hookScaleFilter = `scale=trunc(iw*${effectiveHookScale.toFixed(4)}/2)*2:-2:flags=lanczos,`;
         filterComplex += `;[${hookInputIndex}:v]format=rgba,${hookScaleFilter}${fadeFilters}[hookalpha]`;
         const isCapsule = hookOverlayEntry.isCapsuleOnly;
-        const posPct = hookOverlayEntry.textPosition || 18;
+        // Diversify: hook position ±4%
+        const hookPosOffset = diversify?.hookPosPct ?? 0;
+        const posPct = (hookOverlayEntry.textPosition || 18) + hookPosOffset;
         const overlayX = isCapsule ? '(W-w)/2' : '0';
         // Render parity: the live preview anchors the capsule TOP edge at posPct%
         // (CSS `top: pct%`, no translateY — see live-preview.tsx). The browser PNG
         // has ~extraPad transparent padding above the capsule (sticker: round(4*1080/280)=15px,
         // outline: ~31px). Offset so the visible capsule top lands at posPct%.
         const hookGlowPad = Math.round(20 * hookScale);
-        const overlayY = isCapsule ? `H*${posPct}/100-${hookGlowPad}` : '0';
+        const overlayY = isCapsule ? `H*${posPct.toFixed(2)}/100-${hookGlowPad}` : '0';
         filterComplex += `;${mapVideo}[hookalpha]overlay=${overlayX}:${overlayY}:format=auto[hooked]`;
         mapVideo = '[hooked]';
+      }
+
+      // ── Invisible grain (diversify: imperceptible noise, unique pixel hash) ──
+      const grain = diversify?.grainStrength ?? 0;
+      if (grain > 0) {
+        filterComplex += `;${mapVideo}noise=alls=${grain}:allf=t[grained]`;
+        mapVideo = '[grained]';
       }
 
       // ── Terminal format=yuv420p ──
@@ -1314,9 +1333,10 @@ export async function renderClip(inputPath, outputPath, options = {}) {
 
       // Audio shift LAST — after enhance, before encoding. Shifting first caused
       // the resampled signal to interact poorly with afftdn/loudnorm.
-      const audioShift = buildAudioShiftFilters(48000);
+      const audioShiftPct = diversify?.audioShiftPct ?? 3;
+      const audioShift = buildAudioShiftFilters(48000, audioShiftPct);
       audioFilters.push(...audioShift.filters);
-      console.log('[FFmpeg] Audio fingerprint shift: +3% asetrate/atempo (anti-duplicate)');
+      console.log(`[FFmpeg] Audio fingerprint shift: +${audioShiftPct}% asetrate/atempo (anti-duplicate)`);
       const bassFilters = buildBassBoostFilters({ bassBoost });
       if (bassFilters.length > 0) {
         audioFilters.push(...bassFilters);

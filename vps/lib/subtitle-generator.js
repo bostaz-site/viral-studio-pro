@@ -311,6 +311,7 @@ export function generateASS(wordTimestamps, options = {}) {
     position = 'bottom',
     canvasWidth = 1080,
     canvasHeight = 1920,
+    diversify = null,
     // splitScreen is accepted but ignored (permanently removed)
   } = options;
 
@@ -329,6 +330,19 @@ export function generateASS(wordTimestamps, options = {}) {
 
   // Adjust positioning based on position setting
   styleConfig = adjustPositioning(styleConfig, { position, canvasWidth, canvasHeight });
+
+  // Diversify: micro-adjust marginV (±3%), fontsize (±6%), accent color
+  if (diversify) {
+    if (diversify.captionMarginVPct) {
+      styleConfig = { ...styleConfig, marginV: Math.round(styleConfig.marginV * (1 + diversify.captionMarginVPct / 100)) };
+    }
+    if (diversify.captionSizePct) {
+      styleConfig = { ...styleConfig, fontsize: Math.round(styleConfig.fontsize * (1 + diversify.captionSizePct / 100)) };
+    }
+    if (diversify.accentColor && !customColors) {
+      styleConfig = { ...styleConfig, primaryColor: diversify.accentColor };
+    }
+  }
 
   // Generate ASS header with correct canvas dimensions
   const header = buildASSHeader(styleConfig, canvasWidth, canvasHeight);

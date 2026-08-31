@@ -616,7 +616,7 @@ TikTok flags videos as "Unoriginal, low-quality content" when they appear to be 
 |---|---|---|
 | **Smart crop** (auto default) | Crop advisor picks fullframe (face), fit (gameplay), or reaction — never blindly center-crops wide content | Fullframe avoids blurred bars (repost signature); fit preserves content with deep neutral blur (sigma=24, sat=0.5) |
 | **Source UI removal** | 100px border crop strips Twitch/Kick overlays (chat, alerts, logos) | Platform UI is a clear signal of copied content |
-| **Audio fingerprint shift** | +3% asetrate/atempo on all renders (imperceptible to ear) | Changes audio hash — defeats audio duplicate detection |
+| **Audio fingerprint shift** | +1.8-4.2% asetrate/atempo (diversified per render) | Changes audio hash — defeats audio duplicate detection |
 | **Karaoke captions** | ASS subtitles burned at render time (word-pop, bounce, glow, highlight) | Major creative edit — changes the visual frame entirely |
 | **Smart Zoom** (auto: face follow or micro push) | Follow mode: real face tracking with 1.20x zoom + smooth pan. Micro: cinematic push 1→1.06. Auto-selected based on face presence. | Camera movement = creative edit, not present in source |
 | **Hook text overlay** | Animated capsule with fade in (0.3s) + auto-hide after 4s (0.3s fade out) | Adds original text content to the frame |
@@ -629,6 +629,32 @@ TikTok flags videos as "Unoriginal, low-quality content" when they appear to be 
 **Honest disclaimer**: these transformations produce genuinely edited content, but TikTok's Community Guidelines compliance also depends on the user's clip choice (e.g. music copyright, content rights). The pipeline does not guarantee For You feed eligibility for every clip. Users re-posting content they don't own should add significant creative value.
 
 **Quality gate**: VPS logs a `LOW_RES_WARNING` when source resolution is below 720p. Output is always 1080x1920 (HIGH tier) or 720x1280 (SAFE/LAST_RESORT fallback), never upscaled from a visibly low-quality source without logging.
+
+### Render Diversification (Anti-Duplicate Between Users)
+
+When multiple users remix the same clip with similar settings, TikTok's perceptual hashing detects duplicates and penalizes later posters. Every render is made unique via seedable micro-variations derived from `jobId` (SHA-256 → deterministic PRNG).
+
+**Principle (non-negotiable)**: render-parity — variations NEVER contradict user-configured settings. Only micro-parameters the user didn't explicitly choose are varied.
+
+**Files:** `vps/lib/diversify.js` (seed + params), `vps/routes/render.js` (integration), `vps/lib/ffmpeg-render.js` (audio/zoom/grain), `vps/lib/subtitle-generator.js` (caption offsets), `vps/lib/elevenlabs-client.js` (voice pool)
+
+| Parameter | Range | Where Applied |
+|---|---|---|
+| **Entry trim** | 0-1.2s (0.1s steps) | `render.js` — shifts clipStartTime, remaps word timestamps. Skipped if hook reorder active or result < 5s |
+| **Audio shift** | +1.8% to +4.2% | `ffmpeg-render.js` `buildAudioShiftFilters` — replaces fixed +3% |
+| **Caption position** | ±3% marginV | `subtitle-generator.js` — applied after `adjustPositioning` |
+| **Caption size** | ±6% fontsize | `subtitle-generator.js` — applied after `adjustPositioning` |
+| **Caption accent color** | 5-variant palette per style | `diversify.js` `getDiversifiedAccentColor` — only styles with non-white accent. Skipped if user set custom colors |
+| **Voiceover voice** | 6-voice pool per register | `diversify.js` `pickVoice` + `elevenlabs-client.js` — same energy register (default/female/deep) |
+| **Hook position** | ±4% vertical | `ffmpeg-render.js` — overlay Y adjusted |
+| **Hook size** | ±5% scale | `ffmpeg-render.js` — hookScale multiplied |
+| **Hook timing** | 0-0.4s delay | `ffmpeg-render.js` — fade-in start shifted |
+| **Zoom amplitude** | ±15% of default | `ffmpeg-render.js` `buildSmartZoomFilter` — micro (0.06 base) and dynamic (0.05 base) |
+| **Zoom phase** | 0-15% offset | `ffmpeg-render.js` — micro zoom curve start shifted |
+| **Invisible grain** | noise strength 1-2 | `ffmpeg-render.js` — `noise=alls=N:allf=t` before final format conversion. Imperceptible but pixel-unique |
+| **Hook text** | Non-deterministic (Claude temperature=1.0) | `hook-generator.js` — no explicit temperature → default 1.0. Two users get different hooks naturally |
+
+**Debug log**: `DIVERSIFY: seed=X variations={...}` logged at start, `DIVERSIFY SUMMARY` lists all applied values before render. Entry trim logs remapped word count. Fully reproducible from seed for debugging.
 
 ### Burned-In Caption Detection & Crop Anchoring
 
@@ -680,7 +706,7 @@ If any prerequisite fails, the render job's `debug_log` shows a `VOICEOVER SKIPP
 - VO MP3s added as extra FFmpeg inputs, delayed to their `startTime` via `adelay`
 - Ducking via `sidechaincompress`: original audio drops to ~35% during VO (threshold=0.02, ratio=4:1, attack/release=200ms)
 - Final `amix` merges ducked original + voiceover track
-- Audio fingerprint shift (+3% asetrate/atempo) always applied on all renders, logged as `AUDIO SHIFT` in debug_log
+- Audio fingerprint shift (diversified +1.8-4.2% asetrate/atempo) always applied on all renders, logged as `AUDIO SHIFT` in debug_log
 
 **UI** (Enhance page accordion "AI Voiceover"):
 - Toggle (ON by default), voice selector (3 options), editable script preview

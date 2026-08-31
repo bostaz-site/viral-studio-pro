@@ -18,6 +18,7 @@ import { detectReactionLayout, detectDuoLayout } from '../lib/layout-detector.js
 import { adviseCrop } from '../lib/crop-advisor.js';
 import { createContract, trackFeatureFailure, resetFeatureStreak } from '../lib/render-contract.js';
 import { enqueueRender, getQueueStatus } from '../lib/render-queue.js';
+import { computeDiversify, getDiversifiedAccentColor, pickVoice } from '../lib/diversify.js';
 import {
   getClip,
   getVideo,
@@ -651,6 +652,14 @@ router.post('/', async (req, res) => {
     const envHasOpenAIKey = !!process.env.OPENAI_KEY;
     trc(`env OPENAI_API_KEY=${envHasOpenAI} OPENAI_KEY=${envHasOpenAIKey}`);
 
+    // ── Render Diversification ──
+    // Derive deterministic variations from jobId to make each render unique
+    // (defeats TikTok perceptual hashing). Render-parity: never overrides user settings.
+    const div = jobId ? computeDiversify(jobId) : null;
+    if (div) {
+      trc(`DIVERSIFY: seed=${div.seed} variations=${JSON.stringify(div)}`);
+    }
+
     // ── Initial flush: write trace to DB immediately so debug_log is never NULL ──
     if (jobId) {
       updateRenderJob(jobId, { debug_log: trace.join('\n') }).catch(() => {});
@@ -1113,7 +1122,13 @@ router.post('/', async (req, res) => {
         const captionStyle = settings.captions.style || 'hormozi';
         const captionPosition = settings.captions.position || 'bottom';
         let assContent = null;
-        const subtitleOpts = { style: captionStyle, position: captionPosition, canvasWidth: canvasW, canvasHeight: canvasH };
+        // Build diversify overrides for captions (marginV, size, accent color)
+        const captionDiversify = div ? {
+          captionMarginVPct: div.captionMarginVPct,
+          captionSizePct: div.captionSizePct,
+          accentColor: getDiversifiedAccentColor(captionStyle, div.captionColorIdx),
+        } : null;
+        const subtitleOpts = { style: captionStyle, position: captionPosition, canvasWidth: canvasW, canvasHeight: canvasH, diversify: captionDiversify };
 
         if (wordTimestamps.length > 0) {
           validateWordTimestamps(wordTimestamps);
@@ -1567,7 +1582,10 @@ router.post('/', async (req, res) => {
         if (voLines && voLines.length > 0) {
           trc(`VOICEOVER TTS: synthesizing ${voLines.length} lines via ElevenLabs...`);
           const voiceKey = settings.voiceover?.voice || 'default';
-          voiceoverPaths = await synthesizeVoiceover(voLines, tempDir, voiceKey, userId);
+          // Diversify: pick from voice pool of same register
+          const diversifiedVoiceId = div ? pickVoice(voiceKey, div.voiceIdx) : null;
+          if (diversifiedVoiceId) trc(`DIVERSIFY VOICE: register=${voiceKey} idx=${div.voiceIdx} id=${diversifiedVoiceId}`);
+          voiceoverPaths = await synthesizeVoiceover(voLines, tempDir, voiceKey, userId, diversifiedVoiceId);
           if (voiceoverPaths.length > 0) {
             trc(`VOICEOVER TTS: ${voiceoverPaths.length}/${voLines.length} MP3s created — will mix into render`);
             contract.record('voiceover', true);
@@ -1614,7 +1632,65 @@ router.post('/', async (req, res) => {
       }
     }
 
-    trc(`AUDIO SHIFT: +3% asetrate/atempo anti-fingerprint will be applied (always-on)`);
+    // ── Diversify: Entry Trim ──
+    // Shift clip start by 0-1.2s to break duplicate hashing.
+    // Skip if hook reorder is active (it rearranges the clip) or clip would be < 5s.
+    const hookReorderWasApplied = settings.hook?.reorderEnabled && settings.hook?.reorder?.segments?.length >= 2;
+    if (div && div.entryTrimS > 0 && !hookReorderWasApplied && duration - div.entryTrimS >= 5) {
+      const trim = div.entryTrimS;
+      clipStartTime += trim;
+      duration -= trim;
+      clipEndTime = clipStartTime + duration;
+      // Remap word timestamps
+      if (captionWordTimestamps.length > 0) {
+        captionWordTimestamps = captionWordTimestamps
+          .map(w => ({ ...w, start: (w.start || 0) - trim, end: (w.end || 0) - trim }))
+          .filter(w => w.start >= -0.1); // keep words that overlap the new start
+        captionWordTimestamps.forEach(w => { if (w.start < 0) w.start = 0; });
+        wordTimestamps = captionWordTimestamps;
+      }
+      if (voiceoverPaths && voiceoverPaths.length > 0) {
+        voiceoverPaths = voiceoverPaths
+          .map(vo => ({ ...vo, startTime: vo.startTime - trim }))
+          .filter(vo => vo.startTime >= -0.5);
+        voiceoverPaths.forEach(vo => { if (vo.startTime < 0) vo.startTime = 0; });
+      }
+      // Regenerate ASS with remapped timestamps
+      if (assFilePath && captionWordTimestamps.length > 0) {
+        try {
+          const captionStyle = settings.captions?.style || 'hormozi';
+          const captionPosition = settings.captions?.position || 'bottom';
+          const captionAnim = settings.captions?.animation || 'highlight';
+          const accentColor = div ? getDiversifiedAccentColor(captionStyle, div.captionColorIdx) : null;
+          const trimASS = generateASS(captionWordTimestamps, {
+            style: captionStyle, position: captionPosition,
+            canvasWidth: canvasW, canvasHeight: canvasH,
+            animation: captionAnim, clipStartTime: 0,
+            wordsPerLine: settings.captions?.wordsPerLine || 4,
+            customColors: settings.captions?.customColors,
+            customImportantWords: settings.captions?.customImportantWords || [],
+            emphasisEffect: settings.captions?.emphasisEffect || 'none',
+            emphasisColor: settings.captions?.emphasisColor || 'red',
+            diversify: div ? {
+              captionMarginVPct: div.captionMarginVPct,
+              captionSizePct: div.captionSizePct,
+              accentColor,
+            } : null,
+          });
+          if (trimASS) await fs.writeFile(assFilePath, trimASS, 'utf-8');
+        } catch { /* keep existing ASS */ }
+      }
+      trc(`DIVERSIFY ENTRY TRIM: shifted start +${trim}s → new duration=${duration.toFixed(2)}s, remapped ${captionWordTimestamps.length} words`);
+    } else if (div && div.entryTrimS > 0) {
+      trc(`DIVERSIFY ENTRY TRIM: skipped (hookReorder=${hookReorderWasApplied}, resultDuration=${(duration - div.entryTrimS).toFixed(1)}s)`);
+    }
+
+    // ── Diversify Summary ──
+    if (div) {
+      trc(`DIVERSIFY SUMMARY: seed=${div.seed} audioShift=+${div.audioShiftPct}% entryTrim=${div.entryTrimS}s captionPos=${div.captionMarginVPct}% captionSize=${div.captionSizePct}% colorIdx=${div.captionColorIdx} voiceIdx=${div.voiceIdx} hookPos=${div.hookPosPct}% hookSize=${div.hookSizePct}% hookDelay=${div.hookDelayS}s zoomAmp=${div.zoomAmpMult}x zoomPhase=${div.zoomPhase} grain=${div.grainStrength}`);
+    }
+
+    trc(`AUDIO SHIFT: +${div?.audioShiftPct ?? 3}% asetrate/atempo anti-fingerprint will be applied (always-on)`);
     trc(`RENDER START: duration=${duration.toFixed(2)}s probed=${probedDuration.toFixed(2)}s voiceover=${voiceoverPaths ? voiceoverPaths.length + ' MP3s' : 'none'} smartZoom=${settings.smartZoom?.mode || 'micro'} videoZoom=${settings.format?.videoZoom || 'auto'}`);
     console.log(`[Render ${renderSessionId}] Starting FFmpeg render...`);
 
@@ -1663,6 +1739,15 @@ router.post('/', async (req, res) => {
       voiceoverPaths: voiceoverPaths && voiceoverPaths.length > 0 ? voiceoverPaths : null,
       reactionLayout: reactionLayout && reactionLayout.isReactionLayout ? reactionLayout : null,
       duoLayout: duoLayout && duoLayout.isDuoLayout ? duoLayout : null,
+      diversify: div ? {
+        audioShiftPct: div.audioShiftPct,
+        zoomAmpMult: div.zoomAmpMult,
+        zoomPhase: div.zoomPhase,
+        grainStrength: div.grainStrength,
+        hookDelayS: div.hookDelayS,
+        hookPosPct: div.hookPosPct,
+        hookSizePct: div.hookSizePct,
+      } : null,
     });
 
     const qualityTier = renderResult?.qualityTier || null;

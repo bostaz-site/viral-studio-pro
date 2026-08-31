@@ -89,14 +89,14 @@ async function synthesizeLine(text, voiceId, outputPath) {
  * @param {string} userId - For cost logging
  * @returns {Promise<Array<{path: string, startTime: number, estimatedDuration: number, role: string}>>}
  */
-export async function synthesizeVoiceover(lines, outputDir, voice = 'default', userId = null) {
+export async function synthesizeVoiceover(lines, outputDir, voice = 'default', userId = null, voiceIdOverride = null) {
   if (!lines || lines.length === 0) return [];
   if (!process.env.ELEVENLABS_API_KEY) {
     console.warn('[ElevenLabs] No API key — voiceover disabled');
     return [];
   }
 
-  const voiceId = VOICES[voice] || VOICES.default;
+  const voiceId = voiceIdOverride || VOICES[voice] || VOICES.default;
   const results = [];
   const startMs = Date.now();
   let totalChars = 0;
