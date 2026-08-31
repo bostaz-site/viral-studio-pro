@@ -1,20 +1,21 @@
 "use client"
 
 import { useState } from 'react'
-import { AlertCircle, AlertTriangle, WifiOff, Server, Lock, CreditCard, RotateCcw, ChevronDown, ChevronUp, Mail } from 'lucide-react'
+import { AlertCircle, AlertTriangle, WifiOff, Server, Lock, CreditCard, RotateCcw, ChevronDown, ChevronUp, Mail, Trash2 } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 
 export type ErrorKind =
-  | 'generic'     // default red
-  | 'network'     // offline / fetch failed
-  | 'server'      // VPS / 5xx
-  | 'auth'        // 401/403 / session expired
-  | 'quota'       // plan limit reached
-  | 'rate_limit'  // too many requests (429) — temporary
-  | 'timeout'     // polling gave up
-  | 'validation'  // user input invalid
+  | 'generic'       // default red
+  | 'network'       // offline / fetch failed
+  | 'server'        // VPS / 5xx
+  | 'auth'          // 401/403 / session expired
+  | 'quota'         // plan limit reached
+  | 'rate_limit'    // too many requests (429) — temporary
+  | 'timeout'       // polling gave up
+  | 'validation'    // user input invalid
+  | 'clip_deleted'  // source clip removed by streamer/platform
 
 interface ErrorCardProps {
   kind?: ErrorKind
@@ -99,6 +100,13 @@ const KIND_CONFIG: Record<ErrorKind, {
     bgClass: 'bg-orange-500/5',
     iconBgClass: 'bg-orange-500/15',
     iconColorClass: 'text-orange-400',
+  },
+  clip_deleted: {
+    icon: Trash2,
+    borderClass: 'border-zinc-500/40',
+    bgClass: 'bg-zinc-500/5',
+    iconBgClass: 'bg-zinc-500/15',
+    iconColorClass: 'text-zinc-400',
   },
 }
 
@@ -196,6 +204,7 @@ export function classifyError(raw: string | null | undefined, status?: number): 
   if (status && status >= 500) return 'server'
   if (!raw) return 'generic'
   const msg = raw.toLowerCase()
+  if (msg.includes('clip_deleted') || msg.includes('clip has been removed') || msg.includes('no longer available')) return 'clip_deleted'
   if (msg.includes('network') || msg.includes('fetch') || msg.includes('offline')) return 'network'
   if (msg.includes('network error')) return 'network'
   if (msg.includes('timeout') || msg.includes('timed out')) return 'timeout'

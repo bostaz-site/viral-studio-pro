@@ -385,7 +385,8 @@ export function computeCurrentScore(
   scores: ComputedScores,
   baseline = 0,
   detectedMood?: ClipMood | null,
-  burnedCaptionsDetected?: boolean
+  burnedCaptionsDetected?: boolean,
+  candidateFlags?: string[]
 ): number {
   const CAP = 99.0
   const headroom = Math.max(0, CAP - baseline)
@@ -397,11 +398,15 @@ export function computeCurrentScore(
   // Weights calibrated 2026-08 — hookReorder frozen, smartZoom unfrozen.
   // If source has burned-in captions, count them as "captions present" even if ours are off.
   // But don't add style/mood-match bonuses — our captions won't be rendered.
+  const hasLowSpeech = candidateFlags?.includes('low_speech')
+  const hasDark = candidateFlags?.includes('too_dark')
+
   const ourCaptionsApplied = !burnedCaptionsDetected && settings.captionsEnabled && settings.captionStyle !== 'none'
   if (burnedCaptionsDetected || ourCaptionsApplied) totalWeight += 0.15
   if (ourCaptionsApplied && settings.emphasisEffect !== 'none') totalWeight += 0.07
   if (settings.tagStyle !== 'none') totalWeight += 0.05
-  if (settings.hookEnabled) totalWeight += 0.14
+  // low_speech: cap hook + captions contribution (they rely on dialogue)
+  if (settings.hookEnabled) totalWeight += hasLowSpeech ? 0.04 : 0.14
   // hookReorder: disabled (cuts mid-word)
   if (settings.smartZoomEnabled) totalWeight += 0.05
   if (settings.audioEnhanceEnabled) totalWeight += 0.07
@@ -413,9 +418,9 @@ export function computeCurrentScore(
   if (detectedMood && MOOD_PRESETS[detectedMood]) {
     const preset = MOOD_PRESETS[detectedMood]
     // Only award caption style bonuses if our captions are actually applied
-    if (ourCaptionsApplied && settings.captionStyle === preset.captionStyle) totalWeight += 0.07
-    if (ourCaptionsApplied && settings.emphasisEffect === preset.emphasisEffect) totalWeight += 0.05
-    if (ourCaptionsApplied && settings.emphasisColor === preset.emphasisColor) totalWeight += 0.04
+    if (ourCaptionsApplied && settings.captionStyle === preset.captionStyle) totalWeight += hasLowSpeech ? 0.02 : 0.07
+    if (ourCaptionsApplied && settings.emphasisEffect === preset.emphasisEffect) totalWeight += hasLowSpeech ? 0.01 : 0.05
+    if (ourCaptionsApplied && settings.emphasisColor === preset.emphasisColor) totalWeight += hasLowSpeech ? 0.01 : 0.04
     if (settings.videoZoom === preset.videoZoom) totalWeight += 0.03
     if (settings.autoCutEnabled === preset.autoCutEnabled) totalWeight += 0.03
   } else {
@@ -425,7 +430,11 @@ export function computeCurrentScore(
     if (settings.tagStyle === scores.best.tagStyle) totalWeight += 0.02
   }
 
-  const boost = headroom * totalWeight
+  let boost = headroom * totalWeight
+
+  // too_dark: flat penalty — dark clips lose viewers regardless of enhancements
+  if (hasDark) boost *= 0.85
+
   return Math.min(CAP, Math.round((baseline + boost) * 10) / 10)
 }
 
@@ -454,10 +463,13 @@ export function computeScoreBreakdown(
   settings: EnhanceSettings,
   baseline: number,
   detectedMood?: ClipMood | null,
-  burnedCaptionsDetected?: boolean
+  burnedCaptionsDetected?: boolean,
+  candidateFlags?: string[]
 ): ScoreBreakdown {
   const CAP = 99.0
   const headroom = Math.max(0, CAP - baseline)
+  const hasLowSpeech = candidateFlags?.includes('low_speech')
+  const hasDark = candidateFlags?.includes('too_dark')
 
   // Define per-section weights (same calibrated weights as computeCurrentScore)
   const sections: { key: keyof Omit<ScoreBreakdown, 'total'>; weight: number }[] = []
@@ -470,9 +482,9 @@ export function computeScoreBreakdown(
   if (ourCaptionsApplied2 && settings.emphasisEffect !== 'none') captionWeight += 0.07
   if (detectedMood && MOOD_PRESETS[detectedMood]) {
     const preset = MOOD_PRESETS[detectedMood]
-    if (ourCaptionsApplied2 && settings.captionStyle === preset.captionStyle) captionWeight += 0.07
-    if (ourCaptionsApplied2 && settings.emphasisEffect === preset.emphasisEffect) captionWeight += 0.05
-    if (ourCaptionsApplied2 && settings.emphasisColor === preset.emphasisColor) captionWeight += 0.04
+    if (ourCaptionsApplied2 && settings.captionStyle === preset.captionStyle) captionWeight += hasLowSpeech ? 0.02 : 0.07
+    if (ourCaptionsApplied2 && settings.emphasisEffect === preset.emphasisEffect) captionWeight += hasLowSpeech ? 0.01 : 0.05
+    if (ourCaptionsApplied2 && settings.emphasisColor === preset.emphasisColor) captionWeight += hasLowSpeech ? 0.01 : 0.04
   }
   sections.push({ key: 'captions', weight: captionWeight })
 
@@ -506,7 +518,7 @@ export function computeScoreBreakdown(
   // Hook — hookReorder disabled (cuts mid-word), only hook text contributes
   let hookWeight = 0
   if (settings.hookEnabled) {
-    hookWeight += 0.14
+    hookWeight += hasLowSpeech ? 0.04 : 0.14
   }
   sections.push({ key: 'hook', weight: hookWeight })
 
@@ -523,10 +535,11 @@ export function computeScoreBreakdown(
 
   // Total weight for proportional distribution
   const totalWeight = sections.reduce((sum, s) => sum + s.weight, 0)
-  const totalBoost = headroom * totalWeight
+  const darkMultiplier = hasDark ? 0.85 : 1
+  const totalBoost = headroom * totalWeight * darkMultiplier
 
   for (const section of sections) {
-    const pts = headroom * section.weight
+    const pts = headroom * section.weight * darkMultiplier
     // Min 1 pt if any contribution exists (never show +0.8 — feels weak)
     const rounded = Math.round(pts * 10) / 10
     result[section.key] = rounded > 0 && rounded < 1 ? 1 : rounded

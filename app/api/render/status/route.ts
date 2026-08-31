@@ -196,6 +196,8 @@ export const GET = withAuth(async (request: NextRequest, user) => {
     message = 'Render canceled'
   } else if (job.status === 'expired') {
     message = 'Clip expired — remix again to download'
+  } else if (job.status === 'error' && job.error_message?.includes('CLIP_DELETED')) {
+    message = 'Clip deleted — this clip has been removed by the streamer or platform'
   } else if (job.status === 'error') {
     message = `Error: ${job.error_message}`
   } else if (queuePosition !== null && queuePosition > 0) {

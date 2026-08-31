@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { timingSafeCompare } from '@/lib/crypto'
 import { scoreClip } from '@/lib/scoring/clip-scorer'
+import { getClipsByIds } from '@/lib/twitch/client'
 import { logger } from '@/lib/logger'
 import { isAuditMode } from '@/lib/feature-flags'
 
@@ -47,7 +48,7 @@ export async function POST(req: NextRequest) {
     // 1. Select clips due for rescoring (NULL next_check_at = highest priority)
     const { data: clips, error: fetchErr } = await admin
       .from('trending_clips')
-      .select('id, view_count, like_count, clip_created_at, created_at, title, duration_seconds, velocity, streamer_id')
+      .select('id, external_url, platform, view_count, like_count, clip_created_at, created_at, title, duration_seconds, velocity, streamer_id')
       .or(`next_check_at.is.null,next_check_at.lte.${now.toISOString()}`)
       .order('next_check_at', { ascending: true, nullsFirst: true })
       .limit(50)
@@ -105,6 +106,45 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // 3b. Re-fetch Twitch clips from API — mark deleted clips as dead
+    const twitchClips = clips.filter(c => c.platform === 'twitch' && c.external_url)
+    const twitchSlugMap = new Map<string, string>() // slug → trending_clip id
+    for (const c of twitchClips) {
+      try {
+        const slug = new URL(c.external_url).pathname.split('/').filter(Boolean).pop()
+        if (slug) twitchSlugMap.set(slug, c.id)
+      } catch { /* malformed URL, skip */ }
+    }
+
+    const deadFromApi = new Set<string>()
+    if (twitchSlugMap.size > 0) {
+      try {
+        const liveClips = await getClipsByIds([...twitchSlugMap.keys()])
+        const liveSlugs = new Set(liveClips.map(c => c.id))
+
+        for (const [slug, clipId] of twitchSlugMap) {
+          if (!liveSlugs.has(slug)) deadFromApi.add(clipId)
+        }
+
+        if (deadFromApi.size > 0) {
+          const { error: deadApiErr } = await admin
+            .from('trending_clips')
+            .update({ tier: 'dead', feed_category: 'normal', next_check_at: null })
+            .in('id', [...deadFromApi])
+
+          if (deadApiErr) {
+            logger.error('[rescore] Failed to mark API-deleted clips as dead:', deadApiErr.message)
+          } else {
+            logger.info(`[rescore] Marked ${deadFromApi.size} Twitch-deleted clips as dead (API empty)`)
+          }
+        }
+      } catch (err) {
+        // API call failed — skip dead detection, don't falsely mark clips
+        const msg = err instanceof Error ? err.message : String(err)
+        logger.warn(`[rescore] Twitch re-fetch failed, skipping dead detection: ${msg}`)
+      }
+    }
+
     // 4. Score all clips in memory, collect results for bulk operations
     let spikes = 0
     const bulkIds: string[] = []
@@ -122,6 +162,7 @@ export async function POST(req: NextRequest) {
     const snapshotInserts: Array<{ clip_id: string; view_count: number }> = []
 
     for (const clip of clips) {
+      if (deadFromApi.has(clip.id)) continue
       try {
         const snapshots = snapshotMap.get(clip.id) ?? []
         const latestSnapshot = snapshots[0] ?? null
@@ -218,6 +259,48 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // 4b. Check for clips flagged as deleted by failed renders (CLIP_DELETED errors)
+    const { data: deletedJobs } = await admin
+      .from('render_jobs')
+      .select('clip_id')
+      .in('clip_id', clipIds)
+      .eq('source', 'trending')
+      .like('error_message', 'CLIP_DELETED%')
+      .limit(100)
+
+    if (deletedJobs && deletedJobs.length > 0) {
+      const deletedClipIds = [...new Set(deletedJobs.map(j => j.clip_id))] as string[]
+      const { error: deadErr } = await admin
+        .from('trending_clips')
+        .update({ tier: 'dead', feed_category: 'normal', next_check_at: null })
+        .in('id', deletedClipIds)
+
+      if (deadErr) {
+        logger.error('[rescore] Failed to mark deleted clips as dead:', deadErr.message)
+      } else {
+        logger.info(`[rescore] Marked ${deletedClipIds.length} source-deleted clips as dead`)
+      }
+
+      // Remove them from the bulk update arrays
+      for (const deadId of deletedClipIds) {
+        const idx = bulkIds.indexOf(deadId)
+        if (idx !== -1) {
+          bulkIds.splice(idx, 1)
+          bulkVelocityScores.splice(idx, 1)
+          bulkMomentumScores.splice(idx, 1)
+          bulkEngagementScores.splice(idx, 1)
+          bulkRecencyScores.splice(idx, 1)
+          bulkEarlySignalScores.splice(idx, 1)
+          bulkFormatScores.splice(idx, 1)
+          bulkSaturationScores.splice(idx, 1)
+          bulkAnomalyScores.splice(idx, 1)
+          bulkTiers.splice(idx, 1)
+          bulkFeedCategories.splice(idx, 1)
+          bulkNextCheckAts.splice(idx, 1)
+        }
+      }
+    }
+
     // 5. Batch insert snapshots (1 query instead of N)
     if (snapshotInserts.length > 0) {
       const { error: snapErr } = await admin.from('clip_snapshots').insert(snapshotInserts)
@@ -247,10 +330,11 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    const deadCount = deadFromApi.size + (deletedJobs?.length ? [...new Set(deletedJobs.map(j => j.clip_id))].length : 0)
     return NextResponse.json({
-      data: { rescored: bulkIds.length, spikes },
+      data: { rescored: bulkIds.length, spikes, dead: deadCount },
       error: null,
-      message: `${bulkIds.length} clips rescored · ${spikes} spikes detected`,
+      message: `${bulkIds.length} clips rescored · ${spikes} spikes · ${deadCount} dead`,
     })
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Internal error'

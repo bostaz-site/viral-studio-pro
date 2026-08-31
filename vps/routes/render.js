@@ -56,7 +56,7 @@ async function updateRenderJob(jobId, updates) {
  * Send HMAC-signed webhook callback to Next.js after render completion.
  * Requires WEBHOOK_SECRET and APP_URL env vars.
  */
-async function sendWebhookCallback(jobId, status, storagePath, errorMessage) {
+async function sendWebhookCallback(jobId, status, storagePath, errorMessage, extra = {}) {
   const webhookSecret = process.env.WEBHOOK_SECRET;
   const appUrl = process.env.APP_URL || 'https://viralanimal.com';
 
@@ -71,6 +71,7 @@ async function sendWebhookCallback(jobId, status, storagePath, errorMessage) {
     storagePath: storagePath || null,
     errorMessage: errorMessage || null,
     timestamp: Date.now(),
+    ...extra,
   };
 
   const bodyString = JSON.stringify(payload);
@@ -469,6 +470,26 @@ async function probeSourceResolution(filePath) {
   }
 }
 
+/**
+ * Patterns that indicate a clip has been deleted/removed at the source.
+ * yt-dlp and direct fetch surface these in stderr or HTTP status.
+ */
+const CLIP_DELETED_PATTERNS = [
+  /this clip is no longer available/i,
+  /video unavailable/i,
+  /this video has been removed/i,
+  /HTTP Error 404/i,
+  /ERROR:.*404/i,
+  /Unable to download webpage.*404/i,
+  /is not available/i,
+  /content.*removed/i,
+  /clip.*deleted/i,
+];
+
+function isClipDeletedError(message) {
+  return CLIP_DELETED_PATTERNS.some(pattern => pattern.test(message));
+}
+
 async function downloadFromUrl(url, outputPath, fallbackUrl = null) {
   const attempts = [];
 
@@ -499,6 +520,12 @@ async function downloadFromUrl(url, outputPath, fallbackUrl = null) {
       attempts.push('yt-dlp: empty output');
     }
   } catch (err) {
+    const combined = `${err.message || ''} ${err.stderr || ''}`;
+    // Detect deleted/removed clips — fail fast, no fallback needed
+    if (isClipDeletedError(combined)) {
+      console.warn(`[yt-dlp] Clip deleted at source: ${url}`);
+      throw new Error(`CLIP_DELETED: This clip has been removed from the platform`);
+    }
     console.warn(`[yt-dlp] Failed: ${err.message}`);
     attempts.push(`yt-dlp: ${err.message}`);
     await safeUnlink(outputPath);
@@ -509,6 +536,9 @@ async function downloadFromUrl(url, outputPath, fallbackUrl = null) {
   try {
     console.log(`[download] Trying direct fetch for: ${fetchUrl.substring(0, 80)}...`);
     const response = await fetch(fetchUrl, { redirect: 'follow' });
+    if (response.status === 404 || response.status === 410) {
+      throw new Error(`CLIP_DELETED: This clip has been removed from the platform (HTTP ${response.status})`);
+    }
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
     const contentType = response.headers.get('content-type') || '';
@@ -1723,7 +1753,10 @@ router.post('/', async (req, res) => {
     });
 
     // Send HMAC-signed webhook callback to Next.js (queue management + export tracking)
-    sendWebhookCallback(req.body.jobId, finalStatus, clipStoragePath, null).catch(() => {});
+    // Include wordCount from Whisper for candidate check calibration (truth loop)
+    sendWebhookCallback(req.body.jobId, finalStatus, clipStoragePath, null, {
+      wordCount: wordTimestamps ? wordTimestamps.length : 0,
+    }).catch(() => {});
 
     res.json({
       success: true,

@@ -483,6 +483,14 @@ Next.js render routes send `plan` + `watermark: { enabled: plan==='free' }` in t
 - `POST /api/enhance/ai-optimize` — mood detection. Returns `{ mood, confidence, explanation, important_words }`
 - `POST /api/render/hook` — proxied to VPS. Returns `HookAnalysis { peak, hooks[3], reorder }`
 
+### Deleted Clip Detection (CLIP_DELETED)
+When a source clip has been removed by the streamer or platform:
+1. **VPS download** (`vps/routes/render.js` `downloadFromUrl` + `vps/lib/yt-dlp-wrapper.js`): detects yt-dlp errors ("no longer available", "HTTP Error 404", "Video unavailable") and direct fetch 404/410. Throws `Error('CLIP_DELETED: ...')` — no fallback, no retry.
+2. **Webhook** (`app/api/render/hook/route.ts`): on CLIP_DELETED error, skips retry loop and marks `trending_clips` row as `tier='dead', feed_category='normal', next_check_at=null`.
+3. **Render status** (`app/api/render/status/route.ts`): returns dedicated message for CLIP_DELETED errors.
+4. **Frontend** (`components/ui/error-card.tsx`): `classifyError` detects CLIP_DELETED → `ErrorKind='clip_deleted'` (Trash2 icon, zinc color). Enhance page shows "Ce clip a été supprimé par le streamer ou la plateforme — choisis-en un autre" with no Retry button.
+5. **Rescore cron** (`app/api/cron/rescore-clips/route.ts`): checks `render_jobs` for CLIP_DELETED errors on current batch, marks matching trending_clips as dead, removes them from bulk score update.
+
 ### Gotchas
 - Mood detection falls back to "hype" at 30% confidence on timeout/error
 - Overlay capture uses Canvas only (SVG foreignObject taints canvas, breaks toDataURL)
@@ -827,6 +835,57 @@ Toggle OFF cancels all pending autofarm rows. Launch: TikTok + YouTube. Details 
 - Google doesn't rotate refresh tokens; TikTok does
 - Redis down: lock acquisition falls through (best-effort), refresh proceeds without coordination
 - All tokens encrypted AES-256-GCM via `lib/crypto.ts`
+
+---
+
+## 8b. Candidate Check (Pre-Render Analysis)
+
+Detects bad render candidates BEFORE the user clicks Generate. Advisory only — never blocks a render.
+
+### VPS Endpoint
+`POST /api/analyze-candidate` (auth: x-api-key, same as /render)
+- Input: `{ videoUrl, fallbackUrl, clipId }`
+- Downloads via yt-dlp wrapper (reuses existing cache)
+- **Dark check**: `ffmpeg -vf "fps=1,signalstats"` → per-second luma average. Flag `too_dark` if darkSecondsRatio > 0.3 OR longestDarkStretch > 6s. Threshold: luma < 20.
+- **Speech check**: `ffmpeg -af "silencedetect=noise=-35dB:d=0.5"` → speechRatio (non-silence %). Flag `low_speech` if speechRatio < 0.25 OR longestSilence > 8s. NOTE: proxy only — music counts as speech. Acceptable for warnings.
+- Global timeout: 30s. On failure returns `{ flags: [], error }`.
+- Output: `{ darkSecondsRatio, longestDarkStretch, speechRatio, longestSilence, flags, analyzedAt }`
+
+### DB Columns (trending_clips)
+```sql
+candidate_flags TEXT[]          -- ['too_dark', 'low_speech']
+candidate_metrics JSONB         -- { darkSecondsRatio, speechRatio, whisperWordCount, ... }
+candidate_checked_at TIMESTAMPTZ
+```
+Migration: `20260831_candidate_check.sql`
+
+### Next.js Proxy
+`POST /api/clips/candidate-check` (auth: user session)
+- Validates input (zod schema: `lib/schemas/candidate-check.ts`)
+- Checks `candidate_checked_at` in DB — returns cached result if exists (never re-analyze)
+- Calls VPS `/api/analyze-candidate`, stores result in `trending_clips`
+
+### UI (Enhance Page)
+- Fires check on page load (non-blocking, after clip data loads)
+- Warning banner above Generate button if flags present:
+  - `low_speech` → "Low dialogue detected — AI hook and captions will be weak on this clip."
+  - `too_dark` → "Long dark sections detected — this clip may lose viewers."
+  - Both → "This clip is a poor candidate: low dialogue + dark sections. Pick another clip for better results."
+
+### Scoring Impact
+- `low_speech`: hook weight capped at 0.04 (vs normal 0.14), caption mood-match bonuses reduced
+- `too_dark`: 15% flat penalty on total boost (× 0.85)
+- Both flags propagated to `computeCurrentScore()` and `computeScoreBreakdown()`
+
+### Truth Loop
+On render completion, VPS sends `wordCount` (Whisper word count) in the webhook payload. The render hook route stores it in `candidate_metrics.whisperWordCount` on the trending_clips row. This enables future calibration of the silencedetect proxy threshold against real Whisper data.
+
+### Files
+- `vps/routes/analyze-candidate.js` — VPS endpoint
+- `app/api/clips/candidate-check/route.ts` — Next.js proxy
+- `lib/schemas/candidate-check.ts` — Zod schema
+- `lib/enhance/scoring.ts` — candidateFlags parameter in scoring functions
+- `app/(dashboard)/dashboard/enhance/[clipId]/page.tsx` — UI banner + check trigger
 
 ---
 

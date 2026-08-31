@@ -19,6 +19,7 @@ import { dirname } from 'path';
 import renderRouter from './routes/render.js';
 import healthRouter from './routes/health.js';
 import downloadRouter from './routes/download.js';
+import analyzeCandidateRouter from './routes/analyze-candidate.js';
 import { logger } from './lib/logger.js';
 import { checkOpenCV } from './lib/opencv-check.js';
 
@@ -106,6 +107,9 @@ app.use('/api/render', authenticateApiKey, renderRouter);
 
 // Download endpoint (requires auth)
 app.use('/api/download', authenticateApiKey, downloadRouter);
+
+// Candidate analysis endpoint (requires auth)
+app.use('/api/analyze-candidate', authenticateApiKey, analyzeCandidateRouter);
 
 // Root endpoint
 app.get('/', (req, res) => {

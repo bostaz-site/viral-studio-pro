@@ -211,6 +211,23 @@ export async function downloadVideo(videoUrl, outputPath, options = {}) {
       throw new Error('yt-dlp is not installed on this system');
     }
 
+    // Detect deleted/removed clips
+    const combined = `${err.message || ''} ${err.stderr || ''}`;
+    const deletedPatterns = [
+      /this clip is no longer available/i,
+      /video unavailable/i,
+      /this video has been removed/i,
+      /HTTP Error 404/i,
+      /ERROR:.*404/i,
+      /Unable to download webpage.*404/i,
+      /is not available/i,
+      /content.*removed/i,
+      /clip.*deleted/i,
+    ];
+    if (deletedPatterns.some(p => p.test(combined))) {
+      throw new Error('CLIP_DELETED: This clip has been removed from the platform');
+    }
+
     throw new Error(`Failed to download video: ${err.message}`);
   }
 }
@@ -259,6 +276,20 @@ export async function getVideoMetadata(videoUrl) {
     };
   } catch (err) {
     console.error('[yt-dlp Error]', err.message);
+
+    const combined = `${err.message || ''} ${err.stderr || ''}`;
+    const deletedPatterns = [
+      /this clip is no longer available/i,
+      /video unavailable/i,
+      /this video has been removed/i,
+      /HTTP Error 404/i,
+      /ERROR:.*404/i,
+      /is not available/i,
+    ];
+    if (deletedPatterns.some(p => p.test(combined))) {
+      throw new Error('CLIP_DELETED: This clip has been removed from the platform');
+    }
+
     throw new Error(`Failed to fetch metadata: ${err.message}`);
   }
 }

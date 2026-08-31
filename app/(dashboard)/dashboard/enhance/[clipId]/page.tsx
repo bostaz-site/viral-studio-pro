@@ -188,6 +188,9 @@ export default function EnhancePage() {
   const [hookError, setHookError] = useState<string | null>(null)
   // Burned-in caption detection state
   const [burnedCaptions, setBurnedCaptions] = useState<{ detected: boolean; position: string | null; confidence: number } | null>(null)
+  // Candidate check state (pre-render analysis: dark sections, low speech)
+  const [candidateFlags, setCandidateFlags] = useState<string[]>([])
+  const candidateCheckFired = useRef(false)
   const paywallRef = useRef({ userPlan, monthlyUsed, bonusVideos })
   const router = useRouter()
   const sectionRefs = {
@@ -390,6 +393,36 @@ export default function EnhancePage() {
     detect()
     return () => { cancelled = true }
   }, [clip?.external_url, clip?.duration_seconds, sourceParam])
+
+  // Candidate check — detect bad render candidates (dark sections, low speech)
+  // Non-blocking background check, cached in DB via the API route.
+  useEffect(() => {
+    if (!clip || sourceParam === 'upload' || candidateCheckFired.current) return
+    if (!clip.external_url) return
+    candidateCheckFired.current = true
+
+    async function checkCandidate() {
+      try {
+        const res = await fetch('/api/clips/candidate-check', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            clipId: clip!.id,
+            videoUrl: clip!.external_url,
+          }),
+          signal: AbortSignal.timeout(40_000),
+        })
+        if (!res.ok) return
+        const json = await res.json() as { data?: { flags?: string[] } }
+        if (json.data?.flags?.length) {
+          setCandidateFlags(json.data.flags)
+        }
+      } catch {
+        // Silent — candidate check is advisory, never blocking
+      }
+    }
+    checkCandidate()
+  }, [clip, sourceParam])
 
   // Bootstrap paywall data (plan, usage, save status)
   useEffect(() => {
@@ -903,8 +936,8 @@ export default function EnhancePage() {
     if (!scores) return baselineScore
     const activeMood = selectedMood ?? detectedMood
     const hasBurned = burnedCaptions?.detected && burnedCaptions.confidence >= 0.7
-    return computeCurrentScore(settings, scores, baselineScore, activeMood, hasBurned)
-  }, [settings, scores, baselineScore, selectedMood, detectedMood, burnedCaptions])
+    return computeCurrentScore(settings, scores, baselineScore, activeMood, hasBurned, candidateFlags)
+  }, [settings, scores, baselineScore, selectedMood, detectedMood, burnedCaptions, candidateFlags])
 
   // ── Animated score count-up ──
   const [displayScore, setDisplayScore] = useState(currentScore)
@@ -936,8 +969,8 @@ export default function EnhancePage() {
   const scoreBreakdown = useMemo(() => {
     const activeMood = selectedMood ?? detectedMood
     const hasBurned = burnedCaptions?.detected && burnedCaptions.confidence >= 0.7
-    return computeScoreBreakdown(settings, baselineScore, activeMood, hasBurned)
-  }, [settings, baselineScore, selectedMood, detectedMood, burnedCaptions])
+    return computeScoreBreakdown(settings, baselineScore, activeMood, hasBurned, candidateFlags)
+  }, [settings, baselineScore, selectedMood, detectedMood, burnedCaptions, candidateFlags])
 
   // ── updateSetting with ephemeral delta (defined here because it depends on state above) ──
   const SETTING_TO_SECTION: Record<string, keyof Omit<ScoreBreakdown, 'total'>> = useMemo(() => ({
@@ -960,8 +993,8 @@ export default function EnhancePage() {
         setSettings((prev) => {
           const newSettings = { ...prev, [key]: value }
           const hasBurned = burnedCaptions?.detected && burnedCaptions.confidence >= 0.7
-          const oldBreakdown = computeScoreBreakdown(prev, baselineScore, activeMood, hasBurned)
-          const newBreakdown = computeScoreBreakdown(newSettings, baselineScore, activeMood, hasBurned)
+          const oldBreakdown = computeScoreBreakdown(prev, baselineScore, activeMood, hasBurned, candidateFlags)
+          const newBreakdown = computeScoreBreakdown(newSettings, baselineScore, activeMood, hasBurned, candidateFlags)
           const delta = Math.round((newBreakdown[section] - oldBreakdown[section]) * 10) / 10
           if (delta !== 0) {
             setEphemeralDelta({ section, value: delta })
@@ -1512,6 +1545,20 @@ export default function EnhancePage() {
             </p>
           )}
 
+          {/* Candidate check warning — bad render candidates (dark / silent clips) */}
+          {candidateFlags.length > 0 && !renderDownloadUrl && !rendering && (
+            <div className="flex items-start gap-2.5 p-3 rounded-xl border border-amber-500/20 bg-amber-500/5">
+              <AlertCircle className="h-4 w-4 shrink-0 text-amber-400 mt-0.5" />
+              <p className="text-sm text-amber-300/90 leading-snug">
+                {candidateFlags.includes('low_speech') && candidateFlags.includes('too_dark')
+                  ? 'This clip is a poor candidate: low dialogue + dark sections. Pick another clip for better results.'
+                  : candidateFlags.includes('low_speech')
+                    ? 'Low dialogue detected — AI hook and captions will be weak on this clip.'
+                    : 'Long dark sections detected — this clip may lose viewers.'}
+              </p>
+            </div>
+          )}
+
           {/* Generate button — hidden when AI flow active or render done */}
           {!renderDownloadUrl && !makeViralLoading && !analysisSequenceActive && !rendering && (() => {
             const maxDur = getPlanConfig(userPlan).limits.maxClipDurationSeconds
@@ -1567,19 +1614,22 @@ export default function EnhancePage() {
                 kind={kind}
                 title="Render failed"
                 description={
-                  kind === 'timeout'
-                    ? "The render server timed out. Your clip might be too long — try again or shorten it."
-                    : kind === 'quota'
-                      ? 'You\'ve reached your clip limit this month.'
-                      : kind === 'network'
-                        ? 'Check your internet connection and try again.'
-                        : 'Something went wrong on our end. Try again — if it persists, we\'ll look into it.'
+                  kind === 'clip_deleted'
+                    ? 'Ce clip a été supprimé par le streamer ou la plateforme — choisis-en un autre.'
+                    : kind === 'timeout'
+                      ? "The render server timed out. Your clip might be too long — try again or shorten it."
+                      : kind === 'quota'
+                        ? 'You\'ve reached your clip limit this month.'
+                        : kind === 'network'
+                          ? 'Check your internet connection and try again.'
+                          : 'Something went wrong on our end. Try again — if it persists, we\'ll look into it.'
                 }
                 details={cleaned}
-                onRetry={() => {
+                onRetry={kind !== 'clip_deleted' ? () => {
                   setRenderMessage(null)
                   handleRender()
-                }}
+                } : undefined}
+                retryLabel={kind === 'clip_deleted' ? undefined : 'Retry'}
                 secondaryAction={
                   kind === 'quota'
                     ? { label: 'See options', onClick: () => setShowPaywall(true) }

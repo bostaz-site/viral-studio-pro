@@ -183,6 +183,31 @@ export async function getTopGames(limit = 20): Promise<TwitchGame[]> {
 }
 
 /**
+ * Get clips by their IDs (slugs). Returns only the clips that still exist.
+ * Accepts up to 100 IDs per call (Twitch API limit).
+ */
+export async function getClipsByIds(ids: string[]): Promise<TwitchClip[]> {
+  if (ids.length === 0) return []
+  const token = await getAccessToken()
+  const clientId = process.env.TWITCH_CLIENT_ID!
+  const url = new URL('https://api.twitch.tv/helix/clips')
+  for (const id of ids.slice(0, 100)) {
+    url.searchParams.append('id', id)
+  }
+
+  const res = await fetch(url.toString(), {
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Client-Id': clientId,
+    },
+  })
+
+  if (!res.ok) throw new Error(`Twitch API error (${res.status})`)
+  const data = await res.json() as { data: TwitchClip[] }
+  return data.data ?? []
+}
+
+/**
  * Search channels by name.
  */
 export async function searchChannels(query: string, limit = 10): Promise<TwitchChannel[]> {

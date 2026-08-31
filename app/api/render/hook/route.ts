@@ -43,6 +43,7 @@ const webhookSchema = z.object({
   storagePath: z.string().nullable().optional(),
   errorMessage: z.string().nullable().optional(),
   timestamp: z.number().optional(),
+  wordCount: z.number().optional(),
 })
 
 /**
@@ -136,8 +137,24 @@ async function handleWebhook(req: NextRequest) {
   const retryCount = currentJob.retry_count ?? 0
   const maxRetries = currentJob.max_retries ?? 2
 
+  // ── CLIP_DELETED: skip retries, mark trending_clip as dead ──
+  const isClipDeleted = payload.errorMessage?.includes('CLIP_DELETED') ?? false
+  if (isClipDeleted && currentJob.source === 'trending') {
+    Promise.resolve(
+      admin
+        .from('trending_clips')
+        .update({ tier: 'dead', feed_category: 'normal', next_check_at: null })
+        .eq('id', currentJob.clip_id)
+    ).then(() => {
+      logger.info(`[webhook] Marked trending_clip ${currentJob.clip_id} as dead (clip deleted at source)`)
+    }).catch((err: unknown) => {
+      const msg = err instanceof Error ? err.message : String(err)
+      logger.error(`[webhook] Failed to mark trending_clip as dead: ${msg}`)
+    })
+  }
+
   // ── Retry / Dead-letter logic ──
-  if (payload.status === 'error' && retryCount < maxRetries) {
+  if (payload.status === 'error' && retryCount < maxRetries && !isClipDeleted) {
     // Retriable failure — re-enqueue the job
     logger.info(`[webhook] Job ${payload.jobId} failed (attempt ${retryCount + 1}/${maxRetries}), re-queuing`)
 
@@ -265,6 +282,27 @@ async function handleWebhook(req: NextRequest) {
         .then(({ grantReferralRewardOnFirstRender }) =>
           grantReferralRewardOnFirstRender(uid)
         )
+        .catch(() => {})
+    }
+
+    // Truth loop: store Whisper wordCount in candidate_metrics for calibrating
+    // the silencedetect proxy used in pre-render candidate checks.
+    if (typeof payload.wordCount === 'number' && currentJob.source === 'trending') {
+      const clipId = currentJob.clip_id as string
+      ;(admin
+        .from('trending_clips')
+        .select('candidate_metrics')
+        .eq('id', clipId)
+        .single() as unknown as Promise<{ data: { candidate_metrics: Record<string, unknown> | null } | null }>)
+        .then(({ data }) => {
+          const existing = data?.candidate_metrics ?? {}
+          return (admin
+            .from('trending_clips')
+            .update({
+              candidate_metrics: { ...existing, whisperWordCount: payload.wordCount },
+            } as never)
+            .eq('id', clipId) as unknown as Promise<unknown>)
+        })
         .catch(() => {})
     }
   }
