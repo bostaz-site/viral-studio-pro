@@ -623,6 +623,7 @@ TikTok flags videos as "Unoriginal, low-quality content" when they appear to be 
 2. **Crop anchored to preserve source captions** — `cropAnchor` set to `'bottom'` (or `'top'` if pos=top). Affects ALL crop stages:
    - **Border crop:** vertical crop shifted to the opposite edge (e.g., bottom anchor → all vertical border crop from top, Y offset = `borderCrop * 2`)
    - **Fullframe/smartZoom final crop:** anchored Y (`ih-canvasH` for bottom, `0` for top)
+   - **Reaction layout content crop:** border trim uses `borderCropY`, final aspect crop uses anchored Y (`ih-contentH` for bottom). Facecam crop unchanged (uses exact face region coords).
    - **Smart zoom (dynamic/micro):** crop Y expression anchored
    - **Follow-face:** Y fixed to anchor edge (horizontal tracking only), prevents vertical pan from cutting source captions
 3. **UI warning** — Enhance page shows: "Le clip source contient déjà des sous-titres — ton style de captions n'a pas été appliqué pour éviter le doublon." via `burnedCaptionsSkipped` flag in render status API response.

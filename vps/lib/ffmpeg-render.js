@@ -1016,16 +1016,23 @@ export async function renderClip(inputPath, outputPath, options = {}) {
         // Divider line: 2px dark line at the junction
         const divH = 2;
 
+        // Content crop Y: anchor to bottom when burned captions detected so
+        // the bottom of the source (where captions live) is preserved.
+        const contentCropY = cropAnchor === 'bottom' ? `ih-${contentH}` : cropAnchor === 'top' ? '0' : `(ih-${contentH})/2`;
+        if (cropAnchor === 'bottom') console.log('[FFmpeg] CROP: anchored to bottom (burned captions) — reaction content');
+
         filterComplex = [
           // Crop face region from source, scale to fill canvas width, crop to exact faceH
           `[0:v]fps=${fps},crop=${face.w}:${face.h}:${face.x}:${face.y},scale=${canvasW}:${faceH}:force_original_aspect_ratio=increase:flags=lanczos,crop=${canvasW}:${faceH}:(iw-${canvasW})/2:(ih-${faceH})/2,setsar=1[facecam]`,
           // Crop content: full source minus border, scale to fill canvas width, crop to contentH
-          `[0:v]fps=${fps},crop=in_w-${borderCrop*2}:in_h-${borderCrop*2}:${borderCrop}:${borderCrop},scale=${canvasW}:${contentH}:force_original_aspect_ratio=increase:flags=lanczos,crop=${canvasW}:${contentH}:(iw-${canvasW})/2:(ih-${contentH})/2,setsar=1[content]`,
+          // borderCropY shifts vertical trim to preserve bottom when burned captions detected;
+          // contentCropY anchors the final aspect crop after scale.
+          `[0:v]fps=${fps},crop=in_w-${borderCrop*2}:in_h-${borderCrop*2}:${borderCrop}:${borderCropY},scale=${canvasW}:${contentH}:force_original_aspect_ratio=increase:flags=lanczos,crop=${canvasW}:${contentH}:(iw-${canvasW})/2:${contentCropY},setsar=1[content]`,
           // Stack: facecam on top, content on bottom
           `[facecam][content]vstack=inputs=2[composed]`,
         ].join(';');
         mapVideo = '[composed]';
-        console.log(`[FFmpeg] Reaction layout: face(${face.x},${face.y},${face.w}x${face.h}) → ${canvasW}x${faceH} top, content → ${canvasW}x${contentH} bottom`);
+        console.log(`[FFmpeg] Reaction layout: face(${face.x},${face.y},${face.w}x${face.h}) → ${canvasW}x${faceH} top, content → ${canvasW}x${contentH} bottom, anchor=${cropAnchor}`);
       } else if (isDuo) {
         // DUO MODE: two speakers stacked — face A top 50%, face B bottom 50%.
         // Each half crops a 9:8 region around its face from the source, then
@@ -1068,6 +1075,7 @@ export async function renderClip(inputPath, outputPath, options = {}) {
       } else if (useFullFrame) {
         // FULL-FRAME MODE: center crop directly to 9:16 (no blurred padding).
         const ffCropY = cropAnchor === 'bottom' ? `ih-${canvasH}` : cropAnchor === 'top' ? '0' : `(ih-${canvasH})/2`;
+        if (cropAnchor === 'bottom') console.log('[FFmpeg] CROP: anchored to bottom (burned captions) — fullframe');
         filterComplex = `[0:v]fps=${fps},crop=in_w-${borderCrop*2}:in_h-${borderCrop*2}:${borderCrop}:${borderCropY},scale=${canvasW}:${canvasH}:force_original_aspect_ratio=increase:flags=lanczos,crop=${canvasW}:${canvasH}:(iw-${canvasW})/2:${ffCropY},setsar=1[composed]`;
         mapVideo = '[composed]';
         console.log(`[FFmpeg] Full-frame crop: ${canvasW}x${canvasH}, border trim ${borderCrop}px, anchor=${cropAnchor}`);
