@@ -29,6 +29,8 @@ const publishSchema = z.object({
     brand_content_toggle: z.boolean().optional(),
     brand_organic_toggle: z.boolean().optional(),
   }).optional(),
+  // YouTube visibility (default: public)
+  youtube_privacy: z.enum(['public', 'unlisted', 'private']).optional(),
   // Optional metadata snapshot for published_posts logging
   metadata: z.object({
     clip_mood: z.string().optional(),
@@ -75,7 +77,7 @@ export const POST = withAuth(
       return errorResponse(parsed.error.issues[0]?.message ?? 'Invalid input', 400)
     }
 
-    const { clip_id, caption, hashtags, metadata, tiktok_options } = parsed.data
+    const { clip_id, caption, hashtags, metadata, tiktok_options, youtube_privacy } = parsed.data
     const admin = createAdminClient()
 
     // Verify clip exists and belongs to user
@@ -240,6 +242,7 @@ export const POST = withAuth(
         clipTitle ?? 'Viral Animal Clip',
         tiktok_options,
         igMetadata,
+        youtube_privacy,
       )
 
       // Update publication record with success
@@ -382,12 +385,13 @@ async function publishToPlatform(
   title: string,
   tiktokOptions?: TikTokOptions,
   instagramMeta?: InstagramMeta | null,
+  youtubePrivacy?: 'public' | 'unlisted' | 'private',
 ): Promise<PublishResult> {
   switch (platform) {
     case 'tiktok':
       return publishToTikTok(accessToken, videoUrl, caption, tiktokOptions)
     case 'youtube':
-      return publishToYouTube(accessToken, videoUrl, caption, title)
+      return publishToYouTube(accessToken, videoUrl, caption, title, youtubePrivacy)
     case 'instagram':
       if (!instagramMeta) throw new Error('Instagram metadata missing')
       return publishToInstagram(instagramMeta, videoUrl, caption)
@@ -542,7 +546,8 @@ async function publishToYouTube(
   accessToken: string,
   videoUrl: string,
   caption: string,
-  title: string
+  title: string,
+  privacyStatus?: 'public' | 'unlisted' | 'private',
 ): Promise<PublishResult> {
   // Step 1: Download the video from signed URL
   const videoRes = await fetch(videoUrl)
@@ -563,7 +568,7 @@ async function publishToYouTube(
       tags: ['shorts', 'viral', 'clips'],
     },
     status: {
-      privacyStatus: 'private', // Start as private — user can change on YouTube
+      privacyStatus: privacyStatus ?? 'public',
       selfDeclaredMadeForKids: false,
     },
   }

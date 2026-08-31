@@ -124,6 +124,7 @@ export function UnifiedPublishDialog({
   const [bankingInProgress, setBankingInProgress] = useState(false)
   const [hasDownloaded, setHasDownloaded] = useState(false)
   const [publishedAt, setPublishedAt] = useState<string | null>(null)
+  const [youtubePrivacy, setYoutubePrivacy] = useState<'public' | 'unlisted' | 'private'>('public')
 
   // Read persisted clip status from trending store + localStorage
   const bankedClipIds = useTrendingStore(s => s.bankedClipIds)
@@ -304,6 +305,7 @@ export function UnifiedPublishDialog({
             clip_id: clipId,
             caption: clipTitle || 'Viral clip',
             metadata: metadata ?? undefined,
+            ...(platform === 'youtube' && { youtube_privacy: youtubePrivacy }),
           }
           const res = await fetch(`/api/publish/${platform}`, {
             method: 'POST',
@@ -351,7 +353,7 @@ export function UnifiedPublishDialog({
       setIsPublishing(false)
       setAllDone(true)
     }
-  }, [platforms, clipId, clipTitle])
+  }, [platforms, clipId, clipTitle, youtubePrivacy])
 
   const handleClose = () => {
     if (isPublishing) return
@@ -482,6 +484,26 @@ export function UnifiedPublishDialog({
                           ) : null}
                         </div>
                       </div>
+
+                      {/* YouTube visibility selector */}
+                      {id === 'youtube' && isSelected && !allDone && (
+                        <div className="mt-2.5 ml-8 flex items-center gap-1.5" onClick={e => e.stopPropagation()}>
+                          <span className="text-[11px] text-muted-foreground mr-1">Visibility</span>
+                          {(['public', 'unlisted', 'private'] as const).map(v => (
+                            <button
+                              key={v}
+                              onClick={() => setYoutubePrivacy(v)}
+                              className={`px-2.5 py-1 text-[11px] font-medium rounded-md border transition-colors ${
+                                youtubePrivacy === v
+                                  ? 'border-red-500/50 bg-red-500/15 text-red-400'
+                                  : 'border-border bg-muted/30 text-muted-foreground hover:text-foreground hover:bg-muted/50'
+                              }`}
+                            >
+                              {v === 'public' ? 'Public' : v === 'unlisted' ? 'Unlisted' : 'Private'}
+                            </button>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   )
                 })}
