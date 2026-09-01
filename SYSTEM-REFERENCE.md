@@ -623,7 +623,7 @@ TikTok flags videos as "Unoriginal, low-quality content" when they appear to be 
 | **Exposure correction** | Adaptive eq filter based on source luma | Alters the color grading of every frame |
 | **Credit tag** (credit-text style) | Plain "@handle" text with shadow, fades after 4s | NOT a watermark — looks like native TikTok text overlay |
 | **Reaction layout recomposition** (auto-detected) | Detects webcam overlay, restacks facecam top + content bottom at full width | Complete spatial recomposition — fundamentally different frame than source |
-| **AI Voiceover** (active by default) | Original commentary lines synthesized via ElevenLabs, mixed with ducking | TikTok explicitly accepts "original voiceover" as creative transformation |
+| **AI Voiceover** (**ON STANDBY** — `NEXT_PUBLIC_VOICEOVER_ENABLED=false`) | Original commentary lines synthesized via ElevenLabs, mixed with ducking | TikTok explicitly accepts "original voiceover" as creative transformation. Currently disabled: UI hidden, VPS skips pipeline, not counted in transform_score or critical features. Code preserved for reactivation. |
 | **Quality re-encode** | 1080x1920, CRF 17, libx264 high profile, bt709 color | Full re-encode — every frame is regenerated |
 
 **Honest disclaimer**: these transformations produce genuinely edited content, but TikTok's Community Guidelines compliance also depends on the user's clip choice (e.g. music copyright, content rights). The pipeline does not guarantee For You feed eligibility for every clip. Users re-posting content they don't own should add significant creative value.
@@ -673,14 +673,16 @@ When multiple users remix the same clip with similar settings, TikTok's perceptu
 3. **UI warning** — Enhance page shows: "Le clip source contient déjà des sous-titres — ton style de captions n'a pas été appliqué pour éviter le doublon." via `burnedCaptionsSkipped` flag in render status API response.
 4. **Blowup Chance scoring** — Base 0.15 for "captions present" still awarded (source captions count). Style/mood-match bonuses (emphasisEffect, captionStyle, emphasisColor) NOT awarded since our captions aren't rendered.
 
-### AI Voiceover — Original Commentary Layer
+### AI Voiceover — Original Commentary Layer (ON STANDBY)
+
+**Status**: Feature on standby. Gated by `NEXT_PUBLIC_VOICEOVER_ENABLED` (default `false`). UI hidden, VPS skips pipeline, no ElevenLabs/Claude calls made. All code preserved — set flag to `true` to reactivate. Voiceover removed from `CRITICAL_FEATURES` (no longer causes degraded status) and from `transformScore()` (score is 0-3 not 0-4).
 
 TikTok's originality policy cites "original voiceover" as an acceptable creative transformation. The pipeline generates and mixes AI commentary:
 
 **Chain**: Word timestamps (Whisper) -> Script generation (Claude Haiku) -> TTS synthesis (ElevenLabs) -> FFmpeg audio mix with ducking.
 
 **Prerequisites** (all must be true for voiceover to produce output):
-1. `settings.voiceover.enabled !== false` (default ON)
+1. `NEXT_PUBLIC_VOICEOVER_ENABLED=true` AND `settings.voiceover.enabled !== false`
 2. `wordTimestamps.length > 0` — requires Whisper transcription to have run (inside `captionsRequested` block)
 3. `duration > 5` — clips under 5s skip voiceover
 4. `ANTHROPIC_API_KEY` env var set on Railway VPS — needed for script generation
@@ -861,7 +863,7 @@ Stats cron (`refresh-post-stats`) tracks `last_checked_at` + `check_count` on ev
 Queue-based auto-posting pipeline: user enables Auto-Distribute toggle → client POST `/api/distribution/autofarm-sync` → insert rows in `scheduled_publications` (source='autofarm', tiktok_options from user-configured `auto_post_defaults`, caption from `generateVariants()` template engine) → cron `publish-scheduled` (every 5-10min) picks up rows WHERE `status='scheduled' AND scheduled_at <= now()` → optimistic lock → guard against already-published clips → publish via platform API → insert `published_posts` → set `removed_from_bank_at` on render_job (prevent republish loop) → cleanup.
 
 **Key safety mechanisms (v10)**:
-- **Transform score quality gate**: `render_jobs.transform_score` (0-4, computed by VPS: +1 hook_text, +1 captions, +1 smart_zoom, +1 voiceover). Cron `publish-scheduled` blocks auto-publish if `transform_score < 2` (canceled with `transform_score_too_low`) or if `render_jobs.status = 'degraded'` (canceled with `render_degraded`). Manual publish via the dialog is always allowed. Clip bank UI shows "Needs more edits" badge when score < 2, "Degraded" badge when render degraded.
+- **Transform score quality gate**: `render_jobs.transform_score` (0-3, computed by VPS: +1 hook_text, +1 captions, +1 smart_zoom). Voiceover excluded (on standby). Cron `publish-scheduled` blocks auto-publish if `transform_score < 2` (canceled with `transform_score_too_low`) or if `render_jobs.status = 'degraded'` (canceled with `render_degraded`). Manual publish via the dialog is always allowed. Clip bank UI shows "Needs more edits" badge when score < 2, "Degraded" badge when render degraded.
 - `auto_post_defaults` REQUIRED before toggle ON (TikTok compliance — user chooses privacy/interactions)
 - Captions never empty: template engine generates from clip title + niche hashtags
 - Sync route inserts FIRST, cancels old rows AFTER (if insert fails, existing queue survives)

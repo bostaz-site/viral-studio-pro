@@ -1524,7 +1524,10 @@ router.post('/', async (req, res) => {
     t('vo_start');
     let voiceoverPaths = null;
     try {
-      const voiceoverEnabled = settings.voiceover?.enabled !== false; // default ON
+      // Voiceover is gated: the client sends enabled=false when NEXT_PUBLIC_VOICEOVER_ENABLED is off.
+      // Also respect the VPS-side env as a kill switch.
+      const voiceoverGloballyOff = process.env.VOICEOVER_ENABLED === 'false';
+      const voiceoverEnabled = !voiceoverGloballyOff && settings.voiceover?.enabled !== false;
       const hasTranscript = wordTimestamps.length > 0 || captionWordTimestamps.length > 0;
       const hasAnthropicKey = !!process.env.ANTHROPIC_API_KEY;
       const hasElevenLabsKey = !!process.env.ELEVENLABS_API_KEY;

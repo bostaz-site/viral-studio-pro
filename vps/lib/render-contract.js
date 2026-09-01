@@ -10,9 +10,9 @@
  *   - cosmetic: audio shift, smart zoom, exposure — failure logged but not refunded
  */
 
-// Feature classification: critical = user explicitly enabled, visible output expected
+// Feature classification: critical = user explicitly enabled, visible output expected.
+// Voiceover removed from critical set (on standby — VO failure no longer degrades a render).
 const CRITICAL_FEATURES = new Set([
-  'voiceover',
   'captions',
   'hook_text',
 ]);
@@ -126,10 +126,11 @@ export function createContract(settings) {
     },
 
     /**
-     * Compute a transform score (0-4) that measures how many visible
+     * Compute a transform score (0-3) that measures how many visible
      * transformations were actually applied to the render.
      * Used by the autofarm quality gate to block low-effort outputs.
-     *   +1 hook text, +1 captions, +1 smart zoom / dynamic crop, +1 voiceover
+     *   +1 hook text, +1 captions, +1 smart zoom / dynamic crop
+     * Voiceover excluded (on standby).
      */
     transformScore() {
       let score = 0;
@@ -138,7 +139,6 @@ export function createContract(settings) {
         if (e.feature === 'hook_text') score++;
         if (e.feature === 'captions') score++;
         if (e.feature === 'smart_zoom') score++;
-        if (e.feature === 'voiceover') score++;
       }
       return score;
     },

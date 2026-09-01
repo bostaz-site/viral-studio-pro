@@ -229,7 +229,7 @@ export default function EnhancePage() {
     hookTextPosition: 18,
     hookLength: 0,
     hookReorder: null,
-    voiceoverEnabled: true,
+    voiceoverEnabled: process.env.NEXT_PUBLIC_VOICEOVER_ENABLED === 'true',
     voiceoverVoice: 'default',
     voiceoverLines: [],
   }
@@ -1112,7 +1112,7 @@ export default function EnhancePage() {
       hookStyle: preset.hookStyle,
       hookTextPosition: preset.hookTextPosition,
       hookLength: preset.hookLength,
-      voiceoverEnabled: preset.voiceoverEnabled ?? true,
+      voiceoverEnabled: process.env.NEXT_PUBLIC_VOICEOVER_ENABLED === 'true' && (preset.voiceoverEnabled ?? true),
     }))
   }, [clip?.platform])
 
@@ -2372,7 +2372,8 @@ export default function EnhancePage() {
               </AccordionContent>
             </AccordionItem>
 
-            {/* ─── AI Voiceover Section ─── */}
+            {/* ─── AI Voiceover Section (gated by NEXT_PUBLIC_VOICEOVER_ENABLED) ─── */}
+            {process.env.NEXT_PUBLIC_VOICEOVER_ENABLED === 'true' && (
             <AccordionItem value="voiceover" className={cn("scroll-mt-32 va-panel px-4 overflow-hidden", settings.voiceoverEnabled ? 'va-panel-active' : 'va-panel-muted')}>
               <AccordionTrigger className="text-zinc-400 hover:text-white">
                 <span className="flex items-center gap-2 text-sm font-medium text-foreground">
@@ -2483,6 +2484,7 @@ export default function EnhancePage() {
                 </div>
               </AccordionContent>
             </AccordionItem>
+            )}
 
             {/* ─── Auto-Cut Silences Section ─── */}
             <AccordionItem value="autocut" className={cn("scroll-mt-32 va-panel px-4 overflow-hidden", settings.autoCutEnabled ? 'va-panel-active' : 'va-panel-muted')}>
