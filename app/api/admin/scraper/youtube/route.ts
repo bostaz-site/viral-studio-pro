@@ -49,8 +49,8 @@ export const POST = withAdmin(async (req, user) => {
     const { channels, quotaUsed } = await searchYouTubeChannels({
       query: parsed.data.query,
       maxResults: parsed.data.maxResults,
-      language: parsed.data.language,
-      regionCode: parsed.data.regionCode,
+      language: parsed.data.language || 'en',
+      regionCode: parsed.data.regionCode || 'US',
     })
 
     await trackQuotaUsage('youtube_api', quotaUsed)
@@ -165,17 +165,6 @@ export const POST = withAdmin(async (req, user) => {
       const graphBonus = distributorGraphBonus(products)
       const totalScore = Math.min(100, score + graphBonus)
 
-      // Check for existing duplicate
-      const { data: existing } = await supabase
-        .from('lead_discovery_results')
-        .select('id')
-        .eq('platform', 'youtube')
-        .eq('platform_id', ch.id)
-        .eq('run_id', run.id)
-        .maybeSingle()
-
-      if (existing) { duplicates++; return }
-
       // Collect all external URLs found across descriptions
       const allLinks = [...ch.links]
       for (const desc of allDescriptions) {
@@ -185,41 +174,83 @@ export const POST = withAdmin(async (req, user) => {
         }
       }
 
-      const { data: result } = await supabase
+      // Check for existing lead across ALL runs (cross-run dedup)
+      const { data: existing } = await supabase
         .from('lead_discovery_results')
-        .insert({
-          run_id: run.id,
-          platform: 'youtube',
-          platform_id: ch.id,
-          platform_handle: ch.handle,
-          display_name: ch.title,
-          profile_url: profileUrl,
-          avatar_url: ch.thumbnailUrl,
-          bio: ch.description?.slice(0, 2000),
-          audience_size: ch.subscriberCount,
-          niche: null,
-          language: ch.country,
-          country: ch.country,
-          recent_post_titles: channelVideoTitles.slice(0, 5),
-          recent_video_titles: channelVideoTitles.slice(0, 10),
-          links: allLinks,
-          keyword_score: totalScore,
-          contactability_score: contactabilityScore,
-          has_email: !!primaryEmail,
-          email: primaryEmail,
-          email_source: emailSource,
-          email_source_url: emailSourceUrl,
-          promoted_products: products.map(p => p.productName),
-          recent_upload_count: channelCadence.recentUploadCount,
-          last_upload_at: channelCadence.lastUploadAt,
-          raw_data: { subscriberCount: ch.subscriberCount, videoCount: ch.videoCount, viewCount: ch.viewCount, strongSignals, mediumSignals, isBusinessContact } as Record<string, unknown>,
-        })
-        .select('id, platform_handle, display_name, audience_size, keyword_score, has_email, promoted_products')
-        .single()
+        .select('id, email, import_status, influencer_id, email_source, email_source_url')
+        .eq('platform', 'youtube')
+        .eq('platform_id', ch.id)
+        .order('discovered_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
 
-      if (result) {
-        results.push(result)
-        newLeads++
+      const freshData = {
+        run_id: run.id,
+        platform: 'youtube' as const,
+        platform_id: ch.id,
+        platform_handle: ch.handle,
+        display_name: ch.title,
+        profile_url: profileUrl,
+        avatar_url: ch.thumbnailUrl,
+        bio: ch.description?.slice(0, 2000),
+        audience_size: ch.subscriberCount,
+        language: ch.country,
+        country: ch.country,
+        recent_post_titles: channelVideoTitles.slice(0, 5),
+        recent_video_titles: channelVideoTitles.slice(0, 10),
+        links: allLinks,
+        keyword_score: totalScore,
+        contactability_score: contactabilityScore,
+        promoted_products: products.map(p => p.productName),
+        recent_upload_count: channelCadence.recentUploadCount,
+        last_upload_at: channelCadence.lastUploadAt,
+        raw_data: { subscriberCount: ch.subscriberCount, videoCount: ch.videoCount, viewCount: ch.viewCount, strongSignals, mediumSignals, isBusinessContact } as Record<string, unknown>,
+      }
+
+      if (existing) {
+        // Cross-run duplicate: update existing row with new run_id + refreshed data.
+        // Preserve: email, email_source, import_status, influencer_id (user-curated fields).
+        const updateData: Record<string, unknown> = {
+          ...freshData,
+          discovered_at: new Date().toISOString(),
+          // Preserve existing email if we didn't find a new one
+          has_email: !!primaryEmail || !!(existing as Record<string, unknown>).email,
+        }
+        if (primaryEmail) {
+          updateData.email = primaryEmail
+          updateData.email_source = emailSource
+          updateData.email_source_url = emailSourceUrl
+        }
+        // Don't overwrite import_status, influencer_id, niche (user-set)
+
+        const { data: updated } = await supabase
+          .from('lead_discovery_results')
+          .update(updateData)
+          .eq('id', (existing as Record<string, unknown>).id)
+          .select('id, platform_handle, display_name, audience_size, keyword_score, has_email, promoted_products')
+          .single()
+
+        if (updated) results.push(updated)
+        duplicates++
+      } else {
+        // New lead: insert with email data
+        const { data: result } = await supabase
+          .from('lead_discovery_results')
+          .insert({
+            ...freshData,
+            niche: null,
+            has_email: !!primaryEmail,
+            email: primaryEmail,
+            email_source: emailSource,
+            email_source_url: emailSourceUrl,
+          })
+          .select('id, platform_handle, display_name, audience_size, keyword_score, has_email, promoted_products')
+          .single()
+
+        if (result) {
+          results.push(result)
+          newLeads++
+        }
       }
     }
 

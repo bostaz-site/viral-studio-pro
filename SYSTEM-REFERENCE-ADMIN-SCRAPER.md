@@ -56,7 +56,8 @@
         - Compute contactability_score (90/80/70/60/0)
         - Keyword pre-score (+20 boost if email found)
         - Distributor graph detection (OpusClip, Submagic, etc.)
-        - INSERT lead_discovery_results with email_source + contactability_score
+        - Cross-run dedup: if channel exists in `lead_discovery_results` (any run), UPDATE the existing row with new `run_id`, refreshed `audience_size`/`keyword_score`/`recent_video_titles`/`discovered_at`. Preserves user-curated fields: `email` (only overwritten if new email found), `import_status`, `influencer_id`, `niche`. If no existing row, INSERT. `duplicates` counter tracks updated rows. This ensures `GET ?run_id=` always returns all channels found.
+        - Default search params: `relevanceLanguage=en`, `regionCode=US` (filters out non-English channels that relevanceLanguage alone lets through).
    f. Update run (status=completed, counts)
    g. Track quota usage
    h. Return enrichment_depth in response (number of channels deeply enriched)
