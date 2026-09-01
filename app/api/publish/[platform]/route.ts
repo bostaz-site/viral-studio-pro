@@ -245,7 +245,26 @@ export const POST = withAuth(
         youtube_privacy,
       )
 
-      // Update publication record with success
+      // Instagram async: container created, client must poll /api/publish/status
+      if (result.mode === 'processing' && result.igContainerId) {
+        await admin
+          .from('publications')
+          .update({
+            status: 'processing',
+            platform_post_id: result.igContainerId,
+          } as never)
+          .eq('id', publication.id)
+
+        return jsonResponse({
+          publicationId: publication.id,
+          platform: platformParam,
+          status: 'processing',
+          containerId: result.igContainerId,
+          igUserId: result.igUserId,
+        })
+      }
+
+      // Synchronous publish (TikTok, YouTube, Facebook) — update immediately
       const publishedAt = new Date().toISOString()
       await admin
         .from('publications')
@@ -360,7 +379,9 @@ export const POST = withAuth(
 interface PublishResult {
   postId: string | null
   trackingUrl: string | null
-  mode?: 'direct' | 'inbox'
+  mode?: 'direct' | 'inbox' | 'processing'
+  igContainerId?: string
+  igUserId?: string
 }
 
 interface TikTokOptions {
@@ -652,14 +673,16 @@ async function publishToInstagram(
   const BASE = 'https://graph.instagram.com/v21.0'
 
   // Resolve IG user ID from token
-  const meRes = await fetch(`${BASE}/me?fields=user_id&access_token=${encodeURIComponent(accessToken)}`)
+  const meRes = await fetch(`${BASE}/me?fields=user_id&access_token=${encodeURIComponent(accessToken)}`,
+    { signal: AbortSignal.timeout(8000) })
   const meData = await meRes.json() as { user_id?: string; id?: string; error?: { message?: string } }
   const igUserId = meData.user_id ?? meData.id
   if (!igUserId) {
     throw new Error(`Instagram /me failed: ${meData.error?.message ?? 'Could not resolve user ID'}`)
   }
 
-  // Step 1: Create Reel container
+  // Create Reel container — returns immediately. Polling + final publish
+  // happen via GET /api/publish/status (client-driven, one check per call).
   const containerRes = await fetch(`${BASE}/${igUserId}/media`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -670,6 +693,7 @@ async function publishToInstagram(
       share_to_feed: true,
       access_token: accessToken,
     }),
+    signal: AbortSignal.timeout(8000),
   })
   const containerData = await containerRes.json() as {
     id?: string
@@ -680,50 +704,14 @@ async function publishToInstagram(
       `Instagram container creation failed: ${containerData.error?.message ?? 'Unknown error'}`
     )
   }
-  const containerId = containerData.id
 
-  // Step 2: Poll container status (max 5 min, exponential backoff)
-  const maxWait = 300_000
-  let pollDelay = 3_000
-  const start = Date.now()
-
-  while (Date.now() - start < maxWait) {
-    await new Promise(r => setTimeout(r, pollDelay))
-    pollDelay = Math.min(pollDelay * 1.3, 10_000) // backoff up to 10s
-
-    const statusRes = await fetch(
-      `${BASE}/${containerId}?fields=status_code,status&access_token=${encodeURIComponent(accessToken)}`,
-    )
-    const statusData = await statusRes.json() as {
-      status_code?: string
-      status?: string
-    }
-    if (statusData.status_code === 'FINISHED') break
-    if (statusData.status_code === 'ERROR') {
-      throw new Error(`Instagram container processing failed: ${statusData.status ?? 'unknown'}`)
-    }
-  }
-
-  // Step 3: Publish
-  const publishRes = await fetch(`${BASE}/${igUserId}/media_publish`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      creation_id: containerId,
-      access_token: accessToken,
-    }),
-  })
-  const publishData = await publishRes.json() as {
-    id?: string
-    error?: { message?: string }
-  }
-  if (!publishRes.ok || !publishData.id) {
-    throw new Error(`Instagram publish failed: ${publishData.error?.message ?? 'Unknown error'}`)
-  }
-
+  // Return processing — client will poll /api/publish/status to finalize
   return {
-    postId: publishData.id,
+    postId: null,
     trackingUrl: null,
+    mode: 'processing' as 'direct',
+    igContainerId: containerData.id,
+    igUserId,
   }
 }
 
@@ -739,6 +727,8 @@ async function publishToFacebook(
 ): Promise<PublishResult> {
   const { page_id, page_access_token } = pageMeta
 
+  // Facebook downloads the video server-side and responds quickly (< 5s typically).
+  // Timeout at 8s to stay within Netlify's ~10s function limit.
   const res = await fetch(`https://graph.facebook.com/v25.0/${page_id}/videos`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -747,6 +737,7 @@ async function publishToFacebook(
       description: caption.slice(0, 2200),
       access_token: page_access_token,
     }),
+    signal: AbortSignal.timeout(8000),
   })
 
   const data = await res.json() as {

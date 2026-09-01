@@ -328,8 +328,33 @@ export function UnifiedPublishDialog({
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(body),
           })
-          const json = await res.json() as { data?: { postId?: string }; error?: string }
+          const json = await res.json() as {
+            data?: { postId?: string; status?: string; publicationId?: string }
+            error?: string
+          }
           if (json.error) throw new Error(json.error)
+
+          // Instagram async: poll /api/publish/status until finalized
+          if (json.data?.status === 'processing' && json.data.publicationId) {
+            const pubId = json.data.publicationId
+            const maxPolls = 60 // ~5 min at 5s intervals
+            for (let i = 0; i < maxPolls; i++) {
+              await new Promise(r => setTimeout(r, 5000))
+              const pollRes = await fetch(`/api/publish/status?publicationId=${pubId}`)
+              const pollJson = await pollRes.json() as {
+                data?: { status?: string; postId?: string; error?: string }
+              }
+              if (pollJson.data?.status === 'published') {
+                return { platform, postId: pollJson.data.postId }
+              }
+              if (pollJson.data?.status === 'error') {
+                throw new Error(pollJson.data.error ?? 'Publishing failed')
+              }
+              // still processing — continue polling
+            }
+            throw new Error('Instagram publishing timed out')
+          }
+
           return { platform, postId: json.data?.postId }
         })
       )

@@ -13,7 +13,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 const syncSchema = z.object({
   posts: z.array(z.object({
     clip_id: z.string().min(1),
-    platform: z.enum(['tiktok']), // launch scope: TikTok only
+    platform: z.enum(['tiktok', 'youtube', 'instagram', 'facebook']),
     scheduled_at: z.string().datetime(),
     caption: z.string().max(2200).default(''),
     hashtags: z.array(z.string()).max(30).default([]),
