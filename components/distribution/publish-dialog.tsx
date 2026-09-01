@@ -129,7 +129,7 @@ export function PublishDialog({ open, onClose, clipId, clipTitle }: PublishDialo
   }
 
   const enabledTargets = publishTargets.filter((t) => t.enabled)
-  const connectedPlatforms = accounts.map((a) => a.platform)
+  const connectedPlatforms: string[] = accounts.filter(a => !a.disconnected_at).map(a => a.platform)
   const canPublish =
     !isPublishing &&
     caption.trim().length > 0 &&

@@ -26,6 +26,7 @@ type Platform = 'tiktok' | 'instagram' | 'youtube' | 'facebook'
 interface ConnectedAccount {
   platform: string
   username: string | null
+  disconnected_at?: string | null
 }
 
 type PublishStatus = 'idle' | 'publishing' | 'success' | 'error' | 'inbox'
@@ -192,7 +193,7 @@ export function UnifiedPublishDialog({
       try {
         const res = await fetch('/api/social-accounts')
         const json = await res.json() as { data?: ConnectedAccount[] }
-        const accounts = json.data ?? []
+        const accounts = (json.data ?? []).filter(a => !a.disconnected_at)
 
         const wasPublished = publishedClipIds.has(clipId)
         setPlatforms(prev => {

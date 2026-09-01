@@ -669,7 +669,7 @@ export function DistributionHub() {
   useEffect(() => { initQueue() }, [initQueue])
 
   // Filter activePlatforms to only connected + enabled platforms (launch: TikTok only)
-  const connectedPlatformIds = useMemo(() => accounts.map(a => a.platform), [accounts])
+  const connectedPlatformIds: string[] = useMemo(() => accounts.filter(a => !a.disconnected_at).map(a => a.platform), [accounts])
   const activeConnectedPlatforms = useMemo(() => {
     return publishTargets
       .filter(t => t.enabled && connectedPlatformIds.includes(t.platform))
@@ -1201,7 +1201,7 @@ export function DistributionHub() {
     setPublishDone(true)
   }, [selectedClip, selectedClipId, clipBank, captionText, isPublishing, publishClip, publishSequenceActive, publishTargets])
 
-  const connectedPlatforms = accounts.map((a) => a.platform)
+  const connectedPlatforms: string[] = accounts.filter(a => !a.disconnected_at).map(a => a.platform)
   // Only count platforms that are actually active (not "coming soon")
   const activePlatformCount = publishTargets.filter(
     (t) => t.enabled && connectedPlatforms.includes(t.platform)

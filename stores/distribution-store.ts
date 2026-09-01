@@ -11,7 +11,7 @@ export interface SocialAccount {
 }
 
 export interface PublishTarget {
-  platform: 'tiktok' | 'youtube' | 'instagram'
+  platform: 'tiktok' | 'youtube' | 'instagram' | 'facebook'
   enabled: boolean
 }
 
@@ -57,6 +57,7 @@ export const useDistributionStore = create<DistributionState>((set, get) => ({
     { platform: 'tiktok', enabled: false },
     { platform: 'youtube', enabled: false },
     { platform: 'instagram', enabled: false },
+    { platform: 'facebook', enabled: false },
   ],
   publishProgress: {},
   isPublishing: false,
