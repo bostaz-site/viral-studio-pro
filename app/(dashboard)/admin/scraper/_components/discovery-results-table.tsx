@@ -27,9 +27,10 @@ interface Props {
   onImport: (ids: string[]) => Promise<void>
   importing: boolean
   requireEmail?: boolean
+  loading?: boolean
 }
 
-export function DiscoveryResultsTable({ results, onImport, importing, requireEmail: externalFilter }: Props) {
+export function DiscoveryResultsTable({ results, onImport, importing, requireEmail: externalFilter, loading }: Props) {
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [localEmailFilter, setLocalEmailFilter] = useState(false)
 
@@ -65,7 +66,7 @@ export function DiscoveryResultsTable({ results, onImport, importing, requireEma
       <CardHeader className="pb-2">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <h3 className="text-sm font-semibold text-foreground">Results ({displayed.length})</h3>
+            <h3 className="text-sm font-semibold text-foreground">Results ({loading ? '…' : displayed.length})</h3>
             {results.length > 0 && (
               <span className="text-[10px] text-muted-foreground">
                 <Mail className="h-3 w-3 inline mr-0.5 text-amber-400" />
@@ -107,7 +108,11 @@ export function DiscoveryResultsTable({ results, onImport, importing, requireEma
               </tr>
             </thead>
             <tbody>
-              {displayed.length === 0 ? (
+              {loading ? (
+                <tr><td colSpan={7} className="px-3 py-8 text-center text-muted-foreground">
+                  Loading results…
+                </td></tr>
+              ) : displayed.length === 0 ? (
                 <tr><td colSpan={7} className="px-3 py-8 text-center text-muted-foreground">
                   {results.length > 0 && emailFilterActive ? 'No results with email' : 'Run a search to see results'}
                 </td></tr>

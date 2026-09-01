@@ -31,6 +31,7 @@ export default function ScraperPage() {
   const [savedSearches, setSavedSearches] = useState<SavedSearch[]>([])
   const [quota, setQuota] = useState<QuotaData | null>(null)
   const [searchLoading, setSearchLoading] = useState(false)
+  const [resultsLoading, setResultsLoading] = useState(false)
   const [importLoading, setImportLoading] = useState(false)
   const [lastRunStats, setLastRunStats] = useState<{ total: number; newLeads: number; quotaUsed: number } | null>(null)
   const [tab, setTab] = useState<'youtube' | 'tiktok' | 'google' | 'instagram'>('youtube')
@@ -91,20 +92,25 @@ export default function ScraperPage() {
       if (!res.ok) throw new Error(json.error ?? 'Search failed')
 
       setLastRunStats({ total: json.data.total, newLeads: json.data.new_leads, quotaUsed: json.data.quota_used })
+      setSearchLoading(false)
 
-      // Fetch full results
+      // Load ALL results for this run from DB (includes duplicates from previous runs)
       if (json.data.run_id) {
-        const hasEmailParam = params.requireEmail ? '&has_email=true' : ''
-        const resultsRes = await fetch(`/api/admin/scraper/youtube?run_id=${json.data.run_id}${hasEmailParam}`)
-        const resultsJson = await resultsRes.json()
-        if (resultsJson.data) setResults(resultsJson.data)
+        setResultsLoading(true)
+        try {
+          const hasEmailParam = params.requireEmail ? '&has_email=true' : ''
+          const resultsRes = await fetch(`/api/admin/scraper/youtube?run_id=${json.data.run_id}${hasEmailParam}`)
+          const resultsJson = await resultsRes.json()
+          setResults(resultsJson.data ?? [])
+        } finally {
+          setResultsLoading(false)
+        }
       }
 
       fetchQuota()
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Search failed'
       setSearchError(msg)
-    } finally {
       setSearchLoading(false)
     }
   }
@@ -221,6 +227,7 @@ export default function ScraperPage() {
             onImport={handleImport}
             importing={importLoading}
             requireEmail={requireEmail}
+            loading={resultsLoading}
           />
         </div>
       )}

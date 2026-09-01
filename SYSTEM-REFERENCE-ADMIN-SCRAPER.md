@@ -61,7 +61,8 @@
    g. Track quota usage
    h. Return enrichment_depth in response (number of channels deeply enriched)
 
-3. Results displayed in table with:
+3. Results loaded from DB via `GET /api/admin/scraper/youtube?run_id={run_id}` (returns ALL leads for the run, including channels that existed in previous runs). The POST response only contains inline `results` for newly inserted leads — the GET is the sole source of truth for the table. Separate `resultsLoading` state shows "Loading results…" during the GET fetch.
+   Table displays:
    - Channel name + handle + avatar
    - Subscriber count
    - Keyword score (color-coded, includes +20 email boost)
