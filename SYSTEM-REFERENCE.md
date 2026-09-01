@@ -164,7 +164,7 @@ Persistent indicators on card thumbnails showing whether the user has already pr
 Badge priority (highest first): Posted (green `bg-emerald-500/20 text-emerald-300`, `✓ Posted`) > In bank (amber `bg-amber-500/15 text-amber-300`, `Archive` icon + `In bank`) > Rendered (grey `bg-white/10 text-white/60`, `Film` icon + `Rendered`). Small pill bottom-right of thumbnail.
 
 ### Bank = Explicit Autofarm Queue
-The bank is the autofarm's publish queue. Clips enter ONLY by explicit user action ("Place in bank"). Renders are out-of-bank by default (`removed_from_bank_at = now()` at render_job creation). The semantics: `removed_from_bank_at IS NULL` = in bank.
+The bank is the autofarm's publish queue. Clips enter ONLY by explicit user action ("Place in bank"). Renders are out-of-bank by default (`removed_from_bank_at = now()` at render_job creation). The semantics: `removed_from_bank_at IS NULL` = in bank. Bank queries use `.in('status', ['done', 'degraded'])` everywhere (hub loader, POST /api/distribution/bank, cron publish-scheduled, GET /api/clips/my-status) — degraded renders are publishable.
 
 **Post-render dialog (UnifiedPublishDialog)** — three actions:
 1. **Publish** (primary) — manual publish to selected platforms

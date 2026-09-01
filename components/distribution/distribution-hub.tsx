@@ -888,7 +888,7 @@ export function DistributionHub() {
         .from('render_jobs')
         .select('id, clip_id, source, status, storage_path, created_at')
         .eq('user_id', user.id)
-        .eq('status', 'done')
+        .in('status', ['done', 'degraded'])
         .is('removed_from_bank_at', null)
         .order('created_at', { ascending: false })
         .limit(20)
