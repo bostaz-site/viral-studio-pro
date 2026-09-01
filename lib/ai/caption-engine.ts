@@ -71,17 +71,21 @@ Return ONLY valid JSON with this exact structure (no markdown, no explanation):
 Only include the platforms requested. Generate exactly 3 variants per platform.
 
 Platform rules:
-- TikTok: caption MAX 150 chars. 8 hashtags. Hook in first line. Use trending lingo, short punchy sentences. Algorithm favors watch-time hooks ("wait for it", "you won't believe").
+- TikTok: caption MAX 150 chars. 8 hashtags. Hook in first line. Short punchy sentences specific to what happens in the clip.
 - Instagram Reels: caption MAX 220 chars. 12 hashtags. More descriptive, storytelling angle. Mix broad reach hashtags (#viral, #fyp) with niche ones.
-- YouTube Shorts: title MAX 60 chars. description MAX 200 chars. 5 tags (no # prefix). Title must be clickbait-y but honest. Description adds context. Tags are search-optimized keywords.
+- YouTube Shorts: title MAX 60 chars. description MAX 200 chars. 5 tags (no # prefix). Title must be specific to the clip content. Description adds context. Tags are search-optimized keywords.
+
+CRITICAL — BANNED PHRASES (TikTok flags these as spam/unoriginal):
+"broke the internet", "I'm actually shaking", "this is INSANE", "you won't believe", "wait for it", "nobody expected", "gone wrong", "goes crazy", "watch till the end", "I can't believe", "literally crying", "I'm screaming", "no way this is real", "this changed everything", "the internet is broken", "LEGENDARY moment", "I'm dead", "most INSANE"
+These generic hype phrases are associated with spam accounts and get shadowbanned. Instead: describe WHAT HAPPENS in the clip using specific details from the transcript. Be factual and witty, not generic and hyperbolic.
 
 Style per mood:
-- rage: aggressive, caps for emphasis, shock value
-- funny: humor, setup-punchline, relatable
-- drama: tension, mystery, "you need to see this"
-- wholesome: warm, emotional, share-worthy
-- hype: excitement, epic moments, "INSANE"
-- story: narrative hook, curiosity gap
+- rage: intense, describe the exact moment, caps for one key word only
+- funny: setup-punchline from actual clip content, relatable
+- drama: tension from what actually happened, specific details
+- wholesome: warm, reference the actual moment
+- hype: describe the epic thing that happened, factual excitement
+- story: narrative hook from the real content
 
 If a sourceStreamer is provided, credit them naturally (e.g. "@streamer just did THIS").
 Each variant should have a different angle/hook — don't just rephrase the same thing.`
@@ -169,7 +173,7 @@ function parseResponse(
     if (requestedPlatforms.includes('tiktok') && Array.isArray(raw.tiktok)) {
       result.tiktok = {
         variants: raw.tiktok.slice(0, 3).map((v: { caption?: string; hashtags?: string[] }) => ({
-          caption: enforceLength(String(v.caption ?? ''), PLATFORM_LIMITS.tiktok.captionMax),
+          caption: enforceLength(stripBannedPhrases(String(v.caption ?? '')), PLATFORM_LIMITS.tiktok.captionMax),
           hashtags: normalizeHashtags(v.hashtags, PLATFORM_LIMITS.tiktok.hashtagCount),
         })),
       }
@@ -178,7 +182,7 @@ function parseResponse(
     if (requestedPlatforms.includes('instagram') && Array.isArray(raw.instagram)) {
       result.instagram = {
         variants: raw.instagram.slice(0, 3).map((v: { caption?: string; hashtags?: string[] }) => ({
-          caption: enforceLength(String(v.caption ?? ''), PLATFORM_LIMITS.instagram.captionMax),
+          caption: enforceLength(stripBannedPhrases(String(v.caption ?? '')), PLATFORM_LIMITS.instagram.captionMax),
           hashtags: normalizeHashtags(v.hashtags, PLATFORM_LIMITS.instagram.hashtagCount),
         })),
       }
@@ -187,8 +191,8 @@ function parseResponse(
     if (requestedPlatforms.includes('youtube') && Array.isArray(raw.youtube)) {
       result.youtube = {
         variants: raw.youtube.slice(0, 3).map((v: { title?: string; description?: string; tags?: string[] }) => ({
-          title: enforceLength(String(v.title ?? ''), PLATFORM_LIMITS.youtube.titleMax),
-          description: enforceLength(String(v.description ?? ''), PLATFORM_LIMITS.youtube.descriptionMax),
+          title: enforceLength(stripBannedPhrases(String(v.title ?? '')), PLATFORM_LIMITS.youtube.titleMax),
+          description: enforceLength(stripBannedPhrases(String(v.description ?? '')), PLATFORM_LIMITS.youtube.descriptionMax),
           tags: normalizeTags(v.tags, PLATFORM_LIMITS.youtube.tagCount),
         })),
       }
@@ -198,6 +202,27 @@ function parseResponse(
   } catch {
     return {}
   }
+}
+
+// ── Spam phrase filter ──
+
+const BANNED_PHRASES = [
+  'broke the internet', 'i\'m actually shaking', 'this is insane',
+  'you won\'t believe', 'wait for it', 'nobody expected',
+  'gone wrong', 'goes crazy', 'watch till the end',
+  'i can\'t believe', 'literally crying', 'i\'m screaming',
+  'no way this is real', 'this changed everything',
+  'the internet is broken', 'legendary moment', 'i\'m dead',
+  'most insane',
+]
+
+function stripBannedPhrases(text: string): string {
+  let cleaned = text
+  for (const phrase of BANNED_PHRASES) {
+    const regex = new RegExp(phrase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi')
+    cleaned = cleaned.replace(regex, '').replace(/\s{2,}/g, ' ').trim()
+  }
+  return cleaned
 }
 
 // ── Enforcement helpers ──
@@ -231,11 +256,11 @@ function buildFallbackResult(input: CaptionInput): DistributionCaptionResult {
   const credit = input.sourceStreamer ? ` by @${input.sourceStreamer}` : ''
 
   const hooks = {
-    rage: ['STOP SCROLLING.', 'The most TILTED moment ever.', 'Nobody was ready for this rage.'],
-    funny: ['I can\'t stop laughing.', 'Comedy GOLD right here.', 'This is TOO funny.'],
-    drama: ['Nobody is talking about this.', 'This changes EVERYTHING.', 'Watch till the end.'],
-    wholesome: ['This restored my faith.', 'Pure serotonin.', 'You NEED to see this.'],
-    hype: ['This shouldn\'t be possible.', 'INSANE moment right here.', 'Wait for it...'],
+    rage: ['Peak tilt from ${title}.', 'Full rage mode activated.', '${title} just snapped.'],
+    funny: ['${title} killed it.', 'Comedy GOLD right here.', 'Too good not to share.'],
+    drama: ['${title} — you need context.', 'The moment that mattered.', 'This one hit different.'],
+    wholesome: ['This restored my faith.', 'Pure serotonin.', 'The clip we all needed.'],
+    hype: ['${title} just did that.', 'Clean play. No debate.', 'Peak performance.'],
     story: ['Let me explain what happened.', 'The story behind this clip.', 'You won\'t believe this.'],
   }
 

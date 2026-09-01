@@ -135,6 +135,38 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // 2d. Quality gate: block degraded renders and low-transform renders
+    {
+      const { data: renderJob } = await (admin
+        .from('render_jobs')
+        .select('status, transform_score' as '*')
+        .eq('clip_id', row.clip_id)
+        .eq('user_id', row.user_id)
+        .in('status', ['done', 'degraded'])
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single() as unknown as Promise<{ data: { status: string; transform_score: number | null } | null }>)
+
+      if (renderJob?.status === 'degraded') {
+        await admin
+          .from('scheduled_publications')
+          .update({ status: 'canceled', error_message: 'render degraded — not safe for auto-publish', updated_at: new Date().toISOString() } as never)
+          .eq('id', row.id)
+        results.push({ id: row.id, status: 'canceled', error: 'render_degraded' })
+        continue
+      }
+
+      const score = renderJob?.transform_score ?? null
+      if (score !== null && score < 2) {
+        await admin
+          .from('scheduled_publications')
+          .update({ status: 'canceled', error_message: `transform_score=${score} < 2 — needs more edits`, updated_at: new Date().toISOString() } as never)
+          .eq('id', row.id)
+        results.push({ id: row.id, status: 'canceled', error: 'transform_score_too_low' })
+        continue
+      }
+    }
+
     // 3. Execute publish
     const tiktokOptions = row.tiktok_options as {
       privacy_level: string

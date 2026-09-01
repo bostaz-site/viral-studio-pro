@@ -126,6 +126,24 @@ export function createContract(settings) {
     },
 
     /**
+     * Compute a transform score (0-4) that measures how many visible
+     * transformations were actually applied to the render.
+     * Used by the autofarm quality gate to block low-effort outputs.
+     *   +1 hook text, +1 captions, +1 smart zoom / dynamic crop, +1 voiceover
+     */
+    transformScore() {
+      let score = 0;
+      for (const e of entries) {
+        if (!e.applied) continue;
+        if (e.feature === 'hook_text') score++;
+        if (e.feature === 'captions') score++;
+        if (e.feature === 'smart_zoom') score++;
+        if (e.feature === 'voiceover') score++;
+      }
+      return score;
+    },
+
+    /**
      * Check if any critical feature was requested but not applied.
      * Intentional skips (e.g. burned-in captions) don't count as failures.
      * @returns {{ isDegraded: boolean, missing: string[], summary: string }}

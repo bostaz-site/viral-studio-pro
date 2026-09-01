@@ -47,6 +47,8 @@ interface ClipBankItem {
   status: 'draft' | 'scheduled' | 'publishing' | 'published' | 'failed'
   scheduledAt: string | null
   source: 'trending' | 'upload'
+  renderStatus?: string
+  transformScore?: number | null
 }
 
 type ClipState = 'scheduled' | 'best' | 'priority' | 'ready' | 'draft' | 'needs-video' | 'broken-preview'
@@ -886,7 +888,7 @@ export function DistributionHub() {
 
       const { data: jobs } = await supabase
         .from('render_jobs')
-        .select('id, clip_id, source, status, storage_path, created_at')
+        .select('id, clip_id, source, status, storage_path, created_at, transform_score' as '*')
         .eq('user_id', user.id)
         .in('status', ['done', 'degraded'])
         .is('removed_from_bank_at', null)
@@ -895,15 +897,17 @@ export function DistributionHub() {
 
       if (!jobs || jobs.length === 0) { setClipBank([]); setBankLoading(false); return }
 
-      const items: ClipBankItem[] = jobs.map((job) => ({
-        id: job.clip_id,
+      const items: ClipBankItem[] = (jobs as Array<Record<string, unknown>>).map((job) => ({
+        id: job.clip_id as string,
         title: null,
         score: null,
         thumbnailUrl: null,
-        storagePath: job.storage_path ?? null,
+        storagePath: (job.storage_path as string) ?? null,
         status: 'draft' as const,
         scheduledAt: null,
         source: job.source === 'upload' ? 'upload' as const : 'trending' as const,
+        renderStatus: job.status as string,
+        transformScore: (job.transform_score as number | null) ?? null,
       }))
 
       const trendingIds = items.filter((i) => i.source === 'trending').map((i) => i.id)

@@ -16,6 +16,8 @@ interface ClipBankItem {
   status: 'draft' | 'scheduled' | 'publishing' | 'published' | 'failed'
   scheduledAt: string | null
   source: 'trending' | 'upload'
+  renderStatus?: string
+  transformScore?: number | null
 }
 
 interface ClipBankRailProps {
@@ -373,6 +375,12 @@ export function ClipBankRail({
                     )}
                     {isBrokenPreview && !isBest && !isScheduled && (
                       <span className="dist-status-pill missing">Preview unavailable</span>
+                    )}
+                    {clip.renderStatus === 'degraded' && (
+                      <span className="dist-status-pill missing" title="Some features failed during render — re-render for better quality">Degraded</span>
+                    )}
+                    {clip.transformScore !== undefined && clip.transformScore !== null && clip.transformScore < 2 && clip.renderStatus !== 'degraded' && (
+                      <span className="dist-status-pill missing" title="Add captions, hook, or voiceover to unlock auto-publish">Needs more edits</span>
                     )}
                   </div>
                   {/* Score pill — bottom-right CORNER of the video thumbnail (overlay) */}

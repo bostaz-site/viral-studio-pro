@@ -1827,7 +1827,9 @@ router.post('/', async (req, res) => {
 
     trc(`DONE elapsed=${elapsedSeconds.toFixed(1)}s status=${finalStatus} captions=${assFilePath ? 'ASS' : 'none'} tag=${tagConfig?.style || 'none'} quality_tier=${qualityTier || 'unknown'}`);
 
-    // Mark render job as done or degraded (with contract)
+    // Mark render job as done or degraded (with contract + transform score)
+    const transformScore = contract.transformScore();
+    trc(`TRANSFORM SCORE: ${transformScore}/4 (hook=${contract.toJSON().find(e => e.feature === 'hook_text')?.applied ? 1 : 0} captions=${contract.toJSON().find(e => e.feature === 'captions')?.applied ? 1 : 0} zoom=${contract.toJSON().find(e => e.feature === 'smart_zoom')?.applied ? 1 : 0} vo=${contract.toJSON().find(e => e.feature === 'voiceover')?.applied ? 1 : 0})`);
     await updateRenderJob(req.body.jobId, {
       status: finalStatus,
       storage_path: clipStoragePath,
@@ -1835,6 +1837,7 @@ router.post('/', async (req, res) => {
       debug_log: trace.join('\n'),
       quality_tier: qualityTier,
       contract: contract.toJSON(),
+      transform_score: transformScore,
     });
 
     // Send HMAC-signed webhook callback to Next.js (queue management + export tracking)
