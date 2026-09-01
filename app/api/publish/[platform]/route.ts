@@ -68,9 +68,6 @@ export const POST = withAuth(
 
     const config = PLATFORM_CONFIGS[platformParam]
 
-    // Instagram requires platform_metadata (IG Business Account ID + page token)
-    // which is resolved during OAuth callback.
-
     // Parse body
     const body = await req.json()
     const parsed = publishSchema.safeParse(body)

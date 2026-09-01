@@ -105,50 +105,25 @@ export async function GET(
   // Upsert social account
   const admin = createAdminClient()
 
-  // For Instagram: resolve IG Business Account ID + page access token
+  // Build platform_metadata from exchange result (Facebook stores page info,
+  // Instagram stores account_type). Instagram Login tokens work directly on
+  // graph.instagram.com — no Facebook Page resolution needed.
+  const rawMeta = (tokens as Record<string, unknown>).platformMetadata as Record<string, unknown> | undefined
   let platformMetadata: Record<string, unknown> | null = null
-  let igPlatformUserId = tokens.platformUserId
+  if (rawMeta) {
+    platformMetadata = { ...rawMeta }
+    // Encrypt page_access_token if present (Facebook)
+    if (typeof platformMetadata.page_access_token === 'string') {
+      platformMetadata.page_access_token = safeEncrypt(platformMetadata.page_access_token as string)
+    }
+  }
 
+  // Instagram: validate account is Business/Creator (PERSONAL can't publish Reels via API)
   if (platformParam === 'instagram') {
-    try {
-      // Fetch Facebook Pages the user manages
-      const pagesRes = await fetch(
-        `https://graph.facebook.com/v21.0/me/accounts?access_token=${encodeURIComponent(tokens.accessToken)}`
-      )
-      const pagesData = await pagesRes.json() as {
-        data?: Array<{ id: string; name: string; access_token: string }>
-      }
-
-      if (pagesData.data?.length) {
-        // Find the page linked to an Instagram Business account
-        for (const page of pagesData.data) {
-          const igRes = await fetch(
-            `https://graph.facebook.com/v21.0/${page.id}?fields=instagram_business_account&access_token=${encodeURIComponent(page.access_token)}`
-          )
-          const igData = await igRes.json() as {
-            instagram_business_account?: { id: string }
-          }
-
-          if (igData.instagram_business_account?.id) {
-            platformMetadata = {
-              ig_business_account_id: igData.instagram_business_account.id,
-              page_id: page.id,
-              page_access_token: safeEncrypt(page.access_token),
-            }
-            igPlatformUserId = igData.instagram_business_account.id
-            break
-          }
-        }
-      }
-
-      if (!platformMetadata) {
-        return redirectWithError(
-          'No Instagram Business account found. Please convert your Instagram to a Business account and link it to a Facebook Page.'
-        )
-      }
-    } catch (err) {
+    const accountType = (rawMeta?.account_type as string | undefined) ?? ''
+    if (accountType && accountType === 'PERSONAL') {
       return redirectWithError(
-        `Failed to resolve Instagram Business account: ${err instanceof Error ? err.message : 'unknown'}`
+        'Your Instagram account must be a professional (Business or Creator) account. Switch in Instagram Settings → Account type.'
       )
     }
   }
@@ -160,7 +135,7 @@ export async function GET(
     .eq('platform', platformParam)
     .single()
 
-  const newPlatformUserId = igPlatformUserId || tokens.platformUserId
+  const newPlatformUserId = tokens.platformUserId
   const accountData: Record<string, unknown> = {
     platform_user_id: newPlatformUserId,
     access_token: encryptedAccess,
