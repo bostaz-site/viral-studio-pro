@@ -39,7 +39,7 @@ export async function executePublish(params: ExecutePublishParams): Promise<Exec
   const { userId, clipId, platform, caption, hashtags, tiktokOptions } = params
   const admin = createAdminClient()
 
-  // 0. Guard: skip if this clip was already published manually (defense in depth)
+  // 0a. Guard: skip if this clip was already published manually (defense in depth)
   const { data: existingPost } = await admin
     .from('published_posts')
     .select('id')
@@ -50,6 +50,21 @@ export async function executePublish(params: ExecutePublishParams): Promise<Exec
 
   if (existingPost && existingPost.length > 0) {
     return { success: false, postId: null, error: 'already published manually' }
+  }
+
+  // 0b. Guard: same clip must not be published to two different accounts on the same day
+  const todayStart = new Date()
+  todayStart.setHours(0, 0, 0, 0)
+  const { data: sameDayPosts } = await admin
+    .from('published_posts')
+    .select('id')
+    .eq('user_id', userId)
+    .eq('clip_id', clipId)
+    .gte('published_at', todayStart.toISOString())
+    .limit(1)
+
+  if (sameDayPosts && sameDayPosts.length > 0) {
+    return { success: false, postId: null, error: 'same clip already published today on another account' }
   }
 
   // 1. Find clip storage path (render_jobs first, then clips table)
@@ -67,6 +82,21 @@ export async function executePublish(params: ExecutePublishParams): Promise<Exec
     render_settings: Record<string, unknown> | null;
   } | undefined ?? null
   let clipStoragePath: string | null = renderJob?.storage_path ?? null
+
+  // Look for platform-specific variant (cross-platform deduplication)
+  if (renderJob) {
+    const { data: variants } = await (admin
+      .from('render_variants' as never)
+      .select('storage_path, variant_key')
+      .eq('render_job_id', renderJob.id)
+      .eq('platform', platform)
+      .limit(1) as unknown as Promise<{ data: { storage_path: string; variant_key: string }[] | null }>)
+
+    if (variants && variants.length > 0 && variants[0].storage_path) {
+      clipStoragePath = variants[0].storage_path
+      logger.info(`[execute-publish] Using variant ${variants[0].variant_key} for ${platform}`)
+    }
+  }
 
   if (!clipStoragePath) {
     const { data: clip } = await admin

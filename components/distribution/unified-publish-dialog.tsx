@@ -577,6 +577,15 @@ export function UnifiedPublishDialog({
             </div>
           )}
 
+          {/* Variant indicator — shows when multiple platforms selected */}
+          {selectedCount >= 2 && !allDone && (
+            <div className="flex items-center gap-2 px-3 py-2 rounded-lg border border-zinc-700/50 bg-zinc-800/30" title="Each platform receives a uniquely encoded video to avoid cross-platform duplicate detection (different audio fingerprint, color grade, and encoding). This protects your reach on Instagram and TikTok.">
+              <span className="text-[11px] text-zinc-400">
+                {selectedCount} unique variants will be generated — one per platform
+              </span>
+            </div>
+          )}
+
           {/* Actions footer */}
           <div className="pt-3 border-t border-border/50 space-y-3">
             {/* ── Primary decisions: Bank + Publish side-by-side ── */}

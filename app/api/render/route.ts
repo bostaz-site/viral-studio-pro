@@ -87,6 +87,11 @@ const inputSchema = z.object({
       })).optional(),
     }).optional(),
   }).optional(),
+  variants: z.array(z.object({
+    id: z.string(),
+    platform: z.string(),
+    accountId: z.string().optional(),
+  })).max(4).optional(),
 })
 
 // ── Route handler — Proxy to VPS Render API ──────────────────────────────────
@@ -119,7 +124,7 @@ export const POST = withAuth(async (request, user) => {
     )
   }
 
-  const { clip_id, source, settings } = parsed.data
+  const { clip_id, source, settings, variants } = parsed.data
   const admin = createAdminClient()
 
   // ── Try trending_clips first (Browse Clips flow), then user clips ──
@@ -360,7 +365,32 @@ export const POST = withAuth(async (request, user) => {
     )
   }
 
-  logger.info(`[render] Sending to VPS: clip_id=${clip_id} source=${foundSource} videoUrl=${videoUrl ? videoUrl.substring(0, 80) : 'NULL'}`)
+  // ── Auto-generate platform variants if user has 2+ platforms connected ──
+  let resolvedVariants = variants
+  if (!resolvedVariants || resolvedVariants.length === 0) {
+    try {
+      const { data: accounts } = await admin
+        .from('social_accounts')
+        .select('platform')
+        .eq('user_id', user.id)
+        .is('disconnected_at', null)
+
+      if (accounts && accounts.length >= 2) {
+        const seenPlatforms = new Set<string>()
+        resolvedVariants = accounts
+          .filter(a => {
+            if (seenPlatforms.has(a.platform)) return false
+            seenPlatforms.add(a.platform)
+            return true
+          })
+          .map(a => ({ id: a.platform, platform: a.platform }))
+      }
+    } catch {
+      // Non-fatal — render proceeds without variants
+    }
+  }
+
+  logger.info(`[render] Sending to VPS: clip_id=${clip_id} source=${foundSource} variants=${resolvedVariants?.length ?? 0} videoUrl=${videoUrl ? videoUrl.substring(0, 80) : 'NULL'}`)
 
   const renderPayload = {
     jobId: job.id,
@@ -392,6 +422,7 @@ export const POST = withAuth(async (request, user) => {
       voiceover: settings?.voiceover ?? { enabled: true },
       sourcePlatform: clipPlatform ?? undefined,
     },
+    variants: resolvedVariants && resolvedVariants.length > 0 ? resolvedVariants : undefined,
   }
 
   // ── Queue management — limit VPS concurrency ──

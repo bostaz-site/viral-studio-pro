@@ -176,6 +176,16 @@ export const GET = withAuth(async (request: NextRequest, user) => {
     thumbnailUrl = thumbData?.publicUrl ?? null
   }
 
+  // Variant count for UI indicator
+  let variantCount = 0
+  if (['done', 'degraded'].includes(job.status)) {
+    const { count } = await (admin
+      .from('render_variants' as never)
+      .select('id', { count: 'exact', head: true })
+      .eq('render_job_id', job.id) as unknown as Promise<{ count: number | null }>)
+    variantCount = count ?? 0
+  }
+
   // Contextual message that reflects queue position when available
   let message: string
   if (job.status === 'degraded') {
@@ -238,6 +248,7 @@ export const GET = withAuth(async (request: NextRequest, user) => {
       stage: job.status === 'rendering' ? extractStage(job.debug_log) : null,
       // Server timestamp for latency measurement: when the job reached terminal state
       serverDoneAt: ['done', 'degraded', 'failed', 'error'].includes(job.status) ? job.updated_at : null,
+      variantCount,
     },
     error: null,
     message,
