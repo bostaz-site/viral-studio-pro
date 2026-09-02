@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { Radar, Search, Users, Mail, TrendingUp, AlertCircle } from 'lucide-react'
 import { WolfLoader } from '@/components/ui/wolf-loader'
+import { toast } from 'sonner'
 import { createClient } from '@/lib/supabase/client'
 import { Card, CardContent } from '@/components/ui/card'
 import { QuotaPanel } from './_components/quota-panel'
@@ -92,6 +93,13 @@ export default function ScraperPage() {
       if (!res.ok) throw new Error(json.error ?? 'Search failed')
 
       setLastRunStats({ total: json.data.total, newLeads: json.data.new_leads, quotaUsed: json.data.quota_used })
+
+      // Warn if DB errors prevented some leads from being saved
+      const saved = (json.data.new_leads ?? 0) + (json.data.duplicates ?? 0)
+      if (saved < json.data.total && json.data.db_errors > 0) {
+        toast.error(`${json.data.db_errors} DB errors — only ${saved}/${json.data.total} leads saved. ${json.data.db_error_messages?.[0] ?? ''}`)
+      }
+
       setSearchLoading(false)
 
       // Load ALL results for this run from DB (includes duplicates from previous runs)

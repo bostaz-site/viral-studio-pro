@@ -60,6 +60,8 @@ export const POST = withAdmin(async (req, user) => {
     let duplicates = 0
     let totalQuotaUsed = quotaUsed
     let enrichedCount = 0
+    let dbErrors = 0
+    const dbErrorMessages: string[] = []
     const MAX_ENRICHED = 15 // Netlify ~26s timeout — limit deep enrichment
     const results: Array<Record<string, unknown>> = []
 
@@ -223,18 +225,23 @@ export const POST = withAdmin(async (req, user) => {
         }
         // Don't overwrite import_status, influencer_id, niche (user-set)
 
-        const { data: updated } = await supabase
+        const { data: updated, error: updateErr } = await supabase
           .from('lead_discovery_results')
           .update(updateData)
           .eq('id', (existing as Record<string, unknown>).id)
           .select('id, platform_handle, display_name, audience_size, keyword_score, has_email, promoted_products')
           .single()
 
-        if (updated) results.push(updated)
+        if (updateErr) {
+          dbErrors++
+          if (dbErrorMessages.length < 3) dbErrorMessages.push(`update ${ch.handle}: ${updateErr.message}`)
+        } else if (updated) {
+          results.push(updated)
+        }
         duplicates++
       } else {
         // New lead: insert with email data
-        const { data: result } = await supabase
+        const { data: result, error: insertErr } = await supabase
           .from('lead_discovery_results')
           .insert({
             ...freshData,
@@ -247,7 +254,10 @@ export const POST = withAdmin(async (req, user) => {
           .select('id, platform_handle, display_name, audience_size, keyword_score, has_email, promoted_products')
           .single()
 
-        if (result) {
+        if (insertErr) {
+          dbErrors++
+          if (dbErrorMessages.length < 3) dbErrorMessages.push(`insert ${ch.handle}: ${insertErr.message}`)
+        } else if (result) {
           results.push(result)
           newLeads++
         }
@@ -261,16 +271,20 @@ export const POST = withAdmin(async (req, user) => {
       await Promise.all(batch.map((ch, batchIdx) => processChannel(ch, i + batchIdx)))
     }
 
-    // Update run status
+    // Update run status (include DB errors if any)
+    const runUpdate: Record<string, unknown> = {
+      status: dbErrors > 0 && newLeads + duplicates === 0 ? 'failed' : 'completed',
+      results_count: channels.length,
+      new_leads_count: newLeads,
+      duplicates_count: duplicates,
+      completed_at: new Date().toISOString(),
+    }
+    if (dbErrorMessages.length > 0) {
+      runUpdate.errors = dbErrorMessages.map(m => ({ message: m }))
+    }
     await supabase
       .from('lead_discovery_runs')
-      .update({
-        status: 'completed',
-        results_count: channels.length,
-        new_leads_count: newLeads,
-        duplicates_count: duplicates,
-        completed_at: new Date().toISOString(),
-      })
+      .update(runUpdate)
       .eq('id', run.id)
 
     // Update saved search if provided
@@ -286,6 +300,8 @@ export const POST = withAdmin(async (req, user) => {
       total: channels.length,
       new_leads: newLeads,
       duplicates,
+      db_errors: dbErrors,
+      db_error_messages: dbErrorMessages,
       quota_used: totalQuotaUsed,
       enrichment_depth: enrichedCount,
       results,

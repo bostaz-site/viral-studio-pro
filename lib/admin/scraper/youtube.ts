@@ -257,8 +257,19 @@ export function extractEmailsFromText(text: string): Array<{
   const emailRegex = /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g
   const matches = text.match(emailRegex) ?? []
 
-  // Domain blacklist — placeholder/example domains only (NOT real providers like gmail)
-  const domainBlacklist = ['example.com', 'email.com', 'youremail.com', 'domain.com', 'test.com', 'sample.com']
+  // Domain blacklist — placeholder/example + competitor/tool domains (company emails, not creators)
+  const domainBlacklist = [
+    // Placeholder domains
+    'example.com', 'email.com', 'youremail.com', 'domain.com', 'test.com', 'sample.com',
+    // Competitor / tool company emails (crawled from their sites, not creator contacts)
+    'opus.pro', 'zapcap.ai', 'submagic.co', 'veed.io', 'wondershare.com',
+    'filmora.com', 'capcut.com', 'descript.com', 'riverside.fm', 'streamyard.com',
+    'restream.io', 'eklipse.gg', 'medal.tv', 'clipchamp.com', 'canva.com',
+    'invideo.io', 'pictory.ai', 'synthesia.io', 'loom.com', 'vidiq.com',
+  ]
+
+  // TLD blacklist — image/media file extensions that regex matches as TLDs
+  const fakeTldPattern = /\.(png|jpg|jpeg|gif|svg|webp|bmp|ico|mp4|mov|avi|mkv|pdf|zip|rar)$/i
 
   // Local-part exact blacklist
   const localBlacklist = [
@@ -286,6 +297,7 @@ export function extractEmailsFromText(text: string): Array<{
       const local = e.slice(0, atIdx)
       const domain = e.slice(atIdx + 1).toLowerCase()
       if (domainBlacklist.includes(domain)) return false
+      if (fakeTldPattern.test(domain)) return false
       if (`${local.toLowerCase()}@${domain}` === 'support@youtube.com') return false
       if (localBlacklist.some(re => re.test(local))) return false
       if (fileExtPattern.test(local)) return false

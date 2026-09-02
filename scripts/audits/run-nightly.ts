@@ -152,6 +152,13 @@ async function main() {
   const technicalAgent = await tryImport('./technical', 'runTechnicalAudit')
   if (technicalAgent) await safeRun(technicalAgent, 'technical')
 
+  // Migration drift check (lightweight, no LLM)
+  try {
+    const { execSync } = await import('child_process')
+    const out = execSync('npx tsx scripts/check-migrations.ts', { timeout: 30000, encoding: 'utf-8' })
+    console.log('[nightly] Migration check:', out.includes('MISSING') ? 'DRIFT DETECTED' : 'OK')
+  } catch { console.warn('[nightly] Migration check failed or found missing migrations') }
+
   const activationAgent = await tryImport('./activation', 'runActivationAudit')
   if (activationAgent) await safeRun(activationAgent, 'activation')
 

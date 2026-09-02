@@ -40,7 +40,7 @@
    e. Process channels in parallel batches of 5, with email enrichment waterfall:
       Step 1 — Channel description:
         - Extract emails from snippet.description via regex
-        - Filter false positives (no-reply, file extensions, placeholder domains)
+        - Filter false positives: no-reply addresses, file-extension local parts (.png, .jpg), placeholder domains (example.com), **competitor/tool company domains** (opus.pro, zapcap.ai, submagic.co, veed.io, wondershare.com, capcut.com, etc.), **fake TLDs** (flags@2x.png-style matches rejected by domain TLD check)
         - Detect is_business_contact (proximity to "business/contact/sponsor" keywords)
       Step 2 — Video descriptions (if no email yet, max 15 channels/run):
         - Fetch uploads playlist + 10 latest video snippets (+3 API units)
@@ -215,10 +215,17 @@ If matched -> `import_status='suppressed'`, skip import.
 
 ---
 
+## Error Handling
+
+- Every Supabase insert/update in the scraper pipeline checks `error` alongside `data`. Errors are counted (`db_errors`), capped at 3 messages, stored in `lead_discovery_runs.errors[]`, and returned in the POST response as `db_error_messages`.
+- Front-end shows a toast if `new_leads + duplicates < total` and `db_errors > 0` — surfaces silent DB failures immediately.
+- Run status set to `failed` if all channels had DB errors (0 saved).
+- **Migration check**: `scripts/check-migrations.ts` compares `supabase/migrations/*.sql` against `schema_migrations` table. Exit code 1 if any missing. Included in nightly technical audit.
+
 ## Anti-Patterns (DO NOT)
 
 - Save email without email_source and email_source_url (NO provenance = NO contact)
-- Blacklist real email providers (gmail.com, outlook.com, etc.) — only blacklist placeholder domains
+- Blacklist real email providers (gmail.com, outlook.com, etc.) — only blacklist placeholder domains + competitor tool domains (opus.pro, zapcap.ai, etc.)
 - Call Claude AI for scoring (that's V3 Week 2)
 - Search vague queries (wastes quota)
 - Expose YOUTUBE_API_KEY on client
