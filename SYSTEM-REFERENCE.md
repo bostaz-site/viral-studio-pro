@@ -495,6 +495,39 @@ Next.js render routes send `plan` + `watermark: { enabled: plan==='free' }` in t
 - `POST /api/enhance/ai-optimize` — mood detection. Returns `{ mood, confidence, explanation, important_words }`
 - `POST /api/render/hook` — proxied to VPS. Returns `HookAnalysis { peak, hooks[3], reorder }`
 
+### Platform Variants (Cross-Platform Deduplication)
+
+Instagram cuts recommendations for accounts reposting identical videos; TikTok fingerprints audio. Solution: each platform receives a uniquely re-encoded variant.
+
+**Architecture — two-pass pipeline:**
+1. **Base render**: full pipeline (download, Whisper, face detection, crop, captions, zoom, FFmpeg encode) — 30-90s
+2. **Variant derivation**: lightweight FFmpeg second pass per platform — ~5-8s each. Applies: entry trim, audio shift (different asetrate/atempo), border crop, hue/saturation/brightness shift, temporal grain, CRF variation, FPS variant (30 vs 29.97), metadata rewrite
+
+**Seed**: `SHA-256(jobId + variantKey)` → deterministic, reproducible for debug.
+
+**Files:**
+- `vps/lib/variant-derive.js` — `computeVariantDiversify()`, `deriveVariant()`, `deriveAllVariants()`
+- `vps/routes/render.js` — accepts `variants: [{id, platform, accountId}]` (max 4), derives + uploads after base render
+- `app/api/render/route.ts` — auto-generates variants from connected `social_accounts` (≥2 platforms)
+- `app/api/publish/[platform]/route.ts` — looks up `render_variants` for platform match, falls back to base
+- `lib/distribution/execute-publish.ts` — same variant lookup for autofarm, plus same-day guard
+
+**DB:** `render_variants` table (migration `20260902_render_variants.sql`):
+- `render_job_id` FK → `render_jobs(id)` ON DELETE CASCADE
+- `variant_key` — e.g. 'tiktok', 'instagram', 'youtube'
+- `platform`, `account_id`, `storage_path`, `seed`, `diversify_params` (JSONB snapshot)
+- Unique index: `(render_job_id, variant_key)` — upsert-safe on retry
+- RLS: users read own variants via render_jobs.user_id join
+
+**Storage paths:** `clips/{userId}/{clipId}_{variantKey}_{timestamp}.mp4`
+
+**UI:** `UnifiedPublishDialog` shows "N unique variants will be generated — one per platform" when ≥2 platforms selected. Tooltip explains why.
+
+**Guards:**
+- Publish route: warns if base render (no variant) is reused across platforms
+- Autofarm: same clip cannot be published on two accounts on the same calendar day
+- Never publish the same `storage_path` to two platforms when a variant exists
+
 ### Deleted Clip Detection (CLIP_DELETED)
 When a source clip has been removed by the streamer or platform:
 1. **VPS download** (`vps/routes/render.js` `downloadFromUrl` + `vps/lib/yt-dlp-wrapper.js`): detects yt-dlp errors ("no longer available", "HTTP Error 404", "Video unavailable") and direct fetch 404/410. Throws `Error('CLIP_DELETED: ...')` — no fallback, no retry.
@@ -618,7 +651,7 @@ TikTok flags videos as "Unoriginal, low-quality content" when they appear to be 
 |---|---|---|
 | **Smart crop** (auto default) | Crop advisor picks fullframe (face), fit (gameplay), or reaction — never blindly center-crops wide content | Fullframe avoids blurred bars (repost signature); fit preserves content with deep neutral blur (sigma=24, sat=0.5) |
 | **Source UI removal** | 100px border crop strips Twitch/Kick overlays (chat, alerts, logos) | Platform UI is a clear signal of copied content |
-| **Audio fingerprint shift** | +1.8-4.2% asetrate/atempo (diversified per render) | Changes audio hash — defeats audio duplicate detection |
+| **Audio fingerprint shift** | +0.5-1.5% asetrate/atempo (diversified per render) | Changes audio hash — defeats Chromaprint duplicate detection |
 | **Karaoke captions** | ASS subtitles burned at render time (word-pop, bounce, glow, highlight) | Major creative edit — changes the visual frame entirely |
 | **Smart Zoom** (auto: face follow or micro push) | Follow mode: real face tracking with 1.20x zoom + smooth pan. Micro: cinematic push 1→1.06. Auto-selected based on face presence. | Camera movement = creative edit, not present in source |
 | **Hook text overlay** | Animated capsule with fade in (0.3s) + auto-hide after 4s (0.3s fade out) | Adds original text content to the frame |
@@ -643,7 +676,7 @@ When multiple users remix the same clip with similar settings, TikTok's perceptu
 | Parameter | Range | Where Applied |
 |---|---|---|
 | **Entry trim** | 0-1.2s (0.1s steps) | `render.js` — shifts clipStartTime, remaps word timestamps. Skipped if hook reorder active or result < 5s |
-| **Audio shift** | +1.8% to +4.2% | `ffmpeg-render.js` `buildAudioShiftFilters` — replaces fixed +3% |
+| **Audio shift** | +0.5% to +1.5% | `ffmpeg-render.js` `buildAudioShiftFilters` — imperceptible pitch/tempo shift (was +1.8-4.2%, reduced 2026-09) |
 | **Caption position** | ±3% marginV | `subtitle-generator.js` — applied after `adjustPositioning` |
 | **Caption size** | ±6% fontsize | `subtitle-generator.js` — applied after `adjustPositioning` |
 | **Caption accent color** | 5-variant palette per style | `diversify.js` `getDiversifiedAccentColor` — only styles with non-white accent. Skipped if user set custom colors |
@@ -653,8 +686,31 @@ When multiple users remix the same clip with similar settings, TikTok's perceptu
 | **Hook timing** | 0-0.4s delay | `ffmpeg-render.js` — fade-in start shifted |
 | **Zoom amplitude** | ±15% of default | `ffmpeg-render.js` `buildSmartZoomFilter` — micro (0.06 base) and dynamic (0.05 base) |
 | **Zoom phase** | 0-15% offset | `ffmpeg-render.js` — micro zoom curve start shifted |
-| **Invisible grain** | noise strength 1-2 | `ffmpeg-render.js` — `noise=alls=N:allf=t` before final format conversion. Imperceptible but pixel-unique |
+| **Invisible grain** | noise strength 2-4 | `ffmpeg-render.js` — `noise=alls=N:allf=t` (temporal). Imperceptible below 6, pixel-unique |
+| **Border crop** | 40-60px | `ffmpeg-render.js` — was fixed 50px. Varies crop rectangle hash |
+| **Hue shift** | 0-3 degrees | `ffmpeg-render.js` — `hue=h=N:s=M` filter. Imperceptible, breaks frame hash |
+| **Saturation** | 1.00-1.03 | `ffmpeg-render.js` — applied via hue filter `s=` param |
+| **Brightness** | -0.01 to +0.01 | `ffmpeg-render.js` — `eq=brightness=N` filter |
+| **CRF variant** | 20-23 | `ffmpeg-render.js` `buildCommonEncodingArgs` — changes encoding decisions per frame |
+| **FPS variant** | 30 or 29.97 (30000/1001) | `ffmpeg-render.js` `buildCommonEncodingArgs` — different frame timing |
 | **Hook text** | Non-deterministic (Claude temperature=1.0) | `hook-generator.js` — no explicit temperature → default 1.0. Two users get different hooks naturally |
+
+### Always-On Audio Pipeline
+
+| Stage | Filter | Purpose |
+|---|---|---|
+| **Audio enhance** (opt-in) | highpass + compressor + limiter + volume | User-enabled bass/loudness boost |
+| **Audio shift** (always-on) | asetrate + atempo + aresample | Anti-fingerprint pitch shift (+0.5-1.5%) |
+| **Loudnorm** (always-on) | `loudnorm=I=-14:TP=-2.0:LRA=11` | EBU R128 normalization. Single-pass, NO `linear=true`, NO `alimiter`. TP=-2.0 (not -1.5) accounts for AAC overshoot |
+| **Bass boost** (opt-in) | bass + acompressor | User-configured mild/heavy |
+| **Speed ramp** (opt-in) | atempo | User-configured subtle/dynamic |
+
+### Metadata Scrub (always-on)
+
+Source clips from Twitch/Kick carry metadata (encoder, handler_name, creation_time) that platforms can use for fingerprinting. All renders now strip metadata via:
+- `-map_metadata -1 -map_metadata:s:v -1 -map_metadata:s:a -1 -map_chapters -1` (per-stream required — handler_name survives without it)
+- `-metadata creation_time=<ISO now>` + `-metadata encoder=Viral Animal`
+- Tracked in render contract as `metadata_scrub` (cosmetic, non-critical)
 
 **Debug log**: `DIVERSIFY: seed=X variations={...}` logged at start, `DIVERSIFY SUMMARY` lists all applied values before render. Entry trim logs remapped word count. Fully reproducible from seed for debugging.
 
@@ -710,7 +766,7 @@ If any prerequisite fails, the render job's `debug_log` shows a `VOICEOVER SKIPP
 - VO MP3s added as extra FFmpeg inputs, delayed to their `startTime` via `adelay`
 - Ducking via `sidechaincompress`: original audio drops to ~35% during VO (threshold=0.02, ratio=4:1, attack/release=200ms)
 - Final `amix` merges ducked original + voiceover track
-- Audio fingerprint shift (diversified +1.8-4.2% asetrate/atempo) always applied on all renders, logged as `AUDIO SHIFT` in debug_log
+- Audio fingerprint shift (diversified +0.5-1.5% asetrate/atempo) + loudnorm (I=-14 TP=-2.0) always applied on all renders
 
 **UI** (Enhance page accordion "AI Voiceover"):
 - Toggle (ON by default), voice selector (3 options), editable script preview

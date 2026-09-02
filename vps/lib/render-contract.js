@@ -75,6 +75,22 @@ export function createContract(settings) {
     reason: null,
   });
 
+  // Loudnorm (always-on, non-critical)
+  entries.push({
+    feature: 'loudnorm',
+    requested: true,
+    applied: false,
+    reason: null,
+  });
+
+  // Metadata scrub (always-on, non-critical)
+  entries.push({
+    feature: 'metadata_scrub',
+    requested: true,
+    applied: false,
+    reason: null,
+  });
+
   // Audio enhance
   entries.push({
     feature: 'audio_enhance',
