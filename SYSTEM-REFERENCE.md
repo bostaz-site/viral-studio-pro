@@ -385,10 +385,10 @@ Enabled by default on all mood presets and Quick Export. Detects silences > 1.2s
 
 **UI**: "Silence Cut" accordion in Enhance page. Toggle + threshold slider (default 1.2s). Shows "cuts gaps > 1.2s" in the header.
 
-### Free Plan: End-Card (replaces persistent watermark)
-Free plan no longer has a persistent `@viralanimal` watermark during playback — TikTok flags permanent logos/watermarks as "unoriginal content". Instead, a 1.5s end-card is appended after the clip (dark bg, "Made with VIRAL ANIMAL", viralanimal.com). Same attribution, zero penalty during content.
+### Free Plan: Watermark + End-Card
+Free plan renders include a **semi-transparent Viral Animal logo** watermark (`vps/assets/watermark.png`): `scale=iw*0.18`, `colorchannelmixer=aa=0.55`, positioned at `overlay=W-w-40:H-h-360` (above TikTok UI dead zone). Applied via `buildWatermarkFilter()` when `plan='free'` and the asset exists. Plus 1.5s end-card appended after the clip.
 
-Pro/Studio: no end-card, no watermark (paid advantage preserved).
+Pro/Studio: no watermark, no end-card (paid advantage preserved).
 
 ### Viral Score Formula
 `currentScore = baseline + (headroom * totalWeight)`. Baseline = `max(30, clip.velocity_score)`. Weight accumulates per enabled feature (captions 0.14, hook 0.13, split-screen 0.07, etc.) with mood-match bonuses (~0.19 max). Cap at 99. Poids calibres par recherche — voir `docs/research/viralite-calibration.md`.
@@ -416,12 +416,14 @@ Every render builds a **contract** (`vps/lib/render-contract.js`): a list of fea
 
 ### Render Quality (4-tier ladder)
 Env var `RENDER_QUALITY` (default `high`). Auto-fallback on OOM (exit code null/137):
-- **HIGH_60**: 1080p60, fast, crf 17, maxrate 15M, audio 256k — target ≤120s for 30s clip
-- **HIGH_30**: 1080p30, fast, crf 18, maxrate 10M, audio 256k
-- **SAFE**: 720p30, faster, crf 22, maxrate 6M, audio 192k
-- **LAST_RESORT**: 720p30, ultrafast, crf 26, maxrate 4M, audio 160k
+- **HIGH_30** (default): 1080p30, fast, crf 20, maxrate 8M, audio 192k
+- **HIGH_60** (opt-in via `quality='60fps'`): 1080p60 — TikTok re-encodes to 30fps so this doubles encode time for no benefit; no longer in the default tier sequence
+- **SAFE**: 720p30, faster, crf 23, maxrate 5M, audio 160k
+- **LAST_RESORT**: 720p30, ultrafast, crf 26, maxrate 3M, audio 128k
 
-Quality tier is stored in `render_jobs.quality_tier` and exposed via `/api/render/status` as `qualityTier` + `reducedQuality` boolean. If tier < HIGH_30, the Enhance page shows a "Rendered at reduced quality" warning. `execRender()` receives `tierName` as 4th param from both `renderClip` and `renderSplitScreen` loops.
+Quality tier is stored in `render_jobs.quality_tier` and exposed via `/api/render/status` as `qualityTier` + `reducedQuality` boolean. If tier < HIGH_30, the Enhance page shows a "Rendered at reduced quality" warning.
+
+**Dead code removed**: `buildReframeFilters`, `buildPngCaptionChain` (ffmpeg-render.js), `hook-overlay.js` (resvg, never imported), `drawtext-wordpop.js`. `speedRamp` video filters (`-vf setpts`) removed (conflicted with `-filter_complex`; option never transmitted by route). Hook fallback drawtext fontsize now dynamic (`canvasW*0.044` instead of hardcoded 48).
 
 Filtergraph: scale/crop → eq (4 buckets) → unsharp (HIGH only) → ASS subtitles → overlays → watermark → format. `escapeDrawtext()` uses `'\''` (close-escape-reopen) for apostrophes in user text (hook, tag author) — FFmpeg does not process `\'` inside single-quoted filter values. Details : `SYSTEM-REFERENCE-ENHANCE.md` section "Qualite de rendu v2".
 

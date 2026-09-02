@@ -298,12 +298,15 @@ function adjustPositioning(styleConfig, { position = 'bottom', canvasWidth = 108
  * @param {Object} options - {style, clipStartTime, wordsPerLine, customColors, position, canvasWidth, canvasHeight}
  * @returns {string} ASS file content
  */
+/** Default words per line for all caption generation paths */
+export const DEFAULT_WORDS_PER_LINE = 4;
+
 export function generateASS(wordTimestamps, options = {}) {
   const {
     style = 'hormozi',
     animation = 'highlight',
     clipStartTime = 0,
-    wordsPerLine = 6,
+    wordsPerLine = DEFAULT_WORDS_PER_LINE,
     customColors = null,
     customImportantWords = [],
     emphasisEffect = 'none',

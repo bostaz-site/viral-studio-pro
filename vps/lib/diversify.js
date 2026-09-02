@@ -46,8 +46,8 @@ export function computeDiversify(jobId) {
   // 1. Entry trim: 0 to 1.2s in 0.1s steps (13 values)
   const entryTrimS = Math.round(rand() * 12) / 10;
 
-  // 2. Audio shift: +1.8% to +4.2% (never 0 — always shifts)
-  const audioShiftPct = round2(1.8 + rand() * 2.4);
+  // 2. Audio shift: +0.5% to +1.5% (imperceptible; old range 1.8-4.2% was audible)
+  const audioShiftPct = round2(0.5 + rand() * 1.0);
 
   // 3. Caption micro-variations (only applied to params user didn't set)
   const captionMarginVPct = round2((rand() - 0.5) * 6);   // ±3%
@@ -66,8 +66,22 @@ export function computeDiversify(jobId) {
   const zoomAmpMult = round2(0.85 + rand() * 0.30);        // ±15% of default
   const zoomPhase = round2(rand() * 0.15);                  // 0-15% phase offset
 
-  // 7. Invisible grain: noise strength 1 or 2
-  const grainStrength = 1 + Math.floor(rand() * 2);
+  // 7. Invisible grain: noise strength 0-3 (0 = no grain, 1-3 temporal noise, imperceptible below 6)
+  const grainStrength = Math.floor(rand() * 4);
+
+  // 8. Border crop: 40-60px (was fixed 50px — varies hash)
+  const borderCropPx = 40 + Math.floor(rand() * 21);
+
+  // 9. Color micro-shift (imperceptible, breaks perceptual hash)
+  const hueDeg = round2(rand() * 3);                  // 0-3 degrees
+  const saturation = round2(1.00 + rand() * 0.03);    // 1.00-1.03
+  const brightness = round2((rand() - 0.5) * 0.02);   // -0.01 to +0.01
+
+  // 10. CRF variation: 20-23 (within quality range, changes encoding decisions)
+  const crfVariant = 20 + Math.floor(rand() * 4);
+
+  // 11. FPS variant: 30 or 29.97 (30000/1001)
+  const fpsVariant = rand() > 0.5 ? 30 : '30000/1001';
 
   return {
     seed,
@@ -83,6 +97,12 @@ export function computeDiversify(jobId) {
     zoomAmpMult,
     zoomPhase,
     grainStrength,
+    borderCropPx,
+    hueDeg,
+    saturation,
+    brightness,
+    crfVariant,
+    fpsVariant,
   };
 }
 

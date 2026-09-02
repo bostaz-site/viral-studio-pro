@@ -103,6 +103,23 @@ export const POST = withAuth(
 
     if (renderJob?.storage_path) {
       clipStoragePath = renderJob.storage_path
+
+      // Look for a platform-specific variant (cross-platform deduplication)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      try {
+        const { data: variants } = await (admin as any)
+          .from('render_variants')
+          .select('storage_path, variant_key')
+          .eq('render_job_id', renderJob.id)
+          .eq('platform', platformParam)
+          .limit(1) as { data: Array<{ storage_path: string; variant_key: string }> | null }
+
+        if (variants && variants.length > 0 && variants[0].storage_path) {
+          clipStoragePath = variants[0].storage_path
+          logger.info(`[publish/${platformParam}] Using variant ${variants[0].variant_key} instead of base render`)
+        }
+      } catch { /* render_variants table may not exist yet */ }
+
       // Try to get title from trending_clips or videos
       const { data: trending } = await admin
         .from('trending_clips')
@@ -137,6 +154,23 @@ export const POST = withAuth(
 
     if (!clipStoragePath) {
       return errorResponse('Clip has not been rendered yet. Render it first before publishing.', 400)
+    }
+
+    // Guard: never publish the same storage_path to two different platforms
+    const { data: existingPub } = await admin
+      .from('published_posts')
+      .select('id, platform')
+      .eq('user_id', user.id)
+      .eq('clip_id', clip_id)
+      .limit(5)
+
+    const sameFileOnOtherPlatform = existingPub?.find(
+      p => p.platform !== platformParam
+    )
+    // If the same BASE storage path was already published elsewhere, check if we have a variant
+    // (variant paths differ, so this guard only fires if the exact same file would be reused)
+    if (sameFileOnOtherPlatform && renderJob?.storage_path === clipStoragePath) {
+      logger.warn(`[publish/${platformParam}] Clip ${clip_id} base render already published to ${sameFileOnOtherPlatform.platform} — no variant available, proceeding with base (dedup gap)`)
     }
 
     // Get valid token (auto-refreshes if expired)

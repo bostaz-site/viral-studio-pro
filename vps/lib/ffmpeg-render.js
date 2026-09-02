@@ -94,7 +94,8 @@ function getTierSequence(quality) {
   switch (quality) {
     case 'safe': return ['SAFE', 'LAST_RESORT'];
     case 'last': return ['LAST_RESORT'];
-    default:     return ['HIGH_60', 'HIGH_30', 'SAFE', 'LAST_RESORT'];
+    case '60fps': return ['HIGH_60', 'HIGH_30', 'SAFE', 'LAST_RESORT'];
+    default:     return ['HIGH_30', 'SAFE', 'LAST_RESORT'];
   }
 }
 
@@ -151,22 +152,27 @@ function clampMaxrate(tierMaxrate, clipDuration) {
   return `${cappedM}M`;
 }
 
-function buildCommonEncodingArgs(tier, fps, clipDuration) {
+function buildCommonEncodingArgs(tier, fps, clipDuration, diversify = null) {
   const gop = fps === 60 ? 120 : 60;
   const maxrate = clampMaxrate(tier.maxrate, clipDuration);
   // bufsize = 2× maxrate to keep VBV responsive
   const bufsizeM = parseInt(maxrate) * 2;
+
+  // Diversify: CRF and FPS variation (if available)
+  const crf = diversify?.crfVariant ?? tier.crf;
+  const fpsOut = diversify?.fpsVariant ?? fps;
+
   return [
     '-c:v', 'libx264',
     '-preset', tier.preset,
-    '-crf', String(tier.crf),
+    '-crf', String(crf),
     '-maxrate', maxrate,
     '-bufsize', `${bufsizeM}M`,
     '-profile:v', tier.profile,
     '-level:v', tier.level,
     '-pix_fmt', 'yuv420p',
     '-fps_mode', 'cfr',
-    '-r', String(fps),
+    '-r', String(fpsOut),
     '-g', String(gop),
     '-keyint_min', String(gop),
     '-sc_threshold', '0',
@@ -175,6 +181,13 @@ function buildCommonEncodingArgs(tier, fps, clipDuration) {
     '-colorspace', 'bt709',
     '-color_primaries', 'bt709',
     '-color_trc', 'bt709',
+    // Metadata scrub: strip ALL source metadata (handler_name, encoder, creation_time, etc.)
+    '-map_metadata', '-1',
+    '-map_metadata:s:v', '-1',
+    '-map_metadata:s:a', '-1',
+    '-map_chapters', '-1',
+    '-metadata', `creation_time=${new Date().toISOString()}`,
+    '-metadata', 'encoder=Viral Animal',
     '-threads', '2',
     '-filter_threads', '1',
     '-filter_complex_threads', '1',
@@ -369,15 +382,15 @@ async function prepareHookOverlay(hookText, hookLength, canvasW, canvasH, textPo
 
 /**
  * Build FFmpeg audio filters for imperceptible pitch/tempo shift.
- * Changes the audio fingerprint without audible difference (±2-4%).
+ * Changes the audio fingerprint without audible difference.
  * Uses asetrate to shift pitch, then atempo to correct duration.
  *
  * @param {number} sampleRate - Source sample rate (default 48000)
  * @returns {{ filters: string[], outputRate: number }}
  */
-function buildAudioShiftFilters(sampleRate = 48000, shiftPct = 3) {
+function buildAudioShiftFilters(sampleRate = 48000, shiftPct = 1) {
   // Imperceptible pitch/tempo shift — anti-fingerprint.
-  // shiftPct is diversified per render (1.8-4.2%, default 3%).
+  // shiftPct is diversified per render (0.5-1.5%, default 1%).
   const shiftFactor = 1 + shiftPct / 100;
   const shiftedRate = Math.round(sampleRate * shiftFactor);
   return {
@@ -737,43 +750,7 @@ function buildFollowFaceFilter(inLabel, outLabel, canvasW, canvasH, keyframes, c
 // Re-export for use in render pipeline
 export { buildFollowFaceFilter };
 
-/**
- * Build FFmpeg filter chain for reframing to target aspect ratio
- */
-function buildReframeFilters(aspectRatio, options = {}) {
-  const { cropAnchor = 'center' } = options;
-
-  const ratios = {
-    '9:16': { w: 1080, h: 1920 },
-    '1:1': { w: 1080, h: 1080 },
-    '16:9': { w: 1920, h: 1080 },
-  };
-
-  const { w: targetW, h: targetH } = ratios[aspectRatio] || ratios['9:16'];
-  const targetAspect = targetW / targetH; // e.g. 9/16 = 0.5625
-
-  // Memory-efficient strategy: crop to target aspect ratio FIRST (at original resolution),
-  // then scale to exact target size. This avoids creating huge intermediate frames
-  // (e.g. 3414x1920 from a 1280x720 input) which caused OOM on Railway.
-
-  // Crop to target aspect ratio — pick the dimension that "fits"
-  // If input is wider than target → crop width, keep height
-  // If input is taller than target → crop height, keep width
-  // Use min(iw, ih*targetAspect) for width, min(ih, iw/targetAspect) for height
-  const cropW = `min(iw\\, trunc(ih*${targetAspect}/2)*2)`;
-  const cropH = `min(ih\\, trunc(iw/${targetAspect}/2)*2)`;
-
-  let cropY = `(ih-${cropH})/2`;
-  if (cropAnchor === 'top') cropY = '0';
-  if (cropAnchor === 'bottom') cropY = `ih-${cropH}`;
-
-  const cropFilter = `crop=${cropW}:${cropH}:(iw-${cropW})/2:${cropY}`;
-
-  // Then scale the cropped frame to exact target dimensions
-  const scaleFilter = `scale=${targetW}:${targetH}:flags=lanczos`;
-
-  return `${cropFilter},${scaleFilter},setsar=1`;
-}
+// buildReframeFilters — REMOVED (dead code, replaced by per-mode crop in renderClip)
 
 /**
  * Main render function with 4-tier retry ladder.
@@ -958,15 +935,15 @@ export async function renderClip(inputPath, outputPath, options = {}) {
         cropZoom = 1.0;
       }
 
-      // Border crop: reduce when crop zoom is already high to stay within budget
+      // Border crop: diversified base (40-60px), reduced when crop zoom is high
       const MAX_TOTAL_ZOOM = 3.2;
+      const baseBorderCrop = diversify?.borderCropPx ?? 50;
       let borderCrop;
       if (isFullFrame || isReaction || isDuo) {
-        // With high crop zoom, reduce border crop to avoid losing too much content
         const borderBudget = MAX_TOTAL_ZOOM / Math.max(cropZoom, 1);
-        borderCrop = borderBudget < 1.15 ? 40 : 80; // 40px if tight, 80px otherwise
+        borderCrop = borderBudget < 1.15 ? Math.min(baseBorderCrop, 40) : Math.max(baseBorderCrop, 60);
       } else {
-        borderCrop = 50;
+        borderCrop = baseBorderCrop;
       }
 
       // Burned captions anchor: shift vertical border crop to preserve the edge
@@ -1226,20 +1203,21 @@ export async function renderClip(inputPath, outputPath, options = {}) {
           const enableExpr = hookDisplayLength < clipDuration
             ? `:enable='between(t\\,0\\,${(hookDisplayLength + 0.3).toFixed(2)})'`
             : '';
-          filterComplex += `;${mapVideo}drawtext=text='${safeText}':fontfile=/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf:fontsize=48:fontcolor=0x${hookFontColor}@0xff:borderw=3:bordercolor=black:x=(w-text_w)/2:y=h*${posPct}/100-text_h/2${enableExpr}[hooktext]`;
+          const hookFontSize = Math.round(canvasW * 0.044);
+          filterComplex += `;${mapVideo}drawtext=text='${safeText}':fontfile=/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf:fontsize=${hookFontSize}:fontcolor=0x${hookFontColor}@0xff:borderw=3:bordercolor=black:x=(w-text_w)/2:y=h*${posPct}/100-text_h/2${enableExpr}[hooktext]`;
           mapVideo = '[hooktext]';
         }
       }
 
       // ── Step 8: Watermark ──
-      // Free plan: NO persistent watermark (TikTok flags logos as "unoriginal").
-      // Attribution moved to end-card only (appended after render).
-      // Custom logos (Pro/Studio) still applied if provided.
-      if (watermark && plan !== 'free' && watermark.logoPath) {
-        const watermarkFilter = buildWatermarkFilter(watermark, watermarkPosition, plan, clipDuration);
-        if (watermarkFilter) {
-          filterComplex += `;${mapVideo}${watermarkFilter}[watermarked]`;
+      // Free plan: Viral Animal logo (vps/assets/watermark.png), semi-transparent.
+      // Pro/Studio: no watermark. Studio with custom brand logo: same position.
+      if (watermark && watermark.logoPath) {
+        const wmFilter = buildWatermarkFilter(watermark, mapVideo, plan, clipDuration);
+        if (wmFilter) {
+          filterComplex += `;${wmFilter}[watermarked]`;
           mapVideo = '[watermarked]';
+          console.log(`[FFmpeg] Watermark applied: ${watermark.type || 'viral-animal'}`);
         }
       }
 
@@ -1304,10 +1282,24 @@ export async function renderClip(inputPath, outputPath, options = {}) {
       }
 
       // ── Invisible grain (diversify: imperceptible noise, unique pixel hash) ──
-      const grain = diversify?.grainStrength ?? 0;
+      const grain = diversify?.grainStrength ?? 2;
       if (grain > 0) {
         filterComplex += `;${mapVideo}noise=alls=${grain}:allf=t[grained]`;
         mapVideo = '[grained]';
+      }
+
+      // ── Color micro-shift (diversify: hue/saturation/brightness, breaks perceptual hash) ──
+      if (diversify && (diversify.hueDeg > 0 || diversify.saturation !== 1 || diversify.brightness !== 0)) {
+        const huePart = diversify.hueDeg > 0 ? `hue=h=${diversify.hueDeg}:s=${diversify.saturation}` : null;
+        const eqPart = diversify.brightness !== 0 ? `eq=brightness=${diversify.brightness}` : null;
+        if (huePart) {
+          filterComplex += `;${mapVideo}${huePart}[hued]`;
+          mapVideo = '[hued]';
+        }
+        if (eqPart) {
+          filterComplex += `;${mapVideo}${eqPart}[eqd]`;
+          mapVideo = '[eqd]';
+        }
       }
 
       // ── Terminal format=yuv420p ──
@@ -1331,12 +1323,18 @@ export async function renderClip(inputPath, outputPath, options = {}) {
         console.log('[FFmpeg] Audio enhancement: highpass + gentle compressor + limiter (no denoiser — stream audio is clean)');
       }
 
-      // Audio shift LAST — after enhance, before encoding. Shifting first caused
-      // the resampled signal to interact poorly with afftdn/loudnorm.
-      const audioShiftPct = diversify?.audioShiftPct ?? 3;
+      // Audio shift — after enhance, before loudnorm.
+      const audioShiftPct = diversify?.audioShiftPct ?? 1;
       const audioShift = buildAudioShiftFilters(48000, audioShiftPct);
       audioFilters.push(...audioShift.filters);
       console.log(`[FFmpeg] Audio fingerprint shift: +${audioShiftPct}% asetrate/atempo (anti-duplicate)`);
+
+      // Loudnorm: EBU R128 normalization. Single-pass, no linear=true, no alimiter.
+      // TP=-2.0 (not -1.5) accounts for AAC encoder overshoot.
+      // Previous linear=true + alimiter combo caused metallic artifacts — removed.
+      audioFilters.push('loudnorm=I=-14:TP=-2.0:LRA=11');
+      console.log('[FFmpeg] Loudnorm: I=-14 TP=-2.0 LRA=11 (single-pass, no linear, no alimiter)');
+
       const bassFilters = buildBassBoostFilters({ bassBoost });
       if (bassFilters.length > 0) {
         audioFilters.push(...bassFilters);
@@ -1399,7 +1397,7 @@ export async function renderClip(inputPath, outputPath, options = {}) {
         args.push('-filter_complex', filterComplex);
         args.push('-map', mapVideo);
         args.push('-map', '[aout]');
-        args.push(...buildCommonEncodingArgs(tier, fps, clipDuration));
+        args.push(...buildCommonEncodingArgs(tier, fps, clipDuration, diversify));
         args.push('-c:a', 'aac', '-b:a', tier.audioBitrate, '-ar', '48000', '-ac', '2');
 
         console.log(`[FFmpeg] Voiceover mix: ${voiceoverPaths.length} lines with sidechaincompress ducking`);
@@ -1408,21 +1406,16 @@ export async function renderClip(inputPath, outputPath, options = {}) {
         args.push('-filter_complex', filterComplex);
         args.push('-map', mapVideo);
         args.push('-map', '0:a?');
-        args.push(...buildCommonEncodingArgs(tier, fps, clipDuration));
+        args.push(...buildCommonEncodingArgs(tier, fps, clipDuration, diversify));
         if (audioFilters.length > 0) {
           args.push('-af', audioFilters.join(','));
         }
         args.push('-c:a', 'aac', '-b:a', tier.audioBitrate, '-ar', '48000', '-ac', '2');
       }
 
-      if (speedFilters.video.length > 0) {
-        const vfIdx = args.lastIndexOf('-vf');
-        if (vfIdx !== -1 && args[vfIdx + 1]) {
-          args[vfIdx + 1] = args[vfIdx + 1] + ',' + speedFilters.video.join(',');
-        } else {
-          args.push('-vf', speedFilters.video.join(','));
-        }
-      }
+      // speedRamp video filters removed — setpts via -vf conflicts with -filter_complex.
+      // speedRamp is not currently exposed via the route. If re-enabled, integrate setpts
+      // into the filter_complex chain before [vout].
       args.push('-max_muxing_queue_size', '512');
       args.push(outputPath);
 
@@ -1537,49 +1530,7 @@ async function execRender(args, outputPath, timeout = 300000, tierName = 'unknow
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// PNG Caption Overlay Chain
-// ─────────────────────────────────────────────────────────────────────────────
-
-/**
- * Builds a filter_complex chain that overlays a sequence of caption PNGs
- * onto the video track, each gated by its time window.
- *
- * @param {Array}  overlays - [{ pngPath, startTime, endTime, x, y }]
- * @param {string} inputLabel - current video label (e.g. '[composed]')
- * @param {number} firstInputIdx - FFmpeg input index of the first PNG
- * @returns {{chain: string, nextLabel: string, inputs: string[]}}
- */
-function buildPngCaptionChain(overlays, inputLabel, firstInputIdx) {
-  const inputs = [];
-  const filters = [];
-  let currentLabel = inputLabel;
-
-  for (let i = 0; i < overlays.length; i++) {
-    const ov = overlays[i];
-    inputs.push(ov); // keep full overlay for args-building (needs timing)
-    const pngInputIdx = firstInputIdx + i;
-    const nextLabel = i === overlays.length - 1 ? '[cap_out]' : `[cap_${i}]`;
-
-    // Trim the overlay to its active window. The input is already offset
-    // via -itsoffset so its PTS matches the timeline; enable='between(...)'
-    // guards against any drift.
-    const ts = Math.max(0, ov.startTime);
-    const te = Math.max(ts + 0.01, ov.endTime);
-    const enable = `between(t,${ts.toFixed(3)},${te.toFixed(3)})`;
-
-    filters.push(
-      `[${pngInputIdx}:v]format=rgba[cap_src_${i}]`,
-      `${currentLabel}[cap_src_${i}]overlay=${ov.x}:${ov.y}:enable='${enable}':format=auto:eof_action=pass:repeatlast=0${nextLabel}`
-    );
-    currentLabel = nextLabel;
-  }
-
-  return {
-    chain: filters.join(';'),
-    nextLabel: currentLabel,
-    inputs,
-  };
-}
+// buildPngCaptionChain — REMOVED (dead code, all captions use ASS subtitles now)
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Tag / Credit Overlay
@@ -1700,10 +1651,14 @@ function buildTagFilter(tagConfig, canvasW = 720, canvasH = 1280, inputLabel = n
 // ─────────────────────────────────────────────────────────────────────────────
 
 function buildWatermarkFilter(watermark, position, plan, clipDuration) {
-  // Free plan: no persistent watermark (replaced by end-card).
-  // Only custom logo watermarks for Pro/Studio users who upload one.
-  if (!watermark.logoPath) return null;
-  return null; // custom logo rendering not yet implemented
+  if (!watermark) return null;
+
+  // 'viral-animal' = free plan default logo, 'custom' = studio user-uploaded logo
+  const logoPath = watermark.logoPath;
+  if (!logoPath) return null;
+
+  // Scale to 18% of canvas width, semi-transparent, above TikTok UI dead zone
+  return `movie=${logoPath},scale=iw*0.18:-1,format=yuva420p,colorchannelmixer=aa=0.55[wm];${position}[wm]overlay=W-w-40:H-h-360:format=auto`;
 }
 
 /**

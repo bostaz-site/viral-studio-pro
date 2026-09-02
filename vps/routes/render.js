@@ -19,6 +19,7 @@ import { adviseCrop } from '../lib/crop-advisor.js';
 import { createContract, trackFeatureFailure, resetFeatureStreak } from '../lib/render-contract.js';
 import { enqueueRender, getQueueStatus } from '../lib/render-queue.js';
 import { computeDiversify, getDiversifiedAccentColor, pickVoice } from '../lib/diversify.js';
+import { deriveAllVariants } from '../lib/variant-derive.js';
 import {
   getClip,
   getVideo,
@@ -636,9 +637,15 @@ router.post('/', async (req, res) => {
       clipDuration,
       wordTimestamps: providedWordTimestamps,
       settings = {},
+      variants: requestedVariants,
     } = req.body;
 
-    trc(`START source=${source} clipId=${reqClipId} jobId=${jobId || 'none'}`);
+    // Validate variants array (max 4)
+    const variants = Array.isArray(requestedVariants)
+      ? requestedVariants.filter(v => v && v.id && v.platform).slice(0, 4)
+      : [];
+
+    trc(`START source=${source} clipId=${reqClipId} jobId=${jobId || 'none'} variants=${variants.length}`);
     trc(`videoUrl=${videoUrl ? videoUrl.substring(0, 80) + '...' : 'null/undefined'}`);
     trc(`fallbackUrl=${fallbackUrl ? fallbackUrl.substring(0, 60) + '...' : 'none'}`);
     trc(`settings.tag=${JSON.stringify(settings.tag)}`);
@@ -1617,6 +1624,8 @@ router.post('/', async (req, res) => {
     const outputPath = path.join(tempDir, 'output.mp4');
     // Record remaining contract features before render
     contract.record('audio_shift', true); // always-on
+    contract.record('loudnorm', true); // always-on
+    contract.record('metadata_scrub', true); // always-on
     contract.record('audio_enhance', settings.audioEnhance?.enabled || false);
     contract.record('smart_zoom', settings.smartZoom?.enabled !== false, null, { mode: settings.smartZoom?.mode || 'micro' });
     contract.record('crop_mode', true, null, { applied_mode: settings.format?.videoZoom || 'auto' });
@@ -1690,7 +1699,7 @@ router.post('/', async (req, res) => {
 
     // ── Diversify Summary ──
     if (div) {
-      trc(`DIVERSIFY SUMMARY: seed=${div.seed} audioShift=+${div.audioShiftPct}% entryTrim=${div.entryTrimS}s captionPos=${div.captionMarginVPct}% captionSize=${div.captionSizePct}% colorIdx=${div.captionColorIdx} voiceIdx=${div.voiceIdx} hookPos=${div.hookPosPct}% hookSize=${div.hookSizePct}% hookDelay=${div.hookDelayS}s zoomAmp=${div.zoomAmpMult}x zoomPhase=${div.zoomPhase} grain=${div.grainStrength}`);
+      trc(`DIVERSIFY SUMMARY: seed=${div.seed} audioShift=+${div.audioShiftPct}% entryTrim=${div.entryTrimS}s captionPos=${div.captionMarginVPct}% captionSize=${div.captionSizePct}% colorIdx=${div.captionColorIdx} voiceIdx=${div.voiceIdx} hookPos=${div.hookPosPct}% hookSize=${div.hookSizePct}% hookDelay=${div.hookDelayS}s zoomAmp=${div.zoomAmpMult}x zoomPhase=${div.zoomPhase} grain=${div.grainStrength} borderCrop=${div.borderCropPx}px hue=${div.hueDeg}deg sat=${div.saturation} bright=${div.brightness} crf=${div.crfVariant} fps=${div.fpsVariant}`);
     }
 
     trc(`AUDIO SHIFT: +${div?.audioShiftPct ?? 3}% asetrate/atempo anti-fingerprint will be applied (always-on)`);
@@ -1703,10 +1712,12 @@ router.post('/', async (req, res) => {
         ? ((await getUserProfile(userId))?.plan || 'free')
         : 'free'
     );
-    // Watermark config from payload, or derive from plan
-    const watermarkConfig = req.body.watermark?.enabled
-      ? { enabled: true }
-      : (userPlan === 'free' ? { enabled: true } : null);
+    // Watermark: free plan = Viral Animal logo, pro/studio = none (paid advantage).
+    // Studio users with custom brand logo could pass logoPath in future.
+    const watermarkAsset = path.resolve(import.meta.dirname || '.', '../assets/watermark.png');
+    const watermarkConfig = userPlan === 'free' && (await import('fs')).existsSync(watermarkAsset)
+      ? { enabled: true, logoPath: watermarkAsset, type: 'viral-animal' }
+      : null;
 
     const renderResult = await renderClip(inputPath, outputPath, {
       startTime: clipStartTime,
@@ -1802,6 +1813,56 @@ router.post('/', async (req, res) => {
       if (videoId) await maybeMarkVideoComplete(videoId);
     }
 
+    // ── Derive platform variants (lightweight second pass) ──
+    const variantResults = [];
+    if (variants.length > 0 && jobId) {
+      trc(`VARIANTS: deriving ${variants.length} platform variants from base render`);
+      t('variants_start');
+      try {
+        const derived = await deriveAllVariants(outputPath, tempDir, jobId, variants);
+
+        for (const v of derived) {
+          const variantStoragePath = source === 'trending'
+            ? `trending/${clipId}_${v.variantKey}_${renderTs}.mp4`
+            : `${userId}/${clipId}_${v.variantKey}_${renderTs}.mp4`;
+          try {
+            const vUpload = await uploadClip(v.localPath, variantStoragePath);
+            variantResults.push({
+              id: v.variantKey,
+              platform: v.platform,
+              accountId: v.accountId,
+              storage_path: variantStoragePath,
+              seed: v.div.seed,
+              diversify_params: v.div,
+            });
+            trc(`VARIANT ${v.variantKey} uploaded → ${variantStoragePath} (${v.div.audioShiftPct}% shift, crf=${v.div.crfVariant})`);
+          } catch (uploadErr) {
+            console.error(`[variant] Upload failed for ${v.variantKey}:`, uploadErr.message);
+          }
+        }
+
+        // Insert variants into DB
+        if (variantResults.length > 0) {
+          const rows = variantResults.map(v => ({
+            render_job_id: jobId,
+            variant_key: v.id,
+            platform: v.platform,
+            account_id: v.accountId || null,
+            storage_path: v.storage_path,
+            seed: v.seed,
+            diversify_params: v.diversify_params,
+          }));
+          await supabase.from('render_variants').upsert(rows, { onConflict: 'render_job_id,variant_key' });
+          trc(`VARIANTS: ${variantResults.length}/${variants.length} stored in DB`);
+        }
+      } catch (err) {
+        // Variant failure is non-fatal — base render is already uploaded
+        console.error(`[variant] Derivation error:`, err.message);
+        trc(`VARIANTS ERROR: ${err.message} (base render unaffected)`);
+      }
+      t('variants_end');
+    }
+
     t('upload_end');
 
     const elapsedSeconds = (Date.now() - startTime) / 1000;
@@ -1832,7 +1893,7 @@ router.post('/', async (req, res) => {
 
     // Mark render job as done or degraded (with contract + transform score)
     const transformScore = contract.transformScore();
-    trc(`TRANSFORM SCORE: ${transformScore}/4 (hook=${contract.toJSON().find(e => e.feature === 'hook_text')?.applied ? 1 : 0} captions=${contract.toJSON().find(e => e.feature === 'captions')?.applied ? 1 : 0} zoom=${contract.toJSON().find(e => e.feature === 'smart_zoom')?.applied ? 1 : 0} vo=${contract.toJSON().find(e => e.feature === 'voiceover')?.applied ? 1 : 0})`);
+    trc(`TRANSFORM SCORE: ${transformScore}/3 (hook=${contract.toJSON().find(e => e.feature === 'hook_text')?.applied ? 1 : 0} captions=${contract.toJSON().find(e => e.feature === 'captions')?.applied ? 1 : 0} zoom=${contract.toJSON().find(e => e.feature === 'smart_zoom')?.applied ? 1 : 0})`);
     await updateRenderJob(req.body.jobId, {
       status: finalStatus,
       storage_path: clipStoragePath,
@@ -1858,6 +1919,11 @@ router.post('/', async (req, res) => {
         clipUrl: uploadResult.url,
         duration,
         thumbnailPath,
+        variants: variantResults.length > 0 ? variantResults.map(v => ({
+          id: v.id,
+          platform: v.platform,
+          storage_path: v.storage_path,
+        })) : undefined,
       },
       message: 'Clip rendered successfully',
     });

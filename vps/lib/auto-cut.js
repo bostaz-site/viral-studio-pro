@@ -65,8 +65,8 @@ export function getAdaptiveThreshold({ mood, intensity } = {}) {
  * @param {Array<{word: string, start: number, end: number}>} wordTimestamps
  * @param {number} duration - Total clip duration in seconds
  * @param {object} options
- * @param {number} options.silenceThreshold - Minimum gap (seconds) to cut (default 0.7)
- * @param {number} options.padding - Extra padding before/after each segment (default 0.08)
+ * @param {number} options.silenceThreshold - Minimum gap (seconds) to cut (default 1.2)
+ * @param {number} options.padding - Extra padding before/after each segment (default 0.15)
  * @returns {{ segments: Array<{start: number, end: number}>, cutDuration: number, originalDuration: number }}
  */
 export function computeSpeechSegments(wordTimestamps, duration, options = {}) {
@@ -131,7 +131,7 @@ export async function applyAutoCut(inputPath, tempDir, wordTimestamps, duration,
   } = options;
 
   const { segments, cutDuration, originalDuration } = computeSpeechSegments(
-    wordTimestamps, duration, { silenceThreshold }
+    wordTimestamps, duration, { silenceThreshold, padding: options.padding }
   );
 
   // If no meaningful cuts (< 0.5s saved or < 2 segments), skip
