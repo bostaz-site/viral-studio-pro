@@ -42,16 +42,33 @@ const supabase = createClient(
   process.env.SUPABASE_SECRET_KEY ?? process.env.SUPABASE_SERVICE_ROLE_KEY ?? ''
 );
 
-async function updateRenderJob(jobId, updates) {
-  if (!jobId) return;
-  try {
-    await supabase
-      .from('render_jobs')
-      .update({ ...updates, updated_at: new Date().toISOString() })
-      .eq('id', jobId);
-  } catch (err) {
-    console.warn(`[RenderJob] Failed to update job ${jobId}:`, err.message);
+/**
+ * Update a render_jobs row. supabase-js does NOT throw on PostgREST errors — it
+ * returns `{ error }` — so the error MUST be checked explicitly. A silent failure
+ * here (e.g. unknown column after a code change without migration) leaves the job
+ * in 'rendering' and the safety net then kills a successful render.
+ *
+ * Returns { ok: boolean, error?: string }. Retries transient failures once.
+ */
+async function updateRenderJob(jobId, updates, { retries = 1 } = {}) {
+  if (!jobId) return { ok: false, error: 'no jobId' };
+  let lastError = null;
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      const { error } = await supabase
+        .from('render_jobs')
+        .update({ ...updates, updated_at: new Date().toISOString() })
+        .eq('id', jobId);
+      if (!error) return { ok: true };
+      lastError = `${error.code || ''} ${error.message || ''}`.trim();
+      console.error(`[RenderJob] Update failed for job ${jobId} (attempt ${attempt + 1}/${retries + 1}): ${lastError} — keys=${Object.keys(updates).join(',')}`);
+    } catch (err) {
+      lastError = err?.message || String(err);
+      console.error(`[RenderJob] Update threw for job ${jobId} (attempt ${attempt + 1}/${retries + 1}): ${lastError}`);
+    }
+    if (attempt < retries) await new Promise(r => setTimeout(r, 1500));
   }
+  return { ok: false, error: lastError };
 }
 
 /**
@@ -607,6 +624,9 @@ router.post('/', async (req, res) => {
   let tempDir = null;
   const trace = [];
   let lastFlushAt = 0;
+  // Set once the output is uploaded — lets the safety net (finally) recover a
+  // successful render whose terminal DB write failed, instead of forcing 'error'.
+  let succeededTerminal = null;
   const FLUSH_INTERVAL_MS = 10000; // flush debug_log to DB every 10s
   const timings = {};
   const t = (key) => { timings[key] = Date.now(); };
@@ -1902,7 +1922,8 @@ router.post('/', async (req, res) => {
     // Mark render job as done or degraded (with contract + transform score)
     const transformScore = contract.transformScore();
     trc(`TRANSFORM SCORE: ${transformScore}/3 (hook=${contract.toJSON().find(e => e.feature === 'hook_text')?.applied ? 1 : 0} captions=${contract.toJSON().find(e => e.feature === 'captions')?.applied ? 1 : 0} zoom=${contract.toJSON().find(e => e.feature === 'smart_zoom')?.applied ? 1 : 0})`);
-    await updateRenderJob(req.body.jobId, {
+    succeededTerminal = { status: finalStatus, storage_path: clipStoragePath, clip_url: uploadResult.url };
+    const finalWrite = await updateRenderJob(req.body.jobId, {
       status: finalStatus,
       storage_path: clipStoragePath,
       clip_url: uploadResult.url,
@@ -1911,6 +1932,22 @@ router.post('/', async (req, res) => {
       contract: contract.toJSON(),
       transform_score: transformScore,
     });
+    if (!finalWrite.ok) {
+      // The rich payload was rejected (typically an unknown column after a code change
+      // shipped without its migration). The render itself SUCCEEDED — never let the
+      // safety net convert it into an error. Fall back to the minimal terminal write.
+      trc(`FINAL WRITE FAILED: ${finalWrite.error} — retrying with minimal payload (status + storage_path + clip_url)`);
+      const minimal = await updateRenderJob(req.body.jobId, {
+        status: finalStatus,
+        storage_path: clipStoragePath,
+        clip_url: uploadResult.url,
+        debug_log: trace.join('\n'),
+      });
+      if (!minimal.ok) {
+        trc(`FINAL WRITE FAILED AGAIN (minimal payload): ${minimal.error}`);
+        console.error(`[Render ${renderSessionId}] CRITICAL: cannot persist terminal status for job ${req.body.jobId}: ${minimal.error}`);
+      }
+    }
 
     // Send HMAC-signed webhook callback to Next.js (queue management + export tracking)
     // Include wordCount from Whisper for candidate check calibration (truth loop)
@@ -1989,14 +2026,27 @@ router.post('/', async (req, res) => {
           .eq('id', req.body.jobId)
           .single();
         if (jobCheck && !['done', 'degraded', 'error', 'failed', 'canceled', 'expired'].includes(jobCheck.status)) {
-          console.error(`[Render ${renderSessionId}] SAFETY NET: job ${req.body.jobId} still in "${jobCheck.status}" after pipeline — forcing error`);
-          trace.push(`[SAFETY NET] Job stuck in "${jobCheck.status}" — forced to error`);
-          await updateRenderJob(req.body.jobId, {
-            status: 'error',
-            error_message: 'Render pipeline exited without setting terminal status (possible OOM or crash)',
-            debug_log: trace.join('\n'),
-          });
-          sendWebhookCallback(req.body.jobId, 'error', null, 'Pipeline crash — safety net activated').catch(() => {});
+          if (succeededTerminal) {
+            // The render DID succeed (output uploaded) — only the terminal DB write failed.
+            // Recover it instead of destroying a good render.
+            console.error(`[Render ${renderSessionId}] SAFETY NET: job ${req.body.jobId} still in "${jobCheck.status}" but output exists — recovering as ${succeededTerminal.status}`);
+            trace.push(`[SAFETY NET] Job stuck in "${jobCheck.status}" but render succeeded — recovered as ${succeededTerminal.status}`);
+            const rec = await updateRenderJob(req.body.jobId, { ...succeededTerminal, debug_log: trace.join('\n') });
+            if (rec.ok) {
+              sendWebhookCallback(req.body.jobId, succeededTerminal.status, succeededTerminal.storage_path, null).catch(() => {});
+            } else {
+              console.error(`[Render ${renderSessionId}] SAFETY NET: recovery write failed too: ${rec.error}`);
+            }
+          } else {
+            console.error(`[Render ${renderSessionId}] SAFETY NET: job ${req.body.jobId} still in "${jobCheck.status}" after pipeline — forcing error`);
+            trace.push(`[SAFETY NET] Job stuck in "${jobCheck.status}" — forced to error`);
+            await updateRenderJob(req.body.jobId, {
+              status: 'error',
+              error_message: 'Render pipeline exited without setting terminal status (possible OOM or crash)',
+              debug_log: trace.join('\n'),
+            });
+            sendWebhookCallback(req.body.jobId, 'error', null, 'Pipeline crash — safety net activated').catch(() => {});
+          }
         }
       } catch (safetyErr) {
         console.error(`[Render ${renderSessionId}] Safety net DB check failed:`, safetyErr.message);

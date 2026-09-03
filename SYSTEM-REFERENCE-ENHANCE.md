@@ -818,6 +818,12 @@ Body construit par `handleRender()` :
 
 ## Render Flow (Frontend)
 
+### Ecriture terminale du job (VPS, 2026-09-03)
+
+`updateRenderJob()` dans `vps/routes/render.js` verifie desormais `error` retourne par supabase-js (qui ne throw jamais), retry 1x, et retourne `{ ok, error }`. L'ecriture finale (status + storage_path + clip_url + quality_tier + contract + transform_score) a un fallback : si le payload riche est rejete (ex. colonne inconnue), re-ecriture minimale (status + storage_path + clip_url) pour que le render reussi ne soit jamais perdu. Le safety net du `finally` distingue maintenant « pipeline crash » (force `error`) de « render reussi mais ecriture echouee » (`succeededTerminal` → recupere en `done`/`degraded`).
+
+Incident a l'origine : `transform_score` reference dans le code depuis 881c24b sans migration → chaque render reussi finissait en `error` avec « Render pipeline exited without setting terminal status ». Migration ajoutee : `20260903_render_jobs_transform_score.sql`. Regle : toute nouvelle colonne ecrite par le VPS DOIT avoir sa migration appliquee en prod avant deploy (`scripts/check-migrations.ts`).
+
 ### Pipeline Summary (self-contained)
 
 Le render complet, de A a Z, sans avoir besoin de lire un autre fichier :
