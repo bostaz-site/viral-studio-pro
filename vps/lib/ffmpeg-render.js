@@ -1289,9 +1289,13 @@ export async function renderClip(inputPath, outputPath, options = {}) {
       }
 
       // ── Color micro-shift (diversify: hue/saturation/brightness, breaks perceptual hash) ──
-      if (diversify && (diversify.hueDeg > 0 || diversify.saturation !== 1 || diversify.brightness !== 0)) {
-        const huePart = diversify.hueDeg > 0 ? `hue=h=${diversify.hueDeg}:s=${diversify.saturation}` : null;
-        const eqPart = diversify.brightness !== 0 ? `eq=brightness=${diversify.brightness}` : null;
+      // Defensive defaults: a missing field must never reach FFmpeg as `undefined`.
+      const dHue = Number.isFinite(diversify?.hueDeg) ? diversify.hueDeg : 0;
+      const dSat = Number.isFinite(diversify?.saturation) ? diversify.saturation : 1;
+      const dBri = Number.isFinite(diversify?.brightness) ? diversify.brightness : 0;
+      if (diversify && (dHue > 0 || dSat !== 1 || dBri !== 0)) {
+        const huePart = (dHue > 0 || dSat !== 1) ? `hue=h=${dHue}:s=${dSat}` : null;
+        const eqPart = dBri !== 0 ? `eq=brightness=${dBri}` : null;
         if (huePart) {
           filterComplex += `;${mapVideo}${huePart}[hued]`;
           mapVideo = '[hued]';

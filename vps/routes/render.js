@@ -1761,6 +1761,14 @@ router.post('/', async (req, res) => {
         hookDelayS: div.hookDelayS,
         hookPosPct: div.hookPosPct,
         hookSizePct: div.hookSizePct,
+        // Anti-fingerprint params added 2026-09 (R1) — must be forwarded or the
+        // color micro-shift filter receives `undefined` and FFmpeg aborts.
+        borderCropPx: div.borderCropPx,
+        hueDeg: div.hueDeg,
+        saturation: div.saturation,
+        brightness: div.brightness,
+        crfVariant: div.crfVariant,
+        fpsVariant: div.fpsVariant,
       } : null,
     });
 
