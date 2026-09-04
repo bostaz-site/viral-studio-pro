@@ -84,7 +84,7 @@ export const POST = withAuth(
     // for the same clip (user clicked "Generate" multiple times).
     const { data: renderJobs } = await admin
       .from('render_jobs')
-      .select('id, clip_id, storage_path, clip_url, user_id, render_settings')
+      .select('id, clip_id, storage_path, clip_url, user_id, render_settings, transform_score, status')
       .eq('clip_id', clip_id)
       .eq('user_id', user.id)
       .in('status', ['done', 'degraded'])
@@ -95,6 +95,7 @@ export const POST = withAuth(
       id: string; clip_id: string; storage_path: string | null;
       clip_url: string | null; user_id: string;
       render_settings: Record<string, unknown> | null;
+      transform_score: number | null; status: string;
     } | undefined ?? null
 
     // Fallback: check clips table
@@ -402,6 +403,11 @@ export const POST = withAuth(
         clipTitle: clipTitle,
       }).catch(() => {})
 
+      // Transform score warning for manual publish (autofarm blocks <3, manual warns <3)
+      const transformWarning = renderJob && renderJob.transform_score !== null && renderJob.transform_score < 3
+        ? `Ce render a ${renderJob.transform_score}/3 transformations — risque de visibilité réduite sur TikTok`
+        : null
+
       return jsonResponse({
         publicationId: publication.id,
         platform: platformParam,
@@ -410,6 +416,7 @@ export const POST = withAuth(
         trackingUrl: result.trackingUrl,
         mode: result.mode ?? 'direct',
         status: 'published',
+        transformWarning,
       })
     } catch (err) {
       const errMsg = err instanceof Error ? err.message : 'Publishing failed'

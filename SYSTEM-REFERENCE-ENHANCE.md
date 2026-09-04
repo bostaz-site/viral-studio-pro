@@ -337,12 +337,73 @@ Exemples pour `rage` :
 - hook: "optimized for shock-value retention"
 
 ### Result Card
-Apres les 6 steps : card emerald avec count-up du score de confiance, 3 checkmarks :
-- "Hook tuned for retention"
-- "Captions matched to energy"
-- "Effects aligned with peak moments"
+Apres les 6 steps : card emerald avec count-up du score de confiance.
+- Si l'analyse a retourne les 4 criteres (P5) → `<CriteriaGrid>` (4 barres + why) remplace les checkmarks.
+- Sinon (fallback / modele muet) → 3 checkmarks generiques :
+  - "Hook tuned for retention"
+  - "Captions matched to energy"
+  - "Effects aligned with peak moments"
 
 Apres 800ms → `onComplete()` callback.
+
+---
+
+## Analyse IA — grille des 4 criteres (P5 · 2026-09)
+
+Source : RECHERCHE-ALGO-VIRALITE-2026.md Partie 6 (Monster Lab, 25K clippers, 6 chiffres/mois). Un clip vaut le montage s'il a :
+
+| Cle | Label UI | Ce que ca mesure | Poids |
+|---|---|---|---|
+| `unexpected` | Unexpected | Evenement inattendu / plot twist | 30% |
+| `emotion` | Emotion | Intensite emotionnelle / relatabilite → partages group chat | 30% |
+| `informative` | Info | Info nouvelle / moment referencable → saves | 20% |
+| `density` | Density | Montage tight, pas de temps mort (10 = zero dead air) | 20% |
+
+Chaque critere 0-10. Score global `computeCriteriaScore()` = (0.3u + 0.3e + 0.2i + 0.2d) × 10 → 0-100.
+
+### Pipeline
+```
+lib/ai/mood-detector.ts        SYSTEM_PROMPT etendu — meme appel Haiku que le mood (max_tokens 768).
+                               Retourne en plus : unexpected, emotion, informative, density,
+                               dead_air_segments [{start,end}] (secondes clip-relatives, 0-6 ranges),
+                               verdict 'strong'|'ok'|'weak', why (1 phrase EN, <=140 chars),
+                               hook_type_mapping 'shock'|'storytelling'|'curiosity'|'transformation'.
+                               detectMood(..., durationSeconds?) → borne les dead_air_segments.
+lib/enhance/clip-criteria.ts   Types + helpers purs : parseClipAnalysis (sanitize, fallbacks verdict/why/hook),
+                               computeCriteriaScore, deriveHookType, evaluateCriteriaGate, CRITERION_LABELS.
+app/api/enhance/ai-optimize    Accepte durationSeconds, renvoie `criteria` (ou null) + caption/emphasis/hook_reason.
+page.tsx (enhance)             state analysisCriteria ← parseClipAnalysis(moodJson.data.criteria).
+                               Envoye au render dans settings.analysis {4 scores, verdict, hook_type_mapping, dead_air_segments}.
+components/enhance/criteria-grid.tsx  "Why this clip" — 4 barres (2x2 compact) + score/100 + pill verdict + why.
+                               Affiche dans la result card de AIAnalysisSequence puis en persistant sous BlowupChanceBar
+                               (apres analysisComplete). Critere < 4 → barre grisee.
+```
+
+### Mapping taxonomie hooks → criteres
+`HOOK_TYPE_TO_CRITERIA` : choc/shock → unexpected · storytelling → emotion · curiosite → informative · transformation → emotion + informative.
+`deriveHookType()` (fallback si le modele omet le champ) : transformation si emotion ≥ 6 ET informative ≥ 6 et ecart ≤ 2, sinon le max des trois.
+
+### Impact sur le Blowup Chance
+`computeBaselineScore(clip, criteria?)` : sans criteres = legacy (velocity clamp 30..99).
+Avec criteres : `baseline = round(0.65 × velocityBaseline + 0.35 × criteriaScore)`, clamp 30..99 (`CRITERIA_BLEND_WEIGHT = 0.35`).
+Les increments par option (`computeCurrentScore` / `computeScoreBreakdown`) et le cap 99 sont inchanges — le score
+4 criteres est un INPUT de la baseline, pas une couche supplementaire.
+Exemples : vel 72 + criteres 63 → 69 · upload sans velocity + criteres 63 → 42 · vel 95 + criteres 63 → 84.
+
+### Persistance / data loop
+- `POST /api/render` : `settings.analysis` (zod `renderAnalysisSchema`, lib/schemas/render.ts) → `render_jobs.render_settings.analysis_criteria` + payload VPS `settings.analysis`.
+- VPS `render-contract.js` : `normalizeAnalysisCriteria()` → entree contract `{ feature: 'analysis_criteria', requested: true, applied: true, intentional: true, meta: {unexpected, emotion, informative, density, score, verdict, hook_type_mapping} }` dans `render_jobs.contract`. Ignoree par `transformScore()` / `evaluate()`.
+- VPS `render.js` : trace `ANALYSIS CRITERIA: unexpected=.. emotion=.. informative=.. density=.. score=../100 verdict=.. hook=.. dead_air=N` (debug_log).
+
+### Auto-cut renforce par l'analyse (`vps/lib/auto-cut.js`)
+- `getAdaptiveThreshold({ mood, intensity, density })` : density < 5 → -0.1 (floor 0.3, cap 0.8 inchanges).
+- Seuil explicite UI + density < 5 → seuil -0.1 (floor 0.3), trace `P5 reinforcement`. Jamais releve.
+- `computeSpeechSegments(..., { deadAirSegments })` : un gap entre mots < seuil mais ≥ `DEAD_AIR_MIN_GAP` (0.3s) qui chevauche
+  ≥ 50% un `dead_air_segment` devient une coupe (`gapOverlapsDeadAir`). Retourne `deadAirCuts` (trace).
+- Safeguards inchanges : `MIN_CUT_DURATION` 3s, `MAX_REMOVAL_RATIO` 40%, fallback peak-window.
+
+### Gate autofarm
+Voir SYSTEM-REFERENCE-DISTRIBUTION.md → "Quality gate P5 (4 criteres)". Regle : 4 criteres TOUS < 4 → jamais auto-publie (publish manuel OK).
 
 ---
 
@@ -515,8 +576,9 @@ interface EnhanceSettings {
 }
 ```
 
-### `computeBaselineScore(clip)` → number
-`max(30, clip.velocity_score ?? 0)`. Floor a 30 pour les uploads sans data.
+### `computeBaselineScore(clip, criteria?)` → number
+Sans criteres : `min(99, max(30, clip.velocity_score ?? 0))`. Floor a 30 pour les uploads sans data.
+Avec criteres (P5) : `round(0.65 × velocityBaseline + 0.35 × computeCriteriaScore(criteria))`, clamp 30..99. Voir section "Analyse IA — grille des 4 criteres".
 
 ### `computeCurrentScore(settings, scores, baseline, mood?)` → number
 Formule a rendements decroissants :

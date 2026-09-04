@@ -247,11 +247,18 @@ function QueueItem({
         </div>
       </div>
 
-      {/* Status */}
-      <Badge variant="outline" className={`shrink-0 text-[10px] gap-1 ${statusCfg.color}`}>
-        {statusCfg.icon}
-        {statusCfg.label}
-      </Badge>
+      {/* Status + gate reason */}
+      <div className="shrink-0 flex flex-col items-end gap-0.5">
+        <Badge variant="outline" className={`text-[10px] gap-1 ${statusCfg.color}`}>
+          {statusCfg.icon}
+          {statusCfg.label}
+        </Badge>
+        {item.error_message && (item.status === 'canceled' || item.status === 'failed') && (
+          <span className="text-[9px] text-muted-foreground max-w-[180px] truncate" title={item.error_message}>
+            {item.error_message}
+          </span>
+        )}
+      </div>
 
       {/* Actions */}
       {item.status === 'scheduled' && (

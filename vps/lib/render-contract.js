@@ -18,6 +18,34 @@ const CRITICAL_FEATURES = new Set([
 ]);
 
 /**
+ * P5 · Normalize settings.analysis (4-criteria grid) into the contract meta shape.
+ * Mirrors lib/enhance/clip-criteria.ts (Next side). Returns null when any of the
+ * 4 scores is missing / non-numeric — the entry is simply not added.
+ *
+ * @param {object|undefined} analysis - settings.analysis from the render payload
+ * @returns {{unexpected:number, emotion:number, informative:number, density:number, score:number, verdict:string|null, hook_type_mapping:string|null}|null}
+ */
+export function normalizeAnalysisCriteria(analysis) {
+  if (!analysis || typeof analysis !== 'object') return null;
+  const clamp10 = (v) => {
+    const n = typeof v === 'number' ? v : Number(v);
+    if (!Number.isFinite(n)) return null;
+    return Math.max(0, Math.min(10, Math.round(n * 10) / 10));
+  };
+  const unexpected = clamp10(analysis.unexpected);
+  const emotion = clamp10(analysis.emotion);
+  const informative = clamp10(analysis.informative);
+  const density = clamp10(analysis.density);
+  if (unexpected === null || emotion === null || informative === null || density === null) return null;
+  // Weighted 30/30/20/20 → 0-100 (same formula as computeCriteriaScore on the Next side)
+  const score = Math.round((unexpected * 0.3 + emotion * 0.3 + informative * 0.2 + density * 0.2) * 10);
+  const verdict = ['strong', 'ok', 'weak'].includes(analysis.verdict) ? analysis.verdict : null;
+  const hook = ['shock', 'storytelling', 'curiosity', 'transformation'].includes(analysis.hook_type_mapping)
+    ? analysis.hook_type_mapping : null;
+  return { unexpected, emotion, informative, density, score, verdict, hook_type_mapping: hook };
+}
+
+/**
  * Create a new render contract from the settings.
  * Call at the START of the render pipeline.
  *
@@ -116,6 +144,22 @@ export function createContract(settings) {
     applied: false,
     reason: null,
   });
+
+  // Analysis criteria (P5 · 2026-09) — NOT a feature, a data carrier. Persists the
+  // 4-criteria grid (unexpected/emotion/informative/density, 0-10) in render_jobs.contract
+  // so the autofarm gate (publish-scheduled cron) and the data loop can read it.
+  // requested=applied=true → never degrades a render, ignored by transformScore().
+  const analysis = normalizeAnalysisCriteria(settings.analysis);
+  if (analysis) {
+    entries.push({
+      feature: 'analysis_criteria',
+      requested: true,
+      applied: true,
+      reason: null,
+      intentional: true,
+      meta: analysis,
+    });
+  }
 
   return {
     entries,

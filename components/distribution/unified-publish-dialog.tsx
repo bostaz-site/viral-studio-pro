@@ -139,6 +139,8 @@ export function UnifiedPublishDialog({
   const [hasDownloaded, setHasDownloaded] = useState(false)
   const [publishedAt, setPublishedAt] = useState<string | null>(null)
   const [youtubePrivacy, setYoutubePrivacy] = useState<'public' | 'unlisted' | 'private'>('public')
+  const [transformScore, setTransformScore] = useState<number | null>(null)
+  const [variantCount, setVariantCount] = useState(0)
 
   // Read persisted clip status from trending store + localStorage
   const bankedClipIds = useTrendingStore(s => s.bankedClipIds)
@@ -155,11 +157,13 @@ export function UnifiedPublishDialog({
         if (parsed?.url) { setDownloadUrl(parsed.url); return }
       }
     } catch { /* ignore */ }
-    // Fallback: fetch from API
+    // Fallback: fetch from API (also gets transform_score + variantCount)
     fetch(`/api/render/status?clip_id=${clipId}`)
       .then(r => r.ok ? r.json() : null)
       .then(json => {
         if (json?.data?.clip_url) setDownloadUrl(json.data.clip_url)
+        if (typeof json?.data?.transformScore === 'number') setTransformScore(json.data.transformScore)
+        if (typeof json?.data?.variantCount === 'number') setVariantCount(json.data.variantCount)
       })
       .catch(() => {})
   }, [open, clipId])
@@ -577,11 +581,24 @@ export function UnifiedPublishDialog({
             </div>
           )}
 
-          {/* Variant indicator — shows when multiple platforms selected */}
-          {selectedCount >= 2 && !allDone && (
+          {/* Transform score warning — low originality risk */}
+          {transformScore !== null && transformScore < 3 && !allDone && (
+            <div className="flex items-start gap-2.5 p-3 rounded-lg border border-amber-500/30 bg-amber-500/5">
+              <AlertCircle className="h-4 w-4 text-amber-400 shrink-0 mt-0.5" />
+              <div>
+                <p className="text-xs font-medium text-amber-400">Low transformation ({transformScore}/3)</p>
+                <p className="text-[10px] text-muted-foreground mt-0.5">
+                  Ce render a peu de transformation visible (hook, captions, zoom). TikTok peut limiter la visibilite des clips peu edites. Retourne dans Enhance pour ajouter des effets.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Variant indicator */}
+          {variantCount > 0 && !allDone && (
             <div className="flex items-center gap-2 px-3 py-2 rounded-lg border border-zinc-700/50 bg-zinc-800/30" title="Each platform receives a uniquely encoded video to avoid cross-platform duplicate detection (different audio fingerprint, color grade, and encoding). This protects your reach on Instagram and TikTok.">
               <span className="text-[11px] text-zinc-400">
-                {selectedCount} unique variants will be generated — one per platform
+                {variantCount} unique variant{variantCount > 1 ? 's' : ''} generated — one per platform
               </span>
             </div>
           )}

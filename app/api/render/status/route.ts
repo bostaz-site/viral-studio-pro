@@ -15,6 +15,7 @@ interface RenderJob {
   error_message: string | null
   debug_log: string | null
   quality_tier: string | null
+  transform_score: number | null
   contract: { feature: string; requested: boolean; applied: boolean; reason?: string }[] | null
   created_at: string
   updated_at: string
@@ -249,6 +250,7 @@ export const GET = withAuth(async (request: NextRequest, user) => {
       // Server timestamp for latency measurement: when the job reached terminal state
       serverDoneAt: ['done', 'degraded', 'failed', 'error'].includes(job.status) ? job.updated_at : null,
       variantCount,
+      transformScore: job.transform_score,
     },
     error: null,
     message,

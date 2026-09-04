@@ -8,6 +8,7 @@ import { checkClipDuration, getPlanConfig, resolveEffectivePlan } from '@/lib/pl
 import { logger } from '@/lib/logger'
 import { enqueueRender } from '@/lib/render-queue'
 import { checkExistingJob, dispatchToVps } from '@/lib/api/render-helpers'
+import { renderAnalysisSchema } from '@/lib/schemas/render'
 
 // Allow larger request body for hook overlay PNG (base64 ~500KB-2MB)
 export const maxDuration = 60
@@ -97,6 +98,8 @@ const inputSchema = z.object({
       enabled: z.boolean().optional(),
       text: z.string().max(32).optional(),
     }).optional(),
+    // P5 · 4-criteria AI analysis (unexpected/emotion/informative/density) — persisted for the autofarm gate
+    analysis: renderAnalysisSchema.optional(),
   }).optional(),
   variants: z.array(z.object({
     id: z.string(),
@@ -355,6 +358,15 @@ export const POST = withAuth(async (request, user) => {
     auto_cut_mood: settings.autoCut?.mood ?? null,
     video_zoom: settings.format?.videoZoom ?? null,
     aspect_ratio: settings.format?.aspectRatio ?? null,
+    // P5: 4-criteria grid — fallback read path for the autofarm gate (contract is primary)
+    analysis_criteria: settings.analysis ? {
+      unexpected: settings.analysis.unexpected,
+      emotion: settings.analysis.emotion,
+      informative: settings.analysis.informative,
+      density: settings.analysis.density,
+      verdict: settings.analysis.verdict ?? null,
+      hook_type_mapping: settings.analysis.hook_type_mapping ?? null,
+    } : null,
   } : null
 
   const { data: job, error: jobError } = await admin
@@ -438,6 +450,8 @@ export const POST = withAuth(async (request, user) => {
       voiceover: settings?.voiceover ?? { enabled: process.env.NEXT_PUBLIC_VOICEOVER_ENABLED === 'true' },
       // P4 · CTA follow overlay: default ON, seeded by job id for text variant rotation
       ctaFollow: { enabled: settings?.ctaFollow?.enabled ?? true, text: settings?.ctaFollow?.text, seed: job.id },
+      // P5 · 4-criteria analysis → contract meta + auto-cut reinforcement (dead_air_segments, density)
+      analysis: settings?.analysis ?? undefined,
       sourcePlatform: clipPlatform ?? undefined,
     },
     variants: resolvedVariants && resolvedVariants.length > 0 ? resolvedVariants : undefined,

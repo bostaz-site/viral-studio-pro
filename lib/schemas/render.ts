@@ -9,6 +9,23 @@ import { z } from 'zod'
  * - Frontend enhance page (handleRender body)
  * - VPS vps/routes/render.js (destructures req.body.settings)
  */
+
+/** P5 · 4-criteria clip analysis carried with the render (see lib/enhance/clip-criteria.ts). */
+export const renderAnalysisSchema = z.object({
+  unexpected: z.number().min(0).max(10),
+  emotion: z.number().min(0).max(10),
+  informative: z.number().min(0).max(10),
+  density: z.number().min(0).max(10),
+  verdict: z.enum(['strong', 'ok', 'weak']).optional(),
+  hook_type_mapping: z.enum(['shock', 'storytelling', 'curiosity', 'transformation']).optional(),
+  dead_air_segments: z.array(z.object({
+    start: z.number().min(0),
+    end: z.number().min(0),
+  })).max(20).optional(),
+})
+
+export type RenderAnalysis = z.infer<typeof renderAnalysisSchema>
+
 export const renderSettingsSchema = z.object({
   captions: z.object({
     enabled: z.boolean().optional(),
@@ -95,6 +112,10 @@ export const renderSettingsSchema = z.object({
     text: z.string().max(32).optional(),
     seed: z.string().max(80).optional(),
   }).optional(),
+  // P5 · 4-criteria AI analysis (Monster Lab grid). Persisted in render_jobs.contract
+  // (feature 'analysis_criteria') + render_settings.analysis_criteria for the autofarm gate
+  // and the data loop. dead_air_segments feed the VPS auto-cut.
+  analysis: renderAnalysisSchema.optional(),
 })
 
 export type RenderSettings = z.infer<typeof renderSettingsSchema>

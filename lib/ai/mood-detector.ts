@@ -5,6 +5,7 @@
 
 import type { ClipMood } from './mood-presets'
 import { logAiCall } from './call-logger'
+import { parseClipAnalysis, type ClipAnalysis } from '@/lib/enhance/clip-criteria'
 
 export interface MoodDetectionResult {
   mood: ClipMood
@@ -15,6 +16,8 @@ export interface MoodDetectionResult {
   caption_reason?: string
   emphasis_reason?: string
   hook_reason?: string
+  /** P5 · 4-criteria grid (unexpected / emotion / informative / density). Absent on fallback. */
+  criteria?: ClipAnalysis
 }
 
 const VALID_MOODS: ClipMood[] = ['rage', 'funny', 'drama', 'wholesome', 'hype', 'story']
@@ -22,12 +25,22 @@ const VALID_MOODS: ClipMood[] = ['rage', 'funny', 'drama', 'wholesome', 'hype', 
 const SYSTEM_PROMPT = `You are a clip mood analyzer for a viral video editing app. Analyze the given clip transcript, title, and context to determine the dominant mood AND identify the most impactful words for subtitle emphasis.
 
 Return ONLY valid JSON with this exact structure:
-{"mood": "...", "confidence": 0-100, "explanation": "...", "secondary_mood": "...", "important_words": ["word1", "word2", ...], "caption_reason": "...", "emphasis_reason": "...", "hook_reason": "..."}
+{"mood": "...", "confidence": 0-100, "explanation": "...", "secondary_mood": "...", "important_words": ["word1", "word2", ...], "caption_reason": "...", "emphasis_reason": "...", "hook_reason": "...", "unexpected": 0-10, "emotion": 0-10, "informative": 0-10, "density": 0-10, "dead_air_segments": [{"start": 0.0, "end": 0.0}], "verdict": "strong|ok|weak", "why": "...", "hook_type_mapping": "shock|storytelling|curiosity|transformation"}
 
 Additional fields (1 short sentence each, max 150 chars, specific to THIS clip):
 - caption_reason: why you chose this caption style for this clip's content
 - emphasis_reason: why the emphasis effect fits this clip's energy
 - hook_reason: why this hook approach works for this clip's retention
+
+The 4 criteria grid (what paid clippers look for before editing a clip). Score each 0-10, integers, be harsh — most clips score 3-6:
+- unexpected: is there an unexpected event / plot twist / surprise? (0 = fully predictable, 10 = jaw-drop)
+- emotion: emotional intensity or relatability that makes people SHARE it in a group chat (rage, laughter, tears, hype)
+- informative: new or useful info, a quotable / referenceable moment that makes people SAVE it
+- density: how tight the clip is — 10 = no dead air, every second matters; 0 = long silences, rambling, filler
+- dead_air_segments: 0-6 ranges in seconds {start,end} where NOTHING happens (silence, filler, waiting). Only if you can infer timing from the transcript/duration; otherwise return []
+- verdict: "strong" (worth editing, likely to travel), "ok" (needs tight editing), "weak" (skip it)
+- why: ONE sentence, max 140 chars, English, concrete — the single reason this clip will (or won't) work. No hype words, no emojis.
+- hook_type_mapping: the hook family that fits best — shock (→unexpected), storytelling (→emotion), curiosity (→informative), transformation (→emotion+informative)
 
 The mood MUST be exactly one of: rage, funny, drama, wholesome, hype, story
 
@@ -44,20 +57,22 @@ Rules:
 - explanation: 1 short sentence explaining WHY this mood was detected
 - secondary_mood: optional, only if there's a clear secondary mood (different from primary)
 - important_words: 3-8 words from the transcript that should be visually emphasized in karaoke captions. Pick words that are emotionally loaded, surprising, or key to the clip's hook. Lowercase only. Examples: names, slang, exclamations, punchline words, numbers/money amounts.
-- If the transcript is empty or unclear, default to "hype" with low confidence and empty important_words`
+- If the transcript is empty or unclear, default to "hype" with low confidence and empty important_words, and score the 4 criteria from the title/context only (lower values)`
 
 export async function detectMood(
   transcript: string,
   title?: string,
   streamer?: string,
-  niche?: string
+  niche?: string,
+  /** Clip duration in seconds — lets the model place dead_air_segments and bounds them on parse. */
+  durationSeconds?: number
 ): Promise<MoodDetectionResult> {
   const apiKey = process.env.ANTHROPIC_API_KEY
   if (!apiKey) {
     return fallbackResult('No API key configured')
   }
 
-  const userMessage = buildUserMessage(transcript, title, streamer, niche)
+  const userMessage = buildUserMessage(transcript, title, streamer, niche, durationSeconds)
 
   const startMs = Date.now()
   const MODEL = 'claude-haiku-4-5-20251001'
@@ -74,7 +89,7 @@ export async function detectMood(
       },
       body: JSON.stringify({
         model: MODEL,
-        max_tokens: 512,
+        max_tokens: 768, // P5: +4 criteria, dead_air_segments, why, hook_type_mapping
         system: SYSTEM_PROMPT,
         messages: [{ role: 'user', content: userMessage }],
       }),
@@ -110,7 +125,7 @@ export async function detectMood(
       return fallbackResult('No text in response')
     }
 
-    return parseMoodResponse(textBlock.text)
+    return parseMoodResponse(textBlock.text, durationSeconds)
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err)
     const latencyMs = Date.now() - startMs
@@ -124,17 +139,19 @@ function buildUserMessage(
   transcript: string,
   title?: string,
   streamer?: string,
-  niche?: string
+  niche?: string,
+  durationSeconds?: number
 ): string {
   const parts: string[] = []
   if (title) parts.push(`Title: ${title}`)
   if (streamer) parts.push(`Streamer: ${streamer}`)
   if (niche) parts.push(`Niche: ${niche}`)
+  if (durationSeconds && durationSeconds > 0) parts.push(`Duration: ${Math.round(durationSeconds)}s`)
   parts.push(`Transcript: ${transcript.slice(0, 2000)}`)
   return parts.join('\n')
 }
 
-function parseMoodResponse(text: string): MoodDetectionResult {
+function parseMoodResponse(text: string, durationSeconds?: number): MoodDetectionResult {
   try {
     // Extract JSON from the response (Claude might wrap it in markdown)
     const jsonMatch = text.match(/\{[\s\S]*\}/)
@@ -163,9 +180,13 @@ function parseMoodResponse(text: string): MoodDetectionResult {
     const hookReason = typeof parsed.hook_reason === 'string'
       ? parsed.hook_reason.slice(0, 150) : undefined
 
+    // P5 · 4-criteria grid — null when the model omitted any of the 4 scores
+    const criteria = parseClipAnalysis(parsed, { maxDuration: durationSeconds }) ?? undefined
+
     return {
       mood, confidence, explanation, secondary_mood: secondaryMood, important_words: importantWords,
       caption_reason: captionReason, emphasis_reason: emphasisReason, hook_reason: hookReason,
+      criteria,
     }
   } catch {
     return fallbackResult('Failed to parse response')

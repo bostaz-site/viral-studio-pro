@@ -38,9 +38,10 @@ export function classifyIntensity(peaks, duration) {
  * @param {object} options
  * @param {string} [options.mood] - Detected mood (rage, funny, drama, wholesome, hype, story)
  * @param {string} [options.intensity] - Audio intensity ('high', 'medium', 'low')
+ * @param {number|null} [options.density] - P5 analysis density (0-10). < 5 → one notch more aggressive (-0.1, floor 0.3)
  * @returns {number} Silence threshold in seconds
  */
-export function getAdaptiveThreshold({ mood, intensity } = {}) {
+export function getAdaptiveThreshold({ mood, intensity, density } = {}) {
   const moodThresholds = {
     rage: 0.35,
     hype: 0.40,
@@ -55,7 +56,39 @@ export function getAdaptiveThreshold({ mood, intensity } = {}) {
   if (intensity === 'high') threshold = Math.max(0.3, threshold - 0.1);
   if (intensity === 'low') threshold = Math.min(0.8, threshold + 0.1);
 
+  // P5 · low density (dead air flagged by the 4-criteria analysis) → cut harder, same bounds
+  if (typeof density === 'number' && Number.isFinite(density) && density < 5) {
+    threshold = Math.max(0.3, threshold - 0.1);
+  }
+
   return Math.round(threshold * 100) / 100;
+}
+
+/**
+ * P5 · Minimum word gap that an analysis dead_air_segment can turn into a cut.
+ * Below this, cutting would clip syllables — even if the AI flagged the area.
+ */
+export const DEAD_AIR_MIN_GAP = 0.3;
+
+/**
+ * P5 · Does a word gap [gapStart, gapEnd] overlap one of the analysis dead-air segments?
+ * Requires >= 50% of the gap to sit inside a segment (avoids edge grazes).
+ *
+ * @param {number} gapStart
+ * @param {number} gapEnd
+ * @param {Array<{start:number,end:number}>} deadAirSegments
+ * @returns {boolean}
+ */
+export function gapOverlapsDeadAir(gapStart, gapEnd, deadAirSegments) {
+  if (!Array.isArray(deadAirSegments) || deadAirSegments.length === 0) return false;
+  const gapLen = gapEnd - gapStart;
+  if (gapLen <= 0) return false;
+  for (const seg of deadAirSegments) {
+    if (!seg || !Number.isFinite(seg.start) || !Number.isFinite(seg.end) || seg.end <= seg.start) continue;
+    const overlap = Math.min(gapEnd, seg.end) - Math.max(gapStart, seg.start);
+    if (overlap >= gapLen * 0.5) return true;
+  }
+  return false;
 }
 
 /**
@@ -67,27 +100,38 @@ export function getAdaptiveThreshold({ mood, intensity } = {}) {
  * @param {object} options
  * @param {number} options.silenceThreshold - Minimum gap (seconds) to cut (default 1.2)
  * @param {number} options.padding - Extra padding before/after each segment (default 0.15)
- * @returns {{ segments: Array<{start: number, end: number}>, cutDuration: number, originalDuration: number }}
+ * @param {Array<{start:number,end:number}>} [options.deadAirSegments] - P5 analysis dead-air ranges (clip-relative seconds).
+ *   A word gap shorter than silenceThreshold but >= DEAD_AIR_MIN_GAP that overlaps one of them becomes a cut candidate.
+ * @returns {{ segments: Array<{start: number, end: number}>, cutDuration: number, originalDuration: number, deadAirCuts: number }}
  */
 export function computeSpeechSegments(wordTimestamps, duration, options = {}) {
   const {
     silenceThreshold = 1.2,
     padding = 0.15,
+    deadAirSegments = [],
   } = options;
 
   if (!wordTimestamps || wordTimestamps.length < 2) {
-    return { segments: [], cutDuration: duration, originalDuration: duration };
+    return { segments: [], cutDuration: duration, originalDuration: duration, deadAirCuts: 0 };
   }
 
   const segments = [];
   let segStart = Math.max(0, wordTimestamps[0].start - padding);
+  let deadAirCuts = 0;
 
   for (let i = 0; i < wordTimestamps.length - 1; i++) {
     const currentEnd = wordTimestamps[i].end;
     const nextStart = wordTimestamps[i + 1].start;
     const gap = nextStart - currentEnd;
 
-    if (gap >= silenceThreshold) {
+    // P5 · analysis-flagged dead air: cut a sub-threshold gap only if it is still a real pause
+    // (>= DEAD_AIR_MIN_GAP) and sits inside a dead_air_segment from the 4-criteria analysis.
+    const isDeadAirCut = gap < silenceThreshold
+      && gap >= DEAD_AIR_MIN_GAP
+      && gapOverlapsDeadAir(currentEnd, nextStart, deadAirSegments);
+    if (isDeadAirCut) deadAirCuts++;
+
+    if (gap >= silenceThreshold || isDeadAirCut) {
       // End current segment with padding
       const segEnd = Math.min(duration, currentEnd + padding);
       segments.push({ start: Math.round(segStart * 100) / 100, end: Math.round(segEnd * 100) / 100 });
@@ -107,6 +151,7 @@ export function computeSpeechSegments(wordTimestamps, duration, options = {}) {
     segments,
     cutDuration: Math.round(cutDuration * 100) / 100,
     originalDuration: Math.round(duration * 100) / 100,
+    deadAirCuts,
   };
 }
 
@@ -120,6 +165,7 @@ export function computeSpeechSegments(wordTimestamps, duration, options = {}) {
  * @param {object} options
  * @param {number} options.silenceThreshold - Min gap to cut (default 0.7s)
  * @param {number} options.clipStartTime - Offset for user clips (default 0)
+ * @param {Array<{start:number,end:number}>} [options.deadAirSegments] - P5 analysis dead-air ranges (candidate cuts)
  * @param {function} options.trc - Trace logging function
  * @returns {Promise<{outputPath: string, cutDuration: number, segments: Array, wordTimestamps: Array}>}
  */
@@ -127,12 +173,16 @@ export async function applyAutoCut(inputPath, tempDir, wordTimestamps, duration,
   const {
     silenceThreshold = 0.7,
     clipStartTime = 0,
+    deadAirSegments = [],
     trc = console.log,
   } = options;
 
-  const { segments, cutDuration, originalDuration } = computeSpeechSegments(
-    wordTimestamps, duration, { silenceThreshold, padding: options.padding }
+  const { segments, cutDuration, originalDuration, deadAirCuts } = computeSpeechSegments(
+    wordTimestamps, duration, { silenceThreshold, padding: options.padding, deadAirSegments }
   );
+  if (deadAirCuts > 0) {
+    trc(`AUTO-CUT: ${deadAirCuts} extra cut(s) from analysis dead_air_segments (${deadAirSegments.length} ranges, gap >= ${DEAD_AIR_MIN_GAP}s)`);
+  }
 
   // If no meaningful cuts (< 0.5s saved or < 2 segments), skip
   if (segments.length < 2 || (originalDuration - cutDuration) < 0.5) {

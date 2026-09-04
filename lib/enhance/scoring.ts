@@ -5,6 +5,10 @@
 
 import type { TrendingClip } from '@/types/trending'
 import { MOOD_PRESETS, type ClipMood } from '@/lib/ai/mood-presets'
+import { computeCriteriaScore, type ClipCriteria } from '@/lib/enhance/clip-criteria'
+
+// Re-exported so existing consumers can import the 4-criteria helpers from scoring.ts
+export { computeCriteriaScore, CRITERIA_WEIGHTS, type ClipCriteria, type ClipAnalysis } from '@/lib/enhance/clip-criteria'
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -378,10 +382,23 @@ export function computeScores(clip: TrendingClipData): ComputedScores {
  * The "Maximum viral potential reached!" message only triggers at >= 95 AND
  * after enhancements have been applied (see Blowup Chance bar logic) so a
  * naturally-high baseline doesn't immediately claim "max reached".
+ *
+ * P5 · 4-criteria grid (2026-09): when the AI analysis returned the 4 criteria
+ * (unexpected / emotion / informative / density, weighted 30/30/20/20 → 0-100),
+ * the baseline blends market proof (velocity) with intrinsic clip quality:
+ *   baseline = 0.65 * velocityBaseline + 0.35 * criteriaScore
+ * Same floor (30) and cap (99) — enhancement increments + the 99 cap are untouched.
+ * Without criteria (analysis not run / failed) the baseline is exactly the legacy value.
  */
-export function computeBaselineScore(clip: TrendingClipData): number {
+export const CRITERIA_BLEND_WEIGHT = 0.35
+
+export function computeBaselineScore(clip: TrendingClipData, criteria?: ClipCriteria | null): number {
   const velocity = clip.velocity_score ?? 0
-  return Math.min(99, Math.max(30, velocity))
+  const velocityBaseline = Math.min(99, Math.max(30, velocity))
+  if (!criteria) return velocityBaseline
+  const criteriaScore = computeCriteriaScore(criteria)
+  const blended = velocityBaseline * (1 - CRITERIA_BLEND_WEIGHT) + criteriaScore * CRITERIA_BLEND_WEIGHT
+  return Math.min(99, Math.max(30, Math.round(blended)))
 }
 
 /**

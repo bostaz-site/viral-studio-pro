@@ -32,9 +32,12 @@ export const BANNED_HASHTAGS: ReadonlySet<string> = new Set([
 export const BANNED_ENGAGEMENT_BAIT: readonly string[] = [
   'like if', 'like this if', 'like and follow', 'like & follow',
   'tag a friend', 'tag someone', 'tag your friend', 'tag your friends',
-  'comment yes', 'comment below if', 'double tap', 'smash that like',
-  'smash the like', 'hit the like', 'hit like', 'drop a like',
+  'comment yes', 'comment if', 'comment below if', 'comment your',
+  'double tap', 'smash that like', 'smash the like',
+  'hit the like', 'hit like', 'drop a like',
   'leave a like', 'give this a like', 'like for part',
+  'share this with', 'share with a friend', 'send this to',
+  'save this', 'save for later',
 ]
 
 /** Generic hype phrases TikTok associates with spam (quality gate 881c24b). */

@@ -14,6 +14,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { executePublish } from '@/lib/distribution/execute-publish'
+import { checkAnalysisGate } from '@/lib/distribution/analysis-gate'
 import { postToDiscord } from '@/lib/discord/post'
 
 export const dynamic = 'force-dynamic'
@@ -135,18 +136,22 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // 2d. Quality gate: block degraded renders and low-transform renders
+    // 2d. Quality gate: TikTok originality policy (Sept 2025) — subtitles alone
+    //     don't count as transformation. Autofarm requires ALL 3 features applied
+    //     (hook_text + captions + smart_zoom = transform_score 3), a diversify
+    //     variant, no degraded status, and no source watermark leak.
     {
       const { data: renderJob } = await (admin
         .from('render_jobs')
-        .select('status, transform_score' as '*')
+        .select('id, status, transform_score, contract, render_settings' as '*')
         .eq('clip_id', row.clip_id)
         .eq('user_id', row.user_id)
         .in('status', ['done', 'degraded'])
         .order('created_at', { ascending: false })
         .limit(1)
-        .single() as unknown as Promise<{ data: { status: string; transform_score: number | null } | null }>)
+        .single() as unknown as Promise<{ data: { id: string; status: string; transform_score: number | null; contract: unknown; render_settings: unknown } | null }>)
 
+      // Gate 1: degraded renders never auto-published
       if (renderJob?.status === 'degraded') {
         await admin
           .from('scheduled_publications')
@@ -156,13 +161,64 @@ export async function POST(req: NextRequest) {
         continue
       }
 
+      // Gate 2: autofarm requires transform_score = 3 (all 3 features)
       const score = renderJob?.transform_score ?? null
-      if (score !== null && score < 2) {
+      if (score !== null && score < 3) {
+        const msg = `transform_score=${score}/3 — autofarm requires hook + captions + smart zoom`
         await admin
           .from('scheduled_publications')
-          .update({ status: 'canceled', error_message: `transform_score=${score} < 2 — needs more edits`, updated_at: new Date().toISOString() } as never)
+          .update({ status: 'canceled', error_message: msg, updated_at: new Date().toISOString() } as never)
           .eq('id', row.id)
         results.push({ id: row.id, status: 'canceled', error: 'transform_score_too_low' })
+        continue
+      }
+
+      // Gate 3: must have a diversify variant (jobId-based diversification)
+      if (renderJob) {
+        const { count: variantCount } = await (admin
+          .from('render_variants' as never)
+          .select('id', { count: 'exact', head: true })
+          .eq('render_job_id', renderJob.id) as unknown as Promise<{ count: number | null }>)
+        if (!variantCount || variantCount === 0) {
+          const msg = 'no diversify variant — autofarm requires platform-specific encoding'
+          await admin
+            .from('scheduled_publications')
+            .update({ status: 'canceled', error_message: msg, updated_at: new Date().toISOString() } as never)
+            .eq('id', row.id)
+          results.push({ id: row.id, status: 'canceled', error: 'no_variant' })
+          continue
+        }
+      }
+
+      // Gate 4: source watermark leak — fullframe on Kick/Twitch without sufficient borderCrop
+      if (renderJob && Array.isArray(renderJob.contract)) {
+        const cropEntry = (renderJob.contract as { feature: string; applied: boolean; meta?: { actual_mode?: string; borderCropPx?: number }; reason?: string }[])
+          .find(e => e.feature === 'crop_mode')
+        const actualMode = cropEntry?.meta?.actual_mode ?? ''
+        const borderCrop = cropEntry?.meta?.borderCropPx ?? 0
+        const sourcePlatform = (renderJob.render_settings as { sourcePlatform?: string } | null)?.sourcePlatform ?? ''
+        const isStreamPlatform = ['twitch', 'kick'].includes(sourcePlatform)
+        if (isStreamPlatform && actualMode === 'fullframe' && borderCrop < 40) {
+          const msg = `source watermark visible — ${sourcePlatform} fullframe with borderCrop=${borderCrop}px (<40)`
+          console.warn(`[publish-scheduled] watermark gate blocked ${row.id}: ${msg}`)
+          await admin
+            .from('scheduled_publications')
+            .update({ status: 'canceled', error_message: msg, updated_at: new Date().toISOString() } as never)
+            .eq('id', row.id)
+          results.push({ id: row.id, status: 'canceled', error: 'source_watermark_visible' })
+          continue
+        }
+      }
+
+      // Gate 5: 4-criteria analysis gate
+      const analysisGate = checkAnalysisGate(renderJob)
+      if (!analysisGate.eligible) {
+        console.warn(`[publish-scheduled] analysis gate blocked ${row.id} (clip ${row.clip_id}): ${analysisGate.reason}`)
+        await admin
+          .from('scheduled_publications')
+          .update({ status: 'canceled', error_message: analysisGate.reason, updated_at: new Date().toISOString() } as never)
+          .eq('id', row.id)
+        results.push({ id: row.id, status: 'canceled', error: 'analysis_criteria_too_low' })
         continue
       }
     }

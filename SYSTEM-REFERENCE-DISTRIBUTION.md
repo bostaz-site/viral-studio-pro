@@ -1163,6 +1163,27 @@ published_posts (Supabase)
 6. Learning loop : refresh-post-stats cron → pattern-detector → queue regenere
 ```
 
+### Quality gates du cron publish-scheduled (etape 2d)
+Lus sur le dernier `render_jobs` (status done/degraded) du couple clip_id + user_id. Chaque blocage →
+`scheduled_publications.status='canceled'` + `error_message` explicite, `results[].error` code.
+
+| Ordre | Regle | Code |
+|---|---|---|
+| 1 | `render_jobs.status = 'degraded'` | `render_degraded` |
+| 2 | `transform_score < 2` (hook + captions + zoom appliques) | `transform_score_too_low` |
+| 3 | **P5 · 4 criteres TOUS < 4** (`unexpected`, `emotion`, `informative`, `density`) — quel que soit `velocity_score` | `analysis_criteria_too_low` |
+
+#### Quality gate P5 (4 criteres) — `lib/distribution/analysis-gate.ts`
+- `checkAnalysisGate(renderJob)` → `{ eligible, code: 'no_analysis'|'ok'|'analysis_criteria_too_low', reason, criteria }`.
+- Lecture : (1) `render_jobs.contract` entree `{ feature: 'analysis_criteria', meta: {...} }` ecrite par le VPS ;
+  (2) fallback `render_jobs.render_settings.analysis_criteria` ecrit par `POST /api/render`.
+- Pas d'analyse trouvee (render sans "AI Optimize", vieux jobs) → gate ignoree (eligible).
+- Regle metier (`evaluateCriteriaGate`, `AUTOFARM_MIN_CRITERION = 4` dans lib/enhance/clip-criteria.ts) : un clip sans
+  aucun signal (ni twist, ni emotion, ni info, ni densite) ne merite pas un slot autofarm meme s'il est viral chez le streamer.
+  Un seul critere ≥ 4 suffit a passer.
+- Log : `console.warn('[publish-scheduled] analysis gate blocked <id> (clip <clip_id>): analysis_criteria all < 4 (unexpected=.. emotion=.. informative=.. density=..)')`.
+- Le publish MANUEL (UnifiedPublishDialog / Quick Publish) n'est pas concerne.
+
 ### Auto-post defaults (TikTok compliance)
 
 Stockes dans `distribution_settings.auto_post_defaults` (JSONB) :

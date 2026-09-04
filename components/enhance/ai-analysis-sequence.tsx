@@ -15,6 +15,8 @@ import {
 } from '@/lib/enhance/analysis-copy'
 import type { ClipMood } from '@/lib/ai/mood-presets'
 import { EMPHASIS_COLORS } from '@/lib/enhance/scoring'
+import type { ClipAnalysis } from '@/lib/enhance/clip-criteria'
+import { CriteriaGrid } from '@/components/enhance/criteria-grid'
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -53,6 +55,8 @@ interface AIAnalysisSequenceProps {
   peakScore?: number
   wordTimestampsCount?: number
   aiReasons?: AIReasons
+  /** P5 · 4-criteria grid — replaces the generic checkmarks in the result card when present */
+  criteria?: ClipAnalysis | null
 }
 
 // ── Typing Effect Hook ─────────────────────────────────────────────────────
@@ -97,6 +101,7 @@ export function AIAnalysisSequence({
   peakScore,
   wordTimestampsCount,
   aiReasons,
+  criteria,
 }: AIAnalysisSequenceProps) {
   const [currentStep, setCurrentStep] = useState(-1)
   const [completedSteps, setCompletedSteps] = useState<number[]>([])
@@ -371,11 +376,16 @@ export function AIAnalysisSequence({
             <p className="text-[11px] text-zinc-400 mb-2">
               Optimized for peak algorithm performance · Confidence: {confidenceLabel}
             </p>
-            <div className="flex flex-col gap-1 text-[10px] text-zinc-500">
-              <span><span className="text-emerald-500">✔</span> Hook tuned for retention</span>
-              <span><span className="text-emerald-500">✔</span> Captions matched to energy</span>
-              <span><span className="text-emerald-500">✔</span> Effects aligned with peak moments</span>
-            </div>
+            {criteria ? (
+              /* P5 · the 4 criteria + one-sentence why replace the generic checkmarks */
+              <CriteriaGrid analysis={criteria} variant="compact" showScore className="bg-black/20 border-white/5" />
+            ) : (
+              <div className="flex flex-col gap-1 text-[10px] text-zinc-500">
+                <span><span className="text-emerald-500">✔</span> Hook tuned for retention</span>
+                <span><span className="text-emerald-500">✔</span> Captions matched to energy</span>
+                <span><span className="text-emerald-500">✔</span> Effects aligned with peak moments</span>
+              </div>
+            )}
           </motion.div>
         )}
       </AnimatePresence>

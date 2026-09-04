@@ -10,6 +10,8 @@ const schema = z.object({
   title: z.string().max(500).optional(),
   streamer: z.string().max(200).optional(),
   niche: z.string().max(100).optional(),
+  // P5: lets the analysis place dead_air_segments within the clip
+  durationSeconds: z.number().min(0).max(3600).optional(),
 })
 
 export const POST = withAuth(async (req, user) => {
@@ -38,10 +40,10 @@ export const POST = withAuth(async (req, user) => {
   const parsed = schema.safeParse(body)
   if (!parsed.success) return errorResponse(parsed.error.issues[0].message)
 
-  const { transcript, title, streamer, niche } = parsed.data
+  const { transcript, title, streamer, niche, durationSeconds } = parsed.data
 
   try {
-    const result = await detectMood(transcript, title, streamer, niche)
+    const result = await detectMood(transcript, title, streamer, niche, durationSeconds)
     const preset = MOOD_PRESETS[result.mood]
 
     return jsonResponse({
@@ -50,6 +52,11 @@ export const POST = withAuth(async (req, user) => {
       explanation: result.explanation,
       secondary_mood: result.secondary_mood ?? null,
       important_words: result.important_words ?? [],
+      caption_reason: result.caption_reason ?? null,
+      emphasis_reason: result.emphasis_reason ?? null,
+      hook_reason: result.hook_reason ?? null,
+      // P5 · 4-criteria grid (null when the model didn't return usable scores)
+      criteria: result.criteria ?? null,
       preset,
     })
   } catch {
