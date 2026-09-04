@@ -106,21 +106,34 @@ export const POST = withAuth(
     if (renderJob?.storage_path) {
       clipStoragePath = renderJob.storage_path
 
-      // Look for a platform-specific variant (cross-platform deduplication)
+      // Look for a platform-specific variant (cross-platform deduplication).
+      // If render_variants table exists and no variant found for non-primary platform → error.
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       try {
-        const { data: variants } = await (admin as any)
+        const { data: variants, error: varErr } = await (admin as any)
           .from('render_variants')
           .select('storage_path, variant_key')
           .eq('render_job_id', renderJob.id)
           .eq('platform', platformParam)
-          .limit(1) as { data: Array<{ storage_path: string; variant_key: string }> | null }
+          .limit(1) as { data: Array<{ storage_path: string; variant_key: string }> | null; error: { message: string } | null }
 
-        if (variants && variants.length > 0 && variants[0].storage_path) {
+        if (varErr) {
+          // Table doesn't exist yet or query failed — log and continue with base render
+          logger.warn(`[publish/${platformParam}] render_variants query failed: ${varErr.message}`)
+        } else if (variants && variants.length > 0 && variants[0].storage_path) {
           clipStoragePath = variants[0].storage_path
           logger.info(`[publish/${platformParam}] Using variant ${variants[0].variant_key} instead of base render`)
+        } else if (platformParam !== 'tiktok') {
+          // Non-primary platform with no variant: refuse to publish base render (duplicate risk)
+          return errorResponse(
+            `No ${PLATFORM_CONFIGS[platformParam].displayName} variant available for this render. Re-render with multi-platform enabled.`,
+            400
+          )
         }
-      } catch { /* render_variants table may not exist yet */ }
+      } catch (err) {
+        // Table truly doesn't exist — log and continue with base render for now
+        logger.warn(`[publish/${platformParam}] render_variants check failed: ${err instanceof Error ? err.message : 'unknown'}`)
+      }
 
       // Try to get title from trending_clips or videos
       const { data: trending } = await admin
