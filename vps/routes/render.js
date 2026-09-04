@@ -17,7 +17,7 @@ import { applyAutoCut, classifyIntensity, getAdaptiveThreshold } from '../lib/au
 import { synthesizeVoiceover } from '../lib/elevenlabs-client.js';
 import { detectReactionLayout, detectDuoLayout } from '../lib/layout-detector.js';
 import { adviseCrop } from '../lib/crop-advisor.js';
-import { createContract, trackFeatureFailure, resetFeatureStreak } from '../lib/render-contract.js';
+import { createContract, trackFeatureFailure, resetFeatureStreak, normalizeAnalysisCriteria } from '../lib/render-contract.js';
 import { enqueueRender, getQueueStatus } from '../lib/render-queue.js';
 import { computeDiversify, getDiversifiedAccentColor, pickVoice } from '../lib/diversify.js';
 import { deriveAllVariants } from '../lib/variant-derive.js';
@@ -677,6 +677,13 @@ router.post('/', async (req, res) => {
     trc(`settings.ctaFollow=${JSON.stringify({ enabled: settings.ctaFollow?.enabled !== false, text: settings.ctaFollow?.text || null })}`);
     trc(`settings.audioEnhance=${JSON.stringify(settings.audioEnhance)}`);
     trc(`settings.autoCut=${JSON.stringify(settings.autoCut)}`);
+    // P5 · 4-criteria grid — logged for the data loop, persisted via contract 'analysis_criteria'
+    const analysisCriteria = normalizeAnalysisCriteria(settings.analysis);
+    if (analysisCriteria) {
+      trc(`ANALYSIS CRITERIA: unexpected=${analysisCriteria.unexpected} emotion=${analysisCriteria.emotion} informative=${analysisCriteria.informative} density=${analysisCriteria.density} score=${analysisCriteria.score}/100 verdict=${analysisCriteria.verdict || 'n/a'} hook=${analysisCriteria.hook_type_mapping || 'n/a'} dead_air=${Array.isArray(settings.analysis?.dead_air_segments) ? settings.analysis.dead_air_segments.length : 0}`);
+    } else {
+      trc(`ANALYSIS CRITERIA: none (analysis not run or unusable)`);
+    }
     const envHasOpenAI = !!process.env.OPENAI_API_KEY;
     const envHasOpenAIKey = !!process.env.OPENAI_KEY;
     trc(`env OPENAI_API_KEY=${envHasOpenAI} OPENAI_KEY=${envHasOpenAIKey}`);
@@ -1487,21 +1494,32 @@ router.post('/', async (req, res) => {
     if (settings.autoCut?.enabled && captionWordTimestamps.length > 0) {
       try {
         let threshold = settings.autoCut.silenceThreshold;
+        // P5 · analysis density (0-10) reinforces the threshold: density < 5 → one notch more aggressive
+        const analysisDensity = analysisCriteria ? analysisCriteria.density : null;
+        const deadAirSegments = Array.isArray(settings.analysis?.dead_air_segments) ? settings.analysis.dead_air_segments : [];
 
-        // Adaptive threshold: if no explicit threshold, compute from mood + audio intensity
+        // Adaptive threshold: if no explicit threshold, compute from mood + audio intensity (+ density)
         if (!threshold) {
           const { analyzeAudioPeaks } = await import('../lib/audio-peaks.js');
           const peaks = await analyzeAudioPeaks(inputPath, clipStartTime, duration);
           const intensity = classifyIntensity(peaks, duration);
           const mood = settings.autoCut.mood || null;
-          threshold = getAdaptiveThreshold({ mood, intensity });
-          trc(`AUTO-CUT: adaptive threshold — mood=${mood || 'none'}, intensity=${intensity}, threshold=${threshold}s`);
+          threshold = getAdaptiveThreshold({ mood, intensity, density: analysisDensity });
+          trc(`AUTO-CUT: adaptive threshold — mood=${mood || 'none'}, intensity=${intensity}, density=${analysisDensity ?? 'n/a'}, threshold=${threshold}s`);
+        } else if (analysisDensity !== null && analysisDensity < 5) {
+          // Explicit (UI) threshold: lower by 0.1 within the adaptive floor (0.3) — never raise
+          const reinforced = Math.max(0.3, Math.round((threshold - 0.1) * 100) / 100);
+          if (reinforced < threshold) {
+            trc(`AUTO-CUT: density=${analysisDensity} < 5 — threshold ${threshold}s → ${reinforced}s (P5 reinforcement)`);
+            threshold = reinforced;
+          }
         }
 
-        trc(`AUTO-CUT: enabled with threshold=${threshold}s, ${captionWordTimestamps.length} words`);
+        trc(`AUTO-CUT: enabled with threshold=${threshold}s, ${captionWordTimestamps.length} words, ${deadAirSegments.length} analysis dead-air segments`);
         const cutResult = await applyAutoCut(inputPath, tempDir, captionWordTimestamps, duration, {
           silenceThreshold: threshold,
           clipStartTime,
+          deadAirSegments,
           trc,
         });
         if (cutResult) {
@@ -1649,7 +1667,7 @@ router.post('/', async (req, res) => {
     contract.record('loudnorm', true); // always-on
     contract.record('metadata_scrub', true); // always-on
     contract.record('audio_enhance', settings.audioEnhance?.enabled || false);
-    contract.record('smart_zoom', settings.smartZoom?.enabled !== false, null, { mode: settings.smartZoom?.mode || 'micro' });
+    contract.record('smart_zoom', settings.smartZoom?.enabled !== false, null, { mode: settings.smartZoom?.mode || 'dynamic' });
     contract.record('crop_mode', true, null, { applied_mode: settings.format?.videoZoom || 'auto' });
     // Hook text: recorded based on whether the hook text overlay will actually be in the render
     const hookHasText = settings.hook?.enabled && settings.hook?.textEnabled !== false && settings.hook?.text;
@@ -1798,9 +1816,9 @@ router.post('/', async (req, res) => {
       cropAnchor: settings.format?.cropAnchor || 'center',
       backgroundBlur: settings.format?.backgroundBlur !== false,
       videoZoom: settings.format?.videoZoom || 'auto',
-      smartZoom: settings.smartZoom?.enabled ? {
+      smartZoom: settings.smartZoom?.enabled !== false ? {
         enabled: true,
-        mode: settings.smartZoom.mode || 'micro',
+        mode: settings.smartZoom?.mode || 'dynamic',
         faceKeyframes: faceKeyframes,
       } : null,
       hook: settings.hook?.enabled ? {

@@ -517,45 +517,59 @@ function buildSmartZoomFilter(inLabel, outLabel, canvasW, canvasH, clipDuration,
   // Memory safety: 720p canvas + simple expressions + max 3 peaks.
 
   if (mode === 'dynamic' && Array.isArray(peaks) && peaks.length > 0) {
-    // ── SUBTLE PUNCH ZOOM ──
-    // Inspired by CapCut/pro editors but toned down for natural feel:
-    //   - Zoom amount: 5% (subtle, capped at 1.08 total amplitude)
-    //   - Zoom-in: 200ms ease-out (fast start, smooth stop)
-    //   - Hold: 100ms at peak
-    //   - Zoom-out: 400ms slow ease-out (smooth return, no snap)
-    //   - Total cycle: ~700ms
-    //   - Max 3 punches per clip (less = more pro)
-    //   - No baseline breathing (stays still between punches)
-    const D = clipDuration.toFixed(3);
+    // ── PATTERN-INTERRUPT PUNCH ZOOM ──
+    // Designed as a retention tool: each audio spike triggers a visible
+    // punch-in that recaptures attention. Calibrated for TikTok 2026:
+    //   - Amplitude: 10-12% (strong = 12%, medium = 8%) × diversify mult
+    //   - Rise:  0.25s smoothstep (fast snap)
+    //   - Hold:  1.3s  (viewer registers the change)
+    //   - Fall:  0.55s smoothstep (smooth return, no snap-back)
+    //   - Total: ~2.1s per punch cycle
+    //   - Max 6 punches, cooldown 6-8s, never in first 1s or last 1s
     const ampMult = diversify?.zoomAmpMult ?? 1.0;
-    const ZOOM_AMOUNT = 0.05 * ampMult;  // 5% base ±15% via diversify
-    const RAMP_IN = 0.20;           // 200ms zoom-in
-    const HOLD = 0.10;              // 100ms hold at peak
-    const RAMP_OUT = 0.40;          // 400ms smooth zoom-out
-    const TOTAL = RAMP_IN + HOLD + RAMP_OUT; // 700ms total cycle
+    const RISE = 0.25;
+    const HOLD = 1.30;
+    const FALL = 0.55;
+    const TOTAL = RISE + HOLD + FALL;
+    const AMP_STRONG = 0.12 * ampMult; // strong peak → 12%
+    const AMP_MEDIUM = 0.08 * ampMult; // medium peak → 8%
 
-    const limited = peaks.slice(0, 3); // max 3 punches
+    // Filter: skip first 1s (hook) and last 1s, max 6
+    const eligible = peaks
+      .filter(p => {
+        const t = typeof p === 'number' ? p : p.time;
+        return t >= 1.0 && t + TOTAL < clipDuration - 1.0;
+      })
+      .slice(0, 6);
 
-    const terms = limited.map(tp => {
-      const t0 = tp.toFixed(3);
-      const tHoldStart = (tp + RAMP_IN).toFixed(3);
-      const tHoldEnd = (tp + RAMP_IN + HOLD).toFixed(3);
-      const tEnd = (tp + TOTAL).toFixed(3);
-      const zoomIn = `if(between(t\\,${t0}\\,${tHoldStart})\\,${ZOOM_AMOUNT}*sqrt((t-${t0})/${RAMP_IN})\\,0)`;
-      const hold = `if(between(t\\,${tHoldStart}\\,${tHoldEnd})\\,${ZOOM_AMOUNT}\\,0)`;
-      // Smooth ease-out return (sqrt instead of squared = no snap)
-      const zoomOut = `if(between(t\\,${tHoldEnd}\\,${tEnd})\\,${ZOOM_AMOUNT}*(1-sqrt((t-${tHoldEnd})/${RAMP_OUT}))\\,0)`;
-      return `${zoomIn}+${hold}+${zoomOut}`;
+    if (eligible.length === 0) {
+      // No valid peaks → fall back to micro
+      return buildSmartZoomFilter(inLabel, outLabel, canvasW, canvasH, clipDuration, 'micro', [], cropAnchor, diversify);
+    }
+
+    const terms = eligible.map(p => {
+      const t0 = typeof p === 'number' ? p : p.time;
+      const intensity = typeof p === 'object' && p.intensity != null ? p.intensity : 0.5;
+      const amp = (intensity >= 0.7 ? AMP_STRONG : AMP_MEDIUM).toFixed(4);
+      const tRise = t0.toFixed(3);
+      const tHoldStart = (t0 + RISE).toFixed(3);
+      const tHoldEnd = (t0 + RISE + HOLD).toFixed(3);
+      const tEnd = (t0 + TOTAL).toFixed(3);
+      // smoothstep: 3t²−2t³ for both rise and fall
+      const rise = `if(between(t\\,${tRise}\\,${tHoldStart})\\,${amp}*(3*pow((t-${tRise})/${RISE}\\,2)-2*pow((t-${tRise})/${RISE}\\,3))\\,0)`;
+      const hold = `if(between(t\\,${tHoldStart}\\,${tHoldEnd})\\,${amp}\\,0)`;
+      const fallProgress = `(t-${tHoldEnd})/${FALL}`;
+      const fall = `if(between(t\\,${tHoldEnd}\\,${tEnd})\\,${amp}*(1-(3*pow(${fallProgress}\\,2)-2*pow(${fallProgress}\\,3)))\\,0)`;
+      return `${rise}+${hold}+${fall}`;
     });
 
-    // No baseline breathing — completely still between punches for pro look
     const zExpr = `(1+${terms.join('+')})`;
     const scaledW = `trunc(${canvasW}*${zExpr}/2)*2`;
     const scaledH = `trunc(${canvasH}*${zExpr}/2)*2`;
 
-    console.log(`[FFmpeg] Smart Zoom dynamic: ${limited.length} peaks, ${Math.round(ZOOM_AMOUNT*100)}% punch, smooth ease, anchor=${cropAnchor}`);
-
     const dynCropY = cropAnchor === 'bottom' ? `ih-${canvasH}` : cropAnchor === 'top' ? '0' : `(ih-${canvasH})/2`;
+    console.log(`[FFmpeg] Smart Zoom dynamic: ${eligible.length} punches (strong=${AMP_STRONG.toFixed(3)} med=${AMP_MEDIUM.toFixed(3)}), rise=${RISE}s hold=${HOLD}s fall=${FALL}s, anchor=${cropAnchor}`);
+
     return `${inLabel}scale=w='${scaledW}':h='${scaledH}':eval=frame:flags=lanczos,crop=${canvasW}:${canvasH}:(iw-${canvasW})/2:${dynCropY},setsar=1${outLabel}`;
   }
 
@@ -812,19 +826,19 @@ export async function renderClip(inputPath, outputPath, options = {}) {
   try { sourceFps = await probeSourceFps(inputPath); } catch {}
 
   let audioPeaks = [];
-  if (smartZoom && smartZoom.enabled && smartZoom.mode === 'dynamic') {
-    // Prefer hook analysis combined peaks if available (better signal than raw audio)
-    if (hook?.analysisResult?.scores?.length > 0) {
+  // Audio peak analysis — runs for dynamic mode (now the default).
+  // Returns peaks with intensity for amplitude modulation.
+  if (smartZoom && smartZoom.enabled) {
+    const wantDynamic = smartZoom.mode === 'dynamic' || smartZoom.mode === 'micro' || !smartZoom.mode;
+    if (wantDynamic) {
       try {
-        const { getTopPeakWindows } = await import('./hook-generator.js');
-        audioPeaks = getTopPeakWindows(hook.analysisResult, 3, 2.5);
-        console.log(`[FFmpeg] Smart Zoom: using ${audioPeaks.length} peaks from hook analysis`);
-      } catch { /* fallback below */ }
-    }
-    // Fallback: raw audio peak detection
-    if (audioPeaks.length === 0) {
-      try {
-        audioPeaks = await analyzeAudioPeaks(inputPath, startTime, clipDuration);
+        const { analyzeAudioPeaksWithIntensity } = await import('./audio-peaks.js');
+        audioPeaks = await analyzeAudioPeaksWithIntensity(inputPath, startTime, clipDuration, {
+          cooldownSec: 6, maxPeaks: 8, thresholdDb: 5,
+        });
+        if (audioPeaks.length > 0) {
+          console.log(`[FFmpeg] Audio peaks: ${audioPeaks.length} with intensity (range ${audioPeaks.map(p => p.intensity?.toFixed(2)).join(',')})`);
+        }
       } catch (err) {
         console.warn('[FFmpeg] Audio peak analysis failed:', err.message);
       }

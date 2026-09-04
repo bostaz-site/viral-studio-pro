@@ -246,7 +246,7 @@ Clips from the same stream are grouped to prevent one streamer dominating the fe
 | 3 | Engagement | 15% | Bayesian smoothed: (likes+1)/(views+50). <30 views=neutral 50. Thresholds: >5%=100, >3%=80, >1.5%=60, >0.5%=40. Title boost capped +10%. Kick view freshness: rescore does NOT re-fetch — import-time only (backlog) |
 | 4 | Recency | 10% | `exp(-age/72)*100`. 6h=92, 24h=72. Never 0 |
 | 5 | Early Signal | 10% | views/min * log(views) * exp(-age/6). Short clip bonus 1.1x. Floor at 50 after 24h |
-| 6 | Format | 10% | 15-45s=100, 45-90s=80, 8-15s=70, >90s=60, <8s=40 (calibrated 2026-07, Buffer 2025 1.1M videos) |
+| 6 | Format | 10% | 30-60s=100, 15-30s=90, 60-90s=85, 90-180s=70, 8-15s=55, >180s=50, <8s=30 (recalibrated 2026-09, Buffer 2025 1.1M: >60s=+43% reach, Creator Rewards eligible) |
 | 7 | Saturation | -10% | Penalty for old viral (>7d + >1M views) and dead clips (velocity < 50% streamer avg) |
 
 ### Display Curve & Anti-Gaming
@@ -433,21 +433,24 @@ Filtergraph: scale/crop → eq (4 buckets) → unsharp (HIGH only) → ASS subti
 ### Peak Detection (spike + positional prior)
 `vps/lib/hook-generator.js` > `detectPeakMoment()`. Combines audio spikes (x8), viral keywords (+3/+2/+1), ALL CAPS (+2), positional prior (Twitch/Kick clips: last 1/3 boosted x1.3), anti-edge. Word-boundary snapping for hook reorder.
 
-### Smart Zoom — Face Follow vs Micro Push
+### Smart Zoom — Dynamic (default) / Follow / Micro
 
-Two modes, auto-selected based on face detection results:
+Three modes. **Dynamic is the new default** (replaces micro):
 
 | Mode | When | What it does |
 |---|---|---|
+| **dynamic** (default) | Audio peaks detected | Pattern-interrupt punch zooms on audio spikes. Amplitude: 10-12% (strong peak) / 8% (medium) × diversify `zoomAmpMult`. Curve: smoothstep rise 0.25s → hold 1.3s → smoothstep fall 0.55s. Max 6 punches, cooldown 6-8s, excluded from first/last 1s. Falls back to micro if no peaks. |
 | **follow** | Face detected on >=60% of sampled frames | Real face tracking — 1.20x zoom, smooth pan following the subject. Dead zone (10% center), max speed limit (3%/sample), 0.94 inertia. Camera feels like a calm cameraman. |
-| **micro** | No stable face, or face tracking disabled | Slow cinematic push 1.0 → 1.06 over clip duration. Barely noticeable drift. |
-| **dynamic** | Explicit user selection | Punch zooms on audio peaks (5% amplitude, 3 max). |
+| **micro** | Fallback when dynamic has 0 peaks | Slow cinematic push 1.0 → 1.06 over clip duration. Barely noticeable drift. |
+
+**Audio peaks**: `analyzeAudioPeaksWithIntensity()` (`vps/lib/audio-peaks.js`) returns `{time, intensity}[]` where intensity is normalized 0-1 (strongest spike = 1). Strong peaks (intensity >= 0.7) get 12% punch, medium get 8%. Cooldown 6s, threshold 5dB above rolling mean.
 
 **Auto-selection flow** (VPS render route):
 1. Crop advisor runs face detection (every 20 frames) for framing decision
 2. If crop recommends `fullframe` or `fit` (face present), face tracker runs again at full resolution (every 10 frames, 15s timeout)
 3. If detection rate >= 60% → auto-upgrade to `follow` mode with pre-computed keyframes
-4. If detection rate < 60% or error → stay on `micro`
+4. If detection rate < 60% → `dynamic` mode with audio peaks (default)
+5. If no audio peaks found → micro fallback
 
 **Python smoother** (`vps/lib/face-detect.py`):
 - Dead zone: camera ignores face movement within 10% of canvas center (prevents jitter)

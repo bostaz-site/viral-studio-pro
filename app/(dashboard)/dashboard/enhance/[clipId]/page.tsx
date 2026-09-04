@@ -33,6 +33,8 @@ import { LivePreview, ScoreBadge } from '@/components/enhance/live-preview'
 import { AIAnalysisSequence } from '@/components/enhance/ai-analysis-sequence'
 import { TagPanel } from '@/components/enhance/tag-panel'
 import { BlowupChanceBar } from '@/components/enhance/blowup-chance-bar'
+import { CriteriaGrid } from '@/components/enhance/criteria-grid'
+import { parseClipAnalysis, type ClipAnalysis } from '@/lib/enhance/clip-criteria'
 import { CaptionsSection } from '@/components/enhance/accordion-sections/captions-section'
 import { PageHeader } from '@/components/dashboard/page-header'
 import { UnifiedPublishDialog } from '@/components/distribution/unified-publish-dialog'
@@ -215,7 +217,7 @@ export default function EnhancePage() {
     tagSize: 100,
     aspectRatio: '9:16',
     smartZoomEnabled: true,
-    smartZoomMode: 'micro',
+    smartZoomMode: 'dynamic',
     audioEnhanceEnabled: false,
     bassBoost: 'off',
     speedRamp: 'off',
@@ -515,10 +517,14 @@ export default function EnhancePage() {
     return computeScores(clip)
   }, [clip])
 
+  // P5 · 4-criteria AI analysis (unexpected / emotion / informative / density + why).
+  // Null until "AI Optimize" runs; blended into the baseline (65% velocity / 35% criteria).
+  const [analysisCriteria, setAnalysisCriteria] = useState<ClipAnalysis | null>(null)
+
   const baselineScore = useMemo(() => {
     if (!clip) return 0
-    return computeBaselineScore(clip)
-  }, [clip])
+    return computeBaselineScore(clip, analysisCriteria)
+  }, [clip, analysisCriteria])
 
   // currentScore is computed after mood state declarations (below)
 
@@ -856,6 +862,18 @@ export default function EnhancePage() {
             },
             // P4 · CTA follow overlay (last ~1.2s) — default ON
             ctaFollow: { enabled: settings.ctaFollowEnabled !== false },
+            // P5 · 4-criteria analysis → persisted in render_jobs (autofarm gate) + auto-cut reinforcement
+            ...(analysisCriteria ? {
+              analysis: {
+                unexpected: analysisCriteria.unexpected,
+                emotion: analysisCriteria.emotion,
+                informative: analysisCriteria.informative,
+                density: analysisCriteria.density,
+                verdict: analysisCriteria.verdict,
+                hook_type_mapping: analysisCriteria.hook_type_mapping,
+                dead_air_segments: analysisCriteria.dead_air_segments,
+              },
+            } : {}),
           },
         }),
       })
@@ -902,7 +920,7 @@ export default function EnhancePage() {
       setRenderMessage('Network error')
       setRendering(false); renderingRef.current = false
     }
-  }, [clip, settings, startPolling])
+  }, [clip, settings, startPolling, analysisCriteria])
 
   const [makeViralLoading, setMakeViralLoading] = useState(false)
   const [analysisSequenceActive, setAnalysisSequenceActive] = useState(false)
@@ -1223,6 +1241,8 @@ export default function EnhancePage() {
           title: clip.title || '',
           streamer: clip.author_name || clip.author_handle || '',
           niche: clip.niche || 'irl',
+          // P5: lets the analysis bound dead_air_segments to the clip
+          durationSeconds: clip.duration_seconds || undefined,
         }),
         signal: moodController.signal,
       })
@@ -1238,6 +1258,8 @@ export default function EnhancePage() {
         setMoodExplanation(moodJson.data.explanation ?? null)
         setSecondaryMood(moodJson.data.secondary_mood ?? null)
         setMoodAiDetected(true)
+        // P5 · 4-criteria grid (null when the model didn't return usable scores)
+        setAnalysisCriteria(parseClipAnalysis(moodJson.data.criteria, { maxDuration: clip.duration_seconds || undefined }))
         // Store AI-generated justifications for the analysis sequence
         setAiReasons({
           caption: typeof moodJson.data.caption_reason === 'string' ? moodJson.data.caption_reason : undefined,
@@ -1257,6 +1279,7 @@ export default function EnhancePage() {
       setMoodConfidence(30)
       setMoodExplanation('Default preset applied')
       setMoodAiDetected(false)
+      setAnalysisCriteria(null)
     }
 
     // 2. Stash preset for incremental application during the analysis sequence
@@ -2038,6 +2061,7 @@ export default function EnhancePage() {
               peakScore={hookAnalysis?.peak.peakScore}
               wordTimestampsCount={undefined}
               aiReasons={moodAiDetected ? aiReasons : undefined}
+              criteria={analysisCriteria}
               isActive={analysisSequenceActive}
               onStepComplete={applyMoodPresetStage}
               onComplete={() => {
@@ -2112,6 +2136,12 @@ export default function EnhancePage() {
             scoreBreakdown={scoreBreakdown}
             showBoost={revealedBonuses.has('_total')}
           />
+
+          {/* P5 · Why this clip — the 4 criteria (Unexpected / Emotion / Info / Density) + one-sentence why.
+              Persistent after the analysis sequence has played (the sequence's result card is transient). */}
+          {analysisCriteria && analysisComplete && !analysisSequenceActive && (
+            <CriteriaGrid analysis={analysisCriteria} variant="compact" showScore className="mb-3" />
+          )}
 
             <Accordion multiple defaultValue={typeof window !== 'undefined' && window.innerWidth < 1024 ? [] : ['captions']} className="space-y-3 [&_[data-state]]:outline-none">
 

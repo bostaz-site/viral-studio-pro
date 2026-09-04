@@ -91,6 +91,55 @@ export async function analyzeAudioPeaks(inputPath, startTime, duration, opts = {
 }
 
 /**
+ * Analyze audio and return peaks WITH intensity (dB above rolling mean).
+ * Intensity is normalized to 0–1 where 1 = strongest spike in the clip.
+ *
+ * @returns {Promise<Array<{time: number, intensity: number}>>}
+ */
+export async function analyzeAudioPeaksWithIntensity(inputPath, startTime, duration, opts = {}) {
+  const {
+    cooldownSec = 6,
+    thresholdDb = 5,
+    floorDb = -32,
+    windowSec = 2.0,
+    maxPeaks = 8,
+  } = opts;
+
+  const ffmpegPath = process.env.FFMPEG_PATH || 'ffmpeg';
+
+  const args = [
+    '-nostats',
+    '-ss', String(startTime),
+    '-i', inputPath,
+    '-t', String(duration),
+    '-map', '0:a:0?',
+    '-af',
+    `aresample=${SAMPLE_RATE},asetnsamples=n=${CHUNK_SAMPLES}:p=0,astats=metadata=1:reset=1,ametadata=print:key=lavfi.astats.Overall.RMS_level:direct=1`,
+    '-f', 'null',
+    '-'
+  ];
+
+  let stderr = '';
+  try {
+    const result = await execFileAsync(ffmpegPath, args, {
+      maxBuffer: 50 * 1024 * 1024,
+      timeout: 60000,
+    });
+    stderr = result.stderr || '';
+  } catch (err) {
+    if (err.code !== 0 && !err.stderr) return [];
+    stderr = err.stderr || '';
+  }
+
+  const samples = parseAstatsOutput(stderr);
+  if (samples.length < 3) return [];
+
+  return detectPeaksWithIntensity(samples, {
+    cooldownSec, thresholdDb, floorDb, windowSec, maxPeaks,
+  });
+}
+
+/**
  * Parse ffmpeg ametadata stderr into array of {time, rms}
  */
 function parseAstatsOutput(stderr) {
@@ -162,4 +211,53 @@ function detectPeaks(samples, opts) {
   }
 
   return peaks;
+}
+
+/**
+ * Like detectPeaks but returns {time, intensity} where intensity = dB above mean, normalized 0-1.
+ */
+function detectPeaksWithIntensity(samples, opts) {
+  const { cooldownSec, thresholdDb, floorDb, windowSec, maxPeaks } = opts;
+  if (samples.length < 3) return [];
+
+  const windowChunks = Math.max(1, Math.round(windowSec / CHUNK_DURATION));
+  const rollingMean = new Float64Array(samples.length);
+  let sum = 0;
+  let count = 0;
+  const queue = [];
+  for (let i = 0; i < samples.length; i++) {
+    queue.push(samples[i].rms);
+    sum += samples[i].rms;
+    count++;
+    while (queue.length > windowChunks) {
+      sum -= queue.shift();
+      count--;
+    }
+    rollingMean[i] = sum / count;
+  }
+
+  const rawPeaks = [];
+  let lastPeakTime = -Infinity;
+
+  for (let i = 1; i < samples.length - 1; i++) {
+    const s = samples[i];
+    if (s.rms < floorDb) continue;
+    const spike = s.rms - rollingMean[i];
+    if (spike < thresholdDb) continue;
+    if (s.rms < samples[i - 1].rms || s.rms < samples[i + 1].rms) continue;
+    if (s.time - lastPeakTime < cooldownSec) continue;
+
+    rawPeaks.push({ time: s.time, spike });
+    lastPeakTime = s.time;
+    if (rawPeaks.length >= maxPeaks) break;
+  }
+
+  if (rawPeaks.length === 0) return [];
+
+  // Normalize intensity to 0-1 (strongest peak = 1)
+  const maxSpike = Math.max(...rawPeaks.map(p => p.spike));
+  return rawPeaks.map(p => ({
+    time: p.time,
+    intensity: maxSpike > 0 ? p.spike / maxSpike : 0.5,
+  }));
 }
