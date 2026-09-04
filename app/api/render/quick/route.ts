@@ -160,7 +160,8 @@ export const POST = withAuth(async (request: NextRequest, user) => {
       silenceThreshold: 1.2,
     },
     voiceover: {
-      enabled: true,
+      // VO on standby (NEXT_PUBLIC_VOICEOVER_ENABLED, default off)
+      enabled: process.env.NEXT_PUBLIC_VOICEOVER_ENABLED === 'true',
       voice: 'default',
     },
     tag: {

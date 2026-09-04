@@ -57,21 +57,20 @@ export function LivePreview({
   const currentAnimation = captionStyle?.animation ?? 'highlight'
 
   /*
-   * CSS font-family → FFmpeg ASS font name mapping:
-   *   hormozi / hormozi-purple → Inter (ASS: fontname: 'Inter', fontsize: 78)
-   *   clean-bold              → Montserrat (ASS: fontname: 'Montserrat', fontsize: 72)
-   *   subtitle-pop            → Poppins (ASS: fontname: 'Poppins', fontsize: 70)
-   *   gamer-neon              → Poppins (ASS: fontname: 'Poppins', fontsize: 78)
-   *   minimal-serif           → Lora (ASS: fontname: 'Lora', fontsize: 62)
-   *   pastel-soft / wave      → Inter (ASS: fontname: 'Inter', fontsize: 68)
-   *
-   * These must match vps/lib/subtitle-generator.js CAPTION_STYLES.
-   * If drift >100ms between overlay and FFmpeg output is observed,
-   * the disclaimer below the preview warns the user.
+   * CSS font-family → FFmpeg ASS font name mapping (vps/lib/subtitle-generator.js CAPTION_STYLES).
+   * UI ids 'highlight' / 'bounce' / 'glow' resolve to the VPS `hormozi` style (Inter 105 px),
+   * 'word-pop' → Inter 120 px, 'anton' → Anton 105 px. Sizes are expressed as a
+   * fraction of the 1080 px canvas width (container query units) so the preview
+   * keeps the exact render proportion whatever the preview width.
    */
   const ASS_FONT_MAP: Record<string, string> = {
     hormozi: 'Inter, sans-serif',
     'hormozi-purple': 'Inter, sans-serif',
+    highlight: 'Inter, sans-serif',
+    bounce: 'Inter, sans-serif',
+    glow: 'Inter, sans-serif',
+    'word-pop': 'Inter, sans-serif',
+    anton: 'var(--font-anton), Anton, Impact, "Arial Narrow", sans-serif',
     'clean-bold': 'Montserrat, sans-serif',
     'subtitle-pop': 'Poppins, sans-serif',
     'gamer-neon': 'Poppins, sans-serif',
@@ -82,6 +81,19 @@ export function LivePreview({
     'street-drip': 'Montserrat, sans-serif',
   }
   const captionFontFamily = ASS_FONT_MAP[settings.captionStyle] ?? 'Inter, sans-serif'
+  // ASS font sizes on a 1080x1920 canvas (see CAPTION_STYLES on the VPS)
+  const ASS_FONT_SIZE_PX: Record<string, number> = { 'word-pop': 120, anton: 105 }
+  const captionFontPx = ASS_FONT_SIZE_PX[settings.captionStyle] ?? 105
+  // 105/1080 = 9.72 % of the canvas width → `cqw` on the 9:16 preview container
+  const captionFontSize = `${((captionFontPx / 1080) * 100).toFixed(2)}cqw`
+  // Anton is a single heavy weight — no synthetic bold (matches ASS bold=0)
+  const captionFontWeight = settings.captionStyle === 'anton' ? 400 : 900
+  // Outline 5 px + shadow 2 px on 1080 → simulated with text-shadow (scaled)
+  const captionOutlineShadow = [
+    '-0.45cqw 0 0 #000', '0.45cqw 0 0 #000', '0 -0.45cqw 0 #000', '0 0.45cqw 0 #000',
+    '-0.32cqw -0.32cqw 0 #000', '0.32cqw -0.32cqw 0 #000', '-0.32cqw 0.32cqw 0 #000', '0.32cqw 0.32cqw 0 #000',
+    '0.2cqw 0.35cqw 0.3cqw rgba(0,0,0,0.5)',
+  ].join(', ')
 
   // Platform-aware colors
   const platformKey = (clip.platform ?? 'twitch') as keyof typeof PLATFORM_THEME
@@ -110,8 +122,32 @@ export function LivePreview({
   // then yields to the next word. The active word gets the STATIC peak-state transform
   // (scale/lift/halo) — no CSS loop animation — exactly like each PNG in the render.
   const allSampleWords = useMemo(() => ['This', 'is', 'CRAZY', 'bro', 'let\'s', 'go'], [])
-  // Show only wordsPerLine words in the preview to reflect the setting
-  const sampleWords = useMemo(() => allSampleWords.slice(0, Math.max(1, settings.wordsPerLine)), [allSampleWords, settings.wordsPerLine])
+  // Group the sample like the VPS does (vps/lib/subtitle-generator.js groupWords):
+  // max 16 chars per line, max 2 lines per group, wordsPerLine = soft cap per line
+  // (wordsPerLine <= 1 → single line). The preview shows the FIRST group only.
+  const CAPTION_MAX_CHARS = 16
+  const sampleLines = useMemo(() => {
+    const hint = Math.max(1, Math.floor(settings.wordsPerLine || 0)) || null
+    const maxLines = hint !== null && hint <= 1 ? 1 : 2
+    const lines: string[][] = [[]]
+    let chars = 0
+    for (const word of allSampleWords) {
+      const line = lines[lines.length - 1]
+      const fitsChars = line.length === 0 || chars + 1 + word.length <= CAPTION_MAX_CHARS
+      const fitsHint = hint === null || line.length < hint
+      if (fitsChars && fitsHint) {
+        line.push(word)
+        chars += (line.length > 1 ? 1 : 0) + word.length
+      } else if (lines.length < maxLines) {
+        lines.push([word])
+        chars = word.length
+      } else {
+        break
+      }
+    }
+    return lines
+  }, [allSampleWords, settings.wordsPerLine])
+  const sampleWords = useMemo(() => sampleLines.flat(), [sampleLines])
   // videoTime tracks the live currentTime from the preview video element.
   // Caption activeWordIdx is derived from it so overlays pause/seek in sync
   // with the video (spec: "in sync with video currentTime via timeupdate events").
@@ -258,7 +294,7 @@ export function LivePreview({
         "relative w-full rounded-[20px] overflow-hidden bg-black mx-auto transition-all duration-500",
         showEnhancements ? 'border border-amber-500/20' : 'border border-white/10'
       )}
-      style={{ aspectRatio: '9/16', maxWidth: 310, boxShadow: '0 24px 80px rgba(0,0,0,.45)' }}
+      style={{ aspectRatio: '9/16', maxWidth: 310, boxShadow: '0 24px 80px rgba(0,0,0,.45)', containerType: 'inline-size' }}
     >
       {/* Top: Clip video or thumbnail */}
       <div
@@ -586,42 +622,36 @@ export function LivePreview({
       )}
 
       {/* Karaoke subtitle preview — hidden when style is 'none' */}
+      {/* Mirrors the ASS render: no background box (black outline + drop shadow), ~105 px on 1080,
+          UPPERCASE, whole group displayed, ONE active word in yellow #FFE500 with a 90→108 % pop. */}
       {showEnhancements && settings.captionsEnabled && settings.captionStyle !== 'none' && (
         <div
-          className={cn(
-            'absolute left-1/2 -translate-x-1/2 z-20 rounded-lg px-3 py-1.5 max-w-[85%] transition-all duration-500',
-            currentAnimation === 'glow'
-              ? 'bg-black/60 shadow-[0_0_20px_rgba(255,255,255,0.15)]'
-              : 'bg-black/80 backdrop-blur-sm'
-          )}
+          className="absolute left-1/2 -translate-x-1/2 z-20 px-2 max-w-[92%] transition-all duration-500"
           style={{
             top: `${settings.captionPosition}%`,
             fontFamily: captionFontFamily,
+            fontSize: captionFontSize,
+            fontWeight: captionFontWeight,
+            lineHeight: 1.15,
+            textShadow: captionOutlineShadow,
           }}
         >
-          {/* Word Pop mode: show ONLY the active word, large, with pop animation */}
-          {/* Important words appear in RED + bigger; normal words use the style color */}
-          {/* Emphasis effects add static visual distinction on important words */}
+          {/* Word Pop mode: show ONLY the active word (Inter 120 px on 1080), white */}
+          {/* Important words take the emphasis color + 108-112 % scale */}
           {(() => {
             const isImp = isImportantWord(sampleWords[activeWordIdx] || '')
             const empColor = EMPHASIS_COLORS.find((c) => c.id === settings.emphasisColor)?.hex ?? '#EF4444'
             const hasEffect = settings.emphasisEffect !== 'none'
             if (currentAnimation === 'word-pop') return (
-              <p className={cn(
-                'font-black text-center uppercase tracking-wide',
-                isImp && hasEffect ? 'text-xl' : cn('text-lg', captionStyle?.preview || 'text-white'),
-              )}
+              <p className={cn('text-center uppercase whitespace-nowrap', captionStyle?.preview || 'text-white')}
                 style={{
-                  WebkitTextStroke: '1px black',
-                  color: isImp && hasEffect ? empColor : undefined,
-                  textShadow: isImp && hasEffect
-                    ? `2px 2px 4px rgba(0,0,0,0.8), 0 0 12px ${empColor}66`
-                      + (settings.emphasisEffect === 'glow' ? `, 0 0 16px ${empColor}AA, 0 0 32px ${empColor}66` : '')
-                    : '2px 2px 4px rgba(0,0,0,0.8)',
-                  animation: 'wordPopIn 0.2s ease-out',
-                  transform: isImp && settings.emphasisEffect === 'scale' ? 'scale(1.35)'
-                    : isImp && settings.emphasisEffect === 'bounce' ? 'translateY(-6px) scale(1.15)'
+                  color: isImp ? empColor : undefined,
+                  animation: 'wordPopIn 0.11s ease-out',
+                  transform: isImp && settings.emphasisEffect === 'scale' ? 'scale(1.12)'
+                    : isImp && settings.emphasisEffect === 'bounce' ? 'translateY(-4%) scale(1.10)'
+                    : isImp ? 'scale(1.08)'
                     : undefined,
+                  filter: isImp && hasEffect && settings.emphasisEffect === 'glow' ? `drop-shadow(0 0 0.5cqw ${empColor})` : undefined,
                 }}
                 key={activeWordIdx}
               >
@@ -629,49 +659,52 @@ export function LivePreview({
               </p>
             )
             return (
-          <p className={cn('text-sm text-center', captionStyle?.preview)}>
-            {sampleWords.map((word, i) => {
-              const isActive = i === activeWordIdx
-              const wordImp = isActive && isImportantWord(word)
-              const eff = settings.emphasisEffect
-              // Active-word transform — matches FFmpeg render exactly
-              let activeTransform = ''
-              if (isActive) {
-                if (currentAnimation === 'pop') activeTransform = 'scale(1.85)'
-                else if (currentAnimation === 'bounce') activeTransform = 'translateY(-45%) scale(1.3)'
-              }
-              // Emphasis effect overrides on important words
-              if (wordImp && eff === 'scale') activeTransform = 'scale(1.5)'
-              else if (wordImp && eff === 'bounce') activeTransform = 'translateY(-30%) scale(1.25)'
-              // Glow: colored text-shadow halo on active word — uses empColor
-              const glowFromStyle = isActive && currentAnimation === 'glow'
-              const glowFromEmphasis = wordImp && eff === 'glow'
-              const activeTextShadow = glowFromStyle
-                ? `0 0 8px ${empColor}, 0 0 18px ${empColor}, 0 0 32px ${empColor}AA, 0 0 48px ${empColor}66`
-                : glowFromEmphasis
-                ? `0 0 8px ${empColor}, 0 0 18px ${empColor}, 0 0 32px ${empColor}AA`
-                : undefined
-              // Typewriter: reveal chars progressively on active word
-              const displayText = isActive && currentAnimation === 'typewriter'
-                ? word.slice(0, typewriterLen) + (typewriterLen < word.length ? '|' : '')
-                : word
+          <p className={cn('text-center', captionStyle?.preview)}>
+            {sampleLines.map((line, li) => {
+              const offset = sampleLines.slice(0, li).reduce((n, l) => n + l.length, 0)
               return (
-                <span key={i}>
-                  <span
-                    className={cn(
-                      'inline-block px-0.5 rounded',
-                      isActive ? captionStyle?.highlightClass : '',
-                    )}
-                    style={{
-                      color: wordImp && hasEffect ? empColor : undefined,
-                      transform: activeTransform || undefined,
-                      transformOrigin: 'center bottom',
-                      textShadow: activeTextShadow,
-                    }}
-                  >
-                    {displayText}
-                  </span>
-                  {i < sampleWords.length - 1 ? ' ' : ''}
+                <span key={li} className="block whitespace-nowrap">
+                  {line.map((word, wi) => {
+                    const i = offset + wi
+                    const isActive = i === activeWordIdx
+                    const wordImp = isActive && isImportantWord(word)
+                    const eff = settings.emphasisEffect
+                    // Active-word pop: 90 → 108 % in 110 ms (ASS \fscx90 → \t(0,110,\fscx108))
+                    let activeTransform = isActive ? 'scale(1.08)' : ''
+                    if (isActive && currentAnimation === 'bounce') activeTransform = 'translateY(-6%) scale(1.08)'
+                    // Emphasis effect on important words: 108-112 % (was 120-140 %)
+                    if (wordImp && eff === 'scale') activeTransform = 'scale(1.12)'
+                    else if (wordImp && eff === 'bounce') activeTransform = 'translateY(-6%) scale(1.10)'
+                    // Glow: colored halo on the active word (style glow) or emphasis glow
+                    const glowFromStyle = isActive && currentAnimation === 'glow'
+                    const glowFromEmphasis = wordImp && eff === 'glow'
+                    const activeFilter = glowFromStyle
+                      ? `drop-shadow(0 0 0.6cqw ${wordImp ? empColor : '#FFE500'})`
+                      : glowFromEmphasis
+                      ? `drop-shadow(0 0 0.5cqw ${empColor})`
+                      : undefined
+                    // Typewriter: reveal chars progressively on active word
+                    const displayText = isActive && currentAnimation === 'typewriter'
+                      ? word.slice(0, typewriterLen) + (typewriterLen < word.length ? '|' : '')
+                      : word
+                    return (
+                      <span key={i}>
+                        <span
+                          className={cn('inline-block', isActive ? captionStyle?.highlightClass : '')}
+                          style={{
+                            color: wordImp ? empColor : undefined,
+                            transform: activeTransform || undefined,
+                            transformOrigin: 'center center',
+                            transition: 'transform 110ms ease-out',
+                            filter: activeFilter,
+                          }}
+                        >
+                          {displayText}
+                        </span>
+                        {wi < line.length - 1 ? ' ' : ''}
+                      </span>
+                    )
+                  })}
                 </span>
               )
             })}

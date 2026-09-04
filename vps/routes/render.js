@@ -6,7 +6,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { execFile } from 'child_process';
 import { promisify } from 'util';
 import { renderClip, extractThumbnail, checkFfmpegAvailability, buildFollowFaceFilter } from '../lib/ffmpeg-render.js';
-import { generateASS, generateStaticASS, validateWordTimestamps } from '../lib/subtitle-generator.js';
+import { generateASS, generateStaticASS, validateWordTimestamps, DEFAULT_WORDS_PER_LINE } from '../lib/subtitle-generator.js';
 import { detectFaces } from '../lib/face-tracker.js';
 import { detectPeakMoment, generateHookTexts, calculateReorderTimestamps } from '../lib/hook-generator.js';
 import { detectBurnedCaptions } from '../lib/caption-detector.js';
@@ -1164,7 +1164,7 @@ router.post('/', async (req, res) => {
           trc(`CAPTIONS generating ASS file for animation="${captionAnim}" style="${captionStyle}"`);
           assContent = generateASS(wordTimestamps, {
             ...subtitleOpts, animation: captionAnim, clipStartTime,
-            wordsPerLine: settings.captions.wordsPerLine || 4,
+            wordsPerLine: settings.captions.wordsPerLine ?? DEFAULT_WORDS_PER_LINE, // legacy soft hint — grouping is chars/duration based
             customColors: settings.captions.customColors,
             customImportantWords: settings.captions.customImportantWords || [],
             emphasisEffect: settings.captions.emphasisEffect || 'none',
@@ -1177,7 +1177,7 @@ router.post('/', async (req, res) => {
             trc(`CAPTIONS FALLBACK: static ASS from title "${clipTitle.substring(0, 40)}" animation="${captionAnim}"`);
             assContent = generateStaticASS(clipTitle, duration, {
               ...subtitleOpts, animation: captionAnim,
-              wordsPerLine: settings.captions.wordsPerLine || 4,
+              wordsPerLine: settings.captions.wordsPerLine ?? DEFAULT_WORDS_PER_LINE, // legacy soft hint — grouping is chars/duration based
             });
           } else {
             trc(`CAPTIONS SKIPPED - no word timestamps and no title for fallback`);
@@ -1276,7 +1276,7 @@ router.post('/', async (req, res) => {
                 canvasHeight: canvasH,
                 animation: captionAnim,
                 clipStartTime: 0,
-                wordsPerLine: settings.captions?.wordsPerLine || 4,
+                wordsPerLine: settings.captions?.wordsPerLine ?? DEFAULT_WORDS_PER_LINE, // legacy soft hint
                 customColors: settings.captions?.customColors,
                 customImportantWords: settings.captions?.customImportantWords || [],
                 emphasisEffect: settings.captions?.emphasisEffect || 'none',
@@ -1446,7 +1446,7 @@ router.post('/', async (req, res) => {
               canvasHeight: canvasH,
               animation: captionAnim,
               clipStartTime: 0,
-              wordsPerLine: settings.captions?.wordsPerLine || 4,
+              wordsPerLine: settings.captions?.wordsPerLine ?? DEFAULT_WORDS_PER_LINE, // legacy soft hint
               customColors: settings.captions?.customColors,
               customImportantWords: settings.captions?.customImportantWords || [],
               emphasisEffect: settings.captions?.emphasisEffect || 'none',
@@ -1524,7 +1524,7 @@ router.post('/', async (req, res) => {
               canvasHeight: canvasH,
               animation: captionAnim,
               clipStartTime: 0,
-              wordsPerLine: settings.captions?.wordsPerLine || 4,
+              wordsPerLine: settings.captions?.wordsPerLine ?? DEFAULT_WORDS_PER_LINE, // legacy soft hint
               customColors: settings.captions?.customColors,
               customImportantWords: settings.captions?.customImportantWords || [],
               emphasisEffect: settings.captions?.emphasisEffect || 'none',
@@ -1698,7 +1698,7 @@ router.post('/', async (req, res) => {
             style: captionStyle, position: captionPosition,
             canvasWidth: canvasW, canvasHeight: canvasH,
             animation: captionAnim, clipStartTime: 0,
-            wordsPerLine: settings.captions?.wordsPerLine || 4,
+            wordsPerLine: settings.captions?.wordsPerLine ?? DEFAULT_WORDS_PER_LINE, // legacy soft hint
             customColors: settings.captions?.customColors,
             customImportantWords: settings.captions?.customImportantWords || [],
             emphasisEffect: settings.captions?.emphasisEffect || 'none',
@@ -2169,7 +2169,7 @@ router.post('/preview', async (req, res) => {
             ...subtitleOpts,
             animation: captionAnim,
             clipStartTime: 0,
-            wordsPerLine: settings.captions.wordsPerLine || 4,
+            wordsPerLine: settings.captions.wordsPerLine ?? DEFAULT_WORDS_PER_LINE, // legacy soft hint — grouping is chars/duration based
             customColors: settings.captions.customColors,
             customImportantWords: settings.captions.customImportantWords || [],
             emphasisEffect: settings.captions.emphasisEffect || 'none',
@@ -2179,7 +2179,7 @@ router.post('/preview', async (req, res) => {
           assContent = generateStaticASS(clipTitle, previewDuration, {
             ...subtitleOpts,
             animation: captionAnim,
-            wordsPerLine: settings.captions.wordsPerLine || 4,
+            wordsPerLine: settings.captions.wordsPerLine ?? DEFAULT_WORDS_PER_LINE, // legacy soft hint — grouping is chars/duration based
           });
         }
 
@@ -2277,7 +2277,7 @@ router.post('/caption', async (req, res) => {
       wordTimestamps,
       style = 'hormozi',
       clipStartTime = 0,
-      wordsPerLine = 6,
+      wordsPerLine = DEFAULT_WORDS_PER_LINE, // legacy soft hint (grouping = 16 chars / 1.4 s / 2 lines)
     } = req.body;
 
     if (!wordTimestamps || !Array.isArray(wordTimestamps)) {

@@ -419,7 +419,8 @@ export const POST = withAuth(async (request, user) => {
       smartZoom: settings?.smartZoom ?? { enabled: false, mode: 'micro' },
       audioEnhance: settings?.audioEnhance ?? { enabled: false },
       autoCut: settings?.autoCut ?? { enabled: true, silenceThreshold: 1.2 },
-      voiceover: settings?.voiceover ?? { enabled: true },
+      // VO is on standby (NEXT_PUBLIC_VOICEOVER_ENABLED, default off) — never default to enabled.
+      voiceover: settings?.voiceover ?? { enabled: process.env.NEXT_PUBLIC_VOICEOVER_ENABLED === 'true' },
       sourcePlatform: clipPlatform ?? undefined,
     },
     variants: resolvedVariants && resolvedVariants.length > 0 ? resolvedVariants : undefined,

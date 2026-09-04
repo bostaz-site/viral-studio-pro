@@ -1,6 +1,6 @@
 import type { Metadata, Viewport } from 'next'
 import Script from 'next/script'
-import { Inter, Archivo_Black } from 'next/font/google'
+import { Inter, Archivo_Black, Anton } from 'next/font/google'
 import { Toaster } from 'sonner'
 import './globals.css'
 import './rank-cards.css'
@@ -10,6 +10,8 @@ import { cn } from "@/lib/utils"
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-sans' })
 const archivoBlack = Archivo_Black({ weight: '400', subsets: ['latin'], variable: '--font-score' })
+// Anton — caption style `anton` preview (matches the VPS Anton-Regular.ttf render font)
+const anton = Anton({ weight: '400', subsets: ['latin'], variable: '--font-anton' })
 
 const siteUrl = 'https://viralanimal.com'
 
@@ -132,7 +134,7 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en" suppressHydrationWarning className={cn("font-sans", inter.variable, archivoBlack.variable)}>
+    <html lang="en" suppressHydrationWarning className={cn("font-sans", inter.variable, archivoBlack.variable, anton.variable)}>
       <head>
         <meta name="google-site-verification" content="vd6ilqum2N1Q0YUJDWzxuyD_Nlv7Km5CfkwRB4Xl5L4" />
         <meta name="theme-color" content="#020617" />

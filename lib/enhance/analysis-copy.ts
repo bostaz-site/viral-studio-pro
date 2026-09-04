@@ -103,6 +103,7 @@ export const COLOR_DISPLAY_NAMES: Record<string, string> = {
 export const CAPTION_DISPLAY_NAMES: Record<string, string> = {
   'word-pop': 'Word Pop',
   highlight: 'Highlight',
+  anton: 'Anton',
   bounce: 'Bounce',
   glow: 'Glow',
   none: 'None',

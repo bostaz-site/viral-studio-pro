@@ -388,20 +388,20 @@ Apres 800ms → `onComplete()` callback.
 
 10. **Hook text overlay** (z-30) — positioned at `hookTextPosition%`, capsule noire avec border glow (plateforme-aware)
 
-11. **Karaoke captions** (z-20) — positioned at `captionPosition%`, max-width 85%
+11. **Karaoke captions** (z-20) — positioned at `captionPosition%`, max-width 92%, **sans boite noire** (outline noir simule par text-shadow), taille en `cqw` (105/1080 = 9.72 % de la largeur du container 9:16), UPPERCASE, groupe complet affiche, mot actif jaune `#FFE500` + pop 90→108 % (110 ms)
 
 ### Caption Animation Modes
 
 | Animation | Comportement dans la preview |
 |---|---|
-| `word-pop` | 1 seul mot affiche a la fois, `text-xl`, pop-in animation. Important words en rouge + plus gros. |
-| `highlight` | Tous les mots visibles, mot actif avec `highlightClass` (bg-white/20). Active word scale statique. |
-| `bounce` | Tous les mots visibles, mot actif `translateY(-45%) scale(1.3)`. |
-| `glow` | Background `bg-black/60 shadow-[0_0_20px_rgba(255,255,255,0.15)]`. Halo colore sur mot actif. |
+| `word-pop` | 1 seul mot affiche a la fois, Inter 120 px (11.11 cqw), blanc, pop-in 110 ms. Important words en emphasisColor + 108-112 %. |
+| `highlight` / `anton` | Groupe complet visible (16 chars / 2 lignes), mot actif `text-[#FFE500]` + `scale(1.08)` (transition 110 ms). `anton` = police Anton (var `--font-anton`, weight 400). |
+| `bounce` | Idem highlight, mot actif `translateY(-6%) scale(1.08)`. |
+| `glow` | Idem highlight, `drop-shadow` jaune (ou emphasisColor si mot important) sur le mot actif. Plus de boite noire. |
 | `typewriter` | Reveal caractere par caractere sur le mot actif, curseur `\|` a la fin. |
 
 ### Word Cycling
-- `sampleWords = ['This', 'is', 'CRAZY', 'bro', 'let\'s', 'go']` (tronque a `wordsPerLine`)
+- `sampleWords = ['This', 'is', 'CRAZY', 'bro', 'let\'s', 'go']` groupes avec les regles VPS (`sampleLines`) : 16 chars max/ligne, 2 lignes max, `wordsPerLine` = cap souple par ligne (<= 1 → 1 seule ligne). Preview = 1er groupe → `THIS IS CRAZY` / `BRO LET'S GO`
 - `activeWordIdx` cycle toutes les 400ms (match Whisper timestamp typical)
 - Important words : CAPS (>=3 chars), contient `!`, ou dans `IMPORTANT_WORDS_SET` (35 mots viraux)
 
@@ -409,9 +409,12 @@ Apres 800ms → `onComplete()` callback.
 
 | Effect | Transform |
 |---|---|
-| `scale` | `scale(1.5)` (word-pop: `scale(1.35)`) |
-| `bounce` | `translateY(-30%) scale(1.25)` (word-pop: `translateY(-6px) scale(1.15)`) |
-| `glow` | Extra text-shadow halo avec emphasisColor |
+| `none` | `scale(1.08)` + emphasisColor (le render colore toujours le mot important actif) |
+| `scale` | `scale(1.12)` (ASS `\fscx112`) |
+| `bounce` | `translateY(-6%) scale(1.10)` (ASS `\fscx110\shad3`) |
+| `glow` | `drop-shadow` halo avec emphasisColor (ASS `\bord4\3c`) |
+
+> R2 (2026-09) : emphase reduite de 120-140 % a 108-112 % — les A/B OpenShorts montrent qu'au-dela de 112 % "ca se lit comme un bug".
 
 ### Rendered Video Mode
 - `<video>` avec `autoPlay loop muted playsInline`
@@ -582,12 +585,13 @@ Utilise pour les ScoreBadge sur chaque option dans l'UI.
 
 ## Constants
 
-### CAPTION_STYLES (5 options)
+### CAPTION_STYLES (6 options)
 
 | ID | Label | Animation | baseScore |
 |---|---|---|---|
 | `word-pop` | Word Pop | word-pop | 14 |
 | `highlight` | Highlight | highlight | 12 |
+| `anton` | Anton | highlight | 12 |
 | `bounce` | Bounce | bounce | 11 |
 | `glow` | Glow | glow | 10 |
 | `none` | None | — | 0 |
@@ -636,13 +640,63 @@ Utilise pour les ScoreBadge sur chaque option dans l'UI.
 **Score badge** : `+{scoreBreakdown.captions} pts`
 
 **Contenu** :
-- **Style grid** (3 cols) : 5 options. Chaque card montre "Aa" preview + ScoreBadge. Mood pick = border vert + "AI" badge. Best pick (sans mood) = border orange.
+- **Style grid** (3 cols) : 6 options (`anton` ajoute en R2). Chaque card montre "Aa" preview + ScoreBadge. Mood pick = border vert + "AI" badge. Best pick (sans mood) = border orange.
 - **Animation info** : readonly display du animation label lie au style choisi
 - **Keyword emphasis grid** (3-5 cols) : 4 effects. Same mood/best highlighting.
 - **Emphasis color** : 8 cercles colores. Disabled quand effect = none. AI badge sur la couleur choisie par l'AI.
 - **Important words** : auto-detected preview (CAPS, OMG, CRAZY, INSANE, WTF) + custom words avec X pour supprimer + form pour ajouter.
 - **Vertical position** : slider 0-100 + presets (Top=8, Middle=42, Bottom=72)
-- **Words per line** : slider 1-8
+- **Max words per line** : slider 1-8 — **cap souple** uniquement (R2) : le groupage reel est 16 chars / 1.4 s / 2 lignes ; `1` force une seule ligne. Hint affiche sous le slider.
+
+### 1b. Captions Render — ASS calibre R2 (2026-09, `vps/lib/subtitle-generator.js`)
+
+Calibre sur le consensus open source (OpenShorts A/B, AutoShorts) — voir `BENCHMARK-RENDER-FFMPEG.md` §1-2.
+
+**Tailles (canvas 1080x1920, `scaleFactor = max(0.75, H/1920)` conserve)**
+
+| Style VPS | Police | Taille | Outline / Shadow | Couleur active | Uppercase |
+|---|---|---|---|---|---|
+| `hormozi` (defaut ; UI `highlight`/`bounce`/`glow` → hormozi) | Inter | 105 | 5 / 2 | jaune `#FFE500` (`&H0000E5FF`) | oui |
+| `anton` | Anton (OFL, installe via Dockerfile) | 105 | 4 / 0 | jaune `#FFE500` | oui |
+| `hormozi-purple` | Inter | 105 | 5 / 2 | violet `#C77DFF` | oui |
+| `mrbeast` | Montserrat | 110 | 6 / 2 | rouge | oui |
+| `impact` | Montserrat | 105 | 6 / 2 | rouge | oui |
+| `imangadzhi` | Montserrat | 110 | 6 / 2 | or | oui |
+| `word-pop` | Inter | 120 | 6 / 2 | (1 mot, blanc) | oui |
+| `default` | Inter | 100 | 5 / 2 | jaune | oui |
+| `bold` | Montserrat | 105 | 6 / 2 | jaune | oui |
+| `neon` | Poppins | 100 | 5 / 2 | vert | oui |
+| `minimal` | Poppins | 80 | 5 / 1 | jaune | non |
+| `aliabdaal` | Lora | 95 | 5 / 1 | bleu | non |
+| `karaoke-wipe` | Inter | 105 | 5 / 2 | jaune (legacy `\kf` cumulatif) | oui |
+
+- `primaryColor` = mots INACTIFS (blanc), `activeColor` = mot actif. `secondaryColor` n'est utilise que par `karaoke-wipe`.
+- `MarginL/R = 40`. `WrapStyle: 2` (pas de wrap auto — les sauts de ligne sont explicites `\N`).
+- Option `uppercase` : par style (defaut `true`), overridable via `options.uppercase`.
+
+**Technique — 1 evenement Dialogue PAR MOT**
+- A chaque mot, le groupe complet est affiche ; le mot actif porte `{\c&H00E5FF&\fscx90\fscy90\t(0,110,\fscx108\fscy108)}MOT{\r}` (pop 90→108 % en 110 ms), les autres restent en PrimaryColour.
+- Timing : `start = word.start`, `end = start du mot suivant` ; dernier mot du groupe : `word.end + 0.2 s`, borne par le debut du groupe suivant. Aucun gap ni overlap ; les frontieres de groupe sont respectees.
+- Mot important actif : couleur d'emphase + 108-112 % (`getEmphasisASS(effect, color, animated=true)`), remplace le jaune.
+- `pop` / `bounce` / `glow` : memes evenements par mot + transform en boucle au niveau du groupe (phase conservee entre evenements). `shake` : tremblement du mot actif si `!`/CAPS. `typewriter` : 1 evenement par groupe.
+- `\kf` (balayage cumulatif) uniquement pour le style explicite `karaoke-wipe`.
+- `word-pop` : inchange (1 mot par evenement, cap 1.5 s), desormais UPPERCASE.
+
+**Groupage (`groupWords`, constante `CAPTION_GROUPING`)**
+- `maxCharsPerGroup = 16` par ligne, `maxGroupDuration = 1.4 s`, `maxLines = 2`, `maxSilenceGap = 1.0 s` (silence → nouveau groupe).
+- Un mot > 16 chars reste seul.
+- `wordsPerLine` (legacy, slider UI) = **hint souple** : cap de mots par ligne en plus de la regle chars ; `<= 1` → 1 ligne. `DEFAULT_WORDS_PER_LINE = undefined` (aucun hint). Les 3 valeurs divergentes (route 4 / lib 6 / export 6) sont supprimees — `vps/routes/render.js` passe `settings.captions.wordsPerLine ?? DEFAULT_WORDS_PER_LINE`.
+- `generateStaticASS` (fallback titre sans Whisper) applique les memes regles de chars/lignes.
+
+**Position (`adjustPositioning`)**
+- String : `bottom` → alignment 2 + MarginV du style (288 = 15 % H) ; `middle` → alignment 5 ; `top` → alignment 8 + MarginV 8 % H.
+- Numerique (slider UI, % depuis le haut) : `< 35` → an8, MarginV = X % H ; `35-55` → an5 ; `> 55` → **an2**, MarginV = (100-X) % H − 1 hauteur de ligne (le haut d'une ligne simple reste a ~X %, un groupe 2 lignes grandit vers le HAUT, jamais dans la dead zone TikTok). Defaut 75 → MarginV 343.
+- Diversify inchange, applique par-dessus : `captionMarginVPct` ±3 % (ignore en an5), `captionSizePct` ±6 %, `accentColor` → `activeColor`.
+
+**Palette diversify (`vps/lib/diversify.js` `ACCENT_PALETTES`)**
+- Styles neutres (`hormozi`, `anton`, `default`, `bold`, `word-pop`, `karaoke-wipe`, `minimal`, et fallback pour les ids UI inconnus) → famille jaune `#FFE500` uniquement. `HIGH_CONTRAST_ACCENTS` exporte jaune / cyan / vert neon / orange (couleurs quasi absentes du footage). Plus de rose/violet hors du style `hormozi-purple`.
+
+**Police Anton** : `vps/Dockerfile` telecharge `Anton-Regular.ttf` (github.com/google/fonts, OFL) dans `/usr/share/fonts/truetype/anton/` puis `fc-cache` (non fatal si le download echoue → fallback sans). Frontend : `next/font/google` `Anton` → variable `--font-anton` (`app/layout.tsx`).
 
 ### 2. Split-Screen
 

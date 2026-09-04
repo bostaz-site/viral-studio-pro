@@ -107,10 +107,42 @@ export function computeDiversify(jobId) {
 }
 
 // ── Accent Color Palettes ────────────────────────────────────────────────────
-// 5 variants per style (ASS BGR format &H00BBGGRR).
+// 5 variants per style (ASS BGR format &H00BBGGRR) applied to the ACTIVE word.
 // Subtle hue/saturation shifts — same tone family, different hash.
+//
+// R2 rule: the default palette only contains colors nearly ABSENT from gaming /
+// IRL footage (yellow, cyan, neon green, orange) — no pink / purple / red, which
+// blend into HUDs, skins and overlays. Branded styles (hormozi-purple, mrbeast,
+// impact, imangadzhi, neon, aliabdaal) keep their identity tone.
+
+// Yellow #FFE500 family — the consensus active color (OpenShorts / AutoShorts)
+const YELLOW_PALETTE = [
+  '&H0000E5FF', // #FFE500 (reference)
+  '&H0000D7FF', // #FFD700
+  '&H003BEBFF', // #FFEB3B
+  '&H0000DCF5', // #F5DC00
+  '&H0033E0FF', // #FFE033
+];
+
+// High-contrast accents allowed on neutral styles (yellow, cyan, neon green, orange)
+export const HIGH_CONTRAST_ACCENTS = {
+  yellow: '&H0000E5FF', // #FFE500
+  cyan:   '&H00FFFF00', // #00FFFF
+  green:  '&H0014FF39', // #39FF14
+  orange: '&H000099FF', // #FF9900
+};
 
 const ACCENT_PALETTES = {
+  // Neutral (white) styles → yellow family only
+  hormozi: YELLOW_PALETTE,
+  anton: YELLOW_PALETTE,
+  default: YELLOW_PALETTE,
+  bold: YELLOW_PALETTE,
+  'word-pop': YELLOW_PALETTE,
+  'karaoke-wipe': YELLOW_PALETTE,
+  minimal: YELLOW_PALETTE,
+
+  // Branded styles keep their own tone
   'hormozi-purple': [
     '&H00FF7DC7', '&H00FF6BD0', '&H00FF8FBE', '&H00E872C0', '&H00FF95D8',
   ],
@@ -126,21 +158,19 @@ const ACCENT_PALETTES = {
   imangadzhi: [
     '&H0000D4FF', '&H0000C0F0', '&H0000E0FF', '&H0010D0F5', '&H0000D8E8',
   ],
-  default: [
-    '&H0000FFFF', '&H0000F0F0', '&H0010FFFF', '&H0020F5FF', '&H0000E8E8',
-  ],
   aliabdaal: [
     '&H00FDC593', '&H00F0B888', '&H00FFD09E', '&H00E8BA88', '&H00FFD8A8',
   ],
 };
 
 /**
- * Get a diversified accent color for a caption style.
- * Returns the palette color at the given index, or null if the style
- * has no accent (white-only styles like hormozi, minimal, bold, word-pop).
+ * Get a diversified accent color for a caption style (active word).
+ * Returns the palette color at the given index, or null if the style is unknown.
+ * Unknown UI ids ('highlight', 'bounce', 'glow' → hormozi on the VPS) fall back
+ * to the yellow palette so the render still gets the diversified active color.
  */
 export function getDiversifiedAccentColor(styleName, colorIdx) {
-  const palette = ACCENT_PALETTES[styleName];
+  const palette = ACCENT_PALETTES[styleName] || YELLOW_PALETTE;
   if (!palette) return null;
   return palette[colorIdx % palette.length];
 }

@@ -279,7 +279,7 @@ export function CaptionsSection({
             {/* Words per line */}
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <Label className="text-xs uppercase tracking-wider text-muted-foreground">Words per Line</Label>
+                <Label className="text-xs uppercase tracking-wider text-muted-foreground">Max Words per Line</Label>
                 <span className="text-xs font-mono text-muted-foreground">{settings.wordsPerLine}</span>
               </div>
               <Slider
@@ -293,6 +293,7 @@ export function CaptionsSection({
                 <span>1 (single)</span>
                 <span>8 (compact)</span>
               </div>
+              <p className="text-[10px] text-muted-foreground/60">Lines auto-wrap at 16 characters, max 2 lines per group (1 = single line).</p>
             </div>
             </>}
             </>}

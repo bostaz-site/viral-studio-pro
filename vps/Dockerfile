@@ -35,7 +35,17 @@ RUN mkdir -p /opt/viral-studio/broll /opt/viral-studio/tmp
 
 # Install custom Google Fonts (Montserrat, Inter, Lora, Poppins) for caption styles
 COPY fonts/ /usr/local/share/fonts/custom/
-RUN fc-cache -f -v
+
+# Anton (Google Fonts, OFL) — consensus font for shorts captions (style `anton`).
+# Downloaded at build time from the google/fonts repo (stable URL). Non-fatal:
+# if the download fails, libass falls back to the default sans font.
+RUN mkdir -p /usr/share/fonts/truetype/anton && \
+    (curl -fsSL "https://github.com/google/fonts/raw/main/ofl/anton/Anton-Regular.ttf" \
+      -o /usr/share/fonts/truetype/anton/Anton-Regular.ttf && \
+     echo "BUILD CHECK: Anton font installed") || \
+    echo "BUILD WARNING: Anton font download failed — captions style 'anton' will fall back" && \
+    fc-cache -f -v && \
+    (fc-list | grep -i anton || true)
 
 # Copy package files and install dependencies
 COPY package.json ./
