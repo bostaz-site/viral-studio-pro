@@ -328,5 +328,28 @@ export function sendToVps(
       await markFailed(`VPS unreachable: ${err instanceof Error ? err.message : 'unknown error'}`)
     }
   }
-  run()
+  // Return the promise so callers can hold the serverless function alive until the
+  // request has actually reached the VPS. On Netlify/Lambda the runtime is frozen as
+  // soon as the HTTP response is sent — a pure fire-and-forget fetch may never leave
+  // the process, leaving the job stuck in 'pending' while holding a queue slot.
+  return run()
+}
+
+/**
+ * Dispatch to the VPS and wait just long enough (default 2.5s) for the request to be
+ * delivered, without waiting for the full render (the VPS answers only when done and
+ * drives completion via webhook). Resolves either way — never throws.
+ */
+export async function dispatchToVps(
+  admin: SupabaseClient,
+  jobId: string,
+  userId: string,
+  renderPayload: Record<string, unknown>,
+  label = 'render',
+  holdMs = 2500,
+): Promise<void> {
+  const dispatch = sendToVps(admin, jobId, userId, renderPayload, label).catch((err) => {
+    console.error(`[${label}] dispatch promise rejected:`, err instanceof Error ? err.message : err)
+  })
+  await Promise.race([dispatch, new Promise<void>((resolve) => setTimeout(resolve, holdMs))])
 }

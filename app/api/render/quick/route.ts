@@ -10,7 +10,7 @@ import type { ClipMood } from '@/lib/ai/mood-presets'
 import { enqueueRender } from '@/lib/render-queue'
 import {
   resolveClip, checkExistingJob, enforcePlanLimits,
-  resolveTwitchUrl, createRenderJob, sendToVps,
+  resolveTwitchUrl, createRenderJob, dispatchToVps,
 } from '@/lib/api/render-helpers'
 
 export const maxDuration = 60
@@ -222,8 +222,8 @@ export const POST = withAuth(async (request: NextRequest, user) => {
     })
   }
 
-  // Slot available — fire-and-forget to VPS
-  sendToVps(admin, job.id, user.id, renderPayload, 'quick-export')
+  // Slot available — dispatch to VPS (held ~2.5s so the request leaves the runtime)
+  await dispatchToVps(admin, job.id, user.id, renderPayload, 'quick-export')
 
   return NextResponse.json({
     data: { jobId: job.id, status: 'pending', mood },

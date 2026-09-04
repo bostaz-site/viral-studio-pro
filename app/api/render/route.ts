@@ -7,7 +7,7 @@ import { resolveTwitchClipFromUrlOrSlug } from '@/lib/twitch/resolve-clip-url'
 import { checkClipDuration, getPlanConfig, resolveEffectivePlan } from '@/lib/plans'
 import { logger } from '@/lib/logger'
 import { enqueueRender } from '@/lib/render-queue'
-import { checkExistingJob, sendToVps } from '@/lib/api/render-helpers'
+import { checkExistingJob, dispatchToVps } from '@/lib/api/render-helpers'
 
 // Allow larger request body for hook overlay PNG (base64 ~500KB-2MB)
 export const maxDuration = 60
@@ -452,8 +452,9 @@ export const POST = withAuth(async (request, user) => {
     })
   }
 
-  // Slot available — dispatch to VPS immediately (fire-and-forget)
-  sendToVps(admin, job.id, user.id, renderPayload)
+  // Slot available — dispatch to VPS. Held ~2.5s so the request actually leaves the
+  // serverless runtime before the response freezes it (jobs were stuck in 'pending').
+  await dispatchToVps(admin, job.id, user.id, renderPayload)
 
   return NextResponse.json({
     data: { clip_id, jobId: job.id, rendered: false, source: foundSource, vpsReady: true, originalUrl: videoUrl },

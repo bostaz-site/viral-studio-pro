@@ -7,7 +7,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { processNextInQueue } from '@/lib/render-queue'
-import { sendToVps } from '@/lib/api/render-helpers'
+import { dispatchToVps } from '@/lib/api/render-helpers'
 
 export async function processAndDispatchNext(
   admin: SupabaseClient,
@@ -29,9 +29,9 @@ export async function processAndDispatchNext(
     .update({ status: 'pending', updated_at: new Date().toISOString() })
     .eq('id', next.jobId)
 
-  // Dispatch to VPS (fire-and-forget, handles errors internally)
+  // Dispatch to VPS — held ~2.5s so the request leaves the serverless runtime.
   // Payload stays in Redis until job reaches terminal state (done/failed) — needed for retries
-  sendToVps(admin, next.jobId, userId, next.payload, 'queue-dispatch')
+  await dispatchToVps(admin, next.jobId, userId, next.payload, 'queue-dispatch')
 
   return true
 }

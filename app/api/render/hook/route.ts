@@ -6,7 +6,7 @@ import { withAuth } from '@/lib/api/withAuth'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { releaseJob, enqueueRender, cleanupPayload, removeFromQueue } from '@/lib/render-queue'
 import { processAndDispatchNext } from '@/lib/api/dispatch-render'
-import { sendToVps } from '@/lib/api/render-helpers'
+import { dispatchToVps } from '@/lib/api/render-helpers'
 import { redis } from '@/lib/upstash'
 import { timingSafeCompare } from '@/lib/crypto'
 import { rateLimit, RATE_LIMITS } from '@/lib/rate-limit'
@@ -178,7 +178,7 @@ async function handleWebhook(req: NextRequest) {
       const enqResult = await enqueueRender(payload.jobId, storedPayload)
       // If a slot was available (position=null), dispatch immediately
       if (enqResult.accepted && enqResult.position === null) {
-        sendToVps(admin, payload.jobId, (currentJob.user_id as string) ?? '', storedPayload, 'retry-dispatch')
+        await dispatchToVps(admin, payload.jobId, (currentJob.user_id as string) ?? '', storedPayload, 'retry-dispatch')
       } else if (enqResult.accepted && enqResult.position !== null) {
         // Queued — processAndDispatchNext will pick it up when a slot frees
       }
