@@ -399,7 +399,7 @@ Every render builds a **contract** (`vps/lib/render-contract.js`): a list of fea
 
 **Feature classification:**
 - **Critical** (trigger `degraded` + refund): `voiceover`, `captions`, `hook_text`
-- **Cosmetic** (logged but no refund): `audio_shift`, `smart_zoom`, `audio_enhance`, `crop_mode`, `auto_cut`
+- **Cosmetic** (logged but no refund): `audio_shift`, `smart_zoom`, `audio_enhance`, `crop_mode`, `auto_cut`, `sfx`
 
 **Flow:**
 1. `createContract(settings)` at render start — builds entries from settings
@@ -463,6 +463,20 @@ Three modes. **Dynamic is the new default** (replaces micro):
 - 1.20x scale-up → piecewise linear crop pan with up to 20 keyframes
 - Keyframes downsampled from full detection set to keep FFmpeg expression sane
 - Fallback: if <2 keyframes → micro push
+
+### SFX Sound Design Layer
+
+`vps/lib/sfx.js` — mood-mapped sound effects placed on audio peaks.
+
+**Assets**: `vps/assets/sfx/` — WAV 48 kHz, CC0 licensed. Expected files: `whoosh-{1,2,3}.wav`, `bass-hit-{1,2}.wav`, `vine-boom.wav`, `ding.wav`, `glitch.wav`, `pop.wav`, `riser-short.wav`. Degrades gracefully if assets missing (logged, no SFX applied).
+
+**Mood mapping**: rage → bass hit/glitch/boom, funny → boom/pop/ding, drama → riser/bass/glitch, wholesome → ding/pop/riser, hype → whoosh/bass/boom, story → riser/whoosh/ding.
+
+**Placement**: on audio peaks from `analyzeAudioPeaksWithIntensity()`, max 1 SFX per 4s, never in first 1s, volume -12 dB (subtle) / -6 dB (punchy), 30ms fade in/out. SFX selection and ±80ms timing jitter seeded by diversify for per-render uniqueness.
+
+**Option**: `soundDesign` = `'off'` | `'subtle'` (default) | `'punchy'`. Exposed in Enhance page. Contract feature `sfx` (non-critical).
+
+**FFmpeg mix**: `buildSfxMixChain()` in `ffmpeg-render.js` — each SFX WAV becomes an FFmpeg input, adelay'd to trigger time, volume-adjusted, amixed with the base audio. Works with both voiceover and non-voiceover paths.
 
 ### Hook Text Generation (content-aware)
 `vps/lib/hook-generator.js` > `generateHookTexts()`. Claude Haiku writes 3 hooks (shock/curiosity/suspense) that reference the specific clip content. **No generic templates** — generic phrases like "nobody expected this", "wait for it", "legendary moment" are explicitly banned in the prompt.

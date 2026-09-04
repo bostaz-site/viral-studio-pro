@@ -52,6 +52,8 @@ export interface EnhanceSettings {
   voiceoverLines: { text: string; startTime: number; estimatedDuration: number; role: 'hook' | 'reaction' | 'closer' }[]
   /** P4 · CTA follow overlay in the last ~1.2s (default true) */
   ctaFollowEnabled?: boolean
+  /** R5 · Sound design: SFX layer on audio peaks */
+  soundDesign?: 'off' | 'subtle' | 'punchy'
 }
 
 /**

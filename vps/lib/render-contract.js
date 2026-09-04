@@ -95,6 +95,14 @@ export function createContract(settings) {
     reason: null,
   });
 
+  // SFX (non-critical)
+  entries.push({
+    feature: 'sfx',
+    requested: settings.soundDesign && settings.soundDesign !== 'off',
+    applied: false,
+    reason: null,
+  });
+
   // Audio shift (always-on)
   entries.push({
     feature: 'audio_shift',

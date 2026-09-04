@@ -1659,6 +1659,51 @@ router.post('/', async (req, res) => {
 
     t('vo_end');
 
+    // ─── SFX Layer ───
+    // Select and place sound effects on audio peaks, seeded by diversify.
+    let sfxPaths = null;
+    const soundDesignLevel = settings.soundDesign || 'off';
+    try {
+      if (soundDesignLevel !== 'off') {
+        const { selectSfx, sfxAssetsAvailable } = await import('../lib/sfx.js');
+        if (sfxAssetsAvailable()) {
+          // Compute audio peaks for SFX placement
+          let sfxPeaks = [];
+          try {
+            const { analyzeAudioPeaksWithIntensity } = await import('../lib/audio-peaks.js');
+            sfxPeaks = await analyzeAudioPeaksWithIntensity(inputPath, clipStartTime, duration, {
+              cooldownSec: 4, maxPeaks: 10, thresholdDb: 5,
+            });
+          } catch { /* no peaks = no SFX */ }
+
+          if (sfxPeaks.length > 0) {
+            const sfxSeed = div ? div.seed : Date.now();
+            sfxPaths = selectSfx({
+              peaks: sfxPeaks,
+              mood: settings.autoCut?.mood || 'hype',
+              duration,
+              level: soundDesignLevel,
+              seed: sfxSeed,
+            });
+            trc(`SFX: ${sfxPaths.length} effects placed (level=${soundDesignLevel}, mood=${settings.autoCut?.mood || 'hype'}, peaks=${sfxPeaks.length})`);
+            contract.record('sfx', sfxPaths.length > 0, sfxPaths.length === 0 ? 'no peaks' : null, { count: sfxPaths.length, level: soundDesignLevel });
+          } else {
+            trc('SFX: skipped — no audio peaks available');
+            contract.record('sfx', false, 'no audio peaks');
+          }
+        } else {
+          trc('SFX: skipped — assets not found in vps/assets/sfx/');
+          contract.record('sfx', false, 'assets not found');
+        }
+      } else {
+        trc('SFX: disabled by user (soundDesign=off)');
+        contract.record('sfx', false, 'disabled by user', null, true);
+      }
+    } catch (sfxErr) {
+      trc(`SFX FAILED (non-fatal): ${sfxErr.message}`);
+      contract.record('sfx', false, sfxErr.message);
+    }
+
     // Render clip with FFmpeg (entire pipeline is already serialized by the outer enqueueRender)
     t('encode_start');
     const outputPath = path.join(tempDir, 'output.mp4');
@@ -1834,6 +1879,7 @@ router.post('/', async (req, res) => {
       } : null,
       audioEnhance: settings.audioEnhance?.enabled || false,
       voiceoverPaths: voiceoverPaths && voiceoverPaths.length > 0 ? voiceoverPaths : null,
+      sfxPaths: sfxPaths && sfxPaths.length > 0 ? sfxPaths : null,
       reactionLayout: reactionLayout && reactionLayout.isReactionLayout ? reactionLayout : null,
       duoLayout: duoLayout && duoLayout.isDuoLayout ? duoLayout : null,
       diversify: div ? {

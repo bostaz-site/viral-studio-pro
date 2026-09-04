@@ -221,6 +221,7 @@ export default function EnhancePage() {
     audioEnhanceEnabled: false,
     bassBoost: 'off',
     speedRamp: 'off',
+    soundDesign: 'subtle' as 'off' | 'subtle' | 'punchy',
     autoCutEnabled: true,
     autoCutThreshold: 1.2,
     hookEnabled: false,
@@ -834,6 +835,7 @@ export default function EnhancePage() {
             audioEnhance: {
               enabled: settings.audioEnhanceEnabled,
             },
+            soundDesign: settings.soundDesign || 'off',
             autoCut: {
               enabled: settings.autoCutEnabled,
               silenceThreshold: settings.autoCutThreshold,

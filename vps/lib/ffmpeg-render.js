@@ -390,6 +390,56 @@ async function prepareHookOverlay(hookText, hookLength, canvasW, canvasH, textPo
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// SFX Mix Chain
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Build filter_complex chain that mixes SFX WAV inputs into the audio.
+ * Each SFX is delayed to its trigger time, volume-adjusted, faded (30ms),
+ * then amixed with the base audio stream.
+ *
+ * @param {Array<{path: string, time: number, volume: number}>} sfxPaths
+ * @param {number} firstInputIdx - FFmpeg input index of first SFX
+ * @param {string} baseLabel - Input audio label (e.g. '[abase]' or '[aout]')
+ * @param {string} outLabel - Output label (e.g. '[asfx]')
+ * @param {number} clipDuration - Clip duration (for apad)
+ * @returns {string} filter_complex fragment (starts with ';')
+ */
+function buildSfxMixChain(sfxPaths, firstInputIdx, baseLabel, outLabel, clipDuration) {
+  if (!sfxPaths || sfxPaths.length === 0) return '';
+
+  const FADE_MS = 30;
+  const parts = [];
+  const labels = [];
+
+  for (let i = 0; i < sfxPaths.length; i++) {
+    const sfx = sfxPaths[i];
+    const idx = firstInputIdx + i;
+    const delayMs = Math.round(sfx.time * 1000);
+    const vol = Math.pow(10, (sfx.volume || -12) / 20).toFixed(4);
+    const label = `sfx${i}`;
+    // Delay + volume + fade in/out + pad to clip duration
+    parts.push(
+      `[${idx}:a]adelay=${delayMs}|${delayMs},volume=${vol},` +
+      `afade=t=in:st=0:d=${FADE_MS / 1000},afade=t=out:st=99:d=${FADE_MS / 1000},` +
+      `apad=whole_dur=${clipDuration}[${label}]`
+    );
+    labels.push(`[${label}]`);
+  }
+
+  // amix all SFX together, then amix with base audio
+  let chain = ';' + parts.join(';');
+  if (labels.length === 1) {
+    chain += `;${baseLabel}${labels[0]}amix=inputs=2:duration=first:dropout_transition=0:normalize=0${outLabel}`;
+  } else {
+    chain += `;${labels.join('')}amix=inputs=${labels.length}:duration=longest:normalize=0[sfxmix]`;
+    chain += `;${baseLabel}[sfxmix]amix=inputs=2:duration=first:dropout_transition=0:normalize=0${outLabel}`;
+  }
+
+  return chain;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Audio Pitch Shift (anti-fingerprint)
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -807,6 +857,7 @@ export async function renderClip(inputPath, outputPath, options = {}) {
     bassBoost = 'off',
     speedRamp = 'off',
     voiceoverPaths = null, // [{path, startTime, estimatedDuration}]
+    sfxPaths = null,      // [{path, time, volume}] from sfx.js
     reactionLayout = null, // {faceRegion: {x,y,w,h}, contentRegion: {x,y,w,h}}
     duoLayout = null,     // {faceA: {cx,cy,w,h}, faceB: {cx,cy,w,h}}
     diversify = null,     // {audioShiftPct, zoomAmpMult, zoomPhase, grainStrength, hookDelayS, hookPosPct, hookSizePct}
@@ -1388,6 +1439,17 @@ export async function renderClip(inputPath, outputPath, options = {}) {
         console.log(`[FFmpeg] Voiceover: added ${voiceoverPaths.length} MP3 inputs at indices ${voInputIdxStart}-${inputIdx - 1}`);
       }
 
+      // ── SFX: add WAV inputs ──
+      const hasSfx = Array.isArray(sfxPaths) && sfxPaths.length > 0;
+      let sfxInputIdxStart = inputIdx;
+      if (hasSfx) {
+        for (const sfx of sfxPaths) {
+          args.push('-i', sfx.path);
+          inputIdx++;
+        }
+        console.log(`[FFmpeg] SFX: added ${sfxPaths.length} WAV inputs at indices ${sfxInputIdxStart}-${inputIdx - 1}`);
+      }
+
       // ── Now add all OUTPUT options: -t, -filter_complex, -map, codecs ──
       args.push('-t', String(clipDuration));
 
@@ -1423,17 +1485,37 @@ export async function renderClip(inputPath, outputPath, options = {}) {
           audioFC += `;[ducked][vomixcopy]amix=inputs=2:duration=first:dropout_transition=0:normalize=0[aout]`;
         }
 
+        // ── SFX mix into voiceover path ──
+        let audioOutLabel = '[aout]';
+        if (hasSfx) {
+          audioFC += buildSfxMixChain(sfxPaths, sfxInputIdxStart, '[aout]', '[asfx]', clipDuration);
+          audioOutLabel = '[asfx]';
+        }
+
         // Combine video + audio filter graphs into one -filter_complex
         filterComplex += ';' + audioFC;
         args.push('-filter_complex', filterComplex);
         args.push('-map', mapVideo);
-        args.push('-map', '[aout]');
+        args.push('-map', audioOutLabel);
         args.push(...buildCommonEncodingArgs(tier, fps, clipDuration, diversify));
         args.push('-c:a', 'aac', '-b:a', tier.audioBitrate, '-ar', '48000', '-ac', '2');
 
-        console.log(`[FFmpeg] Voiceover mix: ${voiceoverPaths.length} lines with sidechaincompress ducking`);
+        console.log(`[FFmpeg] Voiceover mix: ${voiceoverPaths.length} lines with sidechaincompress ducking${hasSfx ? ` + ${sfxPaths.length} SFX` : ''}`);
+      } else if (hasSfx) {
+        // No voiceover but HAS SFX — need filter_complex for audio too
+        const baseAudio = audioFilters.length > 0
+          ? `[0:a]${audioFilters.join(',')}[abase]`
+          : `[0:a]acopy[abase]`;
+        const sfxChain = buildSfxMixChain(sfxPaths, sfxInputIdxStart, '[abase]', '[asfx]', clipDuration);
+        filterComplex += ';' + baseAudio + sfxChain;
+        args.push('-filter_complex', filterComplex);
+        args.push('-map', mapVideo);
+        args.push('-map', '[asfx]');
+        args.push(...buildCommonEncodingArgs(tier, fps, clipDuration, diversify));
+        args.push('-c:a', 'aac', '-b:a', tier.audioBitrate, '-ar', '48000', '-ac', '2');
+        console.log(`[FFmpeg] SFX mix: ${sfxPaths.length} effects (no voiceover)`);
       } else {
-        // No voiceover — video filter_complex + simple -af audio chain
+        // No voiceover, no SFX — video filter_complex + simple -af audio chain
         args.push('-filter_complex', filterComplex);
         args.push('-map', mapVideo);
         args.push('-map', '0:a?');
