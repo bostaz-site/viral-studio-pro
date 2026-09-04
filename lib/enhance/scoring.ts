@@ -54,6 +54,8 @@ export interface EnhanceSettings {
   ctaFollowEnabled?: boolean
   /** R5 · Sound design: SFX layer on audio peaks */
   soundDesign?: 'off' | 'subtle' | 'punchy'
+  /** Split-screen: gameplay loop below content (retention aid) */
+  splitScreenEnabled?: boolean
 }
 
 /**

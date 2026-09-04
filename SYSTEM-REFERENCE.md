@@ -399,7 +399,7 @@ Every render builds a **contract** (`vps/lib/render-contract.js`): a list of fea
 
 **Feature classification:**
 - **Critical** (trigger `degraded` + refund): `voiceover`, `captions`, `hook_text`
-- **Cosmetic** (logged but no refund): `audio_shift`, `smart_zoom`, `audio_enhance`, `crop_mode`, `auto_cut`, `sfx`
+- **Cosmetic** (logged but no refund): `audio_shift`, `smart_zoom`, `audio_enhance`, `crop_mode`, `auto_cut`, `sfx`, `split_screen`
 
 **Flow:**
 1. `createContract(settings)` at render start — builds entries from settings
@@ -477,6 +477,22 @@ Three modes. **Dynamic is the new default** (replaces micro):
 **Option**: `soundDesign` = `'off'` | `'subtle'` (default) | `'punchy'`. Exposed in Enhance page. Contract feature `sfx` (non-critical).
 
 **FFmpeg mix**: `buildSfxMixChain()` in `ffmpeg-render.js` — each SFX WAV becomes an FFmpeg input, adelay'd to trigger time, volume-adjusted, amixed with the base audio. Works with both voiceover and non-voiceover paths.
+
+### Split-Screen Gameplay Layout
+
+Content top 55% (1056px) + gameplay bottom 45% (864px) via `vstack`. Gameplay is a looping muted video from Supabase Storage bucket `gameplay/`, selected from `gameplay_assets` table (category, duration, license). Slightly desaturated (`eq=saturation=0.9`).
+
+**DB**: `gameplay_assets (id, storage_path, category, duration_s, license, active)`. Migration `20260904_gameplay_assets.sql`. RLS read-only for authenticated.
+
+**Diversification**: asset selection + `-ss` seek offset seeded by diversify (asset = `seed % count`, offset = `(seed >> 8) % (assetDuration - clipDuration)`). `-stream_loop -1` ensures gameplay loops.
+
+**Captions**: positioned at the content-gameplay junction (alignment 2, marginV adjusted for the 864px gameplay height). Hook stays in the content area (top).
+
+**Retention Risk** (`vps/lib/retention-risk.js`): score 0-100 computed from crop advisor (static cam +35, duo +15), audio peaks density (< 4/min +20), analysis density (< 5 +15), duration (> 30s static +5). `>= 55` → `split_screen_recommended: true`. Stored in `render_jobs.contract` meta.
+
+**Contract**: `split_screen` (non-critical). Also logs `retention_risk`, `split_screen_recommended`, `why[]` in contract meta for learning loop.
+
+**Enhance UI**: toggle `splitScreenEnabled` (default OFF). Badge "Split-screen suggested" when recommended by retention risk. Disabled with message if no gameplay assets in bucket.
 
 ### Hook Text Generation (content-aware)
 `vps/lib/hook-generator.js` > `generateHookTexts()`. Claude Haiku writes 3 hooks (shock/curiosity/suspense) that reference the specific clip content. **No generic templates** — generic phrases like "nobody expected this", "wait for it", "legendary moment" are explicitly banned in the prompt.
@@ -933,6 +949,36 @@ Stats cron (`refresh-post-stats`) tracks `last_checked_at` + `check_count` on ev
 
 ### Posting Time Advice
 `lib/distribution/posting-schedule.ts` provides per-platform optimal posting hours (UTC). Integrated into the publish dialog: shows a green/amber/red badge per enabled platform with a suggestion like "Best time to post right now!" or "Low engagement now. Best in 3h". Data is static (based on public research), not personalized.
+
+### Cadence Engine (P6 · 2026-09)
+
+Controls posting frequency, warm-up, and spacing. Source: `lib/distribution/cadence-engine.ts`.
+
+| Preset | Condition | Max/day | Spacing |
+|---|---|---|---|
+| **Warm-up** | Account connected < 7 days | 0 first 48h, then 1/day | 3h min |
+| **Growth** | < 30 posts total | 1-2/day | 3h min |
+| **Farm** | 30+ posts | 3-4/day | 3h min |
+
+**Hard limits** (non-overridable):
+- Never > 4 posts/day per account
+- Minimum 3h between posts on same account (enforced in `execute-publish.ts` + `smart-queue-engine.ts`)
+- Never same clip source on two accounts same day
+- Never two variants of same source clip < 24h apart on one account
+
+**Default posting window**: 18h-22h audience local time. Override via manual settings. Hook for Etage 4 (account analytics) when available via `analyticsWindowOverride`.
+
+**Cadence detection**: automatic based on `connectedAt` + `postCount`. Preset shown in Smart Insights widget.
+
+### Mode 5x — Breakout Detection (P6 · 2026-09)
+
+Source: `lib/distribution/breakout-detector.ts`, integrated in `refresh-post-stats` cron.
+
+When a post's views exceed 3x the median of the user's last 10 posts on that platform:
+- Logs `MODE 5x` in cron output
+- Inserts suggestion into `improvement_backlog` (category=distribution, source=mode_5x, priority=high)
+- Suggested variants: 3x=3, 5x=4, 10x+=5 variants
+- Studio plan: auto-enqueue (future). Free/Pro: notification only.
 
 ### Autofarm Executor (v10)
 Queue-based auto-posting pipeline: user enables Auto-Distribute toggle → client POST `/api/distribution/autofarm-sync` → insert rows in `scheduled_publications` (source='autofarm', tiktok_options from user-configured `auto_post_defaults`, caption from `generateVariants()` template engine) → cron `publish-scheduled` (every 5-10min) picks up rows WHERE `status='scheduled' AND scheduled_at <= now()` → optimistic lock → guard against already-published clips → publish via platform API → insert `published_posts` → set `removed_from_bank_at` on render_job (prevent republish loop) → cleanup.

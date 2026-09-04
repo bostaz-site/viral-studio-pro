@@ -1659,6 +1659,84 @@ router.post('/', async (req, res) => {
 
     t('vo_end');
 
+    // ─── Retention Risk + Split-Screen Gameplay ───
+    let splitScreenConfig = null;
+    try {
+      const splitScreenRequested = settings.splitScreen?.enabled === true;
+      const { computeRetentionRisk } = await import('../lib/retention-risk.js');
+
+      // Compute retention risk from available signals
+      const cropRec = settings.format?.cropAdvice?.recommended || settings.format?.videoZoom || 'auto';
+      const faceRate = settings.format?.cropAdvice?.details?.detectionRate ?? 0.5;
+      const retentionRisk = computeRetentionRisk({
+        cropRecommendation: cropRec,
+        faceDetectionRate: faceRate,
+        audiopeakCount: 0, // peaks computed later in SFX — use 0 as conservative
+        duration,
+        analysisDensity: null,
+        motionScore: null,
+      });
+      contract.record('split_screen', false, null, {
+        retention_risk: retentionRisk.retention_risk,
+        split_screen_recommended: retentionRisk.split_screen_recommended,
+        why: retentionRisk.why,
+      });
+      trc(`RETENTION RISK: ${retentionRisk.retention_risk}/100 recommended=${retentionRisk.split_screen_recommended} (${retentionRisk.why.join(', ') || 'none'})`);
+
+      if (splitScreenRequested) {
+        // Fetch a gameplay asset from Supabase
+        try {
+          const { createClient } = await import('@supabase/supabase-js');
+          const sbUrl = process.env.SUPABASE_URL || '';
+          const sbKey = process.env.SUPABASE_SECRET_KEY ?? process.env.SUPABASE_SERVICE_ROLE_KEY ?? '';
+          if (sbUrl && sbKey) {
+            const sb = createClient(sbUrl, sbKey);
+            const { data: assets } = await sb.from('gameplay_assets').select('*').eq('active', true).limit(20);
+            if (assets && assets.length > 0) {
+              // Seed-select an asset
+              const assetIdx = div ? (div.seed % assets.length) : Math.floor(Math.random() * assets.length);
+              const asset = assets[assetIdx];
+              const assetDuration = parseFloat(asset.duration_s) || 60;
+              const seekOffset = div ? ((div.seed >> 8) % Math.max(1, Math.floor(assetDuration - duration))) : 0;
+
+              // Download gameplay video from Supabase Storage
+              const gpDir = path.join(tempDir, 'gameplay');
+              await fs.mkdir(gpDir, { recursive: true });
+              const gpLocalPath = path.join(gpDir, 'gameplay.mp4');
+
+              const { data: signedUrl } = await sb.storage.from('gameplay').createSignedUrl(asset.storage_path, 300);
+              if (signedUrl?.signedUrl) {
+                const gpRes = await fetch(signedUrl.signedUrl);
+                if (gpRes.ok) {
+                  const gpBuffer = Buffer.from(await gpRes.arrayBuffer());
+                  await fs.writeFile(gpLocalPath, gpBuffer);
+                  splitScreenConfig = {
+                    gameplayPath: gpLocalPath,
+                    gameplayDuration: assetDuration,
+                    seekOffset: Math.max(0, seekOffset),
+                  };
+                  contract.record('split_screen', true, null, {
+                    asset_id: asset.id,
+                    category: asset.category,
+                    retention_risk: retentionRisk.retention_risk,
+                  });
+                  trc(`SPLIT-SCREEN: asset=${asset.category} id=${asset.id} seek=${seekOffset}s`);
+                }
+              }
+            } else {
+              trc('SPLIT-SCREEN: no gameplay assets in DB');
+              contract.record('split_screen', false, 'no gameplay assets');
+            }
+          }
+        } catch (gpErr) {
+          trc(`SPLIT-SCREEN ASSET FAILED: ${gpErr.message}`);
+          contract.record('split_screen', false, gpErr.message);
+        }
+      }
+    } catch (rrErr) {
+      trc(`RETENTION RISK FAILED (non-fatal): ${rrErr.message}`);
+    }
+
     // ─── SFX Layer ───
     // Select and place sound effects on audio peaks, seeded by diversify.
     let sfxPaths = null;
@@ -1880,6 +1958,7 @@ router.post('/', async (req, res) => {
       audioEnhance: settings.audioEnhance?.enabled || false,
       voiceoverPaths: voiceoverPaths && voiceoverPaths.length > 0 ? voiceoverPaths : null,
       sfxPaths: sfxPaths && sfxPaths.length > 0 ? sfxPaths : null,
+      splitScreen: splitScreenConfig,
       reactionLayout: reactionLayout && reactionLayout.isReactionLayout ? reactionLayout : null,
       duoLayout: duoLayout && duoLayout.isDuoLayout ? duoLayout : null,
       diversify: div ? {

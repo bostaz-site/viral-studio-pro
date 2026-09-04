@@ -222,6 +222,7 @@ export default function EnhancePage() {
     bassBoost: 'off',
     speedRamp: 'off',
     soundDesign: 'subtle' as 'off' | 'subtle' | 'punchy',
+    splitScreenEnabled: false,
     autoCutEnabled: true,
     autoCutThreshold: 1.2,
     hookEnabled: false,
@@ -836,6 +837,9 @@ export default function EnhancePage() {
               enabled: settings.audioEnhanceEnabled,
             },
             soundDesign: settings.soundDesign || 'off',
+            splitScreen: {
+              enabled: settings.splitScreenEnabled ?? false,
+            },
             autoCut: {
               enabled: settings.autoCutEnabled,
               silenceThreshold: settings.autoCutThreshold,

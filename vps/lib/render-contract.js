@@ -95,6 +95,14 @@ export function createContract(settings) {
     reason: null,
   });
 
+  // Split-screen (non-critical)
+  entries.push({
+    feature: 'split_screen',
+    requested: settings.splitScreen?.enabled === true,
+    applied: false,
+    reason: null,
+  });
+
   // SFX (non-critical)
   entries.push({
     feature: 'sfx',

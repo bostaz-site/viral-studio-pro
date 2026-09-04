@@ -858,6 +858,7 @@ export async function renderClip(inputPath, outputPath, options = {}) {
     speedRamp = 'off',
     voiceoverPaths = null, // [{path, startTime, estimatedDuration}]
     sfxPaths = null,      // [{path, time, volume}] from sfx.js
+    splitScreen = null,   // {gameplayPath, gameplayDuration, seekOffset} from route
     reactionLayout = null, // {faceRegion: {x,y,w,h}, contentRegion: {x,y,w,h}}
     duoLayout = null,     // {faceA: {cx,cy,w,h}, faceB: {cx,cy,w,h}}
     diversify = null,     // {audioShiftPct, zoomAmpMult, zoomPhase, grainStrength, hookDelayS, hookPosPct, hookSizePct}
@@ -970,10 +971,11 @@ export async function renderClip(inputPath, outputPath, options = {}) {
       // ── Build filter_complex for this tier ─────────────────────────────
       const isWordPopAnimation = captions && captions.animation === 'word-pop';
       const smartZoomActive = smartZoom && smartZoom.enabled;
-      const isReaction = videoZoom === 'reaction' && reactionLayout;
-      const isDuo = videoZoom === 'duo' && duoLayout;
-      const isFullFrame = videoZoom === 'fullframe';
-      const isFit = videoZoom === 'fit' || videoZoom === 'auto';
+      const isSplitScreen = splitScreen && splitScreen.gameplayPath;
+      const isReaction = !isSplitScreen && videoZoom === 'reaction' && reactionLayout;
+      const isDuo = !isSplitScreen && videoZoom === 'duo' && duoLayout;
+      const isFullFrame = !isSplitScreen && videoZoom === 'fullframe';
+      const isFit = !isSplitScreen && (videoZoom === 'fit' || videoZoom === 'auto');
       const zoomFactor = (isFullFrame || isReaction || isDuo || isFit) ? 1.0 : videoZoom === 'immersive' ? 1.35 : videoZoom === 'fill' ? 1.15 : 1.0;
 
       // ── ZOOM BUDGET ──
@@ -1135,6 +1137,23 @@ export async function renderClip(inputPath, outputPath, options = {}) {
         ].join(';');
         mapVideo = '[composed]';
         console.log(`[FFmpeg] Duo layout: faceA(${cropAX},${cropAY},${cropAW}x${cropAH}) top, faceB(${cropBX},${cropBY},${cropBW}x${cropBH}) bottom, div=${divH}px`);
+      } else if (isSplitScreen) {
+        // SPLIT-SCREEN MODE: content top 55% (1056px), gameplay bottom 45% (864px).
+        // Gameplay is a looping muted video from Supabase Storage, desaturated slightly.
+        const contentH = Math.round(canvasH * 0.55); // 1056 at 1080x1920
+        const gameplayH = canvasH - contentH;          // 864
+
+        // Content: crop source to fill width, anchor-aware crop height
+        const contentCropY = cropAnchor === 'bottom' ? `ih-${contentH}` : cropAnchor === 'top' ? '0' : `(ih-${contentH})/2`;
+        const contentFilter = `[0:v]fps=${fps},crop=in_w-${borderCrop*2}:in_h-${borderCrop*2}:${borderCrop}:${borderCropY},scale=${canvasW}:${contentH}:force_original_aspect_ratio=increase:flags=lanczos,crop=${canvasW}:${contentH}:(iw-${canvasW})/2:${contentCropY},setsar=1[sscontent]`;
+
+        // Gameplay: input will be added with -stream_loop -1 -ss offset -an
+        // The gameplay input index is tracked as gpInputIdx (set outside this block)
+        const gpFilter = `[${splitScreen._inputIdx}:v]fps=${fps},scale=${canvasW}:${gameplayH}:force_original_aspect_ratio=increase:flags=lanczos,crop=${canvasW}:${gameplayH}:(iw-${canvasW})/2:(ih-${gameplayH})/2,eq=saturation=0.9,setsar=1[ssgameplay]`;
+
+        filterComplex = [contentFilter, gpFilter, `[sscontent][ssgameplay]vstack=inputs=2[composed]`].join(';');
+        mapVideo = '[composed]';
+        console.log(`[FFmpeg] Split-screen: content ${canvasW}x${contentH} top (55%), gameplay ${canvasW}x${gameplayH} bottom (45%), anchor=${cropAnchor}`);
       } else if (useFullFrame) {
         // FULL-FRAME MODE: center crop directly to 9:16 (no blurred padding).
         const ffCropY = cropAnchor === 'bottom' ? `ih-${canvasH}` : cropAnchor === 'top' ? '0' : `(ih-${canvasH})/2`;
@@ -1448,6 +1467,15 @@ export async function renderClip(inputPath, outputPath, options = {}) {
           inputIdx++;
         }
         console.log(`[FFmpeg] SFX: added ${sfxPaths.length} WAV inputs at indices ${sfxInputIdxStart}-${inputIdx - 1}`);
+      }
+
+      // ── Gameplay (split-screen): add looping video input (audio ignored via -map) ──
+      if (isSplitScreen) {
+        const seekOffset = splitScreen.seekOffset ?? 0;
+        args.push('-stream_loop', '-1', '-ss', String(seekOffset), '-i', splitScreen.gameplayPath);
+        splitScreen._inputIdx = inputIdx;
+        inputIdx++;
+        console.log(`[FFmpeg] Gameplay input: idx=${splitScreen._inputIdx}, seek=${seekOffset}s, path=${splitScreen.gameplayPath}`);
       }
 
       // ── Now add all OUTPUT options: -t, -filter_complex, -map, codecs ──
