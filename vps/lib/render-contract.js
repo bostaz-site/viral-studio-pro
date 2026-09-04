@@ -233,7 +233,7 @@ export function createContract(settings) {
         if (e.feature === 'captions') score++;
         if (e.feature === 'smart_zoom') score++;
       }
-      return score;
+      return Math.min(score, 3); // max 3 (hook + captions + zoom)
     },
 
     /**
