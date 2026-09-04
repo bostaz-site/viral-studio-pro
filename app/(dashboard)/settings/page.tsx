@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { User, CreditCard, CheckCircle2, AlertCircle, Activity, Film, Gift, Copy, Check, Share2, Settings as SettingsIcon } from 'lucide-react'
+import { User, CreditCard, CheckCircle2, AlertCircle, Activity, Film, Gift, Copy, Check, Share2, Settings as SettingsIcon, Shield } from 'lucide-react'
 import { WolfLoader } from '@/components/ui/wolf-loader'
 import { ViralAnimalLogo } from '@/components/brand/viral-animal-logo'
 import { PageHeader } from '@/components/dashboard/page-header'
@@ -15,6 +15,7 @@ import { Separator } from '@/components/ui/separator'
 import { PricingCard } from '@/components/settings/pricing-card'
 import { ConnectAccounts } from '@/components/distribution/connect-accounts'
 import { CreatorRankSection } from '@/components/settings/creator-rank-section'
+import { AccountHealthSection } from '@/components/settings/account-health-section'
 import { toast } from 'sonner'
 import { createClient } from '@/lib/supabase/client'
 import { PLANS, resolveEffectivePlan } from '@/lib/plans'
@@ -425,6 +426,17 @@ function SettingsPageInner() {
         description="Connect your social media accounts to publish clips directly"
       >
         <ConnectAccounts />
+      </Section>
+
+      <Separator />
+
+      {/* ── Account Health ── */}
+      <Section
+        icon={Shield}
+        title="Account health"
+        description="Check your accounts and protect your reach"
+      >
+        <AccountHealthSection />
       </Section>
 
       <Separator />

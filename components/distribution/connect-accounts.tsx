@@ -15,6 +15,7 @@ import { Badge } from '@/components/ui/badge'
 import { useDistributionStore, type SocialAccount } from '@/stores/distribution-store'
 import { type Platform } from '@/lib/distribution/launch-platforms'
 import { usePlatformAccess } from '@/lib/hooks/use-platform-access'
+import { WarmupChecklist } from '@/components/onboarding/warmup-checklist'
 
 const PLATFORM_META: Record<
   string,
@@ -94,10 +95,34 @@ export function ConnectAccounts() {
   const oauthError = searchParams.get('oauth_error')
 
   const [disconnecting, setDisconnecting] = useState<string | null>(null)
+  const [showWarmup, setShowWarmup] = useState(false)
+  const [warmupUsername, setWarmupUsername] = useState<string | null>(null)
 
   useEffect(() => {
     fetchAccounts()
   }, [fetchAccounts])
+
+  // Detect new TikTok connection and check if account is recent
+  useEffect(() => {
+    if (connectedPlatform !== 'tiktok') return
+    // Check if warm-up was already shown for this account
+    try {
+      if (localStorage.getItem('warmup-shown-tiktok')) return
+    } catch { /* ignore */ }
+
+    // Fetch creator info to detect new account
+    fetch('/api/tiktok/creator-info')
+      .then(r => r.ok ? r.json() : null)
+      .then(json => {
+        if (!json?.data?.creatorInfo) return
+        const info = json.data.creatorInfo as { creator_username?: string }
+        setWarmupUsername(info.creator_username ?? null)
+        // Always show warm-up on first TikTok connect (user decides relevance)
+        setShowWarmup(true)
+        try { localStorage.setItem('warmup-shown-tiktok', '1') } catch { /* ignore */ }
+      })
+      .catch(() => {})
+  }, [connectedPlatform])
 
   const getAccountForPlatform = (platform: string): SocialAccount | undefined => {
     return accounts.find((a) => a.platform === platform)
@@ -278,6 +303,13 @@ export function ConnectAccounts() {
           </Card>
         )
       })}
+
+      <WarmupChecklist
+        open={showWarmup}
+        onClose={() => setShowWarmup(false)}
+        isNewAccount={true}
+        username={warmupUsername}
+      />
     </div>
   )
 }
