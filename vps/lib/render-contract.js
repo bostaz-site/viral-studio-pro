@@ -95,6 +95,14 @@ export function createContract(settings) {
     reason: null,
   });
 
+  // Watermark (non-critical, free plan only)
+  entries.push({
+    feature: 'watermark',
+    requested: settings.watermark?.enabled === true,
+    applied: false,
+    reason: null,
+  });
+
   // Split-screen (non-critical)
   entries.push({
     feature: 'split_screen',

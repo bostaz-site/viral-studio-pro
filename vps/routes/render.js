@@ -1924,6 +1924,7 @@ router.post('/', async (req, res) => {
     const watermarkConfig = userPlan === 'free' && (await import('fs')).existsSync(watermarkAsset)
       ? { enabled: true, logoPath: watermarkAsset, type: 'viral-animal' }
       : null;
+    contract.record('watermark', !!watermarkConfig, watermarkConfig ? null : (userPlan !== 'free' ? 'paid plan' : 'asset not found'), null, userPlan !== 'free');
 
     const renderResult = await renderClip(inputPath, outputPath, {
       startTime: clipStartTime,

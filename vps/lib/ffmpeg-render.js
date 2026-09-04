@@ -922,7 +922,8 @@ export async function renderClip(inputPath, outputPath, options = {}) {
 
   // ── Helper: append end-card for free plan ──
   async function maybeAppendEndCard(result) {
-    if (plan !== 'free' || !result.success) return result;
+    // End-card OFF by default — enable via settings.endCard if desired
+    if (plan !== 'free' || !result.success || !options.endCard) return result;
     try {
       const canvasDims = getCanvasDimensions(RENDER_TIERS[getTierSequence(process.env.RENDER_QUALITY || 'high')[0]], aspectRatio);
       const endCard = buildEndCardArgs(outputPath, plan, canvasDims.w, canvasDims.h);
