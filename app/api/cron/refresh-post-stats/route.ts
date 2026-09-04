@@ -8,6 +8,7 @@ import { fetchPostStats as fetchTikTokStats } from '@/lib/analytics/trackers/tik
 import { fetchPostStats as fetchMetaStats } from '@/lib/analytics/trackers/meta'
 import type { Platform } from '@/lib/distribution/platforms'
 import { logger } from '@/lib/logger'
+import { detectBreakout, buildBreakoutMessage } from '@/lib/distribution/breakout-detector'
 
 /**
  * POST /api/cron/refresh-post-stats
@@ -143,6 +144,57 @@ export async function POST(req: NextRequest) {
 
       updated++
       platformStats[platform].updated++
+
+      // Mode 5x: check if this post is breaking out (> 3x median of last 10)
+      if (stats.views > 0) {
+        try {
+          const { data: recentPosts } = await (admin as ReturnType<typeof createAdminClient>)
+            .from('published_posts' as 'profiles')
+            .select('views' as '*')
+            .eq('user_id' as never, post.user_id as never)
+            .eq('platform' as never, platform as never)
+            .not('views' as never, 'is', null)
+            .neq('id' as never, post.id as never)
+            .order('published_at' as never, { ascending: false })
+            .limit(10) as { data: Array<{ views: number }> | null }
+
+          if (recentPosts && recentPosts.length >= 3) {
+            const recentViews = recentPosts.map(p => p.views)
+            const breakout = detectBreakout(stats.views, recentViews)
+
+            if (breakout.isBreakout) {
+              const message = buildBreakoutMessage(breakout.ratio, breakout.suggestedVariants, platform)
+              logger.info(`[refresh-post-stats] MODE 5x: post ${post.id} is ${Math.round(breakout.ratio)}x median (${breakout.median} views). ${message}`)
+
+              // Insert breakout suggestion into improvement_backlog for the user
+              void Promise.resolve(
+                (admin as ReturnType<typeof createAdminClient>)
+                  .from('improvement_backlog' as 'profiles')
+                  .insert({
+                    title: `Mode 5x: clip breaking out (${Math.round(breakout.ratio)}x)`,
+                    description: message,
+                    category: 'distribution',
+                    priority: 'high',
+                    status: 'proposed',
+                    source: 'mode_5x',
+                    metadata: {
+                      post_id: post.id,
+                      clip_id: (post as unknown as Record<string, unknown>).clip_id,
+                      user_id: post.user_id,
+                      platform,
+                      views: stats.views,
+                      median: breakout.median,
+                      ratio: breakout.ratio,
+                      suggested_variants: breakout.suggestedVariants,
+                    },
+                  } as never)
+              ).catch(() => {})
+            }
+          }
+        } catch {
+          // Breakout detection is advisory — never block the stats refresh
+        }
+      }
 
       void logAiCall({
         userId: post.user_id,

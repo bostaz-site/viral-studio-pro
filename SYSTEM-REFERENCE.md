@@ -947,6 +947,29 @@ Stats cron (`refresh-post-stats`) tracks `last_checked_at` + `check_count` on ev
 ### Token Manager
 `getValidToken(userId, platform)`: checks expiry with 5-min buffer -> auto-refresh if expired. Uses Upstash Redis distributed lock (`SET lock:token:{platform}:{userId} 1 NX EX 30`) to prevent concurrent refreshes across serverless isolates. If lock is held, waits 2s then re-reads the freshly refreshed token from DB. Lock released in `finally` block.
 
+### Account Health & Onboarding (P7)
+
+**Settings > Account Health** (`components/settings/account-health-section.tsx`):
+- Links to TikTok Studio Account Check, Content Check, Instagram Account Status
+- Explainer: <100 views = account penalty (check Account Check), 100-1000 = content issue not penalty
+- "Compte flagge?" button → `FlaggedAccountModal`
+- One-time tips: one account per niche, disable "suggest to contacts"
+
+**Flagged Account Protocol** (`components/settings/flagged-account-modal.tsx`):
+- 5-step recovery: delete flagged video → pause 48-72h → 14 days clean content → appeal (80 days) → verify
+- "Mettre l'autofarm en pause 72h" button → `POST /api/distribution/autofarm-pause`
+- Autofarm pause: cancels all pending `scheduled_publications`, sets `autofarm_paused_until` in `distribution_settings`
+- Accessible from Settings + linkable from publish error messages
+
+**Warm-up Checklist** (`components/onboarding/warmup-checklist.tsx`):
+- Triggered on first TikTok connect (via `connect-accounts.tsx` + `/api/tiktok/creator-info`)
+- 7 items: wait 48h, scroll niche, bio keywords, username niche, profile photo, playlists, follows test
+- Progress persisted in `localStorage` (`warmup-checklist-state`)
+- Shown once per account (`warmup-shown-tiktok` flag)
+
+**Autofarm Pause API** (`app/api/distribution/autofarm-pause/route.ts`):
+- `POST { hours: 1-168 }` — cancels pending scheduled_publications + sets `autofarm_paused_until`
+
 ### Posting Time Advice
 `lib/distribution/posting-schedule.ts` provides per-platform optimal posting hours (UTC). Integrated into the publish dialog: shows a green/amber/red badge per enabled platform with a suggestion like "Best time to post right now!" or "Low engagement now. Best in 3h". Data is static (based on public research), not personalized.
 

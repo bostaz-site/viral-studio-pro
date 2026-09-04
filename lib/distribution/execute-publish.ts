@@ -54,7 +54,21 @@ export async function executePublish(params: ExecutePublishParams): Promise<Exec
     return { success: false, postId: null, error: 'already published manually' }
   }
 
-  // 0b. Guard: same clip must not be published to two different accounts on the same day
+  // 0b. Guard: minimum 3h spacing between posts on same account
+  const threeHoursAgo = new Date(Date.now() - 3 * 3600 * 1000).toISOString()
+  const { data: recentAccountPosts } = await admin
+    .from('published_posts')
+    .select('id')
+    .eq('user_id', userId)
+    .eq('platform', platform)
+    .gte('published_at', threeHoursAgo)
+    .limit(1)
+
+  if (recentAccountPosts && recentAccountPosts.length > 0) {
+    return { success: false, postId: null, error: 'spacing: minimum 3h between posts on same account' }
+  }
+
+  // 0c. Guard: same clip must not be published to two different accounts on the same day
   const todayStart = new Date()
   todayStart.setHours(0, 0, 0, 0)
   const { data: sameDayPosts } = await admin

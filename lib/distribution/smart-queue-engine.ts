@@ -9,6 +9,7 @@
 
 import type { PersistentStats } from './session-persistence'
 import type { LearnedDistributionProfile, ConfidenceLevel } from '@/types/learning'
+import type { CadenceConfig } from './cadence-engine'
 
 // ══════════════════════════════════════════════════════════════
 // TYPES
@@ -55,12 +56,14 @@ export interface QueuePreview {
 }
 
 export interface QueueSettings {
-  maxPerDayPerPlatform: number  // default 3
+  maxPerDayPerPlatform: number  // default 4, capped by cadence
+  minHoursBetween: number       // default 3 — minimum hours between posts on same account
   blackoutHours: number[]       // hours to never post (UTC)
   activePlatforms: string[]     // ['tiktok', 'youtube', 'instagram']
   autoMode: boolean             // true = auto-post, false = manual approve
   timezone: string              // IANA timezone
   appliedAdjustments: string[]  // adjustment descriptions applied by user from analytics
+  cadence?: CadenceConfig       // cadence preset (warm-up, growth, farm)
 }
 
 export interface PostResult {
@@ -94,7 +97,8 @@ export interface LearningData {
 // ══════════════════════════════════════════════════════════════
 
 const DEFAULT_SETTINGS: QueueSettings = {
-  maxPerDayPerPlatform: 3,
+  maxPerDayPerPlatform: 4,
+  minHoursBetween: 3,
   blackoutHours: [0, 1, 2, 3, 4, 5],
   activePlatforms: ['tiktok', 'youtube', 'instagram'],
   autoMode: false,
@@ -241,9 +245,10 @@ function pickBestSlots(
     if (usedSlots.has(key)) continue
     if ((platformCount[s.platform] ?? 0) >= settings.maxPerDayPerPlatform) continue
 
-    // Don't schedule two posts within 2 hours of each other on same platform
+    // Don't schedule two posts within minHoursBetween of each other on same platform
+    const minGap = settings.minHoursBetween ?? 3
     const tooClose = picked.some(
-      p => p.platform === s.platform && Math.abs(p.hour - s.hour) < 2
+      p => p.platform === s.platform && Math.abs(p.hour - s.hour) < minGap
     )
     if (tooClose) continue
 
@@ -613,6 +618,15 @@ export function generateQueue(
   learnedProfile?: LearnedDistributionProfile | null,
 ): QueuePreview {
   const config = { ...DEFAULT_SETTINGS, ...settings }
+  // Apply cadence cap: never exceed cadence maxPostsPerDay
+  if (config.cadence) {
+    config.maxPerDayPerPlatform = Math.min(config.maxPerDayPerPlatform, config.cadence.maxPostsPerDay)
+  }
+  // Hard cap: never > 4 posts/day per platform
+  config.maxPerDayPerPlatform = Math.min(config.maxPerDayPerPlatform, 4)
+  // Enforce minimum spacing
+  config.minHoursBetween = Math.max(config.minHoursBetween, 3)
+
   const learn = learning ?? createDefaultLearning()
 
   if (clips.length === 0 || config.activePlatforms.length === 0) {

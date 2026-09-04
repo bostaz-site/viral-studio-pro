@@ -8,6 +8,8 @@ import {
   Minus,
   Clock,
   BarChart3,
+  ShieldAlert,
+  Zap,
 } from 'lucide-react'
 import { WolfLoader } from '@/components/ui/wolf-loader'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
@@ -33,11 +35,21 @@ const MOMENTUM_COLORS = {
   declining: 'text-red-400',
 }
 
-interface SmartInsightsWidgetProps {
-  platform?: string
+interface CadenceSummary {
+  preset: string
+  presetLabel: string
+  postsToday: number
+  maxToday: number
+  nextSlotIn: string | null
+  gateRefusals: string[]
 }
 
-export function SmartInsightsWidget({ platform = 'tiktok' }: SmartInsightsWidgetProps) {
+interface SmartInsightsWidgetProps {
+  platform?: string
+  cadenceSummary?: CadenceSummary | null
+}
+
+export function SmartInsightsWidget({ platform = 'tiktok', cadenceSummary }: SmartInsightsWidgetProps) {
   const {
     intelligence,
     recommendation,
@@ -138,6 +150,37 @@ export function SmartInsightsWidget({ platform = 'tiktok' }: SmartInsightsWidget
             <p className="text-[10px] text-muted-foreground mt-1 line-clamp-2">
               {recommendation.reason}
             </p>
+          </div>
+        )}
+
+        {/* Cadence + gate refusals */}
+        {cadenceSummary && (
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1.5">
+                <Zap className="h-3 w-3 text-amber-400" />
+                <span className="text-[10px] font-semibold text-amber-400">{cadenceSummary.presetLabel}</span>
+              </div>
+              <span className="text-[10px] text-muted-foreground">
+                {cadenceSummary.postsToday}/{cadenceSummary.maxToday} today
+              </span>
+            </div>
+            {cadenceSummary.nextSlotIn && (
+              <div className="flex items-center gap-1.5">
+                <Clock className="h-3 w-3 text-muted-foreground" />
+                <span className="text-[10px] text-muted-foreground">Next slot in {cadenceSummary.nextSlotIn}</span>
+              </div>
+            )}
+            {cadenceSummary.gateRefusals.length > 0 && (
+              <div className="space-y-0.5">
+                {cadenceSummary.gateRefusals.map((refusal, i) => (
+                  <div key={i} className="flex items-start gap-1.5">
+                    <ShieldAlert className="h-3 w-3 text-red-400 mt-0.5 shrink-0" />
+                    <span className="text-[10px] text-red-400/80">{refusal}</span>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
 
