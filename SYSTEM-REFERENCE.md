@@ -656,7 +656,7 @@ TikTok flags videos as "Unoriginal, low-quality content" when they appear to be 
 | **Source UI removal** | 100px border crop strips Twitch/Kick overlays (chat, alerts, logos) | Platform UI is a clear signal of copied content |
 | **Audio fingerprint shift** | +0.5-1.5% asetrate/atempo (diversified per render) | Changes audio hash — defeats Chromaprint duplicate detection |
 | **Karaoke captions** | ASS subtitles burned at render time (word-pop, bounce, glow, highlight) | Major creative edit — changes the visual frame entirely |
-| **Smart Zoom** (auto: face follow or micro push) | Follow mode: real face tracking with 1.20x zoom + smooth pan. Micro: cinematic push 1→1.06. Auto-selected based on face presence. | Camera movement = creative edit, not present in source |
+| **Smart Zoom** (default: dynamic punch) | Dynamic: pattern-interrupt punch zooms (10-12%) on audio peaks with smoothstep. Follow: real face tracking with 1.20x zoom. Micro: cinematic push 1→1.06 (fallback). | Camera movement = creative edit, not present in source |
 | **Hook text overlay** | Animated capsule with fade in (0.3s) + auto-hide after 4s (0.3s fade out) | Adds original text content to the frame |
 | **Exposure correction** | Adaptive eq filter based on source luma | Alters the color grading of every frame |
 | **Credit tag** (credit-text style) | Plain "@handle" text with shadow, fades after 4s | NOT a watermark — looks like native TikTok text overlay |
@@ -923,8 +923,14 @@ Stats cron (`refresh-post-stats`) tracks `last_checked_at` + `check_count` on ev
 ### Autofarm Executor (v10)
 Queue-based auto-posting pipeline: user enables Auto-Distribute toggle → client POST `/api/distribution/autofarm-sync` → insert rows in `scheduled_publications` (source='autofarm', tiktok_options from user-configured `auto_post_defaults`, caption from `generateVariants()` template engine) → cron `publish-scheduled` (every 5-10min) picks up rows WHERE `status='scheduled' AND scheduled_at <= now()` → optimistic lock → guard against already-published clips → publish via platform API → insert `published_posts` → set `removed_from_bank_at` on render_job (prevent republish loop) → cleanup.
 
-**Key safety mechanisms (v10)**:
-- **Transform score quality gate**: `render_jobs.transform_score` (0-3, computed by VPS: +1 hook_text, +1 captions, +1 smart_zoom). Voiceover excluded (on standby). Cron `publish-scheduled` blocks auto-publish if `transform_score < 2` (canceled with `transform_score_too_low`) or if `render_jobs.status = 'degraded'` (canceled with `render_degraded`). Manual publish via the dialog is always allowed. Clip bank UI shows "Needs more edits" badge when score < 2, "Degraded" badge when render degraded.
+**Key safety mechanisms (v10+, TikTok originality policy Sept 2025)**:
+- **Transform score quality gate**: `render_jobs.transform_score` (0-3, computed by VPS: +1 hook_text, +1 captions, +1 smart_zoom). Voiceover excluded (on standby). **Auto-publish** requires ALL 3 (score=3) + a diversify variant + non-degraded status. **Manual publish** allows any score but shows a warning in the dialog when <3 ("Ce render a peu de transformation — risque de visibilité réduite"). Clip bank UI shows "Needs more edits" badge when score < 2, "Degraded" badge when render degraded.
+- **Variant gate**: autofarm requires at least one `render_variants` row for the job (platform-specific encoding). No variant → canceled with `no_variant`.
+- **Source watermark gate**: if source is Kick/Twitch and crop_mode is fullframe with borderCrop < 40px, the clip likely has a visible source watermark → canceled with `source_watermark_visible`.
+- **Degraded gate**: `render_jobs.status = 'degraded'` → always canceled (missing critical feature).
+- **Same-day guard**: same clip cannot be auto-published on two accounts the same calendar day (in `execute-publish.ts`).
+- **Analysis gate (P5)**: 4-criteria grid (unexpected/emotion/informative/density) all < 4 → canceled. No analysis → gate skipped.
+- **Gate reason exposed**: `scheduled_publications.error_message` shown in the distribution dashboard queue (schedule-queue component) for canceled/failed items.
 - `auto_post_defaults` REQUIRED before toggle ON (TikTok compliance — user chooses privacy/interactions)
 - Captions never empty: template engine generates from clip title + niche hashtags
 - Sync route inserts FIRST, cancels old rows AFTER (if insert fails, existing queue survives)

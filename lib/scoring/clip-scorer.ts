@@ -170,16 +170,22 @@ function computeEarlySignalScore(input: ClipScoreInput): number {
 
 // -- Factor 6: Format Score (10%) --
 
-// Updated 2026-07 per Buffer 2025 study (1.1M videos): TikTok favors longer
-// videos since 2024. 15-45s remains sweet spot for highlight/gaming clips.
-// See docs/research/viralite-calibration.md for sources.
+// Recalibrated 2026-09 per Buffer 2025 study (1.1M videos):
+// - >60s = +43% reach (Creator Rewards eligible on TikTok)
+// - 30-60s = highest completion × reach product → top tier
+// - 5-10s = trap (too short for FYP push, low completion value)
+// - >180s = still viable but lower completion rates
+// Completion trade-off: longer clips get more reach but lower completion.
+// The score balances both signals (completion × reach).
 function computeFormatScore(durationSeconds?: number): number {
   const d = durationSeconds ?? 30
-  if (d >= 15 && d <= 45) return 100  // sweet spot: highlight gaming clips
-  if (d > 45 && d <= 90) return 80    // longer form: platform-wide trend but NOT confirmed for gaming (OpusClip 159k clips)
-  if (d >= 8 && d < 15) return 70     // short but viable
-  if (d > 90) return 60               // long-form: still viable post-2024
-  return 40                            // <8s: too short for algorithm
+  if (d >= 30 && d <= 60) return 100   // sweet spot: high completion × strong reach
+  if (d >= 15 && d < 30) return 90     // good completion, moderate reach
+  if (d > 60 && d <= 90) return 85     // Creator Rewards eligible, +43% reach
+  if (d > 90 && d <= 180) return 70    // long-form: strong reach, lower completion
+  if (d >= 8 && d < 15) return 55      // short: watchable but limited push
+  if (d > 180) return 50               // very long: niche audience, low completion
+  return 30                             // <8s: trap — no FYP push, no Rewards
 }
 
 // -- Factor 7: Saturation Penalty (-10%) --

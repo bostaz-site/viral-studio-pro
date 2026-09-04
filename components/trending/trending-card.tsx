@@ -508,6 +508,14 @@ export const TrendingCard = memo(function TrendingCard({ clip, onRemix, onQuickE
     </span>
   ) : null
 
+  // ── Creator Rewards badge (>60s = TikTok Creator Rewards eligible) ──
+  const rewardsBadge = clip.duration_seconds && clip.duration_seconds > 60 ? (
+    <span className="absolute top-2 right-2 z-[7] flex items-center gap-1 text-[9px] font-semibold px-1.5 py-0.5 rounded-md bg-emerald-500/15 text-emerald-300 backdrop-blur-sm pointer-events-none border border-emerald-500/20">
+      <Sparkles className="h-2.5 w-2.5" />
+      Rewards
+    </span>
+  ) : null
+
   // ── Content risk badge (TikTok policy) ──
   const riskBadge = clip.content_risk ? (
     <span
@@ -594,6 +602,7 @@ export const TrendingCard = memo(function TrendingCard({ clip, onRemix, onQuickE
                   {newBadge}
                   {statusBadge}
                   {riskBadge}
+                  {rewardsBadge}
                   {overlayCTA}
                 </div>
               </div>
@@ -633,6 +642,7 @@ export const TrendingCard = memo(function TrendingCard({ clip, onRemix, onQuickE
             {newBadge}
             {statusBadge}
             {riskBadge}
+            {rewardsBadge}
             {overlayCTA}
           </div>
         )}
