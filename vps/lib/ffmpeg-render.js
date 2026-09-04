@@ -885,8 +885,12 @@ export async function renderClip(inputPath, outputPath, options = {}) {
     if (wantDynamic) {
       try {
         const { analyzeAudioPeaksWithIntensity } = await import('./audio-peaks.js');
+        // Cooldown seeded by diversify: 6-8s (was fixed 6)
+        const zoomCooldown = diversify?.zoomAmpMult
+          ? 6 + (diversify.zoomAmpMult - 0.85) * (2 / 0.30) // maps 0.85-1.15 → 6-8
+          : 6;
         audioPeaks = await analyzeAudioPeaksWithIntensity(inputPath, startTime, clipDuration, {
-          cooldownSec: 6, maxPeaks: 8, thresholdDb: 5,
+          cooldownSec: Math.round(zoomCooldown * 10) / 10, maxPeaks: 8, thresholdDb: 5,
         });
         if (audioPeaks.length > 0) {
           console.log(`[FFmpeg] Audio peaks: ${audioPeaks.length} with intensity (range ${audioPeaks.map(p => p.intensity?.toFixed(2)).join(',')})`);
