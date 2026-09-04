@@ -341,7 +341,7 @@ export const POST = withAuth(
 
       // Synchronous publish (TikTok, YouTube, Facebook) — update immediately
       const publishedAt = new Date().toISOString()
-      await admin
+      const { error: pubUpdateErr } = await admin
         .from('publications')
         .update({
           status: 'published',
@@ -350,6 +350,7 @@ export const POST = withAuth(
           published_at: publishedAt,
         })
         .eq('id', publication.id)
+      if (pubUpdateErr) logger.error(`[publish] publication update failed: ${pubUpdateErr.message}`)
 
       // Log to published_posts for Learning Engine pattern detection.
       // Auto-resolve from render_settings (persisted at render time) when caller doesn't send metadata.
