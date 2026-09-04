@@ -184,6 +184,7 @@ export async function POST(req: NextRequest) {
       caption: row.caption ?? '',
       hashtags: row.hashtags ?? [],
       tiktokOptions: tiktokOptions,
+      seed: row.id, // P4 caption diversification seed (+ excludes this row from duplicate check)
     })
 
     if (result.success) {

@@ -30,6 +30,9 @@ const bodySchema = z.object({
   niche: z.string().max(100).optional(),
   streamerName: z.string().max(200).optional(),
   sourceStreamer: z.string().max(200).optional(),
+  // P4: niche keyword aligned with the on-screen hook (optional — resolved from render_jobs if absent)
+  nicheKeyword: z.string().max(60).optional(),
+  title: z.string().max(300).optional(),
   platforms: z.array(z.enum(['tiktok', 'youtube', 'instagram'])).min(1).max(3),
 })
 
@@ -45,7 +48,8 @@ export const POST = withAuth(async (req, user) => {
     return errorResponse(`Validation error: ${parsed.error.issues[0]?.message ?? 'invalid input'}`, 400)
   }
 
-  const { clipId, transcript, mood, niche, streamerName, sourceStreamer, platforms } = parsed.data
+  const { clipId, transcript, mood, platforms, title } = parsed.data
+  let { nicheKeyword, niche, streamerName, sourceStreamer } = parsed.data
 
   // Rate limit per user (daily window)
   const admin = createAdminClient()
@@ -72,6 +76,38 @@ export const POST = withAuth(async (req, user) => {
     return jsonResponse(cached.result)
   }
 
+  // P4: resolve niche keyword persisted at render time (hook generation) if the client didn't send one
+  if (!nicheKeyword) {
+    try {
+      const { data: rj } = await admin
+        .from('render_jobs')
+        .select('render_settings')
+        .eq('clip_id', clipId)
+        .eq('user_id', user.id)
+        .in('status', ['done', 'degraded'])
+        .order('created_at', { ascending: false })
+        .limit(1)
+      const rs = (rj?.[0] as { render_settings?: Record<string, unknown> | null } | undefined)?.render_settings
+      const kw = rs?.niche_keyword
+      if (typeof kw === 'string' && kw.trim()) nicheKeyword = kw.trim()
+    } catch { /* best-effort */ }
+  }
+  // P4: resolve streamer credit + niche from trending_clips when the client didn't send them
+  if (!sourceStreamer || !niche) {
+    try {
+      const { data: tc } = await admin
+        .from('trending_clips')
+        .select('author_handle, author_name, niche')
+        .eq('id', clipId)
+        .single()
+      if (tc) {
+        if (!sourceStreamer) sourceStreamer = tc.author_handle ?? tc.author_name ?? undefined
+        if (!streamerName) streamerName = tc.author_name ?? tc.author_handle ?? undefined
+        if (!niche) niche = tc.niche ?? undefined
+      }
+    } catch { /* best-effort */ }
+  }
+
   // Generate captions
   const result = await generateDistributionCaptions({
     clipId,
@@ -80,6 +116,8 @@ export const POST = withAuth(async (req, user) => {
     niche,
     streamerName,
     sourceStreamer,
+    nicheKeyword,
+    title,
     platforms: platforms as CaptionPlatform[],
   })
 

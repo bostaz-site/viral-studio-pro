@@ -10,12 +10,19 @@ export interface HookVariant {
   style: string
   label: string
   text: string
+  /** P4: white | yellow | red (derived from mood / style / breaking) */
+  color?: 'white' | 'yellow' | 'red'
 }
 
 export interface HookAnalysis {
   peak: { peakTime: number; peakScore: number; scores: number[]; windowSize: number }
   hooks: HookVariant[]
   reorder: { segments: { start: number; end: number; duration: number; label: string }[]; totalDuration: number; peakTime: number }
+  /** P4 · Copywriter SEO: niche keyword aligned between on-screen hook and description */
+  niche_keyword?: string | null
+  /** P4: true when a "breaking" framing was allowed (early_gem / hot_now, < 6h) */
+  breaking?: boolean
+  hook_color?: 'white' | 'yellow' | 'red'
 }
 
 /** Common props passed to accordion section sub-components */

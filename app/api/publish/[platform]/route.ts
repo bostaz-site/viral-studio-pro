@@ -100,6 +100,7 @@ export const POST = withAuth(
     // Fallback: check clips table
     let clipStoragePath: string | null = null
     let clipTitle: string | null = null
+    let clipAuthorHandle: string | null = null
 
     if (renderJob?.storage_path) {
       clipStoragePath = renderJob.storage_path
@@ -123,11 +124,12 @@ export const POST = withAuth(
       // Try to get title from trending_clips or videos
       const { data: trending } = await admin
         .from('trending_clips')
-        .select('title')
+        .select('title, author_handle, author_name')
         .eq('id', clip_id)
         .single()
       if (trending) {
         clipTitle = trending.title
+        clipAuthorHandle = trending.author_handle ?? trending.author_name ?? null
       } else {
         const { data: video } = await admin
           .from('videos')
@@ -223,11 +225,39 @@ export const POST = withAuth(
       )
     }
 
+    // P4 · Caption diversification: if this clip was already published with the
+    // exact same caption (other platform/account/time), request a Haiku variant.
+    // Fail-open — falls back to the original caption. Seeded by clip+platform+day.
+    let finalCaption = caption
+    let finalHashtags: string[] = hashtags ?? []
+    try {
+      const rsForKw = renderJob?.render_settings as Record<string, unknown> | null
+      const nicheKeyword = typeof rsForKw?.niche_keyword === 'string' ? (rsForKw.niche_keyword as string) : null
+      const { diversifyCaptionIfDuplicate } = await import('@/lib/distribution/caption-diversifier')
+      const div = await diversifyCaptionIfDuplicate({
+        admin,
+        clipId: clip_id,
+        caption,
+        hashtags: finalHashtags,
+        seed: `${clip_id}:${platformParam}:${new Date().toISOString().slice(0, 13)}`,
+        nicheKeyword,
+        streamerHandle: clipAuthorHandle,
+        platform: platformParam,
+      })
+      if (div.diversified) {
+        finalCaption = div.caption
+        finalHashtags = div.hashtags
+        logger.info(`[publish/${platformParam}] caption diversified for clip ${clip_id} (${div.reason})`)
+      }
+    } catch (divErr) {
+      logger.warn(`[publish/${platformParam}] caption diversification skipped: ${divErr instanceof Error ? divErr.message : String(divErr)}`)
+    }
+
     // Build full caption with hashtags
-    const hashtagString = hashtags?.length
-      ? '\n\n' + hashtags.map((h) => (h.startsWith('#') ? h : `#${h}`)).join(' ')
+    const hashtagString = finalHashtags.length
+      ? '\n\n' + finalHashtags.map((h) => (h.startsWith('#') ? h : `#${h}`)).join(' ')
       : ''
-    const fullCaption = caption + hashtagString
+    const fullCaption = finalCaption + hashtagString
 
     // Create publication record (status: publishing)
     const { data: publication, error: pubError } = await admin
@@ -236,8 +266,8 @@ export const POST = withAuth(
         clip_id,
         social_account_id: null, // We'll update after finding the account
         platform: platformParam,
-        caption,
-        hashtags: hashtags ?? [],
+        caption: finalCaption,
+        hashtags: finalHashtags,
         status: 'publishing',
         created_at: new Date().toISOString(),
       })

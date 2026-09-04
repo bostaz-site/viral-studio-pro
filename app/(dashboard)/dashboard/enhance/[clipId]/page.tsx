@@ -21,6 +21,7 @@ import { useTrendingStore } from '@/stores/trending-store'
 import { cn } from '@/lib/utils'
 import { ALL_MOODS, MOOD_PRESETS, MOOD_COLORS, PLATFORM_THEME, getMoodPresetForClip, type ClipMood, type MoodPreset } from '@/lib/ai/mood-presets'
 import { captureHookOverlayPNG } from '@/lib/capture-hook-overlay'
+import { getHookColor } from '@/lib/enhance/hook-color'
 import { captureTagOverlayPNG } from '@/lib/capture-tag-overlay'
 import {
   CAPTION_STYLES, EMPHASIS_EFFECTS, EMPHASIS_COLORS, TAG_STYLES,
@@ -226,12 +227,15 @@ export default function EnhancePage() {
     hookText: '',
     hookStyle: 'suspense',
     hookVisual: 'sticker',
+    hookColor: 'white',
+    hookNicheKeyword: null,
     hookTextPosition: 18,
     hookLength: 0,
     hookReorder: null,
     voiceoverEnabled: process.env.NEXT_PUBLIC_VOICEOVER_ENABLED === 'true',
     voiceoverVoice: 'default',
     voiceoverLines: [],
+    ctaFollowEnabled: true,
   }
 
   const [settings, setSettings] = useState<EnhanceSettings>({ ...DEFAULT_SETTINGS })
@@ -768,6 +772,7 @@ export default function EnhancePage() {
           videoWidth: 1080,
           videoHeight: 1920,
           visual: settings.hookVisual || 'sticker',
+          color: settings.hookColor || 'white',
         })
       }
 
@@ -835,6 +840,8 @@ export default function EnhancePage() {
               reorderEnabled: false, // disabled (cuts mid-word)
               text: settings.hookText,
               style: (['shock', 'curiosity', 'suspense'].includes(settings.hookStyle) ? settings.hookStyle : 'suspense') as 'shock' | 'curiosity' | 'suspense',
+              color: settings.hookColor || 'white',
+              nicheKeyword: settings.hookNicheKeyword || null,
               textPosition: settings.hookTextPosition,
               length: 0,
               reorder: settings.hookReorder,
@@ -847,6 +854,8 @@ export default function EnhancePage() {
               voice: settings.voiceoverVoice,
               lines: settings.voiceoverLines.length > 0 ? settings.voiceoverLines : undefined,
             },
+            // P4 · CTA follow overlay (last ~1.2s) — default ON
+            ctaFollow: { enabled: settings.ctaFollowEnabled !== false },
           },
         }),
       })
@@ -1202,6 +1211,7 @@ export default function EnhancePage() {
     // 1. Detect mood via AI + generate hook — both run, then sequence plays
     const platform = clip.platform ?? 'twitch'
     let preset: MoodPreset = getMoodPresetForClip('hype', platform) // fallback
+    let moodForHook: ClipMood = 'hype' // P4: feeds hook color + prompt mood
     try {
       const moodController = new AbortController()
       const moodTimeout = setTimeout(() => moodController.abort(), 15000)
@@ -1220,6 +1230,7 @@ export default function EnhancePage() {
       const moodJson = await moodRes.json()
       if (moodRes.ok && !moodJson.error && moodJson.data) {
         const detected = moodJson.data.mood as ClipMood
+        moodForHook = detected
         preset = getMoodPresetForClip(detected, platform)
         setDetectedMood(detected)
         setSelectedMood(detected)
@@ -1276,6 +1287,10 @@ export default function EnhancePage() {
           niche: clip.niche || 'irl',
           hookLength: preset.hookLength,
           maxContext: 8,
+          // P4 · Hook Hunter: freshness → breaking framing, mood → hook color
+          feedCategory: clip.feed_category ?? null,
+          clipCreatedAt: clip.clip_created_at ?? null,
+          mood: moodForHook,
         }),
         signal: hookController.signal,
       })
@@ -1288,12 +1303,15 @@ export default function EnhancePage() {
         const hooks = json.data.hooks || []
         const matchedHook = hooks.find((h: HookVariant) => h.style === preset.hookStyle)
         const bestHook = matchedHook || hooks[0] || null
+        const nicheKeyword: string | null = typeof json.data.niche_keyword === 'string' ? json.data.niche_keyword : null
         setSettings((s) => ({
           ...s,
           ...(bestHook ? {
             hookText: bestHook.text,
             hookStyle: bestHook.style as 'shock' | 'curiosity' | 'suspense',
+            hookColor: getHookColor({ mood: moodForHook, hookStyle: bestHook.style, breaking: !!json.data.breaking, override: bestHook.color }),
           } : {}),
+          hookNicheKeyword: nicheKeyword,
           hookReorder: null, // reorder disabled (cuts mid-word)
           hookReorderEnabled: false,
         }))
@@ -1355,6 +1373,9 @@ export default function EnhancePage() {
           niche: clip.niche || 'irl',
           hookLength: settings.hookLength,
           maxContext: 8,
+          feedCategory: clip.feed_category ?? null,
+          clipCreatedAt: clip.clip_created_at ?? null,
+          mood: (selectedMood ?? detectedMood) || '',
         }),
         signal: hookController.signal,
       })
@@ -1368,9 +1389,14 @@ export default function EnhancePage() {
       const hooks = json.data.hooks || []
       const matchingHook = hooks.find((h: HookVariant) => h.style === settings.hookStyle)
       const bestHook = matchingHook || hooks[0] || null
+      const nicheKeyword: string | null = typeof json.data.niche_keyword === 'string' ? json.data.niche_keyword : null
       setSettings((s) => ({
         ...s,
-        ...(bestHook ? { hookText: bestHook.text } : {}),
+        ...(bestHook ? {
+          hookText: bestHook.text,
+          hookColor: getHookColor({ mood: (selectedMood ?? detectedMood) || '', hookStyle: bestHook.style, breaking: !!json.data.breaking, override: bestHook.color }),
+        } : {}),
+        hookNicheKeyword: nicheKeyword,
         hookReorder: json.data.reorder,
       }))
     } catch {
@@ -1378,7 +1404,7 @@ export default function EnhancePage() {
     } finally {
       setHookGenerating(false)
     }
-  }, [clip, settings.hookLength, settings.hookStyle])
+  }, [clip, settings.hookLength, settings.hookStyle, selectedMood, detectedMood])
 
   // ── Loading / Error ────────────────────────────────────────────────────
 
@@ -2628,6 +2654,35 @@ export default function EnhancePage() {
                       <div className={cn(
                         'absolute top-0.5 w-4 h-4 rounded-full bg-white transition-all',
                         settings.hookEnabled ? 'left-[22px]' : 'left-0.5'
+                      )} />
+                    </div>
+                  </button>
+
+                  {/* P4 · CTA follow overlay — closer in the last ~1.2s (independent of the hook) */}
+                  <button
+                    onClick={() => updateSetting('ctaFollowEnabled', settings.ctaFollowEnabled === false)}
+                    className={cn(
+                      'w-full rounded-xl border p-3 text-left transition-all flex items-center justify-between',
+                      settings.ctaFollowEnabled !== false
+                        ? 'border-emerald-500/60 bg-emerald-500/10 ring-1 ring-emerald-500/20'
+                        : 'border-border hover:border-emerald-500/40'
+                    )}
+                  >
+                    <div>
+                      <span className="text-sm font-semibold text-foreground block">
+                        Follow CTA {settings.ctaFollowEnabled !== false ? 'on' : 'off'}
+                      </span>
+                      <span className="text-[10px] text-muted-foreground block mt-0.5">
+                        &quot;FOLLOW FOR MORE&quot; in the last 1.2s, caption style. Never asks for likes.
+                      </span>
+                    </div>
+                    <div className={cn(
+                      'w-10 h-5 rounded-full relative transition-all',
+                      settings.ctaFollowEnabled !== false ? 'bg-emerald-500' : 'bg-border'
+                    )}>
+                      <div className={cn(
+                        'absolute top-0.5 w-4 h-4 rounded-full bg-white transition-all',
+                        settings.ctaFollowEnabled !== false ? 'left-[22px]' : 'left-0.5'
                       )} />
                     </div>
                   </button>

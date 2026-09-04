@@ -29,6 +29,13 @@ export const renderSettingsSchema = z.object({
     text: z.string().optional(),
     style: z.enum(['shock', 'curiosity', 'suspense']).optional(),
     visual: z.enum(['sticker', 'outline', 'capsule']).optional(),
+    // P4 · Hook Hunter: only white/yellow/red allowed — unknown/legacy values map to white
+    color: z.preprocess(
+      (v) => (typeof v === 'string' && ['white', 'yellow', 'red'].includes(v) ? v : 'white'),
+      z.enum(['white', 'yellow', 'red']),
+    ).optional(),
+    // P4 · Copywriter SEO: 1-3 word niche keyword aligned with the description
+    nicheKeyword: z.string().max(60).nullable().optional(),
     length: z.number().optional(),
     textPosition: z.number().optional(),
     overlayPng: z.string().nullable().optional(),
@@ -81,6 +88,12 @@ export const renderSettingsSchema = z.object({
       estimatedDuration: z.number().min(0.3).max(4),
       role: z.enum(['hook', 'reaction', 'closer']),
     })).optional(),
+  }).optional(),
+  // P4 · CTA follow overlay (last ~1.2s, non-critical). Default ON when omitted.
+  ctaFollow: z.object({
+    enabled: z.boolean().optional(),
+    text: z.string().max(32).optional(),
+    seed: z.string().max(80).optional(),
   }).optional(),
 })
 

@@ -7,7 +7,7 @@
  *
  * Features are classified as:
  *   - critical: voiceover, captions, hook text — failure triggers 'degraded' status + refund
- *   - cosmetic: audio shift, smart zoom, exposure — failure logged but not refunded
+ *   - cosmetic: audio shift, smart zoom, exposure, cta_follow — failure logged but not refunded
  */
 
 // Feature classification: critical = user explicitly enabled, visible output expected.
@@ -106,6 +106,15 @@ export function createContract(settings) {
     applied: false,
     reason: null,
     meta: { requested_mode: settings.format?.videoZoom || 'auto' },
+  });
+
+  // CTA follow overlay (P4 · 2026-09) — NON-critical, default ON, last ~1.2s.
+  // Not counted in transformScore (cosmetic closer, not a transformation).
+  entries.push({
+    feature: 'cta_follow',
+    requested: settings.ctaFollow?.enabled !== false,
+    applied: false,
+    reason: null,
   });
 
   return {

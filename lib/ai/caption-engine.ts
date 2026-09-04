@@ -2,9 +2,24 @@
  * AI Caption Engine for Distribution.
  * Generates platform-specific captions + hashtags via Claude Haiku.
  * Graceful fallback to templates if API unavailable.
+ *
+ * P4 · Copywriter SEO (2026-09) — every description follows:
+ *   [sentence containing the niche keyword] + [one genuine open question]
+ *   + [credit @streamer] + [1-3 niche hashtags]
+ * Hard bans (prompt + post-filter): generic hashtags (#fyp/#viral/...),
+ * engagement bait ("like if", "tag a friend"...), vulgarity.
+ * See lib/distribution/caption-filters.ts.
  */
 
 import type { ClipMood } from './mood-presets'
+import {
+  BANNED_ENGAGEMENT_BAIT,
+  BANNED_HYPE_PHRASES,
+  sanitizeDescription,
+  stripBannedPhrases,
+  stripBannedWords,
+  filterHashtags,
+} from '@/lib/distribution/caption-filters'
 
 // ── Types ──
 
@@ -34,20 +49,25 @@ export interface CaptionInput {
   niche?: string
   streamerName?: string
   sourceStreamer?: string
+  /** 1-3 word niche keyword (from hook generation). Aligned in caption + on-screen hook. */
+  nicheKeyword?: string
+  /** Clip title — strongest signal for trending clips. */
+  title?: string
   platforms: CaptionPlatform[]
 }
 
 // ── Platform constraints ──
 
 const PLATFORM_LIMITS = {
-  tiktok: { captionMax: 150, hashtagCount: 8 },
-  instagram: { captionMax: 220, hashtagCount: 12 },
+  // TikTok: soft 100 chars before hashtags, hard 150 (question may need room). 1-3 niche hashtags.
+  tiktok: { captionSoft: 100, captionMax: 150, hashtagCount: 3 },
+  instagram: { captionSoft: 120, captionMax: 220, hashtagCount: 5 },
   youtube: { titleMax: 60, descriptionMax: 200, tagCount: 5 },
 } as const
 
 // ── System prompt ──
 
-const SYSTEM_PROMPT = `You are a viral social media caption writer for gaming/streaming clip content. You write captions optimized for maximum engagement on each platform.
+const SYSTEM_PROMPT = `You are a TikTok SEO copywriter for gaming/streaming clips. TikTok indexes the words in the caption AND the on-screen text, so the caption must be searchable and specific — not hype.
 
 Return ONLY valid JSON with this exact structure (no markdown, no explanation):
 {
@@ -70,14 +90,24 @@ Return ONLY valid JSON with this exact structure (no markdown, no explanation):
 
 Only include the platforms requested. Generate exactly 3 variants per platform.
 
-Platform rules:
-- TikTok: caption MAX 150 chars. 8 hashtags. Hook in first line. Short punchy sentences specific to what happens in the clip.
-- Instagram Reels: caption MAX 220 chars. 12 hashtags. More descriptive, storytelling angle. Mix broad reach hashtags (#viral, #fyp) with niche ones.
-- YouTube Shorts: title MAX 60 chars. description MAX 200 chars. 5 tags (no # prefix). Title must be specific to the clip content. Description adds context. Tags are search-optimized keywords.
+DESCRIPTION STRUCTURE (mandatory, in this order):
+1. One sentence that describes WHAT HAPPENS and contains the NICHE KEYWORD verbatim (or a direct variant).
+2. One GENUINE open question to the viewer about the situation (real curiosity, not "agree?"). Questions like this get +26% comments. Exactly one question mark.
+3. Credit the original streamer as @handle (if provided).
+4. Then 1-3 SPECIFIC niche hashtags (game name, streamer, situation). Hashtags go in the "hashtags" array, NOT in the caption text.
+Target: caption under 100 characters BEFORE hashtags (max 150 if the question needs it).
 
-CRITICAL — BANNED PHRASES (TikTok flags these as spam/unoriginal):
-"broke the internet", "I'm actually shaking", "this is INSANE", "you won't believe", "wait for it", "nobody expected", "gone wrong", "goes crazy", "watch till the end", "I can't believe", "literally crying", "I'm screaming", "no way this is real", "this changed everything", "the internet is broken", "LEGENDARY moment", "I'm dead", "most INSANE"
-These generic hype phrases are associated with spam accounts and get shadowbanned. Instead: describe WHAT HAPPENS in the clip using specific details from the transcript. Be factual and witty, not generic and hyperbolic.
+HARD BANS (instant reject):
+- Generic hashtags: #fyp #foryou #foryoupage #viral #trending #xyzbca #explore #mustwatch
+- Asking for likes/tags/comments (-60% interactions): ${BANNED_ENGAGEMENT_BAIT.map(p => `"${p}"`).join(', ')}
+- "follow for more" anywhere except as a 3-word closer at the very END (optional)
+- Vulgarity, slurs, sexual words — even censored (f*ck) — the caption is indexed and demonetised.
+- Generic hype phrases: ${BANNED_HYPE_PHRASES.map(p => `"${p}"`).join(', ')}
+
+Platform rules:
+- TikTok: caption <100 chars before hashtags (max 150). 1-3 hashtags.
+- Instagram Reels: caption MAX 220 chars, same structure, slightly more storytelling. 3-5 niche hashtags (still no generic ones).
+- YouTube Shorts: title MAX 60 chars containing the niche keyword. description MAX 200 chars with the question + credit. 5 tags (no # prefix) = search keywords.
 
 Style per mood:
 - rage: intense, describe the exact moment, caps for one key word only
@@ -87,8 +117,7 @@ Style per mood:
 - hype: describe the epic thing that happened, factual excitement
 - story: narrative hook from the real content
 
-If a sourceStreamer is provided, credit them naturally (e.g. "@streamer just did THIS").
-Each variant should have a different angle/hook — don't just rephrase the same thing.`
+Each variant must have a DIFFERENT sentence and a DIFFERENT question, but the same niche keyword.`
 
 // ── Main function ──
 
@@ -136,7 +165,7 @@ export async function generateDistributionCaptions(
 
     const tokensUsed = data.usage?.input_tokens + data.usage?.output_tokens
 
-    const parsed = parseResponse(textBlock.text, input.platforms)
+    const parsed = parseResponse(textBlock.text, input)
     return { ...parsed, _tokensUsed: tokensUsed } as DistributionCaptionResult & { _tokensUsed?: number }
   } catch (err) {
     console.error(`[CaptionEngine] Error: ${err instanceof Error ? err.message : String(err)}`)
@@ -150,9 +179,11 @@ function buildUserMessage(input: CaptionInput): string {
   const parts: string[] = []
   parts.push(`Platforms: ${input.platforms.join(', ')}`)
   parts.push(`Mood: ${input.mood}`)
+  if (input.nicheKeyword) parts.push(`NICHE KEYWORD (must appear verbatim in every caption/title): ${input.nicheKeyword}`)
+  if (input.title) parts.push(`Clip title: ${input.title}`)
   if (input.niche) parts.push(`Niche: ${input.niche}`)
   if (input.streamerName) parts.push(`Streamer: ${input.streamerName}`)
-  if (input.sourceStreamer) parts.push(`Credit original streamer: ${input.sourceStreamer}`)
+  if (input.sourceStreamer) parts.push(`Credit original streamer as @${input.sourceStreamer.replace(/^@/, '')}`)
   parts.push(`Transcript: ${input.transcript.slice(0, 1500)}`)
   return parts.join('\n')
 }
@@ -161,8 +192,10 @@ function buildUserMessage(input: CaptionInput): string {
 
 function parseResponse(
   text: string,
-  requestedPlatforms: CaptionPlatform[],
+  input: CaptionInput,
 ): DistributionCaptionResult {
+  const requestedPlatforms = input.platforms
+  const handle = input.sourceStreamer?.replace(/^@/, '') ?? null
   try {
     const jsonMatch = text.match(/\{[\s\S]*\}/)
     if (!jsonMatch) return {}
@@ -172,29 +205,57 @@ function parseResponse(
 
     if (requestedPlatforms.includes('tiktok') && Array.isArray(raw.tiktok)) {
       result.tiktok = {
-        variants: raw.tiktok.slice(0, 3).map((v: { caption?: string; hashtags?: string[] }) => ({
-          caption: enforceLength(stripBannedPhrases(String(v.caption ?? '')), PLATFORM_LIMITS.tiktok.captionMax),
-          hashtags: normalizeHashtags(v.hashtags, PLATFORM_LIMITS.tiktok.hashtagCount),
-        })),
+        variants: raw.tiktok.slice(0, 3).map((v: { caption?: string; hashtags?: string[] }) => {
+          const s = sanitizeDescription({
+            caption: String(v.caption ?? ''),
+            hashtags: v.hashtags,
+            nicheKeyword: input.nicheKeyword,
+            streamerHandle: handle,
+            softMax: PLATFORM_LIMITS.tiktok.captionSoft,
+            hardMax: PLATFORM_LIMITS.tiktok.captionMax,
+            maxHashtags: PLATFORM_LIMITS.tiktok.hashtagCount,
+          })
+          if (s.warnings.length) console.warn(`[CaptionEngine] tiktok variant warnings: ${s.warnings.join(',')}`)
+          return { caption: s.caption, hashtags: s.hashtags }
+        }),
       }
     }
 
     if (requestedPlatforms.includes('instagram') && Array.isArray(raw.instagram)) {
       result.instagram = {
-        variants: raw.instagram.slice(0, 3).map((v: { caption?: string; hashtags?: string[] }) => ({
-          caption: enforceLength(stripBannedPhrases(String(v.caption ?? '')), PLATFORM_LIMITS.instagram.captionMax),
-          hashtags: normalizeHashtags(v.hashtags, PLATFORM_LIMITS.instagram.hashtagCount),
-        })),
+        variants: raw.instagram.slice(0, 3).map((v: { caption?: string; hashtags?: string[] }) => {
+          const s = sanitizeDescription({
+            caption: String(v.caption ?? ''),
+            hashtags: v.hashtags,
+            nicheKeyword: input.nicheKeyword,
+            streamerHandle: handle,
+            softMax: PLATFORM_LIMITS.instagram.captionSoft,
+            hardMax: PLATFORM_LIMITS.instagram.captionMax,
+            maxHashtags: PLATFORM_LIMITS.instagram.hashtagCount,
+          })
+          return { caption: s.caption, hashtags: s.hashtags }
+        }),
       }
     }
 
     if (requestedPlatforms.includes('youtube') && Array.isArray(raw.youtube)) {
       result.youtube = {
-        variants: raw.youtube.slice(0, 3).map((v: { title?: string; description?: string; tags?: string[] }) => ({
-          title: enforceLength(stripBannedPhrases(String(v.title ?? '')), PLATFORM_LIMITS.youtube.titleMax),
-          description: enforceLength(stripBannedPhrases(String(v.description ?? '')), PLATFORM_LIMITS.youtube.descriptionMax),
-          tags: normalizeTags(v.tags, PLATFORM_LIMITS.youtube.tagCount),
-        })),
+        variants: raw.youtube.slice(0, 3).map((v: { title?: string; description?: string; tags?: string[] }) => {
+          const desc = sanitizeDescription({
+            caption: String(v.description ?? ''),
+            hashtags: [],
+            nicheKeyword: input.nicheKeyword,
+            streamerHandle: handle,
+            softMax: PLATFORM_LIMITS.youtube.descriptionMax,
+            hardMax: PLATFORM_LIMITS.youtube.descriptionMax,
+            maxHashtags: 0,
+          })
+          return {
+            title: enforceLength(stripBannedWords(stripBannedPhrases(String(v.title ?? ''))), PLATFORM_LIMITS.youtube.titleMax),
+            description: desc.caption,
+            tags: normalizeTags(v.tags, PLATFORM_LIMITS.youtube.tagCount),
+          }
+        }),
       }
     }
 
@@ -204,93 +265,86 @@ function parseResponse(
   }
 }
 
-// ── Spam phrase filter ──
-
-const BANNED_PHRASES = [
-  'broke the internet', 'i\'m actually shaking', 'this is insane',
-  'you won\'t believe', 'wait for it', 'nobody expected',
-  'gone wrong', 'goes crazy', 'watch till the end',
-  'i can\'t believe', 'literally crying', 'i\'m screaming',
-  'no way this is real', 'this changed everything',
-  'the internet is broken', 'legendary moment', 'i\'m dead',
-  'most insane',
-]
-
-function stripBannedPhrases(text: string): string {
-  let cleaned = text
-  for (const phrase of BANNED_PHRASES) {
-    const regex = new RegExp(phrase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi')
-    cleaned = cleaned.replace(regex, '').replace(/\s{2,}/g, ' ').trim()
-  }
-  return cleaned
-}
-
 // ── Enforcement helpers ──
 
 function enforceLength(text: string, max: number): string {
   if (text.length <= max) return text
-  return text.slice(0, max - 1) + '\u2026'
-}
-
-function normalizeHashtags(raw: unknown, max: number): string[] {
-  if (!Array.isArray(raw)) return []
-  return raw
-    .filter((h): h is string => typeof h === 'string')
-    .map(h => h.startsWith('#') ? h : `#${h}`)
-    .slice(0, max)
+  return text.slice(0, max - 1) + '…'
 }
 
 function normalizeTags(raw: unknown, max: number): string[] {
   if (!Array.isArray(raw)) return []
   return raw
     .filter((t): t is string => typeof t === 'string')
-    .map(t => t.replace(/^#/, ''))
+    .map(t => t.replace(/^#/, '').trim())
+    .filter(t => t.length > 0 && !['fyp', 'foryou', 'viral', 'trending'].includes(t.toLowerCase()))
     .slice(0, max)
 }
 
 // ── Fallback (template-based) ──
 
+function slugTag(s: string): string {
+  const slug = s.toLowerCase().replace(/[^a-z0-9]/g, '')
+  return slug.length >= 3 ? `#${slug}` : ''
+}
+
 function buildFallbackResult(input: CaptionInput): DistributionCaptionResult {
   const result: DistributionCaptionResult = {}
-  const title = input.streamerName || 'this streamer'
-  const credit = input.sourceStreamer ? ` by @${input.sourceStreamer}` : ''
+  const streamer = input.streamerName || input.sourceStreamer || 'this streamer'
+  const handle = input.sourceStreamer?.replace(/^@/, '') ?? null
+  const kw = input.nicheKeyword?.trim() || input.niche?.trim() || 'stream'
+  const Kw = kw.charAt(0).toUpperCase() + kw.slice(1)
 
-  const hooks = {
-    rage: ['Peak tilt from ${title}.', 'Full rage mode activated.', '${title} just snapped.'],
-    funny: ['${title} killed it.', 'Comedy GOLD right here.', 'Too good not to share.'],
-    drama: ['${title} — you need context.', 'The moment that mattered.', 'This one hit different.'],
-    wholesome: ['This restored my faith.', 'Pure serotonin.', 'The clip we all needed.'],
-    hype: ['${title} just did that.', 'Clean play. No debate.', 'Peak performance.'],
-    story: ['Let me explain what happened.', 'The story behind this clip.', 'You won\'t believe this.'],
+  // [keyword sentence] + [open question] — credit/hashtags added by sanitizeDescription
+  const sentences: Record<ClipMood, string[]> = {
+    rage: [`${Kw}: ${streamer} completely lost it live.`, `Peak ${kw} tilt from ${streamer}.`, `${streamer} snapped over ${kw}.`],
+    funny: [`${streamer} turned ${kw} into a comedy bit.`, `The ${kw} timing here is unreal.`, `${streamer} did not plan this ${kw} moment.`],
+    drama: [`${kw} took a turn nobody planned on ${streamer}'s stream.`, `Tense ${kw} moment with ${streamer}.`, `${streamer} vs ${kw} — this got serious.`],
+    wholesome: [`${streamer} had the most wholesome ${kw} moment.`, `A genuinely sweet ${kw} moment on stream.`, `${kw} but make it heartwarming.`],
+    hype: [`${streamer} just pulled off this ${kw} play.`, `Clean ${kw} moment from ${streamer}.`, `${Kw} peak from ${streamer}'s stream.`],
+    story: [`${streamer} explains what happened with ${kw}.`, `The ${kw} story behind this clip.`, `${streamer} on ${kw}, uncut.`],
   }
+  const questions = [
+    'Would you have reacted the same way?',
+    'What would you have done here?',
+    'Is this the best or worst take you have seen?',
+  ]
+  const base = sentences[input.mood] ?? sentences.hype
+  const fallbackTags = filterHashtags([slugTag(kw), input.niche ? slugTag(input.niche) : '', handle ? slugTag(handle) : '', '#clips'], 3)
 
-  const moodHooks = hooks[input.mood] || hooks.hype
+  const build = (i: number, softMax: number, hardMax: number, maxHashtags: number) => {
+    const s = sanitizeDescription({
+      caption: `${base[i % base.length]} ${questions[i % questions.length]}`,
+      hashtags: fallbackTags,
+      nicheKeyword: input.nicheKeyword,
+      streamerHandle: handle,
+      softMax, hardMax, maxHashtags,
+    })
+    return { caption: s.caption, hashtags: s.hashtags }
+  }
 
   if (input.platforms.includes('tiktok')) {
     result.tiktok = {
-      variants: moodHooks.map(hook => ({
-        caption: enforceLength(`${hook} ${title}${credit} just did something INSANE`, PLATFORM_LIMITS.tiktok.captionMax),
-        hashtags: ['#viral', '#fyp', '#clips', '#gaming', '#streamer', '#trending', '#foryou', '#omg'],
-      })),
+      variants: [0, 1, 2].map(i => build(i, PLATFORM_LIMITS.tiktok.captionSoft, PLATFORM_LIMITS.tiktok.captionMax, PLATFORM_LIMITS.tiktok.hashtagCount)),
     }
   }
 
   if (input.platforms.includes('instagram')) {
     result.instagram = {
-      variants: moodHooks.map(hook => ({
-        caption: enforceLength(`${hook} Check out this incredible moment from ${title}${credit}. You won't see this anywhere else.`, PLATFORM_LIMITS.instagram.captionMax),
-        hashtags: ['#viral', '#fyp', '#clips', '#gaming', '#streamer', '#trending', '#reels', '#explore', '#foryou', '#omg', '#highlights', '#content'],
-      })),
+      variants: [0, 1, 2].map(i => build(i, PLATFORM_LIMITS.instagram.captionSoft, PLATFORM_LIMITS.instagram.captionMax, PLATFORM_LIMITS.instagram.hashtagCount)),
     }
   }
 
   if (input.platforms.includes('youtube')) {
     result.youtube = {
-      variants: moodHooks.map(hook => ({
-        title: enforceLength(`${hook} ${title} clip`, PLATFORM_LIMITS.youtube.titleMax),
-        description: enforceLength(`${hook} Watch this incredible ${input.mood} moment from ${title}${credit}. Subscribe for more viral clips!`, PLATFORM_LIMITS.youtube.descriptionMax),
-        tags: ['gaming', 'clips', 'streamer', 'viral', input.mood],
-      })),
+      variants: [0, 1, 2].map(i => {
+        const v = build(i, PLATFORM_LIMITS.youtube.descriptionMax, PLATFORM_LIMITS.youtube.descriptionMax, 0)
+        return {
+          title: enforceLength(`${Kw} — ${streamer} clip`, PLATFORM_LIMITS.youtube.titleMax),
+          description: v.caption,
+          tags: [kw, 'gaming', 'clips', 'streamer', input.mood].filter(Boolean).slice(0, PLATFORM_LIMITS.youtube.tagCount),
+        }
+      }),
     }
   }
 

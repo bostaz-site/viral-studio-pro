@@ -11,6 +11,7 @@ import {
   type TrendingClipData, type EnhanceSettings,
 } from '@/lib/enhance/scoring'
 import { PLATFORM_THEME } from '@/lib/ai/mood-presets'
+import { HOOK_COLOR_HEX, normalizeHookColor } from '@/lib/enhance/hook-color'
 
 // ─── Score Badge Component ──────────────────────────────────────────────────
 
@@ -499,6 +500,10 @@ export function LivePreview({
       {/* ── Hook text overlay ── */}
       {showEnhancements && settings.hookEnabled && settings.hookTextEnabled && settings.hookText && (() => {
         const vis = settings.hookVisual || 'sticker'
+        // P4 · Hook Hunter color: sticker = bg color, outline/capsule = text color
+        const hookColor = normalizeHookColor(settings.hookColor)
+        const accentHex = HOOK_COLOR_HEX[hookColor]
+        const stickerTextHex = hookColor === 'red' ? '#FFFFFF' : '#000000'
         return (
           <div
             className="absolute left-1/2 -translate-x-1/2 z-30 pointer-events-none animate-in fade-in zoom-in-95 duration-300 w-full px-2"
@@ -507,17 +512,17 @@ export function LivePreview({
             {vis === 'sticker' ? (
               <div
                 className="px-3 py-1.5 rounded-lg text-center whitespace-nowrap overflow-hidden mx-auto w-fit shadow-md"
-                style={{ background: '#FFFFFF', maxWidth: '100%' }}
+                style={{ background: accentHex, maxWidth: '100%' }}
               >
-                <span className="text-[10px] font-extrabold text-black uppercase tracking-wide leading-none">
+                <span className="text-[10px] font-extrabold uppercase tracking-wide leading-none" style={{ color: stickerTextHex }}>
                   {settings.hookText}
                 </span>
               </div>
             ) : vis === 'outline' ? (
               <div className="text-center whitespace-nowrap overflow-hidden mx-auto w-fit" style={{ maxWidth: '100%' }}>
                 <span
-                  className="text-[11px] font-black text-white uppercase tracking-wide leading-none"
-                  style={{ WebkitTextStroke: '2px black', paintOrder: 'stroke fill' }}
+                  className="text-[11px] font-black uppercase tracking-wide leading-none"
+                  style={{ WebkitTextStroke: '2px black', paintOrder: 'stroke fill', color: accentHex }}
                 >
                   {settings.hookText}
                 </span>
@@ -527,7 +532,7 @@ export function LivePreview({
                 className="px-3 py-1.5 rounded-md text-center whitespace-nowrap overflow-hidden mx-auto w-fit"
                 style={{ background: 'rgba(0,0,0,0.75)', border: '1px solid rgba(255,255,255,0.2)', maxWidth: '100%' }}
               >
-                <span className="text-[10px] font-black text-white uppercase tracking-wide leading-none">
+                <span className="text-[10px] font-black uppercase tracking-wide leading-none" style={{ color: accentHex }}>
                   {settings.hookText}
                 </span>
               </div>

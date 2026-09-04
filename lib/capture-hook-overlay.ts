@@ -12,6 +12,8 @@
  *
  * Uses Canvas 2D only (no SVG foreignObject — that taints the canvas).
  */
+import { HOOK_COLOR_HEX, normalizeHookColor, type HookColor } from '@/lib/enhance/hook-color'
+
 export type HookVisualStyle = 'sticker' | 'outline' | 'capsule'
 
 // ── Emoji helpers ──────────────────────────────────────────────────────────
@@ -99,6 +101,7 @@ export async function captureHookOverlayPNG({
   videoWidth = 1080,
   videoHeight = 1920,
   visual = 'sticker',
+  color,
 }: {
   text: string;
   positionPct?: number;
@@ -106,12 +109,19 @@ export async function captureHookOverlayPNG({
   videoHeight?: number;
   visual?: HookVisualStyle;
   glowColor?: string; // kept for backward compat, ignored
+  /** P4 · Hook Hunter: white (default) | yellow | red — unknown → white */
+  color?: HookColor | string | null;
 }): Promise<{ png: string; capsuleW: number; capsuleH: number; positionPct: number } | null> {
   if (!text) return null;
 
   try {
     const scale = videoWidth / 280;
     const upperText = text.toUpperCase();
+    // Hook color: sticker = background color (text black, or white on red);
+    // outline/capsule = text fill color.
+    const hookColor = normalizeHookColor(color);
+    const accentHex = HOOK_COLOR_HEX[hookColor];
+    const stickerTextHex = hookColor === 'red' ? '#FFFFFF' : '#111111';
 
     // ── Font — Apple-style SF Pro stack, semibold/bold, tight tracking ──
     const fontSize = Math.round(visual === 'outline' ? 12.5 * scale : 11.5 * scale);
@@ -172,13 +182,13 @@ export async function captureHookOverlayPNG({
       ctx.shadowColor = 'rgba(0,0,0,0.25)';
       ctx.shadowBlur = Math.round(6 * scale);
       ctx.shadowOffsetY = Math.round(2 * scale);
-      ctx.fillStyle = '#FFFFFF';
+      ctx.fillStyle = accentHex;
       roundRect(ctx, boxX, boxY, capsuleW, capsuleH, borderRadius);
       ctx.fill();
       ctx.restore();
 
       ctx.save();
-      ctx.fillStyle = '#111111';
+      ctx.fillStyle = stickerTextHex;
       ctx.font = fontStr;
       ctx.textBaseline = 'middle';
       if (hasEmoji && segments.some(s => s.img)) {
@@ -212,7 +222,7 @@ export async function captureHookOverlayPNG({
           }
         }
         // Fill pass — text + emoji images
-        ctx.fillStyle = '#FFFFFF';
+        ctx.fillStyle = accentHex;
         drawSegments(ctx, segments, centerX - textWidth / 2, centerY, emojiSize);
       } else {
         ctx.textAlign = 'center';
@@ -221,7 +231,7 @@ export async function captureHookOverlayPNG({
         ctx.lineJoin = 'round';
         ctx.miterLimit = 2;
         ctx.strokeText(upperText, centerX, centerY);
-        ctx.fillStyle = '#FFFFFF';
+        ctx.fillStyle = accentHex;
         ctx.fillText(upperText, centerX, centerY);
       }
       ctx.restore();
@@ -242,7 +252,7 @@ export async function captureHookOverlayPNG({
       ctx.restore();
 
       ctx.save();
-      ctx.fillStyle = '#FFFFFF';
+      ctx.fillStyle = accentHex;
       ctx.font = fontStr;
       ctx.textBaseline = 'middle';
       if (hasEmoji && segments.some(s => s.img)) {
@@ -260,7 +270,7 @@ export async function captureHookOverlayPNG({
       return null;
     }
 
-    console.log(`[captureHookOverlay] OK: ${canvasW}x${canvasH} visual=${visual}, emoji=${hasEmoji}, ${png.length} chars`);
+    console.log(`[captureHookOverlay] OK: ${canvasW}x${canvasH} visual=${visual}, color=${hookColor}, emoji=${hasEmoji}, ${png.length} chars`);
     return { png, capsuleW: canvasW, capsuleH: canvasH, positionPct };
   } catch (err) {
     console.error('[captureHookOverlay] Error:', err);

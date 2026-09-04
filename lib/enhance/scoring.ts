@@ -36,12 +36,18 @@ export interface EnhanceSettings {
   hookText: string
   hookStyle: 'shock' | 'curiosity' | 'suspense'
   hookVisual: 'sticker' | 'outline' | 'capsule'
+  /** P4 · Hook Hunter: white (default) | yellow (hype/wholesome) | red (rage/shock/breaking) */
+  hookColor?: 'white' | 'yellow' | 'red'
+  /** P4 · Copywriter SEO: 1-3 word niche keyword returned by hook generation, aligned in caption */
+  hookNicheKeyword?: string | null
   hookTextPosition: number
   hookLength: number
   hookReorder: { segments: { start: number; end: number; duration: number; label: string }[]; totalDuration: number; peakTime: number } | null
   voiceoverEnabled: boolean
   voiceoverVoice: 'default' | 'female' | 'deep'
   voiceoverLines: { text: string; startTime: number; estimatedDuration: number; role: 'hook' | 'reaction' | 'closer' }[]
+  /** P4 · CTA follow overlay in the last ~1.2s (default true) */
+  ctaFollowEnabled?: boolean
 }
 
 /**
@@ -105,7 +111,7 @@ export type TrendingClipData = Pick<TrendingClip,
   'id' | 'external_url' | 'platform' | 'author_name' | 'author_handle' |
   'title' | 'description' | 'niche' | 'view_count' | 'like_count' |
   'velocity_score' | 'thumbnail_url' | 'duration_seconds' | 'content_risk'
->
+> & Partial<Pick<TrendingClip, 'feed_category' | 'clip_created_at'>>
 
 /**
  * Return type of computeScores function.

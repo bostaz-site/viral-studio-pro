@@ -4,6 +4,8 @@
    Hook x Bridge x Payoff x Amplifier blocks create ~2,000+ unique
    captions per tone/variant combination. */
 
+import { BANNED_HASHTAGS } from './caption-filters'
+
 // ── Types ──
 
 export interface BioVariant {
@@ -400,11 +402,9 @@ function assembleCaption(
 // ── Hashtag system
 // ══════════════════════════════════════════════════════════════
 
-// Spam-triggering hashtags — NEVER use these (TikTok spam filter)
-const BLACKLISTED_HASHTAGS = new Set([
-  '#fyp', '#foryou', '#foryoupage', '#viral', '#mustwatch', '#watchthis',
-  '#explore', '#trending', '#goviral', '#blowup', '#algorithm',
-])
+// Spam-triggering hashtags — NEVER use these (TikTok spam filter).
+// Single source of truth: lib/distribution/caption-filters.ts (P4 · 2026-09).
+const BLACKLISTED_HASHTAGS = BANNED_HASHTAGS
 
 const BASE_HASHTAGS: readonly string[] = [
   '#clips', '#shorts', '#highlights',

@@ -6,6 +6,8 @@
  *   1. Score each second of the clip (spike detection + viral keywords + positional prior)
  *   2. Pick the top moment (1-2s)
  *   3. Generate 3 hook text variants via Claude API (contextual, references peak moment)
+ *      + niche_keyword (P4 · Hook Hunter, 2026-09: 4-8 words, UPPERCASE, keyword aligned,
+ *        breaking framing only for early_gem/hot_now, color white/yellow/red)
  *   4. Output reorder timestamps for FFmpeg concat (word-boundary snapped)
  */
 
@@ -216,6 +218,76 @@ export function getTopPeakWindows(peakResult, n = 3, cooldownSec = 2.5) {
   return picked.sort((a, b) => a - b);
 }
 
+// ─── P4 · Hook Hunter rules (2026-09) ──────────────────────────────────────
+// Vulgarity/slurs guard for on-screen text (mirrors lib/distribution/caption-filters.ts).
+const BANNED_WORDS = [
+  'fuck', 'fucking', 'fucked', 'motherfucker', 'shit', 'bullshit', 'bitch',
+  'asshole', 'cunt', 'dick', 'pussy', 'whore', 'slut', 'retard', 'retarded',
+  'faggot', 'fag', 'nigga', 'nigger', 'kys', 'rape', 'nazi',
+];
+const BANNED_WORD_RE = new RegExp(`\\b(${BANNED_WORDS.join('|')})\\b`, 'gi');
+
+/** Allowed hook colors — anything else maps to 'white' (backward compat). */
+export const HOOK_COLORS = ['white', 'yellow', 'red'];
+
+/**
+ * Hook color mapping (mirrors lib/enhance/hook-color.ts — keep in sync):
+ *   default → white ; hype|wholesome → yellow ; rage|shock|breaking → red.
+ */
+export function getHookColor({ mood = '', hookStyle = '', breaking = false, override } = {}) {
+  if (typeof override === 'string' && HOOK_COLORS.includes(override)) return override;
+  const m = String(mood || '').toLowerCase();
+  const st = String(hookStyle || '').toLowerCase();
+  if (breaking || m === 'rage' || m === 'shock' || st === 'shock') return 'red';
+  if (m === 'hype' || m === 'wholesome') return 'yellow';
+  return 'white';
+}
+
+/** early_gem / hot_now (or clip < 6h) → "breaking" framing allowed. */
+export function isBreakingEligible(feedCategory, clipCreatedAt) {
+  if (feedCategory === 'early_gem' || feedCategory === 'hot_now') return true;
+  if (clipCreatedAt) {
+    const ageH = (Date.now() - new Date(clipCreatedAt).getTime()) / 3_600_000;
+    if (Number.isFinite(ageH) && ageH >= 0 && ageH < 6) return true;
+  }
+  return false;
+}
+
+/** Strip vulgarity from a hook (whole word). */
+function stripBannedWords(text) {
+  return String(text || '').replace(BANNED_WORD_RE, '').replace(/\s{2,}/g, ' ').trim();
+}
+
+/** Count words (emojis excluded). */
+function wordCount(text) {
+  return String(text || '')
+    .replace(/[\p{Extended_Pictographic}\uFE0F\u200D]/gu, ' ')
+    .split(/\s+/)
+    .filter(w => /[\p{L}\p{N}]/u.test(w)).length;
+}
+
+/** Case-insensitive keyword presence (also matches squashed variant). */
+export function hookContainsKeyword(text, keyword) {
+  if (!keyword) return true;
+  const kw = String(keyword).trim().toLowerCase();
+  if (!kw) return true;
+  const lower = String(text || '').toLowerCase();
+  if (lower.includes(kw)) return true;
+  return lower.replace(/\s+/g, '').includes(kw.replace(/\s+/g, ''));
+}
+
+/** Derive a niche keyword when the model didn't return one (title → streamer → niche). */
+function deriveNicheKeyword({ title = '', streamerName = '', niche = '' }) {
+  const STOP = new Set(['the', 'this', 'that', 'with', 'from', 'what', 'when', 'just', 'and', 'for', 'his', 'her', 'gets', 'goes', 'into', 'again', 'after', 'over', 'you', 'your', 'are', 'was', 'has', 'have']);
+  const words = String(title || '')
+    .replace(/[^\p{L}\p{N} ]/gu, ' ')
+    .split(/\s+/)
+    .filter(w => w.length > 2 && !STOP.has(w.toLowerCase()));
+  if (words.length > 0) return words.slice(0, 2).join(' ');
+  if (streamerName) return String(streamerName).replace(/^@/, '');
+  return String(niche || '').trim();
+}
+
 // ─── Consecutive fallback counter (for Discord alerts) ────────────────────
 let consecutiveFallbacks = 0;
 
@@ -237,20 +309,53 @@ let consecutiveFallbacks = 0;
  * @returns {Promise<Array|null>} [{style, label, text}] or null if no content-aware hook possible
  */
 export async function generateHookTexts(opts = {}) {
-  const { transcript = '', streamerName = '', niche = '', title = '', peakTranscript = '' } = opts;
+  const pkg = await generateHookPackage(opts);
+  return pkg.hooks;
+}
+
+/**
+ * P4 · Hook Hunter — full hook package.
+ *
+ * Returns { hooks, nicheKeyword, breaking, color } where:
+ *   - hooks: [{style,label,text,color}] or null (no content-aware hook possible)
+ *   - nicheKeyword: 1-3 words extracted from transcript + title + streamer + niche,
+ *     to be aligned in the description (TikTok SEO indexes caption + on-screen text)
+ *   - breaking: true when the "breaking" framing was allowed (early_gem / hot_now / < 6h)
+ *   - color: hook text color (white | yellow | red) derived from mood/style/breaking
+ *
+ * @param {Object} opts — same as generateHookTexts plus:
+ * @param {string}  opts.feedCategory  - trending_clips.feed_category ('early_gem' | 'hot_now' | ...)
+ * @param {string}  opts.clipCreatedAt - ISO date of the clip (age < 6h → breaking allowed)
+ * @param {string}  opts.mood          - detected mood (rage, funny, drama, wholesome, hype, story)
+ */
+export async function generateHookPackage(opts = {}) {
+  const {
+    transcript = '', streamerName = '', niche = '', title = '', peakTranscript = '',
+    feedCategory = null, clipCreatedAt = null, mood = '',
+  } = opts;
+
+  const breaking = isBreakingEligible(feedCategory, clipCreatedAt);
+  const derivedKeyword = deriveNicheKeyword({ title, streamerName, niche });
+  const finalize = (hooks, nicheKeyword) => {
+    const kw = (nicheKeyword || derivedKeyword || '').trim().slice(0, 40);
+    const withColor = Array.isArray(hooks)
+      ? hooks.map(h => ({ ...h, color: getHookColor({ mood, hookStyle: h.style, breaking }) }))
+      : null;
+    return { hooks: withColor, nicheKeyword: kw, breaking, color: getHookColor({ mood, breaking }) };
+  };
 
   const apiKey = process.env.ANTHROPIC_API_KEY;
 
   // ── Fallback point 1: no API key ──
   if (!apiKey) {
     console.warn('[Hook] fallback reason: no_api_key — ANTHROPIC_API_KEY not set on VPS');
-    return buildTitleFallback(title, streamerName);
+    return finalize(buildTitleFallback(title, streamerName), null);
   }
 
   // ── Fallback point 2: no content at all ──
   if (!transcript && !title && !peakTranscript) {
     console.warn('[Hook] fallback reason: no_content — no transcript, title, or peak transcript available');
-    return null; // no hook is better than a generic hook
+    return finalize(null, null); // no hook is better than a generic hook
   }
 
   try {
@@ -261,9 +366,15 @@ export async function generateHookTexts(opts = {}) {
       title ? `CLIP TITLE: "${title}"` : '',
       streamerName ? `STREAMER: ${streamerName}` : '',
       niche ? `CATEGORY: ${niche}` : '',
+      mood ? `MOOD: ${mood}` : '',
+      breaking ? 'FRESHNESS: this clip is less than 6 hours old (BREAKING framing allowed)' : 'FRESHNESS: not fresh (no breaking framing)',
       transcript ? `FULL TRANSCRIPT: "${transcript.slice(0, 800)}"` : '',
       peakTranscript ? `PEAK MOMENT (the exact viral moment): "${peakTranscript.slice(0, 300)}"` : '',
     ].filter(Boolean).join('\n');
+
+    const framingRule = breaking
+      ? '6. FRAMING: this clip is FRESH — you MAY use a breaking-news framing on ONE hook ("HE JUST..." / "BREAKING: ..."), the others use curiosity / shock / storytelling.'
+      : '6. FRAMING: curiosity, shock or storytelling only. NO "BREAKING" / "JUST HAPPENED" framing (the clip is not fresh).';
 
     const claudeAbort = new AbortController();
     const claudeTimeout = setTimeout(() => claudeAbort.abort(), 30_000);
@@ -279,21 +390,24 @@ export async function generateHookTexts(opts = {}) {
         signal: claudeAbort.signal,
         body: JSON.stringify({
           model: 'claude-haiku-4-5-20251001',
-          max_tokens: 300,
+          max_tokens: 400,
           messages: [{
             role: 'user',
-            content: `You write hooks for TikTok clips of streamers. The hook appears as text overlay in the first 2 seconds.
+            content: `You write hooks for TikTok clips of streamers. The hook appears as text overlay in the first 2 seconds. TikTok SEO indexes on-screen text, so the hook must contain the clip's NICHE KEYWORD.
 
 ${contentParts}
 
-Write 3 short hooks that SPECIFICALLY describe what happens in THIS clip. The hook must reference the actual content — the action, the person, the situation.
+STEP 1 — Pick ONE niche keyword (1-3 words) that a viewer would SEARCH for: the game, the streamer, or the specific situation (e.g. "Apex Legends", "xQc", "Dagestan", "ranked"). Extract it from the title/transcript/streamer/category. Return it as "niche_keyword".
+
+STEP 2 — Write 3 short hooks that SPECIFICALLY describe what happens in THIS clip and CONTAIN the niche keyword (or a direct variant).
 
 MANDATORY RULES:
-1. Each hook MUST mention something specific from the title or transcript (a name, an action, a situation)
+1. Each hook MUST mention something specific from the title or transcript (a name, an action, a situation) AND contain the niche keyword
 2. BANNED PHRASES (instant reject): "nobody expected", "you won't believe", "this is insane", "wait for it", "what happens next", "gone wrong", "goes crazy", "watch till the end", "legendary moment", "I'm dead". These are generic clickbait — NEVER use them.
 3. The hook must be UNUSABLE on any other clip. If you could put it on a random clip and it still makes sense, it's too generic — rewrite it.
-4. ALL CAPS, max 45 characters, 1-2 emojis from: 💀🔥😱👀🤯😂⚡😭
-5. English, casual TikTok tone
+4. 4 to 8 WORDS, ALL CAPS, max 45 characters, 1 emoji max from: 💀🔥😱👀🤯😂⚡😭
+5. English, casual TikTok tone. NO vulgarity, NO slurs, NO censored swearing (f*ck) — on-screen text is indexed and demonetised.
+${framingRule}
 
 GOOD EXAMPLES (specific to content):
 - Title "He sends his friend to Dagestan" → "HE SENT HIM TO DAGESTAN 💀"
@@ -307,11 +421,14 @@ BAD EXAMPLES (generic, would work on any clip):
 - "WAIT FOR THE END 👀" ← banned, says nothing about clip
 
 Return ONLY JSON:
-[
-  {"style": "shock", "label": "Shock", "text": "YOUR SPECIFIC HOOK 💀"},
-  {"style": "curiosity", "label": "Curiosity", "text": "YOUR SPECIFIC HOOK 👀"},
-  {"style": "suspense", "label": "Suspense", "text": "YOUR SPECIFIC HOOK 😱"}
-]`
+{
+  "niche_keyword": "1-3 words",
+  "hooks": [
+    {"style": "shock", "label": "Shock", "text": "YOUR SPECIFIC HOOK 💀"},
+    {"style": "curiosity", "label": "Curiosity", "text": "YOUR SPECIFIC HOOK 👀"},
+    {"style": "suspense", "label": "Suspense", "text": "YOUR SPECIFIC HOOK 😱"}
+  ]
+}`
           }],
         }),
       });
@@ -324,7 +441,7 @@ Return ONLY JSON:
       const errText = await response.text();
       console.warn(`[Hook] fallback reason: api_error — Claude API ${response.status}: ${errText.slice(0, 200)}`);
       trackFallback('api_error');
-      return buildTitleFallback(title, streamerName);
+      return finalize(buildTitleFallback(title, streamerName), null);
     }
 
     const hookLatencyMs = Date.now() - hookStartMs;
@@ -349,47 +466,82 @@ Return ONLY JSON:
     } catch { /* never block render */ }
 
     // ── Fallback point 4: parse error ──
-    const jsonMatch = text.match(/\[[\s\S]*\]/);
-    if (!jsonMatch) {
-      console.warn(`[Hook] fallback reason: parse_error — no JSON array in Claude response: "${text.slice(0, 200)}"`);
+    // Accept both the new object shape {niche_keyword, hooks:[...]} and the legacy bare array.
+    const objMatch = text.match(/\{[\s\S]*\}/);
+    const arrMatch = text.match(/\[[\s\S]*\]/);
+    if (!objMatch && !arrMatch) {
+      console.warn(`[Hook] fallback reason: parse_error — no JSON in Claude response: "${text.slice(0, 200)}"`);
       trackFallback('parse_error');
-      return buildTitleFallback(title, streamerName);
+      return finalize(buildTitleFallback(title, streamerName), null);
     }
 
     let hooks;
+    let nicheKeyword = null;
     try {
-      hooks = JSON.parse(jsonMatch[0]);
+      let parsed = null;
+      if (objMatch) {
+        try { parsed = JSON.parse(objMatch[0]); } catch { parsed = null; }
+      }
+      if (parsed && Array.isArray(parsed.hooks)) {
+        hooks = parsed.hooks;
+        nicheKeyword = typeof parsed.niche_keyword === 'string' ? parsed.niche_keyword : null;
+      } else if (arrMatch) {
+        hooks = JSON.parse(arrMatch[0]);
+      } else {
+        throw new Error('no hooks array');
+      }
     } catch (parseErr) {
       console.warn(`[Hook] fallback reason: json_parse_error — ${parseErr.message}`);
       trackFallback('json_parse_error');
-      return buildTitleFallback(title, streamerName);
+      return finalize(buildTitleFallback(title, streamerName), null);
     }
 
     // ── Fallback point 5: invalid structure ──
     if (!Array.isArray(hooks) || hooks.length < 3) {
       console.warn(`[Hook] fallback reason: invalid_structure — got ${Array.isArray(hooks) ? hooks.length : typeof hooks} hooks`);
       trackFallback('invalid_structure');
-      return buildTitleFallback(title, streamerName);
+      return finalize(buildTitleFallback(title, streamerName), nicheKeyword);
     }
 
     // Reset consecutive fallback counter on success
     consecutiveFallbacks = 0;
 
-    const result = hooks.slice(0, 3).map(h => ({
-      style: h.style || 'shock',
-      label: h.label || h.style || 'Hook',
-      text: (h.text || '').slice(0, 60),
-    }));
+    // Sanitise keyword (1-3 words, no #, no vulgarity)
+    if (nicheKeyword) {
+      nicheKeyword = stripBannedWords(nicheKeyword.replace(/^#/, '')).split(/\s+/).slice(0, 3).join(' ').slice(0, 40);
+    }
+    const effectiveKeyword = nicheKeyword || derivedKeyword;
 
-    console.log(`[Hook] Claude generated content-aware hooks: ${result.map(h => `[${h.style}] "${h.text}"`).join(' | ')}`);
-    return result;
+    const result = hooks.slice(0, 3).map(h => {
+      let t = stripBannedWords((h.text || '').toUpperCase()).slice(0, 60);
+      // Soft validations — warn only, never fail the render
+      if (!hookContainsKeyword(t, effectiveKeyword)) {
+        console.warn(`[Hook] WARN keyword_missing: hook "${t}" does not contain niche keyword "${effectiveKeyword}"`);
+      }
+      const wc = wordCount(t);
+      if (wc < 4 || wc > 8) {
+        console.warn(`[Hook] WARN word_count: hook "${t}" has ${wc} words (target 4-8)`);
+      }
+      if (!breaking && /\b(BREAKING|JUST HAPPENED)\b/.test(t)) {
+        console.warn(`[Hook] WARN breaking_framing on non-fresh clip: "${t}" — stripping prefix`);
+        t = t.replace(/^BREAKING:?\s*/i, '').trim();
+      }
+      return {
+        style: h.style || 'shock',
+        label: h.label || h.style || 'Hook',
+        text: t,
+      };
+    });
+
+    console.log(`[Hook] Claude generated content-aware hooks (keyword="${effectiveKeyword}", breaking=${breaking}): ${result.map(h => `[${h.style}] "${h.text}"`).join(' | ')}`);
+    return finalize(result, nicheKeyword);
 
   } catch (err) {
     // ── Fallback point 6: network/timeout ──
     const reason = err.name === 'AbortError' ? 'timeout' : 'network_error';
     console.warn(`[Hook] fallback reason: ${reason} — ${err.message}`);
     trackFallback(reason);
-    return buildTitleFallback(title, streamerName);
+    return finalize(buildTitleFallback(title, streamerName), null);
   }
 }
 
@@ -403,9 +555,10 @@ function buildTitleFallback(title, streamerName = '') {
     return null;
   }
 
-  // Format title as hook: uppercase, truncate, add emoji
-  let hookBase = title.trim().toUpperCase();
+  // Format title as hook: uppercase, strip vulgarity, truncate, add emoji
+  let hookBase = stripBannedWords(title.trim().toUpperCase());
   if (hookBase.length > 42) hookBase = hookBase.slice(0, 39) + '...';
+  if (hookBase.length < 5) return null;
 
   console.log(`[Hook] Using title-based fallback: "${hookBase}"`);
   return [

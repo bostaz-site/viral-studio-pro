@@ -27,6 +27,8 @@ export interface ExecutePublishParams {
   caption: string
   hashtags: string[]
   tiktokOptions: TikTokOptions | null
+  /** Deterministic seed for caption diversification (scheduled_publications row id). */
+  seed?: string
 }
 
 export interface ExecutePublishResult {
@@ -142,10 +144,43 @@ export async function executePublish(params: ExecutePublishParams): Promise<Exec
   }
 
   // 4. Build full caption
-  const hashtagString = hashtags?.length
-    ? '\n\n' + hashtags.map((h) => (h.startsWith('#') ? h : `#${h}`)).join(' ')
+  // P4 · Caption diversification: same clip already published with an identical
+  // caption → request a seeded Haiku variant (fail-open, original on any error).
+  let finalCaption = caption
+  let finalHashtags: string[] = hashtags ?? []
+  try {
+    const rsKw = renderJob?.render_settings ?? null
+    const nicheKeyword = typeof rsKw?.niche_keyword === 'string' ? (rsKw.niche_keyword as string) : null
+    const { data: srcClip } = await admin
+      .from('trending_clips')
+      .select('author_handle, author_name')
+      .eq('id', clipId)
+      .single()
+    const { diversifyCaptionIfDuplicate } = await import('./caption-diversifier')
+    const div = await diversifyCaptionIfDuplicate({
+      admin,
+      clipId,
+      caption,
+      hashtags: finalHashtags,
+      seed: params.seed ?? `${clipId}:${platform}:${new Date().toISOString().slice(0, 13)}`,
+      nicheKeyword,
+      streamerHandle: srcClip?.author_handle ?? srcClip?.author_name ?? null,
+      platform,
+      excludeId: params.seed ?? null,
+    })
+    if (div.diversified) {
+      finalCaption = div.caption
+      finalHashtags = div.hashtags
+      logger.info(`[execute-publish] caption diversified for clip ${clipId} (${div.reason})`)
+    }
+  } catch (divErr) {
+    logger.warn(`[execute-publish] caption diversification skipped: ${divErr instanceof Error ? divErr.message : String(divErr)}`)
+  }
+
+  const hashtagString = finalHashtags.length
+    ? '\n\n' + finalHashtags.map((h) => (h.startsWith('#') ? h : `#${h}`)).join(' ')
     : ''
-  const fullCaption = caption + hashtagString
+  const fullCaption = finalCaption + hashtagString
 
   // 5. Publish (TikTok only at launch)
   if (platform !== 'tiktok') {
@@ -261,7 +296,7 @@ export async function executePublish(params: ExecutePublishParams): Promise<Exec
     void notifyPublishSuccess({
       platform,
       mode: 'autofarm',
-      clipTitle: (caption ?? 'untitled').slice(0, 60),
+      clipTitle: (finalCaption ?? 'untitled').slice(0, 60),
     }).catch(() => {})
 
     return { success: true, postId }

@@ -772,6 +772,19 @@ Calibre sur le consensus open source (OpenShorts A/B, AutoShorts) — voir `BENC
   - **Hook style selector** (3 cols) : Shock (skull), Curiosity (eyes), Suspense (hourglass). Click change le style et auto-selectionne le hook text correspondant.
   - **Hook text variants** : 3 options generees par le VPS. Click selectionne text + style.
   - **Custom hook input** : max 60 chars, counter affiche.
+- **Follow CTA toggle** (P4 · 2026-09, emerald, independant du hook) : `ctaFollowEnabled` (default `true`). "FOLLOW FOR MORE" (ou variante 2-4 mots seedee par jobId) dans les ~1.2 dernieres secondes, ~80% hauteur, style caption (uppercase, blanc, outline noir). Envoye au VPS via `settings.ctaFollow.enabled`.
+
+### 7b. Hook Hunter — regles de generation (P4 · 2026-09, `vps/lib/hook-generator.js`)
+
+Source : `RECHERCHE-ALGO-VIRALITE-2026.md` Partie 5-7 (TikTok SEO indexe le texte a l'ecran + la caption).
+
+- **`generateHookPackage()`** (nouveau) → `{ hooks[], nicheKeyword, breaking, color }`. `generateHookTexts()` reste un wrapper retro-compatible (retourne `hooks`).
+- **niche_keyword** : 1-3 mots extraits par Claude (transcript + titre + streamer + niche), fallback `deriveNicheKeyword()` (titre → streamer → niche). Renvoye par `POST /api/render/hook` (`data.niche_keyword`), stocke dans `settings.hookNicheKeyword` → payload render `settings.hook.nicheKeyword` → `render_jobs.render_settings.niche_keyword`. Consomme par le Caption Studio (`/api/captions/distribution`) et le diversifieur de publication.
+- **Regles prompt** : 4-8 mots, UPPERCASE, max 45 chars, 1 emoji max, pas de vulgarite (meme censuree), le hook DOIT contenir le keyword. Validation soft : `console.warn` `keyword_missing` / `word_count` — jamais d'echec render.
+- **Framing "breaking"** : autorise seulement si `feed_category ∈ {early_gem, hot_now}` ou clip < 6h (`isBreakingEligible`). Sinon curiosity / shock / storytelling, prefixe `BREAKING:` strippe.
+- **Vulgarite** : `BANNED_WORDS` (miroir de `lib/distribution/caption-filters.ts`) strippee des hooks ET du fallback titre.
+- **Couleur du hook** (`getHookColor`, miroir TS `lib/enhance/hook-color.ts`) : `white` par defaut ; `yellow` si mood ∈ {hype, wholesome} ; `red` si mood ∈ {rage, shock} OU style shock OU breaking. Seules ces 3 valeurs sont acceptees (`hook.color` Zod preprocess → inconnu = white). Appliquee dans `captureHookOverlayPNG` (sticker = fond colore, outline/capsule = texte colore) et dans le LivePreview.
+- **Input `/api/render/hook`** etendu : `feedCategory`, `clipCreatedAt`, `mood`.
 
 ---
 
@@ -836,13 +849,15 @@ Merge `MOOD_PRESETS[mood]` + `PLATFORM_THEME[platform].tagStyle`.
 {
   transcript: string, wordTimestamps: [{word, start, end}], audioPeaks: [{time, amplitude}],
   duration: number, title: string, streamerName: string, niche: string,
-  hookLength: number(0-300), maxContext: number
+  hookLength: number(0-300), maxContext: number,
+  feedCategory?: string | null, clipCreatedAt?: string | null, mood?: string   // P4 · Hook Hunter
 }
 ```
 **Proxy** : forwarde au VPS Railway.
 **Output** :
 ```typescript
-{ data: { peak: { peakTime, peakScore, scores[], windowSize }, hooks: [{ style, label, text }], reorder: { segments, totalDuration, peakTime } } }
+{ data: { peak: { peakTime, peakScore, scores[], windowSize }, hooks: [{ style, label, text, color }], reorder: { segments, totalDuration, peakTime },
+          niche_keyword: string | null, breaking: boolean, hook_color: 'white' | 'yellow' | 'red' } }
 ```
 **429** : "Daily limit reached (50/day). Upgrade to Pro for 500/day."
 
@@ -877,6 +892,14 @@ Body construit par `handleRender()` :
 `updateRenderJob()` dans `vps/routes/render.js` verifie desormais `error` retourne par supabase-js (qui ne throw jamais), retry 1x, et retourne `{ ok, error }`. L'ecriture finale (status + storage_path + clip_url + quality_tier + contract + transform_score) a un fallback : si le payload riche est rejete (ex. colonne inconnue), re-ecriture minimale (status + storage_path + clip_url) pour que le render reussi ne soit jamais perdu. Le safety net du `finally` distingue maintenant « pipeline crash » (force `error`) de « render reussi mais ecriture echouee » (`succeededTerminal` → recupere en `done`/`degraded`).
 
 Incident a l'origine : `transform_score` reference dans le code depuis 881c24b sans migration → chaque render reussi finissait en `error` avec « Render pipeline exited without setting terminal status ». Migration ajoutee : `20260903_render_jobs_transform_score.sql`. Regle : toute nouvelle colonne ecrite par le VPS DOIT avoir sa migration appliquee en prod avant deploy (`scripts/check-migrations.ts`).
+
+### CTA follow overlay (VPS, P4 · 2026-09 — `vps/lib/cta-overlay.js`)
+
+Module standalone (ne touche ni `subtitle-generator.js` ni `ffmpeg-render.js`). Juste avant `renderClip()` dans `vps/routes/render.js`, apres toutes les regenerations ASS (trim / auto-cut / reorder / diversify) :
+- captions actives → `appendCtaToAss()` ajoute UNE ligne `Dialogue` (layer 5, `\an5\pos(50%,80%)`, `\fs` = 3.2% hauteur, blanc, outline noir, `\fad(150,0)`) sur les 1.2 dernieres secondes, en referencant le style `Default` existant (string append avant ecriture du fichier).
+- captions desactivees → `buildStandaloneCtaAss()` ecrit `cta.ass` minimal, passe a `renderClip` via `captions: { assFilePath }` uniquement (pas de spread des settings captions).
+- clip < 4s → skip intentionnel. Texte : `settings.ctaFollow.text` sinon variante seedee (`CTA_VARIANTS`, seed = jobId) : "FOLLOW FOR MORE", "MORE CLIPS DAILY", ... Jamais "like".
+- Contract : feature `cta_follow` **non-critique** (`vps/lib/render-contract.js`), `requested = settings.ctaFollow?.enabled !== false`, **exclue du `transformScore`**. Trace : `CTA FOLLOW: appended|standalone|SKIPPED`.
 
 ### Pipeline Summary (self-contained)
 
@@ -970,6 +993,9 @@ Single source of truth Zod. Utilise par :
 - `captions.animation` : string (derive du captionStyle dans le frontend)
 - `hook.reorder` : nullable object avec segments array
 - `hook.overlayPng` : nullable string (base64)
+- `hook.color` : enum `white | yellow | red` (preprocess : valeur inconnue → `white`) — P4
+- `hook.nicheKeyword` : string(60) nullable — persiste dans `render_jobs.render_settings.niche_keyword` — P4
+- `ctaFollow` : `{ enabled?: boolean (default true), text?: string(32), seed?: string }` — overlay "FOLLOW FOR MORE" dernieres 1.2s — P4
 - `audioEnhance.bassBoost` / `speedRamp` : enum avec defaults `'off'`
 - `autoCut.silenceThreshold` : 0.2-1.0
 - `autoCut.mood` : string (pour adaptive threshold server-side)

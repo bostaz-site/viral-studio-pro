@@ -35,6 +35,12 @@ const inputSchema = z.object({
       reorderEnabled: z.boolean().optional(),
       text: z.string().optional(),
       style: z.enum(['shock', 'curiosity', 'suspense']).optional(),
+      // P4: hook color (white|yellow|red, unknown → white) + niche keyword (SEO alignment)
+      color: z.preprocess(
+        (v) => (typeof v === 'string' && ['white', 'yellow', 'red'].includes(v) ? v : 'white'),
+        z.enum(['white', 'yellow', 'red']),
+      ).optional(),
+      nicheKeyword: z.string().max(60).nullable().optional(),
       length: z.number().optional(),
       textPosition: z.number().optional(),
       overlayPng: z.string().nullable().optional(), // base64 PNG from browser capture
@@ -85,6 +91,11 @@ const inputSchema = z.object({
         estimatedDuration: z.number(),
         role: z.enum(['hook', 'reaction', 'closer']),
       })).optional(),
+    }).optional(),
+    // P4 · CTA follow overlay — default ON when omitted (non-critical render feature)
+    ctaFollow: z.object({
+      enabled: z.boolean().optional(),
+      text: z.string().max(32).optional(),
     }).optional(),
   }).optional(),
   variants: z.array(z.object({
@@ -333,6 +344,10 @@ export const POST = withAuth(async (request, user) => {
     caption_enabled: settings.captions?.enabled ?? null,
     hook_enabled: settings.hook?.enabled ?? null,
     hook_style: settings.hook?.style ?? null,
+    hook_color: settings.hook?.color ?? null,
+    // P4: persisted so the caption generator / publish diversifier can align the keyword
+    niche_keyword: settings.hook?.nicheKeyword ?? null,
+    cta_follow_enabled: settings.ctaFollow?.enabled ?? true,
     smart_zoom_mode: settings.smartZoom?.mode ?? null,
     smart_zoom_enabled: settings.smartZoom?.enabled ?? null,
     audio_enhance_enabled: settings.audioEnhance?.enabled ?? null,
@@ -421,6 +436,8 @@ export const POST = withAuth(async (request, user) => {
       autoCut: settings?.autoCut ?? { enabled: true, silenceThreshold: 1.2 },
       // VO is on standby (NEXT_PUBLIC_VOICEOVER_ENABLED, default off) — never default to enabled.
       voiceover: settings?.voiceover ?? { enabled: process.env.NEXT_PUBLIC_VOICEOVER_ENABLED === 'true' },
+      // P4 · CTA follow overlay: default ON, seeded by job id for text variant rotation
+      ctaFollow: { enabled: settings?.ctaFollow?.enabled ?? true, text: settings?.ctaFollow?.text, seed: job.id },
       sourcePlatform: clipPlatform ?? undefined,
     },
     variants: resolvedVariants && resolvedVariants.length > 0 ? resolvedVariants : undefined,

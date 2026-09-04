@@ -13,7 +13,9 @@
 | `components/distribution/distribution-hub.css` | Styles dedies (~3554 lignes) — cyan theme, glass cards, modal overlays, scrollbars, animations |
 | `components/distribution/platform-picker-modal.tsx` | Modal Platform Picker (~165 lignes) — selectionner plateformes, accessibilite (Escape, aria-modal) |
 | `components/distribution/clip-picker-modal.tsx` | Modal Clip Picker (~153 lignes) — Bank/Remixes tabs, selectionner clip a publier |
-| `lib/ai/caption-engine.ts` | AI Caption Engine : Claude Haiku per-platform captions + hashtags (WIRED_REAL) |
+| `lib/ai/caption-engine.ts` | AI Caption Engine : Claude Haiku per-platform captions + hashtags (WIRED_REAL) — structure SEO P4 (keyword + question + credit + 1-3 tags niche) |
+| `lib/distribution/caption-filters.ts` | Bans (hashtags generiques, engagement bait, vulgarite) + `sanitizeDescription()` — source unique P4 |
+| `lib/distribution/caption-diversifier.ts` | Variante de caption seedee (Haiku) quand le meme clip est republie avec une caption identique — fail-open |
 | `app/api/captions/distribution/route.ts` | POST endpoint : auth, Zod, rate limit, cache, DB persist |
 | `lib/distribution/caption-engine.ts` | Moteur de captions template (fallback) : 10 tones, block mixing, risk/reward metadata |
 | `lib/distribution/tracking-simulator.ts` | Simulation post-publish : chaos engine + variant-aware projections |
@@ -533,9 +535,34 @@ return `M ${sx} ${sy} C ${c1x} ${c1y}, ${c2x} ${c2y}, ${ex} ${ey}`
 ### Platform constraints (enforced server-side)
 | Platform | Caption | Hashtags | Title | Description | Tags |
 |---|---|---|---|---|---|
-| TikTok | <= 300 chars (UI) / 2200 (API) | 8 | — | — | — |
-| Instagram | <= 220 chars | 12 | — | — | — |
-| YouTube Shorts | — | — | <= 60 chars | <= 200 chars | 5 |
+| TikTok | soft < 100 chars avant hashtags, hard 150 (P4) | 1-3 niche | — | — | — |
+| Instagram | soft 120 / hard 220 chars | 3-5 niche | — | — | — |
+| YouTube Shorts | — | — | <= 60 chars (contient le keyword) | <= 200 chars | 5 |
+
+### Copywriter SEO — structure + bans (P4 · 2026-09)
+Source : `RECHERCHE-ALGO-VIRALITE-2026.md` Partie 5-7. Un seul keyword de niche aligne partout (hook a l'ecran + description) ; une vraie question ouverte = +26% commentaires ; demander des likes = -60% interactions ; hashtags generiques ignores par le SEO TikTok.
+
+**Structure imposee (prompt + post-filter `sanitizeDescription()`)** :
+`[phrase contenant niche_keyword] + [1 question ouverte au viewer] + [credit @streamer] + [1-3 hashtags niche]`
+
+**`lib/distribution/caption-filters.ts`** — source unique des bans, reutilisee par `lib/ai/caption-engine.ts` (AI), `lib/distribution/caption-engine.ts` (templates, `BLACKLISTED_HASHTAGS = BANNED_HASHTAGS`) et `caption-diversifier.ts` :
+- `BANNED_HASHTAGS` : #fyp #fypage #foryou #foryoupage #viral #viralvideo #trending #xyzbca #explore #mustwatch #goviral #blowup #algorithm ... (strippes du texte ET de la liste)
+- `BANNED_ENGAGEMENT_BAIT` : "like if", "like this if", "tag a friend", "comment yes", "double tap", "smash that like", "hit like", "drop a like"... (la phrase entiere est retiree)
+- `BANNED_HYPE_PHRASES` : les 18 phrases spam du quality gate 881c24b (deplacees ici)
+- `BANNED_WORDS` : vulgarite/slurs (mot entier) — miroir JS dans `vps/lib/hook-generator.js`
+- "follow for more" : autorise UNIQUEMENT en cloture courte a la fin (`normalizeFollowCta`), retire ailleurs
+- Keyword manquant → prepend soft + warning `keyword_missing` ; credit manquant → append `@handle` ; pas de `?` → warning `no_question` (soft)
+- `filterHashtags(raw, max)` : normalise `#`, dedupe, retire les bans, cap 3 (TikTok)
+
+**Inputs** : `POST /api/captions/distribution` accepte `nicheKeyword` + `title` ; si absents, resout `render_jobs.render_settings.niche_keyword` (persiste au render par le Hook Hunter) et `author_handle` / `niche` depuis `trending_clips`. Le fallback template (sans cle API) suit la meme structure (phrase keyword + question + credit + tags niche, plus aucun #viral/#fyp).
+
+### Diversification des captions a la publication (P4 · 2026-09)
+`lib/distribution/caption-diversifier.ts` — `diversifyCaptionIfDuplicate()` :
+- Declenchee dans `app/api/publish/[platform]/route.ts` (avant l'insert `publications`) et `lib/distribution/execute-publish.ts` (cron autofarm, `seed = scheduled_publications.id`).
+- Detection : une ligne `publications` (ou `scheduled_publications` status `published`) existe pour le meme `clip_id` avec une caption IDENTIQUE → repost multi-plateforme/compte/horaire.
+- Variante : 1 appel Haiku (`feature: caption_diversify` dans `ai_calls`, ~300 tokens, timeout 10s) — nouvelle formulation + nouvelle question, MEME keyword, hashtags rotates deterministiquement par seed (`rotateHashtags`, jamais de tag banni), puis `sanitizeDescription()`.
+- **Fail-open** : pas de cle / erreur API / parse → caption originale (hashtags eventuellement rotates). Caption vide → jamais diversifiee.
+- La caption/hashtags finaux sont ceux stockes dans `publications` et envoyes a TikTok.
 
 ### Rate limits
 - Free plan: 10 generations/day

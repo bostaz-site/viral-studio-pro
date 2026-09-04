@@ -1107,9 +1107,10 @@ export function DistributionHub() {
         body: JSON.stringify({
           clipId: selectedClip.id,
           transcript: selectedClip.title || '',
+          title: selectedClip.title || undefined,
           mood: tone === 'general' ? 'hype' : tone,
           streamerName: undefined,
-          sourceStreamer: undefined,
+          sourceStreamer: undefined, // resolved server-side from trending_clips (P4)
           platforms: enabledPlatforms,
         }),
       })

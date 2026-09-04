@@ -8,7 +8,8 @@ import { promisify } from 'util';
 import { renderClip, extractThumbnail, checkFfmpegAvailability, buildFollowFaceFilter } from '../lib/ffmpeg-render.js';
 import { generateASS, generateStaticASS, validateWordTimestamps, DEFAULT_WORDS_PER_LINE } from '../lib/subtitle-generator.js';
 import { detectFaces } from '../lib/face-tracker.js';
-import { detectPeakMoment, generateHookTexts, calculateReorderTimestamps } from '../lib/hook-generator.js';
+import { detectPeakMoment, generateHookPackage, calculateReorderTimestamps } from '../lib/hook-generator.js';
+import { appendCtaToAss, buildStandaloneCtaAss, pickCtaText } from '../lib/cta-overlay.js';
 import { detectBurnedCaptions } from '../lib/caption-detector.js';
 // caption-png.js and drawtext-wordpop.js removed — all animations now use ASS subtitles
 import { transcribeWithWhisper } from '../lib/whisper-client.js';
@@ -672,7 +673,8 @@ router.post('/', async (req, res) => {
     trc(`settings.captions=${JSON.stringify(settings.captions)}`);
     trc(`settings.splitScreen=${JSON.stringify(settings.splitScreen)}`);
     trc(`settings.format=${JSON.stringify(settings.format)}`);
-    trc(`settings.hook=${JSON.stringify({ enabled: settings.hook?.enabled, textEnabled: settings.hook?.textEnabled, reorderEnabled: settings.hook?.reorderEnabled, text: settings.hook?.text?.substring(0, 30), hasOverlayPng: !!(settings.hook?.overlayPng), hasReorder: !!(settings.hook?.reorder), reorderSegments: settings.hook?.reorder?.segments?.length || 0 })}`);
+    trc(`settings.hook=${JSON.stringify({ enabled: settings.hook?.enabled, textEnabled: settings.hook?.textEnabled, reorderEnabled: settings.hook?.reorderEnabled, text: settings.hook?.text?.substring(0, 30), hasOverlayPng: !!(settings.hook?.overlayPng), hasReorder: !!(settings.hook?.reorder), reorderSegments: settings.hook?.reorder?.segments?.length || 0, nicheKeyword: settings.hook?.nicheKeyword || null, color: settings.hook?.color || null })}`);
+    trc(`settings.ctaFollow=${JSON.stringify({ enabled: settings.ctaFollow?.enabled !== false, text: settings.ctaFollow?.text || null })}`);
     trc(`settings.audioEnhance=${JSON.stringify(settings.audioEnhance)}`);
     trc(`settings.autoCut=${JSON.stringify(settings.autoCut)}`);
     const envHasOpenAI = !!process.env.OPENAI_API_KEY;
@@ -1722,6 +1724,49 @@ router.post('/', async (req, res) => {
       trc(`DIVERSIFY SUMMARY: seed=${div.seed} audioShift=+${div.audioShiftPct}% entryTrim=${div.entryTrimS}s captionPos=${div.captionMarginVPct}% captionSize=${div.captionSizePct}% colorIdx=${div.captionColorIdx} voiceIdx=${div.voiceIdx} hookPos=${div.hookPosPct}% hookSize=${div.hookSizePct}% hookDelay=${div.hookDelayS}s zoomAmp=${div.zoomAmpMult}x zoomPhase=${div.zoomPhase} grain=${div.grainStrength} borderCrop=${div.borderCropPx}px hue=${div.hueDeg}deg sat=${div.saturation} bright=${div.brightness} crf=${div.crfVariant} fps=${div.fpsVariant}`);
     }
 
+    // ── P4 · CTA follow overlay (last ~1.2s, ~80% height, caption-like) ──
+    // Non-critical. Appended as ONE extra ASS Dialogue line AFTER all caption
+    // regenerations (trim/auto-cut/reorder/diversify) so timings stay correct.
+    // If captions are disabled, a minimal standalone .ass carries only the CTA.
+    let ctaOnlyAssPath = null;
+    const ctaEnabled = settings.ctaFollow?.enabled !== false;
+    if (!ctaEnabled) {
+      contract.record('cta_follow', false, 'disabled by user', null, true);
+      trc('CTA FOLLOW: disabled by user');
+    } else {
+      try {
+        const ctaSeed = settings.ctaFollow?.seed || jobId || clipId || '';
+        const ctaOpts = { duration, canvasW, canvasH, text: settings.ctaFollow?.text, seed: ctaSeed };
+        const ctaText = pickCtaText({ text: settings.ctaFollow?.text, seed: ctaSeed });
+        if (assFilePath) {
+          const existingAss = await fs.readFile(assFilePath, 'utf-8');
+          const cta = appendCtaToAss(existingAss, ctaOpts);
+          if (cta.applied) {
+            await fs.writeFile(assFilePath, cta.content, 'utf-8');
+            contract.record('cta_follow', true, null, { text: ctaText, mode: 'appended' });
+            trc(`CTA FOLLOW: appended to captions.ass — "${ctaText}" @ ${(duration - 1.2).toFixed(2)}s→${duration.toFixed(2)}s`);
+          } else {
+            contract.record('cta_follow', false, cta.reason, null, cta.reason === 'clip_too_short');
+            trc(`CTA FOLLOW SKIPPED: reason=${cta.reason}`);
+          }
+        } else {
+          const standalone = buildStandaloneCtaAss(ctaOpts);
+          if (standalone) {
+            ctaOnlyAssPath = path.join(tempDir, 'cta.ass');
+            await fs.writeFile(ctaOnlyAssPath, standalone, 'utf-8');
+            contract.record('cta_follow', true, null, { text: ctaText, mode: 'standalone' });
+            trc(`CTA FOLLOW: standalone cta.ass (captions off) — "${ctaText}" @ ${(duration - 1.2).toFixed(2)}s→${duration.toFixed(2)}s`);
+          } else {
+            contract.record('cta_follow', false, 'clip too short', null, true);
+            trc('CTA FOLLOW SKIPPED: reason=clip_too_short (<4s)');
+          }
+        }
+      } catch (ctaErr) {
+        contract.record('cta_follow', false, ctaErr.message);
+        trc(`CTA FOLLOW FAILED (non-fatal): ${ctaErr.message}`);
+      }
+    }
+
     trc(`AUDIO SHIFT: +${div?.audioShiftPct ?? 3}% asetrate/atempo anti-fingerprint will be applied (always-on)`);
     trc(`RENDER START: duration=${duration.toFixed(2)}s probed=${probedDuration.toFixed(2)}s voiceover=${voiceoverPaths ? voiceoverPaths.length + ' MP3s' : 'none'} smartZoom=${settings.smartZoom?.mode || 'micro'} videoZoom=${settings.format?.videoZoom || 'auto'}`);
     console.log(`[Render ${renderSessionId}] Starting FFmpeg render...`);
@@ -1746,7 +1791,7 @@ router.post('/', async (req, res) => {
       aspectRatio: settings.format?.aspectRatio || '9:16',
       captions: assFilePath
         ? { assFilePath, ...settings.captions }
-        : null,
+        : (ctaOnlyAssPath ? { assFilePath: ctaOnlyAssPath } : null), // CTA-only ASS when captions are off
       watermark: watermarkConfig,
       plan: userPlan,
       tag: tagConfig,
@@ -2332,9 +2377,12 @@ router.post('/hook', async (req, res) => {
       title = '',
       hookLength = 1.5,
       maxContext = 8,
+      feedCategory = null,
+      clipCreatedAt = null,
+      mood = '',
     } = req.body;
 
-    console.log(`[Hook] Generating hooks: duration=${duration}s, words=${wordTimestamps.length}, peaks=${audioPeaks.length}`);
+    console.log(`[Hook] Generating hooks: duration=${duration}s, words=${wordTimestamps.length}, peaks=${audioPeaks.length}, feed=${feedCategory || '-'}, mood=${mood || '-'}`);
 
     // 1. Detect peak moment
     const peak = detectPeakMoment({
@@ -2344,14 +2392,18 @@ router.post('/hook', async (req, res) => {
       duration,
     });
 
-    // 2. Generate 3 hook text variants (Claude API — content-aware)
-    const hooks = await generateHookTexts({
+    // 2. Generate 3 hook text variants + niche keyword (Claude API — content-aware, P4 rules)
+    const hookPkg = await generateHookPackage({
       transcript,
       streamerName,
       niche,
       title,
       peakTranscript: peak.peakTranscript || '',
+      feedCategory,
+      clipCreatedAt,
+      mood,
     });
+    const hooks = hookPkg.hooks;
 
     // 3. Calculate reorder timestamps
     const reorder = calculateReorderTimestamps(
@@ -2368,6 +2420,10 @@ router.post('/hook', async (req, res) => {
         peak,
         hooks: hooks || [], // null = no content-aware hook possible
         reorder,
+        // P4 · Copywriter SEO: keyword aligned between on-screen hook + description
+        niche_keyword: hookPkg.nicheKeyword || null,
+        breaking: hookPkg.breaking,
+        hook_color: hookPkg.color,
       },
       error: null,
     });

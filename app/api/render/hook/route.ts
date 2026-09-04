@@ -33,6 +33,10 @@ const inputSchema = z.object({
   niche: z.string().optional().default('irl'),
   hookLength: z.number().min(0).max(300).optional().default(0),
   maxContext: z.number().optional().default(8),
+  // P4 · Hook Hunter: freshness (breaking framing) + mood (hook color)
+  feedCategory: z.string().max(40).nullable().optional(),
+  clipCreatedAt: z.string().max(40).nullable().optional(),
+  mood: z.string().max(20).optional().default(''),
 })
 
 // ── VPS webhook (render completion callback) ─────────────────────
