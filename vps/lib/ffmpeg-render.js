@@ -113,11 +113,24 @@ function getTierFps(tier, sourceFps) {
   return 30;
 }
 
+/**
+ * Should this FFmpeg failure trigger a fallback to a lighter tier?
+ * Covers classic OOM (SIGKILL / 137 / null exit) AND native crashes that are
+ * almost always memory-pressure related on a small container: SIGABRT / SIGSEGV /
+ * SIGBUS and glibc heap-corruption aborts ("malloc_consolidate(): invalid chunk
+ * size", "double free", "corrupted"). A retry at 720p / lighter preset succeeds in
+ * practice — failing the whole job on a transient native crash is the worse outcome.
+ */
 function isOOMError(err) {
   if (!err) return false;
   const msg = err.message || '';
-  return err.killed === true || err.signal === 'SIGKILL' || err.exitCode === null || err.exitCode === 137
-    || msg.includes('signal=SIGKILL') || msg.includes('killed=true') || msg.includes('code=null') || msg.includes('code=137');
+  const nativeCrashSignal = ['SIGKILL', 'SIGABRT', 'SIGSEGV', 'SIGBUS'];
+  if (err.killed === true || err.exitCode === null || err.exitCode === 137 || err.exitCode === 134 || err.exitCode === 139) return true;
+  if (nativeCrashSignal.includes(err.signal)) return true;
+  if (nativeCrashSignal.some(s => msg.includes(`signal=${s}`))) return true;
+  if (msg.includes('killed=true') || msg.includes('code=null') || msg.includes('code=137') || msg.includes('code=134') || msg.includes('code=139')) return true;
+  const heapCorruption = /malloc_consolidate|malloc\(\): |free\(\): |double free|corrupted (size|double-linked)|invalid chunk size|Out of memory|Cannot allocate memory/i;
+  return heapCorruption.test(msg);
 }
 
 async function probeSourceFps(inputPath) {
