@@ -432,7 +432,14 @@ async function checkAutomationSilence(admin: SupabaseClient): Promise<AlertCandi
     .from('lab_agent_status')
     .select('id, status, last_heartbeat_at, last_error')
 
+  // LAB_AGENT_EXPECTED: set to 'true' to enable lab agent silence alerts.
+  // Default false = lab agent check skipped (no false alarms when daemon is off).
+  const labAgentExpected = process.env.LAB_AGENT_EXPECTED === 'true'
+
   for (const row of statuses ?? []) {
+    // Skip lab agent check if not expected to be running
+    if (row.id === 'singleton' && !labAgentExpected) continue
+
     const lastBeat = row.last_heartbeat_at ? new Date(row.last_heartbeat_at) : null
     if (!lastBeat || lastBeat.toISOString() < cutoff) {
       const silentDays = lastBeat
