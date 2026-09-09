@@ -155,6 +155,29 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // 2c-bis. "Already edited" guard: vertical + burned captions = TikTok repost → never auto-publish
+    if (row.clip_id) {
+      const { data: clipSignals } = await (admin
+        .from('trending_clips')
+        .select('edit_signals' as '*')
+        .eq('id', row.clip_id)
+        .single() as unknown as Promise<{ data: { edit_signals: { source_has_burned_captions?: boolean; source_is_vertical?: boolean } | null } | null }>)
+
+      const es = clipSignals?.edit_signals
+      if (es?.source_has_burned_captions && es?.source_is_vertical) {
+        await admin
+          .from('scheduled_publications')
+          .update({
+            status: 'canceled',
+            error_message: 'already edited clip (vertical + burned captions) — auto-publish blocked',
+            updated_at: new Date().toISOString(),
+          } as never)
+          .eq('id', row.id)
+        results.push({ id: row.id, status: 'canceled', error: 'already_edited' })
+        continue
+      }
+    }
+
     // 2d. Quality gate: TikTok originality policy (Sept 2025) — subtitles alone
     //     don't count as transformation. Autofarm requires ALL 3 features applied
     //     (hook_text + captions + smart_zoom = transform_score 3), a diversify
