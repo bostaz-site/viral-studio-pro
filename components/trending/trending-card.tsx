@@ -520,7 +520,7 @@ export const TrendingCard = memo(function TrendingCard({ clip, onRemix, onQuickE
   const riskBadge = clip.content_risk ? (
     <span
       className="absolute top-2 left-2 z-[7] flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-md bg-amber-500/20 text-amber-300 backdrop-blur-sm pointer-events-none"
-      title="Ce type de contenu (jeux d'argent / violence) est souvent restreint du For You feed par TikTok"
+      title="This content type (gambling / violence) is often restricted from TikTok's For You feed"
     >
       ⚠ TikTok risk
     </span>

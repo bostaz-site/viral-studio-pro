@@ -43,7 +43,7 @@ export const POST = withAuth(async (request: NextRequest, user) => {
 
   if (!job) {
     return NextResponse.json(
-      { data: null, error: 'No completed render found for this clip', message: 'Render le clip d\'abord' },
+      { data: null, error: 'No completed render found for this clip', message: 'Render the clip first' },
       { status: 404 }
     )
   }
