@@ -468,7 +468,10 @@ Three modes. **Dynamic is the new default** (replaces micro):
 
 `vps/lib/sfx.js` — mood-mapped sound effects placed on audio peaks.
 
-**Assets**: `vps/assets/sfx/` — WAV 48 kHz, CC0 licensed. Expected files: `whoosh-{1,2,3}.wav`, `bass-hit-{1,2}.wav`, `vine-boom.wav`, `ding.wav`, `glitch.wav`, `pop.wav`, `riser-short.wav`. Degrades gracefully if assets missing (logged, no SFX applied).
+**Assets**: `vps/assets/sfx/` — 10 WAV files, 48 kHz stereo, Pixabay royalty-free. All in place since 2026-09-09 (commit `303b93b`). R5 SFX layer is now fully operational.
+- `whoosh-1.wav`, `whoosh-2.wav`, `whoosh-3.wav`
+- `bass-hit-1.wav`, `bass-hit-2.wav`
+- `vine-boom.wav`, `ding.wav`, `glitch.wav`, `pop.wav`, `riser-short.wav`
 
 **Mood mapping**: rage → bass hit/glitch/boom, funny → boom/pop/ding, drama → riser/bass/glitch, wholesome → ding/pop/riser, hype → whoosh/bass/boom, story → riser/whoosh/ding.
 
