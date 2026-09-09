@@ -35,6 +35,7 @@ import { PlatformPickerModal } from './platform-picker-modal'
 import { ClipPickerModal } from './clip-picker-modal'
 import { TikTokPublishDialog } from './tiktok-publish-dialog'
 import { ClipBankRail } from './clip-bank-rail'
+import { getGateInfo } from '@/lib/distribution/gate-reasons'
 import './distribution-hub.css'
 
 /* ─── Types ─── */
@@ -49,6 +50,8 @@ interface ClipBankItem {
   source: 'trending' | 'upload'
   renderStatus?: string
   transformScore?: number | null
+  gateSkipped?: boolean
+  gateReason?: string | null
 }
 
 type ClipState = 'scheduled' | 'best' | 'priority' | 'ready' | 'draft' | 'needs-video' | 'broken-preview'
@@ -212,8 +215,9 @@ const PLATFORM_CAPTION_ICONS: Record<string, { icon: string; label: string }> = 
   instagram: { icon: '\u25CE', label: 'Instagram Reels' },
 }
 
-function SmartQueueSection({ clipBank }: { clipBank: ClipBankItem[] }) {
+function SmartQueueSection({ clipBank, gateRefusals }: { clipBank: ClipBankItem[]; gateRefusals: Map<string, { status: string; error: string | null }> }) {
   const { queue, isGenerating, init, setClipBank, setLearnedProfile, learnedProfile, getDoNothingPreview, showOverrideToast, confirmOverrideLearning, dismissOverrideToast } = useQueueStore()
+  const router = useRouter()
   const [expanded, setExpanded] = useState(false)
 
   // Init store on mount
@@ -361,6 +365,8 @@ function SmartQueueSection({ clipBank }: { clipBank: ClipBankItem[] }) {
                     <span className="text-[9px] text-cyan-400/60 mt-0.5 truncate">{post.learnedReasons[0]}</span>
                   </div>
                 )}
+
+                {/* Gate refusal display moved to DistributionHub main render (this section is unused) */}
               </div>
 
               {/* Score badge */}
@@ -470,6 +476,9 @@ export function DistributionHub() {
   const typewriterRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const [countdown, setCountdown] = useState('')
   const [postPulseActive, setPostPulseActive] = useState(false)
+  // Gate refusal tracking — polled from scheduled_publications
+  const [gateRefusals, setGateRefusals] = useState<Map<string, { status: string; error: string | null }>>(new Map())
+  const [skippedClipIds, setSkippedClipIds] = useState<Set<string>>(new Set())
   const [postSuccessActive, setPostSuccessActive] = useState(false)
   const [postFlashPlatform, setPostFlashPlatform] = useState<string | null>(null)
   const [liveCountdown, setLiveCountdown] = useState('--:--:--')
@@ -720,10 +729,17 @@ export function DistributionHub() {
   /* Live countdown to next scheduled post — ticks every second */
   useEffect(() => {
     function calcCountdown() {
-      const visiblePosts = queue?.posts.filter(p => !removedClipIds.has(p.clip.id)) ?? []
+      const now = Date.now()
+      // Filter out: removed clips, gate-skipped clips, and past posts (already passed or canceled)
+      const visiblePosts = queue?.posts.filter(p => {
+        if (removedClipIds.has(p.clip.id)) return false
+        if (skippedClipIds.has(p.clip.id)) return false
+        if (new Date(p.scheduledAt).getTime() < now - 60_000) return false // past by >1min
+        return true
+      }) ?? []
       const nextPost = visiblePosts[0]
       if (!nextPost) { setLiveCountdown('--:--:--'); setCountdown('--'); return }
-      const diff = Math.max(0, new Date(nextPost.scheduledAt).getTime() - Date.now())
+      const diff = Math.max(0, new Date(nextPost.scheduledAt).getTime() - now)
       const h = Math.floor(diff / 3_600_000)
       const m = Math.floor((diff % 3_600_000) / 60_000)
       const s = Math.floor((diff % 60_000) / 1_000)
@@ -733,7 +749,36 @@ export function DistributionHub() {
     calcCountdown()
     const interval = setInterval(calcCountdown, 1000)
     return () => clearInterval(interval)
-  }, [queue, removedClipIds])
+  }, [queue, removedClipIds, gateRefusals])
+
+  /* Poll scheduled_publications status every 60s to detect gate cancellations */
+  useEffect(() => {
+    if (!aiAutoDistribute) return
+    let cancelled = false
+    async function poll() {
+      try {
+        const res = await fetch('/api/distribution/scheduled-status')
+        if (!res.ok || cancelled) return
+        const json = await res.json() as { data?: { publications: Array<{ clip_id: string; status: string; error_message: string | null }> } }
+        const pubs = json.data?.publications ?? []
+        const refusals = new Map<string, { status: string; error: string | null }>()
+        const skipped = new Set<string>()
+        for (const p of pubs) {
+          if (p.status === 'canceled' || p.status === 'failed') {
+            refusals.set(p.clip_id, { status: p.status, error: p.error_message })
+            skipped.add(p.clip_id)
+          }
+        }
+        if (!cancelled) {
+          setGateRefusals(refusals)
+          setSkippedClipIds(skipped)
+        }
+      } catch { /* silent */ }
+    }
+    poll()
+    const interval = setInterval(poll, 60_000)
+    return () => { cancelled = true; clearInterval(interval) }
+  }, [aiAutoDistribute])
 
   // Sync publishProgress with publish sequence steps
   useEffect(() => {
@@ -2069,7 +2114,14 @@ export function DistributionHub() {
         )}
         <div className="dist-core-panel-stats">
           {(() => {
-            const visibleQueuePosts = queue?.posts.filter(p => !removedClipIds.has(p.clip.id)) ?? []
+            const now = Date.now()
+            const visibleQueuePosts = queue?.posts.filter(p => {
+              if (removedClipIds.has(p.clip.id)) return false
+              if (skippedClipIds.has(p.clip.id)) return false
+              if (new Date(p.scheduledAt).getTime() < now - 60_000) return false
+              return true
+            }) ?? []
+            const gateSkippedCount = skippedClipIds.size
             const nextPost = visibleQueuePosts[0]
             return (
               <>
@@ -2103,6 +2155,16 @@ export function DistributionHub() {
                         })()}
                   </span>
                 </div>
+                {gateSkippedCount > 0 && (
+                  <>
+                    <div className="dist-core-stat-divider" />
+                    <div className="dist-core-stat">
+                      <span className="stat-label" style={{ color: '#F87171' }}>SKIPPED</span>
+                      <span className="stat-value" style={{ color: '#F87171' }}>{gateSkippedCount}</span>
+                      <span className="stat-sub" style={{ color: '#FCA5A5' }}>Blocked by gate</span>
+                    </div>
+                  </>
+                )}
               </>
             )
           })()}
@@ -2149,7 +2211,11 @@ export function DistributionHub() {
 
       {/* ═══ CLIP BANK ═══ */}
       <ClipBankRail
-        clipBank={clipBank}
+        clipBank={clipBank.map(c => ({
+          ...c,
+          gateSkipped: skippedClipIds.has(c.id),
+          gateReason: gateRefusals.get(c.id)?.error ?? null,
+        }))}
         removedClipIds={removedClipIds}
         selectedClipId={selectedClipId}
         brokenThumbs={brokenThumbs}
