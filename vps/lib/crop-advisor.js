@@ -208,7 +208,21 @@ export async function adviseCrop(videoPath, opts = {}) {
       };
     }
 
-    console.log(`[CropAdvisor] Face not dominant enough (score=${faceScore.toFixed(2)}, center=${centeredness.toFixed(2)}) → fit [${elapsed}ms]`);
+    // Corner facecam detection: small face, off-center, stable position on ≥40% of frames
+    // = webcam overlay on gameplay → reaction layout (facecam top, content bottom)
+    const isCornerFace = avgSizeRatio > 0 && avgSizeRatio < 0.25 && centeredness < 0.5 && isStable;
+    const cornerDetectionRate = detectionRate >= 0.40;
+    if (isCornerFace && cornerDetectionRate) {
+      console.log(`[CropAdvisor] Corner facecam detected (size=${avgSizeRatio.toFixed(2)}, center=${centeredness.toFixed(2)}, rate=${detectionRate.toFixed(2)}, stable=${isStable}) → reaction [${elapsed}ms]`);
+      return {
+        recommended: 'reaction',
+        reason: `Corner facecam detected (${Math.round(avgSizeRatio * 100)}% size, ${Math.round(centeredness * 100)}% center, ${Math.round(detectionRate * 100)}% detection) — reaction layout splits webcam and content`,
+        faceScore,
+        details,
+      };
+    }
+
+    console.log(`[CropAdvisor] Face not dominant enough (score=${faceScore.toFixed(2)}, center=${centeredness.toFixed(2)}, corner=${isCornerFace}) → fit [${elapsed}ms]`);
     return {
       recommended: 'fit',
       reason: `Face not dominant enough for center crop (score ${Math.round(faceScore * 100)}%) — fit preserves full content`,
