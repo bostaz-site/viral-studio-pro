@@ -432,7 +432,7 @@ export const POST = withAuth(async (request, user) => {
     plan: callerPlan,
     watermark: { enabled: callerPlan === 'free' },
     settings: {
-      captions: settings?.captions ?? { enabled: true, style: 'word-pop', wordsPerLine: 4 },
+      captions: settings?.captions ?? { enabled: true, style: 'hormozi', wordsPerLine: 4 },
       hook: {
         ...(settings?.hook ?? { enabled: false }),
         reorderEnabled: false, // disabled (cuts mid-word)
