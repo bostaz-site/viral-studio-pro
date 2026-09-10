@@ -1451,6 +1451,7 @@ export async function renderClip(inputPath, outputPath, options = {}) {
       // bass, speed). SFX/voiceover are mixed BEFORE loudnorm via filter_complex.
       // When SFX is active, loudnorm is appended to the filter_complex after amix.
       const LOUDNORM = 'loudnorm=I=-14:TP=-2.0:LRA=11';
+      const hasSfx = Array.isArray(sfxPaths) && sfxPaths.length > 0;
       if (!hasSfx) {
         audioFilters.push(LOUDNORM);
       }
@@ -1469,8 +1470,7 @@ export async function renderClip(inputPath, outputPath, options = {}) {
         console.log(`[FFmpeg] Voiceover: added ${voiceoverPaths.length} MP3 inputs at indices ${voInputIdxStart}-${inputIdx - 1}`);
       }
 
-      // ── SFX: add WAV inputs ──
-      const hasSfx = Array.isArray(sfxPaths) && sfxPaths.length > 0;
+      // ── SFX: add WAV inputs ── (hasSfx declared above, before loudnorm decision)
       let sfxInputIdxStart = inputIdx;
       if (hasSfx) {
         for (const sfx of sfxPaths) {
