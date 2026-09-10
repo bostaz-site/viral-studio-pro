@@ -18,6 +18,8 @@ interface ClipBankItem {
   source: 'trending' | 'upload'
   renderStatus?: string
   transformScore?: number | null
+  gateSkipped?: boolean
+  gateReason?: string | null
 }
 
 interface ClipBankRailProps {
@@ -381,6 +383,9 @@ export function ClipBankRail({
                     )}
                     {clip.transformScore !== undefined && clip.transformScore !== null && clip.transformScore < 2 && clip.renderStatus !== 'degraded' && (
                       <span className="dist-status-pill missing" title="Add captions, hook, or voiceover to unlock auto-publish">Needs more edits</span>
+                    )}
+                    {clip.gateSkipped && (
+                      <span className="dist-status-pill missing" title={clip.gateReason || 'Auto-publish blocked by quality gate'}>Skipped by gate</span>
                     )}
                   </div>
                   {/* Score pill — bottom-right CORNER of the video thumbnail (overlay) */}

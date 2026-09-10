@@ -66,8 +66,8 @@ export function computeDiversify(jobId) {
   const zoomAmpMult = round2(0.85 + rand() * 0.30);        // ±15% of default
   const zoomPhase = round2(rand() * 0.15);                  // 0-15% phase offset
 
-  // 7. Invisible grain: noise strength 0-3 (0 = no grain, 1-3 temporal noise, imperceptible below 6)
-  const grainStrength = Math.floor(rand() * 4);
+  // 7. Invisible grain: strength 1-3 (never 0 when jobId exists — every render must have unique pixel hash, never > 3)
+  const grainStrength = 1 + Math.floor(rand() * 3);
 
   // 8. Border crop: 40-60px (was fixed 50px — varies hash)
   const borderCropPx = 40 + Math.floor(rand() * 21);

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { timingSafeCompare } from '@/lib/crypto'
-import { scoreClip } from '@/lib/scoring/clip-scorer'
+import { scoreClip, type ClipScoreInput } from '@/lib/scoring/clip-scorer'
 import { getClipsByIds } from '@/lib/twitch/client'
 import { logger } from '@/lib/logger'
 import { isAuditMode } from '@/lib/feature-flags'
@@ -48,7 +48,7 @@ export async function POST(req: NextRequest) {
     // 1. Select clips due for rescoring (NULL next_check_at = highest priority)
     const { data: clips, error: fetchErr } = await admin
       .from('trending_clips')
-      .select('id, external_url, platform, view_count, like_count, clip_created_at, created_at, title, duration_seconds, velocity, streamer_id')
+      .select('id, external_url, platform, view_count, like_count, clip_created_at, created_at, title, duration_seconds, velocity, streamer_id, edit_signals' as '*')
       .or(`next_check_at.is.null,next_check_at.lte.${now.toISOString()}`)
       .order('next_check_at', { ascending: true, nullsFirst: true })
       .limit(50)
@@ -219,6 +219,7 @@ export async function POST(req: NextRequest) {
           duration_seconds: clip.duration_seconds ?? undefined,
           snapshot_count: snapshotCount,
           prev_velocity: prevVelocity,
+          edit_signals: (clip as Record<string, unknown>).edit_signals as ClipScoreInput['edit_signals'] ?? null,
         })
 
         // Spike detection: current views > last snapshot views * 1.2

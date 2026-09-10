@@ -815,6 +815,7 @@ router.post('/', async (req, res) => {
       }
 
       // Log source resolution to diagnose vertical-vs-horizontal issues
+      let srcW = 0, srcH = 0;
       try {
         const probeRes = await execFileAsync('ffprobe', [
           '-v', 'quiet',
@@ -823,7 +824,7 @@ router.post('/', async (req, res) => {
           '-of', 'csv=p=0',
           inputPath,
         ]);
-        const [srcW, srcH] = probeRes.stdout.trim().split(',').map(Number);
+        [srcW, srcH] = probeRes.stdout.trim().split(',').map(Number);
         console.log(`[Render ${renderSessionId}] Source resolution: ${srcW}x${srcH} (${srcW > srcH ? 'horizontal' : 'vertical'})`);
         // Quality gate: warn on low-res sources that will produce visible upscale
         const minDim = Math.min(srcW || 0, srcH || 0);
@@ -968,6 +969,16 @@ router.post('/', async (req, res) => {
       settings.format = settings.format || {};
       settings.format.cropAnchor = anchor;
       trc(`BURNED CAPTIONS: anchoring crop to ${anchor}, source captions shown in full`);
+    }
+
+    // Persist edit signals (burned captions + vertical source) in trending_clips for scoring/browse
+    const sourceIsVertical = typeof srcH === 'number' && typeof srcW === 'number' && srcH >= srcW;
+    if (source === 'trending' && (burnedCaptionDetected || sourceIsVertical)) {
+      try {
+        const editSignals = { source_has_burned_captions: burnedCaptionDetected, source_is_vertical: sourceIsVertical, detected_at: new Date().toISOString() };
+        await supabase.from('trending_clips').update({ edit_signals: editSignals }).eq('id', clipId);
+        trc(`EDIT SIGNALS: burned_captions=${burnedCaptionDetected} vertical=${sourceIsVertical} → persisted to trending_clips`);
+      } catch { /* non-critical */ }
     }
 
     t('download_end');
@@ -1924,6 +1935,7 @@ router.post('/', async (req, res) => {
     const watermarkConfig = userPlan === 'free' && (await import('fs')).existsSync(watermarkAsset)
       ? { enabled: true, logoPath: watermarkAsset, type: 'viral-animal' }
       : null;
+    contract.record('watermark', !!watermarkConfig, watermarkConfig ? null : (userPlan !== 'free' ? 'paid plan' : 'asset not found'), null, userPlan !== 'free');
 
     const renderResult = await renderClip(inputPath, outputPath, {
       startTime: clipStartTime,

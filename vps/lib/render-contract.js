@@ -95,6 +95,14 @@ export function createContract(settings) {
     reason: null,
   });
 
+  // Watermark (non-critical, free plan only)
+  entries.push({
+    feature: 'watermark',
+    requested: settings.watermark?.enabled === true,
+    applied: false,
+    reason: null,
+  });
+
   // Split-screen (non-critical)
   entries.push({
     feature: 'split_screen',
@@ -225,7 +233,7 @@ export function createContract(settings) {
         if (e.feature === 'captions') score++;
         if (e.feature === 'smart_zoom') score++;
       }
-      return score;
+      return Math.min(score, 3); // max 3 (hook + captions + zoom)
     },
 
     /**

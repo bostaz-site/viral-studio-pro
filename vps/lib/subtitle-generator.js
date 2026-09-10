@@ -803,17 +803,7 @@ function generateKaraokeEvent(lineWords, clipStartTime, styleConfig, uppercase =
  * - "typewriter" — letters appear one by one (single event per group)
  * - "glow"      — outline glow pulse (1.5s cycle) on top of per-word highlight
  */
-export function generateAnimatedASS(wordTimestamps, options = {}) {
-  const {
-    animation = 'highlight',
-    style = 'hormozi',
-    clipStartTime = 0,
-    wordsPerLine = DEFAULT_WORDS_PER_LINE,
-    customColors = null,
-  } = options;
-
-  return generateASS(wordTimestamps, { ...options, animation, style, clipStartTime, wordsPerLine, customColors });
-}
+// generateAnimatedASS removed — was a dead-code wrapper around generateASS
 
 /**
  * Generate animated dialogue events for a single group of words.

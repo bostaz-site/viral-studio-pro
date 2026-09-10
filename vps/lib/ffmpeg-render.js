@@ -427,14 +427,17 @@ function buildSfxMixChain(sfxPaths, firstInputIdx, baseLabel, outLabel, clipDura
     labels.push(`[${label}]`);
   }
 
-  // amix all SFX together, then amix with base audio
+  // amix all SFX together, then amix with base audio, then loudnorm (LAST)
   let chain = ';' + parts.join(';');
+  const preNormLabel = '[sfxpre]';
   if (labels.length === 1) {
-    chain += `;${baseLabel}${labels[0]}amix=inputs=2:duration=first:dropout_transition=0:normalize=0${outLabel}`;
+    chain += `;${baseLabel}${labels[0]}amix=inputs=2:duration=first:dropout_transition=0:normalize=0${preNormLabel}`;
   } else {
     chain += `;${labels.join('')}amix=inputs=${labels.length}:duration=longest:normalize=0[sfxmix]`;
-    chain += `;${baseLabel}[sfxmix]amix=inputs=2:duration=first:dropout_transition=0:normalize=0${outLabel}`;
+    chain += `;${baseLabel}[sfxmix]amix=inputs=2:duration=first:dropout_transition=0:normalize=0${preNormLabel}`;
   }
+  // Loudnorm after SFX mix (critical: must be the LAST audio filter)
+  chain += `;${preNormLabel}loudnorm=I=-14:TP=-2.0:LRA=11${outLabel}`;
 
   return chain;
 }
@@ -885,8 +888,12 @@ export async function renderClip(inputPath, outputPath, options = {}) {
     if (wantDynamic) {
       try {
         const { analyzeAudioPeaksWithIntensity } = await import('./audio-peaks.js');
+        // Cooldown seeded by diversify: 6-8s (was fixed 6)
+        const zoomCooldown = diversify?.zoomAmpMult
+          ? 6 + (diversify.zoomAmpMult - 0.85) * (2 / 0.30) // maps 0.85-1.15 → 6-8
+          : 6;
         audioPeaks = await analyzeAudioPeaksWithIntensity(inputPath, startTime, clipDuration, {
-          cooldownSec: 6, maxPeaks: 8, thresholdDb: 5,
+          cooldownSec: Math.round(zoomCooldown * 10) / 10, maxPeaks: 8, thresholdDb: 5,
         });
         if (audioPeaks.length > 0) {
           console.log(`[FFmpeg] Audio peaks: ${audioPeaks.length} with intensity (range ${audioPeaks.map(p => p.intensity?.toFixed(2)).join(',')})`);
@@ -922,7 +929,8 @@ export async function renderClip(inputPath, outputPath, options = {}) {
 
   // ── Helper: append end-card for free plan ──
   async function maybeAppendEndCard(result) {
-    if (plan !== 'free' || !result.success) return result;
+    // End-card OFF by default — enable via settings.endCard if desired
+    if (plan !== 'free' || !result.success || !options.endCard) return result;
     try {
       const canvasDims = getCanvasDimensions(RENDER_TIERS[getTierSequence(process.env.RENDER_QUALITY || 'high')[0]], aspectRatio);
       const endCard = buildEndCardArgs(outputPath, plan, canvasDims.w, canvasDims.h);
@@ -1424,17 +1432,11 @@ export async function renderClip(inputPath, outputPath, options = {}) {
         console.log('[FFmpeg] Audio enhancement: highpass + gentle compressor + limiter (no denoiser — stream audio is clean)');
       }
 
-      // Audio shift — after enhance, before loudnorm.
+      // Audio shift — after enhance, before bass/SFX/loudnorm.
       const audioShiftPct = diversify?.audioShiftPct ?? 1;
       const audioShift = buildAudioShiftFilters(48000, audioShiftPct);
       audioFilters.push(...audioShift.filters);
       console.log(`[FFmpeg] Audio fingerprint shift: +${audioShiftPct}% asetrate/atempo (anti-duplicate)`);
-
-      // Loudnorm: EBU R128 normalization. Single-pass, no linear=true, no alimiter.
-      // TP=-2.0 (not -1.5) accounts for AAC encoder overshoot.
-      // Previous linear=true + alimiter combo caused metallic artifacts — removed.
-      audioFilters.push('loudnorm=I=-14:TP=-2.0:LRA=11');
-      console.log('[FFmpeg] Loudnorm: I=-14 TP=-2.0 LRA=11 (single-pass, no linear, no alimiter)');
 
       const bassFilters = buildBassBoostFilters({ bassBoost });
       if (bassFilters.length > 0) {
@@ -1444,6 +1446,15 @@ export async function renderClip(inputPath, outputPath, options = {}) {
       if (speedFilters.audio.length > 0) {
         audioFilters.push(...speedFilters.audio);
       }
+
+      // Loudnorm LAST in the audio chain — after all processing (enhance, shift,
+      // bass, speed). SFX/voiceover are mixed BEFORE loudnorm via filter_complex.
+      // When SFX is active, loudnorm is appended to the filter_complex after amix.
+      const LOUDNORM = 'loudnorm=I=-14:TP=-2.0:LRA=11';
+      if (!hasSfx) {
+        audioFilters.push(LOUDNORM);
+      }
+      console.log('[FFmpeg] Loudnorm: I=-14 TP=-2.0 LRA=11 (last audio filter)');
 
       // ── Voiceover: add MP3 inputs BEFORE any output options ──
       // FFmpeg requires ALL -i inputs before -filter_complex/-map/-c:v etc.

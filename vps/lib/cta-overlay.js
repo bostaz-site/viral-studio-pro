@@ -111,9 +111,10 @@ export function buildCtaDialogue(opts = {}) {
  */
 export function appendCtaToAss(assContent, opts = {}) {
   try {
-    const content = String(assContent || '');
+    let content = String(assContent || '');
     if (!/\[Events\]/i.test(content)) return { content, dialogue: null, applied: false, reason: 'no_events_section' };
     const { w, h } = readPlayRes(content);
+    const ctaDuration = opts.duration;
     const dialogue = buildCtaDialogue({
       ...opts,
       canvasW: opts.canvasW ?? w,
@@ -121,12 +122,43 @@ export function appendCtaToAss(assContent, opts = {}) {
       styleName: opts.styleName ?? findFirstStyleName(content),
     });
     if (!dialogue) return { content, dialogue: null, applied: false, reason: 'clip_too_short' };
+
+    // Prevent collision: truncate caption Dialogue lines that overlap with the CTA window.
+    // CTA starts at (duration - CTA_DURATION_S). Any caption ending after that - 0.2s buffer
+    // gets its end time clamped so it disappears before the CTA appears.
+    if (Number.isFinite(ctaDuration) && ctaDuration >= CTA_MIN_CLIP_DURATION_S) {
+      const ctaStart = ctaDuration - CTA_DURATION_S - 0.2; // 0.2s buffer
+      content = content.replace(
+        /^(Dialogue:\s*\d+,)(\d+:\d{2}:\d{2}\.\d{2}),(\d+:\d{2}:\d{2}\.\d{2}),(.*)$/gm,
+        (match, prefix, startStr, endStr, rest) => {
+          const endSec = parseAssTime(endStr);
+          const startSec = parseAssTime(startStr);
+          if (endSec > ctaStart && startSec < ctaStart) {
+            // Truncate end to ctaStart
+            return `${prefix}${startStr},${assTime(ctaStart)},${rest}`;
+          }
+          if (startSec >= ctaStart) {
+            // Entirely within CTA window — remove by commenting out
+            return `Comment: 0,${startStr},${endStr},${rest}`;
+          }
+          return match;
+        }
+      );
+    }
+
     const eol = content.includes('\r\n') ? '\r\n' : '\n';
     const trimmed = content.replace(/\s+$/, '');
     return { content: `${trimmed}${eol}${dialogue}${eol}`, dialogue, applied: true, reason: null };
   } catch (err) {
     return { content: String(assContent || ''), dialogue: null, applied: false, reason: err.message };
   }
+}
+
+/** Parse ASS timestamp h:mm:ss.cc → seconds */
+function parseAssTime(str) {
+  const m = String(str).match(/(\d+):(\d{2}):(\d{2})\.(\d{2})/);
+  if (!m) return 0;
+  return parseInt(m[1]) * 3600 + parseInt(m[2]) * 60 + parseInt(m[3]) + parseInt(m[4]) / 100;
 }
 
 /**

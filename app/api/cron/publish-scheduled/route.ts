@@ -67,6 +67,25 @@ export async function POST(req: NextRequest) {
       continue
     }
 
+    // 1b. Autofarm pause check (warmup / flagged account cooldown)
+    {
+      const { data: distSettings } = await (admin
+        .from('distribution_settings')
+        .select('autofarm_paused_until' as '*')
+        .eq('user_id', row.user_id)
+        .single() as unknown as Promise<{ data: { autofarm_paused_until: string | null } | null }>)
+
+      const pausedUntil = distSettings?.autofarm_paused_until
+      if (pausedUntil && new Date(pausedUntil) > new Date()) {
+        await admin
+          .from('scheduled_publications')
+          .update({ status: 'canceled', error_message: `autofarm paused until ${pausedUntil}`, updated_at: new Date().toISOString() } as never)
+          .eq('id', row.id)
+        results.push({ id: row.id, status: 'canceled', error: 'autofarm_paused' })
+        continue
+      }
+    }
+
     // 2. Optimistic lock: SET status='publishing' WHERE status='scheduled'
     const { data: locked } = await admin
       .from('scheduled_publications')
@@ -133,6 +152,29 @@ export async function POST(req: NextRequest) {
           results.push({ id: row.id, status: 'canceled', error: 'content_risk_blocked' })
           continue
         }
+      }
+    }
+
+    // 2c-bis. "Already edited" guard: vertical + burned captions = TikTok repost → never auto-publish
+    if (row.clip_id) {
+      const { data: clipSignals } = await (admin
+        .from('trending_clips')
+        .select('edit_signals' as '*')
+        .eq('id', row.clip_id)
+        .single() as unknown as Promise<{ data: { edit_signals: { source_has_burned_captions?: boolean; source_is_vertical?: boolean } | null } | null }>)
+
+      const es = clipSignals?.edit_signals
+      if (es?.source_has_burned_captions && es?.source_is_vertical) {
+        await admin
+          .from('scheduled_publications')
+          .update({
+            status: 'canceled',
+            error_message: 'already edited clip (vertical + burned captions) — auto-publish blocked',
+            updated_at: new Date().toISOString(),
+          } as never)
+          .eq('id', row.id)
+        results.push({ id: row.id, status: 'canceled', error: 'already_edited' })
+        continue
       }
     }
 

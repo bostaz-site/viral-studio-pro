@@ -20,6 +20,8 @@ export interface ClipScoreInput {
   duration_seconds?: number
   snapshot_count?: number
   prev_velocity?: number
+  // Edit signals: source already edited (burned captions + vertical = TikTok repost)
+  edit_signals?: { source_has_burned_captions?: boolean; source_is_vertical?: boolean } | null
 }
 
 export type ClipRank = 'common' | 'rare' | 'super_rare' | 'epic' | 'legendary'
@@ -268,6 +270,10 @@ export function scoreClip(input: ClipScoreInput): ClipScoreOutput {
   const formatScore = computeFormatScore(input.duration_seconds)
   const saturationScore = computeSaturationScore(input)
 
+  // "Already edited" penalty: source vertical + burned captions = likely a TikTok repost
+  const isAlreadyEdited = input.edit_signals?.source_has_burned_captions && input.edit_signals?.source_is_vertical
+  const editPenalty = isAlreadyEdited ? 8 : 0
+
   const rawScore =
     momentumScore * 0.25 +
     authorityScore * 0.20 +
@@ -275,7 +281,8 @@ export function scoreClip(input: ClipScoreInput): ClipScoreOutput {
     recencyScore * 0.10 +
     earlySignalScore * 0.10 +
     formatScore * 0.10 -
-    saturationScore * 0.10
+    saturationScore * 0.10 -
+    editPenalty
 
   // Display curve: stretch the effective 30-65 raw range into 40-95+ display.
   // Formula: -5 + raw * 1.5, then soft ceiling above 88 (asymptote → 99, never reached).

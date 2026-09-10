@@ -55,11 +55,21 @@ export function computeRetentionRisk({
     why.push(`low visual motion (${motionScore})`);
   }
 
-  // Sparse audio peaks (< 4 per minute)
-  const peaksPerMin = duration > 0 ? (audiopeakCount / duration) * 60 : 0;
-  if (peaksPerMin < 4) {
-    risk += 20;
-    why.push(`sparse audio peaks (${peaksPerMin.toFixed(1)}/min)`);
+  // Sparse audio peaks (< 4 per minute) — but 0 peaks = analysis failure, not sparse.
+  // When audio-peaks returns nothing, don't conclude "low risk" — fall through to
+  // layout-based heuristic below instead.
+  if (audiopeakCount > 0) {
+    const peaksPerMin = duration > 0 ? (audiopeakCount / duration) * 60 : 0;
+    if (peaksPerMin < 4) {
+      risk += 20;
+      why.push(`sparse audio peaks (${peaksPerMin.toFixed(1)}/min)`);
+    }
+  } else if (audiopeakCount === 0) {
+    // Analysis returned nothing — treat static layouts as high risk regardless
+    if (isStaticCam || cropRecommendation === 'fit') {
+      risk += 20;
+      why.push('no audio peaks (analysis gap) + static layout');
+    }
   }
 
   // Low content density from P5 analysis
@@ -72,6 +82,12 @@ export function computeRetentionRisk({
   if (duration > 30 && isStaticCam) {
     risk += 5;
     why.push(`long static clip (${Math.round(duration)}s)`);
+  }
+
+  // Floor: static layouts always recommend split-screen (risk >= 55)
+  if ((isStaticCam || cropRecommendation === 'fit') && risk < 55) {
+    risk = 55;
+    why.push('static/fit layout floor');
   }
 
   const score = Math.min(100, risk);

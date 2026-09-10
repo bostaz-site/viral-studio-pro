@@ -615,7 +615,7 @@ export default function EnhancePage() {
               // Single source: API message already includes "credit refunded"
               setRenderMessage(`⚠️ ${json.message}`)
             } else if (json.data.burnedCaptionsSkipped) {
-              setRenderMessage('⚠️ Le clip source contient déjà des sous-titres — ton style de captions n\'a pas été appliqué pour éviter le doublon.')
+              setRenderMessage('⚠️ Source clip already has burned-in subtitles — your caption style was not applied to avoid doubling.')
             } else {
               setRenderMessage(
                 json.data.reducedQuality
@@ -1670,7 +1670,7 @@ export default function EnhancePage() {
                 title="Render failed"
                 description={
                   kind === 'clip_deleted'
-                    ? 'Ce clip a été supprimé par le streamer ou la plateforme — choisis-en un autre.'
+                    ? 'This clip was deleted by the streamer or the platform — pick another one.'
                     : kind === 'timeout'
                       ? "The render server timed out. Your clip might be too long — try again or shorten it."
                       : kind === 'quota'

@@ -114,8 +114,6 @@ router.get('/queue', (req, res) => {
 // Auth: x-api-key (same as render routes).
 // ─────────────────────────────────────────────────────────────────────────────
 
-const YTDLP_PROBE_URL = 'https://clips.twitch.tv/CalmClearWatermelonBCouch';
-
 router.get('/ytdlp', async (req, res) => {
   const apiKey = req.headers['x-api-key'];
   const expectedKey = process.env.VPS_RENDER_API_KEY || process.env.API_SECRET;
@@ -129,19 +127,50 @@ router.get('/ytdlp', async (req, res) => {
     const { promisify } = await import('util');
     const execFileAsync = promisify(execFile);
 
-    const { stdout } = await execFileAsync(ytdlpPath, ['--get-title', YTDLP_PROBE_URL], {
-      timeout: 30_000,
-    });
+    // Fetch recent Twitch clips from DB instead of hardcoded URL
+    let probeUrls = [];
+    try {
+      const { supabase } = await import('../lib/supabase-client.js');
+      const { data: clips } = await supabase
+        .from('trending_clips')
+        .select('external_url')
+        .eq('platform', 'twitch')
+        .gte('clip_created_at', new Date(Date.now() - 24 * 3600 * 1000).toISOString())
+        .order('velocity_score', { ascending: false })
+        .limit(5);
+      probeUrls = (clips || []).map(c => c.external_url).filter(Boolean);
+    } catch { /* DB unavailable — fall through */ }
 
-    const title = stdout.trim();
-    if (!title) {
-      return res.status(502).json({ ok: false, error: 'yt-dlp returned empty title' });
+    if (probeUrls.length === 0) {
+      probeUrls = ['https://clips.twitch.tv/CalmClearWatermelonBCouch'];
     }
 
-    res.json({ ok: true, title });
+    // Try up to 3 clips. Expired = try next. Error on all = extractor broken.
+    const EXPIRED = /no longer available|HTTP Error 404|Video unavailable|has been deleted/i;
+    let lastErr = null;
+    let expired = 0;
+    const tried = probeUrls.slice(0, 3);
+
+    for (const url of tried) {
+      try {
+        const { stdout } = await execFileAsync(ytdlpPath, ['--get-title', url], { timeout: 30_000 });
+        if (stdout.trim()) return res.json({ ok: true, title: stdout.trim(), probeUrl: url });
+      } catch (err) {
+        lastErr = err;
+        if (EXPIRED.test(err.stderr || err.message || '')) { expired++; continue; }
+        break;
+      }
+    }
+
+    if (expired >= tried.length) {
+      return res.json({ ok: true, title: '(all probe clips expired, extractor assumed OK)', expired });
+    }
+
+    logger.error({ err: lastErr?.message }, 'yt-dlp extractor health check failed');
+    res.status(502).json({ ok: false, error: lastErr?.message || 'yt-dlp extractor broken', expired });
   } catch (err) {
-    logger.error({ err: err.message }, 'yt-dlp extractor health check failed');
-    res.status(502).json({ ok: false, error: err.message || 'yt-dlp extractor broken' });
+    logger.error({ err: err.message }, 'yt-dlp health check error');
+    res.status(502).json({ ok: false, error: err.message });
   }
 });
 
