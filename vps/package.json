@@ -10,7 +10,8 @@
     "pm2-start": "pm2 start ecosystem.config.js",
     "pm2-stop": "pm2 stop viral-studio-api",
     "pm2-restart": "pm2 restart viral-studio-api",
-    "pm2-logs": "pm2 logs viral-studio-api"
+    "pm2-logs": "pm2 logs viral-studio-api",
+    "test": "node test-build-args.mjs"
   },
   "keywords": [
     "viral-studio",
