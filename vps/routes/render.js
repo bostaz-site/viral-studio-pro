@@ -932,44 +932,9 @@ router.post('/', async (req, res) => {
     const { w: canvasW, h: canvasH } = canvasSizes[targetAspectRatio] || canvasSizes['9:16'];
 
     // ─── Burned-in caption safety net ───
-    // If captions are requested but the source already has burned-in captions,
-    // detect and auto-disable to prevent doubling. Runs on trending clips only.
-    // The frontend usually handles this, but quick export and edge cases bypass it.
+    // Burned caption detection placeholder — runs AFTER Whisper (see post-whisper block below)
     let burnedCaptionDetected = false;
     let burnedCaptionPosition = null; // 'bottom' | 'top' | 'center' | null
-    if (settings.captions?.enabled && settings.captions?.style !== 'none' && source === 'trending') {
-      // Skip if frontend already flagged via skippedReason
-      if (settings.captions?.skippedReason !== 'source_has_burned_captions') {
-        try {
-          trc('BURNED CAPTION CHECK starting...');
-          const burnedResult = await detectBurnedCaptions(inputPath, duration, tempDir, trc);
-          if (burnedResult.burned_captions && burnedResult.confidence >= 0.7) {
-            burnedCaptionDetected = true;
-            burnedCaptionPosition = burnedResult.position || 'bottom';
-            settings.captions.enabled = false;
-            settings.captions.style = 'none';
-            settings.captions.skippedReason = 'source_has_burned_captions';
-            trc(`BURNED CAPTION CHECK: detected (confidence=${burnedResult.confidence.toFixed(2)}, pos=${burnedCaptionPosition}) → captions auto-disabled`);
-          } else {
-            trc(`BURNED CAPTION CHECK: not detected (confidence=${(burnedResult.confidence || 0).toFixed(2)})`);
-          }
-        } catch (burnedErr) {
-          trc(`BURNED CAPTION CHECK error (non-fatal): ${burnedErr.message}`);
-        }
-      } else {
-        burnedCaptionDetected = true;
-        burnedCaptionPosition = settings.captions?.burnedPosition || 'bottom';
-        trc('BURNED CAPTION CHECK: already flagged by frontend (skippedReason=source_has_burned_captions)');
-      }
-    }
-
-    // Anchor crop to preserve burned captions in the source
-    if (burnedCaptionDetected && burnedCaptionPosition) {
-      const anchor = burnedCaptionPosition === 'top' ? 'top' : 'bottom';
-      settings.format = settings.format || {};
-      settings.format.cropAnchor = anchor;
-      trc(`BURNED CAPTIONS: anchoring crop to ${anchor}, source captions shown in full`);
-    }
 
     // Persist edit signals (burned captions + vertical source) in trending_clips for scoring/browse
     const sourceIsVertical = typeof srcH === 'number' && typeof srcW === 'number' && srcH >= srcW;
@@ -1040,6 +1005,31 @@ router.post('/', async (req, res) => {
             trc(`WHISPER first="${first.word}" start=${first.start} end=${first.end}`);
             trc(`WHISPER last="${last.word}" start=${last.start} end=${last.end}`);
             trc(`WHISPER clipDuration=${duration} clipStartTime=${clipStartTime}`);
+          }
+
+          // (f) Whisper 0 words retry: if clip has vocal audio peaks but 0 words, retry with language=en
+          if (wordTimestamps.length === 0 && duration > 3) {
+            try {
+              const { analyzeAudioPeaksWithIntensity } = await import('../lib/audio-peaks.js');
+              const vocalPeaks = await analyzeAudioPeaksWithIntensity(inputPath, clipStartTime, duration, {
+                cooldownSec: 2, maxPeaks: 5, thresholdDb: 4,
+              });
+              if (vocalPeaks.length >= 2) {
+                trc(`WHISPER RETRY: 0 words but ${vocalPeaks.length} vocal-range audio peaks detected — retrying with language=en`);
+                const retryResult = await transcribeWithWhisper(inputPath, {
+                  tempDir, language: 'en',
+                  contextPrompt: clipTitle || '', clipDuration: duration,
+                });
+                wordTimestamps = retryResult.words || [];
+                detectedLanguage = retryResult.language || 'en';
+                whisperFullText = retryResult.fullText || '';
+                trc(`WHISPER RETRY: ${wordTimestamps.length} words on retry (lang=en)`);
+              } else {
+                trc(`WHISPER 0 WORDS: no vocal peaks either — genuinely silent/music-only clip`);
+              }
+            } catch (retryErr) {
+              trc(`WHISPER RETRY error (non-fatal): ${retryErr.message}`);
+            }
           }
         }
       } catch (err) {
@@ -1161,6 +1151,41 @@ router.post('/', async (req, res) => {
     }
 
     trc(`WORD TIMESTAMPS: ${wordTimestamps.length} words available for captions/voiceover/autoCut${noSpeechDetected ? ' (no speech)' : ''}`);
+
+    // ─── Burned Caption Detection (runs AFTER Whisper for cross-validation) ───
+    if (settings.captions?.enabled && settings.captions?.style !== 'none' && source === 'trending') {
+      if (settings.captions?.skippedReason !== 'source_has_burned_captions') {
+        try {
+          trc('BURNED CAPTION CHECK starting (post-Whisper, with cross-validation)...');
+          const burnedResult = await detectBurnedCaptions(inputPath, duration, tempDir, trc, {
+            wordTimestamps,
+            platform: settings.platform || '',
+          });
+          if (burnedResult.burned_captions) {
+            burnedCaptionDetected = true;
+            burnedCaptionPosition = burnedResult.position || 'bottom';
+            // (e) Don't disable captions — keep them with opaque background to cover source captions
+            trc(`BURNED CAPTION CHECK: detected (conf=${burnedResult.confidence?.toFixed(2)}, pos=${burnedCaptionPosition}, crossValidated=${burnedResult.crossValidated}) → captions KEPT with coverage mode`);
+          } else {
+            trc(`BURNED CAPTION CHECK: not detected (conf=${(burnedResult.confidence || 0).toFixed(2)}, crossValidated=${burnedResult.crossValidated})`);
+          }
+        } catch (burnedErr) {
+          trc(`BURNED CAPTION CHECK error (non-fatal): ${burnedErr.message}`);
+        }
+      } else {
+        burnedCaptionDetected = true;
+        burnedCaptionPosition = settings.captions?.burnedPosition || 'bottom';
+        trc('BURNED CAPTION CHECK: already flagged by frontend');
+      }
+    }
+
+    // Anchor crop to preserve burned captions in the source
+    if (burnedCaptionDetected && burnedCaptionPosition) {
+      const anchor = burnedCaptionPosition === 'top' ? 'top' : 'bottom';
+      settings.format = settings.format || {};
+      settings.format.cropAnchor = anchor;
+      trc(`BURNED CAPTIONS: anchoring crop to ${anchor}, source captions covered by our captions`);
+    }
 
     // ─── Captions (ASS subtitle generation) — runs after Whisper completes ───
     t('captions_start');

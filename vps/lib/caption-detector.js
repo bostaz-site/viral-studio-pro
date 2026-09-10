@@ -5,7 +5,8 @@
  * third and center third, then sends them to Claude Haiku (vision) to detect
  * whether the video already has burned-in subtitles/captions.
  *
- * Designed to run in parallel with Whisper transcription — never blocks render.
+ * Runs AFTER Whisper — uses word timestamps to cross-validate and reject
+ * false positives (Twitch chat, overlays, HUD elements).
  */
 
 import { execFile } from 'child_process';
@@ -27,9 +28,12 @@ const MAX_RETRIES = 1;
  * @param {number} duration  - Video duration in seconds
  * @param {string} [tempDir] - Temporary directory for frame extraction
  * @param {Function} [trc]   - Optional trace/log function
- * @returns {Promise<{burned_captions: boolean, position: string|null, confidence: number}>}
+ * @param {object} [opts]    - Extra options
+ * @param {Array} [opts.wordTimestamps] - Whisper word timestamps for cross-validation
+ * @param {string} [opts.platform] - 'twitch' | 'kick' | etc. for stricter thresholds
+ * @returns {Promise<{burned_captions: boolean, position: string|null, confidence: number, crossValidated?: boolean}>}
  */
-export async function detectBurnedCaptions(videoPath, duration, tempDir, trc = () => {}) {
+export async function detectBurnedCaptions(videoPath, duration, tempDir, trc = () => {}, opts = {}) {
   const fallback = { burned_captions: false, position: null, confidence: 0 };
 
   if (!ANTHROPIC_API_KEY) {
@@ -39,6 +43,17 @@ export async function detectBurnedCaptions(videoPath, duration, tempDir, trc = (
 
   if (!duration || duration < 2) {
     trc('[CaptionDetect] Duration too short — skipping');
+    return fallback;
+  }
+
+  const wordTimestamps = opts.wordTimestamps ?? [];
+  const platform = opts.platform ?? '';
+  const isTwitchKick = /twitch|kick/i.test(platform);
+  const confThreshold = isTwitchKick ? 0.98 : 0.7;
+
+  // (a) If Whisper returned 0 words → no speech → can't have speech subtitles
+  if (wordTimestamps.length === 0) {
+    trc('[CaptionDetect] Whisper returned 0 words — burned=false by definition (no speech = no subtitles)');
     return fallback;
   }
 
@@ -118,7 +133,49 @@ export async function detectBurnedCaptions(videoPath, duration, tempDir, trc = (
 
     // Call Claude Haiku with vision
     const result = await callHaikuVision(imageContents, trc);
-    trc(`[CaptionDetect] Result: burned=${result.burned_captions}, pos=${result.position}, conf=${result.confidence}`);
+    trc(`[CaptionDetect] Raw result: burned=${result.burned_captions}, pos=${result.position}, conf=${result.confidence}`);
+
+    // Apply confidence threshold (stricter for Twitch/Kick)
+    if (result.confidence < confThreshold) {
+      trc(`[CaptionDetect] Confidence ${result.confidence.toFixed(2)} < threshold ${confThreshold} → burned=false`);
+      return fallback;
+    }
+
+    // (b) Cross-validate: compare visible_text from each frame against Whisper words
+    // burned=true only if >= 2/3 frames have >= 50% word overlap with speech
+    if (result.burned_captions && result.visible_text && wordTimestamps.length > 0) {
+      const timestamps = [0.25, 0.50, 0.75].map(pct => Math.max(0.5, duration * pct));
+      let matchCount = 0;
+
+      for (let i = 0; i < Math.min(3, result.visible_text.length); i++) {
+        const frameText = (result.visible_text[i] || '').toLowerCase();
+        if (!frameText || frameText.length < 3) continue;
+
+        const frameTs = timestamps[i] || 0;
+        // Get Whisper words within ±2s window
+        const windowWords = wordTimestamps
+          .filter(w => Math.abs((w.start || 0) - frameTs) <= 2)
+          .map(w => (w.word || '').toLowerCase().replace(/[^a-z0-9]/g, ''))
+          .filter(w => w.length >= 2);
+
+        if (windowWords.length === 0) continue;
+
+        // Count how many Whisper words appear in the visible text
+        const frameWords = frameText.split(/\s+/).map(w => w.replace(/[^a-z0-9]/g, '')).filter(w => w.length >= 2);
+        const overlapCount = frameWords.filter(fw => windowWords.some(ww => ww.includes(fw) || fw.includes(ww))).length;
+        const overlapRatio = frameWords.length > 0 ? overlapCount / frameWords.length : 0;
+
+        if (overlapRatio >= 0.5) matchCount++;
+      }
+
+      result.crossValidated = matchCount >= 2;
+      if (!result.crossValidated) {
+        trc(`[CaptionDetect] Cross-validation FAILED: only ${matchCount}/3 frames match speech → text overlay, not captions`);
+        return { ...fallback, crossValidated: false };
+      }
+      trc(`[CaptionDetect] Cross-validation PASSED: ${matchCount}/3 frames match Whisper words`);
+    }
+
     return result;
 
   } catch (err) {
@@ -155,10 +212,23 @@ async function callHaikuVision(imageContents, trc, attempt = 0) {
             ...imageContents,
             {
               type: 'text',
-              text: `These are cropped regions (bottom third and center third) from 3 frames of a video clip. Do these frames contain burned-in subtitles or captions (synchronized dialogue text overlaid on the video, NOT a stream overlay, logo, username watermark, or chat widget)?
+              text: `These are cropped regions (bottom and center thirds) from 3 frames of a streaming clip. Do these frames contain BURNED-IN SUBTITLES (synchronized speech captions overlaid on the video)?
 
-Respond ONLY with this JSON, no other text:
-{"burned_captions": true/false, "position": "bottom" or "center" or null, "confidence": 0.0 to 1.0}`,
+IMPORTANT — these are NOT subtitles (do NOT flag as burned_captions):
+- Twitch/Kick chat messages and usernames
+- Follow/subscribe/donation alerts
+- "!commands" banners, bot messages
+- Viewer counters, emote overlays
+- Game HUD elements (health bars, minimaps, kill feeds)
+- Streamer name badges or watermarks
+- Social media handles (@username)
+
+Subtitles = dialogue text that matches what someone is SAYING, usually centered at bottom, same font, appearing/disappearing in sync with speech.
+
+For each frame: transcribe the visible text in the bottom region (verbatim, max 20 words).
+
+Respond ONLY with JSON:
+{"burned_captions": true/false, "position": "bottom" or "center" or null, "confidence": 0.0 to 1.0, "visible_text": ["text from frame 1", "text from frame 2", "text from frame 3"]}`,
             },
           ],
         }],
@@ -211,6 +281,7 @@ Respond ONLY with this JSON, no other text:
         burned_captions: !!parsed.burned_captions,
         position: parsed.position === 'bottom' || parsed.position === 'center' ? parsed.position : null,
         confidence: typeof parsed.confidence === 'number' ? Math.min(1, Math.max(0, parsed.confidence)) : 0,
+        visible_text: Array.isArray(parsed.visible_text) ? parsed.visible_text : [],
       };
     } catch {
       trc(`[CaptionDetect] JSON parse failed: ${jsonMatch[0].slice(0, 200)}`);
