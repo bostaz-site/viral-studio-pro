@@ -2430,6 +2430,34 @@ export default function EnhancePage() {
                       <p>• Loudness normalization — constant broadcast-style volume</p>
                     </div>
                   )}
+                  {/* Sound Design: SFX on audio peaks */}
+                  <div className="space-y-1.5 pt-2 border-t border-border/50">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-medium text-foreground">Sound Design</span>
+                      <span className="text-[9px] text-muted-foreground" title="Adds whooshes, hits, and dings on audio peaks, matched to the clip mood">SFX on peaks</span>
+                    </div>
+                    <div className="grid grid-cols-3 gap-2">
+                      {([
+                        { id: 'off' as const, label: 'Off', desc: 'No SFX' },
+                        { id: 'subtle' as const, label: 'Subtle', desc: '-12 dB' },
+                        { id: 'punchy' as const, label: 'Punchy', desc: '-6 dB' },
+                      ]).map(opt => (
+                        <button
+                          key={opt.id}
+                          onClick={() => updateSetting('soundDesign', opt.id)}
+                          className={cn(
+                            'rounded-lg border p-2 text-center transition-all text-xs',
+                            settings.soundDesign === opt.id
+                              ? 'border-primary bg-primary/10 ring-1 ring-primary/30'
+                              : 'border-border hover:border-primary/40'
+                          )}
+                        >
+                          <div className="font-semibold">{opt.label}</div>
+                          <div className="text-[9px] text-muted-foreground">{opt.desc}</div>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                 </div>
               </AccordionContent>
             </AccordionItem>
