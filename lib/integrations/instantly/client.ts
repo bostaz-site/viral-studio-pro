@@ -150,6 +150,59 @@ export class InstantlyClient {
     logger.info({ campaignId }, 'Instantly campaign resumed')
   }
 
+  /**
+   * Create a campaign with sequence steps.
+   * Instantly v2: POST /campaigns with sequences[].steps[].
+   */
+  async createCampaign(opts: {
+    name: string
+    emailAccountIds: string[]
+    steps: Array<{
+      subject: string
+      body: string
+      delayDays: number
+      trackOpens: boolean
+      trackClicks: boolean
+    }>
+    stopOnReply: boolean
+    sendWindow?: { startHour: number; endHour: number; weekdaysOnly: boolean; timezone?: string }
+  }): Promise<{ id: string }> {
+    const sequences = opts.steps.map((step, i) => ({
+      steps: [{
+        type: 'email' as const,
+        subject: step.subject,
+        body: step.body,
+        delay: i === 0 ? 0 : step.delayDays,
+        tracking: {
+          opens: step.trackOpens,
+          clicks: step.trackClicks,
+        },
+      }],
+    }))
+
+    const payload: Record<string, unknown> = {
+      name: opts.name,
+      email_accounts: opts.emailAccountIds,
+      sequences,
+      campaign_schedule: {
+        schedules: [{
+          name: 'weekday',
+          days: opts.sendWindow?.weekdaysOnly !== false
+            ? { 1: true, 2: true, 3: true, 4: true, 5: true, 6: false, 0: false }
+            : { 0: true, 1: true, 2: true, 3: true, 4: true, 5: true, 6: true },
+          from: `${String(opts.sendWindow?.startHour ?? 8).padStart(2, '0')}:00`,
+          to: `${String(opts.sendWindow?.endHour ?? 16).padStart(2, '0')}:00`,
+          timezone: opts.sendWindow?.timezone ?? 'America/New_York',
+        }],
+      },
+      stop_on_reply: opts.stopOnReply,
+    }
+
+    const res = await this.request<{ id: string }>('POST', '/campaigns', payload)
+    logger.info({ campaignId: res.id, name: opts.name }, 'Instantly campaign created')
+    return res
+  }
+
   // ── Lead Management (v2 API) ────────────────────────────────────────
 
   /**
