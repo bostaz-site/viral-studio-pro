@@ -112,6 +112,12 @@ export const renderSettingsSchema = z.object({
     text: z.string().max(32).optional(),
     seed: z.string().max(80).optional(),
   }).optional(),
+  // R5 · Sound design: SFX layer on audio peaks
+  soundDesign: z.enum(['off', 'subtle', 'punchy']).optional().default('subtle'),
+  // Split-screen gameplay layout
+  splitScreen: z.object({
+    enabled: z.boolean().optional(),
+  }).optional(),
   // P5 · 4-criteria AI analysis (Monster Lab grid). Persisted in render_jobs.contract
   // (feature 'analysis_criteria') + render_settings.analysis_criteria for the autofarm gate
   // and the data loop. dead_air_segments feed the VPS auto-cut.

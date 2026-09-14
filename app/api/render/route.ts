@@ -98,6 +98,10 @@ const inputSchema = z.object({
       enabled: z.boolean().optional(),
       text: z.string().max(32).optional(),
     }).optional(),
+    // R5 · Sound design: SFX layer on audio peaks
+    soundDesign: z.enum(['off', 'subtle', 'punchy']).optional(),
+    // Split-screen gameplay layout
+    splitScreen: z.object({ enabled: z.boolean().optional() }).optional(),
     // P5 · 4-criteria AI analysis (unexpected/emotion/informative/density) — persisted for the autofarm gate
     analysis: renderAnalysisSchema.optional(),
   }).optional(),
@@ -450,6 +454,10 @@ export const POST = withAuth(async (request, user) => {
       voiceover: settings?.voiceover ?? { enabled: process.env.NEXT_PUBLIC_VOICEOVER_ENABLED === 'true' },
       // P4 · CTA follow overlay: default ON, seeded by job id for text variant rotation
       ctaFollow: { enabled: settings?.ctaFollow?.enabled ?? true, text: settings?.ctaFollow?.text, seed: job.id },
+      // R5 · Sound design: SFX layer on audio peaks (default subtle)
+      soundDesign: settings?.soundDesign ?? 'subtle',
+      // Split-screen gameplay layout
+      splitScreen: settings?.splitScreen ?? { enabled: false },
       // P5 · 4-criteria analysis → contract meta + auto-cut reinforcement (dead_air_segments, density)
       analysis: settings?.analysis ?? undefined,
       sourcePlatform: clipPlatform ?? undefined,
