@@ -119,6 +119,14 @@ export function createContract(settings) {
     reason: null,
   });
 
+  // Variants (non-critical — cross-platform deduplication)
+  entries.push({
+    feature: 'variants',
+    requested: true, // always expected when multiple platforms active
+    applied: false,
+    reason: null,
+  });
+
   // Audio shift (always-on)
   entries.push({
     feature: 'audio_shift',

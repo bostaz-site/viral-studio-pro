@@ -2068,6 +2068,7 @@ router.post('/', async (req, res) => {
 
     // ── Derive platform variants (lightweight second pass) ──
     const variantResults = [];
+    const variantErrors = [];
     if (variants.length > 0 && jobId) {
       trc(`VARIANTS: deriving ${variants.length} platform variants from base render`);
       t('variants_start');
@@ -2090,7 +2091,8 @@ router.post('/', async (req, res) => {
             });
             trc(`VARIANT ${v.variantKey} uploaded → ${variantStoragePath} (${v.div.audioShiftPct}% shift, crf=${v.div.crfVariant})`);
           } catch (uploadErr) {
-            console.error(`[variant] Upload failed for ${v.variantKey}:`, uploadErr.message);
+            trc(`VARIANT ${v.variantKey} UPLOAD FAILED: ${uploadErr.message}`);
+            variantErrors.push(`${v.variantKey}: ${uploadErr.message}`);
           }
         }
 
@@ -2105,13 +2107,25 @@ router.post('/', async (req, res) => {
             seed: v.seed,
             diversify_params: v.diversify_params,
           }));
-          await supabase.from('render_variants').upsert(rows, { onConflict: 'render_job_id,variant_key' });
-          trc(`VARIANTS: ${variantResults.length}/${variants.length} stored in DB`);
+          const { error: upsertErr } = await supabase.from('render_variants').upsert(rows, { onConflict: 'render_job_id,variant_key' });
+          if (upsertErr) {
+            trc(`VARIANTS DB UPSERT ERROR: ${upsertErr.message}`);
+            variantErrors.push(`db: ${upsertErr.message}`);
+          } else {
+            trc(`VARIANTS: ${variantResults.length}/${variants.length} stored in DB`);
+          }
         }
+
+        // Record variant outcome in contract
+        const allSucceeded = variantErrors.length === 0 && variantResults.length === variants.length;
+        contract.record('variants', allSucceeded,
+          allSucceeded ? null : `${variantResults.length}/${variants.length} succeeded${variantErrors.length > 0 ? ': ' + variantErrors.join('; ') : ''}`,
+          { total: variants.length, succeeded: variantResults.length, errors: variantErrors });
+        trc(`VARIANTS RESULT: ${variantResults.length}/${variants.length} (errors: ${variantErrors.length})`);
       } catch (err) {
         // Variant failure is non-fatal — base render is already uploaded
-        console.error(`[variant] Derivation error:`, err.message);
         trc(`VARIANTS ERROR: ${err.message} (base render unaffected)`);
+        contract.record('variants', false, err.message);
       }
       t('variants_end');
     }
