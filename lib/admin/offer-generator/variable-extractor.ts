@@ -26,6 +26,13 @@ export interface OfferVariables {
   _is_recent_topic_fallback: boolean
   _is_compliment_fallback: boolean
   _ai_recommended_offer_angle: string | null
+  // Instantly-compatible aliases (cold email V1)
+  firstName: string
+  channelName: string
+  recentVideoTitle: string
+  senderName: string
+  demoVideoUrl: string
+  unsubscribeLink: string
 }
 
 function formatFollowers(n: number | null): string {
@@ -141,5 +148,13 @@ export async function extractVariables(influencerId: string): Promise<OfferVaria
     _is_recent_topic_fallback: isRecentTopicFallback,
     _is_compliment_fallback: isComplimentFallback,
     _ai_recommended_offer_angle: s('ai_recommendation') || null,
+
+    // Instantly-compatible aliases (cold email V1 variables)
+    firstName: s('first_name') || s('display_name') || handle,
+    channelName: s('display_name') || handle,
+    recentVideoTitle: videoTitles.length > 0 ? cleanVideoTitle(videoTitles[0]) : '',
+    senderName: process.env.COLD_EMAIL_SENDER_NAME || 'Samy',
+    demoVideoUrl: '', // filled per-niche by campaign create route
+    unsubscribeLink: '{{unsubscribeLink}}', // Instantly handles this
   }
 }
