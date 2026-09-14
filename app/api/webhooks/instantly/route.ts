@@ -113,6 +113,28 @@ export async function POST(req: NextRequest) {
         : undefined,
   })
 
+  // Auto-onboard: if positive reply, find influencer by email and trigger pipeline
+  if (classification === 'positive_interested') {
+    try {
+      const { createAdminClient } = await import('@/lib/supabase/admin')
+      const admin = createAdminClient()
+      const { data: inf } = await admin
+        .from('influencers')
+        .select('id, status')
+        .eq('email', reply.from_email)
+        .single()
+
+      if (inf && inf.status !== 'demo_sent') {
+        await admin.from('influencers').update({ status: 'interested' } as never).eq('id', inf.id)
+        const { autoOnboard } = await import('@/lib/admin/onboarding/auto-onboard')
+        const result = await autoOnboard(inf.id)
+        console.log(`[webhook/instantly] auto-onboard: ${result.action} for ${reply.from_email}`)
+      }
+    } catch (err) {
+      console.warn(`[webhook/instantly] auto-onboard failed: ${(err as Error).message}`)
+    }
+  }
+
   return NextResponse.json({ received: true, classification })
 }
 
