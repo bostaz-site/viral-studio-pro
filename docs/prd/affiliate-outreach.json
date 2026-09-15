@@ -1,0 +1,96 @@
+{
+  "feature": "affiliate-outreach",
+  "description": "Turn the existing YouTube scraper + offer-generator + partner program into an autopilot lead machine for AFFILIATES/PROMOTERS (creator-tools, TikTok-growth, gaming-commentary channels), feeding the 8 DFY mailboxes from 2026-10-06. Reuses cold-email-v2 infra (buckets, preflight, positive-reply metric). Clippers (founder.md ICP) are handled by Samy's manual emails — NOT by this PRD.",
+  "context": {
+    "decision_2026_09_15": "8 boxes → affiliates first (Samy). Rationale: partner system (30% recurring, portal, promo kit, offer-generator) is the most complete surface in the repo. Risk accepted: affiliates convert slowly with 0 active users; October revenue must come from manual clipper outreach.",
+    "existing": "lib/admin/scraper/youtube.ts (search+details+email extraction, quota tracker), lib/admin/ai-scoring/* (Haiku scoring, $1/day cap), lib/admin/offer-generator/* (template-renderer, variable-extractor, subject-picker, compliance-preflight, instantly-pusher, ensureAffiliateCode), lib/admin/onboarding/auto-onboard.ts, /admin/scraper UI, /api/admin/scraper/{youtube,import,quota}, cron ai-scoring. 39 leads already imported (source=scraper_youtube), 0 email_verified.",
+    "quota": "YouTube Data API 10 000 units/day free. search=100 units, channel details=1, recent videos=3. Budget: ≤ 40 searches/day ≈ 4 500 units, leave headroom for the rest.",
+    "target_profile": "Channels 5k–1M subs, uploads in last 60 days, niche in (creator tools, tiktok/shorts growth, youtube automation, gaming commentary, streaming tips, clipping tutorials), business email public, NOT already promoting a direct competitor (OpusClip, Submagic, Klap, Vizard, Crayo, Munch) unless flagged has_competitor_products for a 'switch' angle later.",
+    "offer": "30% lifetime recurring on every referred paying user (Pro 29$/Studio 79$), personal code va-{handle}, promo kit (logos, templates, stream assets), partner portal with live stats, monthly Stripe Connect payout. Ask: one honest mention/video/pin when it fits their content. No fake urgency, no invented stats.",
+    "rules": "Same as cold-email-v2: plain text, <80 words, zero link in step 1 (the link is /partner or /r/{code} — step 3 only), CASL footer with postal address, 12/day/box, open tracking OFF, bounce <1.5%, positive reply rate is the metric. Never send to a lead without email_verified=true.",
+    "needs_from_samy": "An email-verification provider account + API key (MillionVerifier or Reoon, ~15 $/10k). Story S2 is blocked until env var exists — use AskUserQuestion."
+  },
+  "stories": [
+    {
+      "id": "S1",
+      "title": "Scraper autopilot: saved queries → daily cron → candidates → CRM import",
+      "acceptance": [
+        "Migration (applied first): scraper_queries table {id, query text, niche text, enabled bool, last_run_at, results_total int}; influencers gets language text null (if missing) and upload_cadence_days numeric null",
+        "Seed 12 queries (in migration SQL): 'clipping tutorial twitch', 'how to clip streams tiktok', 'capcut gaming edit tutorial', 'tiktok growth strategy 2026', 'youtube shorts automation', 'faceless gaming channel', 'streamer tips grow twitch', 'kick streaming tips', 'opus clip review', 'submagic review', 'content creator tools 2026', 'twitch clips compilation channel'",
+        "app/api/cron/scrape-leads/route.ts (CRON_SECRET, timingSafeCompare): each run picks the 8 enabled queries with the oldest last_run_at, calls searchYouTubeChannels + getChannelDetails + getRecentVideoDescriptions, extracts emails, runs keyword-scorer + distributor-graph, imports via the existing import path with 4-way suppression, source='scraper_youtube', status='cold', tags from scorer (has_competitor_products etc.)",
+        "Filters before import: subs 5k–1M, last upload ≤ 60 days, at least one email, email domain not in blacklist; rejected rows logged with reason in a scraper_runs table or debug log",
+        "Quota guard: stop the run when quota-tracker says > 5 000 units used today; never exceed 40 searches/day",
+        "Admin /admin/scraper shows a 'Saved queries (autopilot)' tab: list, enable/disable, last run, results",
+        "Register the cron in docs/wiki/system/crons.md as 'daily 06:00 ET' with NOT VERIFIED until added to cron-job.org"
+      ],
+      "verify": "npx tsc --noEmit && grep -n 'timingSafeCompare' app/api/cron/scrape-leads/route.ts && grep -c \"insert into scraper_queries\" supabase/migrations/*scraper_queries*.sql",
+      "passes": false
+    },
+    {
+      "id": "S2",
+      "title": "Email verification gate (MillionVerifier or Reoon) — nothing unverified reaches Instantly",
+      "acceptance": [
+        "AskUserQuestion FIRST: which provider + confirm the env var name (EMAIL_VERIFIER_API_KEY) is set in .env.local and Netlify. If not set, write the code but mark the story NOT VERIFIED and stop",
+        "lib/admin/compliance/email-verifier.ts: verifyEmail(email) → { status: 'valid'|'invalid'|'catch_all'|'unknown'|'disposable'|'role', provider_raw }, cached in influencers.email_verification jsonb + email_verified boolean + email_verified_at",
+        "Cron app/api/cron/verify-leads/route.ts: verifies up to 200 leads/day with email_verified=false and status='cold', in batches of 20 with rate limiting; invalid/disposable → status='declined', tag 'bad_email'; catch_all → email_verified=false, tag 'catch_all' (excluded from campaigns, revisit later); role (info@/contact@) → allowed but tag 'role_email'",
+        "instantly-pusher and csv-generator refuse leads with email_verified=false (hard filter, logged count)",
+        "Admin /admin/influencers shows verification badge and a filter"
+      ],
+      "verify": "npx tsc --noEmit && grep -n 'email_verified' lib/admin/offer-generator/instantly-pusher.ts && grep -n 'EMAIL_VERIFIER_API_KEY' lib/admin/compliance/email-verifier.ts",
+      "passes": false
+    },
+    {
+      "id": "S3",
+      "title": "Affiliate sequence aff-v1 (5 steps) seeded + preflight PASS",
+      "acceptance": [
+        "5 rows sequence_id='aff-v1', step_number 1..5, delay_days 0,3,7,12,20, spintax on greeting + CTA, <80 words excluding footer, CASL footer identical to cold-v2",
+        "Step 1 (no link): relevance — reference {{channelName}} and a recent video title {{recentVideoTitle}}; one sentence on Viral Animal (clips Twitch/Kick → TikTok in 2 min, hook + karaoke captions); the ask: 'we pay 30% recurring for life on anyone you send — worth a look?' reply 'yes'. No stats, no urgency",
+        "Step 2 (no link): what partners get — personal code, portal with live clicks/signups/earnings, promo kit; offer to send the kit on reply",
+        "Step 3 (the only link): {{partnerPortalUrl}} (viralanimal.com/partner) + {{affiliateCode}} pre-assigned via ensureAffiliateCode(); 'your code is already live if you want to test it'",
+        "Step 4 (no link): give-to-receive — offer a free Studio month for their own use so they can show it honestly to their audience",
+        "Step 5: breakup with explicit 'not now' → bucket not_now (60 d)",
+        "Variables must resolve from existing variable-extractor.ts (channelName, recentVideoTitle, affiliateCode, senderName, partnerPortalUrl, unsubscribeLink) — add partnerPortalUrl if missing",
+        "scripts/check-sequence.ts aff-v1 → 5/5 PASS; seed in migration SQL (INSERT ... ON CONFLICT DO NOTHING); docs/wiki/plans/affiliate-sequence-v1.md with the 5 emails verbatim"
+      ],
+      "verify": "npx tsx scripts/check-sequence.ts aff-v1 | grep -c PASS | xargs test 5 -eq && echo AFF_PREFLIGHT_5_PASS && grep -c 'J1Z 0A6' docs/wiki/plans/affiliate-sequence-v1.md",
+      "passes": false
+    },
+    {
+      "id": "S4",
+      "title": "Qualification + priority: AI score threshold, competitor angle, export order",
+      "acceptance": [
+        "ai-scoring cron scores every new scraper lead with email_verified=true (not only top 3%) — cap stays $1/day; if cap reached, leave unscored and retry next day",
+        "Qualification rule in lib/admin/match-engine (or a new lib/admin/scraper/qualify.ts): eligible = email_verified && ai_affiliate_score ≥ 60 && subs 5k–1M && upload ≤ 60 d && !unsubscribed; result stored as influencers.tags 'eligible_aff'",
+        "Leads tagged has_competitor_products are eligible but get sequence variant note 'competitor' stored in notes JSON (no separate sequence yet — text stays the same in v1)",
+        "instantly-pusher order: spike-tagged first (existing), then ai_affiliate_score desc, then subs desc; batch size = boxes × 12 × 5 days max per push",
+        "Admin /admin/influencers: filter 'Eligible for affiliate outreach' + count in header"
+      ],
+      "verify": "npx tsc --noEmit && grep -n 'eligible_aff' lib/admin -r | head -1",
+      "passes": false
+    },
+    {
+      "id": "S5",
+      "title": "Campaign wiring: aff-v1 on the 8 DFY boxes, reply → auto-onboard, dashboard",
+      "acceptance": [
+        "POST /api/admin/campaigns/create-sequence with sequenceId='aff-v1' builds the 5-step Instantly campaign using ONLY mailboxes with status active, provider google, domain in the 4 DFY domains (reuse S3 filters from cold-email-v2); refuses if any box has warmup_score < 70 or warm-up age < 21 days (read from Instantly account created_at) — returns 422 with the list",
+        "interested → existing autoOnboard() (code + portal magic link + welcome template); evaluating → Discord ping; not_now/wrong_person/unsub → cold-email-v2 buckets unchanged",
+        "Admin /admin/campaigns shows for aff-v1: sent, positive reply %, onboarded partners, first referral clicks (from affiliate_clicks) — the funnel in one row",
+        "Docs: docs/wiki/system/outreach.md gets an 'Affiliate outreach' section (queries → verify → qualify → aff-v1 → onboard → portal), env vars, crons (scrape-leads daily, verify-leads daily)"
+      ],
+      "verify": "npx tsc --noEmit && grep -n 'warmup_score' app/api/admin/campaigns/create-sequence/route.ts && grep -n 'Affiliate outreach' docs/wiki/system/outreach.md",
+      "passes": false
+    },
+    {
+      "id": "S6",
+      "title": "Dry run + DoD",
+      "acceptance": [
+        "Run scrape-leads once manually (curl with CRON_SECRET) → report: queries run, channels found, emails extracted, imported, rejected by reason, quota used",
+        "Run verify-leads once (if provider key exists) → report counts by status",
+        "Run qualification → count eligible_aff; target ≥ 100 eligible by 2026-10-06 stated as the success criterion in the report",
+        "docs/prompts/REPORT/affiliate-outreach.md with DONE / NOT DONE / NOT VERIFIED per story; docs/wiki/decisions/2026-09.md: one line 'channel split: 8 boxes → affiliates (aff-v1), clippers → manual emails by Samy'; docs/index.md updated; docs/acquisition-scraper.md 'Current State' section corrected (it says never used — 39 leads exist)"
+      ],
+      "verify": "test -f docs/prompts/REPORT/affiliate-outreach.md && grep -c 'eligible' docs/prompts/REPORT/affiliate-outreach.md",
+      "passes": false
+    }
+  ]
+}

@@ -29,6 +29,7 @@
 - [prd/README.md](prd/README.md) — PRD format spec (Ralph JSON)
 - [prd/24-distribution.json](prd/24-distribution.json) — Distribution cadence v2 (8 stories, example)
 - [prd/cold-email-v2.json](prd/cold-email-v2.json) — Cold email v2: 5 steps, buckets, positive-reply metric, DFY mailboxes, spike trigger (11 stories) — DONE
+- [prd/affiliate-outreach.json](prd/affiliate-outreach.json) — Affiliate outreach: scraper autopilot, email verification, aff-v1 sequence, qualification, campaign wiring (6 stories) — NEXT TO RUN
 
 ## Raw
 - raw/archive/ — 96 archived root .md files (old prompts, audits, status reports)
