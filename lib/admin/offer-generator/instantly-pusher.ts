@@ -24,10 +24,16 @@ export async function pushOffersToInstantly(offerIds: string[]): Promise<{
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: influencers } = await (admin as any)
     .from('influencers')
-    .select('id, email, platform_handle')
+    .select('id, email, platform_handle, tags')
     .in('id', influencerIds)
 
-  const infList = (influencers ?? []) as { id: string; email: string | null; platform_handle: string | null }[]
+  // Priority: spike-tagged leads (last 24h) exported first
+  const infList = ((influencers ?? []) as { id: string; email: string | null; platform_handle: string | null; tags: string[] | null }[])
+    .sort((a, b) => {
+      const aSpike = (a.tags ?? []).includes('spike') ? 1 : 0
+      const bSpike = (b.tags ?? []).includes('spike') ? 1 : 0
+      return bSpike - aSpike // spike-tagged first
+    })
 
   const contacts = infList.map(i => ({
     email: i.email ?? null,

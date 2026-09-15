@@ -5,6 +5,7 @@ import { scoreClip, type ClipScoreInput } from '@/lib/scoring/clip-scorer'
 import { getClipsByIds } from '@/lib/twitch/client'
 import { logger } from '@/lib/logger'
 import { isAuditMode } from '@/lib/feature-flags'
+import { handleSpikeTrigger } from '@/lib/outreach/spike-trigger'
 
 /**
  * POST /api/cron/rescore-clips
@@ -70,12 +71,12 @@ export async function POST(req: NextRequest) {
 
     // 2. Batch-fetch streamer averages for all unique streamer_ids
     const streamerIds = [...new Set(clips.map(c => c.streamer_id).filter(Boolean))] as string[]
-    const streamerMap = new Map<string, { avg_clip_views: number; avg_clip_velocity: number }>()
+    const streamerMap = new Map<string, { avg_clip_views: number; avg_clip_velocity: number; twitch_login: string | null; kick_login: string | null }>()
 
     if (streamerIds.length > 0) {
       const { data: streamers } = await admin
         .from('streamers')
-        .select('id, avg_clip_views, avg_clip_velocity')
+        .select('id, avg_clip_views, avg_clip_velocity, twitch_login, kick_login' as '*')
         .in('id', streamerIds)
 
       if (streamers) {
@@ -83,6 +84,8 @@ export async function POST(req: NextRequest) {
           streamerMap.set(s.id, {
             avg_clip_views: (s.avg_clip_views as number) ?? 0,
             avg_clip_velocity: (s.avg_clip_velocity as number) ?? 0,
+            twitch_login: (s as Record<string, unknown>).twitch_login as string | null,
+            kick_login: (s as Record<string, unknown>).kick_login as string | null,
           })
         }
       }
@@ -225,6 +228,20 @@ export async function POST(req: NextRequest) {
         // Spike detection: current views > last snapshot views * 1.2
         const lastSnapshotViews = latestSnapshot?.view_count ?? 0
         const isSpike = lastSnapshotViews > 0 && currentViews > lastSnapshotViews * 1.2
+
+        // Spike trigger: enrich matching influencer leads for cold email priority
+        if (isSpike && clip.streamer_id && streamerAvg) {
+          const login = streamerAvg.twitch_login || streamerAvg.kick_login
+          const platform = streamerAvg.twitch_login ? 'twitch' as const : 'kick' as const
+          if (login) {
+            void handleSpikeTrigger({
+              streamerLogin: login,
+              platform,
+              clipTitle: clip.title ?? '',
+              clipId: clip.id,
+            }).catch(err => logger.warn({ error: (err as Error).message }, 'Spike trigger failed'))
+          }
+        }
 
         // Determine next check interval based on age
         let nextCheckMinutes: number

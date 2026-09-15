@@ -132,7 +132,7 @@
         "No email is sent by this story — it only prioritizes and enriches; sending stays in Instantly with the 12/day cap"
       ],
       "verify": "npx tsc --noEmit && grep -n 'spike' lib/outreach/spike-trigger.ts && grep -rn 'spike-trigger' lib app | grep -v spike-trigger.ts | head -1",
-      "passes": false
+      "passes": true
     },
     {
       "id": "S10",
