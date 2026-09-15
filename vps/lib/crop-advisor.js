@@ -231,11 +231,11 @@ export async function adviseCrop(videoPath, opts = {}) {
     };
 
   } catch (err) {
-    const stderr = err.stderr ? err.stderr.slice(0, 500) : '';
+    const stderr = err.stderr || '';
     if (err.killed) {
       console.warn(`[CropAdvisor] Timeout after ${timeoutMs}ms`);
     } else {
-      console.warn(`[CropAdvisor] Error: ${err.message}${stderr ? `\n  stderr: ${stderr}` : ''}`);
+      console.error(`[CropAdvisor] Analysis failed:\n  command: python3 ${FACE_DETECT_SCRIPT} ${videoPath}\n  error: ${err.message}\n  stderr: ${stderr || '(empty)'}\n  code: ${err.code || 'n/a'}`);
     }
     return fallback(`Analysis failed: ${err.message}${stderr ? ` | stderr: ${stderr}` : ''}`);
   }

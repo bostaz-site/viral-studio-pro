@@ -1266,6 +1266,54 @@ router.post('/', async (req, res) => {
     }
     trc(`TIMESTAMPS SYNC: wordTimestamps=${wordTimestamps.length}, captionWordTimestamps=${captionWordTimestamps.length}`);
 
+    // ─── Hook Text Fallback (post-Whisper) ───
+    // If hook is enabled with text but no text was provided by the frontend,
+    // generate it now using the Whisper transcript + peak detection.
+    if (settings.hook?.enabled && settings.hook?.textEnabled !== false && !settings.hook?.text && wordTimestamps.length > 0) {
+      try {
+        const hookTranscript = wordTimestamps.map(w => w.word).join(' ').trim();
+        const hookPeak = detectPeakMoment({
+          wordTimestamps,
+          transcript: hookTranscript,
+          duration,
+          audioPeaks: [],
+          isViewerClip: source === 'trending',
+        });
+        const hookStreamer = settings.tag?.authorHandle || settings.tag?.authorName || '';
+        const hookNiche = settings.sourcePlatform || 'gaming';
+        const hookMood = settings.autoCut?.mood || '';
+        const hookFeedCat = settings.analysis?.feed_category || null;
+        const hookClipCreatedAt = settings.analysis?.clip_created_at || null;
+
+        trc(`HOOK FALLBACK (post-Whisper): generating from ${wordTimestamps.length} words, peak="${hookPeak.peakTranscript?.slice(0, 60) || ''}"...`);
+
+        const hookPkg = await generateHookPackage({
+          transcript: hookTranscript,
+          peakTranscript: hookPeak.peakTranscript || '',
+          title: clipTitle || '',
+          streamerName: hookStreamer,
+          niche: hookNiche,
+          mood: hookMood,
+          feedCategory: hookFeedCat,
+          clipCreatedAt: hookClipCreatedAt,
+        });
+
+        if (hookPkg.hooks && hookPkg.hooks.length > 0) {
+          // Pick hook matching requested style, else first
+          const preferredStyle = settings.hook.style || 'shock';
+          const matched = hookPkg.hooks.find(h => h.style === preferredStyle) || hookPkg.hooks[0];
+          settings.hook.text = matched.text;
+          settings.hook.color = matched.color || hookPkg.color || 'white';
+          if (hookPkg.nicheKeyword) settings.hook.nicheKeyword = hookPkg.nicheKeyword;
+          trc(`HOOK FALLBACK (post-Whisper): "${matched.text}" (style=${matched.style}, color=${settings.hook.color})`);
+        } else {
+          trc('HOOK FALLBACK (post-Whisper): generateHookPackage returned null hooks — no hook text');
+        }
+      } catch (hookFallbackErr) {
+        trc(`HOOK FALLBACK ERROR (non-fatal): ${hookFallbackErr.message}`);
+      }
+    }
+
     // Prepare tag/credit config
     let tagConfig = null;
     if (settings.tag && settings.tag.style && settings.tag.style !== 'none') {
