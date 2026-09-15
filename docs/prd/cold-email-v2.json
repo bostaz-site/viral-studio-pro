@@ -83,7 +83,7 @@
         "Inbound webhook body validated with zod (lib/schemas/cold-email.ts); the duplicate /api/admin/webhooks/instantly route is deleted and docs updated"
       ],
       "verify": "npx tsc --noEmit && grep -n 'resequence_after' lib/admin/webhooks/instantly-processor.ts && test ! -e app/api/admin/webhooks/instantly/route.ts && echo DUP_ROUTE_REMOVED",
-      "passes": false
+      "passes": true
     },
     {
       "id": "S6",

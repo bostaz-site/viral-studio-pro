@@ -1,169 +1,120 @@
 import { NextRequest, NextResponse } from 'next/server'
-import Anthropic from '@anthropic-ai/sdk'
-import { postToDiscord } from '@/lib/discord/post'
-
-const claude = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY ?? '',
-})
-
-type ReplyClassification =
-  | 'positive_interested'
-  | 'question'
-  | 'negative'
-  | 'unsubscribe'
-  | 'auto_reply'
+import crypto from 'crypto'
+import { createAdminClient } from '@/lib/supabase/admin'
+import { processInstantlyEvent } from '@/lib/admin/webhooks/instantly-processor'
+import { instantlyWebhookSchema } from '@/lib/schemas/cold-email'
+import { rateLimit, RATE_LIMITS } from '@/lib/rate-limit'
 
 /**
  * POST /api/webhooks/instantly
  *
- * Receives reply webhooks from Instantly.
- * Classifies the reply sentiment via Claude Haiku, then posts to Discord.
+ * Receives all Instantly webhook events (sent, replied, bounced, unsubscribed).
+ * Validates with zod, deduplicates via webhook_events, processes via instantly-processor.
+ * Reply classification + bucket handling is in the processor.
  */
-export async function POST(req: NextRequest) {
-  // Verify webhook source (Instantly sends a secret header if configured)
-  const secret = req.headers.get('x-instantly-secret')
-  if (process.env.INSTANTLY_WEBHOOK_SECRET && secret !== process.env.INSTANTLY_WEBHOOK_SECRET) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+function verifyWebhookToken(req: NextRequest): boolean {
+  const secret = process.env.INSTANTLY_WEBHOOK_SECRET
+  if (!secret) {
+    console.error('[webhook/instantly] INSTANTLY_WEBHOOK_SECRET not configured')
+    return false
   }
 
-  let payload: {
-    event_type?: string
-    reply?: {
-      id?: string
-      from_email?: string
-      to_email?: string
-      subject?: string
-      body?: string
-      campaign_name?: string
-    }
-  }
+  // Support both query param and header
+  const token = req.nextUrl.searchParams.get('token')
+    ?? req.headers.get('x-instantly-secret')
+    ?? ''
+  if (!token) return false
 
   try {
-    payload = await req.json()
+    const a = Buffer.from(token, 'utf8')
+    const b = Buffer.from(secret, 'utf8')
+    if (a.length !== b.length) return false
+    return crypto.timingSafeEqual(a, b)
   } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+    return false
   }
-
-  const reply = payload.reply
-  if (!reply?.body || !reply.from_email) {
-    return NextResponse.json({ received: true, skipped: 'no reply body' })
-  }
-
-  // Classify reply via Claude Haiku
-  const classification = await classifyReply(reply.body)
-
-  // Post to Discord
-  const channel =
-    classification === 'positive_interested' ? 'positive-replies' : 'cold-email-replies'
-
-  const color =
-    classification === 'positive_interested'
-      ? 0xff6b00
-      : classification === 'negative' || classification === 'unsubscribe'
-        ? 0xff0000
-        : 0x5865f2
-
-  const titleMap: Record<ReplyClassification, string> = {
-    positive_interested: 'POSITIVE reply (priority!)',
-    question: 'Question received',
-    negative: 'Negative reply',
-    unsubscribe: 'Unsubscribe request',
-    auto_reply: 'Auto-reply (ignore)',
-  }
-
-  await postToDiscord({
-    channel,
-    embed: {
-      title: titleMap[classification],
-      description: `From: ${reply.from_email}`,
-      color,
-      fields: [
-        { name: 'Campaign', value: reply.campaign_name ?? 'N/A', inline: true },
-        { name: 'Sentiment', value: classification, inline: true },
-        { name: 'Excerpt', value: (reply.body ?? '').slice(0, 300), inline: false },
-      ],
-    },
-    components:
-      classification === 'positive_interested'
-        ? [
-            {
-              type: 1,
-              components: [
-                {
-                  type: 2,
-                  style: 3,
-                  label: 'Auto-generate promo code',
-                  custom_id: `generate_promo:${reply.from_email}`,
-                },
-                {
-                  type: 2,
-                  style: 2,
-                  label: 'Suggest reply',
-                  custom_id: `suggest_reply:${reply.from_email}`,
-                },
-                {
-                  type: 2,
-                  style: 4,
-                  label: 'Mark spam',
-                  custom_id: `mark_spam:${reply.from_email}`,
-                },
-              ],
-            },
-          ]
-        : undefined,
-  })
-
-  // Auto-onboard: if positive reply, find influencer by email and trigger pipeline
-  if (classification === 'positive_interested') {
-    try {
-      const { createAdminClient } = await import('@/lib/supabase/admin')
-      const admin = createAdminClient()
-      const { data: inf } = await admin
-        .from('influencers')
-        .select('id, status')
-        .eq('email', reply.from_email)
-        .single()
-
-      if (inf && inf.status !== 'demo_sent') {
-        await admin.from('influencers').update({ status: 'interested' } as never).eq('id', inf.id)
-        const { autoOnboard } = await import('@/lib/admin/onboarding/auto-onboard')
-        const result = await autoOnboard(inf.id)
-        console.log(`[webhook/instantly] auto-onboard: ${result.action} for ${reply.from_email}`)
-      }
-    } catch (err) {
-      console.warn(`[webhook/instantly] auto-onboard failed: ${(err as Error).message}`)
-    }
-  }
-
-  return NextResponse.json({ received: true, classification })
 }
 
-async function classifyReply(body: string): Promise<ReplyClassification> {
+export async function POST(req: NextRequest) {
+  if (!verifyWebhookToken(req)) {
+    return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 })
+  }
+
+  const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
+  const rl = await rateLimit(`webhook:instantly:${ip}`, RATE_LIMITS.webhook.limit, RATE_LIMITS.webhook.windowMs)
+  if (!rl.allowed) {
+    return NextResponse.json({ ok: false, error: 'Rate limited' }, { status: 429 })
+  }
+
   try {
-    const response = await claude.messages.create({
-      model: 'claude-haiku-4-5-20251001',
-      max_tokens: 64,
-      system:
-        'Classify this cold email reply into exactly ONE category. Reply with ONLY the category name, nothing else: positive_interested, question, negative, unsubscribe, auto_reply',
-      messages: [{ role: 'user', content: body.slice(0, 1000) }],
-    })
+    const raw = await req.json()
 
-    const text =
-      response.content[0].type === 'text'
-        ? response.content[0].text.trim().toLowerCase()
-        : 'question'
+    // Normalize nested reply format to flat (Instantly sends both formats)
+    const payload = raw.reply
+      ? { event_type: 'email_replied', ...raw.reply, ...(raw.event_type ? { event_type: raw.event_type } : {}) }
+      : raw
 
-    const valid: ReplyClassification[] = [
-      'positive_interested',
-      'question',
-      'negative',
-      'unsubscribe',
-      'auto_reply',
-    ]
-    return valid.includes(text as ReplyClassification)
-      ? (text as ReplyClassification)
-      : 'question'
-  } catch {
-    return 'question'
+    const parsed = instantlyWebhookSchema.safeParse(payload)
+    if (!parsed.success) {
+      return NextResponse.json({ ok: false, error: 'Invalid payload' }, { status: 400 })
+    }
+
+    const eventType = (payload.event_type || payload.event || 'unknown') as string
+    const eventId =
+      payload.id ||
+      payload.event_id ||
+      `${eventType}_${payload.timestamp || Date.now()}_${payload.email || ''}`
+    const payloadHash = crypto
+      .createHash('sha256')
+      .update(JSON.stringify(payload))
+      .digest('hex')
+
+    const admin = createAdminClient()
+
+    // INSERT with ON CONFLICT DO NOTHING (idempotency)
+    const { data: webhookEvent, error: insertError } = await admin
+      .from('webhook_events')
+      .insert({
+        provider: 'instantly',
+        event_id: eventId,
+        event_type: eventType,
+        payload,
+        payload_hash: payloadHash,
+        processing_status: 'processing',
+      })
+      .select('id')
+      .single()
+
+    if (insertError) {
+      if (insertError.code === '23505') {
+        return NextResponse.json({ ok: true, duplicate: true })
+      }
+      console.error('[webhook/instantly] Insert error:', insertError)
+      return NextResponse.json({ ok: false, error: 'Insert failed' }, { status: 500 })
+    }
+
+    // Process the event (classification + bucket logic lives here)
+    try {
+      await processInstantlyEvent(admin, webhookEvent.id, eventType, payload as Record<string, unknown>)
+      await admin
+        .from('webhook_events')
+        .update({ processing_status: 'completed', processed_at: new Date().toISOString() })
+        .eq('id', webhookEvent.id)
+    } catch (err) {
+      console.error('[webhook/instantly] Processing error:', err)
+      await admin
+        .from('webhook_events')
+        .update({
+          processing_status: 'failed',
+          error_message: err instanceof Error ? err.message : String(err),
+        })
+        .eq('id', webhookEvent.id)
+    }
+
+    return NextResponse.json({ ok: true })
+  } catch (err) {
+    console.error('[webhook/instantly] Fatal error:', err)
+    return NextResponse.json({ ok: false, error: 'Internal error' }, { status: 500 })
   }
 }

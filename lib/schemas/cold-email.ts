@@ -8,3 +8,11 @@ export const createSequenceSchema = z.object({
 })
 
 export type CreateSequenceInput = z.infer<typeof createSequenceSchema>
+
+/** Zod schema for cold-email Instantly webhook inbound body */
+export const instantlyWebhookSchema = z.object({
+  event_type: z.string().optional(),
+  event: z.string().optional(),
+}).passthrough()
+
+export type InstantlyWebhookBody = z.infer<typeof instantlyWebhookSchema>
