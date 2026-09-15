@@ -40,6 +40,7 @@
 #   POST /api/cron/refresh-post-stats      — every 6h
 #   POST /api/cron/sync-instantly          — every 15min (Instantly mailboxes + campaigns)
 #   POST /api/cron/ai-scoring             — hourly (Claude Haiku scores top 3% leads)
+#   POST /api/cron/resequence-leads      — daily (not_now leads → cold after 60d)
 
 # Cache agressif sur les assets statiques Next.js
 [[headers]]

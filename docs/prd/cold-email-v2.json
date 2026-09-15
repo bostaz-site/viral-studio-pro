@@ -96,7 +96,7 @@
         "Cron registered in netlify.toml (or wherever other crons are declared — check publish-scheduled)"
       ],
       "verify": "npx tsc --noEmit && grep -n 'timingSafeCompare' app/api/cron/resequence-leads/route.ts",
-      "passes": false
+      "passes": true
     },
     {
       "id": "S7",

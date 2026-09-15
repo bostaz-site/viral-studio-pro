@@ -3,3 +3,4 @@ S2 DONE — Seed 20260915130000_cold_email_v2_seed.sql: 5 steps (day 0/3/7/12/20
 S3 DONE — create-sequence v2: zod schema in lib/schemas/cold-email.ts, trackOpens OFF all, trackClicks step 3 only, dailyLimit 12, stopOnAutoReply false, America/Toronto, blocked viralanimal.com+zoho
 S4 DONE — syncMailboxes: DFY→google/12, Zoho→reception_only/0, warmup_score<70→pause+Discord, mailbox-table warmup column + reception only badge
 S5 DONE — Reply buckets: Haiku classifier→6 buckets, not_now→resequence_after+60d+dormant+remove, wrong_person→notes, unsubscribed→suppression 4-way, dup admin route deleted, zod validation
+S6 DONE — Cron resequence-leads: daily, CRON_SECRET+timingSafeCompare, not_now+resequence_after<=today→cold, suppression/bounce/unsub guard, tag 'resequenced', registered in netlify.toml
