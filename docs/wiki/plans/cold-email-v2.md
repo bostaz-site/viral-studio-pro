@@ -25,7 +25,7 @@ Want me to cut 5 clips from your latest video for free? {Just reply "yes" and I'
 
 {{firstName}}, quick follow-up.
 
-We cut clips for {{niche}} creators every week — vertical format, karaoke captions, hook text, smart zoom. The clips usually get 10x the views of a raw upload.
+We cut clips for {{niche}} creators every week — vertical format, karaoke captions, hook text, smart zoom. Karaoke captions, hook text, smart zoom — the same format the big clipping accounts use.
 
 Want to see what yours would look like? Reply and I'll send you a sample clip from your channel.
 
@@ -49,9 +49,7 @@ Reply "yes" and I'll cut them this week.
 
 ## Email 4 — Day 12 · Subject: `re: {{channelName}} clips`
 
-{{firstName}}, I went ahead and cut a clip from "{{recentVideoTitle}}" — came out pretty clean.
-
-Want me to send it over? No strings, it's yours either way.
+{{firstName}}, send me the link to your last stream and I'll cut one clip tonight and send it back. No strings, it's yours either way.
 
 {{senderName}}
 

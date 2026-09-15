@@ -39,7 +39,7 @@ VALUES (
   're: {{channelName}} clips',
   $body${{firstName}}, quick follow-up.
 
-We cut clips for {{niche}} creators every week — vertical format, karaoke captions, hook text, smart zoom. The clips usually get 10x the views of a raw upload.
+We cut clips for {{niche}} creators every week — vertical format, karaoke captions, hook text, smart zoom. Karaoke captions, hook text, smart zoom — the same format the big clipping accounts use.
 
 Want to see what yours would look like? Reply and I'll send you a sample clip from your channel.
 
@@ -87,9 +87,7 @@ VALUES (
   'cold-v2-step4',
   'outreach',
   're: {{channelName}} clips',
-  $body${{firstName}}, I went ahead and cut a clip from "{{recentVideoTitle}}" — came out pretty clean.
-
-Want me to send it over? No strings, it's yours either way.
+  $body${{firstName}}, send me the link to your last stream and I'll cut one clip tonight and send it back. No strings, it's yours either way.
 
 {{senderName}}
 
@@ -98,7 +96,7 @@ Viral Animal Inc. · 1685 rue Florence, Saint-Cyrille-de-Wendover, QC J1Z 0A6, C
 You're receiving this because {{channelName}} is publicly listed as a business/creator channel.
 Don't want these? Reply "stop" or unsubscribe here: {{unsubscribeLink}}$body$,
   'cold-v2', 4, 12, false, 80,
-  '["firstName", "recentVideoTitle", "channelName", "senderName", "unsubscribeLink"]'::jsonb
+  '["firstName", "channelName", "senderName", "unsubscribeLink"]'::jsonb
 )
 ON CONFLICT (name) DO NOTHING;
 

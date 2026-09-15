@@ -37,3 +37,18 @@
 - `be0adf4` S8 compliance preflight
 - `a7121ef` S9 spike trigger
 - `56e0b86` S10 demo kit
+- `5b140b0` S11 docs + DoD
+
+## Post-merge corrections
+
+- Step 2: removed invented stat "10x the views" (0 clients = 0 data). Replaced with "the same format the big clipping accounts use."
+- Step 4: removed fake give-to-receive (pretending clip was already cut). Replaced with honest ask: "Send me the link to your last stream and I'll cut one clip tonight."
+- Both updated in migration seed SQL, docs/wiki/plans/cold-email-v2.md, and prod via UPDATE email_templates.
+- Compliance re-verified: 5/5 PASS (step 2: 55 words, step 4: 26 words).
+- crons.md: added "Who triggers crons" section (cron-job.org), added resequence-leads as NOT VERIFIED (not yet in scheduler).
+
+### Open items
+
+| Item | Status |
+|---|---|
+| resequence-leads added in cron-job.org | NOT VERIFIED — needs manual setup in cron-job.org dashboard |
