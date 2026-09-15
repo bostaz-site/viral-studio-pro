@@ -80,6 +80,15 @@ export class InstantlyClient {
     return accounts
   }
 
+  async pauseEmailAccount(accountId: string): Promise<void> {
+    try {
+      await this.request('PATCH', `/accounts/${accountId}`, { warmup_status: 'paused' })
+      logger.info({ accountId }, 'Instantly email account warmup paused')
+    } catch (err) {
+      logger.warn({ accountId, error: (err as Error).message }, 'Failed to pause Instantly account warmup')
+    }
+  }
+
   // ── Campaigns ───────────────────────────────────────────────────────────
 
   async getCampaigns(limit = 100): Promise<InstantlyCampaign[]> {

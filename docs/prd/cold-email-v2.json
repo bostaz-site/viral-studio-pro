@@ -69,7 +69,7 @@
         "Admin /admin/mailboxes shows warmup score column and a 'reception only' badge"
       ],
       "verify": "npx tsc --noEmit && grep -n 'reception_only' lib/integrations/instantly/sync-mailboxes.ts",
-      "passes": false
+      "passes": true
     },
     {
       "id": "S5",

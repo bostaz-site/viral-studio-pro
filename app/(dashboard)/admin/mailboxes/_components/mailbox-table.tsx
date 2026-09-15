@@ -15,6 +15,7 @@ export interface MailboxRow {
   provider: string | null
   status: string
   reputation_score: number | null
+  warmup_score: number | null
   bounce_rate_pct: number | null
   daily_send_limit: number | null
   emails_sent_today: number | null
@@ -29,6 +30,7 @@ const STATUS_COLORS: Record<string, string> = {
   warming: 'text-amber-400 border-amber-400/40',
   paused: 'text-zinc-400 border-zinc-400/40',
   blocked: 'text-red-400 border-red-400/40',
+  reception_only: 'text-blue-400 border-blue-400/40',
 }
 
 interface Props {
@@ -48,7 +50,7 @@ export function MailboxTable({ mailboxes, onViewDetail, onAction, statusFilter, 
     setLoadingAction(null)
   }
 
-  const statuses = ['', 'active', 'warming', 'paused', 'blocked']
+  const statuses = ['', 'active', 'warming', 'paused', 'blocked', 'reception_only']
 
   return (
     <Card className="border-border">
@@ -80,6 +82,7 @@ export function MailboxTable({ mailboxes, onViewDetail, onAction, statusFilter, 
                 <th className="px-4 py-3 text-xs font-medium text-muted-foreground">Email</th>
                 <th className="px-4 py-3 text-xs font-medium text-muted-foreground">Status</th>
                 <th className="px-4 py-3 text-xs font-medium text-muted-foreground">Rep</th>
+                <th className="px-4 py-3 text-xs font-medium text-muted-foreground text-right">Warmup</th>
                 <th className="px-4 py-3 text-xs font-medium text-muted-foreground text-right">Today</th>
                 <th className="px-4 py-3 text-xs font-medium text-muted-foreground text-right">7d Bounce</th>
                 <th className="px-4 py-3 text-xs font-medium text-muted-foreground text-right">7d Reply</th>
@@ -90,7 +93,7 @@ export function MailboxTable({ mailboxes, onViewDetail, onAction, statusFilter, 
             <tbody>
               {mailboxes.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="px-4 py-8 text-center text-muted-foreground">No mailboxes found</td>
+                  <td colSpan={9} className="px-4 py-8 text-center text-muted-foreground">No mailboxes found</td>
                 </tr>
               ) : (
                 mailboxes.map(mb => {
@@ -111,6 +114,11 @@ export function MailboxTable({ mailboxes, onViewDetail, onAction, statusFilter, 
                         </Badge>
                       </td>
                       <td className="px-4 py-3"><ReputationGauge score={mb.reputation_score} size="sm" /></td>
+                      <td className={`px-4 py-3 text-right text-xs ${mb.warmup_score !== null && mb.warmup_score < 70 ? 'text-red-400' : 'text-muted-foreground'}`}>
+                        {mb.status === 'reception_only' ? (
+                          <Badge variant="outline" className="text-[10px] text-blue-400 border-blue-400/40">reception only</Badge>
+                        ) : mb.warmup_score !== null ? `${mb.warmup_score}%` : '—'}
+                      </td>
                       <td className="px-4 py-3 text-right">
                         <div className="flex items-center justify-end gap-2">
                           <span className="text-xs text-muted-foreground">{sent}/{limit}</span>

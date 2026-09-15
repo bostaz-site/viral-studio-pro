@@ -11,6 +11,7 @@ export interface InstantlyEmailAccount {
   daily_limit: number
   is_smtp_imap: boolean
   created_at: string
+  warmup_score?: number
 }
 
 export interface InstantlyAccountHealth {
