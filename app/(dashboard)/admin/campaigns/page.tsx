@@ -16,6 +16,8 @@ interface Campaign {
   total_sent: number
   total_replied: number
   total_opened: number
+  total_positive_replies: number
+  positive_reply_rate_pct: number | null
 }
 
 const STATUS_COLORS: Record<string, string> = {
@@ -107,19 +109,23 @@ export default function CampaignsPage() {
                 <th className="p-3 text-left">Status</th>
                 <th className="p-3 text-right">Recipients</th>
                 <th className="p-3 text-right">Sent</th>
-                <th className="p-3 text-right">Open Rate</th>
+                <th className="p-3 text-right">Positive Reply %</th>
                 <th className="p-3 text-right">Reply Rate</th>
+                <th className="p-3 text-right text-zinc-600" title="Unreliable in 2026 — pixel tracking is a spam signal">Open Rate</th>
                 <th className="p-3 text-left">Created</th>
                 <th className="p-3 text-right">Actions</th>
               </tr>
             </thead>
             <tbody>
               {campaigns.map((c) => {
-                const openRate = c.total_sent > 0
-                  ? ((c.total_opened / c.total_sent) * 100).toFixed(1)
+                const positiveReplyPct = c.positive_reply_rate_pct !== null
+                  ? c.positive_reply_rate_pct.toFixed(1)
                   : '-'
                 const replyRate = c.total_sent > 0
                   ? ((c.total_replied / c.total_sent) * 100).toFixed(1)
+                  : '-'
+                const openRate = c.total_sent > 0
+                  ? ((c.total_opened / c.total_sent) * 100).toFixed(1)
                   : '-'
 
                 return (
@@ -136,8 +142,9 @@ export default function CampaignsPage() {
                     </td>
                     <td className="p-3 text-right text-zinc-400">{c.total_recipients}</td>
                     <td className="p-3 text-right text-zinc-400">{c.total_sent}</td>
-                    <td className="p-3 text-right text-zinc-400">{openRate}%</td>
+                    <td className="p-3 text-right font-medium text-amber-400">{positiveReplyPct}%</td>
                     <td className="p-3 text-right text-zinc-400">{replyRate}%</td>
+                    <td className="p-3 text-right text-zinc-600" title="Unreliable in 2026">{openRate}%</td>
                     <td className="p-3 text-zinc-500">
                       {new Date(c.created_at).toLocaleDateString()}
                     </td>

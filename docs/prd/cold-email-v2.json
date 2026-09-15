@@ -108,7 +108,7 @@
         "Health guard: if bounce_rate > 1.5% on a campaign → pause campaign via Instantly + Discord alert"
       ],
       "verify": "npx tsc --noEmit && grep -n 'positive_reply_rate_pct' lib/integrations/instantly/sync-campaigns.ts",
-      "passes": false
+      "passes": true
     },
     {
       "id": "S8",
