@@ -119,7 +119,7 @@
         "Unit-style check script scripts/check-sequence.ts <sequenceId> prints PASS/FAIL per step"
       ],
       "verify": "npx tsc --noEmit && npx tsx scripts/check-sequence.ts cold-v2 | grep -c PASS | xargs test 5 -eq && echo PREFLIGHT_5_PASS",
-      "passes": false
+      "passes": true
     },
     {
       "id": "S9",

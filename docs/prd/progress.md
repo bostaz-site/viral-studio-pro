@@ -5,3 +5,4 @@ S4 DONE — syncMailboxes: DFY→google/12, Zoho→reception_only/0, warmup_scor
 S5 DONE — Reply buckets: Haiku classifier→6 buckets, not_now→resequence_after+60d+dormant+remove, wrong_person→notes, unsubscribed→suppression 4-way, dup admin route deleted, zod validation
 S6 DONE — Cron resequence-leads: daily, CRON_SECRET+timingSafeCompare, not_now+resequence_after<=today→cold, suppression/bounce/unsub guard, tag 'resequenced', registered in netlify.toml
 S7 DONE — syncCampaigns: positive_reply_rate_pct computed from email_events+reply_bucket, bounce>1.5%→pause+Discord, UI: Positive Reply % first metric (amber), Open Rate greyed with tooltip
+S8 DONE — Compliance preflight v2: sequenceCompliancePreflight() checks URL/words/footer/banned/caps, create-sequence returns 422, scripts/check-sequence.ts 5/5 PASS

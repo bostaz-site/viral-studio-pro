@@ -1,8 +1,10 @@
+import { NextResponse } from 'next/server'
 import { withAdmin } from '@/lib/api/withAdmin'
 import { jsonResponse, errorResponse } from '@/lib/api/withAuth'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { InstantlyClient } from '@/lib/integrations/instantly/client'
 import { createSequenceSchema } from '@/lib/schemas/cold-email'
+import { sequenceCompliancePreflight } from '@/lib/admin/offer-generator/compliance-preflight'
 
 /**
  * POST /api/admin/campaigns/create-sequence
@@ -43,11 +45,23 @@ export const POST = withAdmin(async (req) => {
     return errorResponse(`No templates found for sequence "${sequenceId}"`, 404)
   }
 
-  // Compliance preflight
-  const tplBodies = templates.map((t: Record<string, unknown>) => String(t.body_text ?? ''))
-  const missingFooter = tplBodies.some(b => !b.includes('unsubscribeLink') && !b.includes('unsubscribe'))
-  if (missingFooter) {
-    return errorResponse('Compliance: one or more templates missing unsubscribe link in footer', 400)
+  // Compliance preflight v2
+  const preflightResult = sequenceCompliancePreflight(
+    templates.map((t: Record<string, unknown>) => ({
+      step_number: Number(t.step_number),
+      body_text: String(t.body_text ?? ''),
+      max_words: Number(t.max_words ?? 80),
+    }))
+  )
+
+  if (!preflightResult.pass) {
+    const violations = preflightResult.steps
+      .filter(s => s.violations.length > 0)
+      .map(s => `Step ${s.step}: ${s.violations.join('; ')}`)
+    return NextResponse.json(
+      { error: 'Compliance preflight failed', violations },
+      { status: 422 }
+    )
   }
 
   // Check bounce rate on active campaigns (v2 threshold: 1.5%)
