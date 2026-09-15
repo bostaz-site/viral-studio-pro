@@ -49,7 +49,7 @@ If it is: reply with the video you want cut and I'll send 5 clips back within 48
 
 ```
 —
-Viral Animal Inc. · [ADRESSE POSTALE — À REMPLIR]
+Viral Animal Inc. · 1685 rue Florence, Saint-Cyrille-de-Wendover, QC J1Z 0A6, Canada
 You're receiving this because {{channelName}} is publicly listed as a business/creator channel.
 Don't want these? Reply "stop" or unsubscribe here: {{unsubscribeLink}}
 ```
@@ -85,7 +85,7 @@ Don't want these? Reply "stop" or unsubscribe here: {{unsubscribeLink}}
 
 ## Ce qui manque avant envoi
 
-- [ ] Adresse postale Viral Animal Inc. dans le footer
+- [x] Adresse postale Viral Animal Inc. dans le footer (1685 rue Florence, Saint-Cyrille-de-Wendover, QC J1Z 0A6)
 - [ ] {{demoVideoUrl}} : 1 vidéo démo par niche dans la Video Library (gaming, IRL, business, fitness)
 - [ ] Domaines secondaires + boîtes + warm-up 14 jours
 - [ ] 500 leads vérifiés

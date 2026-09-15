@@ -1,0 +1,162 @@
+{
+  "feature": "cold-email-v2",
+  "description": "5-step plain-text sequence (no link in step 1), CASL footer, reply buckets with not_now→60d re-sequence, positive-reply metric, new DFY mailboxes wired, signal-triggered send when a followed streamer spikes. Builds on lib/integrations/instantly, lib/admin/email, lib/admin/ai, create-sequence route. Read docs/wiki/plans/cold-email-v1.md first.",
+  "context": {
+    "mailboxes_ordered_2026_09_15": [
+      "samy@getviralanimal.com", "samy.cloutier@getviralanimal.com",
+      "samy@tryviralanimal.com", "samy.cloutier@tryviralanimal.com",
+      "samy@viralanimalhq.com", "samy.cloutier@viralanimalhq.com",
+      "samy@useviralanimal.com", "samy.cloutier@useviralanimal.com"
+    ],
+    "postal_footer": "Viral Animal Inc. · 1685 rue Florence, Saint-Cyrille-de-Wendover, QC J1Z 0A6, Canada",
+    "sending_rules": "12/day/box (max 20), weekdays 8h-16h lead timezone, open tracking OFF everywhere, click tracking OFF step 1, warm-up score <70% → pause box, bounce >1.5% → pause campaign",
+    "first_send_not_before": "2026-10-06 (warm-up ≥21 days)",
+    "do_not": "No HTML, no images, no attachments, no link or Calendly in step 1, no 'limited time/exclusive/act now', no ALL CAPS, no exclamation marks, <80 words per email, never send from viralanimal.com"
+  },
+  "stories": [
+    {
+      "id": "S1",
+      "title": "Migration: sequence v2 columns + suppression reason + not_now bucket",
+      "acceptance": [
+        "supabase/migrations/YYYYMMDDHHmmss_cold_email_v2.sql created AND applied via Supabase MCP apply_migration BEFORE any code",
+        "email_templates: add spintax_enabled boolean default false, max_words int default 80",
+        "influencers: add reply_bucket text check in (interested, evaluating, not_now, wrong_person, unsubscribed, negative) null, resequence_after date null",
+        "email_campaigns: add total_positive_replies int default 0, positive_reply_rate_pct numeric null",
+        "mailboxes: add warmup_score int null, warmup_paused_at timestamptz null",
+        "Verified with execute_sql on information_schema.columns for all 4 tables"
+      ],
+      "verify": "grep -l 'reply_bucket' supabase/migrations/*cold_email_v2.sql && echo MIGRATION_FILE_OK",
+      "passes": false
+    },
+    {
+      "id": "S2",
+      "title": "Seed 5-step sequence cold-v2 in email_templates (plain text, spintax, no link step 1)",
+      "acceptance": [
+        "5 rows sequence_id='cold-v2', step_number 1..5, delay_days 0,3,7,12,20",
+        "Step 1: <80 words, zero URLs, question of relevance + who we are + soft CTA (reply 'yes'), spintax {a|b|c} on greeting and CTA line",
+        "Step 2: social proof / what output looks like, still no link — offer to send the clip on reply",
+        "Step 3: the demo link {{demoVideoUrl}} allowed (first and only link before reply), <80 words",
+        "Step 4: give-to-receive — 'I already cut one clip from {{recentVideoTitle}}, want it?' no link",
+        "Step 5: breakup, offers 'not now' explicitly → sets bucket not_now",
+        "Every body_text ends with the CASL footer from context.postal_footer + {{unsubscribeLink}} + reply 'stop'",
+        "Seed is in the migration SQL (INSERT ... ON CONFLICT DO NOTHING), not via MCP, so it is reproducible",
+        "Word count check: every step body (excluding footer) ≤ 80 words"
+      ],
+      "verify": "node -e \"const fs=require('fs');const f=fs.readdirSync('supabase/migrations').filter(x=>x.includes('cold_email_v2_seed'))[0];const s=fs.readFileSync('supabase/migrations/'+f,'utf8');const n=(s.match(/cold-v2/g)||[]).length;if(n<5)process.exit(1);console.log('SEED_OK',n)\"",
+      "passes": false
+    },
+    {
+      "id": "S3",
+      "title": "create-sequence route: v2 rules (tracking, schedule, daily limits)",
+      "acceptance": [
+        "POST /api/admin/campaigns/create-sequence with sequenceId='cold-v2' builds 5 steps",
+        "trackOpens=false on every step; trackClicks=false on steps 1,2,4,5 and true on step 3 only",
+        "Campaign schedule: Mon-Fri, 08:00-16:00 in lead timezone (fallback America/Toronto)",
+        "daily_limit per account = 12, stop_on_reply=true, stop_on_auto_reply=false",
+        "Request body validated with a zod schema in lib/schemas/cold-email.ts (sequenceId, emailAccountIds[], campaignName)",
+        "Refuses (400) if any emailAccountId belongs to a mailbox with domain viralanimal.com or a Zoho provider"
+      ],
+      "verify": "npx tsc --noEmit && grep -n 'trackOpens' app/api/admin/campaigns/create-sequence/route.ts && grep -n 'cold-email' lib/schemas/cold-email.ts",
+      "passes": false
+    },
+    {
+      "id": "S4",
+      "title": "Sync the 8 DFY mailboxes into mailboxes table with sending rules",
+      "acceptance": [
+        "syncMailboxes() upserts by email, sets provider='google', daily_send_limit=12, status from Instantly, instantly_account_id filled",
+        "Zoho mailboxes (domain in viralanimal.online/.site/.space/.store) get status='reception_only', daily_send_limit=0 — never selectable for campaigns",
+        "warmup_score pulled from Instantly warmup analytics; if <70 → pauseEmailAccount() + warmup_paused_at set + Discord alert",
+        "Admin /admin/mailboxes shows warmup score column and a 'reception only' badge"
+      ],
+      "verify": "npx tsc --noEmit && grep -n 'reception_only' lib/integrations/instantly/sync-mailboxes.ts",
+      "passes": false
+    },
+    {
+      "id": "S5",
+      "title": "Reply buckets: classifier → reply_bucket, not_now → resequence_after +60d",
+      "acceptance": [
+        "reply-classifier intent mapped to reply_bucket: interested | evaluating | not_now | wrong_person | unsubscribed | negative",
+        "not_now → influencers.resequence_after = now()+60 days, status='dormant', removed from active Instantly campaign",
+        "wrong_person → status='declined', note stores any forwarded name/email from the reply for manual follow-up (no auto-send)",
+        "unsubscribed/'stop' → suppression list 4-way + Instantly unsubscribe, within the same request",
+        "interested → existing autoOnboard() unchanged; evaluating → Discord ping for manual reply",
+        "Inbound webhook body validated with zod (lib/schemas/cold-email.ts); the duplicate /api/admin/webhooks/instantly route is deleted and docs updated"
+      ],
+      "verify": "npx tsc --noEmit && grep -n 'resequence_after' lib/admin/webhooks/instantly-processor.ts && test ! -e app/api/admin/webhooks/instantly/route.ts && echo DUP_ROUTE_REMOVED",
+      "passes": false
+    },
+    {
+      "id": "S6",
+      "title": "Re-sequence cron: not_now leads back to cold after 60 days",
+      "acceptance": [
+        "app/api/cron/resequence-leads/route.ts, protected by CRON_SECRET via timingSafeCompare, daily",
+        "Selects influencers where reply_bucket='not_now' and resequence_after <= today and not suppressed (4-way) → status='cold', reply_bucket=null, tag 'resequenced'",
+        "Never re-adds anyone with unsubscribed=true or has_bounced=true",
+        "Returns { data: { resequenced: n }, error: null }",
+        "Cron registered in netlify.toml (or wherever other crons are declared — check publish-scheduled)"
+      ],
+      "verify": "npx tsc --noEmit && grep -n 'timingSafeCompare' app/api/cron/resequence-leads/route.ts",
+      "passes": false
+    },
+    {
+      "id": "S7",
+      "title": "Positive-reply rate as the primary metric (opens ignored)",
+      "acceptance": [
+        "syncCampaigns() computes total_positive_replies = count of email_messages inbound with reply_bucket in (interested, evaluating) per campaign",
+        "positive_reply_rate_pct = positive / total_sent * 100",
+        "Admin /admin/campaigns list shows Positive reply % as first metric; open rate column removed or greyed with tooltip 'unreliable in 2026'",
+        "Health guard: if bounce_rate > 1.5% on a campaign → pause campaign via Instantly + Discord alert"
+      ],
+      "verify": "npx tsc --noEmit && grep -n 'positive_reply_rate_pct' lib/integrations/instantly/sync-campaigns.ts",
+      "passes": false
+    },
+    {
+      "id": "S8",
+      "title": "Compliance preflight v2 blocks bad sequences before Instantly",
+      "acceptance": [
+        "lib/admin/offer-generator/compliance-preflight.ts extended: step 1 contains a URL → fail; any step > 80 words (excluding footer) → fail; footer missing postal address or {{unsubscribeLink}} → fail; banned phrases (limited time, exclusive, act now, !!!, ALL-CAPS words >3) → fail",
+        "create-sequence route runs preflight and returns 422 with the list of violations",
+        "Unit-style check script scripts/check-sequence.ts <sequenceId> prints PASS/FAIL per step"
+      ],
+      "verify": "npx tsc --noEmit && npx tsx scripts/check-sequence.ts cold-v2 | grep -c PASS | xargs test 5 -eq && echo PREFLIGHT_5_PASS",
+      "passes": false
+    },
+    {
+      "id": "S9",
+      "title": "Signal-triggered outbound: streamer spike → lead promoted with fresh clip variables",
+      "acceptance": [
+        "New lib/outreach/spike-trigger.ts: given a streamer (twitch/kick login), find matching influencer by platform_handle; if found and status in (cold, queued) and not suppressed → set tag 'spike', next_follow_up_at=now(), recent_video_titles refreshed from the spiking clip title, ai_specific_compliment regenerated",
+        "Hook point: where trending/velocity detection already runs (lib/scoring/account-scorer.ts or fetch-twitch-clips cron) — call spike-trigger when velocity crosses the existing 'viral' threshold; no new scraping",
+        "Leads tagged 'spike' in the last 24h are exported first by csv-generator / pushOffersToInstantly (priority order)",
+        "If a render of the spiking clip exists (render_jobs done, TRANSFORM SCORE 3/3), its public URL is stored in influencers.notes JSON as demo_clip_url for use in step 3/4",
+        "No email is sent by this story — it only prioritizes and enriches; sending stays in Instantly with the 12/day cap"
+      ],
+      "verify": "npx tsc --noEmit && grep -n 'spike' lib/outreach/spike-trigger.ts && grep -rn 'spike-trigger' lib app | grep -v spike-trigger.ts | head -1",
+      "passes": false
+    },
+    {
+      "id": "S10",
+      "title": "Manual-first path: /admin/inbox 'send demo + affiliate link' one-click for interested leads",
+      "acceptance": [
+        "On an influencer with reply_bucket='interested', admin inbox shows a button 'Send demo kit' that drafts (not sends) a reply containing: demo_clip_url if present else niche demo, the affiliate code (existing autoOnboard), and the 5-clips-free offer restated",
+        "Draft uses lib/admin/ai/reply-drafter with the founder tone from docs/about/founder.md (short, direct, French or English matching the lead's language)",
+        "Sending is a second explicit click; nothing auto-sends",
+        "Event logged in email_messages direction=outbound with template_id null and campaign_id of origin"
+      ],
+      "verify": "npx tsc --noEmit && grep -rn 'Send demo kit' app/\\(dashboard\\)/admin/inbox | head -1",
+      "passes": false
+    },
+    {
+      "id": "S11",
+      "title": "Docs + DoD",
+      "acceptance": [
+        "docs/wiki/plans/cold-email-v1.md renamed/superseded by cold-email-v2.md: the 5 emails verbatim, sending rules table, buckets table, metric = positive reply rate, footer with postal address",
+        "docs/wiki/system/distribution.md or a new docs/wiki/system/outreach.md documents: files map (from this PRD), env vars, crons (sync-instantly 15min, resequence-leads daily), webhook flow, spike trigger",
+        "docs/index.md updated; decisions/2026-09.md gets one line per product decision made during implementation",
+        "docs/prompts/REPORT/cold-email-v2.md with DONE / NOT DONE / NOT VERIFIED and proof for every story"
+      ],
+      "verify": "test -f docs/wiki/system/outreach.md && test -f docs/prompts/REPORT/cold-email-v2.md && grep -c 'J1Z 0A6' docs/wiki/plans/cold-email-v2.md",
+      "passes": false
+    }
+  ]
+}
