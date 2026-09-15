@@ -9,9 +9,10 @@
 ## CE SOIR — dimanche 14 sept
 
 **Email — deux vagues**
-- [ ] **Vague 1 (envoi dès jeudi)** : louer 5 boîtes pré-chauffées dans Instantly (Add New → pre-warmed / done-for-you), ~20 $/mois. Régler 10-15/jour/boîte, tracking ouverture OFF, envoi étalé 8h-16h, semaine seulement.
-- [ ] **Vague 2 (volume en octobre)** : rebrancher les 12 boîtes Zoho dans Instantly (mot de passe d'application + IMAP + Reconnect) → warm-up ON, 3 semaines.
+- [x] **15 sept — FAIT** : 4 domaines .com × 2 boîtes Google via Instantly DFY (100 $ US). Setup 24-72 h, warm-up 3 semaines → **premier envoi ~6 oct**. Zoho abandonné pour l'envoi (ToS) → réception seulement, non renouvelé.
+- [x] **15 sept — FAIT** : cold-email-v2 en prod (5 mails, zéro lien mail 1, buckets, taux de réponses positives, spike trigger). Textes : `docs/wiki/plans/cold-email-v2.md`.
 - [ ] Noter l'échéance de la licence Zoho : ______________
+- [ ] Ajouter `POST /api/cron/resequence-leads` (daily, header x-api-key) dans cron-job.org
 
 **Permissions — 1-2 semaines de review, à lancer maintenant**
 - [ ] TikTok Developer Portal, un seul lot : `video.list` · `user.info.profile` · `user.info.stats` · `comment.list`. Justification : analytics du créateur sur son propre contenu. PAS `comment.list.manage`.
@@ -46,7 +47,8 @@
 
 - [ ] Répondre à chaque réponse **dans l'heure**, depuis la boîte. Onboarding manuel des premiers « yes » (DM ou appel) → livrer les 5 clips en 48 h.
 - [ ] Claude Code — **prompt 23** : jitter des heures de post · caption répète le mot-clé du hook · rappel engagement hebdo · i18n restant
-- [ ] Séquence Instantly ON sur les leads vérifiés, 50-75/jour (5 boîtes)
+- [ ] Vérifier dans Instantly que les 8 boîtes DFY sont créées et en warm-up (score ≥ 70 %) ; `/admin/mailboxes` les affiche après sync
+- [ ] Liste : passer de 39 à 200-300 leads vérifiés (bounce < 1,5 %) — le radar priorise les streamers en spike
 - [ ] Vidéo démo AE terminée → mail 2, landing, portail partenaire
 - [ ] 1 démo par niche (gaming, IRL, business, fitness) → Video Library
 - [ ] Design du site — 2 h/jour max, après le reste
@@ -62,12 +64,12 @@
 
 ---
 
-## SEMAINE 4 — 6 → 14 oct · ZOHO + REVUE
+## SEMAINE 4 — 6 → 14 oct · SÉQUENCE ON + REVUE
 
-- [ ] Boîtes Zoho chaudes → les ajouter à la séquence, 10-15/jour chacune → capacité 200+/jour
-- [ ] **Si Zoho coupe** : 10 pré-chauffées de plus le jour même ; 2-3 Zoho gardées pour la réception ; le reste non renouvelé à l'échéance
+- [ ] **~6 oct** : warm-up ≥ 21 jours et score ≥ 70 % → créer la campagne cold-v2 depuis `/admin/campaigns` (8 boîtes, 12/jour/boîte ≈ 96 mails/jour, ~400 nouveaux leads/mois)
+- [ ] Premières 2 semaines : surveiller bounce (< 1,5 %) et taux de réponses positives, pas les ouvertures
 - [ ] A/B après 200 envois : sujet, offre 5 vs 3 clips
-- [ ] **Revue du 14 oct** : réponses ? users actifs ? témoignages ? Zoho tient ? autofarm a posté seul ?
+- [ ] **Revue du 14 oct** : réponses ? users actifs ? témoignages ? séquence part ? autofarm a posté seul ?
 
 ---
 
@@ -92,11 +94,11 @@ Design au-delà de 2 h/jour · comptes achetés, proxies · pivot génération I
 ## DATES CLÉS
 | Quoi | Quand |
 |---|---|
-| Pré-chauffées louées · Zoho rebranché · scopes TikTok demandés | dim 14 sept |
-| Prompt cold email tourné | mar 16 sept |
+| Boîtes DFY achetées · cold-email-v2 en prod | **lun 15 sept — fait** |
+| Scopes TikTok demandés · vidéo Meta refaite | mar 16 sept |
 | **15 premiers mails à la main** | **jeu 17 sept** |
 | Premières réponses attendues | 22-26 sept |
-| Vidéo démo AE prête · séquence ON | ~26 sept |
-| 500 leads · séquence à 100-150/jour | ~3 oct |
-| Zoho rejoint la séquence | ~6 oct |
+| Vidéo démo AE prête | ~26 sept |
+| 200-300 leads vérifiés | ~3 oct |
+| **Séquence cold-v2 ON (8 boîtes, ~96/jour)** | **~6 oct** |
 | Revue | mar 14 oct |
