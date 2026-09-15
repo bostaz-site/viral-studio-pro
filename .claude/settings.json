@@ -21,6 +21,36 @@
           }
         ]
       }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "notification",
+            "command": "cat docs/index.md 2>/dev/null; echo ''; echo '--- DoD report obligatoire en fin de session (voir /dod-report) ---'"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "intercept",
+            "command": "CODE_CHANGED=$(git diff --name-only HEAD 2>/dev/null | grep -cE '\\.(ts|tsx|js|jsx)$' || echo 0); REPORT_TOUCHED=$(git diff --name-only HEAD 2>/dev/null | grep -c 'docs/prompts/REPORT/' || echo 0); if [ \"$CODE_CHANGED\" -gt 0 ] && [ \"$REPORT_TOUCHED\" -eq 0 ]; then echo 'BLOCKED: Code was changed but no DoD report written. Run /dod-report first.'; exit 1; fi; exit 0"
+          }
+        ]
+      }
+    ],
+    "PreCompact": [
+      {
+        "hooks": [
+          {
+            "type": "notification",
+            "command": "bash scripts/session-summary.sh 2>/dev/null || echo 'session summary skipped'"
+          }
+        ]
+      }
     ]
   }
 }
