@@ -11,6 +11,8 @@
 - [wiki/system/admin.md](wiki/system/admin.md) — CRM, scraper, cold email, auto-onboarding, compliance
 - [wiki/system/scoring.md](wiki/system/scoring.md) — V2 7-factor scoring, edit signals penalty, tiers, rescore
 - [wiki/system/crons.md](wiki/system/crons.md) — 12 cron jobs, schedules, watchdog checks
+- [wiki/system/billing.md](wiki/system/billing.md) — Plans (Free/Pro/Studio), comp accounts, Stripe checkout/portal/webhooks, quotas
+- [wiki/system/partners.md](wiki/system/partners.md) — Partner portal, magic link auth, affiliation 30%, Stripe Connect payouts, repost kit, video library
 - [wiki/system/lab.md](wiki/system/lab.md) — Lab deep dives (multi-LLM council), audit agents (21 scripts)
 
 ## Wiki — Decisions
