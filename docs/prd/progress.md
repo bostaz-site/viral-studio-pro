@@ -8,3 +8,4 @@ S7 DONE — syncCampaigns: positive_reply_rate_pct computed from email_events+re
 S8 DONE — Compliance preflight v2: sequenceCompliancePreflight() checks URL/words/footer/banned/caps, create-sequence returns 422, scripts/check-sequence.ts 5/5 PASS
 S9 DONE — Spike trigger: lib/outreach/spike-trigger.ts enriches influencer on streamer spike (tag, titles, compliment, demo_clip_url), hooked into rescore-clips, instantly-pusher sorts spike-first
 S10 DONE — Admin inbox 'Send demo kit' button for interested leads: Haiku draft with founder tone, demo_clip_url/niche fallback, affiliate code, 2-click send, event logged as outbound
+S11 DONE — Docs: cold-email-v2.md (5 emails verbatim + rules + buckets), outreach.md (files map + env + crons + webhook + spike), index updated, decisions logged, DoD report written

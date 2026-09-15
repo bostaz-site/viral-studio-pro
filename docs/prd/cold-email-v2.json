@@ -156,7 +156,7 @@
         "docs/prompts/REPORT/cold-email-v2.md with DONE / NOT DONE / NOT VERIFIED and proof for every story"
       ],
       "verify": "test -f docs/wiki/system/outreach.md && test -f docs/prompts/REPORT/cold-email-v2.md && grep -c 'J1Z 0A6' docs/wiki/plans/cold-email-v2.md",
-      "passes": false
+      "passes": true
     }
   ]
 }
