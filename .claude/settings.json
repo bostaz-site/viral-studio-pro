@@ -5,8 +5,8 @@
         "matcher": "Bash",
         "hooks": [
           {
-            "type": "intercept",
-            "command": "echo \"$TOOL_INPUT\" | grep -qE '(git add -A|git add \\.|git commit -a|--no-verify|git push --force)' && echo 'BLOCKED: Use explicit git add <file>, never -A/./commit -a/--no-verify/push --force. See CLAUDE.md rule 1.' && exit 1 || exit 0"
+            "type": "command",
+            "command": "INPUT=$(cat); if echo \"$INPUT\" | grep -qE 'git add -A|git add \\.( |\"|$)|git commit -a( |$)|--no-verify|git push[^|]*--force'; then echo 'BLOCKED: use explicit git add <file>. Never -A, ., commit -a, --no-verify, push --force (CLAUDE.md rule 1).' >&2; exit 2; fi; exit 0"
           }
         ]
       }
@@ -16,8 +16,8 @@
         "matcher": "Edit|Write",
         "hooks": [
           {
-            "type": "notification",
-            "command": "FILE=$(echo \"$TOOL_INPUT\" | grep -oP '\"file_path\":\\s*\"\\K[^\"]+'); case \"$FILE\" in *.ts|*.tsx) npx tsc --noEmit 2>&1 | tail -5;; */vps/*.js|*/vps/**/*.js) node --check \"$FILE\" 2>&1;; esac; exit 0"
+            "type": "command",
+            "command": "INPUT=$(cat); FILE=$(echo \"$INPUT\" | grep -oE '\"file_path\":[[:space:]]*\"[^\"]+\"' | head -1 | sed -E 's/.*\"file_path\":[[:space:]]*\"([^\"]+)\"/\\1/'); case \"$FILE\" in *.ts|*.tsx) npx tsc --noEmit 2>&1 | tail -5;; *vps*.js) node --check \"$FILE\" 2>&1;; esac; exit 0"
           }
         ]
       }
@@ -26,8 +26,8 @@
       {
         "hooks": [
           {
-            "type": "notification",
-            "command": "cat docs/index.md 2>/dev/null; echo ''; echo '--- DoD report obligatoire en fin de session (voir /dod-report) ---'"
+            "type": "command",
+            "command": "cat docs/index.md 2>/dev/null; echo; echo '--- DoD report obligatoire en fin de session (/dod-report) ---'; exit 0"
           }
         ]
       }
@@ -36,8 +36,8 @@
       {
         "hooks": [
           {
-            "type": "intercept",
-            "command": "CODE_CHANGED=$(git diff --name-only HEAD 2>/dev/null | grep -cE '\\.(ts|tsx|js|jsx)$' || echo 0); REPORT_TOUCHED=$(git diff --name-only HEAD 2>/dev/null | grep -c 'docs/prompts/REPORT/' || echo 0); if [ \"$CODE_CHANGED\" -gt 0 ] && [ \"$REPORT_TOUCHED\" -eq 0 ]; then echo 'BLOCKED: Code was changed but no DoD report written. Run /dod-report first.'; exit 1; fi; exit 0"
+            "type": "command",
+            "command": "CODE_CHANGED=$(git diff --name-only HEAD 2>/dev/null | grep -cE '\\.(ts|tsx|js|jsx)$'); REPORT_TOUCHED=$(git diff --name-only HEAD 2>/dev/null | grep -c 'docs/prompts/REPORT/'); if [ \"${CODE_CHANGED:-0}\" -gt 0 ] && [ \"${REPORT_TOUCHED:-0}\" -eq 0 ]; then echo 'BLOCKED: code changed but no DoD report. Run /dod-report first.' >&2; exit 2; fi; exit 0"
           }
         ]
       }
@@ -46,8 +46,8 @@
       {
         "hooks": [
           {
-            "type": "notification",
-            "command": "bash scripts/session-summary.sh 2>/dev/null || echo 'session summary skipped'"
+            "type": "command",
+            "command": "bash scripts/session-summary.sh 2>/dev/null || echo 'session summary skipped'; exit 0"
           }
         ]
       }
