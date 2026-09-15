@@ -23,6 +23,7 @@
 - [wiki/plans/plan-30-jours.md](wiki/plans/plan-30-jours.md) — 30-day plan (14 sept → 14 oct 2026)
 - [wiki/plans/cold-email-v1.md](wiki/plans/cold-email-v1.md) — Cold email sequence V1 (3 emails, 8 days) — superseded by V2
 - [wiki/plans/cold-email-v2.md](wiki/plans/cold-email-v2.md) — Cold email sequence V2 (5 emails, 20 days, reply buckets, spike trigger)
+- [wiki/plans/revue-vendredi.md](wiki/plans/revue-vendredi.md) — Questions produit ouvertes, passées en revue le vendredi
 
 ## PRD
 - [prd/README.md](prd/README.md) — PRD format spec (Ralph JSON)
