@@ -1,6 +1,8 @@
 # ── Dependencies ──────────────────────────────────────────────────────────────
 /node_modules
 __pycache__/
+MES-API-KEYS.md
+CLAUDE.local.md
 /.pnp
 .pnp.js
 .yarn/install-state.gz
@@ -50,7 +52,7 @@ Thumbs.db
 supabase/.temp/
 
 # ── Claude Code / local notes (never commit: may contain secrets) ─────────────
-.claude/
+.claude/settings.local.json
 MES-API-KEYS.md
 DEBUG_WORDPOP_FIXES.md
 GIT_COMMIT_SUMMARY.md

@@ -1,0 +1,96 @@
+{
+  "feature": "distribution-cadence-v2",
+  "description": "4-tier cadence engine with doubling down, mode campagne, brand-safe defaults, and Creator Rewards preset",
+  "stories": [
+    {
+      "id": "S1",
+      "title": "Cadence presets read from DB and enforced in publish-scheduled",
+      "acceptance": [
+        "distribution_settings.cadence_preset column exists (warmup|growth|farm|campaign)",
+        "publish-scheduled cron reads cadence_preset and enforces max posts/day and min spacing",
+        "warmup: 0 posts first 48h, then 1/day, 3h min spacing",
+        "growth: 1-2/day, 3h min spacing",
+        "farm: 3-4/day, 3h min spacing"
+      ],
+      "verify": "npx tsc --noEmit && curl -s localhost:3000/api/cron/publish-scheduled -X POST -H 'x-api-key: test' | jq .error",
+      "passes": false
+    },
+    {
+      "id": "S2",
+      "title": "Campaign mode preset (5-8 posts/day, 2h spacing, single streamer)",
+      "acceptance": [
+        "cadence_preset='campaign' enforces 5-8/day, 2h spacing",
+        "campaign mode only posts clips from a single streamer (configured in settings)",
+        "duration: 7 days max, then auto-reverts to farm"
+      ],
+      "verify": "grep -n 'campaign' lib/distribution/cadence-engine.ts && npx tsc --noEmit",
+      "passes": false
+    },
+    {
+      "id": "S3",
+      "title": "Doubling down: breakout clip gets 3-5 variants across platforms",
+      "acceptance": [
+        "When a post exceeds 3x median views, breakout-detector flags it",
+        "System generates 3-5 additional variants of the same source clip",
+        "Variants posted across all connected platforms within 24h"
+      ],
+      "verify": "grep -n 'breakout' lib/distribution/breakout-detector.ts && npx tsc --noEmit",
+      "passes": false
+    },
+    {
+      "id": "S4",
+      "title": "Brand-safe content filter on autofarm",
+      "acceptance": [
+        "content_risk clips never auto-published (existing)",
+        "New: profanity in Whisper transcript → flag content_risk='language'",
+        "User can override per-clip via distribution_settings.allow_risky_content"
+      ],
+      "verify": "grep -n 'content_risk' app/api/cron/publish-scheduled/route.ts",
+      "passes": false
+    },
+    {
+      "id": "S5",
+      "title": "Creator Rewards preset: 60s+ clips, description SEO, follow CTA",
+      "acceptance": [
+        "When preset=creator_rewards, format score favors 60-180s clips",
+        "Captions always enabled, CTA follow always ON",
+        "Description includes niche keyword (existing caption engine)"
+      ],
+      "verify": "npx tsc --noEmit",
+      "passes": false
+    },
+    {
+      "id": "S6",
+      "title": "Multi-account support: different cadence per social_account",
+      "acceptance": [
+        "cadence_preset can be set per social_account (not just per user)",
+        "Each account's posting history tracked independently",
+        "Never same clip on two accounts same day"
+      ],
+      "verify": "npx tsc --noEmit",
+      "passes": false
+    },
+    {
+      "id": "S7",
+      "title": "Smart Insights widget shows cadence summary",
+      "acceptance": [
+        "Distribution hub shows current cadence preset name",
+        "Shows posts today / max today",
+        "Shows next available slot time"
+      ],
+      "verify": "npx tsc --noEmit && grep -n 'cadence' components/distribution/",
+      "passes": false
+    },
+    {
+      "id": "S8",
+      "title": "Cadence preset selector in distribution settings",
+      "acceptance": [
+        "User can switch between warmup/growth/farm/campaign in settings",
+        "Change persisted to distribution_settings.cadence_preset",
+        "Campaign mode requires confirmation (shows warning about volume)"
+      ],
+      "verify": "npx tsc --noEmit",
+      "passes": false
+    }
+  ]
+}

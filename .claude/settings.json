@@ -1,0 +1,26 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "intercept",
+            "command": "echo \"$TOOL_INPUT\" | grep -qE '(git add -A|git add \\.|git commit -a|--no-verify|git push --force)' && echo 'BLOCKED: Use explicit git add <file>, never -A/./commit -a/--no-verify/push --force. See CLAUDE.md rule 1.' && exit 1 || exit 0"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "notification",
+            "command": "FILE=$(echo \"$TOOL_INPUT\" | grep -oP '\"file_path\":\\s*\"\\K[^\"]+'); case \"$FILE\" in *.ts|*.tsx) npx tsc --noEmit 2>&1 | tail -5;; */vps/*.js|*/vps/**/*.js) node --check \"$FILE\" 2>&1;; esac; exit 0"
+          }
+        ]
+      }
+    ]
+  }
+}
