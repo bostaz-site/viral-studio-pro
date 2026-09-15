@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
-import { Star, Archive, Tag, ArrowDown, ArrowUp } from 'lucide-react'
+import { Star, Archive, Tag, ArrowDown, ArrowUp, Gift } from 'lucide-react'
 import { WolfLoader } from '@/components/ui/wolf-loader'
 import { InfluencerContextSidebar } from './influencer-context-sidebar'
 import { ReplyComposer } from './reply-composer'
@@ -40,6 +40,7 @@ interface Influencer {
   platform_handle: string | null
   audience_size: number | null
   niche: string | null
+  reply_bucket: string | null
   last_contacted_at: string | null
   total_emails_sent: number
   total_emails_replied: number
@@ -69,6 +70,7 @@ export function ThreadDetail({ influencerId, onAction }: ThreadDetailProps) {
   const [mailboxes, setMailboxes] = useState<{ email: string; status: string }[]>([])
   const [draftSubject, setDraftSubject] = useState<string | undefined>()
   const [draftBody, setDraftBody] = useState<string | undefined>()
+  const [demoKitLoading, setDemoKitLoading] = useState(false)
 
   const loadThread = useCallback(() => {
     if (!influencerId) return
@@ -111,6 +113,24 @@ export function ThreadDetail({ influencerId, onAction }: ThreadDetailProps) {
     )
   }
 
+  const handleDemoKit = async () => {
+    if (!influencer) return
+    setDemoKitLoading(true)
+    try {
+      const res = await fetch('/api/admin/inbox/demo-kit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ influencerId: influencer.id }),
+      })
+      const json = await res.json()
+      if (json.data) {
+        setDraftSubject(json.data.subject)
+        setDraftBody(json.data.body)
+      }
+    } catch { /* handled by composer */ }
+    setDemoKitLoading(false)
+  }
+
   const allMessageIds = messages.map(m => m.id)
 
   return (
@@ -126,6 +146,17 @@ export function ThreadDetail({ influencerId, onAction }: ThreadDetailProps) {
             <p className="text-xs text-zinc-500">{influencer?.email}</p>
           </div>
           <div className="flex items-center gap-1">
+            {influencer?.reply_bucket === 'interested' && (
+              <button
+                onClick={handleDemoKit}
+                disabled={demoKitLoading}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-amber-500/15 text-amber-400 hover:bg-amber-500/25 transition-colors text-xs font-medium disabled:opacity-50"
+                title="Draft demo kit reply with affiliate code and demo clip"
+              >
+                <Gift className="h-3.5 w-3.5" />
+                {demoKitLoading ? 'Drafting...' : 'Send demo kit'}
+              </button>
+            )}
             <button
               onClick={() => onAction(allMessageIds, 'mark_hot')}
               className="p-2 rounded-md hover:bg-zinc-800 text-zinc-400 hover:text-amber-400 transition-colors"

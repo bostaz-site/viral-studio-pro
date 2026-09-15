@@ -144,7 +144,7 @@
         "Event logged in email_messages direction=outbound with template_id null and campaign_id of origin"
       ],
       "verify": "npx tsc --noEmit && grep -rn 'Send demo kit' app/\\(dashboard\\)/admin/inbox | head -1",
-      "passes": false
+      "passes": true
     },
     {
       "id": "S11",

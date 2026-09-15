@@ -7,3 +7,4 @@ S6 DONE — Cron resequence-leads: daily, CRON_SECRET+timingSafeCompare, not_now
 S7 DONE — syncCampaigns: positive_reply_rate_pct computed from email_events+reply_bucket, bounce>1.5%→pause+Discord, UI: Positive Reply % first metric (amber), Open Rate greyed with tooltip
 S8 DONE — Compliance preflight v2: sequenceCompliancePreflight() checks URL/words/footer/banned/caps, create-sequence returns 422, scripts/check-sequence.ts 5/5 PASS
 S9 DONE — Spike trigger: lib/outreach/spike-trigger.ts enriches influencer on streamer spike (tag, titles, compliment, demo_clip_url), hooked into rescore-clips, instantly-pusher sorts spike-first
+S10 DONE — Admin inbox 'Send demo kit' button for interested leads: Haiku draft with founder tone, demo_clip_url/niche fallback, affiliate code, 2-click send, event logged as outbound
