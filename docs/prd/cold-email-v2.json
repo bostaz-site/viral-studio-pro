@@ -43,7 +43,7 @@
         "Word count check: every step body (excluding footer) ≤ 80 words"
       ],
       "verify": "node -e \"const fs=require('fs');const f=fs.readdirSync('supabase/migrations').filter(x=>x.includes('cold_email_v2_seed'))[0];const s=fs.readFileSync('supabase/migrations/'+f,'utf8');const n=(s.match(/cold-v2/g)||[]).length;if(n<5)process.exit(1);console.log('SEED_OK',n)\"",
-      "passes": false
+      "passes": true
     },
     {
       "id": "S3",
