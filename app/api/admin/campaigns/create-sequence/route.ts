@@ -1,28 +1,35 @@
-import { z } from 'zod'
 import { withAdmin } from '@/lib/api/withAdmin'
 import { jsonResponse, errorResponse } from '@/lib/api/withAuth'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { InstantlyClient } from '@/lib/integrations/instantly/client'
-
-const schema = z.object({
-  sequenceId: z.string().default('cold-v1'),
-  emailAccountIds: z.array(z.string().min(1)).min(1),
-  campaignName: z.string().min(3).max(100).optional(),
-})
+import { createSequenceSchema } from '@/lib/schemas/cold-email'
 
 /**
  * POST /api/admin/campaigns/create-sequence
  *
  * Creates an Instantly campaign from email_templates with matching sequence_id.
- * Configures tracking, send window, stop-on-reply per cold email V1 spec.
+ * V2 rules: trackOpens OFF everywhere, trackClicks only step 3, daily_limit 12,
+ * stop_on_reply=true, stop_on_auto_reply=false, Mon-Fri 08-16h America/Toronto.
  */
 export const POST = withAdmin(async (req) => {
   const body = await req.json()
-  const parsed = schema.safeParse(body)
+  const parsed = createSequenceSchema.safeParse(body)
   if (!parsed.success) return errorResponse(parsed.error.issues[0].message)
 
   const { sequenceId, emailAccountIds, campaignName } = parsed.data
   const admin = createAdminClient()
+
+  // Block mailboxes on viralanimal.com domain or Zoho provider
+  const { data: blockedBoxes } = await admin
+    .from('mailboxes')
+    .select('email, domain, provider')
+    .in('instantly_account_id' as never, emailAccountIds)
+    .or('domain.eq.viralanimal.com,provider.eq.zoho')
+
+  if (blockedBoxes && blockedBoxes.length > 0) {
+    const blocked = (blockedBoxes as Array<Record<string, unknown>>).map(b => String(b.email)).join(', ')
+    return errorResponse(`Refused: mailboxes on blocked domain/provider: ${blocked}`, 400)
+  }
 
   // Load templates for this sequence
   const { data: templates, error: tplErr } = await admin
@@ -43,7 +50,7 @@ export const POST = withAdmin(async (req) => {
     return errorResponse('Compliance: one or more templates missing unsubscribe link in footer', 400)
   }
 
-  // Check bounce rate on active campaigns
+  // Check bounce rate on active campaigns (v2 threshold: 1.5%)
   try {
     const { data: activeCampaigns } = await admin
       .from('email_campaigns')
@@ -56,18 +63,18 @@ export const POST = withAdmin(async (req) => {
       .map(c => Number(c.bounce_rate ?? 0))
       .filter(r => r > 0)
     const avgBounce = bounceRates.length > 0 ? bounceRates.reduce((a, b) => a + b, 0) / bounceRates.length : 0
-    if (avgBounce > 3) {
-      return errorResponse(`Compliance: avg bounce rate ${avgBounce.toFixed(1)}% exceeds 3% threshold. Pause and re-verify list.`, 400)
+    if (avgBounce > 1.5) {
+      return errorResponse(`Compliance: avg bounce rate ${avgBounce.toFixed(1)}% exceeds 1.5% threshold. Pause and re-verify list.`, 400)
     }
   } catch { /* non-critical */ }
 
-  // Build steps
-  const steps = templates.map((tpl: Record<string, unknown>, i: number) => ({
+  // Build steps — trackOpens always OFF, trackClicks only on step 3 (demo link)
+  const steps = templates.map((tpl: Record<string, unknown>) => ({
     subject: String(tpl.subject ?? ''),
     body: String(tpl.body_text ?? ''),
     delayDays: Number(tpl.delay_days ?? 0),
-    trackOpens: false, // OFF — pixel = spam signal
-    trackClicks: i === 0 ? false : true, // OFF step 1, ON steps 2-3
+    trackOpens: false,
+    trackClicks: Number(tpl.step_number) === 3,
   }))
 
   // Create in Instantly
@@ -77,7 +84,7 @@ export const POST = withAdmin(async (req) => {
   }
 
   const instantly = new InstantlyClient(apiKey)
-  const name = campaignName || `Cold V1 — ${new Date().toISOString().slice(0, 10)}`
+  const name = campaignName || `Cold ${sequenceId} — ${new Date().toISOString().slice(0, 10)}`
 
   try {
     const campaign = await instantly.createCampaign({
@@ -85,7 +92,14 @@ export const POST = withAdmin(async (req) => {
       emailAccountIds,
       steps,
       stopOnReply: true,
-      sendWindow: { startHour: 8, endHour: 16, weekdaysOnly: true },
+      stopOnAutoReply: false,
+      dailyLimit: 12,
+      sendWindow: {
+        startHour: 8,
+        endHour: 16,
+        weekdaysOnly: true,
+        timezone: 'America/Toronto',
+      },
     })
 
     // Persist in email_campaigns
@@ -95,7 +109,7 @@ export const POST = withAdmin(async (req) => {
         name,
         instantly_campaign_id: campaign.id,
         status: 'active',
-        template_id: (templates[0] as Record<string, unknown>).id,
+        sequence_steps: steps,
         created_at: new Date().toISOString(),
       } as never)
 

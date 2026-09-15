@@ -165,6 +165,8 @@ export class InstantlyClient {
       trackClicks: boolean
     }>
     stopOnReply: boolean
+    stopOnAutoReply?: boolean
+    dailyLimit?: number
     sendWindow?: { startHour: number; endHour: number; weekdaysOnly: boolean; timezone?: string }
   }): Promise<{ id: string }> {
     const sequences = opts.steps.map((step, i) => ({
@@ -196,6 +198,8 @@ export class InstantlyClient {
         }],
       },
       stop_on_reply: opts.stopOnReply,
+      stop_on_auto_reply: opts.stopOnAutoReply ?? true,
+      daily_limit: opts.dailyLimit ?? 30,
     }
 
     const res = await this.request<{ id: string }>('POST', '/campaigns', payload)

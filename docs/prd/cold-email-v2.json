@@ -57,7 +57,7 @@
         "Refuses (400) if any emailAccountId belongs to a mailbox with domain viralanimal.com or a Zoho provider"
       ],
       "verify": "npx tsc --noEmit && grep -n 'trackOpens' app/api/admin/campaigns/create-sequence/route.ts && grep -n 'cold-email' lib/schemas/cold-email.ts",
-      "passes": false
+      "passes": true
     },
     {
       "id": "S4",
