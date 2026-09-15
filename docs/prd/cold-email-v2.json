@@ -26,7 +26,7 @@
         "Verified with execute_sql on information_schema.columns for all 4 tables"
       ],
       "verify": "grep -l 'reply_bucket' supabase/migrations/*cold_email_v2.sql && echo MIGRATION_FILE_OK",
-      "passes": false
+      "passes": true
     },
     {
       "id": "S2",
