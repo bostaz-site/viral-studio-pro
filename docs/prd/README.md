@@ -29,3 +29,4 @@
 3. `passes: true` requires `verify` command to succeed with proof
 4. `verify` is a shell command or SQL query — must be automatable
 5. Never mark passes:true without running verify and seeing the output
+6. Verify for a story that writes to DB = SQL query on the actual data, never a grep alone

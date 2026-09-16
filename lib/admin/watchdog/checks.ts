@@ -9,6 +9,10 @@ export interface AlertCandidate {
   metadata?: Record<string, unknown>
 }
 
+// Categories where alerts fire every run (not state-change gated).
+// All other categories use state-change or 24h dedup in the cron route.
+export const HOURLY_ALERT_CATEGORIES = new Set(['render', 'publish'])
+
 // ═══════════════════════════════════════
 //  CRITICAL CHECKS (email immediately)
 // ═══════════════════════════════════════
