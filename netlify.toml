@@ -41,6 +41,7 @@
 #   POST /api/cron/sync-instantly          — every 15min (Instantly mailboxes + campaigns)
 #   POST /api/cron/ai-scoring             — hourly (Claude Haiku scores top 3% leads)
 #   POST /api/cron/resequence-leads      — daily (not_now leads → cold after 60d)
+#   POST /api/cron/scrape-leads          — daily 06:00 ET (autopilot YouTube scraper for affiliates)
 
 # Cache agressif sur les assets statiques Next.js
 [[headers]]

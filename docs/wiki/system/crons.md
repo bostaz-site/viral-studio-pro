@@ -19,6 +19,7 @@ All Next.js API routes, auth via `x-api-key: CRON_SECRET` + `timingSafeCompare`.
 | Watchdog | `cron/watchdog` | hourly | Anomaly detection on key metrics |
 | Monthly payouts | `cron/monthly-payouts` | monthly | Calculate affiliate payouts |
 | Resequence leads | `cron/resequence-leads` | daily | Move not_now leads back to cold after 60d — **NOT VERIFIED** (not yet added in cron-job.org) |
+| Scrape leads | `cron/scrape-leads` | daily 06:00 ET | Autopilot YouTube scraper for affiliate leads — **NOT VERIFIED** (not yet added in cron-job.org) |
 
 ## Who triggers crons
 

@@ -6,7 +6,8 @@ import { Radar, Search, Users, Mail, TrendingUp, AlertCircle } from 'lucide-reac
 import { WolfLoader } from '@/components/ui/wolf-loader'
 import { toast } from 'sonner'
 import { createClient } from '@/lib/supabase/client'
-import { Card, CardContent } from '@/components/ui/card'
+import { Card, CardContent, CardHeader } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
 import { QuotaPanel } from './_components/quota-panel'
 import { YouTubeScraperForm } from './_components/youtube-scraper-form'
 import { DiscoveryResultsTable } from './_components/discovery-results-table'
@@ -35,9 +36,11 @@ export default function ScraperPage() {
   const [resultsLoading, setResultsLoading] = useState(false)
   const [importLoading, setImportLoading] = useState(false)
   const [lastRunStats, setLastRunStats] = useState<{ total: number; newLeads: number; quotaUsed: number } | null>(null)
-  const [tab, setTab] = useState<'youtube' | 'tiktok' | 'google' | 'instagram'>('youtube')
+  const [tab, setTab] = useState<'youtube' | 'autopilot' | 'tiktok' | 'google' | 'instagram'>('youtube')
   const [searchError, setSearchError] = useState<string | null>(null)
   const [requireEmail, setRequireEmail] = useState(false)
+  const [autopilotQueries, setAutopilotQueries] = useState<Array<{ id: string; query: string; niche: string; enabled: boolean; last_run_at: string | null; results_total: number }>>([])
+  const [autopilotToggling, setAutopilotToggling] = useState<string | null>(null)
 
   useEffect(() => {
     const supabase = createClient()
@@ -67,12 +70,32 @@ export default function ScraperPage() {
     } catch { /* ignore */ }
   }, [])
 
+  const fetchAutopilotQueries = useCallback(async () => {
+    try {
+      const res = await fetch('/api/admin/scraper/queries')
+      const json = await res.json()
+      if (json.data) setAutopilotQueries(json.data)
+    } catch { /* ignore */ }
+  }, [])
+
+  const toggleAutopilot = async (id: string, enabled: boolean) => {
+    setAutopilotToggling(id)
+    await fetch('/api/admin/scraper/queries', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, enabled }),
+    })
+    await fetchAutopilotQueries()
+    setAutopilotToggling(null)
+  }
+
   useEffect(() => {
     if (authorized) {
       fetchQuota()
       fetchSavedSearches()
+      fetchAutopilotQueries()
     }
-  }, [authorized, fetchQuota, fetchSavedSearches])
+  }, [authorized, fetchQuota, fetchSavedSearches, fetchAutopilotQueries])
 
   const handleSearch = async (params: { query: string; maxResults: number; language?: string; requireEmail?: boolean }) => {
     setSearchLoading(true)
@@ -163,6 +186,7 @@ export default function ScraperPage() {
 
   const tabs = [
     { key: 'youtube' as const, label: 'YouTube', active: true },
+    { key: 'autopilot' as const, label: 'Saved queries (autopilot)', active: true },
     { key: 'tiktok' as const, label: 'TikTok', active: false },
     { key: 'google' as const, label: 'Google Search', active: false },
     { key: 'instagram' as const, label: 'Instagram', active: false },
@@ -240,7 +264,54 @@ export default function ScraperPage() {
         </div>
       )}
 
-      {tab !== 'youtube' && (
+      {/* Autopilot tab */}
+      {tab === 'autopilot' && (
+        <Card className="border-border">
+          <CardHeader className="pb-2">
+            <h3 className="text-sm font-semibold text-foreground">Autopilot Queries</h3>
+            <p className="text-xs text-muted-foreground">These queries run daily via cron. Enable/disable each one.</p>
+          </CardHeader>
+          <CardContent className="p-0">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-border text-left">
+                  <th className="px-4 py-3 text-xs font-medium text-muted-foreground">Query</th>
+                  <th className="px-4 py-3 text-xs font-medium text-muted-foreground">Niche</th>
+                  <th className="px-4 py-3 text-xs font-medium text-muted-foreground text-right">Results</th>
+                  <th className="px-4 py-3 text-xs font-medium text-muted-foreground">Last Run</th>
+                  <th className="px-4 py-3 text-xs font-medium text-muted-foreground">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {autopilotQueries.map(q => (
+                  <tr key={q.id} className="border-b border-border/50 hover:bg-muted/20">
+                    <td className="px-4 py-3 font-mono text-xs">{q.query}</td>
+                    <td className="px-4 py-3 text-xs text-muted-foreground">{q.niche}</td>
+                    <td className="px-4 py-3 text-xs text-right text-muted-foreground">{q.results_total}</td>
+                    <td className="px-4 py-3 text-xs text-muted-foreground">{q.last_run_at ? new Date(q.last_run_at).toLocaleDateString() : 'Never'}</td>
+                    <td className="px-4 py-3">
+                      <button
+                        onClick={() => toggleAutopilot(q.id, !q.enabled)}
+                        disabled={autopilotToggling === q.id}
+                        className="cursor-pointer"
+                      >
+                        <Badge variant="outline" className={`text-[10px] ${q.enabled ? 'text-green-400 border-green-400/40' : 'text-zinc-500 border-zinc-500/40'}`}>
+                          {q.enabled ? 'enabled' : 'disabled'}
+                        </Badge>
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+                {autopilotQueries.length === 0 && (
+                  <tr><td colSpan={5} className="px-4 py-8 text-center text-muted-foreground text-sm">No autopilot queries</td></tr>
+                )}
+              </tbody>
+            </table>
+          </CardContent>
+        </Card>
+      )}
+
+      {tab !== 'youtube' && tab !== 'autopilot' && (
         <Card className="border-border">
           <CardContent className="p-8 text-center text-muted-foreground">
             <p className="text-sm">Coming soon. YouTube is active -- start there.</p>

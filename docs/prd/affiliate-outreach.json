@@ -24,7 +24,7 @@
         "Register the cron in docs/wiki/system/crons.md as 'daily 06:00 ET' with NOT VERIFIED until added to cron-job.org"
       ],
       "verify": "npx tsc --noEmit && grep -n 'timingSafeCompare' app/api/cron/scrape-leads/route.ts && grep -c \"insert into scraper_queries\" supabase/migrations/*scraper_queries*.sql",
-      "passes": false
+      "passes": true
     },
     {
       "id": "S2",
